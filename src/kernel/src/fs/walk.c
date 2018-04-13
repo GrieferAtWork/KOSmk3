@@ -107,6 +107,7 @@ dosfs_walk_path_one(struct path *__restrict root,
   /* Throw a path-not-found error if empty paths are not allowed. */
   if (!(flags & FS_MODE_FEMPTY_PATH))
         throw_fs_error(ERROR_FS_PATH_NOT_FOUND);
+return_this_directory:
   /* Ignore empty segments. */
   path_incref(pwd);
   result = pwd;
@@ -125,11 +126,7 @@ dosfs_walk_path_one(struct path *__restrict root,
   case 1:
    if (remaining_path[0] != '.') goto default_lookup;
    /* Self-directory. */
-   result = pwd->p_parent;
-   if (!result || pwd == root)
-        result = root;
-   path_incref(result);
-   break;
+   goto return_this_directory;
 default_lookup:
   default:
    /* Do a regular directory lookup. */
@@ -211,6 +208,7 @@ fs_walk_path_one(struct path *__restrict root,
   /* Throw a path-not-found error if empty paths are not allowed. */
   if (!(flags & FS_MODE_FEMPTY_PATH))
         throw_fs_error(ERROR_FS_PATH_NOT_FOUND);
+return_this_directory:
   /* Ignore empty segments. */
   path_incref(pwd);
   result = pwd;
@@ -228,12 +226,7 @@ fs_walk_path_one(struct path *__restrict root,
    break;
   case 1:
    if (remaining_path[0] != '.') goto default_lookup;
-   /* Self-directory. */
-   result = pwd->p_parent;
-   if (!result || pwd == root)
-        result = root;
-   path_incref(result);
-   break;
+   goto return_this_directory;
 default_lookup:
   default:
    /* Do a regular directory lookup. */
