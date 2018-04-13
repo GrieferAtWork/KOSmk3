@@ -1,0 +1,65 @@
+/* Copyright (c) 2018 Griefer@Work                                            *
+ *                                                                            *
+ * This software is provided 'as-is', without any express or implied          *
+ * warranty. In no event will the authors be held liable for any damages      *
+ * arising from the use of this software.                                     *
+ *                                                                            *
+ * Permission is granted to anyone to use this software for any purpose,      *
+ * including commercial applications, and to alter it and redistribute it     *
+ * freely, subject to the following restrictions:                             *
+ *                                                                            *
+ * 1. The origin of this software must not be misrepresented; you must not    *
+ *    claim that you wrote the original software. If you use this software    *
+ *    in a product, an acknowledgement in the product documentation would be  *
+ *    appreciated but is not required.                                        *
+ * 2. Altered source versions must be plainly marked as such, and must not be *
+ *    misrepresented as being the original software.                          *
+ * 3. This notice may not be removed or altered from any source distribution. *
+ */
+#ifndef _KOS_KDEV_T_H
+#define _KOS_KDEV_T_H 1
+
+#include <__stdinc.h>
+#include <bits/types.h>
+
+__DECL_BEGIN
+
+#ifdef __CC__
+#ifndef __dev_t_defined
+#define __dev_t_defined 1
+typedef __typedef_dev_t dev_t;
+#endif /* !__dev_t_defined */
+
+#ifndef __major_t_defined
+#define __major_t_defined 1
+typedef __major_t   major_t;
+#endif /* !__major_t_defined */
+
+#ifndef __minor_t_defined
+#define __minor_t_defined 1
+typedef __minor_t   minor_t;
+#endif /* !__minor_t_defined */
+#endif /* __CC__ */
+
+#define MINORBITS      20
+#define MAJORBITS      12
+#define MINORMASK    ((1 << MINORBITS)-1)
+#define MAJORMASK    ((1 << MAJORBITS)-1)
+
+#define MAJOR(dev)   ((dev) >> MINORBITS)
+#define MINOR(dev)   ((dev) &  MINORMASK)
+#define MKDEV(ma,mi) ((ma) << MINORBITS | (mi))
+
+
+/* KOS non-standard device mappings (major numbers 0x100-0x1ff) */
+#define DV_JIFFY_RTC      MKDEV(0x100,0) /* The default RTC synchronized using jiffies. */
+#define DV_CMOS           MKDEV(0x100,1) /* CMOS-driver real-time clock driver. */
+#define DV_CMOS_NVS       MKDEV(0x100,2) /* Access to CMOS non-volatile memory. */
+#define DV_PS2_KEYBOARD   MKDEV(0x101,0) /* KOS character device for the PS2-compliant keyboards. */
+#define DV_PS2_KEYBOARD2  MKDEV(0x101,1) /* Same as `DV_PS2_KEYBOARD1', but for the second PS/2 port. */
+#define DV_ETHERNET       MKDEV(0x102,0) /* KOS character device for ethernet adapters. */
+#define DV_VGA            MKDEV(0x103,0) /* KOS vga driver. */
+
+__DECL_END
+
+#endif /* !_KOS_KDEV_T_H */

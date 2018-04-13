@@ -1,0 +1,86 @@
+/* Copyright (c) 2018 Griefer@Work                                            *
+ *                                                                            *
+ * This software is provided 'as-is', without any express or implied          *
+ * warranty. In no event will the authors be held liable for any damages      *
+ * arising from the use of this software.                                     *
+ *                                                                            *
+ * Permission is granted to anyone to use this software for any purpose,      *
+ * including commercial applications, and to alter it and redistribute it     *
+ * freely, subject to the following restrictions:                             *
+ *                                                                            *
+ * 1. The origin of this software must not be misrepresented; you must not    *
+ *    claim that you wrote the original software. If you use this software    *
+ *    in a product, an acknowledgement in the product documentation would be  *
+ *    appreciated but is not required.                                        *
+ * 2. Altered source versions must be plainly marked as such, and must not be *
+ *    misrepresented as being the original software.                          *
+ * 3. This notice may not be removed or altered from any source distribution. *
+ */
+
+
+BEGIN
+	DEFINE("__KERNEL__")
+	DEFINE("CONFIG_BUILDING_KERNEL_CORE")
+	INCLUDE("include")
+	INCLUDE("include/i386-kos")
+
+	/* Disable generation of code that uses floating point registers.
+	 * It would be too expensive for kernel code to make use of floating
+	 * point registers in a way that preserves the original user-space
+	 * content, so we simply don't use it, and won't run into problems. */
+	C_FLAGS("-mno-sse")
+	C_FLAGS("-mno-sse2")
+	C_FLAGS("-mno-sse3")
+	C_FLAGS("-mno-sse4")
+	C_FLAGS("-mno-ssse3")
+	C_FLAGS("-mno-mmx")
+	C_FLAGS("-mno-3dnow")
+	C_FLAGS("-mno-avx")
+	C_FLAGS("-mtls-direct-seg-refs")
+
+	/* Without SEE (disabled above), 4-byte (2^<2>) stack alignment is all we really need. */
+	C_FLAGS("-mpreferred-stack-boundary=2")
+
+	BEGIN PROJECT("kernel")
+
+		//SET_COMPILER("${CXX}")
+		/* This flag disabled alignment that
+		 * would unnecessarily bloat the kernel. */
+		L_FLAGS("-Wl,--nmagic")
+		L_FLAGS("-Wl,--eh-frame-hdr")
+
+		/* This following flag allows us to overlay sections,
+		 * which is required for PERXXX templates and offsets. */
+		L_FLAGS("-Wl,--no-check-sections")
+
+		L_FLAGS("-nostdlib")
+
+		SET_OUTPUT("/${KERNEL_BINARY}")
+
+		LINKER_SCRIPT("./${TARGET_ARCH}-kos/kernel.ld")
+
+		LIB("gcc")
+		C_FLAGS("-static-libgcc")
+		L_FLAGS("-static-libgcc")
+		C_FLAGS("-ffreestanding")
+		L_FLAGS("-ffreestanding")
+
+		SOURCE("../hybrid/i386-kos/*.c")
+		SOURCE("../hybrid/i386-kos/*32.S")
+		SOURCE("../hybrid/*.c")
+		SOURCE("i386-kos/*.c")
+		SOURCE("i386-kos/*32.S")
+		SOURCE("src/kernel/*.c")
+		SOURCE("src/unwind/*.c")
+		SOURCE("src/sched/*.c")
+		SOURCE("src/core/*.c")
+		SOURCE("src/core/i386-kos/*.c")
+		SOURCE("src/core/i386-kos/*32.S")
+		SOURCE("src/vm/*.c")
+		SOURCE("src/vm/*.S")
+		SOURCE("src/dev/*.c")
+		SOURCE("src/fs/*.c")
+	END
+END
+
+

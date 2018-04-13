@@ -1,0 +1,204 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\src\libs\libc\stdio.c" />
+    <ClCompile Include="..\..\src\libs\libc\rtl.c" />
+    <ClCompile Include="..\..\src\libs\libc\unistd.c" />
+    <ClCompile Include="..\..\src\libs\libc\environ.c" />
+    <ClCompile Include="..\..\src\libs\libc\errno.c" />
+    <ClCompile Include="..\..\src\libs\libc\sched.c" />
+    <ClCompile Include="..\..\src\libs\libc\exit.c" />
+    <ClCompile Include="..\..\src\libs\libc\vm.c" />
+    <ClCompile Include="..\..\src\libs\libc\dirent.c" />
+    <ClCompile Include="..\..\src\hybrid\random.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\string.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\ctype.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\format-printer.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\i386-kos\except.c">
+      <Filter>hybrid\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\i386-kos\instruction.c">
+      <Filter>hybrid\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\libs\libc\posix_signal.c" />
+    <ClCompile Include="..\..\src\libs\libc\sync.c" />
+    <ClCompile Include="..\..\src\libs\libc\stdio\file.c">
+      <Filter>stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\libs\libc\unicode.c" />
+    <ClCompile Include="..\..\src\libs\libc\tty.c" />
+    <ClCompile Include="..\..\src\libs\libc\getopt.c" />
+    <ClCompile Include="..\..\src\libs\libc\time.c" />
+    <ClCompile Include="..\..\src\libs\libc\format.c" />
+    <ClCompile Include="..\..\src\hybrid\format-scanner.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\libs\libc\format-time.c" />
+    <ClCompile Include="..\..\src\libs\libc\mount.c" />
+    <ClCompile Include="..\..\src\libs\libc\misc.c" />
+    <ClCompile Include="..\..\src\libs\libc\heap.c" />
+    <ClCompile Include="..\..\src\libs\libc\heap-trace.c" />
+    <ClCompile Include="..\..\src\libs\libc\regex.c" />
+    <ClCompile Include="..\..\src\libs\libc\i386-kos\syscall.c">
+      <Filter>i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\libs\libc\group.c" />
+    <ClCompile Include="..\..\src\libs\libc\socket\socket.c">
+      <Filter>socket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\libs\libc\socket\netdb.c">
+      <Filter>socket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\libs\libc\fnmatch.c" />
+    <ClCompile Include="..\..\src\libs\libc\ushare.c" />
+    <ClCompile Include="..\..\src\libs\libc\malloc_d.c" />
+    <ClCompile Include="..\..\src\libs\libc\malloc_f.c" />
+    <ClCompile Include="..\..\src\libs\libc\i386-kos\malloc.c">
+      <Filter>i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\bound.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\libs\libc\malloc.c" />
+    <ClCompile Include="..\..\src\libs\libc\widechar.c" />
+    <ClCompile Include="..\..\src\hybrid\except_print.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\except_errno.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\libs\libc\i386-kos\entry.c">
+      <Filter>i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\libs\libc\dos_crt.c" />
+    <ClCompile Include="..\..\src\libs\libc\dos_find.c" />
+    <ClCompile Include="..\..\src\libs\libc\dl.c" />
+    <ClCompile Include="..\..\src\libs\libc\err.c" />
+    <ClCompile Include="..\..\src\libs\libc\dos_slib.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\src\libs\libc\libc.h" />
+    <ClInclude Include="..\..\src\hybrid\hybrid.h">
+      <Filter>hybrid</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\libs\libc\stdio\file.h">
+      <Filter>stdio</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\libs\libc\socket\socket.h">
+      <Filter>socket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\libs\libc\rtl.h" />
+    <ClInclude Include="..\..\src\libs\libc\malloc.h" />
+    <ClInclude Include="..\..\src\libs\libc\heap.h" />
+    <ClInclude Include="..\..\src\libs\libc\vm.h" />
+    <ClInclude Include="..\..\src\libs\libc\entry.h" />
+    <ClInclude Include="..\..\src\libs\libc\fnmatch.h" />
+    <ClInclude Include="..\..\src\libs\libc\group.h" />
+    <ClInclude Include="..\..\src\libs\libc\errno.h" />
+    <ClInclude Include="..\..\src\libs\libc\ushare.h" />
+    <ClInclude Include="..\..\src\libs\libc\unistd.h" />
+    <ClInclude Include="..\..\src\libs\libc\dirent.h" />
+    <ClInclude Include="..\..\src\libs\libc\sched.h" />
+    <ClInclude Include="..\..\src\libs\libc\exit.h" />
+    <ClInclude Include="..\..\src\libs\libc\tty.h" />
+    <ClInclude Include="..\..\src\libs\libc\environ.h" />
+    <ClInclude Include="..\..\src\libs\libc\regex.h" />
+    <ClInclude Include="..\..\src\libs\libc\misc.h" />
+    <ClInclude Include="..\..\src\libs\libc\time.h" />
+    <ClInclude Include="..\..\src\libs\libc\posix_signal.h" />
+    <ClInclude Include="..\..\src\libs\libc\sync.h" />
+    <ClInclude Include="..\..\src\libs\libc\mount.h" />
+    <ClInclude Include="..\..\src\libs\libc\unicode.h" />
+    <ClInclude Include="..\..\src\libs\libc\format-time.h" />
+    <ClInclude Include="..\..\src\libs\libc\system.h" />
+    <ClInclude Include="..\..\src\libs\libc\format.h" />
+    <ClInclude Include="..\..\src\libs\libc\widechar.h" />
+    <ClInclude Include="..\..\src\libs\libc\dos_crt.h" />
+    <ClInclude Include="..\..\src\libs\libc\dos_find.h" />
+    <ClInclude Include="..\..\src\libs\libc\dl.h" />
+    <ClInclude Include="..\..\src\libs\libc\err.h" />
+    <ClInclude Include="..\..\src\libs\libc\dos_slib.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="i386-kos">
+      <UniqueIdentifier>{14ce5c0e-461d-414b-a3b4-e1da1926b661}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="hybrid">
+      <UniqueIdentifier>{9b7f99ae-55b1-4ea6-8be2-03f14eb0d1b9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="hybrid\i386-kos">
+      <UniqueIdentifier>{2951448b-2c4b-4210-86f8-ddfc4b0bd0cd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="stdio">
+      <UniqueIdentifier>{97c49b6a-178f-438d-862e-1295d33b0f0f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="socket">
+      <UniqueIdentifier>{34fbc32c-8637-4ceb-975f-a484024ccef7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\src\libs\libc\i386-kos\syscall32.S">
+      <Filter>i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\libs\libc\i386-kos\syscall64.S">
+      <Filter>i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\libs\libc\i386-kos\errno32.S">
+      <Filter>i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\memory-template.c.inl">
+      <Filter>hybrid</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\string-template.c.inl">
+      <Filter>hybrid</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\i386-kos\except32.S">
+      <Filter>hybrid\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\i386-kos\instruction-ops.c.inl">
+      <Filter>hybrid\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\i386-kos\string32.S">
+      <Filter>hybrid\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\i386-kos\context32.S">
+      <Filter>hybrid\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\libs\libc\format-impl.c.inl" />
+    <None Include="..\..\src\hybrid\format-printer-impl.c.inl">
+      <Filter>hybrid</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\format-scanner-impl.c.inl">
+      <Filter>hybrid</Filter>
+    </None>
+    <None Include="..\..\src\libs\libc\format-wrapper.c.inl" />
+    <None Include="..\..\src\hybrid\format-hexdump-impl.c.inl">
+      <Filter>hybrid</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\format-quote-impl.c.inl">
+      <Filter>hybrid</Filter>
+    </None>
+    <None Include="..\..\src\libs\libc\format-time-impl.c.inl" />
+    <None Include="..\..\src\libs\libc\heap-impl.c.inl" />
+    <None Include="..\..\src\libs\libc\i386-kos\errno64.S">
+      <Filter>i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\libs\libc\i386-kos\setjmp32.S">
+      <Filter>i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\libs\libc\i386-kos\malloc32.S">
+      <Filter>i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\libs\libc\i386-kos\entry32.S">
+      <Filter>i386-kos</Filter>
+    </None>
+  </ItemGroup>
+</Project>

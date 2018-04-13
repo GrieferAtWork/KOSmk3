@@ -1,0 +1,68 @@
+/* Copyright (c) 2018 Griefer@Work                                            *
+ *                                                                            *
+ * This software is provided 'as-is', without any express or implied          *
+ * warranty. In no event will the authors be held liable for any damages      *
+ * arising from the use of this software.                                     *
+ *                                                                            *
+ * Permission is granted to anyone to use this software for any purpose,      *
+ * including commercial applications, and to alter it and redistribute it     *
+ * freely, subject to the following restrictions:                             *
+ *                                                                            *
+ * 1. The origin of this software must not be misrepresented; you must not    *
+ *    claim that you wrote the original software. If you use this software    *
+ *    in a product, an acknowledgement in the product documentation would be  *
+ *    appreciated but is not required.                                        *
+ * 2. Altered source versions must be plainly marked as such, and must not be *
+ *    misrepresented as being the original software.                          *
+ * 3. This notice may not be removed or altered from any source distribution. *
+ */
+
+
+BEGIN
+	BEGIN PROJECT("libs.libc")
+
+		L_FLAGS("-nostdlib")
+		SET_OUTPUT("/bin/libc.so")
+		SET_DISKFILE("/lib/libc.so")
+
+		LIB("gcc")
+		DEFINE("__BUILDING_LIBC")
+		C_FLAGS("-static-libgcc")
+		L_FLAGS("-static-libgcc")
+		C_FLAGS("-ffreestanding")
+		L_FLAGS("-ffreestanding")
+		C_FLAGS("-shared")
+		C_FLAGS("-fPIC")
+		L_FLAGS("-shared")
+
+		SOURCE("libc/*.c")
+		SOURCE("libc/i386-kos/*.c")
+		SOURCE("libc/i386-kos/*32.S")
+		SOURCE("libc/stdio/*.c")
+		SOURCE("libc/socket/*.c")
+		SOURCE("../hybrid/*.c")
+		SOURCE("../hybrid/i386-kos/*.c")
+		SOURCE("../hybrid/i386-kos/*32.S")
+	END
+
+	BEGIN
+		SET_LINKER(PROGRAM {
+			local out = argv[argv.index("-o")+1];
+			try fs.unlink(out); catch (...);
+			fs.copy_(argv[#argv-1],out);
+		})
+		BEGIN PROJECT("libs.start")
+			SET_OUTPUT("/bin/crt1.o")
+			SET_DISKFILE("/usr/lib/crt1.o")
+			SOURCE("start/start.c")
+		END
+		BEGIN PROJECT("libs.start_debug")
+			SET_OUTPUT("/bin/crt1d.o")
+			SET_DISKFILE("/usr/lib/crt1d.o")
+			SOURCE("start/start_debug.c")
+		END
+	END
+
+END
+
+

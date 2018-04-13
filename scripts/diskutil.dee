@@ -1,0 +1,98 @@
+/* Copyright (c) 2018 Griefer@Work                                            *
+ *                                                                            *
+ * This software is provided 'as-is', without any express or implied          *
+ * warranty. In no event will the authors be held liable for any damages      *
+ * arising from the use of this software.                                     *
+ *                                                                            *
+ * Permission is granted to anyone to use this software for any purpose,      *
+ * including commercial applications, and to alter it and redistribute it     *
+ * freely, subject to the following restrictions:                             *
+ *                                                                            *
+ * 1. The origin of this software must not be misrepresented; you must not    *
+ *    claim that you wrote the original software. If you use this software    *
+ *    in a product, an acknowledgement in the product documentation would be  *
+ *    appreciated but is not required.                                        *
+ * 2. Altered source versions must be plainly marked as such, and must not be *
+ *    misrepresented as being the original software.                          *
+ * 3. This notice may not be removed or altered from any source distribution. *
+ */
+
+/* .sources extensions for copying files to disk. */
+
+#define COMMAND_MTOOLS(name,args...) \
+	COMMAND("${MTOOLS}","-c",name,"-i","${DISK}",args);
+#define COMMAND_DISK_MKDIR(path)    command_disk_mkdir(_proj,path)
+#define COMMAND_DISK_COPY(src,path) command_disk_copy(_proj,FILES(src),path);
+#define COMMAND_DISK_SYNC(src,path) command_disk_sync(_proj,FILES(src),path);
+#define SET_DISKFILE(path) \
+	POSTLINK_BEGIN \
+		command_disk_copy(_proj,[_proj.m_output],path); \
+	POSTLINK_END
+
+
+local known_disk_paths = dict {};
+function command_disk_mkdir(_proj,path) {
+	path = path.replace("\\","/").strip("/").strip();
+	local head,none,tail = path.rpartition("/")...;
+	if (tail) command_disk_mkdir(_proj,head);
+	if (path !in known_disk_paths) {
+		known_disk_paths[path] = none;
+		try {
+			COMMAND_MTOOLS("mmd","-D","s","::/"+path)
+		} catch (Error.ThreadCrash) {
+		}
+	}
+}
+function command_disk_copy_one(_proj,source,path) {
+	path = path.replace("\\","/").strip("/").strip();
+	local head,none,tail = path.rpartition("/")...;
+	if (tail) command_disk_mkdir(_proj,head);
+	COMMAND_MTOOLS("mcopy","-D","o",source,"::/"+path)
+}
+local disk_mtime = <none>;
+function command_disk_sync_one(_proj,source,path) {
+	if (disk_mtime.get() is none)
+		disk_mtime.set(fast_getmtime(expand_options("${DISK}")));
+	if (fast_getmtime(source) > disk_mtime.get())
+		command_disk_copy_one(_proj,source,path);
+}
+function command_disk_copy(_proj,files,path) {
+	files = list(files);
+	if (!files) return;
+	path = path.replace("\\","/");
+	if (path.endswith("/") || #files > 1) {
+		/* Target is a directory:
+		 * >> COMMAND_DISK_COPY("foo/*.txt","/data/files/") */
+		path = path.rstrip("/")+"/";
+		for (local f: files) {
+			f = f.replace("\\","/");
+			local head,none,tail = f.rpartition("/")...;
+			if (!tail) tail = head;
+			command_disk_copy_one(_proj,f,path+tail);
+		}
+	} else {
+		command_disk_copy_one(_proj,files[0],path);
+	}
+}
+function command_disk_sync(_proj,files,path) {
+	files = list(files);
+	if (!files) return;
+	path = path.replace("\\","/");
+	if (path.endswith("/") || #files > 1) {
+		/* Target is a directory:
+		 * >> COMMAND_DISK_COPY("foo/*.txt","/data/files/") */
+		path = path.rstrip("/")+"/";
+		for (local f: files) {
+			f = f.replace("\\","/");
+			local head,none,tail = f.rpartition("/")...;
+			if (!tail) tail = head;
+			command_disk_sync_one(_proj,f,path+tail);
+		}
+	} else {
+		command_disk_sync_one(_proj,files[0],path);
+	}
+}
+
+
+
+

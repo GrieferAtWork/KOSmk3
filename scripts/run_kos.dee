@@ -1,0 +1,406 @@
+/* Copyright (c) 2018 Griefer@Work                                            *
+ *                                                                            *
+ * This software is provided 'as-is', without any express or implied          *
+ * warranty. In no event will the authors be held liable for any damages      *
+ * arising from the use of this software.                                     *
+ *                                                                            *
+ * Permission is granted to anyone to use this software for any purpose,      *
+ * including commercial applications, and to alter it and redistribute it     *
+ * freely, subject to the following restrictions:                             *
+ *                                                                            *
+ * 1. The origin of this software must not be misrepresented; you must not    *
+ *    claim that you wrote the original software. If you use this software    *
+ *    in a product, an acknowledgement in the product documentation would be  *
+ *    appreciated but is not required.                                        *
+ * 2. Altered source versions must be plainly marked as such, and must not be *
+ *    misrepresented as being the original software.                          *
+ * 3. This notice may not be removed or altered from any source distribution. *
+ */
+
+/* QEMU + Runtime helpers from here on! */
+
+#define run_addr2line_base 0
+local addr2line_proc = <>;
+local addr2line_inw = <>;
+local addr2line_outr = <>;
+function start_addr2line() {
+	if (!addr2line_proc) {
+		addr2line_proc.set(process(expand_options("${ADDR2LINE}"),[
+			"-i","-f","-e",expand_options("${KERNEL_BINARY}")
+		]));
+		local inr,inw = pipe.new()...;
+		local outr,outw = pipe.new()...;
+		addr2line_inw.set(inw);
+		addr2line_outr.set(outr);
+		addr2line_proc.get().stdout = outw;
+		addr2line_proc.get().stdin = inr;
+		addr2line_proc.get().start();
+		outw.close();
+		inr.close();
+	}
+}
+
+// -> (string filename,string line,string function)
+function run_addr2line(addr) {
+	start_addr2line();
+#ifdef TARGET_X86_64
+	addr = "%I64X" % (unsigned long long("0x"+addr)-run_addr2line_base);
+#else
+	addr = "%X" % (unsigned long("0x"+addr)-run_addr2line_base);
+#endif
+	addr2line_inw.get().write(addr+"\n");
+	local text = addr2line_outr.get().read();
+	while (text) {
+		local func,data;
+		func,none,text = text.partition("\n")...;
+		data,none,text = text.partition("\n")...;
+		local filename,line = data.scanf("%[^:]:%[A-Fa-f0-9]")...;
+		filename = filename.strip();
+		line = line.strip();
+#ifdef __WINDOWS__
+		filename = fix_path("../",filename);
+#endif
+		yield pack filename,line,func;
+	}
+}
+
+class a2l_instance
+#if __DEEMON__ >= 200
+	: OldUserClass from d200
+#endif
+{
+	this(app) {
+		this.proc = process(expand_options("${ADDR2LINE}"),[
+			"-i","-f","-e",expand_options(app)
+		]);
+		local inr,inw = pipe.new()...;
+		local outr,outw = pipe.new()...;
+		this.inw = inw;
+		this.outr = outr;
+		this.proc.stdout = outw;
+		this.proc.stdin = inr;
+		this.proc.start();
+		outw.close();
+		inr.close();
+	}
+	translate(addr) {
+		try {
+			this.inw.write(addr+"\n");
+			local text = this.outr.read();
+			while (text) {
+				local func,data;
+				func,none,text = text.partition("\n")...;
+				data,none,text = text.partition("\n")...;
+				local filename,line = data.scanf("%[^:]:%[A-Fa-f0-9]")...;
+				filename = filename.strip();
+				line = line.strip();
+#ifdef __WINDOWS__
+				filename = fix_path("../",filename);
+#endif
+				yield pack filename,line,func;
+			}
+		} catch (...) {
+		}
+	}
+};
+
+local addr2line_dict = dict();
+function start_a2l(app) {
+	local result = addr2line_dict.get(app);
+	if (result !is none) return result;
+	result = a2l_instance(app);
+	addr2line_dict[app] = result;
+	return result;
+}
+
+function find_diskfile(name) {
+	if ("/" in name)
+		name = name[name.rfind("/")+1:];
+	name = name.strip();
+	return "bin/"+name;
+}
+function format_address2line(outfile,format,file,line,func,address) {
+	for (local i = 0; i < #format; ++i) {
+		local ch = format[i];
+		if (ch != "%" || i == #format-1)
+			outfile.write(ch);
+		else {
+			++i;
+			ch = format[i];
+			if (ch == "f") {
+				outfile.write(file);
+			} else if (ch == "l") {
+				outfile.write(str line);
+			} else if (ch == "c") {
+				outfile.write("0");
+			} else if (ch == "n") {
+				outfile.write(func);
+			} else if (ch == "<") {
+				outfile.write("0");
+			} else if (ch == ">") {
+				outfile.write("0");
+			} else if (ch == "p") {
+				outfile.write(address.upper().lsstrip("0X"));
+			} else {
+				outfile.write("%"+ch);
+			}
+		}
+	}
+}
+
+function run_qemu(bin,tap) {
+	local qemu = process(expand_options("${QEMU}"),[
+		(run_mode_hosted ? ["-no-reboot","-no-shutdown"] : [])...,
+		"-serial","stdio","-d","debug","-smp","2",
+		(run_mode_remote ? ["-s","-S"] : [])...,
+		(run_mode_usb ? ["-hda","\\\\.\\PhysicalDrive2"]
+		              : ["-kernel",bin,
+#if 1
+		                 "-drive","file=bin/disk-i386-kos.img,format=raw,index=0,media=disk",
+		                 "-drive","file=bin/disk-i386-kos2.img,format=raw,index=2,media=disk",
+		                 //"-drive","file=disk/kos.img2,format=raw,index=3,media=disk",
+#endif
+		                 ])...,
+		"-display","gtk",
+#ifdef CONFIG_QEMU_FLAGS
+		CONFIG_QEMU_FLAGS,
+#else
+		//"-device","isa-debug-exit,iobase=0xf4,iosize=0x04",
+		"-netdev",tap ? "tap,ifname=tap0,id=u1" : "user,id=u1","-device","ne2k_pci,netdev=u1",
+		"-object","filter-dump,id=f1,netdev=u1,file=dump.dat",
+		//"-net","nic,model=rtl8139","-net","user",
+		//"-net","nic,model=ne2k_pci","-net","user",
+#endif
+		//"-vga","std",
+		(kernel_args ? ["-append","\""+
+			" ".join(for (local a: kernel_args) if (a) a)
+		+"\""] : [])...,
+		"-d","guest_errors",
+	]);
+	local r,w = pipe.new()...;
+	/* Redirect stdout to format special serial output (tracebacks...) */
+	qemu.stdout = w;
+	qemu.stderr = w;
+	qemu.start();
+	w.close();
+#ifdef __WINDOWS__
+	/* Also redirect to stddbg (OutputDebugString), so stuff shows up in the Vistual Studio log. */
+	local outfile = file.io.stddbg|file.io.stderr;
+#else
+	local outfile = file.io.stderr;
+#endif
+#ifdef __WINDOWS__
+	goto on_line_start;
+#endif
+	while (local c = r.readall(1)) {
+#if 1
+		if (c == "%") {
+process_format:
+			c = r.readall(1);
+			if (c == "{") {
+				text = "";
+				local recursion = 1;
+				for (;;) {
+					c = r.readall(1);
+					if (c == "{") recursion = recursion+1;
+					else if (c == "}") {
+						if (recursion == 1) break;
+						recursion = recursion -1;
+					}
+					text = text + c;
+					if (#text > 512) break;
+				}
+				if (#text > 512) {
+					outfile.write("#{"+text);
+					continue;
+				}
+				local cmd,none,arg = text.partition(":")...;
+				switch (cmd) {
+
+				case "vinfo":
+					local binary,none,format = arg.partition(":")...;
+					local address,none,format = format.partition(":")...;
+					local req_address,none,format = format.partition(":")...;
+					binary = find_diskfile(binary);
+					local a2l = start_a2l(binary);
+					address = address.lower();
+					local is_first = true;
+					for (local file,line,func: a2l.translate(address)) {
+						if (!is_first) outfile.write("\n");
+						format_address2line(outfile,format,file,line,func,req_address);
+						is_first = false;
+					}
+					break;
+
+				case "vload":
+					start_a2l(find_diskfile(arg));
+					break;
+
+				default:
+					outfile.write("{UNKNOWN("+repr(cmd)+","+repr(arg)+")}");
+					break;
+				}
+				continue;
+			} else outfile.write("%"+c);
+#ifdef __WINDOWS__
+		} else if (c == "\n") {
+			outfile.write("\n");
+on_line_start:
+			c = r.readall(1);
+			if (c == "%") {
+				goto process_format;
+			}
+			/* Since Visual Studio debugging sucks, the double-click & go-to-source
+			 * feature uses the '.sln'-folder instead of the debugger-pwd, meaning
+			 * that because that sln-file is in .vs, we need to manually prepend
+			 * '../', so that one can actually click it!
+			 * >> The pattern recognized is: '\n%[^ ]/' --> '\n../%[^ ]/' */
+			local part = "";
+			for (;;) {
+				part += c;
+				if (c == "/") {
+					part += r.readline();
+					outfile.write(fix_path("../../",part));
+					goto on_line_start;
+				}
+				if (c == "%") {
+					outfile.write(part);
+					goto process_format;
+				}
+				if (!c || c.isspace())
+					break;
+				if (c in ["\"","\'","(",")","[","]","?","*"])
+					break;
+				c = r.readall(1);
+			}
+			outfile.write(part);
+			if (c == "\n") goto on_line_start;
+		} else
+#endif
+#else
+		if (c == "\n") {
+			outfile.write("\n");
+on_line_start:
+			c = r.readall(1);
+			if (c == "#") {
+				c = r.readall(1);
+				if (c == "!") {
+					c = r.readall(1);
+					if (c == "$") {
+						// Parse special command, as output through serial #01
+						local cmd = r.readline().strip();
+						local name,args;
+						try name,args = cmd.scanf("%[A-Za-z0-9] %[^]")...;
+						catch (...) name = "",args = "";
+						name = name.strip();
+						args = args.strip();
+						try {
+							if (name == "addr2line") {
+								// Quick & dirty way of getting tracebacks...
+								// I know this is a really questionable solution.
+								// >> If it looks stupid but works, it ain't stupid!
+								local addr,fmt = args.scanf(" ( %[^)] ) '%[^']'")...;
+								for (local file,line,func: run_addr2line(addr.strip())) {
+									outfile.write(fmt.format({
+										.file = file.strip(),
+										.line = line.strip(),
+										.func = func.strip(),
+									})+"\n");
+								}
+							} else if (name == "output") {
+								local filename,count = args.scanf(" ( \"%[^\"]\" , %[^)])")...;
+								count = (int)count.strip();
+								local out = file.open(filename,"w");
+								local ok = 0;
+								for (;;) {
+									local data = r.read(1);
+									out.write(data);
+									ok += #data;
+									if (ok >= count) break;
+								}
+								out.close();
+							} else {
+								outfile.write("UNKNOWN CMD:"+repr(name ?: cmd)+"\n");
+							}
+						} catch (e...) {
+							outfile.write("CMD FAILED:"+repr(e)+"\n");
+						}
+						goto on_line_start;
+					} else outfile.write("#!"+c);
+				} else outfile.write("#"+c);
+				continue;
+			}
+#ifdef __WINDOWS__
+			/* Since Visual Studio debugging sucks, the double-click & go-to-source
+			 * feature uses the '.sln'-folder instead of the debugger-pwd, meaning
+			 * that because that sln-file is in .vs, we need to manually prepend
+			 * '../', so that one can actually click it!
+			 * >> The pattern recognized is: '\n%[^ ]/' --> '\n../%[^ ]/' */
+			local part = "";
+			for (;;) {
+				part += c;
+				if (c == "/") {
+					part += r.readline();
+					outfile.write(fix_path("../../",part));
+					goto on_line_start;
+				}
+				if (!c || c.isspace()) {
+					break;
+				}
+				c = r.readall(1);
+			}
+			outfile.write(part);
+			if (c == "\n") goto on_line_start;
+#endif
+		} else
+#endif
+		{
+			outfile.write(c);
+		}
+	}
+	return qemu.join();
+}
+
+try {
+	run_kernel_binary = expand_options("${KERNEL_BINARY}");
+	start_addr2line();
+#ifdef TARGET_X86_64
+	/* QEMU doesn't realize that it _CAN_ load a 64-bit kernel and
+	 * instead decides to not even try when loading a 64-bit image.
+	 * Sadly, this fix breaks tools like addr2line, meaning we must
+	 * create a copy of the kernel binary just for qemu...
+	 */
+	local fixed =
+		fs::path::head(run_kernel_binary)+
+		fs::path::file(run_kernel_binary)+"-qemu"+
+		fs::path::ext(run_kernel_binary);
+	local fixed_time;
+	try {
+		fixed_time = fast_getmtime(fixed);
+	} catch (...) {
+		fixed_time = time.years(0);
+	}
+	if (fixed_time < fast_getmtime(run_kernel_binary)) {
+		try fs::unlink(fixed); catch (...);
+		fs::copy_(run_kernel_binary,fixed);
+		local fp = file.open(fixed,"r+");
+		fp.seek(18);         /* offsetof(Elf64_Ehdr,e_machine); */
+		fp.writeo(int16(3)); /* (Elf64_Half)EM_386; */
+		fp.close();
+	}
+	run_kernel_binary = fixed;
+#endif
+#if 1
+	run_qemu(run_kernel_binary,false);
+#else
+	/* Try to run with tap enabled, but if that fails, still run without. */
+	if (run_qemu(run_kernel_binary,true))
+		run_qemu(run_kernel_binary,false);
+#endif
+} finally {
+	if (addr2line_proc) {
+		addr2line_proc.get().terminate();
+		addr2line_proc.del();
+	}
+}
+

@@ -1,0 +1,578 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|ARM">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM">
+      <Configuration>Release</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\src\hybrid\format-hexdump-impl.c.inl" />
+    <None Include="..\..\src\hybrid\format-printer-impl.c.inl" />
+    <None Include="..\..\src\hybrid\format-quote-impl.c.inl" />
+    <None Include="..\..\src\hybrid\format-scanner-impl.c.inl" />
+    <None Include="..\..\src\hybrid\i386-kos\context32.S" />
+    <None Include="..\..\src\hybrid\i386-kos\except32.S" />
+    <None Include="..\..\src\hybrid\i386-kos\string32.S" />
+    <None Include="..\..\src\hybrid\memory-template.c.inl" />
+    <None Include="..\..\src\hybrid\string-template.c.inl" />
+    <None Include="..\..\src\kernel\.sources" />
+    <None Include="..\..\src\kernel\i386-kos\boot32.S" />
+    <None Include="..\..\src\kernel\i386-kos\device_interrupts32.S" />
+    <None Include="..\..\src\kernel\i386-kos\hw_except32.S" />
+    <None Include="..\..\src\kernel\i386-kos\interrupt32.S" />
+    <None Include="..\..\src\kernel\i386-kos\kernel.ld" />
+    <None Include="..\..\src\kernel\i386-kos\paging32.c.inl" />
+    <None Include="..\..\src\kernel\i386-kos\paging32.S" />
+    <None Include="..\..\src\kernel\i386-kos\safecall32.S" />
+    <None Include="..\..\src\kernel\i386-kos\scheduler32.S" />
+    <None Include="..\..\src\kernel\i386-kos\smp32.S" />
+    <None Include="..\..\src\kernel\i386-kos\syscall32.S" />
+    <None Include="..\..\src\kernel\i386-kos\ushare32.S" />
+    <None Include="..\..\src\kernel\i386-kos\vm86_32.S" />
+    <None Include="..\..\src\kernel\src\vm\ushare.S" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\hybrid\bound.c" />
+    <ClCompile Include="..\..\src\hybrid\ctype.c" />
+    <ClCompile Include="..\..\src\hybrid\except_errno.c" />
+    <ClCompile Include="..\..\src\hybrid\except_print.c" />
+    <ClCompile Include="..\..\src\hybrid\format-printer.c" />
+    <ClCompile Include="..\..\src\hybrid\format-scanner.c" />
+    <ClCompile Include="..\..\src\hybrid\i386-kos\except.c" />
+    <ClCompile Include="..\..\src\hybrid\i386-kos\instruction.c" />
+    <ClCompile Include="..\..\src\hybrid\random.c" />
+    <ClCompile Include="..\..\src\hybrid\string.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\apic.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\boot.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\cpuid.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\debug.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\double_fault.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\emulator.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\except.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\fpu.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\gdt.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\hw_except.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\init.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\interrupt.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\ipi.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\linker.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\memory.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\multiboot.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\paging.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\posix_signals.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\rtl.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\safecall.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\scheduler.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\smp.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\syscall-table.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\syscall.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\sysenter.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\task_clone.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\tss.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\user.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\ushare.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\vio.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\vm86.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\vm_kernel.c" />
+    <ClCompile Include="..\..\src\kernel\src\core\ata.c" />
+    <ClCompile Include="..\..\src\kernel\src\core\elf.c" />
+    <ClCompile Include="..\..\src\kernel\src\core\fat.c" />
+    <ClCompile Include="..\..\src\kernel\src\dev\keyboard.c" />
+    <ClCompile Include="..\..\src\kernel\src\dev\keymap.c" />
+    <ClCompile Include="..\..\src\kernel\src\dev\keymap_default.c" />
+    <ClCompile Include="..\..\src\kernel\src\dev\ps2.c" />
+    <ClCompile Include="..\..\src\kernel\src\dev\ps2_keyboard.c" />
+    <ClCompile Include="..\..\src\kernel\src\dev\pty.c" />
+    <ClCompile Include="..\..\src\kernel\src\dev\tty.c" />
+    <ClCompile Include="..\..\src\kernel\src\dev\wall.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\canonbuffer.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\device.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\driver.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\file.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\handle.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\handle_weak.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\linker.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\node.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\path.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\pipe.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\ramfs.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\recent_modules.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\ringbuffer.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\system.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\walk.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\wordbuffer.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\async_signal.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\debug.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\heap.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\kernctl.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\mall.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\malloc.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\meminfo.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\memory.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\syscall.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\sysconf.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\system.c" />
+    <ClCompile Include="..\..\src\kernel\src\sched\group.c" />
+    <ClCompile Include="..\..\src\kernel\src\sched\mutex.c" />
+    <ClCompile Include="..\..\src\kernel\src\sched\pid.c" />
+    <ClCompile Include="..\..\src\kernel\src\sched\posix_signals.c" />
+    <ClCompile Include="..\..\src\kernel\src\sched\rpc.c" />
+    <ClCompile Include="..\..\src\kernel\src\sched\rwlock.c" />
+    <ClCompile Include="..\..\src\kernel\src\sched\semaphore.c" />
+    <ClCompile Include="..\..\src\kernel\src\sched\signal.c" />
+    <ClCompile Include="..\..\src\kernel\src\sched\task.c" />
+    <ClCompile Include="..\..\src\kernel\src\sched\task_weakref.c" />
+    <ClCompile Include="..\..\src\kernel\src\sched\unshare.c" />
+    <ClCompile Include="..\..\src\kernel\src\sched\userstack.c" />
+    <ClCompile Include="..\..\src\kernel\src\sched\userthread.c" />
+    <ClCompile Include="..\..\src\kernel\src\unwind\debug_line.c" />
+    <ClCompile Include="..\..\src\kernel\src\unwind\eh_frame.c" />
+    <ClCompile Include="..\..\src\kernel\src\unwind\eh_unwind.c" />
+    <ClCompile Include="..\..\src\kernel\src\unwind\linker.c" />
+    <ClCompile Include="..\..\src\kernel\src\vm\corebase.c" />
+    <ClCompile Include="..\..\src\kernel\src\vm\environ.c" />
+    <ClCompile Include="..\..\src\kernel\src\vm\futex.c" />
+    <ClCompile Include="..\..\src\kernel\src\vm\loadcore.c" />
+    <ClCompile Include="..\..\src\kernel\src\vm\region.c" />
+    <ClCompile Include="..\..\src\kernel\src\vm\system.c" />
+    <ClCompile Include="..\..\src\kernel\src\vm\ushare.c" />
+    <ClCompile Include="..\..\src\kernel\src\vm\vm.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\src\hybrid\hybrid.h" />
+    <ClInclude Include="..\..\src\kernel\i386-kos\emulator.h" />
+    <ClInclude Include="..\..\src\kernel\i386-kos\posix_signals.h" />
+    <ClInclude Include="..\..\src\kernel\i386-kos\scheduler.h" />
+    <ClInclude Include="..\..\src\kernel\include\dev\devconfig.h" />
+    <ClInclude Include="..\..\src\kernel\include\dev\keyboard.h" />
+    <ClInclude Include="..\..\src\kernel\include\dev\keymap.h" />
+    <ClInclude Include="..\..\src\kernel\include\dev\ps2-program.h" />
+    <ClInclude Include="..\..\src\kernel\include\dev\ps2.h" />
+    <ClInclude Include="..\..\src\kernel\include\dev\ps2_keyboard.h" />
+    <ClInclude Include="..\..\src\kernel\include\dev\pty.h" />
+    <ClInclude Include="..\..\src\kernel\include\dev\tty.h" />
+    <ClInclude Include="..\..\src\kernel\include\dev\wall.h" />
+    <ClInclude Include="..\..\src\kernel\include\fs\canonbuffer.h" />
+    <ClInclude Include="..\..\src\kernel\include\fs\device.h" />
+    <ClInclude Include="..\..\src\kernel\include\fs\driver.h" />
+    <ClInclude Include="..\..\src\kernel\include\fs\file.h" />
+    <ClInclude Include="..\..\src\kernel\include\fs\handle.h" />
+    <ClInclude Include="..\..\src\kernel\include\fs\iomode.h" />
+    <ClInclude Include="..\..\src\kernel\include\fs\linker.h" />
+    <ClInclude Include="..\..\src\kernel\include\fs\node.h" />
+    <ClInclude Include="..\..\src\kernel\include\fs\path.h" />
+    <ClInclude Include="..\..\src\kernel\include\fs\pipe.h" />
+    <ClInclude Include="..\..\src\kernel\include\fs\ramfs.h" />
+    <ClInclude Include="..\..\src\kernel\include\fs\ringbuffer.h" />
+    <ClInclude Include="..\..\src\kernel\include\fs\wordbuffer.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\apic.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\cpuid.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\debug.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\devconfig.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\driver.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\elf.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\fpu.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\gdt.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\idt_pointer.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\interrupt.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\ipi.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\memory.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\paging.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\paging32.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\pertask.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\pic.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\pit.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\posix_signals.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\scheduler.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\smp.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\syscall.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\tss.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\unwind.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\user.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\vm.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\vm86.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\debug.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\environ.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\heap.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\interrupt.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\malloc.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\memory.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\paging.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\profile.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\sections.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\syscall.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\sysconf.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\user.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\ushare.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\version.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\vm.h" />
+    <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot.h" />
+    <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\async_signal.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\group.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\mutex.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\pid.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\posix_signals.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\rwlock.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\semaphore.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\signal.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\stat.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\task.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\taskref.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\userstack.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\userthread.h" />
+    <ClInclude Include="..\..\src\kernel\include\unwind\debug_line.h" />
+    <ClInclude Include="..\..\src\kernel\include\unwind\eh_frame.h" />
+    <ClInclude Include="..\..\src\kernel\include\unwind\linker.h" />
+    <ClInclude Include="..\..\src\kernel\src\core\ata.h" />
+    <ClInclude Include="..\..\src\kernel\src\core\fat.h" />
+    <ClInclude Include="..\..\src\kernel\src\dev\ps2_keymaps.h" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{86D226C5-EF62-4562-AC06-E6A753DFA7CF}</ProjectGuid>
+    <RootNamespace>kos_kernel</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <IntermediateOutputPath>$(ProjectDir)</IntermediateOutputPath>
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
+    <IntermediateOutputPath>$(ProjectDir)</IntermediateOutputPath>
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <IntermediateOutputPath>$(ProjectDir)</IntermediateOutputPath>
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <IntermediateOutputPath>$(ProjectDir)</IntermediateOutputPath>
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="Configuration">
+    <IntermediateOutputPath>$(ProjectDir)</IntermediateOutputPath>
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <IntermediateOutputPath>$(ProjectDir)</IntermediateOutputPath>
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IntermediateOutputPath>$(ProjectDir)</IntermediateOutputPath>
+    <OutDir>$(SolutionDir)..\</OutDir>
+    <IncludePath>$(SolutionDir)..\src\kernel\include\;$(SolutionDir)..\include\i386-kos;$(SolutionDir)..\include</IncludePath>
+    <IntDir>$(SolutionDir)..\build\.vs\$(ProjectName)\$(Platform)-$(Configuration)\</IntDir>
+    <NMakeReBuildCommandLine>"E:\c\deemon\deemon\deemon.exe" $(SolutionDir)..\magic.dee --build-only --format-error-messages --force</NMakeReBuildCommandLine>
+    <NMakeBuildCommandLine>"E:\c\deemon\deemon\deemon.exe" $(SolutionDir)..\magic.dee --build-only --format-error-messages</NMakeBuildCommandLine>
+    <ReferencePath>
+    </ReferencePath>
+    <LibraryPath>
+    </LibraryPath>
+    <LibraryWPath>
+    </LibraryWPath>
+    <SourcePath>
+    </SourcePath>
+    <ExcludePath />
+    <NMakeCleanCommandLine>
+    </NMakeCleanCommandLine>
+    <NMakeForcedIncludes>$(SolutionDir)..\include\compiler\intellisense.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
+    <AdditionalOptions>/TP</AdditionalOptions>
+    <NMakePreprocessorDefinitions>__KOS__=1;__KERNEL__=1;CONFIG_BUILDING_KERNEL_CORE=1;CONFIG_DEBUG=1;CONFIG_TRACE_LEAKS=1</NMakePreprocessorDefinitions>
+    <NMakeOutput>
+    </NMakeOutput>
+    <NMakeIncludeSearchPath>
+    </NMakeIncludeSearchPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+    <IncludePath>$(SolutionDir)..\src\kernel\include\;$(SolutionDir)..\include\arm-kos;$(SolutionDir)..\include</IncludePath>
+    <IntDir>$(SolutionDir)..\build\.vs\$(ProjectName)\$(Platform)-$(Configuration)\</IntDir>
+    <NMakeReBuildCommandLine>"E:\c\deemon\deemon\deemon.exe" -DTARGET_ARM $(SolutionDir)..\magic.dee --build-only --format-error-messages --force</NMakeReBuildCommandLine>
+    <NMakeBuildCommandLine>"E:\c\deemon\deemon\deemon.exe" -DTARGET_ARM $(SolutionDir)..\magic.dee --build-only --format-error-messages</NMakeBuildCommandLine>
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
+    <NMakeCleanCommandLine />
+    <NMakeForcedIncludes>$(SolutionDir)..\include\compiler\intellisense.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
+    <AdditionalOptions>/TP</AdditionalOptions>
+    <NMakePreprocessorDefinitions>__KOS__=1;__KERNEL__=1;CONFIG_BUILDING_KERNEL_CORE=1;CONFIG_SMP=1;CONFIG_DEBUG=1;CONFIG_TRACE_LEAKS=1</NMakePreprocessorDefinitions>
+    <NMakeOutput />
+    <NMakeIncludeSearchPath />
+    <IntermediateOutputPath>$(ProjectDir)</IntermediateOutputPath>
+    <OutDir>$(SolutionDir)..\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>$(SolutionDir)..\src\kernel\include\;$(SolutionDir)..\include\i386-kos;$(SolutionDir)..\include</IncludePath>
+    <IntDir>$(SolutionDir)..\build\.vs\$(ProjectName)\$(Platform)-$(Configuration)\</IntDir>
+    <NMakeReBuildCommandLine>"E:\c\deemon\deemon\deemon.exe" -DTARGET_X86_64 $(SolutionDir)..\magic.dee --build-only --format-error-messages --force</NMakeReBuildCommandLine>
+    <NMakeBuildCommandLine>"E:\c\deemon\deemon\deemon.exe" -DTARGET_X86_64 $(SolutionDir)..\magic.dee --build-only --format-error-messages</NMakeBuildCommandLine>
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
+    <NMakeCleanCommandLine />
+    <NMakeForcedIncludes>$(SolutionDir)..\include\compiler\intellisense.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
+    <AdditionalOptions>/TP</AdditionalOptions>
+    <NMakePreprocessorDefinitions>__KOS__=1;__KERNEL__=1;CONFIG_BUILDING_KERNEL_CORE=1;CONFIG_SMP=1;CONFIG_DEBUG=1;CONFIG_TRACE_LEAKS=1</NMakePreprocessorDefinitions>
+    <NMakeOutput />
+    <NMakeIncludeSearchPath />
+    <IntermediateOutputPath>$(ProjectDir)</IntermediateOutputPath>
+    <OutDir>$(SolutionDir)..\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IntermediateOutputPath>$(ProjectDir)</IntermediateOutputPath>
+    <OutDir>$(SolutionDir)..\</OutDir>
+    <IncludePath>$(SolutionDir)..\src\kernel\include\;$(SolutionDir)..\include\i386-kos;$(SolutionDir)..\include</IncludePath>
+    <IntDir>$(SolutionDir)..\build\.vs\$(ProjectName)\$(Platform)-$(Configuration)\</IntDir>
+    <NMakeReBuildCommandLine>"E:\c\deemon\deemon\deemon.exe" $(SolutionDir)..\magic.dee --build-only --format-error-messages --force CONFIG_OPTIMIZE</NMakeReBuildCommandLine>
+    <NMakeBuildCommandLine>"E:\c\deemon\deemon\deemon.exe" $(SolutionDir)..\magic.dee --build-only --format-error-messages CONFIG_OPTIMIZE</NMakeBuildCommandLine>
+    <ReferencePath>
+    </ReferencePath>
+    <LibraryPath>
+    </LibraryPath>
+    <LibraryWPath>
+    </LibraryWPath>
+    <SourcePath>
+    </SourcePath>
+    <ExcludePath />
+    <NMakeCleanCommandLine>
+    </NMakeCleanCommandLine>
+    <NMakeForcedIncludes>$(SolutionDir)..\include\compiler\intellisense.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
+    <AdditionalOptions>/TP</AdditionalOptions>
+    <NMakePreprocessorDefinitions>__KOS__=1;__KERNEL__=1;CONFIG_BUILDING_KERNEL_CORE=1;</NMakePreprocessorDefinitions>
+    <NMakeOutput>
+    </NMakeOutput>
+    <NMakeIncludeSearchPath>
+    </NMakeIncludeSearchPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+    <IncludePath>$(SolutionDir)..\src\kernel\include\;$(SolutionDir)..\include\arm-kos;$(SolutionDir)..\include</IncludePath>
+    <IntDir>$(SolutionDir)..\build\.vs\$(ProjectName)\$(Platform)-$(Configuration)\</IntDir>
+    <NMakeReBuildCommandLine>"E:\c\deemon\deemon\deemon.exe" -DTARGET_ARM $(SolutionDir)..\magic.dee --build-only --format-error-messages --force --optimize</NMakeReBuildCommandLine>
+    <NMakeBuildCommandLine>"E:\c\deemon\deemon\deemon.exe" -DTARGET_ARM $(SolutionDir)..\magic.dee --build-only --format-error-messages --optimize</NMakeBuildCommandLine>
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
+    <NMakeCleanCommandLine />
+    <NMakeForcedIncludes>$(SolutionDir)..\include\compiler\intellisense.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
+    <AdditionalOptions>/TP</AdditionalOptions>
+    <NMakePreprocessorDefinitions>__KOS__=1;__KERNEL__=1;CONFIG_BUILDING_KERNEL_CORE=1;CONFIG_SMP=1</NMakePreprocessorDefinitions>
+    <NMakeOutput />
+    <NMakeIncludeSearchPath />
+    <IntermediateOutputPath>$(ProjectDir)</IntermediateOutputPath>
+    <OutDir>$(SolutionDir)..\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>$(SolutionDir)..\src\kernel\include\;$(SolutionDir)..\include\i386-kos;$(SolutionDir)..\include</IncludePath>
+    <IntDir>$(SolutionDir)..\build\.vs\$(ProjectName)\$(Platform)-$(Configuration)\</IntDir>
+    <NMakeReBuildCommandLine>"E:\c\deemon\deemon\deemon.exe" -DTARGET_X86_64 $(SolutionDir)..\magic.dee --build-only --format-error-messages --force --optimize</NMakeReBuildCommandLine>
+    <NMakeBuildCommandLine>"E:\c\deemon\deemon\deemon.exe" -DTARGET_X86_64 $(SolutionDir)..\magic.dee --build-only --format-error-messages --optimize</NMakeBuildCommandLine>
+    <ReferencePath />
+    <LibraryPath />
+    <LibraryWPath />
+    <SourcePath />
+    <ExcludePath />
+    <NMakeCleanCommandLine />
+    <NMakeForcedIncludes>$(SolutionDir)..\include\compiler\intellisense.h;$(NMakeForcedIncludes)</NMakeForcedIncludes>
+    <AdditionalOptions>/TP</AdditionalOptions>
+    <NMakePreprocessorDefinitions>__KOS__=1;__KERNEL__=1;CONFIG_BUILDING_KERNEL_CORE=1;CONFIG_SMP=1</NMakePreprocessorDefinitions>
+    <NMakeOutput />
+    <NMakeIncludeSearchPath />
+    <IntermediateOutputPath>$(ProjectDir)</IntermediateOutputPath>
+    <OutDir>$(SolutionDir)..\</OutDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>
+      </PreprocessorDefinitions>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+      <CompileAs>CompileAsCpp</CompileAs>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+    <ClCompile>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>
+      </PreprocessorDefinitions>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+      <CompileAs>CompileAsCpp</CompileAs>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>
+      </PreprocessorDefinitions>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+      <CompileAs>CompileAsCpp</CompileAs>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>
+      </PreprocessorDefinitions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <CompileAs>CompileAsCpp</CompileAs>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+    <ClCompile>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>
+      </PreprocessorDefinitions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <CompileAs>CompileAsCpp</CompileAs>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>
+      </PreprocessorDefinitions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <CompileAs>CompileAsCpp</CompileAs>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

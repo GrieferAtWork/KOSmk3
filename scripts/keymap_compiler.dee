@@ -1,0 +1,212 @@
+/* Copyright (c) 2018 Griefer@Work                                            *
+ *                                                                            *
+ * This software is provided 'as-is', without any express or implied          *
+ * warranty. In no event will the authors be held liable for any damages      *
+ * arising from the use of this software.                                     *
+ *                                                                            *
+ * Permission is granted to anyone to use this software for any purpose,      *
+ * including commercial applications, and to alter it and redistribute it     *
+ * freely, subject to the following restrictions:                             *
+ *                                                                            *
+ * 1. The origin of this software must not be misrepresented; you must not    *
+ *    claim that you wrote the original software. If you use this software    *
+ *    in a product, an acknowledgement in the product documentation would be  *
+ *    appreciated but is not required.                                        *
+ * 2. Altered source versions must be plainly marked as such, and must not be *
+ *    misrepresented as being the original software.                          *
+ * 3. This notice may not be removed or altered from any source distribution. *
+ */
+
+/* Keymap compiler:
+ * >> deemon -DFILE=\"../src/keymaps/de_DE.txt\" scripts/keymap_compiler.dee > out.kmp
+ */
+
+
+#include <file>
+#include <util>
+
+#pragma warning(disable: 16)
+#define __SYSDECL_BEGIN
+#define __SYSDECL_END
+#include "../include/kos/keyboard.h"
+#include "../include/kos/keymap.h"
+local keymap_name = none;
+
+#define KEY_GETROW(x) (((x) >> KEYBOARD_COL_BITS) & ((1 << KEYBOARD_ROW_BITS)-1))
+#define KEY_GETCOL(x) ((x) & ((1 << KEYBOARD_COL_BITS)-1))
+
+
+local keyboard_map = [none]*256;
+function do_map(key,args...) {
+	local a,b,c = none...;
+	if (#args >= 1) a = (uint8_t)args[0];
+	if (#args >= 2) b = (uint8_t)args[1];
+	if (#args >= 3) c = (uint8_t)args[2];
+	keyboard_map[key] = pack(a,b,c);
+}
+
+#define BEGIN
+#define END
+#define KEYMAP(name) keymap_name = name;
+#define MAP(...) do_map(__VA_ARGS__);
+#include FILE
+
+
+
+
+local text = file.writer();
+local key = KEY(0,0);
+local enc = KMP_ENCODING_ASCII;
+local is_first_enc = true;
+local default_enc = KMP_ENCODING_ASCII;
+#define set_enc(x) \
+({ \
+	if (enc != (x)) { \
+		enc = (x); \
+		if (is_first_enc) { \
+			default_enc = enc; \
+			is_first_enc = false; \
+		} else { \
+			PUTC(KMP_OP_SETENC); \
+			PUTC(enc); \
+		} \
+	} \
+	none; \
+})
+
+#if 1
+#define PUTC(x) \
+	({	local _x = (x); \
+		print file.io.stderr: "[%u,%u][%x]" % (KEY_GETROW(current_key),KEY_GETCOL(current_key),_x), repr #x; \
+		text.putc(_x); })
+#else
+#define PUTC(x) text.putc(x)
+#endif
+
+for (local current_key,args: util.enumerate(keyboard_map)) {
+	local a,b,c = args...;
+	if (a is none && b is none && c is none)
+		continue;
+	if (current_key != key) {
+		/* Navigate to the new key. */
+		if (KEY_GETCOL(current_key) == 0) {
+			PUTC(KMP_OP_FSETROW | KEY_GETROW(current_key));
+		} else if (key+1 == current_key) {
+			PUTC(KMP_OP_INCCOL);
+		} else if (key-1 == current_key) {
+			PUTC(KMP_OP_DECCOL);
+		} else if (KEY_GETROW(current_key) == KEY_GETROW(key)) {
+			PUTC(KMP_OP_FSETCOL | KEY_GETCOL(current_key));
+		} else {
+			PUTC(KMP_OP_SETKEY);
+			PUTC(current_key);
+		}
+		key = current_key;
+	}
+
+	if (a >= 'a' && a <= 'z') {
+		PUTC(KMP_OP_FDEFLATIN | (a - 'a'));
+		if (b == 'A'+(a-'a')) b = none;
+		a = none;
+		key = key + 1;
+	} else if (b >= 'A' && b <= 'Z') {
+		PUTC(KMP_OP_FDEFLATIN | (b - 'A'));
+		b = none;
+		key = key + 1;
+	} else if (a >= '1' && a <= ('1'+0x1f)) {
+		PUTC(KMP_OP_FDEFDIGIT | (a - '1'));
+		if (b == '!'+(a-'1')) b = none;
+		a = none;
+		key = key + 1;
+	} else if (b >= '!' && b <= ('!'+0x1f)) {
+		PUTC(KMP_OP_FDEFDIGIT | (b - '!'));
+		b = none;
+		key = key + 1;
+	}
+
+	{
+		local ops = [KMP_OP_SETALTGR,KMP_OP_SETSHIFT,KMP_OP_SETPRESS];
+		if (current_key - 1 == key)
+			ops = [KMP_OP_PSETALTGR,KMP_OP_PSETSHIFT,KMP_OP_PSETPRESS];
+		local chrs = [c,b,a];
+		for (local i,c: util.enumerate(chrs)) {
+			if (c is none) continue;
+			if (c <= 0x7f) {
+				if (enc > KMP_ENCODING_UTF8)
+					set_enc(KMP_ENCODING_UTF8);
+				PUTC(ops[i]);
+				PUTC(c);
+			} else if (c <= 0xff) {
+				if (enc != KMP_ENCODING_ASCII)
+					set_enc(KMP_ENCODING_ASCII);
+				PUTC(ops[i]);
+				PUTC(c);
+			} else {
+				local utf8 = string(string.utf32.chr(c));
+				set_enc(KMP_ENCODING_UTF8);
+				PUTC(ops[i]);
+				if (#utf8 > 4) utf8 = utf8[:4];
+				text.write(utf8);
+			}
+			if (ops[i] == KMP_OP_SETPRESS) {
+				key = key + 1;
+			}
+		}
+	}
+}
+
+/* Terminate the program. */
+text.putc(KMP_OP_STOP);
+
+
+/* Generate the header. */
+local header = file.writer();
+header.putc(KMP_MAG0);
+header.putc(KMP_MAG1);
+header.putc(KMP_MAG2);
+header.putc(KMP_MAG3);
+if (keymap_name is none)
+	keymap_name = "";
+if (#keymap_name > 64)
+	keymap_name = keymap_name[:64];
+if (#keymap_name < 64)
+	keymap_name = keymap_name + "\0";
+header.putc(KMP_VERSION_CURRENT);
+header.putc(8+#keymap_name);
+header.putc(0);
+header.putc(0);
+header.write(keymap_name);
+
+/* Pack together the program. */
+local out = file.io.stdout;
+out.write(header.pack());
+out.putc(default_enc);
+out.putc(0);
+out.write(text.pack());
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

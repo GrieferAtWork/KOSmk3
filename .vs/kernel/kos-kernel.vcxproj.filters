@@ -1,0 +1,720 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <None Include="..\..\src\kernel\i386-kos\kernel.ld">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\.sources" />
+    <None Include="..\..\src\hybrid\i386-kos\except32.S">
+      <Filter>hybrid\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\i386-kos\string32.S">
+      <Filter>hybrid\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\boot32.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\paging32.c.inl">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\interrupt32.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\hw_except32.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\paging32.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\memory-template.c.inl">
+      <Filter>hybrid</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\string-template.c.inl">
+      <Filter>hybrid</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\scheduler32.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\smp32.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\syscall32.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\i386-kos\context32.S">
+      <Filter>hybrid\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\format-printer-impl.c.inl">
+      <Filter>hybrid</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\format-scanner-impl.c.inl">
+      <Filter>hybrid</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\format-hexdump-impl.c.inl">
+      <Filter>hybrid</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\format-quote-impl.c.inl">
+      <Filter>hybrid</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\ushare32.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\src\vm\ushare.S">
+      <Filter>kernel\src\vm</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\device_interrupts32.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\safecall32.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\vm86_32.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="kernel">
+      <UniqueIdentifier>{2c3906b2-01c4-410e-8ce5-9dab52926399}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\i386-kos">
+      <UniqueIdentifier>{768243ad-6bc4-435f-b2f1-64694864cb07}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\include">
+      <UniqueIdentifier>{4f160da0-3641-464e-895f-93ffcd335868}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\include\i386-kos">
+      <UniqueIdentifier>{85f05d6f-857f-4341-bb0a-9b423d5c1a06}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\include\proprietary">
+      <UniqueIdentifier>{f53e5822-4002-4fe6-86d1-209cfa560b23}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="hybrid">
+      <UniqueIdentifier>{602b1160-81f1-4a5c-8fcc-850ac96badff}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="hybrid\i386-kos">
+      <UniqueIdentifier>{43656850-098e-4a60-83df-b3faaa4546b9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\include\sched">
+      <UniqueIdentifier>{d6392ccb-5edb-4b98-aac7-2ff0e98da4f7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\include\kernel">
+      <UniqueIdentifier>{59bfd857-71ad-480b-85cb-d96f36b18bd1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\include\unwind">
+      <UniqueIdentifier>{e7be55c2-7031-42ce-baa5-08075eb6fa65}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\src">
+      <UniqueIdentifier>{6b88d1b3-25fb-4bba-a7cb-0a2022ba8335}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\src\unwind">
+      <UniqueIdentifier>{dff439dc-f268-4cf0-b5e0-8d9b3b6c5951}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\src\kernel">
+      <UniqueIdentifier>{1b4d03ea-b16e-43e6-8deb-b3a3c53bfd18}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\src\sched">
+      <UniqueIdentifier>{11b07b55-acc3-41c1-8ca7-d26cb4b9fc9e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\src\vm">
+      <UniqueIdentifier>{8d33c0e9-e003-43fb-ae27-0bf1d8f191c1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\src\core">
+      <UniqueIdentifier>{646b2a86-fb17-4230-a5b2-cdd781137836}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\include\fs">
+      <UniqueIdentifier>{eb504511-28b7-419f-9805-b4af104f376a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\src\fs">
+      <UniqueIdentifier>{719598fe-31d3-4868-bf9d-dc24186c2b40}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\include\dev">
+      <UniqueIdentifier>{0850f18d-2fa7-48f7-9803-359fdbee870f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\src\dev">
+      <UniqueIdentifier>{3c3e033a-5918-4b65-b4f0-9704ab4e81c5}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\hybrid\string.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\debug.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\boot.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\unwind\eh_frame.c">
+      <Filter>kernel\src\unwind</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\format-printer.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\kernel\debug.c">
+      <Filter>kernel\src\kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\paging.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\gdt.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\tss.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\sched\task.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\interrupt.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\unwind\eh_unwind.c">
+      <Filter>kernel\src\unwind</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\except.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\hw_except.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\i386-kos\except.c">
+      <Filter>hybrid\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\i386-kos\instruction.c">
+      <Filter>hybrid\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\kernel\memory.c">
+      <Filter>kernel\src\kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\kernel\meminfo.c">
+      <Filter>kernel\src\kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\memory.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\multiboot.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\vm\vm.c">
+      <Filter>kernel\src\vm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\kernel\malloc.c">
+      <Filter>kernel\src\kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\vm\loadcore.c">
+      <Filter>kernel\src\vm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\kernel\heap.c">
+      <Filter>kernel\src\kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\scheduler.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\vm\region.c">
+      <Filter>kernel\src\vm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\ipi.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\sched\signal.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\sched\rpc.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\emulator.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\core\elf.c">
+      <Filter>kernel\src\core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\sched\rwlock.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\sched\mutex.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\user.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\device.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\node.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\linker.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\core\fat.c">
+      <Filter>kernel\src\core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\driver.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\random.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\vm_kernel.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\smp.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\apic.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\sched\semaphore.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\kernel\mall.c">
+      <Filter>kernel\src\kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\syscall.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\double_fault.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\fpu.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\path.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\file.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\sched\task_weakref.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\handle_weak.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\handle.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\system.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\init.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\sched\userstack.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\sched\posix_signals.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\posix_signals.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\sched\group.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\task_clone.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\sched\pid.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\vm\futex.c">
+      <Filter>kernel\src\vm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\sched\userthread.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\rtl.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\walk.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\vm\system.c">
+      <Filter>kernel\src\vm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\kernel\sysconf.c">
+      <Filter>kernel\src\kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\recent_modules.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\ctype.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\vm\corebase.c">
+      <Filter>kernel\src\vm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\kernel\kernctl.c">
+      <Filter>kernel\src\kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\format-scanner.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\sched\unshare.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\vio.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\sysenter.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\cpuid.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\ringbuffer.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\pipe.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\ushare.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\vm\ushare.c">
+      <Filter>kernel\src\vm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\kernel\system.c">
+      <Filter>kernel\src\kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\unwind\linker.c">
+      <Filter>kernel\src\unwind</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\unwind\debug_line.c">
+      <Filter>kernel\src\unwind</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\syscall-table.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\kernel\syscall.c">
+      <Filter>kernel\src\kernel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\vm\environ.c">
+      <Filter>kernel\src\vm</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\bound.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\kernel\async_signal.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\dev\wall.c">
+      <Filter>kernel\src\dev</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\dev\keyboard.c">
+      <Filter>kernel\src\dev</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\dev\ps2.c">
+      <Filter>kernel\src\dev</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\core\ata.c">
+      <Filter>kernel\src\core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\except_errno.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\canonbuffer.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\dev\tty.c">
+      <Filter>kernel\src\dev</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hybrid\except_print.c">
+      <Filter>hybrid</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\safecall.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\dev\pty.c">
+      <Filter>kernel\src\dev</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\vm86.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\linker.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\ramfs.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\dev\keymap.c">
+      <Filter>kernel\src\dev</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\wordbuffer.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\dev\ps2_keyboard.c">
+      <Filter>kernel\src\dev</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\dev\keymap_default.c">
+      <Filter>kernel\src\dev</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">
+      <Filter>kernel\include\proprietary</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot.h">
+      <Filter>kernel\include\proprietary</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\task.h">
+      <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\sections.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\pertask.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\debug.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\unwind\eh_frame.h">
+      <Filter>kernel\include\unwind</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\debug.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\paging.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\paging.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\paging32.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\gdt.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\idt_pointer.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\tss.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\interrupt.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\interrupt.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\pic.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\memory.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\memory.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\vm.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\mutex.h">
+      <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\malloc.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\heap.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\ipi.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\signal.h">
+      <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\i386-kos\emulator.h">
+      <Filter>kernel\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\scheduler.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\fs\file.h">
+      <Filter>kernel\include\fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\fs\node.h">
+      <Filter>kernel\include\fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\rwlock.h">
+      <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\fs\device.h">
+      <Filter>kernel\include\fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\user.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\user.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\elf.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\fs\driver.h">
+      <Filter>kernel\include\fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\fs\linker.h">
+      <Filter>kernel\include\fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\src\core\fat.h">
+      <Filter>kernel\src\core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\i386-kos\scheduler.h">
+      <Filter>kernel\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\apic.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\smp.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\semaphore.h">
+      <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\pit.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\fs\path.h">
+      <Filter>kernel\include\fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\syscall.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\syscall.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\fpu.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\unwind.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\fs\handle.h">
+      <Filter>kernel\include\fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\taskref.h">
+      <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\userstack.h">
+      <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\posix_signals.h">
+      <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\posix_signals.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\group.h">
+      <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\pid.h">
+      <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\userthread.h">
+      <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\hybrid\hybrid.h">
+      <Filter>hybrid</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\sysconf.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\stat.h">
+      <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\cpuid.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\fs\ringbuffer.h">
+      <Filter>kernel\include\fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\fs\pipe.h">
+      <Filter>kernel\include\fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\ushare.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\version.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\unwind\linker.h">
+      <Filter>kernel\include\unwind</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\driver.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\unwind\debug_line.h">
+      <Filter>kernel\include\unwind</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\environ.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\vm.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\async_signal.h">
+      <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\dev\wall.h">
+      <Filter>kernel\include\dev</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\dev\tty.h">
+      <Filter>kernel\include\dev</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\dev\keyboard.h">
+      <Filter>kernel\include\dev</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\profile.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\dev\ps2.h">
+      <Filter>kernel\include\dev</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\devconfig.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\dev\devconfig.h">
+      <Filter>kernel\include\dev</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\src\core\ata.h">
+      <Filter>kernel\src\core</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\dev\ps2-program.h">
+      <Filter>kernel\include\dev</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\fs\canonbuffer.h">
+      <Filter>kernel\include\fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\dev\pty.h">
+      <Filter>kernel\include\dev</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\vm86.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\fs\iomode.h">
+      <Filter>kernel\include\fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\i386-kos\posix_signals.h">
+      <Filter>kernel\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\fs\ramfs.h">
+      <Filter>kernel\include\fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\dev\keymap.h">
+      <Filter>kernel\include\dev</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\fs\wordbuffer.h">
+      <Filter>kernel\include\fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\dev\ps2_keyboard.h">
+      <Filter>kernel\include\dev</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\src\dev\ps2_keymaps.h">
+      <Filter>kernel\src\dev</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

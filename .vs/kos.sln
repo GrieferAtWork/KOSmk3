@@ -1,0 +1,961 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.31101.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kos-kernel", "kernel\kos-kernel.vcxproj", "{86D226C5-EF62-4562-AC06-E6A753DFA7CF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "include", "include", "{EA6EEC02-606F-4004-8FB6-DBFA474B9157}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\__stdcxx.h = ..\include\__stdcxx.h
+		..\include\__stdinc.h = ..\include\__stdinc.h
+		..\include\_ansi.h = ..\include\_ansi.h
+		..\include\alloca.h = ..\include\alloca.h
+		..\include\assert.h = ..\include\assert.h
+		..\include\atomic = ..\include\atomic
+		..\include\byteswap.h = ..\include\byteswap.h
+		..\include\ConcurrencySal.h = ..\include\ConcurrencySal.h
+		..\include\ctype.h = ..\include\ctype.h
+		..\include\direct.h = ..\include\direct.h
+		..\include\dirent.h = ..\include\dirent.h
+		..\include\dlfcn.h = ..\include\dlfcn.h
+		..\include\dos.h = ..\include\dos.h
+		..\include\elf.h = ..\include\elf.h
+		..\include\endian.h = ..\include\endian.h
+		..\include\err.h = ..\include\err.h
+		..\include\errno.h = ..\include\errno.h
+		..\include\error.h = ..\include\error.h
+		..\include\except.h = ..\include\except.h
+		..\include\exception = ..\include\exception
+		..\include\fcntl.h = ..\include\fcntl.h
+		..\include\features.h = ..\include\features.h
+		..\include\float.h = ..\include\float.h
+		..\include\fnmatch.h = ..\include\fnmatch.h
+		..\include\format-printer.h = ..\include\format-printer.h
+		..\include\getopt.h = ..\include\getopt.h
+		..\include\grp.h = ..\include\grp.h
+		..\include\inttypes.h = ..\include\inttypes.h
+		..\include\io.h = ..\include\io.h
+		..\include\langinfo.h = ..\include\langinfo.h
+		..\include\libgen.h = ..\include\libgen.h
+		..\include\limits.h = ..\include\limits.h
+		..\include\locale.h = ..\include\locale.h
+		..\include\malloc.h = ..\include\malloc.h
+		..\include\math.h = ..\include\math.h
+		..\include\mntent.h = ..\include\mntent.h
+		..\include\netdb.h = ..\include\netdb.h
+		..\include\new = ..\include\new
+		..\include\newlib.h = ..\include\newlib.h
+		..\include\nl_types.h = ..\include\nl_types.h
+		..\include\paths.h = ..\include\paths.h
+		..\include\process.h = ..\include\process.h
+		..\include\pthread.h = ..\include\pthread.h
+		..\include\pty.h = ..\include\pty.h
+		..\include\pwd.h = ..\include\pwd.h
+		..\include\regex.h = ..\include\regex.h
+		..\include\sal.h = ..\include\sal.h
+		..\include\sched.h = ..\include\sched.h
+		..\include\setjmp.h = ..\include\setjmp.h
+		..\include\signal.h = ..\include\signal.h
+		..\include\stdarg.h = ..\include\stdarg.h
+		..\include\stdatomic.h = ..\include\stdatomic.h
+		..\include\stddef.h = ..\include\stddef.h
+		..\include\stdint.h = ..\include\stdint.h
+		..\include\stdio.h = ..\include\stdio.h
+		..\include\stdlib.h = ..\include\stdlib.h
+		..\include\string.h = ..\include\string.h
+		..\include\strings.h = ..\include\strings.h
+		..\include\syslog.h = ..\include\syslog.h
+		..\include\termio.h = ..\include\termio.h
+		..\include\termios.h = ..\include\termios.h
+		..\include\time.h = ..\include\time.h
+		..\include\type_traits = ..\include\type_traits
+		..\include\uchar.h = ..\include\uchar.h
+		..\include\unicode.h = ..\include\unicode.h
+		..\include\unistd.h = ..\include\unistd.h
+		..\include\utime.h = ..\include\utime.h
+		..\include\utmp.h = ..\include\utmp.h
+		..\include\vadefs.h = ..\include\vadefs.h
+		..\include\values.h = ..\include\values.h
+		..\include\wchar.h = ..\include\wchar.h
+		..\include\wctype.h = ..\include\wctype.h
+		..\include\xlocale.h = ..\include\xlocale.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "hybrid", "hybrid", "{17E7DCFD-B8C0-40D3-A9EC-19CD32E968FB}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\hybrid\__atomic-gasm.h = ..\include\hybrid\__atomic-gasm.h
+		..\include\hybrid\__atomic-msvc.h = ..\include\hybrid\__atomic-msvc.h
+		..\include\hybrid\__atomic.h = ..\include\hybrid\__atomic.h
+		..\include\hybrid\align.h = ..\include\hybrid\align.h
+		..\include\hybrid\alloca.h = ..\include\hybrid\alloca.h
+		..\include\hybrid\asm.h = ..\include\hybrid\asm.h
+		..\include\hybrid\atomic.h = ..\include\hybrid\atomic.h
+		..\include\hybrid\bitset.h = ..\include\hybrid\bitset.h
+		..\include\hybrid\byteorder.h = ..\include\hybrid\byteorder.h
+		..\include\hybrid\byteswap.h = ..\include\hybrid\byteswap.h
+		..\include\hybrid\check.h = ..\include\hybrid\check.h
+		..\include\hybrid\compiler.h = ..\include\hybrid\compiler.h
+		..\include\hybrid\critical.h = ..\include\hybrid\critical.h
+		..\include\hybrid\debug.h = ..\include\hybrid\debug.h
+		..\include\hybrid\debuginfo.h = ..\include\hybrid\debuginfo.h
+		..\include\hybrid\floatcore.h = ..\include\hybrid\floatcore.h
+		..\include\hybrid\guid.h = ..\include\hybrid\guid.h
+		..\include\hybrid\host.h = ..\include\hybrid\host.h
+		..\include\hybrid\limitcore.h = ..\include\hybrid\limitcore.h
+		..\include\hybrid\limits.h = ..\include\hybrid\limits.h
+		..\include\hybrid\malloc.h = ..\include\hybrid\malloc.h
+		..\include\hybrid\minmax.h = ..\include\hybrid\minmax.h
+		..\include\hybrid\panic.h = ..\include\hybrid\panic.h
+		..\include\hybrid\section.h = ..\include\hybrid\section.h
+		..\include\hybrid\string.h = ..\include\hybrid\string.h
+		..\include\hybrid\swap.h = ..\include\hybrid\swap.h
+		..\include\hybrid\timespec.h = ..\include\hybrid\timespec.h
+		..\include\hybrid\timeutil.h = ..\include\hybrid\timeutil.h
+		..\include\hybrid\timeval.h = ..\include\hybrid\timeval.h
+		..\include\hybrid\traceback.h = ..\include\hybrid\traceback.h
+		..\include\hybrid\typecore.h = ..\include\hybrid\typecore.h
+		..\include\hybrid\wordbits.h = ..\include\hybrid\wordbits.h
+		..\include\hybrid\xch.h = ..\include\hybrid\xch.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sync", "sync", "{E01094E8-8C47-4D1B-8A6B-3F6F3D1D2967}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\hybrid\sync\atomic-owner-rwlock.h = ..\include\hybrid\sync\atomic-owner-rwlock.h
+		..\include\hybrid\sync\atomic-rwlock.h = ..\include\hybrid\sync\atomic-rwlock.h
+		..\include\hybrid\sync\atomic-rwptr.h = ..\include\hybrid\sync\atomic-rwptr.h
+		..\include\hybrid\sync\threadid.h = ..\include\hybrid\sync\threadid.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sched", "sched", "{5753448F-B845-42C3-85BB-4CD4E90CB3EE}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\hybrid\sched\crit.h = ..\include\hybrid\sched\crit.h
+		..\include\hybrid\sched\yield.h = ..\include\hybrid\sched\yield.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "list", "list", "{FCDDC803-B6DC-4569-8EFE-29B98E2143BD}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\hybrid\list\atree-abi.h = ..\include\hybrid\list\atree-abi.h
+		..\include\hybrid\list\atree.h = ..\include\hybrid\list\atree.h
+		..\include\hybrid\list\brtree.h = ..\include\hybrid\list\brtree.h
+		..\include\hybrid\list\btree.h = ..\include\hybrid\list\btree.h
+		..\include\hybrid\list\list.h = ..\include\hybrid\list\list.h
+		..\include\hybrid\list\ring.h = ..\include\hybrid\list\ring.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "arch", "arch", "{216EA1E4-5CAC-420E-8085-F1689E0DD8FF}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\hybrid\arch\cpu.h = ..\include\hybrid\arch\cpu.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "linux", "linux", "{61261588-8EFF-4B0A-90AE-7AEF2A7DD4DB}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\linux\fs.h = ..\include\linux\fs.h
+		..\include\linux\futex.h = ..\include\linux\futex.h
+		..\include\linux\if_arp.h = ..\include\linux\if_arp.h
+		..\include\linux\if_ether.h = ..\include\linux\if_ether.h
+		..\include\linux\if_fddi.h = ..\include\linux\if_fddi.h
+		..\include\linux\ioctl.h = ..\include\linux\ioctl.h
+		..\include\linux\limits.h = ..\include\linux\limits.h
+		..\include\linux\msdos_fs.h = ..\include\linux\msdos_fs.h
+		..\include\linux\param.h = ..\include\linux\param.h
+		..\include\linux\posix_types.h = ..\include\linux\posix_types.h
+		..\include\linux\sysinfo.h = ..\include\linux\sysinfo.h
+		..\include\linux\types.h = ..\include\linux\types.h
+		..\include\linux\unistd.h = ..\include\linux\unistd.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kos", "kos", "{AF58F0E7-5058-4D46-B809-727D330670C2}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\kos\bound.h = ..\include\kos\bound.h
+		..\include\kos\context.h = ..\include\kos\context.h
+		..\include\kos\dl.h = ..\include\kos\dl.h
+		..\include\kos\environ.h = ..\include\kos\environ.h
+		..\include\kos\except.h = ..\include\kos\except.h
+		..\include\kos\fcntl.h = ..\include\kos\fcntl.h
+		..\include\kos\gc.h = ..\include\kos\gc.h
+		..\include\kos\heap.h = ..\include\kos\heap.h
+		..\include\kos\intrin.h = ..\include\kos\intrin.h
+		..\include\kos\kdev_t.h = ..\include\kos\kdev_t.h
+		..\include\kos\kernctl.h = ..\include\kos\kernctl.h
+		..\include\kos\keyboard.h = ..\include\kos\keyboard.h
+		..\include\kos\keyboard_ioctl.h = ..\include\kos\keyboard_ioctl.h
+		..\include\kos\keymap.h = ..\include\kos\keymap.h
+		..\include\kos\safecall.h = ..\include\kos\safecall.h
+		..\include\kos\thread.h = ..\include\kos\thread.h
+		..\include\kos\types.h = ..\include\kos\types.h
+		..\include\kos\ushare.h = ..\include\kos\ushare.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "asm-generic", "asm-generic", "{4ECF509D-E819-4FE3-8323-A7DCF338FCCA}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\asm-generic\bitsperlong.h = ..\include\asm-generic\bitsperlong.h
+		..\include\asm-generic\int-l64.h = ..\include\asm-generic\int-l64.h
+		..\include\asm-generic\int-ll64.h = ..\include\asm-generic\int-ll64.h
+		..\include\asm-generic\ioctl.h = ..\include\asm-generic\ioctl.h
+		..\include\asm-generic\ioctls.h = ..\include\asm-generic\ioctls.h
+		..\include\asm-generic\param.h = ..\include\asm-generic\param.h
+		..\include\asm-generic\posix_types.h = ..\include\asm-generic\posix_types.h
+		..\include\asm-generic\socket.h = ..\include\asm-generic\socket.h
+		..\include\asm-generic\sockios.h = ..\include\asm-generic\sockios.h
+		..\include\asm-generic\string.h = ..\include\asm-generic\string.h
+		..\include\asm-generic\types.h = ..\include\asm-generic\types.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "netinet", "netinet", "{B1DE2741-EF85-417A-9A10-3D9777B97DFA}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\netinet\ether.h = ..\include\netinet\ether.h
+		..\include\netinet\icmp6.h = ..\include\netinet\icmp6.h
+		..\include\netinet\if_ether.h = ..\include\netinet\if_ether.h
+		..\include\netinet\if_fddi.h = ..\include\netinet\if_fddi.h
+		..\include\netinet\if_tr.h = ..\include\netinet\if_tr.h
+		..\include\netinet\igmp.h = ..\include\netinet\igmp.h
+		..\include\netinet\in.h = ..\include\netinet\in.h
+		..\include\netinet\in_systm.h = ..\include\netinet\in_systm.h
+		..\include\netinet\ip.h = ..\include\netinet\ip.h
+		..\include\netinet\ip6.h = ..\include\netinet\ip6.h
+		..\include\netinet\ip_icmp.h = ..\include\netinet\ip_icmp.h
+		..\include\netinet\tcp.h = ..\include\netinet\tcp.h
+		..\include\netinet\udp.h = ..\include\netinet\udp.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "rpc", "rpc", "{9888FCDB-DB6E-4F12-B11E-6DFCDDF68E8C}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\rpc\netdb.h = ..\include\rpc\netdb.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "arpa", "arpa", "{E05EDBB5-09DA-4CB4-B6C7-D85222B2BE0A}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\arpa\inet.h = ..\include\arpa\inet.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "net", "net", "{02CDEABE-15CC-4964-A331-C3B661CF57EF}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\net\if.h = ..\include\net\if.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "libc", "libc", "{C7A7D468-3AA5-4DF8-B5D7-F14F23D76C69}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\libc\ctype.h = ..\include\libc\ctype.h
+		..\include\libc\format-printer.h = ..\include\libc\format-printer.h
+		..\include\libc\string.h = ..\include\libc\string.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "i386-kos", "i386-kos", "{0D640039-A905-4491-9709-DEEC9AAC784E}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\i386-kos\a.out.h = ..\include\i386-kos\a.out.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "asm", "asm", "{E72D1B89-7AE0-456B-A657-BCEA5D9F2BC0}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\i386-kos\asm\bitsperlong.h = ..\include\i386-kos\asm\bitsperlong.h
+		..\include\i386-kos\asm\cfi.h = ..\include\i386-kos\asm\cfi.h
+		..\include\i386-kos\asm\cpu-flags.h = ..\include\i386-kos\asm\cpu-flags.h
+		..\include\i386-kos\asm\instx.h = ..\include\i386-kos\asm\instx.h
+		..\include\i386-kos\asm\ioctl.h = ..\include\i386-kos\asm\ioctl.h
+		..\include\i386-kos\asm\ioctls.h = ..\include\i386-kos\asm\ioctls.h
+		..\include\i386-kos\asm\param.h = ..\include\i386-kos\asm\param.h
+		..\include\i386-kos\asm\posix_types.h = ..\include\i386-kos\asm\posix_types.h
+		..\include\i386-kos\asm\posix_types_32.h = ..\include\i386-kos\asm\posix_types_32.h
+		..\include\i386-kos\asm\posix_types_64.h = ..\include\i386-kos\asm\posix_types_64.h
+		..\include\i386-kos\asm\posix_types_x32.h = ..\include\i386-kos\asm\posix_types_x32.h
+		..\include\i386-kos\asm\registers.h = ..\include\i386-kos\asm\registers.h
+		..\include\i386-kos\asm\socket.h = ..\include\i386-kos\asm\socket.h
+		..\include\i386-kos\asm\sockios.h = ..\include\i386-kos\asm\sockios.h
+		..\include\i386-kos\asm\string.h = ..\include\i386-kos\asm\string.h
+		..\include\i386-kos\asm\syscallno.ci = ..\include\i386-kos\asm\syscallno.ci
+		..\include\i386-kos\asm\types.h = ..\include\i386-kos\asm\types.h
+		..\include\i386-kos\asm\unistd.h = ..\include\i386-kos\asm\unistd.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "bits", "bits", "{3EAD7059-08AC-472C-9AB5-432CE93D2545}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\i386-kos\bits\byteswap.h = ..\include\i386-kos\bits\byteswap.h
+		..\include\i386-kos\bits\confname.h = ..\include\i386-kos\bits\confname.h
+		..\include\i386-kos\bits\dirent.h = ..\include\i386-kos\bits\dirent.h
+		..\include\i386-kos\bits\dlfcn.h = ..\include\i386-kos\bits\dlfcn.h
+		..\include\i386-kos\bits\dos-ctype.h = ..\include\i386-kos\bits\dos-ctype.h
+		..\include\i386-kos\bits\dos-errno.h = ..\include\i386-kos\bits\dos-errno.h
+		..\include\i386-kos\bits\elf-types.h = ..\include\i386-kos\bits\elf-types.h
+		..\include\i386-kos\bits\elf.h = ..\include\i386-kos\bits\elf.h
+		..\include\i386-kos\bits\endian.h = ..\include\i386-kos\bits\endian.h
+		..\include\i386-kos\bits\environments.h = ..\include\i386-kos\bits\environments.h
+		..\include\i386-kos\bits\fcntl-linux.h = ..\include\i386-kos\bits\fcntl-linux.h
+		..\include\i386-kos\bits\fcntl.h = ..\include\i386-kos\bits\fcntl.h
+		..\include\i386-kos\bits\huge_val.h = ..\include\i386-kos\bits\huge_val.h
+		..\include\i386-kos\bits\huge_valf.h = ..\include\i386-kos\bits\huge_valf.h
+		..\include\i386-kos\bits\huge_vall.h = ..\include\i386-kos\bits\huge_vall.h
+		..\include\i386-kos\bits\in.h = ..\include\i386-kos\bits\in.h
+		..\include\i386-kos\bits\inf.h = ..\include\i386-kos\bits\inf.h
+		..\include\i386-kos\bits\io-file.h = ..\include\i386-kos\bits\io-file.h
+		..\include\i386-kos\bits\ioctl-types.h = ..\include\i386-kos\bits\ioctl-types.h
+		..\include\i386-kos\bits\ioctls.h = ..\include\i386-kos\bits\ioctls.h
+		..\include\i386-kos\bits\ipc.h = ..\include\i386-kos\bits\ipc.h
+		..\include\i386-kos\bits\ipctypes.h = ..\include\i386-kos\bits\ipctypes.h
+		..\include\i386-kos\bits\libm-simd-decl-stubs.h = ..\include\i386-kos\bits\libm-simd-decl-stubs.h
+		..\include\i386-kos\bits\local_lim.h = ..\include\i386-kos\bits\local_lim.h
+		..\include\i386-kos\bits\locale.h = ..\include\i386-kos\bits\locale.h
+		..\include\i386-kos\bits\math-vector.h = ..\include\i386-kos\bits\math-vector.h
+		..\include\i386-kos\bits\mathcalls.h = ..\include\i386-kos\bits\mathcalls.h
+		..\include\i386-kos\bits\mathdef.h = ..\include\i386-kos\bits\mathdef.h
+		..\include\i386-kos\bits\mbstate.h = ..\include\i386-kos\bits\mbstate.h
+		..\include\i386-kos\bits\nan.h = ..\include\i386-kos\bits\nan.h
+		..\include\i386-kos\bits\netdb.h = ..\include\i386-kos\bits\netdb.h
+		..\include\i386-kos\bits\param.h = ..\include\i386-kos\bits\param.h
+		..\include\i386-kos\bits\poll.h = ..\include\i386-kos\bits\poll.h
+		..\include\i386-kos\bits\posix1_lim.h = ..\include\i386-kos\bits\posix1_lim.h
+		..\include\i386-kos\bits\posix2_lim.h = ..\include\i386-kos\bits\posix2_lim.h
+		..\include\i386-kos\bits\posix_opt.h = ..\include\i386-kos\bits\posix_opt.h
+		..\include\i386-kos\bits\pthreadtypes.h = ..\include\i386-kos\bits\pthreadtypes.h
+		..\include\i386-kos\bits\resource.h = ..\include\i386-kos\bits\resource.h
+		..\include\i386-kos\bits\rotate.h = ..\include\i386-kos\bits\rotate.h
+		..\include\i386-kos\bits\sched.h = ..\include\i386-kos\bits\sched.h
+		..\include\i386-kos\bits\select.h = ..\include\i386-kos\bits\select.h
+		..\include\i386-kos\bits\setjmp.h = ..\include\i386-kos\bits\setjmp.h
+		..\include\i386-kos\bits\shm.h = ..\include\i386-kos\bits\shm.h
+		..\include\i386-kos\bits\sigaction.h = ..\include\i386-kos\bits\sigaction.h
+		..\include\i386-kos\bits\sigcontext.h = ..\include\i386-kos\bits\sigcontext.h
+		..\include\i386-kos\bits\sigevent.h = ..\include\i386-kos\bits\sigevent.h
+		..\include\i386-kos\bits\siginfo.h = ..\include\i386-kos\bits\siginfo.h
+		..\include\i386-kos\bits\signalfd.h = ..\include\i386-kos\bits\signalfd.h
+		..\include\i386-kos\bits\signum.h = ..\include\i386-kos\bits\signum.h
+		..\include\i386-kos\bits\sigset.h = ..\include\i386-kos\bits\sigset.h
+		..\include\i386-kos\bits\sigstack.h = ..\include\i386-kos\bits\sigstack.h
+		..\include\i386-kos\bits\sigthread.h = ..\include\i386-kos\bits\sigthread.h
+		..\include\i386-kos\bits\sockaddr.h = ..\include\i386-kos\bits\sockaddr.h
+		..\include\i386-kos\bits\socket.h = ..\include\i386-kos\bits\socket.h
+		..\include\i386-kos\bits\socket_type.h = ..\include\i386-kos\bits\socket_type.h
+		..\include\i386-kos\bits\stat.h = ..\include\i386-kos\bits\stat.h
+		..\include\i386-kos\bits\stdio_lim.h = ..\include\i386-kos\bits\stdio_lim.h
+		..\include\i386-kos\bits\syscall.h = ..\include\i386-kos\bits\syscall.h
+		..\include\i386-kos\bits\syslog-path.h = ..\include\i386-kos\bits\syslog-path.h
+		..\include\i386-kos\bits\termios.h = ..\include\i386-kos\bits\termios.h
+		..\include\i386-kos\bits\time.h = ..\include\i386-kos\bits\time.h
+		..\include\i386-kos\bits\types.h = ..\include\i386-kos\bits\types.h
+		..\include\i386-kos\bits\uio.h = ..\include\i386-kos\bits\uio.h
+		..\include\i386-kos\bits\utsname.h = ..\include\i386-kos\bits\utsname.h
+		..\include\i386-kos\bits\waitflags.h = ..\include\i386-kos\bits\waitflags.h
+		..\include\i386-kos\bits\waitstatus.h = ..\include\i386-kos\bits\waitstatus.h
+		..\include\i386-kos\bits\wchar.h = ..\include\i386-kos\bits\wchar.h
+		..\include\i386-kos\bits\wctype.h = ..\include\i386-kos\bits\wctype.h
+		..\include\i386-kos\bits\wordsize.h = ..\include\i386-kos\bits\wordsize.h
+		..\include\i386-kos\bits\xopen_lim.h = ..\include\i386-kos\bits\xopen_lim.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sys", "sys", "{F7629A83-1039-48AE-A64B-247F52B17877}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\i386-kos\sys\bitypes.h = ..\include\i386-kos\sys\bitypes.h
+		..\include\i386-kos\sys\cdefs.h = ..\include\i386-kos\sys\cdefs.h
+		..\include\i386-kos\sys\dir.h = ..\include\i386-kos\sys\dir.h
+		..\include\i386-kos\sys\errno.h = ..\include\i386-kos\sys\errno.h
+		..\include\i386-kos\sys\fcntl.h = ..\include\i386-kos\sys\fcntl.h
+		..\include\i386-kos\sys\io.h = ..\include\i386-kos\sys\io.h
+		..\include\i386-kos\sys\ioctl.h = ..\include\i386-kos\sys\ioctl.h
+		..\include\i386-kos\sys\ipc.h = ..\include\i386-kos\sys\ipc.h
+		..\include\i386-kos\sys\mman.h = ..\include\i386-kos\sys\mman.h
+		..\include\i386-kos\sys\mount.h = ..\include\i386-kos\sys\mount.h
+		..\include\i386-kos\sys\param.h = ..\include\i386-kos\sys\param.h
+		..\include\i386-kos\sys\poll.h = ..\include\i386-kos\sys\poll.h
+		..\include\i386-kos\sys\resource.h = ..\include\i386-kos\sys\resource.h
+		..\include\i386-kos\sys\select.h = ..\include\i386-kos\sys\select.h
+		..\include\i386-kos\sys\shm.h = ..\include\i386-kos\sys\shm.h
+		..\include\i386-kos\sys\signal.h = ..\include\i386-kos\sys\signal.h
+		..\include\i386-kos\sys\socket.h = ..\include\i386-kos\sys\socket.h
+		..\include\i386-kos\sys\socketvar.h = ..\include\i386-kos\sys\socketvar.h
+		..\include\i386-kos\sys\stat.h = ..\include\i386-kos\sys\stat.h
+		..\include\i386-kos\sys\swap.h = ..\include\i386-kos\sys\swap.h
+		..\include\i386-kos\sys\syscall.h = ..\include\i386-kos\sys\syscall.h
+		..\include\i386-kos\sys\sysinfo.h = ..\include\i386-kos\sys\sysinfo.h
+		..\include\i386-kos\sys\syslog.h = ..\include\i386-kos\sys\syslog.h
+		..\include\i386-kos\sys\sysmacros.h = ..\include\i386-kos\sys\sysmacros.h
+		..\include\i386-kos\sys\termios.h = ..\include\i386-kos\sys\termios.h
+		..\include\i386-kos\sys\time.h = ..\include\i386-kos\sys\time.h
+		..\include\i386-kos\sys\timeb.h = ..\include\i386-kos\sys\timeb.h
+		..\include\i386-kos\sys\times.h = ..\include\i386-kos\sys\times.h
+		..\include\i386-kos\sys\ttydefaults.h = ..\include\i386-kos\sys\ttydefaults.h
+		..\include\i386-kos\sys\types.h = ..\include\i386-kos\sys\types.h
+		..\include\i386-kos\sys\ucontext.h = ..\include\i386-kos\sys\ucontext.h
+		..\include\i386-kos\sys\uio.h = ..\include\i386-kos\sys\uio.h
+		..\include\i386-kos\sys\un.h = ..\include\i386-kos\sys\un.h
+		..\include\i386-kos\sys\unistd.h = ..\include\i386-kos\sys\unistd.h
+		..\include\i386-kos\sys\utime.h = ..\include\i386-kos\sys\utime.h
+		..\include\i386-kos\sys\utsname.h = ..\include\i386-kos\sys\utsname.h
+		..\include\i386-kos\sys\wait.h = ..\include\i386-kos\sys\wait.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "compiler", "compiler", "{FA72A04B-1E09-4214-88FA-A21B61173886}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\compiler\c++.h = ..\include\compiler\c++.h
+		..\include\compiler\c.h = ..\include\compiler\c.h
+		..\include\compiler\gcc.h = ..\include\compiler\gcc.h
+		..\include\compiler\generic.h = ..\include\compiler\generic.h
+		..\include\compiler\intellisense.h = ..\include\compiler\intellisense.h
+		..\include\compiler\msvc.h = ..\include\compiler\msvc.h
+		..\include\compiler\pp-generic.h = ..\include\compiler\pp-generic.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "arm-kos", "arm-kos", "{985BD14A-CD5A-4A68-B131-A3691BCA62CF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "asm", "asm", "{0DA22AB6-242E-4446-8DE9-CC22C3752ED2}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\arm-kos\asm\bitsperlong.h = ..\include\arm-kos\asm\bitsperlong.h
+		..\include\arm-kos\asm\ioctl.h = ..\include\arm-kos\asm\ioctl.h
+		..\include\arm-kos\asm\ioctls.h = ..\include\arm-kos\asm\ioctls.h
+		..\include\arm-kos\asm\param.h = ..\include\arm-kos\asm\param.h
+		..\include\arm-kos\asm\posix_types.h = ..\include\arm-kos\asm\posix_types.h
+		..\include\arm-kos\asm\registers.h = ..\include\arm-kos\asm\registers.h
+		..\include\arm-kos\asm\sigcontext.h = ..\include\arm-kos\asm\sigcontext.h
+		..\include\arm-kos\asm\socket.h = ..\include\arm-kos\asm\socket.h
+		..\include\arm-kos\asm\sockios.h = ..\include\arm-kos\asm\sockios.h
+		..\include\arm-kos\asm\string.h = ..\include\arm-kos\asm\string.h
+		..\include\arm-kos\asm\syscallno.ci = ..\include\arm-kos\asm\syscallno.ci
+		..\include\arm-kos\asm\types.h = ..\include\arm-kos\asm\types.h
+		..\include\arm-kos\asm\unistd.h = ..\include\arm-kos\asm\unistd.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "bits", "bits", "{33C0798A-C58B-4074-9D04-703EE0B9DC7C}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\arm-kos\bits\byteswap.h = ..\include\arm-kos\bits\byteswap.h
+		..\include\arm-kos\bits\confname.h = ..\include\arm-kos\bits\confname.h
+		..\include\arm-kos\bits\dirent.h = ..\include\arm-kos\bits\dirent.h
+		..\include\arm-kos\bits\dlfcn.h = ..\include\arm-kos\bits\dlfcn.h
+		..\include\arm-kos\bits\elf-types.h = ..\include\arm-kos\bits\elf-types.h
+		..\include\arm-kos\bits\elf.h = ..\include\arm-kos\bits\elf.h
+		..\include\arm-kos\bits\endian.h = ..\include\arm-kos\bits\endian.h
+		..\include\arm-kos\bits\environments.h = ..\include\arm-kos\bits\environments.h
+		..\include\arm-kos\bits\fcntl-linux.h = ..\include\arm-kos\bits\fcntl-linux.h
+		..\include\arm-kos\bits\fcntl.h = ..\include\arm-kos\bits\fcntl.h
+		..\include\arm-kos\bits\in.h = ..\include\arm-kos\bits\in.h
+		..\include\arm-kos\bits\io-file.h = ..\include\arm-kos\bits\io-file.h
+		..\include\arm-kos\bits\ioctl-types.h = ..\include\arm-kos\bits\ioctl-types.h
+		..\include\arm-kos\bits\ioctls.h = ..\include\arm-kos\bits\ioctls.h
+		..\include\arm-kos\bits\local_lim.h = ..\include\arm-kos\bits\local_lim.h
+		..\include\arm-kos\bits\locale.h = ..\include\arm-kos\bits\locale.h
+		..\include\arm-kos\bits\mbstate.h = ..\include\arm-kos\bits\mbstate.h
+		..\include\arm-kos\bits\netdb.h = ..\include\arm-kos\bits\netdb.h
+		..\include\arm-kos\bits\param.h = ..\include\arm-kos\bits\param.h
+		..\include\arm-kos\bits\poll.h = ..\include\arm-kos\bits\poll.h
+		..\include\arm-kos\bits\posix1_lim.h = ..\include\arm-kos\bits\posix1_lim.h
+		..\include\arm-kos\bits\posix2_lim.h = ..\include\arm-kos\bits\posix2_lim.h
+		..\include\arm-kos\bits\posix_opt.h = ..\include\arm-kos\bits\posix_opt.h
+		..\include\arm-kos\bits\pthreadtypes.h = ..\include\arm-kos\bits\pthreadtypes.h
+		..\include\arm-kos\bits\resource.h = ..\include\arm-kos\bits\resource.h
+		..\include\arm-kos\bits\rotate.h = ..\include\arm-kos\bits\rotate.h
+		..\include\arm-kos\bits\sched.h = ..\include\arm-kos\bits\sched.h
+		..\include\arm-kos\bits\select.h = ..\include\arm-kos\bits\select.h
+		..\include\arm-kos\bits\setjmp.h = ..\include\arm-kos\bits\setjmp.h
+		..\include\arm-kos\bits\sigaction.h = ..\include\arm-kos\bits\sigaction.h
+		..\include\arm-kos\bits\sigcontext.h = ..\include\arm-kos\bits\sigcontext.h
+		..\include\arm-kos\bits\sigevent.h = ..\include\arm-kos\bits\sigevent.h
+		..\include\arm-kos\bits\siginfo.h = ..\include\arm-kos\bits\siginfo.h
+		..\include\arm-kos\bits\signum.h = ..\include\arm-kos\bits\signum.h
+		..\include\arm-kos\bits\sigset.h = ..\include\arm-kos\bits\sigset.h
+		..\include\arm-kos\bits\sigstack.h = ..\include\arm-kos\bits\sigstack.h
+		..\include\arm-kos\bits\sigthread.h = ..\include\arm-kos\bits\sigthread.h
+		..\include\arm-kos\bits\sockaddr.h = ..\include\arm-kos\bits\sockaddr.h
+		..\include\arm-kos\bits\socket.h = ..\include\arm-kos\bits\socket.h
+		..\include\arm-kos\bits\socket_type.h = ..\include\arm-kos\bits\socket_type.h
+		..\include\arm-kos\bits\stat.h = ..\include\arm-kos\bits\stat.h
+		..\include\arm-kos\bits\stdio_lim.h = ..\include\arm-kos\bits\stdio_lim.h
+		..\include\arm-kos\bits\syscall.h = ..\include\arm-kos\bits\syscall.h
+		..\include\arm-kos\bits\syslog-path.h = ..\include\arm-kos\bits\syslog-path.h
+		..\include\arm-kos\bits\termios.h = ..\include\arm-kos\bits\termios.h
+		..\include\arm-kos\bits\time.h = ..\include\arm-kos\bits\time.h
+		..\include\arm-kos\bits\types.h = ..\include\arm-kos\bits\types.h
+		..\include\arm-kos\bits\uio.h = ..\include\arm-kos\bits\uio.h
+		..\include\arm-kos\bits\utsname.h = ..\include\arm-kos\bits\utsname.h
+		..\include\arm-kos\bits\waitflags.h = ..\include\arm-kos\bits\waitflags.h
+		..\include\arm-kos\bits\waitstatus.h = ..\include\arm-kos\bits\waitstatus.h
+		..\include\arm-kos\bits\wchar.h = ..\include\arm-kos\bits\wchar.h
+		..\include\arm-kos\bits\wctype.h = ..\include\arm-kos\bits\wctype.h
+		..\include\arm-kos\bits\xopen_lim.h = ..\include\arm-kos\bits\xopen_lim.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "bits-generic", "bits-generic", "{344B9E37-4C1D-4F52-B671-C7D7AECDAAF9}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\bits-generic\byteswap.h = ..\include\bits-generic\byteswap.h
+		..\include\bits-generic\dirent.h = ..\include\bits-generic\dirent.h
+		..\include\bits-generic\dlfcn.h = ..\include\bits-generic\dlfcn.h
+		..\include\bits-generic\elf-types.h = ..\include\bits-generic\elf-types.h
+		..\include\bits-generic\fcntl-linux.h = ..\include\bits-generic\fcntl-linux.h
+		..\include\bits-generic\in.h = ..\include\bits-generic\in.h
+		..\include\bits-generic\io-file.h = ..\include\bits-generic\io-file.h
+		..\include\bits-generic\locale.h = ..\include\bits-generic\locale.h
+		..\include\bits-generic\mbstate.h = ..\include\bits-generic\mbstate.h
+		..\include\bits-generic\netdb.h = ..\include\bits-generic\netdb.h
+		..\include\bits-generic\param.h = ..\include\bits-generic\param.h
+		..\include\bits-generic\poll.h = ..\include\bits-generic\poll.h
+		..\include\bits-generic\posix1_lim.h = ..\include\bits-generic\posix1_lim.h
+		..\include\bits-generic\posix2_lim.h = ..\include\bits-generic\posix2_lim.h
+		..\include\bits-generic\resource.h = ..\include\bits-generic\resource.h
+		..\include\bits-generic\rotate.h = ..\include\bits-generic\rotate.h
+		..\include\bits-generic\sched.h = ..\include\bits-generic\sched.h
+		..\include\bits-generic\select.h = ..\include\bits-generic\select.h
+		..\include\bits-generic\sigaction.h = ..\include\bits-generic\sigaction.h
+		..\include\bits-generic\sigset.h = ..\include\bits-generic\sigset.h
+		..\include\bits-generic\sigstack.h = ..\include\bits-generic\sigstack.h
+		..\include\bits-generic\sigthread.h = ..\include\bits-generic\sigthread.h
+		..\include\bits-generic\sockaddr.h = ..\include\bits-generic\sockaddr.h
+		..\include\bits-generic\socket.h = ..\include\bits-generic\socket.h
+		..\include\bits-generic\socket_type.h = ..\include\bits-generic\socket_type.h
+		..\include\bits-generic\stat.h = ..\include\bits-generic\stat.h
+		..\include\bits-generic\stdio_lim.h = ..\include\bits-generic\stdio_lim.h
+		..\include\bits-generic\time.h = ..\include\bits-generic\time.h
+		..\include\bits-generic\types.h = ..\include\bits-generic\types.h
+		..\include\bits-generic\uio.h = ..\include\bits-generic\uio.h
+		..\include\bits-generic\utmp.h = ..\include\bits-generic\utmp.h
+		..\include\bits-generic\utsname.h = ..\include\bits-generic\utsname.h
+		..\include\bits-generic\waitflags.h = ..\include\bits-generic\waitflags.h
+		..\include\bits-generic\waitstatus.h = ..\include\bits-generic\waitstatus.h
+		..\include\bits-generic\wchar.h = ..\include\bits-generic\wchar.h
+		..\include\bits-generic\wctype.h = ..\include\bits-generic\wctype.h
+		..\include\bits-generic\xopen_lim.h = ..\include\bits-generic\xopen_lim.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sys-generic", "sys-generic", "{4D48A6D4-6FE3-40B7-99ED-31BF0A41FA66}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\sys-generic\_types.h = ..\include\sys-generic\_types.h
+		..\include\sys-generic\cdefs.h = ..\include\sys-generic\cdefs.h
+		..\include\sys-generic\config.h = ..\include\sys-generic\config.h
+		..\include\sys-generic\dir.h = ..\include\sys-generic\dir.h
+		..\include\sys-generic\file.h = ..\include\sys-generic\file.h
+		..\include\sys-generic\ioctl.h = ..\include\sys-generic\ioctl.h
+		..\include\sys-generic\ipc.h = ..\include\sys-generic\ipc.h
+		..\include\sys-generic\mman.h = ..\include\sys-generic\mman.h
+		..\include\sys-generic\mount.h = ..\include\sys-generic\mount.h
+		..\include\sys-generic\param.h = ..\include\sys-generic\param.h
+		..\include\sys-generic\poll.h = ..\include\sys-generic\poll.h
+		..\include\sys-generic\reent.h = ..\include\sys-generic\reent.h
+		..\include\sys-generic\resource.h = ..\include\sys-generic\resource.h
+		..\include\sys-generic\select.h = ..\include\sys-generic\select.h
+		..\include\sys-generic\shm.h = ..\include\sys-generic\shm.h
+		..\include\sys-generic\socket.h = ..\include\sys-generic\socket.h
+		..\include\sys-generic\stat.h = ..\include\sys-generic\stat.h
+		..\include\sys-generic\swap.h = ..\include\sys-generic\swap.h
+		..\include\sys-generic\sysinfo.h = ..\include\sys-generic\sysinfo.h
+		..\include\sys-generic\syslog.h = ..\include\sys-generic\syslog.h
+		..\include\sys-generic\sysmacros.h = ..\include\sys-generic\sysmacros.h
+		..\include\sys-generic\time.h = ..\include\sys-generic\time.h
+		..\include\sys-generic\timeb.h = ..\include\sys-generic\timeb.h
+		..\include\sys-generic\times.h = ..\include\sys-generic\times.h
+		..\include\sys-generic\types.h = ..\include\sys-generic\types.h
+		..\include\sys-generic\uio.h = ..\include\sys-generic\uio.h
+		..\include\sys-generic\un.h = ..\include\sys-generic\un.h
+		..\include\sys-generic\utsname.h = ..\include\sys-generic\utsname.h
+		..\include\sys-generic\wait.h = ..\include\sys-generic\wait.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sys", "sys", "{BF3163DE-5364-401E-9939-60D4D1FC0A1B}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\arm-kos\sys\bitypes.h = ..\include\arm-kos\sys\bitypes.h
+		..\include\arm-kos\sys\cdefs.h = ..\include\arm-kos\sys\cdefs.h
+		..\include\arm-kos\sys\dir.h = ..\include\arm-kos\sys\dir.h
+		..\include\arm-kos\sys\errno.h = ..\include\arm-kos\sys\errno.h
+		..\include\arm-kos\sys\fcntl.h = ..\include\arm-kos\sys\fcntl.h
+		..\include\arm-kos\sys\features.h = ..\include\arm-kos\sys\features.h
+		..\include\arm-kos\sys\file.h = ..\include\arm-kos\sys\file.h
+		..\include\arm-kos\sys\io.h = ..\include\arm-kos\sys\io.h
+		..\include\arm-kos\sys\ioctl.h = ..\include\arm-kos\sys\ioctl.h
+		..\include\arm-kos\sys\ipc.h = ..\include\arm-kos\sys\ipc.h
+		..\include\arm-kos\sys\mman.h = ..\include\arm-kos\sys\mman.h
+		..\include\arm-kos\sys\mount.h = ..\include\arm-kos\sys\mount.h
+		..\include\arm-kos\sys\param.h = ..\include\arm-kos\sys\param.h
+		..\include\arm-kos\sys\poll.h = ..\include\arm-kos\sys\poll.h
+		..\include\arm-kos\sys\resource.h = ..\include\arm-kos\sys\resource.h
+		..\include\arm-kos\sys\select.h = ..\include\arm-kos\sys\select.h
+		..\include\arm-kos\sys\shm.h = ..\include\arm-kos\sys\shm.h
+		..\include\arm-kos\sys\signal.h = ..\include\arm-kos\sys\signal.h
+		..\include\arm-kos\sys\socket.h = ..\include\arm-kos\sys\socket.h
+		..\include\arm-kos\sys\socketvar.h = ..\include\arm-kos\sys\socketvar.h
+		..\include\arm-kos\sys\stat.h = ..\include\arm-kos\sys\stat.h
+		..\include\arm-kos\sys\swap.h = ..\include\arm-kos\sys\swap.h
+		..\include\arm-kos\sys\syscall.h = ..\include\arm-kos\sys\syscall.h
+		..\include\arm-kos\sys\sysinfo.h = ..\include\arm-kos\sys\sysinfo.h
+		..\include\arm-kos\sys\syslog.h = ..\include\arm-kos\sys\syslog.h
+		..\include\arm-kos\sys\sysmacros.h = ..\include\arm-kos\sys\sysmacros.h
+		..\include\arm-kos\sys\termios.h = ..\include\arm-kos\sys\termios.h
+		..\include\arm-kos\sys\time.h = ..\include\arm-kos\sys\time.h
+		..\include\arm-kos\sys\timeb.h = ..\include\arm-kos\sys\timeb.h
+		..\include\arm-kos\sys\times.h = ..\include\arm-kos\sys\times.h
+		..\include\arm-kos\sys\ttydefaults.h = ..\include\arm-kos\sys\ttydefaults.h
+		..\include\arm-kos\sys\types.h = ..\include\arm-kos\sys\types.h
+		..\include\arm-kos\sys\ucontext.h = ..\include\arm-kos\sys\ucontext.h
+		..\include\arm-kos\sys\uio.h = ..\include\arm-kos\sys\uio.h
+		..\include\arm-kos\sys\un.h = ..\include\arm-kos\sys\un.h
+		..\include\arm-kos\sys\unistd.h = ..\include\arm-kos\sys\unistd.h
+		..\include\arm-kos\sys\utime.h = ..\include\arm-kos\sys\utime.h
+		..\include\arm-kos\sys\utsname.h = ..\include\arm-kos\sys\utsname.h
+		..\include\arm-kos\sys\wait.h = ..\include\arm-kos\sys\wait.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "i386-kos", "i386-kos", "{54AEB147-2E78-47CF-8CD7-7948780A5D58}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\kos\i386-kos\context.h = ..\include\kos\i386-kos\context.h
+		..\include\kos\i386-kos\except.h = ..\include\kos\i386-kos\except.h
+		..\include\kos\i386-kos\fpu_context.h = ..\include\kos\i386-kos\fpu_context.h
+		..\include\kos\i386-kos\intrin.h = ..\include\kos\i386-kos\intrin.h
+		..\include\kos\i386-kos\thread.h = ..\include\kos\i386-kos\thread.h
+		..\include\kos\i386-kos\tls.h = ..\include\kos\i386-kos\tls.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "root", "root", "{5776572C-854B-436B-A180-09FCC3D9B17C}"
+	ProjectSection(SolutionItems) = preProject
+		..\.sources = ..\.sources
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "apps", "apps", "{448AC789-9188-4593-A0B9-06164D500CAC}"
+	ProjectSection(SolutionItems) = preProject
+		..\src\apps\.sources = ..\src\apps\.sources
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "init", "apps\init.vcxproj", "{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "libs", "libs", "{32E3FF1B-B00D-4518-A8E6-4D91B19412B3}"
+	ProjectSection(SolutionItems) = preProject
+		..\src\libs\.sources = ..\src\libs\.sources
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libc", "libs\libc.vcxproj", "{6B1E5F06-9ADF-42EE-A3D3-D424792E1141}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sched", "sched", "{AEFAA316-8C86-4A25-ABE9-E6DF1568550F}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\kos\sched\futex.h = ..\include\kos\sched\futex.h
+		..\include\kos\sched\mutex.h = ..\include\kos\sched\mutex.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "winapi", "winapi", "{93E850A2-A8C1-43F3-8819-387E92507A94}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\winapi\__winstd.h = ..\include\winapi\__winstd.h
+		..\include\winapi\basetsd.h = ..\include\winapi\basetsd.h
+		..\include\winapi\excpt.h = ..\include\winapi\excpt.h
+		..\include\winapi\guiddef.h = ..\include\winapi\guiddef.h
+		..\include\winapi\ntdef.h = ..\include\winapi\ntdef.h
+		..\include\winapi\sdkddkver.h = ..\include\winapi\sdkddkver.h
+		..\include\winapi\specstrings.h = ..\include\winapi\specstrings.h
+		..\include\winapi\windef.h = ..\include\winapi\windef.h
+		..\include\winapi\winerror.h = ..\include\winapi\winerror.h
+		..\include\winapi\winnt.h = ..\include\winapi\winnt.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "parts", "parts", "{3E23F6FA-4E63-473C-A4F5-BA2116AD910B}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\parts\malloc.h = ..\include\parts\malloc.h
+		..\include\parts\redirect-exec.h = ..\include\parts\redirect-exec.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "dos", "dos", "{A57D71ED-86DC-4BA9-803F-1A3A7E3F5D46}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\parts\dos\assert.h = ..\include\parts\dos\assert.h
+		..\include\parts\dos\inttypes.h = ..\include\parts\dos\inttypes.h
+		..\include\parts\dos\process.h = ..\include\parts\dos\process.h
+		..\include\parts\dos\stdio.h = ..\include\parts\dos\stdio.h
+		..\include\parts\dos\stdlib.h = ..\include\parts\dos\stdlib.h
+		..\include\parts\dos\string.h = ..\include\parts\dos\string.h
+		..\include\parts\dos\time.h = ..\include\parts\dos\time.h
+		..\include\parts\dos\wchar.h = ..\include\parts\dos\wchar.h
+		..\include\parts\dos\wconio.h = ..\include\parts\dos\wconio.h
+		..\include\parts\dos\wdirect.h = ..\include\parts\dos\wdirect.h
+		..\include\parts\dos\wio.h = ..\include\parts\dos\wio.h
+		..\include\parts\dos\wlocale.h = ..\include\parts\dos\wlocale.h
+		..\include\parts\dos\wprocess.h = ..\include\parts\dos\wprocess.h
+		..\include\parts\dos\wstat.h = ..\include\parts\dos\wstat.h
+		..\include\parts\dos\wstdio.h = ..\include\parts\dos\wstdio.h
+		..\include\parts\dos\wstdlib.h = ..\include\parts\dos\wstdlib.h
+		..\include\parts\dos\wstring.h = ..\include\parts\dos\wstring.h
+		..\include\parts\dos\wtime.h = ..\include\parts\dos\wtime.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kos2", "kos2", "{AB26CC51-101D-40E4-B118-3157E1B85FBA}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\parts\kos2\amalloc.h = ..\include\parts\kos2\amalloc.h
+		..\include\parts\kos2\assert.h = ..\include\parts\kos2\assert.h
+		..\include\parts\kos2\inttypes.h = ..\include\parts\kos2\inttypes.h
+		..\include\parts\kos2\malldefs.h = ..\include\parts\kos2\malldefs.h
+		..\include\parts\kos2\malloc.h = ..\include\parts\kos2\malloc.h
+		..\include\parts\kos2\pformatprinter.h = ..\include\parts\kos2\pformatprinter.h
+		..\include\parts\kos2\process.h = ..\include\parts\kos2\process.h
+		..\include\parts\kos2\stdlib.h = ..\include\parts\kos2\stdlib.h
+		..\include\parts\kos2\string.h = ..\include\parts\kos2\string.h
+		..\include\parts\kos2\ufcntl.h = ..\include\parts\kos2\ufcntl.h
+		..\include\parts\kos2\uformatprinter.h = ..\include\parts\kos2\uformatprinter.h
+		..\include\parts\kos2\uio.h = ..\include\parts\kos2\uio.h
+		..\include\parts\kos2\unistd.h = ..\include\parts\kos2\unistd.h
+		..\include\parts\kos2\uprocess.h = ..\include\parts\kos2\uprocess.h
+		..\include\parts\kos2\ustdlib.h = ..\include\parts\kos2\ustdlib.h
+		..\include\parts\kos2\ustring.h = ..\include\parts\kos2\ustring.h
+		..\include\parts\kos2\uunistd.h = ..\include\parts\kos2\uunistd.h
+		..\include\parts\kos2\wfcntl.h = ..\include\parts\kos2\wfcntl.h
+		..\include\parts\kos2\wformatprinter.h = ..\include\parts\kos2\wformatprinter.h
+		..\include\parts\kos2\wprocess.h = ..\include\parts\kos2\wprocess.h
+		..\include\parts\kos2\wstdlib.h = ..\include\parts\kos2\wstdlib.h
+		..\include\parts\kos2\wstring.h = ..\include\parts\kos2\wstring.h
+		..\include\parts\kos2\wunistd.h = ..\include\parts\kos2\wunistd.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kos3", "kos3", "{B4101B05-48CA-4968-B84F-B3525124A25A}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\parts\kos3\malloc.h = ..\include\parts\kos3\malloc.h
+		..\include\parts\kos3\process.h = ..\include\parts\kos3\process.h
+		..\include\parts\kos3\sched.h = ..\include\parts\kos3\sched.h
+		..\include\parts\kos3\stdio.h = ..\include\parts\kos3\stdio.h
+		..\include\parts\kos3\string.h = ..\include\parts\kos3\string.h
+		..\include\parts\kos3\uformatprinter.h = ..\include\parts\kos3\uformatprinter.h
+		..\include\parts\kos3\unistd.h = ..\include\parts\kos3\unistd.h
+		..\include\parts\kos3\uprocess.h = ..\include\parts\kos3\uprocess.h
+		..\include\parts\kos3\ustdio.h = ..\include\parts\kos3\ustdio.h
+		..\include\parts\kos3\ustdlib.h = ..\include\parts\kos3\ustdlib.h
+		..\include\parts\kos3\ustring.h = ..\include\parts\kos3\ustring.h
+		..\include\parts\kos3\uunistd.h = ..\include\parts\kos3\uunistd.h
+		..\include\parts\kos3\wformatprinter.h = ..\include\parts\kos3\wformatprinter.h
+		..\include\parts\kos3\wprocess.h = ..\include\parts\kos3\wprocess.h
+		..\include\parts\kos3\wstdio.h = ..\include\parts\kos3\wstdio.h
+		..\include\parts\kos3\wstdlib.h = ..\include\parts\kos3\wstdlib.h
+		..\include\parts\kos3\wstring.h = ..\include\parts\kos3\wstring.h
+		..\include\parts\kos3\wunistd.h = ..\include\parts\kos3\wunistd.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "cyg", "cyg", "{A1A15349-56E6-43CD-97CF-D1FEE3C2EC1C}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\parts\cyg\assert.h = ..\include\parts\cyg\assert.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "glc", "glc", "{B569E51D-0E5C-41BC-8B50-199C02236672}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\parts\glc\assert.h = ..\include\parts\glc\assert.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "except", "except", "{0BC23A9E-EFE4-4D7E-8DF6-87CE09FCE621}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\parts\kos3\except\direct.h = ..\include\parts\kos3\except\direct.h
+		..\include\parts\kos3\except\dirent.h = ..\include\parts\kos3\except\dirent.h
+		..\include\parts\kos3\except\dlfcn.h = ..\include\parts\kos3\except\dlfcn.h
+		..\include\parts\kos3\except\dos.h = ..\include\parts\kos3\except\dos.h
+		..\include\parts\kos3\except\fcntl.h = ..\include\parts\kos3\except\fcntl.h
+		..\include\parts\kos3\except\io.h = ..\include\parts\kos3\except\io.h
+		..\include\parts\kos3\except\malloc.h = ..\include\parts\kos3\except\malloc.h
+		..\include\parts\kos3\except\pty.h = ..\include\parts\kos3\except\pty.h
+		..\include\parts\kos3\except\sched.h = ..\include\parts\kos3\except\sched.h
+		..\include\parts\kos3\except\signal.h = ..\include\parts\kos3\except\signal.h
+		..\include\parts\kos3\except\stdio.h = ..\include\parts\kos3\except\stdio.h
+		..\include\parts\kos3\except\stdlib.h = ..\include\parts\kos3\except\stdlib.h
+		..\include\parts\kos3\except\sys\swap.h = ..\include\parts\kos3\except\sys\swap.h
+		..\include\parts\kos3\except\termios.h = ..\include\parts\kos3\except\termios.h
+		..\include\parts\kos3\except\uio.h = ..\include\parts\kos3\except\uio.h
+		..\include\parts\kos3\except\unicode.h = ..\include\parts\kos3\except\unicode.h
+		..\include\parts\kos3\except\unistd.h = ..\include\parts\kos3\except\unistd.h
+		..\include\parts\kos3\except\uunistd.h = ..\include\parts\kos3\except\uunistd.h
+		..\include\parts\kos3\except\wdirect.h = ..\include\parts\kos3\except\wdirect.h
+		..\include\parts\kos3\except\wio.h = ..\include\parts\kos3\except\wio.h
+		..\include\parts\kos3\except\wunistd.h = ..\include\parts\kos3\except\wunistd.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sys", "sys", "{50E94D5A-831D-40F7-B7BF-168A1B6E22FE}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\parts\kos3\except\sys\ioctl.h = ..\include\parts\kos3\except\sys\ioctl.h
+		..\include\parts\kos3\except\sys\mman.h = ..\include\parts\kos3\except\sys\mman.h
+		..\include\parts\kos3\except\sys\mount.h = ..\include\parts\kos3\except\sys\mount.h
+		..\include\parts\kos3\except\sys\poll.h = ..\include\parts\kos3\except\sys\poll.h
+		..\include\parts\kos3\except\sys\resource.h = ..\include\parts\kos3\except\sys\resource.h
+		..\include\parts\kos3\except\sys\select.h = ..\include\parts\kos3\except\sys\select.h
+		..\include\parts\kos3\except\sys\socket.h = ..\include\parts\kos3\except\sys\socket.h
+		..\include\parts\kos3\except\sys\stat.h = ..\include\parts\kos3\except\sys\stat.h
+		..\include\parts\kos3\except\sys\sysinfo.h = ..\include\parts\kos3\except\sys\sysinfo.h
+		..\include\parts\kos3\except\sys\time.h = ..\include\parts\kos3\except\sys\time.h
+		..\include\parts\kos3\except\sys\timeb.h = ..\include\parts\kos3\except\sys\timeb.h
+		..\include\parts\kos3\except\sys\times.h = ..\include\parts\kos3\except\sys\times.h
+		..\include\parts\kos3\except\sys\uio.h = ..\include\parts\kos3\except\sys\uio.h
+		..\include\parts\kos3\except\sys\ustat.h = ..\include\parts\kos3\except\sys\ustat.h
+		..\include\parts\kos3\except\sys\wait.h = ..\include\parts\kos3\except\sys\wait.h
+		..\include\parts\kos3\except\sys\wstat.h = ..\include\parts\kos3\except\sys\wstat.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sys", "sys", "{9514A07C-986B-4950-9300-C45E7B527176}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\parts\kos3\sys\umman.h = ..\include\parts\kos3\sys\umman.h
+		..\include\parts\kos3\sys\ustat.h = ..\include\parts\kos3\sys\ustat.h
+		..\include\parts\kos3\sys\wmman.h = ..\include\parts\kos3\sys\wmman.h
+		..\include\parts\kos3\sys\wstat.h = ..\include\parts\kos3\sys\wstat.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "i386", "i386", "{0A5D0055-31ED-4B74-BDB6-B4F78400311F}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\parts\cyg\i386\ucontext.h = ..\include\parts\cyg\i386\ucontext.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "i386", "i386", "{9874C058-A1F7-4F89-AC79-70EC83969F10}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\parts\glc\i386\ucontext.h = ..\include\parts\glc\i386\ucontext.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "i386", "i386", "{812FA98D-2851-46BF-BD55-A9A0E8F7A3D4}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\parts\kos3\i386\ucontext.h = ..\include\parts\kos3\i386\ucontext.h
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "start", "libs\start.vcxproj", "{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "terminal-vga", "apps\terminal-vga.vcxproj", "{06D37066-7225-48C3-903A-60316D591A75}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kernctl", "apps\kernctl.vcxproj", "{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|i386 = Debug|i386
+		Debug|Mixed Platforms = Debug|Mixed Platforms
+		Debug|Win32 = Debug|Win32
+		Debug|x64 = Debug|x64
+		Debug|x86_64 = Debug|x86_64
+		Release|i386 = Release|i386
+		Release|Mixed Platforms = Release|Mixed Platforms
+		Release|Win32 = Release|Win32
+		Release|x64 = Release|x64
+		Release|x86_64 = Release|x86_64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Debug|i386.ActiveCfg = Debug|Win32
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Debug|i386.Build.0 = Debug|Win32
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Debug|Mixed Platforms.ActiveCfg = Release|Win32
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Debug|Mixed Platforms.Build.0 = Release|Win32
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Debug|Win32.ActiveCfg = Debug|Win32
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Debug|Win32.Build.0 = Debug|Win32
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Debug|x64.ActiveCfg = Debug|x64
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Debug|x64.Build.0 = Debug|x64
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Debug|x86_64.ActiveCfg = Debug|x64
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Debug|x86_64.Build.0 = Debug|x64
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Release|i386.ActiveCfg = Release|Win32
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Release|i386.Build.0 = Release|Win32
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Release|Mixed Platforms.ActiveCfg = Release|Win32
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Release|Mixed Platforms.Build.0 = Release|Win32
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Release|Win32.ActiveCfg = Release|Win32
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Release|Win32.Build.0 = Release|Win32
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Release|x64.ActiveCfg = Release|x64
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Release|x64.Build.0 = Release|x64
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Release|x86_64.ActiveCfg = Release|x64
+		{86D226C5-EF62-4562-AC06-E6A753DFA7CF}.Release|x86_64.Build.0 = Release|x64
+		{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3}.Debug|i386.ActiveCfg = Debug|Win32
+		{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3}.Debug|Mixed Platforms.ActiveCfg = Release|Win32
+		{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3}.Debug|Win32.Build.0 = Debug|Win32
+		{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3}.Debug|x64.ActiveCfg = Debug|x64
+		{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3}.Debug|x64.Build.0 = Debug|x64
+		{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3}.Debug|x86_64.ActiveCfg = Debug|x64
+		{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3}.Release|i386.ActiveCfg = Release|Win32
+		{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3}.Release|Mixed Platforms.ActiveCfg = Release|Win32
+		{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3}.Release|Win32.ActiveCfg = Release|Win32
+		{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3}.Release|Win32.Build.0 = Release|Win32
+		{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3}.Release|x64.ActiveCfg = Release|x64
+		{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3}.Release|x64.Build.0 = Release|x64
+		{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3}.Release|x86_64.ActiveCfg = Release|x64
+		{6B1E5F06-9ADF-42EE-A3D3-D424792E1141}.Debug|i386.ActiveCfg = Debug|Win32
+		{6B1E5F06-9ADF-42EE-A3D3-D424792E1141}.Debug|Mixed Platforms.ActiveCfg = Release|Win32
+		{6B1E5F06-9ADF-42EE-A3D3-D424792E1141}.Debug|Win32.ActiveCfg = Debug|Win32
+		{6B1E5F06-9ADF-42EE-A3D3-D424792E1141}.Debug|Win32.Build.0 = Debug|Win32
+		{6B1E5F06-9ADF-42EE-A3D3-D424792E1141}.Debug|x64.ActiveCfg = Debug|x64
+		{6B1E5F06-9ADF-42EE-A3D3-D424792E1141}.Debug|x64.Build.0 = Debug|x64
+		{6B1E5F06-9ADF-42EE-A3D3-D424792E1141}.Debug|x86_64.ActiveCfg = Debug|x64
+		{6B1E5F06-9ADF-42EE-A3D3-D424792E1141}.Release|i386.ActiveCfg = Release|Win32
+		{6B1E5F06-9ADF-42EE-A3D3-D424792E1141}.Release|Mixed Platforms.ActiveCfg = Release|Win32
+		{6B1E5F06-9ADF-42EE-A3D3-D424792E1141}.Release|Win32.ActiveCfg = Release|Win32
+		{6B1E5F06-9ADF-42EE-A3D3-D424792E1141}.Release|Win32.Build.0 = Release|Win32
+		{6B1E5F06-9ADF-42EE-A3D3-D424792E1141}.Release|x64.ActiveCfg = Release|x64
+		{6B1E5F06-9ADF-42EE-A3D3-D424792E1141}.Release|x64.Build.0 = Release|x64
+		{6B1E5F06-9ADF-42EE-A3D3-D424792E1141}.Release|x86_64.ActiveCfg = Release|x64
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Debug|i386.ActiveCfg = Debug|Win32
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Debug|Mixed Platforms.Build.0 = Debug|Win32
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Debug|Win32.Build.0 = Debug|Win32
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Debug|x64.ActiveCfg = Debug|x64
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Debug|x64.Build.0 = Debug|x64
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Debug|x86_64.ActiveCfg = Debug|Win32
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Release|i386.ActiveCfg = Release|Win32
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Release|Mixed Platforms.ActiveCfg = Release|Win32
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Release|Mixed Platforms.Build.0 = Release|Win32
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Release|Win32.ActiveCfg = Release|Win32
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Release|Win32.Build.0 = Release|Win32
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Release|x64.ActiveCfg = Release|x64
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Release|x64.Build.0 = Release|x64
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C}.Release|x86_64.ActiveCfg = Release|Win32
+		{06D37066-7225-48C3-903A-60316D591A75}.Debug|i386.ActiveCfg = Debug|Win32
+		{06D37066-7225-48C3-903A-60316D591A75}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
+		{06D37066-7225-48C3-903A-60316D591A75}.Debug|Mixed Platforms.Build.0 = Debug|Win32
+		{06D37066-7225-48C3-903A-60316D591A75}.Debug|Win32.ActiveCfg = Debug|Win32
+		{06D37066-7225-48C3-903A-60316D591A75}.Debug|Win32.Build.0 = Debug|Win32
+		{06D37066-7225-48C3-903A-60316D591A75}.Debug|x64.ActiveCfg = Debug|x64
+		{06D37066-7225-48C3-903A-60316D591A75}.Debug|x64.Build.0 = Debug|x64
+		{06D37066-7225-48C3-903A-60316D591A75}.Debug|x86_64.ActiveCfg = Debug|Win32
+		{06D37066-7225-48C3-903A-60316D591A75}.Release|i386.ActiveCfg = Release|Win32
+		{06D37066-7225-48C3-903A-60316D591A75}.Release|Mixed Platforms.ActiveCfg = Release|Win32
+		{06D37066-7225-48C3-903A-60316D591A75}.Release|Mixed Platforms.Build.0 = Release|Win32
+		{06D37066-7225-48C3-903A-60316D591A75}.Release|Win32.ActiveCfg = Release|Win32
+		{06D37066-7225-48C3-903A-60316D591A75}.Release|Win32.Build.0 = Release|Win32
+		{06D37066-7225-48C3-903A-60316D591A75}.Release|x64.ActiveCfg = Release|x64
+		{06D37066-7225-48C3-903A-60316D591A75}.Release|x64.Build.0 = Release|x64
+		{06D37066-7225-48C3-903A-60316D591A75}.Release|x86_64.ActiveCfg = Release|Win32
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Debug|i386.ActiveCfg = Debug|Win32
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Debug|Mixed Platforms.Build.0 = Debug|Win32
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Debug|Win32.Build.0 = Debug|Win32
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Debug|x64.ActiveCfg = Debug|x64
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Debug|x64.Build.0 = Debug|x64
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Debug|x86_64.ActiveCfg = Debug|Win32
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Release|i386.ActiveCfg = Release|Win32
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Release|Mixed Platforms.ActiveCfg = Release|Win32
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Release|Mixed Platforms.Build.0 = Release|Win32
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Release|Win32.ActiveCfg = Release|Win32
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Release|Win32.Build.0 = Release|Win32
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Release|x64.ActiveCfg = Release|x64
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Release|x64.Build.0 = Release|x64
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481}.Release|x86_64.ActiveCfg = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{17E7DCFD-B8C0-40D3-A9EC-19CD32E968FB} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{E01094E8-8C47-4D1B-8A6B-3F6F3D1D2967} = {17E7DCFD-B8C0-40D3-A9EC-19CD32E968FB}
+		{5753448F-B845-42C3-85BB-4CD4E90CB3EE} = {17E7DCFD-B8C0-40D3-A9EC-19CD32E968FB}
+		{FCDDC803-B6DC-4569-8EFE-29B98E2143BD} = {17E7DCFD-B8C0-40D3-A9EC-19CD32E968FB}
+		{216EA1E4-5CAC-420E-8085-F1689E0DD8FF} = {17E7DCFD-B8C0-40D3-A9EC-19CD32E968FB}
+		{61261588-8EFF-4B0A-90AE-7AEF2A7DD4DB} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{AF58F0E7-5058-4D46-B809-727D330670C2} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{4ECF509D-E819-4FE3-8323-A7DCF338FCCA} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{B1DE2741-EF85-417A-9A10-3D9777B97DFA} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{9888FCDB-DB6E-4F12-B11E-6DFCDDF68E8C} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{E05EDBB5-09DA-4CB4-B6C7-D85222B2BE0A} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{02CDEABE-15CC-4964-A331-C3B661CF57EF} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{C7A7D468-3AA5-4DF8-B5D7-F14F23D76C69} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{0D640039-A905-4491-9709-DEEC9AAC784E} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{E72D1B89-7AE0-456B-A657-BCEA5D9F2BC0} = {0D640039-A905-4491-9709-DEEC9AAC784E}
+		{3EAD7059-08AC-472C-9AB5-432CE93D2545} = {0D640039-A905-4491-9709-DEEC9AAC784E}
+		{F7629A83-1039-48AE-A64B-247F52B17877} = {0D640039-A905-4491-9709-DEEC9AAC784E}
+		{FA72A04B-1E09-4214-88FA-A21B61173886} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{985BD14A-CD5A-4A68-B131-A3691BCA62CF} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{0DA22AB6-242E-4446-8DE9-CC22C3752ED2} = {985BD14A-CD5A-4A68-B131-A3691BCA62CF}
+		{33C0798A-C58B-4074-9D04-703EE0B9DC7C} = {985BD14A-CD5A-4A68-B131-A3691BCA62CF}
+		{344B9E37-4C1D-4F52-B671-C7D7AECDAAF9} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{4D48A6D4-6FE3-40B7-99ED-31BF0A41FA66} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{BF3163DE-5364-401E-9939-60D4D1FC0A1B} = {985BD14A-CD5A-4A68-B131-A3691BCA62CF}
+		{54AEB147-2E78-47CF-8CD7-7948780A5D58} = {AF58F0E7-5058-4D46-B809-727D330670C2}
+		{5D2D22BC-574F-4F20-9D1F-7668E3FBE1C3} = {448AC789-9188-4593-A0B9-06164D500CAC}
+		{6B1E5F06-9ADF-42EE-A3D3-D424792E1141} = {32E3FF1B-B00D-4518-A8E6-4D91B19412B3}
+		{AEFAA316-8C86-4A25-ABE9-E6DF1568550F} = {AF58F0E7-5058-4D46-B809-727D330670C2}
+		{93E850A2-A8C1-43F3-8819-387E92507A94} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{3E23F6FA-4E63-473C-A4F5-BA2116AD910B} = {EA6EEC02-606F-4004-8FB6-DBFA474B9157}
+		{A57D71ED-86DC-4BA9-803F-1A3A7E3F5D46} = {3E23F6FA-4E63-473C-A4F5-BA2116AD910B}
+		{AB26CC51-101D-40E4-B118-3157E1B85FBA} = {3E23F6FA-4E63-473C-A4F5-BA2116AD910B}
+		{B4101B05-48CA-4968-B84F-B3525124A25A} = {3E23F6FA-4E63-473C-A4F5-BA2116AD910B}
+		{A1A15349-56E6-43CD-97CF-D1FEE3C2EC1C} = {3E23F6FA-4E63-473C-A4F5-BA2116AD910B}
+		{B569E51D-0E5C-41BC-8B50-199C02236672} = {3E23F6FA-4E63-473C-A4F5-BA2116AD910B}
+		{0BC23A9E-EFE4-4D7E-8DF6-87CE09FCE621} = {B4101B05-48CA-4968-B84F-B3525124A25A}
+		{50E94D5A-831D-40F7-B7BF-168A1B6E22FE} = {0BC23A9E-EFE4-4D7E-8DF6-87CE09FCE621}
+		{9514A07C-986B-4950-9300-C45E7B527176} = {B4101B05-48CA-4968-B84F-B3525124A25A}
+		{0A5D0055-31ED-4B74-BDB6-B4F78400311F} = {A1A15349-56E6-43CD-97CF-D1FEE3C2EC1C}
+		{9874C058-A1F7-4F89-AC79-70EC83969F10} = {B569E51D-0E5C-41BC-8B50-199C02236672}
+		{812FA98D-2851-46BF-BD55-A9A0E8F7A3D4} = {B4101B05-48CA-4968-B84F-B3525124A25A}
+		{86D23A7B-5BF0-4636-A7C7-CA2C9DDD888C} = {32E3FF1B-B00D-4518-A8E6-4D91B19412B3}
+		{06D37066-7225-48C3-903A-60316D591A75} = {448AC789-9188-4593-A0B9-06164D500CAC}
+		{9F45CD06-B8B2-4B4C-9009-C60DF9FE0481} = {448AC789-9188-4593-A0B9-06164D500CAC}
+	EndGlobalSection
+EndGlobal
