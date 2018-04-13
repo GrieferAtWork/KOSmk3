@@ -24,6 +24,7 @@
 
 /* Configure available devices. */
 #define CONFIG_HAVE_DEV_PS2 1
+//#define CONFIG_HAVE_DEV_PCI 1
 
 
 

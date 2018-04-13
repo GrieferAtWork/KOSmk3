@@ -450,6 +450,9 @@
     <ClCompile Include="..\..\src\kernel\src\dev\keymap_default.c">
       <Filter>kernel\src\dev</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\dev\pci.c">
+      <Filter>kernel\src\dev</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">
@@ -715,6 +718,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\kernel\src\dev\ps2_keymaps.h">
       <Filter>kernel\src\dev</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\dev\pci.h">
+      <Filter>kernel\include\dev</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

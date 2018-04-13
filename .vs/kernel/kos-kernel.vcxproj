@@ -101,6 +101,7 @@
     <ClCompile Include="..\..\src\kernel\src\dev\keyboard.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\keymap.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\keymap_default.c" />
+    <ClCompile Include="..\..\src\kernel\src\dev\pci.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\ps2.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\ps2_keyboard.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\pty.c" />
@@ -167,6 +168,7 @@
     <ClInclude Include="..\..\src\kernel\include\dev\devconfig.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\keyboard.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\keymap.h" />
+    <ClInclude Include="..\..\src\kernel\include\dev\pci.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\ps2-program.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\ps2.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\ps2_keyboard.h" />

@@ -1003,7 +1003,7 @@ search_heap:
    random_offset &= ~(HEAP_ALIGNMENT-1);
    if (random_offset >= HEAP_MINSIZE) {
     /* Rather than allocating `chain...+=num_bytes', instead
-     * allocate `chain+ random_offset...+=num_bytes' and free
+     * allocate `chain+random_offset...+=num_bytes' and free
      * `chain...+=random_offset' and
      * `chain+random_offset+num_bytes...+=unused_size-random_offset' */
     if (chain_flags&MFREE_FZERO)
