@@ -444,14 +444,20 @@
     <ClCompile Include="..\..\src\kernel\src\fs\wordbuffer.c">
       <Filter>kernel\src\fs</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\kernel\src\dev\ps2_keyboard.c">
-      <Filter>kernel\src\dev</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\kernel\src\dev\keymap_default.c">
       <Filter>kernel\src\dev</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\kernel\src\dev\pci.c">
       <Filter>kernel\src\dev</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\dev\ps2-mouse.c">
+      <Filter>kernel\src\dev</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\dev\ps2-keyboard.c">
+      <Filter>kernel\src\dev</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\kernel\boot.c">
+      <Filter>kernel\src\kernel</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -713,14 +719,20 @@
     <ClInclude Include="..\..\src\kernel\include\fs\wordbuffer.h">
       <Filter>kernel\include\fs</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\kernel\include\dev\ps2_keyboard.h">
-      <Filter>kernel\include\dev</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\kernel\src\dev\ps2_keymaps.h">
-      <Filter>kernel\src\dev</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\kernel\include\dev\pci.h">
       <Filter>kernel\include\dev</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\src\dev\ps2-keymaps.h">
+      <Filter>kernel\src\dev</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\dev\ps2-keyboard.h">
+      <Filter>kernel\include\dev</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\dev\ps2-mouse.h">
+      <Filter>kernel\include\dev</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\boot.h">
+      <Filter>kernel\include\kernel</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

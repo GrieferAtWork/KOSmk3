@@ -69,24 +69,31 @@ DECL_BEGIN
 #define PS2_CONTROLLER_CFG_PORT2_CLOCK     0x20
 #define PS2_CONTROLLER_CFG_PORT1_TRANSLATE 0x40
 
-/* PS/2 device command codes (For use with `ps2_send'; s.a. `ps2_runprogram'). */
-#define PS2_COMMAND_ENABLE_SCANNING  0xf4
-#define PS2_COMMAND_DISABLE_SCANNING 0xf5
-#define PS2_COMMAND_SETLED           0xed /* PS2_DATA: Set of `LED_*' */
-#define PS2_COMMAND_ECHO             0xee /* Responds with `0xee' if a keyboard was found. */
-#define PS2_COMMAND_SCANSET          0xf0
-#define PS2_COMMAND_RESET            0xff
-#define PS2_COMMAND_SETDEFAULT       0xf6
-
 #define PS2_PORT1      0x00 /* Send command to port #1 */
 #define PS2_PORT2      0x01 /* Send command to port #2 */
 #define PS2_PORTCOUNT  0x02 /* Number of PS/2 ports. */
 
 
 
+#define PS2_PORT_DEVICE_FNOTHING  0x00 /* Nothing is connected. */
+#define PS2_PORT_DEVICE_FUNKNOWN  0x00 /* An unknown device is connected. */
+#define PS2_PORT_DEVICE_FKEYBOARD 0x01 /* A keyboard is connected. */
+#define PS2_PORT_DEVICE_FMOUSE    0x02 /* A mouse is connected. */
+
+
 #ifdef __CC__
 
-typedef ASYNCSAFE void (KCALL *ps2_callback_t)(void *arg, byte_t ps2_byte);
+/* [!0][*] Size of a single packet on the associated PS/2 port.
+ * HINT: Keyboard usually have a packet size of 1
+ * HINT: Mice usually have a packet size of 3
+ * NOTE: The packet size is pre-initialized to { 1, 1 } */
+DATDEF u8 ps2_packet_size[PS2_PORTCOUNT];
+
+/* [*] The type of device connected to the specified PS/2 port (One of `PS2_PORT_DEVICE_F*') */
+DATDEF u8 ps2_port_device[PS2_PORTCOUNT];
+
+typedef ASYNCSAFE void (KCALL *ps2_callback_t)(void *arg, byte_t *__restrict ps2_bytes);
+
 /* Install/delete a PS/2 interrupt data callback.
  * WARNING: The callback is executed with preemption disabled, and must
  *          not re-enable preemption even for a single instruction!

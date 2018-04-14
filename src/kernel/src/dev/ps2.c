@@ -28,12 +28,15 @@
 #include <kos/keyboard.h>
 #include <dev/keyboard.h>
 #include <dev/ps2-program.h>
+#include <dev/ps2-mouse.h>
 #include <sys/io.h>
 #include <hybrid/sync/atomic-rwlock.h>
+#include <kernel/boot.h>
 #include <kernel/malloc.h>
 #include <except.h>
 #include <assert.h>
 #include <string.h>
+#include <alloca.h>
 
 #ifdef CONFIG_HAVE_DEV_PS2
 
@@ -102,7 +105,7 @@ PRIVATE struct ps2_progreq *pending_programs[2] = { NULL, NULL };
 /* List of free programs. */
 PRIVATE struct ps2_progreq *free_programs = NULL;
 
-PRIVATE jtime_t ps2_timeout = JIFFIES_FROM_SECONDS(2);
+PRIVATE jtime_t ps2_timeout = JIFFIES_FROM_MILLI(100);
 PRIVATE u8      ps2_retries = 3; /* Number of times to restart a program. */
 
 PRIVATE struct ps2_progreq *KCALL pop_pending(u8 port) {
@@ -134,17 +137,24 @@ struct ps2_inputdata {
 
 /* PS/2 input state for the primary and secondary ports. */
 PRIVATE struct ps2_inputdata ps2_input[PS2_PORTCOUNT];
+PUBLIC u8 ps2_packet_size[PS2_PORTCOUNT] = { [0 ... PS2_PORTCOUNT-1] = 1 };
+PUBLIC u8 ps2_port_device[PS2_PORTCOUNT] = { [0 ... PS2_PORTCOUNT-1] = PS2_PORT_DEVICE_FUNKNOWN };
 
 /* Operate with PS/2 input data. */
-PRIVATE ASYNCSAFE void KCALL ps2_inputdata_putword(struct ps2_inputdata *__restrict self, byte_t ps2_byte);
+PRIVATE ASYNCSAFE void KCALL ps2_inputdata_putword(struct ps2_inputdata *__restrict self, byte_t *__restrict ps2_bytes);
 PRIVATE void KCALL ps2_inputdata_addfunc(struct ps2_inputdata *__restrict self, ps2_callback_t func, void *arg);
 PRIVATE bool KCALL ps2_inputdata_delfunc(struct ps2_inputdata *__restrict self, ps2_callback_t func, void *arg);
 
 
 PRIVATE ASYNCSAFE void KCALL
-ps2_inputdata_putword(struct ps2_inputdata *__restrict self, byte_t ps2_byte) {
+ps2_inputdata_putword(struct ps2_inputdata *__restrict self,
+                      byte_t *__restrict ps2_bytes) {
  struct ps2_callback *vec; size_t i,count;
  assert(!PREEMPTION_ENABLED());
+#if 0
+ debug_printf("PS2 %$q\n",ps2_packet_size[self-ps2_input],ps2_bytes);
+#endif
+
 again:
  count = ATOMIC_READ(self->bv_bufc);
 #ifdef CONFIG_NO_SMP
@@ -161,7 +171,7 @@ again:
  }
  /* Add the key to every connected buffer. */
  for (i = 0; i < count; ++i)
-     (*vec[i].c_func)(vec[i].c_arg,ps2_byte);
+     (*vec[i].c_func)(vec[i].c_arg,ps2_bytes);
  ATOMIC_WRITE(self->bv_bufv,vec);
 }
 
@@ -527,9 +537,20 @@ program_finished:
         goto program_finished;
   }
  } else {
-  /*debug_printf("PS2#%x:%#.2x\n",port+1,data);*/
-  /* Broadcast the raw PS/2 data byte. */
-  ps2_inputdata_putword(&ps2_input[port],data);
+  u8 size = ps2_packet_size[port];
+  if (size <= 1) {
+   /* Broadcast the raw PS/2 data byte. */
+   ps2_inputdata_putword(&ps2_input[port],&data);
+  } else {
+   /* Read the remainder of the packet. */
+   byte_t *iter,*packet;
+   iter = packet = (byte_t *)alloca(size);
+   *iter++ = data,--size;
+   do *iter++ = inb(PS2_DATA);
+   while (--size);
+   /* Broadcast the raw PS/2 packet. */
+   ps2_inputdata_putword(&ps2_input[port],packet);
+  }
  }
 }
 
@@ -644,9 +665,63 @@ start_next_program:
 }
 
 
+INTDEF void KCALL ps2_register_keyboard(u8 port);
+INTDEF void KCALL ps2_register_mouse(u8 port, u8 type);
+
+PRIVATE ATTR_FREETEXT void KCALL
+ps2_detect_threadmain(void *UNUSED(arg)) {
+ unsigned int i;
+ /* Detect keyboard and mice. */
+ for (i = 0; i < PS2_PORTCOUNT; ++i) {
+  u8 resp[2] = { PS2_RESEND, PS2_RESEND },repc = 2;
+  /* Identify the connected device. */
+  if (!ps2_runprogram(i,NULL,resp,PS2_PROGRAM(
+       ps2_send   0xf5; /* Disable scanning */
+       ps2_wait   PS2_ACK;
+       ps2_send   0xf2; /* Identify device */
+       ps2_wait   PS2_ACK;
+       /* Receive up to 2 response bytes */
+       ps2_wait   %res;
+       ps2_wait   %res;
+       ps2_stop;
+       ))) {
+   repc = resp[0] != PS2_RESEND ? 1 : 0;
+  }
+  /* Interpret the response. */
+  if (repc == 1 &&
+     (resp[0] == PS2_MOUSE_TYPE_FNORMAL ||
+      resp[0] == PS2_MOUSE_TYPE_FWHEEL ||
+      resp[0] == PS2_MOUSE_TYPE_F5BUTTON)) {
+   /* It's a mouse! */
+   ps2_register_mouse(i,resp[0]);
+   continue;
+  }
+  if (repc == 2 && resp[0] == 0xab &&
+     (resp[1] == 0x41 ||
+      resp[1] == 0xc1 ||
+      resp[1] == 0x83)) {
+   /* It's a keyboard! */
+   ps2_register_keyboard(i);
+   continue;
+  }
+
+  /* Fallback: Check if it's a keyboard
+   *           by running an ECHO program. */
+  if (ps2_runprogram(i,NULL,NULL,PS2_PROGRAM(
+      ps2_send   0xee;
+      ps2_wait   0xee;
+      ps2_stop;
+      ))) {
+   /* It's a keyboard! */
+   ps2_register_keyboard(i);
+  }
+ }
+}
+
 
 DEFINE_DRIVER_PREINIT(ps2_initialize);
 PRIVATE ATTR_USED ATTR_FREETEXT void KCALL ps2_initialize(void) {
+ REF struct task *worker;
  /* Make sure both ports are disabled while we configure PS/2. */
  ps2_write_cmd(PS2_CONTROLLER_DISABLE_PORT1);
  ps2_write_cmd(PS2_CONTROLLER_DISABLE_PORT2);
@@ -659,6 +734,23 @@ PRIVATE ATTR_USED ATTR_FREETEXT void KCALL ps2_initialize(void) {
  /* Enable both ports. */
  ps2_write_cmd(PS2_CONTROLLER_ENABLE_PORT1);
  ps2_write_cmd(PS2_CONTROLLER_ENABLE_PORT2);
+
+ /* Spawn a worker thread for keyboard & mouse
+  * initialization to deal with the timeouts
+  * without holding up the entire boot process. */
+ worker = task_alloc();
+ TRY {
+  task_setup_kernel(worker,
+                   &ps2_detect_threadmain,
+                    NULL);
+  task_start(worker);
+  /* Register the worker as a boot worker thread,
+   * meaning it must be joined before .free is deleted,
+   * and before the initial switch to user-space. */
+  kernel_register_bootworker(worker);
+ } FINALLY {
+  task_decref(worker);
+ }
 }
 
 

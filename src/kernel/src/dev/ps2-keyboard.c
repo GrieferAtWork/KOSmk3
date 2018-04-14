@@ -27,7 +27,7 @@
 #include <kos/kdev_t.h>
 #include <dev/ps2.h>
 #include <dev/ps2-program.h>
-#include <dev/ps2_keyboard.h>
+#include <dev/ps2-keyboard.h>
 #include <kos/keyboard.h>
 #include <dev/keyboard.h>
 #include <stdio.h>
@@ -37,7 +37,7 @@
 
 #ifdef CONFIG_HAVE_DEV_PS2
 
-#include "ps2_keymaps.h"
+#include "ps2-keymaps.h"
 
 DECL_BEGIN
 
@@ -104,31 +104,32 @@ Keyboard_Putc(Keyboard *__restrict self, keyboard_key_t key) {
 
 PRIVATE ASYNCSAFE void KCALL
 Keyboard_Interrupt(Keyboard *__restrict self,
-                   byte_t ps2_byte) {
+                   byte_t *__restrict packet) {
  keyboard_key_t key;
+ byte_t keycode = packet[0];
 again:
  switch (self->p_state) {
 
   /* Scanset #1 */
  case STATE1:
-  if (ps2_byte == 0xe0) { self->p_state = STATE1_E0; goto done; }
-  if (ps2_byte == 0xe1) { self->p_state = STATE1_E1; goto done; }
-  key = KEYMAP_GET_PS2_SCANSET1(ps2_byte);
+  if (keycode == 0xe0) { self->p_state = STATE1_E0; goto done; }
+  if (keycode == 0xe1) { self->p_state = STATE1_E1; goto done; }
+  key = KEYMAP_GET_PS2_SCANSET1(keycode);
   break;
  case STATE1_E0:
-  if (ps2_byte == 0x2a) { self->p_state = STATE1_E0_2A; goto done; }
-  if (ps2_byte == 0xb7) { self->p_state = STATE1_E0_B7; goto done; }
-  key = KEYMAP_GET_PS2_SCANSET1_E0(ps2_byte);
+  if (keycode == 0x2a) { self->p_state = STATE1_E0_2A; goto done; }
+  if (keycode == 0xb7) { self->p_state = STATE1_E0_B7; goto done; }
+  key = KEYMAP_GET_PS2_SCANSET1_E0(keycode);
   self->p_state = STATE1;
   break;
  case STATE1_E0_2A:
-  if (ps2_byte == 0xe0) { self->p_state = STATE1_E0_2A_E0; goto done; }
+  if (keycode == 0xe0) { self->p_state = STATE1_E0_2A_E0; goto done; }
   /* Unwind. */
   Keyboard_Putc(self,KEYMAP_GET_PS2_SCANSET1_E0(0x2a));
   self->p_state = STATE1;
   goto again;
  case STATE1_E0_2A_E0:
-  if (ps2_byte == 0x37) {
+  if (keycode == 0x37) {
    self->p_state = STATE1;
    key = KEY_PRESSED|KEY_PRINTSCREEN;
   } else {
@@ -139,13 +140,13 @@ again:
   }
   break;
  case STATE1_E0_B7:
-  if (ps2_byte == 0xe0) { self->p_state = STATE1_E0_B7_E0; goto done; }
+  if (keycode == 0xe0) { self->p_state = STATE1_E0_B7_E0; goto done; }
   /* Unwind. */
   Keyboard_Putc(self,KEYMAP_GET_PS2_SCANSET1_E0(0xb7));
   self->p_state = STATE1;
   goto again;
  case STATE1_E0_B7_E0:
-  if (ps2_byte == 0xaa) {
+  if (keycode == 0xaa) {
    self->p_state = STATE1;
    key = KEY_RELEASED|KEY_PRINTSCREEN;
   } else {
@@ -156,25 +157,25 @@ again:
   }
   break;
  case STATE1_E1:
-  if (ps2_byte == 0x1d) { self->p_state = STATE1_E1_1D; goto done; }
+  if (keycode == 0x1d) { self->p_state = STATE1_E1_1D; goto done; }
   Keyboard_Putc(self,KEYMAP_GET_PS2_SCANSET1(0xe1));
   self->p_state = STATE1;
   goto again;
  case STATE1_E1_1D:
-  if (ps2_byte == 0x45) { self->p_state = STATE1_E1_1D_45; goto done; }
+  if (keycode == 0x45) { self->p_state = STATE1_E1_1D_45; goto done; }
   Keyboard_Putc(self,KEYMAP_GET_PS2_SCANSET1(0xe1));
   Keyboard_Putc(self,KEYMAP_GET_PS2_SCANSET1(0x1d));
   self->p_state = STATE1;
   goto again;
  case STATE1_E1_1D_45:
-  if (ps2_byte == 0xe1) { self->p_state = STATE1_E1_1D_45_E1; goto done; }
+  if (keycode == 0xe1) { self->p_state = STATE1_E1_1D_45_E1; goto done; }
   Keyboard_Putc(self,KEYMAP_GET_PS2_SCANSET1(0xe1));
   Keyboard_Putc(self,KEYMAP_GET_PS2_SCANSET1(0x1d));
   Keyboard_Putc(self,KEYMAP_GET_PS2_SCANSET1(0x45));
   self->p_state = STATE1;
   goto again;
  case STATE1_E1_1D_45_E1:
-  if (ps2_byte == 0x9d) { self->p_state = STATE1_E1_1D_45_E1_9D; goto done; }
+  if (keycode == 0x9d) { self->p_state = STATE1_E1_1D_45_E1_9D; goto done; }
   Keyboard_Putc(self,KEYMAP_GET_PS2_SCANSET1(0xe1));
   Keyboard_Putc(self,KEYMAP_GET_PS2_SCANSET1(0x1d));
   Keyboard_Putc(self,KEYMAP_GET_PS2_SCANSET1(0x45));
@@ -182,7 +183,7 @@ again:
   goto again;
  case STATE1_E1_1D_45_E1_9D:
   self->p_state = STATE1;
-  if (ps2_byte == 0x9d) {
+  if (keycode == 0x9d) {
    Keyboard_Putc(self,KEY_PRESSED|KEY_PAUSE);
    key = KEY_RELEASED|KEY_PAUSE;
   } else {
@@ -197,34 +198,34 @@ again:
 
   /* Scanset #2 */
  case STATE2:
-  if (ps2_byte == 0xf0) { self->p_state = STATE2_F0; goto done; }
-  if (ps2_byte == 0xe0) { self->p_state = STATE2_E0; goto done; }
-  if (ps2_byte == 0xe1) { self->p_state = STATE2_E1; goto done; }
-  key = (keyboard_key_t)keymap_ps2_scanset_2[ps2_byte];
+  if (keycode == 0xf0) { self->p_state = STATE2_F0; goto done; }
+  if (keycode == 0xe0) { self->p_state = STATE2_E0; goto done; }
+  if (keycode == 0xe1) { self->p_state = STATE2_E1; goto done; }
+  key = (keyboard_key_t)keymap_ps2_scanset_2[keycode];
   break;
  case STATE2_F0:
-  key = (keyboard_key_t)keymap_ps2_scanset_2[ps2_byte]|KEY_RELEASED;
+  key = (keyboard_key_t)keymap_ps2_scanset_2[keycode]|KEY_RELEASED;
   self->p_state = STATE2;
   break;
  case STATE2_E0:
-  if (ps2_byte == 0xf0) { self->p_state = STATE2_E0_F0; goto done; }
-  if (ps2_byte == 0x12) { self->p_state = STATE2_E0_12; goto done; }
-  key = keymap_ps2_scanset_2_e0[ps2_byte];
+  if (keycode == 0xf0) { self->p_state = STATE2_E0_F0; goto done; }
+  if (keycode == 0x12) { self->p_state = STATE2_E0_12; goto done; }
+  key = keymap_ps2_scanset_2_e0[keycode];
   self->p_state = STATE2;
   break;
  case STATE2_E0_F0:
-  if (ps2_byte == 0x7c) { self->p_state = STATE2_E0_F0_7C; goto done; }
-  key = KEY_RELEASED|keymap_ps2_scanset_2_e0[ps2_byte];
+  if (keycode == 0x7c) { self->p_state = STATE2_E0_F0_7C; goto done; }
+  key = KEY_RELEASED|keymap_ps2_scanset_2_e0[keycode];
   self->p_state = STATE2;
   break;
  case STATE2_E0_12:
-  if (ps2_byte == 0xe0) { self->p_state = STATE2_E0_12_E0; goto done; }
+  if (keycode == 0xe0) { self->p_state = STATE2_E0_12_E0; goto done; }
   Keyboard_Putc(self,keymap_ps2_scanset_2_e0[0x12]);
   self->p_state = STATE2;
   goto again;
  case STATE2_E0_12_E0:
   self->p_state = STATE2;
-  if (ps2_byte == 0x7c) {
+  if (keycode == 0x7c) {
    key = KEY_PRESSED|KEY_PRINTSCREEN;
   } else {
    Keyboard_Putc(self,keymap_ps2_scanset_2_e0[0x12]);
@@ -232,18 +233,18 @@ again:
   }
   break;
  case STATE2_E0_F0_7C:
-  if (ps2_byte == 0xe0) { self->p_state = STATE2_E0_F0_7C_E0; goto done; }
+  if (keycode == 0xe0) { self->p_state = STATE2_E0_F0_7C_E0; goto done; }
   Keyboard_Putc(self,keymap_ps2_scanset_2_e0[0x7c]|KEY_RELEASED);
   self->p_state = STATE2;
   goto again;
  case STATE2_E0_F0_7C_E0:
-  if (ps2_byte == 0xf0) { self->p_state = STATE2_E0_F0_7C_E0_F0; goto done; }
+  if (keycode == 0xf0) { self->p_state = STATE2_E0_F0_7C_E0_F0; goto done; }
   Keyboard_Putc(self,keymap_ps2_scanset_2_e0[0x7c]|KEY_RELEASED);
   self->p_state = STATE2_E0;
   goto again;
  case STATE2_E0_F0_7C_E0_F0:
   self->p_state = STATE2;
-  if (ps2_byte == 0x12) {
+  if (keycode == 0x12) {
    key = KEY_RELEASED|KEY_PRINTSCREEN;
   } else {
    Keyboard_Putc(self,keymap_ps2_scanset_2_e0[0x7c]|KEY_RELEASED);
@@ -252,32 +253,32 @@ again:
   }
   break;
  case STATE2_E1:
-  if (ps2_byte == 0x14) { self->p_state = STATE2_E1_14; goto done; }
+  if (keycode == 0x14) { self->p_state = STATE2_E1_14; goto done; }
   Keyboard_Putc(self,keymap_ps2_scanset_2[0xe1]);
   self->p_state = STATE2;
   goto again;
  case STATE2_E1_14:
-  if (ps2_byte == 0x77) { self->p_state = STATE2_E1_14_77; goto done; }
+  if (keycode == 0x77) { self->p_state = STATE2_E1_14_77; goto done; }
   Keyboard_Putc(self,keymap_ps2_scanset_2[0xe1]);
   Keyboard_Putc(self,keymap_ps2_scanset_2[0x14]);
   self->p_state = STATE2;
   goto again;
  case STATE2_E1_14_77:
-  if (ps2_byte == 0xe1) { self->p_state = STATE2_E1_14_77_E1; goto done; }
+  if (keycode == 0xe1) { self->p_state = STATE2_E1_14_77_E1; goto done; }
   Keyboard_Putc(self,keymap_ps2_scanset_2[0xe1]);
   Keyboard_Putc(self,keymap_ps2_scanset_2[0x14]);
   Keyboard_Putc(self,keymap_ps2_scanset_2[0x77]);
   self->p_state = STATE2;
   goto again;
  case STATE2_E1_14_77_E1:
-  if (ps2_byte == 0xf0) { self->p_state = STATE2_E1_14_77_E1_F0; goto done; }
+  if (keycode == 0xf0) { self->p_state = STATE2_E1_14_77_E1_F0; goto done; }
   Keyboard_Putc(self,keymap_ps2_scanset_2[0xe1]);
   Keyboard_Putc(self,keymap_ps2_scanset_2[0x14]);
   Keyboard_Putc(self,keymap_ps2_scanset_2[0x77]);
   self->p_state = STATE2_E1;
   goto again;
  case STATE2_E1_14_77_E1_F0:
-  if (ps2_byte == 0x14) { self->p_state = STATE2_E1_14_77_E1_F0_14; goto done; }
+  if (keycode == 0x14) { self->p_state = STATE2_E1_14_77_E1_F0_14; goto done; }
   Keyboard_Putc(self,keymap_ps2_scanset_2[0xe1]);
   Keyboard_Putc(self,keymap_ps2_scanset_2[0x14]);
   Keyboard_Putc(self,keymap_ps2_scanset_2[0x77]);
@@ -285,7 +286,7 @@ again:
   self->p_state = STATE2_F0;
   goto again;
  case STATE2_E1_14_77_E1_F0_14:
-  if (ps2_byte == 0xf0) { self->p_state = STATE2_E1_14_77_E1_F0_14_F0; goto done; }
+  if (keycode == 0xf0) { self->p_state = STATE2_E1_14_77_E1_F0_14_F0; goto done; }
   Keyboard_Putc(self,keymap_ps2_scanset_2[0xe1]);
   Keyboard_Putc(self,keymap_ps2_scanset_2[0x14]);
   Keyboard_Putc(self,keymap_ps2_scanset_2[0x77]);
@@ -294,7 +295,7 @@ again:
   self->p_state = STATE2;
   goto again;
  case STATE2_E1_14_77_E1_F0_14_F0:
-  if (ps2_byte == 0x12) {
+  if (keycode == 0x12) {
    Keyboard_Putc(self,KEY_PRESSED|KEY_PAUSE);
    key = KEY_RELEASED|KEY_PAUSE;
    self->p_state = STATE2;
@@ -310,11 +311,11 @@ again:
   break;
 
  case STATE3:
-  if (ps2_byte == 0xf0) { self->p_state = STATE3_F0; goto done; }
-  key = keymap_ps2_scanset_3[ps2_byte];
+  if (keycode == 0xf0) { self->p_state = STATE3_F0; goto done; }
+  key = keymap_ps2_scanset_3[keycode];
   break;
  case STATE3_F0:
-  key = keymap_ps2_scanset_3[ps2_byte]|KEY_RELEASED;
+  key = keymap_ps2_scanset_3[keycode]|KEY_RELEASED;
   break;
 
 
@@ -388,12 +389,14 @@ PRIVATE struct keyboard_ops KeyboardOps = {
 #define PS2_PREFERRED_SCANSET 2
 #define PS2_ORIGINAL_SCANSET  1
 
-PRIVATE ATTR_FREETEXT
-void KCALL ps2_create_keyboard(u8 port) {
+INTERN ATTR_FREETEXT void KCALL ps2_register_keyboard(u8 port) {
  REF Keyboard *kbd; u8 scanset;
  /* Try to reset the keyboard. */
  if (!ps2_runprogram(port,NULL,NULL,ps2_keyboard_reset))
       return;
+ /* It's a keyboard! (remember that) */
+ ps2_port_device[port] = PS2_PORT_DEVICE_FKEYBOARD;
+
  ps2_runprogram(port,NULL,NULL,ps2_keyboard_setdefaults);
  ps2_runprogram(port,NULL,NULL,ps2_keyboard_disable_scanning);
  {
@@ -440,99 +443,53 @@ void KCALL ps2_create_keyboard(u8 port) {
  }
 }
 
-PRIVATE void KCALL
-ps2_detect_keyboard_threadmain(void *arg) {
- /* Use the ECHO command to detect keyboards. */
- if (ps2_runprogram(PS2_PORT1,NULL,NULL,ps2_keyboard_echo))
-     ps2_create_keyboard(PS2_PORT1);
- if (ps2_runprogram(PS2_PORT2,NULL,NULL,ps2_keyboard_echo))
-     ps2_create_keyboard(PS2_PORT2);
-}
-
-
-DEFINE_DRIVER_INIT(ps2_init_keyboard);
-INTERN ATTR_FREETEXT void KCALL ps2_init_keyboard(void) {
- /* Spawn a worker thread for keyboard initialization to deal with the timeouts. */
- REF struct task *worker;
- worker = task_alloc();
- TRY {
-  task_setup_kernel(worker,
-                   &ps2_detect_keyboard_threadmain,
-                    NULL);
-  task_start(worker);
-  /* TODO: Race condition:
-   *   User-space must be able to wait for this thread
-   *   to terminate, because otherwise it won't know
-   *   when the keyboard is actually ready...
-   * Solution:
-   *   Keep track of all threads that need to complete
-   *   for initializing devices and add a kernctl()
-   *   command to wait for those threads to complete.
-   *   /bin/init can then invoke that command to make
-   *   sure that stuff like the keyboard have finished
-   *   initializing. */
- } FINALLY {
-  task_decref(worker);
- }
-}
-
-
-
-
 
 
 PS2_DEFINE_PUBLIC_PROGRAM(
  ps2_keyboard_getscanset,
- ps2_send   PS2_COMMAND_SCANSET; /* Scanset command */
- ps2_wait   PS2_ACK;             /* Wait for ACK */
- ps2_send   0;                   /* Read scanset */
- ps2_wait   PS2_ACK;             /* Wait for ACK */
- ps2_wait   %res;                /* Wait for, and save results */
- ps2_stop;                       /* done */
+ ps2_send   PS2_KEYBOARD_FSCANSET; /* Scanset command */
+ ps2_wait   PS2_ACK;               /* Wait for ACK */
+ ps2_send   0;                     /* Read scanset */
+ ps2_wait   PS2_ACK;               /* Wait for ACK */
+ ps2_wait   %res;                  /* Wait for, and save results */
+ ps2_stop;                         /* done */
 );
 
 PS2_DEFINE_PUBLIC_PROGRAM(
  ps2_keyboard_setscanset,
- ps2_send   PS2_COMMAND_SCANSET; /* Scanset command */
- ps2_wait   PS2_ACK;             /* Wait for ACK */
- ps2_send   %arg;                /* Set the new scanset. */
- ps2_wait   PS2_ACK;             /* Wait for ACK */
- ps2_stop;                       /* done */
+ ps2_send   PS2_KEYBOARD_FSCANSET; /* Scanset command */
+ ps2_wait   PS2_ACK;               /* Wait for ACK */
+ ps2_send   %arg;                  /* Set the new scanset. */
+ ps2_wait   PS2_ACK;               /* Wait for ACK */
+ ps2_stop;                         /* done */
 );
 
 PS2_DEFINE_PUBLIC_PROGRAM(
  ps2_keyboard_setleds,
- ps2_send   PS2_COMMAND_SETLED; /* Set LEDs */
- ps2_wait   PS2_ACK;            /* Wait for ACK */
- ps2_send   %arg;               /* Set the new scanset. */
- ps2_wait   PS2_ACK;            /* Wait for ACK */
- ps2_stop;                      /* done */
+ ps2_send   PS2_KEYBOARD_FSETLED; /* Set LEDs */
+ ps2_wait   PS2_ACK;              /* Wait for ACK */
+ ps2_send   %arg;                 /* Set the new scanset. */
+ ps2_wait   PS2_ACK;              /* Wait for ACK */
+ ps2_stop;                        /* done */
 );
 
 PS2_DEFINE_PUBLIC_PROGRAM(
  ps2_keyboard_enable_scanning,
- ps2_send   PS2_COMMAND_ENABLE_SCANNING;
+ ps2_send   PS2_KEYBOARD_FENABLE_SCANNING;
  ps2_wait   PS2_ACK;
  ps2_stop;
 );
 
 PS2_DEFINE_PUBLIC_PROGRAM(
  ps2_keyboard_disable_scanning,
- ps2_send   PS2_COMMAND_DISABLE_SCANNING;
+ ps2_send   PS2_KEYBOARD_FDISABLE_SCANNING;
  ps2_wait   PS2_ACK;
  ps2_stop;
 );
 
 PS2_DEFINE_PUBLIC_PROGRAM(
- ps2_keyboard_echo,
- ps2_send   PS2_COMMAND_ECHO;
- ps2_wait   0xee;
- ps2_stop;
-);
-
-PS2_DEFINE_PUBLIC_PROGRAM(
  ps2_keyboard_reset,
- ps2_send   PS2_COMMAND_RESET;
+ ps2_send   PS2_KEYBOARD_FRESET;
  ps2_wait   PS2_ACK;
  ps2_wait   0xaa;
  ps2_stop;
@@ -540,7 +497,7 @@ PS2_DEFINE_PUBLIC_PROGRAM(
 
 PS2_DEFINE_PUBLIC_PROGRAM(
  ps2_keyboard_setdefaults,
- ps2_send   PS2_COMMAND_SETDEFAULT;
+ ps2_send   PS2_KEYBOARD_FSETDEFAULT;
  ps2_wait   PS2_ACK;
  ps2_stop;
 );

@@ -27,6 +27,7 @@
 #include <kernel/interrupt.h>
 #include <kernel/heap.h>
 #include <kernel/debug.h>
+#include <kernel/boot.h>
 #include <kernel/syscall.h>
 #include <kernel/user.h>
 #include <sched/task.h>
@@ -138,9 +139,6 @@ void KCALL x86_switch_to_userspace(void) {
  atomic_rwlock_endwrite(&vm_kernel.vm_tasklock);
  _boot_task.t_vm = init_vm; /* Inherit reference. */
 
- /* Generate a random sysbase value for the boot task. */
- FORTASK(&_boot_task,x86_sysbase) = X86_SYSBASE_RAND();
-
  {
   /* Assign PID #1 to the boot task. */
   REF struct thread_pid *pid;
@@ -157,6 +155,10 @@ void KCALL x86_switch_to_userspace(void) {
                       : "memory");
  /* With the new context now active, re-enable preemption. */
  PREEMPTION_ENABLE();
+ COMPILER_BARRIER();
+
+ /* Generate a random sysbase value for the boot task. */
+ FORTASK(&_boot_task,x86_sysbase) = X86_SYSBASE_RAND();
 
  /* All right! Now create and load /bin/init as an application. */
  init_app = application_alloc();
@@ -206,6 +208,13 @@ void KCALL x86_switch_to_userspace(void) {
 
   /* Queue library initializers for all loaded user-space application. */
   vm_apps_initall(&ctx);
+
+  /* Wait for all boot worker threads to terminate
+   * These threads are allowed to run code apart of the .free section,
+   * meaning they must all finish before we can delete such code.
+   * Additionally, this way user-space is first launched once all
+   * devices have been properly initialized (s.a. setup code in /bin/init). */
+  kernel_join_bootworkers();
 
   /* Free the kernel's .free section.
    * NOTE: Any race conditions that could normally cause our own

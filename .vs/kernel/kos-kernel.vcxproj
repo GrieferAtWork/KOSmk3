@@ -102,8 +102,9 @@
     <ClCompile Include="..\..\src\kernel\src\dev\keymap.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\keymap_default.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\pci.c" />
+    <ClCompile Include="..\..\src\kernel\src\dev\ps2-keyboard.c" />
+    <ClCompile Include="..\..\src\kernel\src\dev\ps2-mouse.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\ps2.c" />
-    <ClCompile Include="..\..\src\kernel\src\dev\ps2_keyboard.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\pty.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\tty.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\wall.c" />
@@ -124,6 +125,7 @@
     <ClCompile Include="..\..\src\kernel\src\fs\walk.c" />
     <ClCompile Include="..\..\src\kernel\src\fs\wordbuffer.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\async_signal.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\boot.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\debug.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\heap.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\kernctl.c" />
@@ -169,9 +171,10 @@
     <ClInclude Include="..\..\src\kernel\include\dev\keyboard.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\keymap.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\pci.h" />
+    <ClInclude Include="..\..\src\kernel\include\dev\ps2-keyboard.h" />
+    <ClInclude Include="..\..\src\kernel\include\dev\ps2-mouse.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\ps2-program.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\ps2.h" />
-    <ClInclude Include="..\..\src\kernel\include\dev\ps2_keyboard.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\pty.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\tty.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\wall.h" />
@@ -214,6 +217,7 @@
     <ClInclude Include="..\..\src\kernel\include\i386-kos\user.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\vm.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\vm86.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\boot.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\debug.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\environ.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\heap.h" />
@@ -249,7 +253,7 @@
     <ClInclude Include="..\..\src\kernel\include\unwind\linker.h" />
     <ClInclude Include="..\..\src\kernel\src\core\ata.h" />
     <ClInclude Include="..\..\src\kernel\src\core\fat.h" />
-    <ClInclude Include="..\..\src\kernel\src\dev\ps2_keymaps.h" />
+    <ClInclude Include="..\..\src\kernel\src\dev\ps2-keymaps.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{86D226C5-EF62-4562-AC06-E6A753DFA7CF}</ProjectGuid>

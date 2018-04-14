@@ -16,52 +16,37 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef GUARD_KERNEL_SRC_DEV_PS2_KEYBOARD_H
-#define GUARD_KERNEL_SRC_DEV_PS2_KEYBOARD_H 1
+#ifndef GUARD_KERNEL_INCLUDE_DEV_PS2_MOUSE_H
+#define GUARD_KERNEL_INCLUDE_DEV_PS2_MOUSE_H 1
 #define _KOS_SOURCE 1
 
 #include <hybrid/compiler.h>
 #include <dev/ps2.h>
-#include <kos/keyboard.h>
-#include <dev/keyboard.h>
 
 #ifdef CONFIG_HAVE_DEV_PS2
-
 DECL_BEGIN
 
-/* Get the current keyboard scanset.
- * IN:  [];         OUT: [scanset]
- * @param: scanset: ???? (this one's kind-of weird...) */
-DATDEF u8 const ps2_keyboard_getscanset[];
-
-/* Set the current keyboard scanset.
- * IN:  [scanset];  OUT: []
- * @param: scanset: One of `PS2_SCANSET_*' */
-DATDEF u8 const ps2_keyboard_setscanset[];
-#define PS2_SCANSET_1  0x01
-#define PS2_SCANSET_2  0x02
-#define PS2_SCANSET_3  0x03
-
-/* Set the currently active keyboard LEDs.
- * IN:  [ledset];   OUT: []
- * @param: ledset: Set of `KEYBOARD_LED_F*' */
-DATDEF u8 const ps2_keyboard_setleds[];
+/* PS/2 mouse command codes (For use with `ps2_send'; s.a. `ps2_runprogram'). */
+#define PS2_MOUSE_FSET_RESOLUTION       0xe8
+#define PS2_MOUSE_FSTATUS_REQUEST       0xe9
+#define PS2_MOUSE_FSET_STREAM_MODE      0xea
+#define PS2_MOUSE_FREAD_DATA            0xeb
+#define PS2_MOUSE_FRESET_WRAP_MODE      0xec
+#define PS2_MOUSE_FSET_WRAP_MODE        0xee
+#define PS2_MOUSE_FSET_REMOTE_MODE      0xf0
+#define PS2_MOUSE_FSET_SAMPLE_RATE      0xf3
+#define PS2_MOUSE_FENABLE_REPORTING     0xf4
+#define PS2_MOUSE_FDISABLE_REPORTING    0xf5
+#define PS2_MOUSE_FSETDEFAULT           0xf6
+#define PS2_MOUSE_FRESEND               0xfe
+#define PS2_MOUSE_FRESET                0xff
 
 
-/* Start scanning.  IN:  [];   OUT: [] */
-DATDEF u8 const ps2_keyboard_enable_scanning[];
-/* Start scanning.  IN:  [];   OUT: [] */
-DATDEF u8 const ps2_keyboard_disable_scanning[];
-/* Check device presence.  IN:  [];   OUT: [] */
-DATDEF u8 const ps2_keyboard_echo[];
-/* Reset the keyboard.  IN:  [];   OUT: [] */
-DATDEF u8 const ps2_keyboard_reset[];
-/* Set default parameters.  IN:  [];   OUT: [] */
-DATDEF u8 const ps2_keyboard_setdefaults[];
-
+#define PS2_MOUSE_TYPE_FNORMAL   0x00 /* Normal mouse */
+#define PS2_MOUSE_TYPE_FWHEEL    0x03 /* Mouse with scroll-wheel */
+#define PS2_MOUSE_TYPE_F5BUTTON  0x04 /* 5-button mouse */
 
 DECL_END
-
 #endif /* CONFIG_HAVE_DEV_PS2 */
 
-#endif /* !GUARD_KERNEL_SRC_DEV_PS2_KEYBOARD_H */
+#endif /* !GUARD_KERNEL_INCLUDE_DEV_PS2_MOUSE_H */
