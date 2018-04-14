@@ -566,8 +566,19 @@ fs_path(struct path *cwd, USER CHECKED char const *path,
    * If it does, the caller needs this path to be a directory. */
   while (pathlen) {
    char ch = path[pathlen-1];
-   if (ch == '/') need_directory = true;
-   else if (!isspace(ch)) break;
+   if (ch == '/') {
+    /* Special case: root directory */
+    while (pathlen > 1 && isspace(path[0]))
+        ++path,--pathlen;
+    if (pathlen == 1) {
+     result = root;
+     path_incref(result);
+     goto got_result;
+    }
+    need_directory = true;
+   } else {
+    if (!isspace(ch)) break;
+   }
    --pathlen;
   }
   result = fs_walk_path_all(root,
@@ -576,6 +587,7 @@ fs_path(struct path *cwd, USER CHECKED char const *path,
                             pathlen,
                            &max_links,
                             flags);
+got_result:;
  } FINALLY {
   path_decref(cwd);
   path_decref(root);

@@ -889,9 +889,9 @@ DEFINE_SYSCALL3(xfchdirat,fd_t,dfd,USER UNCHECKED char const *,reldir,int,flags)
  struct fs *my_fs = THIS_FS;
  if (flags & ~FS_MODE_FKNOWNBITS)
      error_throw(E_INVALID_ARGUMENT);
- new_path = fs_path(NULL,reldir,user_strlen(reldir),NULL,
-                    FS_ATMODE(flags)|FS_MODE_FDIRECTORY|
-                    FS_MODE_FIGNORE_TRAILING_SLASHES);
+ new_path = fs_pathat(dfd,reldir,user_strlen(reldir),NULL,
+                      FS_ATMODE(flags)|FS_MODE_FDIRECTORY|
+                      FS_MODE_FIGNORE_TRAILING_SLASHES);
  atomic_rwlock_write(&my_fs->fs_lock);
  old_path = my_fs->fs_cwd;
  my_fs->fs_cwd = new_path;
