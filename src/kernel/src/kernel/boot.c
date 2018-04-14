@@ -27,6 +27,7 @@
 #include <hybrid/sync/atomic-rwlock.h>
 #include <sched/task.h>
 #include <assert.h>
+#include <string.h>
 
 DECL_BEGIN
 
@@ -67,6 +68,9 @@ again:
    goto again;
   }
   old_vector = bw_thread_v;
+  /* Copy old pointers into the new vector. */
+  memcpy(new_vector,old_vector,
+         bw_thread_c*sizeof(REF struct task *));
   bw_thread_v = new_vector;
   bw_thread_a = new_alloc;
  }
