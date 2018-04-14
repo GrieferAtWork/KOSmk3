@@ -35,7 +35,7 @@
 #include "../libs/libc/rtl.h"
 #include "../libs/libc/sched.h"
 #include "../libs/libc/system.h"
-#include "../libs/libc/stdio/file.h"
+#include "../libs/libc/stdio.h"
 #endif
 
 #include <hybrid/compiler.h>
@@ -77,7 +77,7 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
 #define INFO   (&info_struct)
  struct exception_info info_struct; u16 code;
  bool is_first = true; uintptr_t last_ip = 0;
- if (!fp) fp = stderr;
+ if (!fp) fp = libc_stderr;
  if (reason)
   VPRINTF(reason,args);
  else {

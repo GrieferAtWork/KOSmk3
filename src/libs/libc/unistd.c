@@ -310,10 +310,10 @@ INTERN int LIBCCALL libc_mknodat(fd_t dfd, char const *path, mode_t mode, dev_t 
 CRT_DOS_EXT int LIBCCALL libc_dos_mknodat(fd_t dfd, char const *path, mode_t mode, dev_t dev) { return libc_fmknodat(dfd,path,mode,dev,AT_DOSPATH); }
 INTERN int LIBCCALL libc_fmknodat(fd_t dfd, char const *path, mode_t mode, dev_t dev, int flags) { return FORWARD_SYSTEM_ERROR(sys_xfmknodat(dfd,path,mode,dev,flags)); }
 CRT_DOS_EXT int LIBCCALL libc_dos_fmknodat(fd_t dfd, char const *path, mode_t mode, dev_t dev, int flags) { return libc_fmknodat(dfd,path,mode,dev,flags|AT_DOSPATH); }
-INTERN int LIBCCALL libc_xmknod(int ver, const char *path, mode_t mode, dev_t *pdev) { return libc_xmknodat(ver,AT_FDCWD,path,mode,pdev); }
-CRT_DOS_EXT int LIBCCALL libc_dos_xmknod(int ver, const char *path, mode_t mode, dev_t *pdev) { return libc_dos_xmknodat(ver,AT_FDCWD,path,mode,pdev); }
-INTERN int LIBCCALL libc_xmknodat(int ver, fd_t dfd, const char *path, mode_t mode, dev_t *pdev) { if (ver != 0) { libc_seterrno(EINVAL); return -1; } return libc_mknodat(dfd,path,mode,*pdev); }
-CRT_DOS_EXT int LIBCCALL libc_dos_xmknodat(int ver, fd_t dfd, const char *path, mode_t mode, dev_t *pdev) { if (ver != 0) { libc_seterrno(EINVAL); return -1; } return libc_dos_mknodat(dfd,path,mode,*pdev); }
+INTERN int LIBCCALL libc_xmknod(int ver, char const *path, mode_t mode, dev_t *pdev) { return libc_xmknodat(ver,AT_FDCWD,path,mode,pdev); }
+CRT_DOS_EXT int LIBCCALL libc_dos_xmknod(int ver, char const *path, mode_t mode, dev_t *pdev) { return libc_dos_xmknodat(ver,AT_FDCWD,path,mode,pdev); }
+INTERN int LIBCCALL libc_xmknodat(int ver, fd_t dfd, char const *path, mode_t mode, dev_t *pdev) { if (ver != 0) { libc_seterrno(EINVAL); return -1; } return libc_mknodat(dfd,path,mode,*pdev); }
+CRT_DOS_EXT int LIBCCALL libc_dos_xmknodat(int ver, fd_t dfd, char const *path, mode_t mode, dev_t *pdev) { if (ver != 0) { libc_seterrno(EINVAL); return -1; } return libc_dos_mknodat(dfd,path,mode,*pdev); }
 INTERN int LIBCCALL libc_mkfifo(char const *path, mode_t mode) { return libc_mknod(path,mode,S_IFIFO); }
 CRT_DOS_EXT int LIBCCALL libc_dos_mkfifo(char const *path, mode_t mode) { return libc_dos_mknod(path,mode,S_IFIFO); }
 INTERN int LIBCCALL libc_mkfifoat(fd_t dfd, char const *path, mode_t mode) { return libc_mknodat(dfd,path,mode,S_IFIFO); }
@@ -1611,7 +1611,7 @@ EXPORT(__DSYMw16(_getcwd_dbg),libc_dos_getcwd_dbg);
 CRT_DOS char *LIBCCALL
 libc_dos_getcwd_dbg(char *buf, size_t size,
                     int UNUSED(blocktype),
-                    const char *UNUSED(filename),
+                    char const *UNUSED(filename),
                     int UNUSED(lno)) {
  return libc_dos_getcwd(buf,size);
 }
@@ -1619,7 +1619,7 @@ EXPORT(__DSYMw16(_getdcwd_dbg),libd_dos_getdcwd_dbg);
 CRT_DOS char *LIBCCALL
 libd_dos_getdcwd_dbg(int drive, char *buf, size_t size,
                      int UNUSED(blocktype),
-                     const char *UNUSED(filename),
+                     char const *UNUSED(filename),
                      int UNUSED(lno)) {
  return libc_dos_getdcwd(drive,buf,size);
 }

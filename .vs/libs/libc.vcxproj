@@ -61,6 +61,7 @@
     <ClCompile Include="..\..\src\libs\libc\socket\socket.c" />
     <ClCompile Include="..\..\src\libs\libc\stdio.c" />
     <ClCompile Include="..\..\src\libs\libc\stdio\file.c" />
+    <ClCompile Include="..\..\src\libs\libc\stdio_api.c" />
     <ClCompile Include="..\..\src\libs\libc\sync.c" />
     <ClCompile Include="..\..\src\libs\libc\time.c" />
     <ClCompile Include="..\..\src\libs\libc\tty.c" />
@@ -96,6 +97,7 @@
     <ClInclude Include="..\..\src\libs\libc\rtl.h" />
     <ClInclude Include="..\..\src\libs\libc\sched.h" />
     <ClInclude Include="..\..\src\libs\libc\socket\socket.h" />
+    <ClInclude Include="..\..\src\libs\libc\stdio.h" />
     <ClInclude Include="..\..\src\libs\libc\stdio\file.h" />
     <ClInclude Include="..\..\src\libs\libc\sync.h" />
     <ClInclude Include="..\..\src\libs\libc\system.h" />

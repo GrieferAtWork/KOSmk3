@@ -852,7 +852,11 @@ struct exception_info;
 #endif
 INTDEF ATTR_CONST ATTR_RETNONNULL struct exception_info *(FCALL libc_error_info)(void);
 INTDEF bool FCALL libc_error_throw_resumable(u16 code);
+INTDEF bool FCALL libc_error_throw_resumable_ex(u16 code, struct exception_data *__restrict data);
+INTDEF bool ATTR_CDECL libc_error_throw_resumablef(u16 code, ...);
 INTDEF ATTR_NORETURN void FCALL libc_error_throw(u16 code);
+INTDEF ATTR_NORETURN void FCALL libc_error_throw_ex(u16 code, struct exception_data *__restrict data);
+INTDEF ATTR_NORETURN void ATTR_CDECL libc_error_throwf(u16 code, ...);
 INTDEF bool FCALL libc_error_throw_current(void);
 INTDEF ATTR_NORETURN void FCALL libc_error_rethrow(void);
 INTDEF ATTR_NORETURN void FCALL libc_error_continue(int retry);

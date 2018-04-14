@@ -156,15 +156,15 @@ EXPORT(__DSYM(_aligned_offset_recalloc_dbg),libd_aligned_offset_recalloc_dbg);
 _Check_return_ _Ret_maybenull_z_ _CRTIMP wchar_t * __cdecl _wcsdup_dbg(
         _In_opt_z_ const wchar_t * _Str,
         _In_ int _BlockType,
-        _In_opt_z_ const char * _Filename,
+        _In_opt_z_ char const * _Filename,
         _In_ int _LineNumber
         );
 
 _Check_return_ _Ret_maybenull_z_ _CRTIMP char * __cdecl _tempnam_dbg(
-        _In_opt_z_ const char * _DirName,
-        _In_opt_z_ const char * _FilePrefix,
+        _In_opt_z_ char const * _DirName,
+        _In_opt_z_ char const * _FilePrefix,
         _In_ int _BlockType,
-        _In_opt_z_ const char * _Filename,
+        _In_opt_z_ char const * _Filename,
         _In_ int _LineNumber
         );
 
@@ -172,16 +172,16 @@ _Check_return_ _Ret_maybenull_z_ _CRTIMP wchar_t * __cdecl _wtempnam_dbg(
         _In_opt_z_ const wchar_t * _DirName,
         _In_opt_z_ const wchar_t * _FilePrefix,
         _In_ int _BlockType,
-        _In_opt_z_ const char * _Filename,
+        _In_opt_z_ char const * _Filename,
         _In_ int _LineNumber
         );
 
 _Check_return_ _Ret_maybenull_z_ _CRTIMP char * __cdecl _fullpath_dbg(
         _Out_writes_opt_z_(_SizeInBytes) char * _FullPath,
-        _In_z_ const char * _Path,
+        _In_z_ char const * _Path,
         _In_ size_t _SizeInBytes,
         _In_ int _BlockType,
-        _In_opt_z_ const char * _Filename,
+        _In_opt_z_ char const * _Filename,
         _In_ int _LineNumber
         );
 
@@ -190,7 +190,7 @@ _Check_return_ _Ret_maybenull_z_ _CRTIMP wchar_t * __cdecl _wfullpath_dbg(
         _In_z_ const wchar_t * _Path,
         _In_ size_t _SizeInWords,
         _In_ int _BlockType,
-        _In_opt_z_ const char * _Filename,
+        _In_opt_z_ char const * _Filename,
         _In_ int _LineNumber
         );
 
@@ -198,7 +198,7 @@ _Check_return_ _Ret_maybenull_z_ _CRTIMP char * __cdecl _getcwd_dbg(
         _Out_writes_opt_z_(_SizeInBytes) char * _DstBuf,
         _In_ int _SizeInBytes,
         _In_ int _BlockType,
-        _In_opt_z_ const char * _Filename,
+        _In_opt_z_ char const * _Filename,
         _In_ int _LineNumber
         );
 
@@ -207,7 +207,7 @@ _Check_return_ _Ret_maybenull_z_ _CRTIMP char * __cdecl _getdcwd_dbg(
         _Out_writes_opt_z_(_SizeInBytes) char * _DstBuf,
         _In_ int _SizeInBytes,
         _In_ int _BlockType,
-        _In_opt_z_ const char * _Filename,
+        _In_opt_z_ char const * _Filename,
         _In_ int _LineNumber
         );
 
@@ -216,7 +216,7 @@ _Check_return_ _Ret_maybenull_z_ char * __cdecl _getdcwd_lk_dbg(
         _Out_writes_opt_z_(_SizeInBytes) char * _DstBuf,
         _In_ int _SizeInBytes,
         _In_ int _BlockType,
-        _In_opt_z_ const char * _Filename,
+        _In_opt_z_ char const * _Filename,
         _In_ int _LineNumber
         );
 
@@ -225,16 +225,16 @@ _Check_return_ _Ret_maybenull_z_ wchar_t * __cdecl _wgetdcwd_lk_dbg(
         _Out_writes_opt_z_(_SizeInWords) wchar_t * _DstBuf,
         _In_ int _SizeInWords,
         _In_ int _BlockType,
-        _In_opt_z_ const char * _Filename,
+        _In_opt_z_ char const * _Filename,
         _In_ int _LineNumber
         );
 
 _Check_return_wat_ _CRTIMP errno_t __cdecl _dupenv_s_dbg(
         _Outptr_result_buffer_maybenull_(*_PBufferSizeInBytes) _Outptr_result_z_ char ** _PBuffer,
         _Out_opt_ size_t * _PBufferSizeInBytes,
-        _In_z_ const char * _VarName,
+        _In_z_ char const * _VarName,
         _In_ int _BlockType,
-        _In_opt_z_ const char * _Filename,
+        _In_opt_z_ char const * _Filename,
         _In_ int _LineNumber
         );
 
@@ -243,7 +243,7 @@ _Check_return_wat_ _CRTIMP errno_t __cdecl _wdupenv_s_dbg(
         _Out_opt_ size_t * _PBufferSizeInWords,
         _In_z_ const wchar_t * _VarName,
         _In_ int _BlockType,
-        _In_opt_z_ const char * _Filename,
+        _In_opt_z_ char const * _Filename,
         _In_ int _LineNumber
         );
 */

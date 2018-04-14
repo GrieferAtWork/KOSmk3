@@ -113,6 +113,9 @@ DECL_BEGIN
 #define CRT_ITIMER           INTERN ATTR_SECTION(".text.crt.itimer")      /* Itimer (periodic timer)-related functions. */
 #define CRT_CLOCK            INTERN ATTR_SECTION(".text.crt.clock")       /* Clock (profiling)-related functions. */
 #define CRT_TIME             INTERN ATTR_SECTION(".text.crt.time")        /* Time-related functions */
+#define CRT_STDIO            INTERN ATTR_SECTION(".text.crt.stdio")       /* stdio (FILE) related core functions */
+#define CRT_STDIO_API        INTERN ATTR_SECTION(".text.crt.stdio_api")   /* stdio (FILE) related API functions */
+#define CRT_STDIO_XAPI       INTERN ATTR_SECTION(".text.crt.except.stdio_api") /* stdio (FILE) related API functions (with exception support) */
 #define CRT_TTY              INTERN ATTR_SECTION(".text.crt.tty")         /* TTY-related functions */
 #define CRT_TTY_EXCEPT       INTERN ATTR_SECTION(".text.crt.except.tty")  /* TTY-related functions */
 #define CRT_KOS              INTERN ATTR_SECTION(".text.crt.kos")         /* KOS-specific functions not found anywhere else. */

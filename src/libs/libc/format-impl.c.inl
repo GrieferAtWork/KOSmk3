@@ -1350,7 +1350,10 @@ libd_vfwX(scanf_l)(FILE *__restrict self, T_char const *__restrict format,
 PRIVATE ssize_t LIBCCALL
 libc_format_X(vfscanf_scanner)(FILE *__restrict self, T_char *__restrict pch) {
  wint_t result;
-#if CHARACTER_TYPE == CHARACTER_TYPE_CHAR16
+#ifdef CONFIG_LIBC_USES_NEW_STDIO
+ /* TODO: Wide character support */
+ result = libc_fgetc(self);
+#elif CHARACTER_TYPE == CHARACTER_TYPE_CHAR16
  result = libc_16fgetwc(self);
 #else
  result = libc_32fgetwc(self);
@@ -1362,7 +1365,10 @@ libc_format_X(vfscanf_scanner)(FILE *__restrict self, T_char *__restrict pch) {
 }
 PRIVATE ssize_t LIBCCALL
 libc_format_X(vfscanf_return)(T_char c, FILE *__restrict self) {
-#if CHARACTER_TYPE == CHARACTER_TYPE_CHAR16
+#ifdef CONFIG_LIBC_USES_NEW_STDIO
+ /* TODO: Wide character support */
+ return libc_ungetc((int)c,self);
+#elif CHARACTER_TYPE == CHARACTER_TYPE_CHAR16
  return libc_16ungetwc((wint_t)c,self);
 #else
  return libc_32ungetwc((wint_t)c,self);

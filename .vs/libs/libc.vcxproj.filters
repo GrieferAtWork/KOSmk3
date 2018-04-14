@@ -83,6 +83,7 @@
     <ClCompile Include="..\..\src\libs\libc\dl.c" />
     <ClCompile Include="..\..\src\libs\libc\err.c" />
     <ClCompile Include="..\..\src\libs\libc\dos_slib.c" />
+    <ClCompile Include="..\..\src\libs\libc\stdio_api.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\libs\libc\libc.h" />
@@ -126,6 +127,7 @@
     <ClInclude Include="..\..\src\libs\libc\dl.h" />
     <ClInclude Include="..\..\src\libs\libc\err.h" />
     <ClInclude Include="..\..\src\libs\libc\dos_slib.h" />
+    <ClInclude Include="..\..\src\libs\libc\stdio.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="i386-kos">

@@ -23,6 +23,7 @@
 #include "malloc.h"
 #include "errno.h"
 #include "exit.h"
+#include "stdio.h"
 
 #include <hybrid/sync/atomic-rwlock.h>
 #include <hybrid/xch.h>
@@ -96,7 +97,10 @@ libc_runquickexit(int status) {
 }
 
 INTERN void LIBCCALL libc_internal_onexit(void) {
- /* TODO: Flush all file streams. */
+ /* Flush all file streams. */
+#ifdef CONFIG_LIBC_USES_NEW_STDIO
+ FileBuffer_FlushAllBuffers();
+#endif /* CONFIG_LIBC_USES_NEW_STDIO */
 }
 
 #ifndef CONFIG_LIBC_HAVE_ARCH_EXIT

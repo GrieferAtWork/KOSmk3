@@ -23,12 +23,22 @@
 #include <hybrid/compiler.h>
 #include <except.h>
 #include <errno.h>
+#ifndef __KERNEL__
+#include "../libs/libc/rtl.h"
+#include <syslog.h>
+#define PRINTF(...) libc_syslog(LOG_DEBUG,__VA_ARGS__)
+#else
+#include <kernel/debug.h>
+#define PRINTF(...) debug_printf(__VA_ARGS__)
+#endif
+
 
 DECL_BEGIN
 
 INTERN errno_t FCALL
 libc_exception_errno(struct exception_info *__restrict info) {
  errno_t result = EPERM;
+ /*PRINTF("libc_exception_errno()\n");*/
  switch (info->e_error.e_code) {
  case E_BADALLOC:               result = ENOMEM; break;
  case E_INTERRUPT:              result = EINTR; break;

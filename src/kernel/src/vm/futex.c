@@ -266,6 +266,7 @@ fail:
    atomic_rwptr_endread(iter);
    iter = &result->f_next;
   }
+  atomic_rwptr_endread(iter);
   goto fail_unlock;
 done:;
  } FINALLY {

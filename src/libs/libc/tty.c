@@ -50,9 +50,6 @@ libc_openpty(int *amaster, int *aslave, char *name,
 #error FIXME
 #endif
  s64 result = sys_xopenpty(name,termp,winp);
- libc_syslog(LOG_DEBUG,"XOPENPTY() -> %p,%p\n",
-            (uintptr_t)result,
-            (uintptr_t)((u64)result >> 32));
  if (E_ISERR(result)) { libc_seterrno(-(errno_t)result); return -1; }
  LIBC_TRY {
   *amaster = (int)result;

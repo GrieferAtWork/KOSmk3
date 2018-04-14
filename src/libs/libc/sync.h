@@ -20,7 +20,10 @@
 #define GUARD_LIBS_LIBC_SYNC_H 1
 
 #include "libc.h"
+#include "unistd.h"
 #include <kos/types.h>
+#include <kos/sched/mutex.h>
+#include <hybrid/__atomic.h>
 
 #ifdef __CC__
 DECL_BEGIN
@@ -34,6 +37,22 @@ INTDEF int LIBCCALL libc_mutex_get_timed64(struct mutex *__restrict self, struct
 INTDEF void LIBCCALL libc_mutex_put(struct mutex *__restrict self);
 INTDEF int LIBCCALL libc_Xmutex_get_timed(struct mutex *__restrict self, struct timespec32 *abs_timeout);
 INTDEF int LIBCCALL libc_Xmutex_get_timed64(struct mutex *__restrict self, struct timespec64 *abs_timeout);
+
+FORCELOCAL ATTR_NOTHROW __BOOL KCALL
+libc_mutex_try(struct mutex *__restrict self) {
+ if (!__hybrid_atomic_cmpxch(self->__m_futex,0,1,
+                             __ATOMIC_SEQ_CST,
+                             __ATOMIC_SEQ_CST)) {
+  if (self->__m_owner == libc_gettid()) {
+   ++self->__m_futex;
+   return 1;
+  }
+  return 0;
+ }
+ self->__m_owner = libc_gettid();
+ return 1;
+}
+
 
 DECL_END
 #endif /* __CC__ */

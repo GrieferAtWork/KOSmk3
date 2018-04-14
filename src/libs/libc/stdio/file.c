@@ -21,6 +21,12 @@
 #define _KOS_SOURCE 2
 #define _GNU_SOURCE 1
 
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Wpointer-sign"
+#endif
+
+#include "file.h"
+#ifndef CONFIG_LIBC_USES_NEW_STDIO
 #include "../libc.h"
 #include "../unistd.h"
 #include "../rtl.h"
@@ -29,7 +35,6 @@
 #include "../errno.h"
 #include "../system.h"
 #include "../unicode.h"
-#include "file.h"
 
 #include <stdio.h>
 #include <errno.h>
@@ -254,7 +259,8 @@ libc_fdoflush(FILE *__restrict self) {
  }
  /* Write the entirety of the current buffer up until the current R/W position. */
  write_pointer = self->if_base;
- write_size    = (size_t)(self->if_ptr-write_pointer);
+ write_size    = (size_t)((uintptr_t)self->if_ptr-
+                          (uintptr_t)write_pointer);
  while (write_size) {
   temp = libc_write(self->if_fd,write_pointer,write_size);
   if (temp < 0) goto err;
@@ -482,11 +488,12 @@ libc_fdoseek(FILE *__restrict self, __off_t off, int whence) {
 #if __SIZEOF_KERNEL_OFF_T__ > __SIZEOF_POINTER__
       seek_offset < (__off_t)(uintptr_t)-1 &&
 #endif
-      (char *)new_ptr >= self->if_base &&
-      (char *)new_ptr <  self->if_ptr+self->if_cnt) {
+      (uintptr_t)new_ptr >= (uintptr_t)self->if_base &&
+      (uintptr_t)new_ptr <  (uintptr_t)self->if_ptr+self->if_cnt) {
    /* All right! - Successful seek within the currently loaded buffer. */
    self->if_ptr  = (char *)new_ptr;
-   self->if_cnt += (self->if_ptr-(char *)new_ptr);
+   self->if_cnt += ((uintptr_t)self->if_ptr-
+                    (uintptr_t)new_ptr);
    return 0;
   }
  }
@@ -1638,5 +1645,6 @@ EXPORT(_putws,libc_16putws);
 #endif /* CONFIG_LIBC_NO_DOS_LIBC */
 
 DECL_END
+#endif /* !CONFIG_LIBC_USES_NEW_STDIO */
 
 #endif /* !GUARD_LIBS_LIBC_STDIO_FILE_C */

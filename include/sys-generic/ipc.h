@@ -49,7 +49,7 @@ typedef __key_t key_t;
 #endif /* !__key_t_defined */
 
 /* Generates key for System V style IPC.  */
-__LIBC key_t __NOTHROW((__LIBCCALL ftok)(const char *__pathname, int __proj_id));
+__LIBC key_t __NOTHROW((__LIBCCALL ftok)(char const *__pathname, int __proj_id));
 
 __SYSDECL_END
 

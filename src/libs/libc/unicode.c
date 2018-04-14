@@ -87,7 +87,7 @@ libc_utf8to32(char const *__restrict utf8, size_t utf8len,
   src_end = (src = (u8 *)utf8)+utf8len;
  }
  orig_state = *state;
- if (orig_state.__state.__count != 0) {
+ if (orig_state.__state.__count & 0x7f) {
   unsigned int missing;
   ch = __MBSTATE_GETWORD24(&orig_state);
   missing = 4-orig_state.__state.__count;
@@ -194,7 +194,7 @@ libc_utf32to8(char32_t const *__restrict utf32, size_t utf32len,
               mbstate_t *__restrict state, u32 mode) {
  size_t result = 0; u32 *src,*src_end;
  mbstate_t orig_state = *state;
- if (orig_state.__state.__count) {
+ if (orig_state.__state.__count & 0x7f) {
   /* Copy characters that weren't printed before. */
   libc_memcpy(utf8,orig_state.__state.__chars,
               MIN(orig_state.__state.__count,buflen8)*

@@ -170,16 +170,16 @@ process_long_option(int argc, char **argv, char const *optstring,
   if (ambig_set || ambig_fallback) {
    if (print_errors) {
     if (ambig_fallback)
-     fprintf(stderr,"%s: option `%s%s' is ambiguous\n",argv[0],prefix,__nextchar);
+     fprintf(libc_stderr,"%s: option `%s%s' is ambiguous\n",argv[0],prefix,__nextchar);
     else {
-     flockfile(stderr);
-     fprintf(stderr,"%s: option `%s%s' is ambiguous; possibilities:",argv[0],prefix,__nextchar);
+     flockfile(libc_stderr);
+     fprintf(libc_stderr,"%s: option `%s%s' is ambiguous; possibilities:",argv[0],prefix,__nextchar);
      for (option_index = 0; option_index < n_options; option_index++) {
       if (ambig_set[option_index])
-          fprintf(stderr," `%s%s'",prefix,longopts[option_index].name);
+          fprintf(libc_stderr," `%s%s'",prefix,longopts[option_index].name);
      }
-     fprintf(stderr,"\n");
-     funlockfile(stderr);
+     fprintf(libc_stderr,"\n");
+     funlockfile(libc_stderr);
     }
    }
    if (ambig_malloced) libc_free(ambig_set);
@@ -194,7 +194,7 @@ process_long_option(int argc, char **argv, char const *optstring,
   if (!long_only || argv[optind][1] == '-' ||
       strchr(optstring,*__nextchar) == NULL) {
    if (print_errors)
-       fprintf(stderr,"%s: unrecognized option `%s%s'\n",argv[0],prefix,__nextchar);
+       fprintf(libc_stderr,"%s: unrecognized option `%s%s'\n",argv[0],prefix,__nextchar);
    __nextchar = NULL;
    ++optind;
    optopt = 0;
@@ -209,7 +209,7 @@ process_long_option(int argc, char **argv, char const *optstring,
    optarg = nameend+1;
   else {
    if (print_errors)
-       fprintf(stderr,"%s: option `%s%s' doesn't allow an argument\n",argv[0],prefix,pfound->name);
+       fprintf(libc_stderr,"%s: option `%s%s' doesn't allow an argument\n",argv[0],prefix,pfound->name);
    optopt = pfound->val;
    return '?';
   }
@@ -218,7 +218,7 @@ process_long_option(int argc, char **argv, char const *optstring,
    optarg = argv[optind++];
   else {
    if (print_errors)
-       fprintf(stderr,"%s: option `%s%s' requires an argument\n",argv[0],prefix,pfound->name);
+       fprintf(libc_stderr,"%s: option `%s%s' requires an argument\n",argv[0],prefix,pfound->name);
    optopt = pfound->val;
    return optstring[0] == ':' ? ':' : '?';
   }
@@ -259,7 +259,6 @@ _getopt_internal_r(int argc, char **argv, char const *optstring,
                    int long_only, int posixly_correct) {
  int print_errors = opterr;
  if (argc < 1) return -1;
- libc_syslog(LOG_DEBUG,"GETOPT(%d,%p:{%q,%q},%q)\n",argc,argv,argv[0],argv[1],optstring);
  optarg = NULL;
  if (optind == 0 || !__initialized)
   optstring = _getopt_initialize(argc,argv,optstring,posixly_correct);
@@ -324,7 +323,7 @@ _getopt_internal_r(int argc, char **argv, char const *optstring,
   if (*__nextchar == '\0') ++optind;
   if (temp == NULL || c == ':' || c == ';') {
    if (print_errors)
-       fprintf(stderr,"%s: invalid option -- '%c'\n",argv[0],c);
+       fprintf(libc_stderr,"%s: invalid option -- '%c'\n",argv[0],c);
    optopt = c;
    return '?';
   }
@@ -332,7 +331,7 @@ _getopt_internal_r(int argc, char **argv, char const *optstring,
    if (*__nextchar != '\0') optarg = __nextchar;
    else if (optind == argc) {
     if (print_errors)
-        fprintf(stderr,"%s: option requires an argument -- '%c'\n",argv[0],c);
+        fprintf(libc_stderr,"%s: option requires an argument -- '%c'\n",argv[0],c);
     optopt = c;
     c = optstring[0] == ':' ? ':' : '?';
     return c;
@@ -359,7 +358,7 @@ _getopt_internal_r(int argc, char **argv, char const *optstring,
      ++optind;
     } else if (optind == argc) {
      if (print_errors)
-         fprintf(stderr,"%s: option requires an argument -- '%c'\n",argv[0],c);
+         fprintf(libc_stderr,"%s: option requires an argument -- '%c'\n",argv[0],c);
      optopt = c;
      c = optstring[0] == ':' ? ':' : '?';
     } else {
@@ -368,7 +367,6 @@ _getopt_internal_r(int argc, char **argv, char const *optstring,
     __nextchar = NULL;
    }
   }
-  libc_syslog(LOG_DEBUG,"c = %:1q (%p:%u)\n",&c,&optind,optind);
   return c;
  }
 }

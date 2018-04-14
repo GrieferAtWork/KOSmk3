@@ -20,6 +20,8 @@
 #define GUARD_LIBS_LIBC_STDIO_FILE_H 1
 
 #include "../libc.h"
+#include "../stdio.h"
+#ifndef CONFIG_LIBC_USES_NEW_STDIO
 #include <bits/io-file.h>
 #include <hybrid/list/list.h>
 #include <hybrid/compiler.h>
@@ -165,6 +167,17 @@ INTDEF FILE libc_std_files[3];
 DATDEF FILE *stdin;
 DATDEF FILE *stdout;
 DATDEF FILE *stderr;
+
+#if 1
+#define libc_stdin   (libc_std_files+0)
+#define libc_stdout  (libc_std_files+1)
+#define libc_stderr  (libc_std_files+2)
+#else
+#define libc_stdin    stdin
+#define libc_stdout   stdout
+#define libc_stderr   stderr
+#endif
+
 
 /* Low-level read/write/seek/tell implementation. */
 INTDEF size_t LIBCCALL libc_fdoread(void *__restrict buf, size_t size, FILE *__restrict self);
@@ -413,5 +426,6 @@ INTDEF int LIBCCALL libc_32putws(char32_t const *__restrict str);
 #endif /* CONFIG_LIBC_NO_DOS_LIBC */
 
 DECL_END
+#endif /* !CONFIG_LIBC_USES_NEW_STDIO */
 
 #endif /* !GUARD_LIBS_LIBC_STDIO_FILE_H */

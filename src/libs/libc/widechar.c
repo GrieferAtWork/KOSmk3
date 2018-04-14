@@ -1114,7 +1114,7 @@ EXPORT(__DSYMw16(_wgetcwd_dbg),libc_dos_w16getcwd_dbg);
 CRT_DOS char16_t *LIBCCALL
 libc_dos_w16getcwd_dbg(char16_t *buf, size_t size,
                        int UNUSED(blocktype),
-                       const char *UNUSED(filename),
+                       char const *UNUSED(filename),
                        int UNUSED(lno)) {
  return libc_dos_w16getcwd(buf,size);
 }
@@ -1122,7 +1122,7 @@ EXPORT(__DSYMw16(_wgetdcwd_dbg),libc_dos_w16getdcwd_dbg);
 CRT_DOS char16_t *LIBCCALL
 libc_dos_w16getdcwd_dbg(int drive, char16_t *buf, size_t size,
                         int UNUSED(blocktype),
-                        const char *UNUSED(filename),
+                        char const *UNUSED(filename),
                         int UNUSED(lno)) {
  return libd_dos_w16getdcwd(drive,buf,size);
 }

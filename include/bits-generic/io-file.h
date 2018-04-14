@@ -67,21 +67,23 @@ __NAMESPACE_STD_BEGIN
  * for the most part, the only exception being that '_tmpfname'
  * has been re-purposed as a pointer to a block of internal data.
  * Yet seeing as how  */
+#if !defined(__INTELLISENSE__) || \
+    (!defined(__BUILDING_LIBC) || __KOS_VERSION__ < 300)
 struct __IO_FILE {
 #ifdef __BUILDING_LIBC
-    char               *if_ptr;        /* [0..1] Pointer to the next character to-be read. */
+    __BYTE_TYPE__      *if_ptr;        /* [0..1] Pointer to the next character to-be read. */
     __UINT32_TYPE__     if_cnt;        /* Amount of characters available in 'if_ptr'.
                                         * NOTE: When this value underflows, then the caller
                                         *       is responsible for loading more data into 'if_ptr' */
 #if __SIZEOF_POINTER__ >= 8
     __INT32_TYPE__    __if_pad0;
 #endif
-    char               *if_base;       /* [0..if_bufsiz][owned_if(__IO_FILE_IOMALLBUF)] Base pointer to the used buffer. */
+    __BYTE_TYPE__      *if_base;       /* [0..if_bufsiz][owned_if(__IO_FILE_IOMALLBUF)] Base pointer to the used buffer. */
     __UINT32_TYPE__     if_flag;       /* Set of `__IO_FILE_IO*' */
     int                 if_fd;         /* [valid_if(__IO_FILE_IOSTRG)] Underlying file descriptor.
                                         * NOTE: When available, this stream's file pointer is assumed
                                         *       to be located at the end of the loaded buffer. */
-    char                if_charbuf[4]; /* A very small inline-allocated buffer used as fallback for 'if_base' */
+    __BYTE_TYPE__       if_charbuf[4]; /* A very small inline-allocated buffer used as fallback for 'if_base' */
     __UINT32_TYPE__     if_bufsiz;     /* Allocated/available size of the buffer  */
     struct iofile_data *if_exdata;     /* [1..1][owned] Pointer to some internal data.
                                         * HINT: To fix binary compatibility with DOS, the first byte of
@@ -179,6 +181,7 @@ struct __IO_FILE {
 #endif /* !__USE_KOS */
 #endif /* !__BUILDING_LIBC */
 };
+#endif
 __NAMESPACE_STD_END
 
 #endif /* !__CYG_COMPAT__ */
