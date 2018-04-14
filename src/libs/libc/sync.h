@@ -40,16 +40,17 @@ INTDEF int LIBCCALL libc_Xmutex_get_timed64(struct mutex *__restrict self, struc
 
 FORCELOCAL ATTR_NOTHROW __BOOL KCALL
 libc_mutex_try(struct mutex *__restrict self) {
- if (!__hybrid_atomic_cmpxch(self->__m_futex,0,1,
-                             __ATOMIC_SEQ_CST,
-                             __ATOMIC_SEQ_CST)) {
-  if (self->__m_owner == libc_gettid()) {
-   ++self->__m_futex;
-   return 1;
-  }
+ pid_t caller = __gettid(); u32 owner;
+ owner = __hybrid_atomic_cmpxch_val(self->__m_futex,0,(u32)caller,
+                                    __ATOMIC_SEQ_CST,__ATOMIC_SEQ_CST);
+ if (owner == 0)
+  self->__m_rec = 1; /* First lock. */
+ else if ((owner & FUTEX_TID_MASK) == (u32)caller)
+  ++self->__m_rec; /* Recursive lock */
+ else {
+  /* Lock held by another thread. */
   return 0;
  }
- self->__m_owner = libc_gettid();
  return 1;
 }
 

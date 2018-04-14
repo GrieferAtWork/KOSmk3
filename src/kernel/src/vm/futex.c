@@ -339,7 +339,6 @@ DEFINE_SYSCALL6(futex,
   }
   break;
 
-#if 0
  {
   u32 caller_tid;
  case FUTEX_LOCK_PI:
@@ -372,8 +371,25 @@ done_lock_pi:;
    futex_decref(ftx);
   }
  } break;
-#endif
 
+ {
+  u32 caller_tid,value;
+ case FUTEX_UNLOCK_PI:
+  caller_tid = posix_gettid();
+  for (;;) {
+   value = ATOMIC_CMPXCH_VAL(*uaddr,caller_tid,0);
+   if unlikely(value == caller_tid) return 0; /* Unlock */
+   if ((value & ~FUTEX_WAITERS) != caller_tid) return -EPERM; /* You're not the owner. */
+   if (ATOMIC_CMPXCH(*uaddr,value,0))
+       break;
+  }
+  /* All right. Now wake one reader. */
+  ftx = vm_getfutex(uaddr);
+  if (ftx) {
+   result = sig_send(&ftx->f_sig,1);
+   futex_decref(ftx);
+  }
+ } break;
 
 
 #if 0
@@ -382,9 +398,6 @@ done_lock_pi:;
 
  case FUTEX_CMP_REQUEUE:
   return futex_requeue(uaddr,flags,uaddr2,val,val2,&val3,0);
-
- case FUTEX_UNLOCK_PI:
-  return futex_unlock_pi(uaddr,flags);
 
  case FUTEX_TRYLOCK_PI:
   return futex_lock_pi(uaddr,flags,0,timeout,1);

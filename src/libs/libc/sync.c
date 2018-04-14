@@ -48,24 +48,18 @@ INTERN int LIBCCALL
 libc_mutex_get_timed64(struct mutex *__restrict self,
                        struct timespec64 *abs_timeout) {
  u32 old_futex;
+ pid_t caller = libc_gettid();
 again:
- if ((old_futex = ATOMIC_CMPXCH_VAL(self->__m_futex,0,1)) != 0) {
-ok:
-  self->__m_owner = libc_gettid();
-  return 0;
- }
- if (self->__m_owner == libc_gettid()) {
-  /* Recursion (only when the indirection counter is non-ZERO). */
-  ++self->__m_futex;
-  return 0;
- }
+ old_futex = ATOMIC_CMPXCH_VAL(self->__m_futex,0,(u32)caller);
+ if (old_futex == 0) { ok_initial: self->__m_rec = 1; ok: return 0; }
+ if ((old_futex & FUTEX_TID_MASK) == (u32)caller) { ++self->__m_rec; goto ok; }
 
  THREAD_POLL_BEFORE_CONNECT({
-  if ((old_futex = ATOMIC_CMPXCH_VAL(self->__m_futex,0,1)) != 0)
-       goto ok;
+  if (ATOMIC_CMPXCH(self->__m_futex,0,(u32)caller))
+      goto ok_initial;
  });
 
- if (libc_futex64(&self->__m_futex,FUTEX_WAIT,old_futex,abs_timeout,NULL,0))
+ if (libc_futex64(&self->__m_futex,FUTEX_LOCK_PI,0,abs_timeout,NULL,0))
      return -1;
  goto again;
 }
@@ -73,16 +67,18 @@ ok:
 EXPORT(mutex_put,libc_mutex_put);
 INTERN void LIBCCALL
 libc_mutex_put(struct mutex *__restrict self) {
- assertf(self->__m_futex >= 1,"Noone is holding any locks");
- assertf(self->__m_owner == libc_gettid(),"You're not the owner of this mutex");
+ assertf(self->__m_rec >= 1,"Noone is holding any locks");
+ assertf((u32)(self->__m_futex & FUTEX_TID_MASK) == (u32)libc_gettid(),
+         "You're not the owner of this mutex");
  /* Signal the first waiting task that the mutex is now free. */
- if (self->__m_futex == 1) {
-  self->__m_owner = 0;
-  self->__m_futex = 0;
-  COMPILER_WRITE_BARRIER();
-  libc_futex64(&self->__m_futex,FUTEX_WAKE,1,NULL,NULL,0);
+ if (self->__m_rec == 1) {
+  pid_t caller = libc_gettid();
+  if (!ATOMIC_CMPXCH(self->__m_futex,(u32)caller,0)) {
+   /* There are probably waiters, but let the kernel deal with this one... */
+   libc_futex64(&self->__m_futex,FUTEX_UNLOCK_PI,0,NULL,NULL,0);
+  }
  } else {
-  --self->__m_futex;
+  --self->__m_rec;
  }
 }
 
@@ -106,23 +102,18 @@ INTERN int LIBCCALL
 libc_Xmutex_get_timed64(struct mutex *__restrict self,
                         struct timespec64 *abs_timeout) {
  u32 old_futex;
+ pid_t caller = libc_gettid();
 again:
- if ((old_futex = ATOMIC_CMPXCH_VAL(self->__m_futex,0,1)) != 0) {
-ok:
-  self->__m_owner = libc_gettid();
-  return 0;
- }
- if (self->__m_owner == libc_gettid()) {
-  /* Recursion (only when the indirection counter is non-ZERO). */
-  ++self->__m_futex;
-  return 0;
- }
+ old_futex = ATOMIC_CMPXCH_VAL(self->__m_futex,0,(u32)caller);
+ if (old_futex == 0) { ok_initial: self->__m_rec = 1; ok: return 0; }
+ if ((old_futex & FUTEX_TID_MASK) == (u32)caller) { ++self->__m_rec; goto ok; }
+
  THREAD_POLL_BEFORE_CONNECT({
-  if ((old_futex = ATOMIC_CMPXCH_VAL(self->__m_futex,0,1)) != 0)
-       goto ok;
+  if (ATOMIC_CMPXCH(self->__m_futex,0,(u32)caller))
+      goto ok_initial;
  });
- if (libc_Xfutex64(&self->__m_futex,FUTEX_WAIT,old_futex,abs_timeout,NULL,0))
-     return -1;
+
+ libc_Xfutex64(&self->__m_futex,FUTEX_LOCK_PI,0,abs_timeout,NULL,0);
  goto again;
 }
 

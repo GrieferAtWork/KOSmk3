@@ -32,17 +32,15 @@ typedef struct mutex mutex_t;
 
 struct mutex {
     __UINT32_TYPE__ __m_futex; /* The futex word that this mutex uses for locking.
-                                * When ZERO(0), the mutex is available for use.
-                                * Otherwise, this field describes the recursion of how
-                                * often the mutex was taken by its owner (`__m_owner'). */
-    __pid_t         __m_owner; /* [lock(__m_futex)] The owner of the mutex. */
+                                * Used in conjunction with `FUTEX_LOCK_PI' / `FUTEX_UNLOCK_PI'. */
+    unsigned int    __m_rec;   /* [lock(__m_futex)] The owner of the mutex. */
 };
 
 #define MUTEX_INIT         {0,0}
 #define DEFINE_MUTEX(name) mutex_t name = MUTEX_INIT
 #define mutex_cinit(self)  (void)(assert((self)->__m_futex == 0))
 #define mutex_init(self)   (void)((self)->__m_futex = 0)
-#define mutex_holding(x)   ((x)->__m_owner == __gettid() && (x)->__m_futex != 0)
+#define mutex_holding(x)   (((x)->__m_futex & FUTEX_TID_MASK) == __gettid())
 
 /* Atomically try to acquire the given mutex. */
 __FORCELOCAL __ATTR_NOTHROW __BOOL (__LIBCCALL mutex_try)(struct mutex *__restrict __self);
@@ -120,16 +118,18 @@ __REDIRECT(__LIBC,,int,__LIBCCALL,__Xmutex_get_timed64,
 #ifndef __INTELLISENSE__
 __FORCELOCAL __ATTR_NOTHROW
 __BOOL (__LIBCCALL mutex_try)(struct mutex *__restrict __self) {
- if (!__hybrid_atomic_cmpxch(__self->__m_futex,0,1,
-                             __ATOMIC_SEQ_CST,
-                             __ATOMIC_SEQ_CST)) {
-  if (__self->__m_owner == __gettid()) {
-   ++__self->__m_futex;
-   return 1;
-  }
+ __pid_t __caller = __gettid();
+ __UINT32_TYPE__ __owner;
+ __owner = __hybrid_atomic_cmpxch_val(__self->__m_futex,0,(__UINT32_TYPE__)__caller,
+                                      __ATOMIC_SEQ_CST,__ATOMIC_SEQ_CST);
+ if (__owner == 0)
+  __self->__m_rec = 1; /* First lock. */
+ else if ((__owner & FUTEX_TID_MASK) == (__UINT32_TYPE__)__caller)
+  ++__self->__m_rec; /* Recursive lock */
+ else {
+  /* Lock held by another thread. */
   return 0;
  }
- __self->__m_owner = __gettid();
  return 1;
 }
 #endif
