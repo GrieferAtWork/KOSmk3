@@ -103,7 +103,8 @@ INTERN sighandler_t LIBCCALL libd_sigset(int sig, sighandler_t disp) {
 INTERN int LIBCCALL
 libc_siginterrupt(int sig, int interrupt) {
  struct sigaction action;
- if (libc_sigaction(sig,(struct sigaction *) NULL,&action) < 0) return -1;
+ if (libc_sigaction(sig,(struct sigaction *) NULL,&action) < 0)
+     return -1;
  if (interrupt) {
   libc_sigaddset(&__sigintr,sig);
   action.sa_flags &= ~SA_RESTART;
@@ -111,7 +112,7 @@ libc_siginterrupt(int sig, int interrupt) {
   libc_sigdelset(&__sigintr,sig);
   action.sa_flags |= SA_RESTART;
  }
- if (libc_sigaction(sig,&action,(struct sigaction *) NULL) < 0)
+ if (libc_sigaction(sig,&action,(struct sigaction *)NULL) < 0)
      return -1;
  return 0;
 }

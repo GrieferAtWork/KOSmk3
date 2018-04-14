@@ -49,6 +49,13 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                regs->str_args.a_sysno & 0x80000000 ? "X" : "");
   switch (sysno) {
 
+  case SYS_ioctl:
+   debug_printf("sys_ioctl(%d,%#lx,%p)\n",
+               (int)regs->str_args.a_arg0,
+               (unsigned long)regs->str_args.a_arg1,
+               (void *)regs->str_args.a_arg2);
+   break;
+
   case SYS_dup:
    debug_printf("sys_dup(%d)\n",(int)regs->str_args.a_arg0);
    break;
@@ -99,17 +106,79 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
 #define SYS_ftruncate __NR_ftruncate
 #define SYS_fallocate __NR_fallocate
 #define SYS_faccessat __NR_faccessat
-#define SYS_chdir __NR_chdir
-#define SYS_fchdir __NR_fchdir
-#define SYS_chroot __NR_chroot
-#define SYS_fchmod __NR_fchmod
-#define SYS_fchmodat __NR_fchmodat
-#define SYS_fchownat __NR_fchownat
-#define SYS_fchown __NR_fchown
-#define SYS_openat __NR_openat
-#define SYS_close __NR_close
-#define SYS_pipe2 __NR_pipe2
-#define SYS_lseek __NR_lseek
+  case SYS_chdir:
+   debug_printf("sys_chdir(%q)\n",
+               (char *)regs->str_args.a_arg0);
+   break;
+  case SYS_fchdir:
+   debug_printf("sys_fchdir(%d)\n",
+               (int)regs->str_args.a_arg0);
+   break;
+  case SYS_chroot:
+   debug_printf("sys_chroot(%q)\n",
+               (char *)regs->str_args.a_arg0);
+   break;
+  case SYS_fchmod:
+   debug_printf("sys_fchmod(%d,%o)\n",
+               (int)regs->str_args.a_arg0,
+               (unsigned int)regs->str_args.a_arg1);
+   break;
+  case SYS_fchmodat:
+   debug_printf("sys_fchmodat(%d,%q,%o,%x)\n",
+               (int)regs->str_args.a_arg0,
+               (char *)regs->str_args.a_arg1,
+               (unsigned int)regs->str_args.a_arg2,
+               (unsigned int)regs->str_args.a_arg3);
+   break;
+  case SYS_fchownat:
+   debug_printf("sys_fchownat(%d,%q,%u,%u,%x)\n",
+               (int)regs->str_args.a_arg0,
+               (char *)regs->str_args.a_arg1,
+               (unsigned int)regs->str_args.a_arg2,
+               (unsigned int)regs->str_args.a_arg3,
+               (unsigned int)regs->str_args.a_arg4);
+   break;
+  case SYS_fchown:
+   debug_printf("sys_fchown(%d,%u,%u)\n",
+               (int)regs->str_args.a_arg0,
+               (unsigned int)regs->str_args.a_arg1,
+               (unsigned int)regs->str_args.a_arg2);
+   break;
+  case SYS_openat:
+   if (regs->str_args.a_arg2 & O_CREAT) {
+    debug_printf("sys_openat(%d,%q,%#x,%#o)\n",
+                (int)regs->str_args.a_arg0,
+                (void *)regs->str_args.a_arg1,
+                (unsigned int)regs->str_args.a_arg2,
+                (unsigned int)regs->str_args.a_arg3);
+   } else {
+    debug_printf("sys_openat(%d,%q,%#x)\n",
+                (int)regs->str_args.a_arg0,
+                (void *)regs->str_args.a_arg1,
+                (unsigned int)regs->str_args.a_arg2);
+   }
+   break;
+  case SYS_close:
+   debug_printf("sys_close(%d)\n",
+               (int)regs->str_args.a_arg0);
+   break;
+  case SYS_pipe2:
+   debug_printf("sys_pipe2(%p,%x)\n",
+               (int *)regs->str_args.a_arg0,
+               (unsigned int)regs->str_args.a_arg1);
+   break;
+  case SYS_lseek:
+   debug_printf("sys_lseek(%d,0x%I64x,%d)\n",
+               (int *)regs->str_args.a_arg0,
+#ifdef CONFIG_WIDE_64BIT_SYSCALL
+              *(s64 *)&regs->str_args.a_arg1,
+               (int)regs->str_args.a_arg3
+#else
+               (s64)regs->str_args.a_arg1,
+               (int)regs->str_args.a_arg2
+#endif
+               );
+   break;
   case SYS_read:
    debug_printf("sys_read(%d,%p,%Iu)\n",
                (int)regs->str_args.a_arg0,
@@ -136,29 +205,102 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
 #define SYS_pselect6 __NR_pselect6
 #define SYS_ppoll __NR_ppoll
 #define SYS_readlinkat __NR_readlinkat
-#define SYS_fstatat64 __NR_fstatat64
-#define SYS_fstat64 __NR_fstat64
-#define SYS_sync __NR_sync
-#define SYS_fsync __NR_fsync
-#define SYS_fdatasync __NR_fdatasync
-#define SYS_utimensat __NR_utimensat
-#define SYS_exit __NR_exit
-#define SYS_exit_group __NR_exit_group
-#define SYS_waitid __NR_waitid
-#define SYS_set_tid_address __NR_set_tid_address
-#define SYS_unshare __NR_unshare
+  case SYS_fstatat64:
+   debug_printf("sys_fstatat64(%d,%q,%p,%x)\n",
+               (int)regs->str_args.a_arg0,
+               (char *)regs->str_args.a_arg1,
+               (void *)regs->str_args.a_arg2,
+               (unsigned int)regs->str_args.a_arg3);
+   break;
+  case SYS_fstat64:
+   debug_printf("sys_fstat64(%d,%p)\n",
+               (int)regs->str_args.a_arg0,
+               (void *)regs->str_args.a_arg1);
+   break;
+  case SYS_fsync:
+   debug_printf("sys_fsync(%d)\n",
+               (int)regs->str_args.a_arg0);
+   break;
+  case SYS_fdatasync:
+   debug_printf("sys_fdatasync(%d)\n",
+               (int)regs->str_args.a_arg0);
+   break;
+  case SYS_utimensat:
+   debug_printf("sys_utimensat(%d,%q,%p,%x)\n",
+               (int)regs->str_args.a_arg0,
+               (char *)regs->str_args.a_arg1,
+               (void *)regs->str_args.a_arg2,
+               (unsigned int)regs->str_args.a_arg3);
+   break;
+  case SYS_exit:
+   debug_printf("sys_exit(%d)\n",
+               (int)regs->str_args.a_arg0);
+   break;
+  case SYS_exit_group:
+   debug_printf("sys_exit_group(%d)\n",
+               (int)regs->str_args.a_arg0);
+   break;
+  case SYS_waitid:
+   debug_printf("sys_waitid(%u,%u,%p,%x)\n",
+               (unsigned int)regs->str_args.a_arg0,
+               (unsigned int)regs->str_args.a_arg1,
+               (void *)regs->str_args.a_arg2,
+               (unsigned int)regs->str_args.a_arg3);
+   break;
+  case SYS_set_tid_address:
+   debug_printf("sys_set_tid_address(%p)\n",
+               (void *)regs->str_args.a_arg0);
+   break;
+  case SYS_unshare:
+   debug_printf("sys_unshare(%x)\n",
+               (unsigned int)regs->str_args.a_arg0);
+   break;
 #define SYS_futex __NR_futex
 #define SYS_nanosleep __NR_nanosleep
-#define SYS_sched_yield __NR_sched_yield
-#define SYS_kill __NR_kill
-#define SYS_tkill __NR_tkill
-#define SYS_tgkill __NR_tgkill
+  case SYS_kill:
+   debug_printf("sys_kill(%u,%d)\n",
+               (unsigned int)regs->str_args.a_arg0,
+               (int)regs->str_args.a_arg1);
+   break;
+  case SYS_tkill:
+   debug_printf("sys_tkill(%u,%d)\n",
+               (unsigned int)regs->str_args.a_arg0,
+               (int)regs->str_args.a_arg1);
+   break;
+  case SYS_tgkill:
+   debug_printf("sys_tgkill(%u,%u,%d)\n",
+               (unsigned int)regs->str_args.a_arg0,
+               (unsigned int)regs->str_args.a_arg1,
+               (int)regs->str_args.a_arg2);
+   break;
 #define SYS_sigaltstack __NR_sigaltstack
 #define SYS_sigsuspend __NR_sigsuspend
-#define SYS_sigaction __NR_sigaction
-#define SYS_sigprocmask __NR_sigprocmask
-#define SYS_sigpending __NR_sigpending
-#define SYS_sigtimedwait __NR_sigtimedwait
+  case SYS_sigaction:
+   debug_printf("sys_sigaction(%u,%p,%p,%Iu)\n",
+               (unsigned int)regs->str_args.a_arg0,
+               (void *)regs->str_args.a_arg1,
+               (void *)regs->str_args.a_arg2,
+               (size_t)regs->str_args.a_arg3); 
+   break;
+  case SYS_sigprocmask:
+   debug_printf("sys_sigprocmask(%u,%p,%p,%Iu)\n",
+               (unsigned int)regs->str_args.a_arg0,
+               (void *)regs->str_args.a_arg1,
+               (void *)regs->str_args.a_arg2,
+               (size_t)regs->str_args.a_arg3); 
+   break;
+  case SYS_sigpending:
+   debug_printf("sys_sigpending(%p,%Iu)\n",
+               (void *)regs->str_args.a_arg0,
+               (size_t)regs->str_args.a_arg1); 
+   break;
+  case SYS_sigtimedwait:
+   debug_printf("sys_sigtimedwait(%p,%p,%p,%Iu)\n",
+               (void *)regs->str_args.a_arg0,
+               (void *)regs->str_args.a_arg1,
+               (void *)regs->str_args.a_arg2,
+               (size_t)regs->str_args.a_arg3); 
+   break;
 #define SYS_rt_sigqueueinfo __NR_rt_sigqueueinfo
 #define SYS_sigreturn __NR_sigreturn
 #define SYS_rt_sigreturn __NR_rt_sigreturn
@@ -238,38 +380,6 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
 #define SYS_xdlsym __NR_xdlsym
 #define SYS_xdlfini __NR_xdlfini
 #define SYS_xdlmodule_info __NR_xdlmodule_info
-
-  case SYS_ioctl:
-   debug_printf("sys_ioctl(%d,%#lx,%p)\n",
-               (int)regs->str_args.a_arg0,
-               (unsigned long)regs->str_args.a_arg1,
-               (void *)regs->str_args.a_arg2);
-   break;
-
-  case SYS_openat:
-   if (regs->str_args.a_arg2 & O_CREAT) {
-    debug_printf("sys_openat(%d,%q,%#x,%#o)\n",
-                (int)regs->str_args.a_arg0,
-                (void *)regs->str_args.a_arg1,
-                (unsigned int)regs->str_args.a_arg2,
-                (unsigned int)regs->str_args.a_arg3);
-   } else {
-    debug_printf("sys_openat(%d,%q,%#x)\n",
-                (int)regs->str_args.a_arg0,
-                (void *)regs->str_args.a_arg1,
-                (unsigned int)regs->str_args.a_arg2);
-   }
-   break;
-
-  case SYS_exit:
-   debug_printf("sys_exit(%d)\n",
-               (int)regs->str_args.a_arg0);
-   break;
-
-  case SYS_exit_group:
-   debug_printf("sys_exit_group(%d)\n",
-               (int)regs->str_args.a_arg0);
-   break;
 
   case SYS_xfreadlinkat:
    debug_printf("sys_xfreadlinkat(%d,%q,%p,%Iu,%x)\n",
