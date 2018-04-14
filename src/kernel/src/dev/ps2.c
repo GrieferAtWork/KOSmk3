@@ -743,6 +743,13 @@ PRIVATE ATTR_USED ATTR_FREETEXT void KCALL ps2_initialize(void) {
   task_setup_kernel(worker,
                    &ps2_detect_threadmain,
                     NULL);
+#ifndef CONFIG_NO_SMP
+  /* Just to speed up booting a little bit more, have this
+   * worker run on the second CPU if we have more than one. */
+  if (cpu_count > 1)
+      worker->t_cpu = cpu_vector[1];
+#endif /* !CONFIG_NO_SMP */
+
   task_start(worker);
   /* Register the worker as a boot worker thread,
    * meaning it must be joined before .free is deleted,

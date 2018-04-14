@@ -51,14 +51,18 @@ struct cpu;
 
 
 #ifdef CONFIG_NO_SMP
-#undef CONFIG_MAX_CPU_COUNT
-#define CONFIG_MAX_CPU_COUNT 1
-#else
+#   undef CONFIG_MAX_CPU_COUNT
+#   define CONFIG_MAX_CPU_COUNT 1
+#else /* CONFIG_NO_SMP */
 /* Configuration option: The max number of CPUs supported by KOS. */
-#ifndef CONFIG_MAX_CPU_COUNT
-#define CONFIG_MAX_CPU_COUNT 8
-#endif
-#endif
+#   ifndef CONFIG_MAX_CPU_COUNT
+#      define CONFIG_MAX_CPU_COUNT 8
+#   elif (CONFIG_MAX_CPU_COUNT+0) <= 1
+#      undef CONFIG_MAX_CPU_COUNT
+#      define CONFIG_MAX_CPU_COUNT 1
+#      define CONFIG_NO_SMP 1
+#   endif
+#endif /* !CONFIG_NO_SMP */
 
 
 #ifdef __CC__
