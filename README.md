@@ -3,7 +3,7 @@
 
 The third rendition of the KOS Operating System & Kernel, this time with a lot more emphasis on integration, as well as streamlining. Additionally, many optional features have been implemented this time around, including actually working true <b>SMP</b> and <b>IPI</b>, support for the x86 <code>sysenter</code> instruction, or making use of <b>APIC</b> interrupt timers for preemption (all things that KOSmk2 couldn't do)
 
-Much emphasis has also been put on implementing posix <code>signal()</code> behavior <i>correctly</i>, not taking any shortcuts speeding up system calls such as <code>fork()</code>, making use of lazy copy-on-write, rather than copying data immediatly. Similarly, the kernel now implements much better support for <code>termios</code> flags, supporting numerous options that had no support at all before.
+Much emphasis has also been put on implementing posix <code>signal()</code> behavior <i>correctly</i> without any shortcuts with a lot of work put into speeding up system calls such as <code>fork()</code>, making use of lazy copy-on-write, rather than duplicating data immediatly. Similarly, the kernel now implements much better support for <code>termios</code> flags, supporting numerous options that had no support at all before.
 
 The most important difference between this and KOSmk2 is probably the idea that initially convinced me to start over from scratch, that idea being: <b>Exceptions</b>. But not just any exceptions. Oh no. I'm not using some C++ compiler now. It's all still 100% pure C code making use of inline assembly, as well as DWARF's CFI meta-instruction set, alongside a lot of preprocessor <i>magic</i>.
 
@@ -25,11 +25,14 @@ Chaos|KOS - You probably got here through the definition of chaoticity (<i>which
    - try-catch-finally
    - Stack unwinding into user-space (Exceptions thrown by the kernel can be caught by user-applications)
    - Highly robust kernel, even in the face of faulty kernel code (of which there probably is a lot)
-   - Zero-effort exception using guard-descriptors invoked by unwinding the stack with the help of CFI instructions. In other words, I'm not going the windows route of the uglyness that is SEH.
+   - Zero-effort exceptions using guard-descriptors invoked by unwinding the stack with the help of CFI instructions. In other words, I'm not going the windows route of the uglyness that is SEH and its stack-based linked list.
    - Implemented using pure, unmodified gcc (these aren't c++ exceptions, which is why I do actually have a finally statement)
  - QEMU
  - multiboot/multiboot2
- - dynamic memory
+ - Paging
+   - Page directory self-mapping
+   - <code>%cr3</code> is only changed during preemption
+   - dynamic memory
    - ALLOA (ALLocateOnAccess)
    - LOA (LoadOnAccess)
    - COW (CopyOnWrite)
@@ -38,6 +41,7 @@ Chaos|KOS - You probably got here through the definition of chaoticity (<i>which
  - Heap
    - GC-based memory leak detection
    - <code>heap_alloc()</code>
+   - <code>kmalloc()</code>
    - <code>malloc()</code>
    - New malloc functions such as <code>memalign_offset()</code>
  - syscall
@@ -111,7 +115,16 @@ Chaos|KOS - You probably got here through the definition of chaoticity (<i>which
  - Fully redesigned filesystem with almost all emphasis put on caching
    - KOSmk2 though it was a good idea to not include any way of caching directory contents, or have some way of loading INodes using only their number
    - Implementation of a <code>pread()</code> and <code>pwrite()</code> operator as basis of any INode now negates the need of intermediate and file streams (the FAT driver simply caches disk positions of file chunks)
-   - Much better support for <code>O_*</code> flags, such as <code>O_NONBLOCK</code>
+   - Much better support for <code>O\_\*</code> flags, such as <code>O\_NONBLOCK</code>
+ - Using exceptions, hardware-generated exceptions such as divide-by-zero, or overflow is possible
+
+## Interesting, but potentially useless functions ##
+ - VIO
+   - By analyzing assembly surrounding the return address of a #PF interrupt, as well as emulating a considerable portion of the X86 instruction set, the KOS kernel is able to emulate behavior that is usually associated with memory-mapped devices
+   - Basically, KOS is able to create memory mappings that allow high-level read() / write() operators to be invoked whenever any piece of code tries to access that memory.
+   - It's somewhat similar to what was discussed over here: https://forum.osdev.org/viewtopic.php?f=15&t=22521
+   - For an example use, look at <code>include/kos/ushare.h</code> under <code>struct ushare\_procinfo</code>
+
 
 ## Known problems ##
  - You can't just compile the kernel with <code>-O3</code>. That'll break exception support due to GCC re-arranging code.
