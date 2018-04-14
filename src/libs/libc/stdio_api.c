@@ -1299,8 +1299,9 @@ libc_getdelim(char **__restrict lineptr,
               size_t *__restrict n, int delimiter,
               FILE *__restrict self) {
  ssize_t result;
- if (FileBuffer_Lock(self))
-     return -1;
+ while (FileBuffer_Lock(self))
+    if (libc_geterrno() != EINTR)
+        return -1;
  result = libc_getdelim_unlocked(lineptr,n,delimiter,self);
  FileBuffer_Unlock(self);
  return result;
@@ -1475,7 +1476,9 @@ CRT_STDIO_API char *LIBCCALL
 libc_fgets(char *__restrict s, size_t n,
            FILE *__restrict self) {
  char *result;
- if (FileBuffer_Lock(self)) return NULL;
+ while (FileBuffer_Lock(self))
+    if (libc_geterrno() != EINTR)
+        return NULL;
  result = libc_fgets_unlocked(s,n,self);
  FileBuffer_Unlock(self);
  return result;
@@ -1592,8 +1595,9 @@ EXPORT(puts,libc_puts);
 CRT_STDIO_API ssize_t LIBCCALL
 libc_puts(char const *__restrict s) {
  ssize_t result;
- if (FileBuffer_Lock(libc_stdout))
-     return -1;
+ while (FileBuffer_Lock(libc_stdout))
+    if (libc_geterrno() != EINTR)
+        return -1;
  result = libc_puts_unlocked(s);
  FileBuffer_Unlock(libc_stdout);
  return result;
@@ -1616,12 +1620,12 @@ libc_Xputs(char const *__restrict s) {
 EXPORT(puts_unlocked,libc_puts_unlocked);
 CRT_STDIO_API ssize_t LIBCCALL
 libc_puts_unlocked(char const *__restrict s) {
- ssize_t result,temp;
+ ssize_t result;
  result = libc_fputs_unlocked(s,libc_stdout);
  if (result >= 0) {
-  temp = libc_fputs_unlocked("\n",libc_stdout);
-  if unlikely(temp < 0) result = 0;
-  result += temp;
+  if unlikely(libc_fputc_unlocked('\n',libc_stdout) == EOF)
+     result = EOF-1;
+  ++result;
  }
  return result;
 }
@@ -1630,17 +1634,26 @@ EXPORT(Xputs_unlocked,libc_Xputs_unlocked);
 CRT_STDIO_XAPI size_t LIBCCALL
 libc_Xputs_unlocked(char const *__restrict s) {
  size_t result;
- result  = libc_Xfputs_unlocked(s,libc_stdout);
- result += libc_Xfputs_unlocked("\n",libc_stdout);
+ result = libc_Xfputs_unlocked(s,libc_stdout);
+ if unlikely(libc_Xfputc_unlocked('\n',libc_stdout) == EOF)
+    result = EOF-1;
+ ++result;
  return result;
 }
 
 
-/* TODO: DOS file functions. */
-//EXPORT(_flushall,libc_flushall);
+/* DOS file functions. */
+EXPORT(__DSYM(_flushall),libc_fflushall);
+CRT_DOS int LIBCCALL libc_fflushall(void) {
+ FileBuffer_FlushAllBuffers();
+ return 0;
+}
+
+
+EXPORT(__DSYM(_flsbuf),libc_fputc_unlocked);
+EXPORT(__DSYM(_filbuf),libc_fgetc_unlocked);
+
 //EXPORT(_fsopen,libc_dos_fsopen);
-//EXPORT(_filbuf,libc_filbuf);
-//EXPORT(_flsbuf,libc_flsbuf);
 //EXPORT(_getmaxstdio,libc_getmaxstdio);
 //EXPORT(_setmaxstdio,libc_setmaxstdio);
 //EXPORT(_get_printf_count_output,libc_get_printf_count_output);

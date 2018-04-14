@@ -25,6 +25,7 @@
 #ifdef __CC__
 DECL_BEGIN
 
+
 /* ===================================================================================== */
 /*     UNICODE                                                                           */
 /* ===================================================================================== */
@@ -86,6 +87,15 @@ INTDEF ssize_t LIBCCALL libc_Xformat_w32sntomb(pformatprinter printer, void *clo
  * >> assert(utf8len <= utf16chars); */
 #define libc_utf8len16(utf8,utf8chars) XBLOCK({ mbstate_t state = MBSTATE_INIT; XRETURN libc_utf8to16(utf8,utf8chars,NULL,0,&state); })
 #define libc_utf8len32(utf8,utf8chars) XBLOCK({ mbstate_t state = MBSTATE_INIT; XRETURN libc_utf8to32(utf8,utf8chars,NULL,0,&state); })
+
+INTDEF u8 const utf8_sequence_len[256];
+INTDEF u8 const utf8_offset[4];
+
+#define UNI_SURROGATE_HIGH_BEGIN 0xd800
+#define UNI_SURROGATE_HIGH_END   0xdbff
+#define UNI_SURROGATE_LOW_BEGIN  0xdc00
+#define UNI_SURROGATE_LOW_END    0xdfff
+
 
 DECL_END
 #endif /* __CC__ */

@@ -37,7 +37,7 @@ DECL_BEGIN
 
 #if 1
 
-PRIVATE u8 const utf8_sequence_len[256] = {
+INTERN u8 const utf8_sequence_len[256] = {
     /* ASCII */
     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, /* 0x00-0x0f */
     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, /* 0x10-0x1f */
@@ -62,18 +62,12 @@ PRIVATE u8 const utf8_sequence_len[256] = {
     /* Unused (reserved for future) */
     0,0,0,0,0,0,0,0
 };
-PRIVATE u8 const utf8_offset[4] = {
+INTERN u8 const utf8_offset[4] = {
     0x00,
     0xc0,
     0xe0,
     0xf0
 };
-
-#define UNI_SURROGATE_HIGH_BEGIN 0xd800
-#define UNI_SURROGATE_HIGH_END   0xdbff
-#define UNI_SURROGATE_LOW_BEGIN  0xdc00
-#define UNI_SURROGATE_LOW_END    0xdfff
-
 
 INTERN size_t LIBCCALL
 libc_utf8to32(char const *__restrict utf8, size_t utf8len,
@@ -121,7 +115,7 @@ handle_error:
     return UNICODE_ERROR;
    }
    ch <<= 6;
-   ch  |= temp;
+   ch  |= temp & 0x3f;
    ++src;
   } while (--missing);
   /* Clear the MB state. */
@@ -157,7 +151,7 @@ handle_error:
    if ((temp & 0xc0) != 0x80)
         goto handle_error;
    ch <<= 6;
-   ch  |= temp;
+   ch  |= temp & 0x3f;
   }
 put_char:
   /* Add the new character to the result. */
@@ -353,7 +347,7 @@ handle_error:
      return UNICODE_ERROR;
     }
     ch <<= 6;
-    ch  |= temp;
+    ch  |= temp & 0x3f;
     ++src;
    } while (--missing);
    /* Clear the MB state. */
@@ -390,7 +384,7 @@ handle_error:
    if ((temp & 0xc0) != 0x80)
         goto handle_error;
    ch <<= 6;
-   ch  |= temp;
+   ch  |= temp & 0x3f;
   }
 put_char:
   if (ch <= 0xffff) {

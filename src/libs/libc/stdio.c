@@ -346,7 +346,7 @@ set_lfflag:
  }
  COMPILER_BARRIER();
  if (is_a_tty)
-     libc_syslog(LOG_DEBUG,"[LIBC] Stream handle %d is a tty\n",self->fb_file);
+     libc_syslog(LOG_DEBUG,"[STDIO] Stream handle %d is a tty\n",self->fb_file);
  self->fb_flag |= is_a_tty ? FILE_BUFFER_FISATTY : FILE_BUFFER_FNOTATTY;
  flags          = self->fb_flag;
  goto set_lfflag;
@@ -1330,6 +1330,7 @@ EXPORT(getc_unlocked,libc_fgetc_unlocked);
 EXPORT(fgetc_unlocked,libc_fgetc_unlocked);
 EXPORT(Xgetc_unlocked,libc_Xfgetc_unlocked);
 EXPORT(Xfgetc_unlocked,libc_Xfgetc_unlocked);
+EXPORT(__DSYM(_getc_nolock),libc_fgetc_unlocked);
 DEFINE_INTERN_ALIAS(libc_fgetc_unlocked,FileBuffer_GetcUnlocked);
 DEFINE_INTERN_ALIAS(libc_Xfgetc_unlocked,FileBuffer_XGetcUnlocked);
 

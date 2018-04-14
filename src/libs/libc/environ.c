@@ -33,21 +33,9 @@
 
 DECL_BEGIN
 
-PUBLIC int public_value = 42;
-DEFINE_INTERN_ALIAS(private_value,public_value);
-INTDEF int private_value;
-PUBLIC void test(void) {
- libc_syslog(LOG_DEBUG,"private_value = %p:%d\n",
-             &private_value,private_value);
- ++private_value;
-}
-
-
-
 PRIVATE DEFINE_MUTEX(environ_lock);
 INTDEF int LIBCCALL libc_env_acquire(void) { return libc_mutex_get_timed64(&environ_lock,NULL); }
 INTDEF void LIBCCALL libc_env_release(void) { libc_mutex_put(&environ_lock); }
-
 
 PUBLIC char **environ = NULL;
 INTERN char16_t **w16environ = NULL;

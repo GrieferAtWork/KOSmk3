@@ -71,6 +71,8 @@ typedef struct {
                                                      * first. This is done to ensure that interactive files are
                                                      * always up-to-date before data is read from one of them. */
 #define FILE_BUFFER_FSYNC       0x00080000          /* Also synchronize the underlying file after flushing the buffer. */
+#define FILE_BUFFER_FUTF16LS    0x04000000          /* The buffer has a pending UTF-16 low surrogate that should be returned the next time `getwchar16()' and friends are called.
+                                                     * Alternatively (when writing), the buffer has a pending UTF-16 high surrogate that will be completed by the next UTF-16 character written. */
 #define FILE_BUFFER_FREADING    0x08000000          /* The buffer is currently being read into and must not be changed or resized. */
 #define FILE_BUFFER_FNOTATTY    0x10000000          /* This buffer does not refer to a TTY device. */
 #define FILE_BUFFER_FISATTY     0x20000000          /* This buffer refers to a TTY device. */
@@ -86,6 +88,7 @@ typedef struct {
                                                      * this, the pointed-to file is tested for being a TTY device
                                                      * using `isatty(fb_file)'.
                                                      * HINT: This flag is set for all newly created buffers by default. */
+
 
 #ifdef __INTELLISENSE__
 __NAMESPACE_STD_BEGIN
@@ -115,6 +118,7 @@ struct iofile_data
     LIST_NODE(FileBuffer)  fb_files; /* Chain of all known file buffers (flushed during atexit(), and `fflushall()' / `fflush(NULL)'). */
     pos64_t                fb_fblk;  /* The starting address of the data block currently stored in `fb_base'. */
     pos64_t                fb_fpos;  /* The current (assumed) position within `fb_file'. */
+    u16                    fb_utf16ls; /* [lock(fb_lock)][valid_if(FILE_BUFFER_FUTF16LS)] The pending utf-16 low surrogate. */
 
     int                    fb_file;  /* [lock(fb_lock)] The file referenced by this buffer. */
     byte_t                *fb_ptr;   /* [>= fb_base][+fb_cnt <= fb_base+fb_size][lock(fb_lock)]
@@ -146,6 +150,7 @@ struct iofile_data
     LIST_NODE(FileBuffer) __fb_files;/* Chain of all known file buffers (flushed during atexit(), and `fflushall()' / `fflush(NULL)'). */
     pos64_t              __fb_fblk;  /* The starting address of the data block currently stored in `fb_base'. */
     pos64_t              __fb_fpos;  /* The current (assumed) position within `fb_file'. */
+    u16                  __fb_utf16ls; /* [lock(fb_lock)][valid_if(FILE_BUFFER_FUTF16LS)] The pending utf-16 low surrogate. */
 #define fb_zero          if_exdata->__fb_zero
 #define fb_refcnt        if_exdata->__fb_refcnt
 #define fb_lock          if_exdata->__fb_lock
@@ -157,6 +162,7 @@ struct iofile_data
 #define fb_files         if_exdata->__fb_files
 #define fb_fblk          if_exdata->__fb_fblk
 #define fb_fpos          if_exdata->__fb_fpos
+#define fb_utf16ls       if_exdata->__fb_utf16ls
 #define fb_file          if_fd
 #define fb_ptr           if_ptr
 #define fb_cnt           if_cnt
@@ -384,6 +390,7 @@ INTDEF int LIBCCALL libc_fflush(FILE *self);
 INTDEF int LIBCCALL libc_fflush_unlocked(FILE *self);
 INTDEF void LIBCCALL libc_Xfflush(FILE *self);
 INTDEF void LIBCCALL libc_Xfflush_unlocked(FILE *self);
+INTDEF int LIBCCALL libc_fflushall(void);
 
 INTDEF void LIBCCALL libc_setbuf(FILE *__restrict self, char *__restrict buf);
 INTDEF void LIBCCALL libc_setbuffer(FILE *__restrict self, char *__restrict buf, size_t size);
@@ -455,6 +462,88 @@ DATDEF FILE *stderr;
 #define libc_stderr   stderr
 #endif
 
+
+
+/* Wide character STDIO support */
+INTDEF wint_t LIBCCALL libc_getwchar16(void);
+INTDEF wint_t LIBCCALL libc_getwchar32(void);
+INTDEF wint_t LIBCCALL libc_Xgetwchar16(void);
+INTDEF wint_t LIBCCALL libc_Xgetwchar32(void);
+INTDEF wint_t LIBCCALL libc_getwchar16_unlocked(void);
+INTDEF wint_t LIBCCALL libc_getwchar32_unlocked(void);
+INTDEF wint_t LIBCCALL libc_Xgetwchar16_unlocked(void);
+INTDEF wint_t LIBCCALL libc_Xgetwchar32_unlocked(void);
+INTDEF wint_t LIBCCALL libc_fgetwc16(FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_fgetwc32(FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_Xfgetwc16(FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_Xfgetwc32(FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_fgetwc16_unlocked(FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_fgetwc32_unlocked(FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_Xfgetwc16_unlocked(FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_Xfgetwc32_unlocked(FILE *__restrict stream);
+
+INTDEF wint_t LIBCCALL libc_fputwc16(char16_t wc, FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_fputwc32(char32_t wc, FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_Xfputwc16(char16_t wc, FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_Xfputwc32(char32_t wc, FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_fputwc16_unlocked(char16_t wc, FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_fputwc32_unlocked(char32_t wc, FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_Xfputwc16_unlocked(char16_t wc, FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_Xfputwc32_unlocked(char32_t wc, FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_putwchar16(char16_t wc);
+INTDEF wint_t LIBCCALL libc_putwchar32(char32_t wc);
+INTDEF wint_t LIBCCALL libc_Xputwchar16(char16_t wc);
+INTDEF wint_t LIBCCALL libc_Xputwchar32(char32_t wc);
+INTDEF wint_t LIBCCALL libc_putwchar16_unlocked(char16_t wc);
+INTDEF wint_t LIBCCALL libc_putwchar32_unlocked(char32_t wc);
+INTDEF wint_t LIBCCALL libc_Xputwchar16_unlocked(char16_t wc);
+INTDEF wint_t LIBCCALL libc_Xputwchar32_unlocked(char32_t wc);
+
+INTDEF wint_t LIBCCALL libc_ungetwc16(wint_t wc, FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_ungetwc32(wint_t wc, FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_ungetwc16_unlocked(wint_t wc, FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_ungetwc32_unlocked(wint_t wc, FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_Xungetwc16(wint_t wc, FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_Xungetwc32(wint_t wc, FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_Xungetwc16_unlocked(wint_t wc, FILE *__restrict stream);
+INTDEF wint_t LIBCCALL libc_Xungetwc32_unlocked(wint_t wc, FILE *__restrict stream);
+
+INTDEF char16_t *LIBCCALL libc_fgetws16(char16_t *__restrict ws, size_t n, FILE *__restrict stream);
+INTDEF char32_t *LIBCCALL libc_fgetws32(char32_t *__restrict ws, size_t n, FILE *__restrict stream);
+INTDEF char16_t *LIBCCALL libc_fgetws16_int(char16_t *__restrict ws, int n, FILE *__restrict stream);
+INTDEF char32_t *LIBCCALL libc_fgetws32_int(char32_t *__restrict ws, int n, FILE *__restrict stream);
+INTDEF char16_t *LIBCCALL libc_fgetws16_unlocked(char16_t *__restrict ws, size_t n, FILE *__restrict stream);
+INTDEF char32_t *LIBCCALL libc_fgetws32_unlocked(char32_t *__restrict ws, size_t n, FILE *__restrict stream);
+INTDEF char16_t *LIBCCALL libc_fgetws16_int_unlocked(char16_t *__restrict ws, int n, FILE *__restrict stream);
+INTDEF char32_t *LIBCCALL libc_fgetws32_int_unlocked(char32_t *__restrict ws, int n, FILE *__restrict stream);
+INTDEF ATTR_RETNONNULL char16_t *LIBCCALL libc_Xfgetws16(char16_t *__restrict ws, size_t n, FILE *__restrict stream);
+INTDEF ATTR_RETNONNULL char32_t *LIBCCALL libc_Xfgetws32(char32_t *__restrict ws, size_t n, FILE *__restrict stream);
+INTDEF ATTR_RETNONNULL char16_t *LIBCCALL libc_Xfgetws16_int(char16_t *__restrict ws, int n, FILE *__restrict stream);
+INTDEF ATTR_RETNONNULL char32_t *LIBCCALL libc_Xfgetws32_int(char32_t *__restrict ws, int n, FILE *__restrict stream);
+INTDEF ATTR_RETNONNULL char16_t *LIBCCALL libc_Xfgetws16_unlocked(char16_t *__restrict ws, size_t n, FILE *__restrict stream);
+INTDEF ATTR_RETNONNULL char32_t *LIBCCALL libc_Xfgetws32_unlocked(char32_t *__restrict ws, size_t n, FILE *__restrict stream);
+INTDEF ATTR_RETNONNULL char16_t *LIBCCALL libc_Xfgetws16_int_unlocked(char16_t *__restrict ws, int n, FILE *__restrict stream);
+INTDEF ATTR_RETNONNULL char32_t *LIBCCALL libc_Xfgetws32_int_unlocked(char32_t *__restrict ws, int n, FILE *__restrict stream);
+
+INTDEF ssize_t LIBCCALL libc_fputws16(char16_t const *__restrict ws, FILE *__restrict stream);
+INTDEF ssize_t LIBCCALL libc_fputws32(char32_t const *__restrict ws, FILE *__restrict stream);
+INTDEF ssize_t LIBCCALL libc_fputws16_unlocked(char16_t const *__restrict ws, FILE *__restrict stream);
+INTDEF ssize_t LIBCCALL libc_fputws32_unlocked(char32_t const *__restrict ws, FILE *__restrict stream);
+INTDEF size_t LIBCCALL libc_Xfputws16(char16_t const *__restrict ws, FILE *__restrict stream);
+INTDEF size_t LIBCCALL libc_Xfputws32(char32_t const *__restrict ws, FILE *__restrict stream);
+INTDEF size_t LIBCCALL libc_Xfputws16_unlocked(char16_t const *__restrict ws, FILE *__restrict stream);
+INTDEF size_t LIBCCALL libc_Xfputws32_unlocked(char32_t const *__restrict ws, FILE *__restrict stream);
+
+/* Misc. functions only here for DOS compatibility. */
+INTDEF ssize_t LIBCCALL libc_putws16(char16_t const *__restrict ws);
+INTDEF ssize_t LIBCCALL libc_putws32(char32_t const *__restrict ws);
+INTDEF char16_t *LIBCCALL libc_getws16(char16_t *__restrict buf);
+INTDEF char32_t *LIBCCALL libc_getws32(char32_t *__restrict buf);
+INTDEF char16_t *LIBCCALL libc_getws16_s(char16_t *__restrict buf, size_t buflen);
+INTDEF char32_t *LIBCCALL libc_getws32_s(char32_t *__restrict buf, size_t buflen);
+
+
+INTDEF int LIBCCALL libc_fwide(FILE *__restrict fp, int mode);
 
 
 DECL_END

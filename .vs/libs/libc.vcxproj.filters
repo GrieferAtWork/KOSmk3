@@ -84,6 +84,7 @@
     <ClCompile Include="..\..\src\libs\libc\err.c" />
     <ClCompile Include="..\..\src\libs\libc\dos_slib.c" />
     <ClCompile Include="..\..\src\libs\libc\stdio_api.c" />
+    <ClCompile Include="..\..\src\libs\libc\stdio_wapi.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\libs\libc\libc.h" />

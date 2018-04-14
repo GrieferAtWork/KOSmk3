@@ -62,6 +62,7 @@
     <ClCompile Include="..\..\src\libs\libc\stdio.c" />
     <ClCompile Include="..\..\src\libs\libc\stdio\file.c" />
     <ClCompile Include="..\..\src\libs\libc\stdio_api.c" />
+    <ClCompile Include="..\..\src\libs\libc\stdio_wapi.c" />
     <ClCompile Include="..\..\src\libs\libc\sync.c" />
     <ClCompile Include="..\..\src\libs\libc\time.c" />
     <ClCompile Include="..\..\src\libs\libc\tty.c" />
