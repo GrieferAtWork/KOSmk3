@@ -6,7 +6,7 @@
  *                                                                            *
  * Permission is granted to anyone to use this software for any purpose,      *
  * including commercial applications, and to alter it and redistribute it     *
- * freely, subject to the following ____restrictions:                             *
+ * freely, subject to the following restrictions:                             *
  *                                                                            *
  * 1. The origin of this software must not be misrepresented; you must not    *
  *    claim that you wrote the original software. If you use this software    *
@@ -20,6 +20,7 @@
 #define GUARD_LIBS_LIBC_DOS_SLIB_H 1
 
 #include "libc.h"
+#include "stdio.h"
 
 #ifdef __CC__
 DECL_BEGIN
@@ -143,6 +144,10 @@ INTDEF errno_t LIBCCALL libc_w16upr_s_l(char16_t *__restrict str, size_t maxlen,
 INTDEF errno_t LIBCCALL libc_w32upr_s_l(char32_t *__restrict str, size_t maxlen, locale_t locale);
 INTDEF derrno_t LIBCCALL libc_dos_w16upr_s_l(char16_t *__restrict str, size_t maxlen, locale_t locale);
 INTDEF derrno_t LIBCCALL libc_dos_w32upr_s_l(char32_t *__restrict str, size_t maxlen, locale_t locale);
+
+
+INTDEF size_t LIBCCALL libc_dos_fread_s(void *__restrict buf, size_t bufsize, size_t elemsize, size_t elemcount, FILE *__restrict stream);
+INTDEF size_t LIBCCALL libc_dos_fread_unlocked_s(void *__restrict buf, size_t bufsize, size_t elemsize, size_t elemcount, FILE *__restrict stream);
 
 
 DECL_END

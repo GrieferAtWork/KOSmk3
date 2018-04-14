@@ -6,7 +6,7 @@
  *                                                                            *
  * Permission is granted to anyone to use this software for any purpose,      *
  * including commercial applications, and to alter it and redistribute it     *
- * freely, subject to the following ____restrictions:                             *
+ * freely, subject to the following restrictions:                             *
  *                                                                            *
  * 1. The origin of this software must not be misrepresented; you must not    *
  *    claim that you wrote the original software. If you use this software    *
@@ -22,6 +22,8 @@
 #include "libc.h"
 #include "dos_slib.h"
 #include "errno.h"
+#include "stdio.h"
+#include <bits/dos-errno.h>
 #include <errno.h>
 #include <hybrid/minmax.h>
 
@@ -705,6 +707,32 @@ libc_dos_w32upr_s_l(char32_t *__restrict str, size_t maxlen, locale_t locale) {
 
 
 
+EXPORT(__DSYM(fread_s),libc_dos_fread_s);
+INTDEF size_t LIBCCALL
+libc_dos_fread_s(void *__restrict buf, size_t bufsize,
+                 size_t elemsize, size_t elemcount,
+                 FILE *__restrict stream) {
+ size_t result;
+ while (FileBuffer_Lock(stream))
+    if (libc_geterrno() != EINTR)
+        return libc_dos_geterrno();
+ result = libc_dos_fread_unlocked_s(buf,bufsize,elemsize,elemcount,stream);
+ FileBuffer_Unlock(stream);
+ return result;
+}
+
+EXPORT(__DSYM(_fread_nolock_s),libc_dos_fread_unlocked_s);
+INTDEF size_t LIBCCALL
+libc_dos_fread_unlocked_s(void *__restrict buf, size_t bufsize,
+                          size_t elemsize, size_t elemcount,
+                          FILE *__restrict stream) {
+ if (!elemsize || !elemcount) return 0;
+ if (!stream) return __DOS_EINVAL;
+ if (buf == NULL) return __DOS_EINVAL;
+ if (elemcount > (SIZE_MAX / elemsize)) return __DOS_EINVAL;
+ if (bufsize < (elemsize*elemcount)) return __DOS_ERANGE;
+ return libc_fread_unlocked(buf,elemsize,elemcount,stream);
+}
 
 
 
