@@ -404,10 +404,34 @@ libc_setdomainname(char const *name, size_t len) {
 }
 
 
-CRT_RARE_RODATA char16_t const user_error_format16[] = {
- '%','l','s',':',' ','%','s',0};
-CRT_RARE_RODATA char32_t const user_error_format32[] = {
- '%','l','s',':',' ','%','s',0};
+EXPORT(_strerror_s,libc_dos_strerrorm_s);
+CRT_DOS char *LIBCCALL
+libc_dos_strerrorm_s(char *__restrict buf, size_t buflen, char const *message) {
+ char const *string;
+ string = libc_strerror_s(libc_geterrno());
+ if (string) {
+  if (message) {
+   libc_snprintf(buf,buflen,"%s: %s\n",message,string);
+  } else {
+   libc_snprintf(buf,buflen,"%s\n",string);
+  }
+ } else if (message) {
+  libc_snprintf(buf,buflen,"%s: Unknown error %d\n",message,libc_dos_geterrno());
+ } else {
+  libc_snprintf(buf,buflen,"Unknown error %d\n",libc_dos_geterrno());
+ }
+ return buf;
+}
+
+EXPORT(_strerror,libc_dos_strerrorm);
+CRT_DOS char *LIBCCALL libc_dos_strerrorm(char const *message) {
+ return libc_dos_strerrorm_s(strerror_buf,STRERROR_BUF_LENGTH,message);
+}
+
+CRT_RARE_RODATA char16_t const raw_error_format16[] = { '%','s','\n',0};
+CRT_RARE_RODATA char32_t const raw_error_format32[] = { '%','s','\n',0};
+CRT_RARE_RODATA char16_t const user_error_format16[] = { '%','l','s',':',' ','%','s','\n',0};
+CRT_RARE_RODATA char32_t const user_error_format32[] = { '%','l','s',':',' ','%','s','\n',0};
 CRT_RARE_RODATA char16_t const unknown_user_error_format16[] = {
  '%','l','s',':',' ','U','n','k','n','o','w','n',' ','e','r','r','o','r',' ','%','d','\n',0};
 CRT_RARE_RODATA char32_t const unknown_user_error_format32[] = {
@@ -427,11 +451,7 @@ libc_impl_w16error_s(char16_t *__restrict buf, size_t buflen,
    if (libd_snw16printf(buf,buflen,user_error_format16,message,string) < 0)
        goto fail;
   } else {
-   /* Copy the descriptor text. */
-   mbstate_t state = MBSTATE_INIT;
-   if (libc_utf8to16(string,(size_t)-1,buf,buflen,&state,
-                     UNICODE_F_STOPONNUL|UNICODE_F_SETERRNO) ==
-                     UNICODE_ERROR)
+   if (libd_snw16printf(buf,buflen,raw_error_format16,string) < 0)
        goto fail;
   }
  } else if (message) {
@@ -454,11 +474,7 @@ libc_impl_w32error_s(char32_t *__restrict buf, size_t buflen,
    if (libc_snw32printf(buf,buflen,user_error_format32,message,string) < 0)
        goto fail;
   } else {
-   /* Copy the descriptor text. */
-   mbstate_t state = MBSTATE_INIT;
-   if (libc_utf8to32(string,(size_t)-1,buf,buflen,&state,
-                     UNICODE_F_STOPONNUL|UNICODE_F_SETERRNO) ==
-                     UNICODE_ERROR)
+   if (libd_snw32printf(buf,buflen,raw_error_format32,string) < 0)
        goto fail;
   }
  } else if (message) {
