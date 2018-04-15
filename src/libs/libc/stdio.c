@@ -851,7 +851,7 @@ again:
  /* If no buffer had been allocated, allocate one now. */
  if unlikely(!self->fb_size) {
   if unlikely(self->fb_flag&(FILE_BUFFER_FNODYNSCALE|FILE_BUFFER_FSTATICBUF))
-     error_throwf(E_BUFFER_TOO_SMALL,(size_t)0,(size_t)1);
+     libc_error_throwf(E_BUFFER_TOO_SMALL,(size_t)0,(size_t)1);
   /* Start out with the smallest size. */
   new_buffer    = buffer_realloc_nolock(self,FILE_BUFSIZ_MIN);
   self->fb_base = new_buffer;
