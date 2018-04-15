@@ -21,6 +21,7 @@
 #define _KOS_SOURCE 2
 #define _GNU_SOURCE 1
 #define error_code()  libc_error_code()
+#define error_info()  libc_error_info()
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
@@ -844,12 +845,6 @@ INTDEF ATTR_NORETURN void FCALL libc_cpu_setcontext(struct cpu_context const *__
 /*     EXCEPT                                                                            */
 /* ===================================================================================== */
 struct exception_info;
-#ifdef error_info
-#define libc_error_info()  error_info()
-#endif
-#ifdef error_code
-#define libc_error_code()  error_code()
-#endif
 INTDEF ATTR_CONST ATTR_RETNONNULL struct exception_info *(FCALL libc_error_info)(void);
 INTDEF bool FCALL libc_error_throw_resumable(u16 code);
 INTDEF bool FCALL libc_error_throw_resumable_ex(u16 code, struct exception_data *__restrict data);

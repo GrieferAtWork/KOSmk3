@@ -915,7 +915,63 @@ FileBuffer_XSetvbufUnlocked(FileBuffer *__restrict self,
                             char *__restrict buffer,
                             int modes, size_t n) {
  FileBuffer_XFlushUnlocked(self);
- /* TODO */
+ /* Mark the file buffer as empty and delete special flags. */
+ self->fb_ptr   = self->fb_base;
+ self->fb_cnt   = 0;
+ self->fb_flag &= ~(FILE_BUFFER_FLNBUF|
+                    FILE_BUFFER_FLNIFTTY);
+ if (modes == _IONBF || modes == __DOS_IONBF) {
+  /* Don't use any buffer. */
+  if (!(self->fb_flag & FILE_BUFFER_FSTATICBUF))
+        libc_free(self->fb_base);
+  self->fb_base = NULL;
+  self->fb_size = 0;
+  self->fb_ptr  = NULL;
+  self->fb_chng = NULL;
+  self->fb_chsz = 0;
+  return;
+ }
+ if (modes == _IOLBF || modes == __DOS_IOLBF) {
+  self->fb_flag |= FILE_BUFFER_FLNBUF;
+  /* Passing ZERO(0) for 'n' here causes the previous buffer to be kept. */
+  if (!n) return;
+ } else if (modes == _IOFBF
+#if __DOS_IOFBF != _IOFBF
+         && modes == __DOS_IOFBF
+#endif
+            ) {
+ } else {
+invalid_argument:
+  libc_error_throw(E_INVALID_ARGUMENT);
+ }
+ /* Allocate/use the given buffer. */
+ if (n < 2) goto invalid_argument;
+ if (!buffer) {
+  /* Dynamically allocate a buffer. */
+  if (!(self->fb_flag & FILE_BUFFER_FSTATICBUF)) {
+   /* (re-)allocate an existing buffer. */
+   buffer = (char *)self->fb_base;
+   /* Make sure the buffer's size has actually changed.
+    * NOTE: As an extension, we accept `(size_t)-1' to keep the old buffer size. */
+   if (n == (size_t)-1) n = (size_t)self->fb_size;
+   else if ((size_t)self->fb_size != n) {
+    buffer = (char *)libc_Xrealloc(buffer,n);
+   }
+  } else {
+   /* Limit the max automatic buffer size to `FILE_BUFSIZ_MAX' */
+   if (n > FILE_BUFSIZ_MAX)
+       n = FILE_BUFSIZ_MAX;
+   buffer = (char *)libc_Xmalloc(n);
+  }
+ } else {
+  /* Mark the buffer as being fixed-length,
+   * thus preventing it from being re-allocated. */
+  self->fb_flag |= FILE_BUFFER_FSTATICBUF;
+ }
+ /* Install the given buffer. */
+ self->fb_ptr  = (byte_t *)buffer;
+ self->fb_base = (byte_t *)buffer;
+ self->fb_size = n;
 }
 
 

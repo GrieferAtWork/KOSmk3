@@ -378,7 +378,7 @@ struct __ATTR_PACKED exception_data_invalid_segment {
 
 __SYSDECL_END
 
-#if defined(__COMPILER_HAVE_GCC_ASM) && !defined(__NO_XBLOCK)
+#if defined(__COMPILER_HAVE_GCC_ASM) && !defined(__NO_XBLOCK) && !defined(__INTELLISENSE__)
 #include "tls.h"
 #undef error_code
 #undef error_info
