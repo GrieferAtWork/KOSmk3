@@ -655,7 +655,7 @@ PRIVATE ATTR_HOTTEXT ATTR_NOTHROW bool KCALL
 sig_sendone_locked(struct sig *__restrict self, bool unlock) {
  struct task_connection *primary,*next_con,*last_con;
  struct task_connections *cons;
- bool result,wake_ok = false;
+ bool wake_ok = false;
  assert(sig_holding(self));
 again:
  primary = SIG_GETCON(self);
@@ -689,9 +689,11 @@ again:
  /* Try to set this signal as the one that will be received by the task. */
  if likely(ATOMIC_CMPXCH(cons->tcs_sig,NULL,self)) {
   /* If the signal got delivered to the main connection set, wake the task. */
-  if likely(cons == &FORTASK(cons->tcs_tsk,my_connections))
+  if likely(cons == &FORTASK(cons->tcs_tsk,my_connections)) {
    wake_ok = task_wake(cons->tcs_tsk);
-  else {
+   if (wake_ok) /* Ghost connections don't count as active receivers. */
+       wake_ok = !((uintptr_t)primary->tc_sig & TASK_CONNECTION_SIG_FGHOST);
+  } else {
 #if 1
    /* Even though we can guaranty that the target thread will eventually
     * receive this signal, we have no way of ensuring that it will actually
@@ -735,8 +737,6 @@ again:
 #endif
   }
  }
- /* Ghost connections don't count as active receivers. */
- result = !((uintptr_t)primary->tc_sig & TASK_CONNECTION_SIG_FGHOST);
  /* Remove this connection. */
  assert(TASK_CONNECTION_GETSIG(primary) == self);
  next_con = primary->tc_next;
@@ -787,7 +787,7 @@ again:
       sig_get(self);
   goto again;
  }
- return result;
+ return true;
 }
 
 PUBLIC ATTR_HOTTEXT ATTR_NOTHROW size_t KCALL
@@ -851,7 +851,7 @@ sig_sendone_channel_locked(struct sig *__restrict self,
  struct task_connection *primary,*target;
  struct task_connection *next_con,*last_con;
  struct task_connections *cons;
- bool result,wake_ok = false;
+ bool wake_ok = false;
  assert(sig_holding(self));
 again:
  primary = SIG_GETCON(self);
@@ -877,15 +877,14 @@ stop_sending:
  /* Try to set this signal as the one that will be received by the task. */
  if likely(ATOMIC_CMPXCH(cons->tcs_sig,NULL,self)) {
   /* If the signal got delivered to the main connection set, wake the task. */
-  if likely(cons == &FORTASK(cons->tcs_tsk,my_connections))
+  if likely(cons == &FORTASK(cons->tcs_tsk,my_connections)) {
    wake_ok = task_wake(cons->tcs_tsk);
-  else {
+   if (wake_ok) /* Ghost connections don't count as active receivers. */
+       wake_ok = !((uintptr_t)primary->tc_sig & TASK_CONNECTION_SIG_FGHOST);
+  } else {
    wake_ok = false;
   }
  }
-
- /* Ghost connections don't count as active receivers. */
- result = !((uintptr_t)primary->tc_sig & TASK_CONNECTION_SIG_FGHOST);
  /* Remove this connection. */
  assert(TASK_CONNECTION_GETSIG(target) == self);
  if (target == primary) {
@@ -937,7 +936,7 @@ stop_sending:
       sig_get(self);
   goto again;
  }
- return result;
+ return true;
 }
 
 PUBLIC ATTR_NOTHROW size_t KCALL
@@ -1000,6 +999,10 @@ sig_broadcast_channel_locked(struct sig *__restrict self,
  return result;
 }
 
+
+
+
+
 PUBLIC ATTR_NOTHROW uintptr_t KCALL
 task_channelmask(uintptr_t mask) {
  /* Simply set the channel mask. */
@@ -1013,6 +1016,7 @@ PUBLIC ATTR_NOTHROW uintptr_t KCALL
 task_openchannel(uintptr_t mask) {
  /* Simply open more channels. */
  return ATOMIC_FETCHOR(PERTASK(my_connections.tcs_chn),mask);
+ task_sleep();
 }
 
 
