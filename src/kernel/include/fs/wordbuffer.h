@@ -33,18 +33,20 @@ DECL_BEGIN
 typedef u32 wordbuffer_word_t;
 #define WORDBUFFER_EMPTY_WORD  0
 
+#define WORDBUFFER_SIZE   (MAX_INPUT+1)
+
 union wordbuffer_state {
     ATOMIC_DATA uintptr_t          bs_state; /* The current state of the key buffer. */
     struct {
-        ATOMIC_DATA uintptr_half_t bs_wpos;  /* [< MAX_INPUT] Index to the buffer location where the next character will be written. */
-        ATOMIC_DATA uintptr_half_t bs_rcnt;  /* [< MAX_INPUT] The number of characters left to-be read. */
+        ATOMIC_DATA uintptr_half_t bs_wpos;  /* [< WORDBUFFER_SIZE] Index to the buffer location where the next character will be written. */
+        ATOMIC_DATA uintptr_half_t bs_rcnt;  /* [< WORDBUFFER_SIZE] The number of characters left to-be read. */
     };
 };
 
 struct wordbuffer {
-    union wordbuffer_state  wb_state;             /* The current state of the key buffer. */
-    struct async_sig        wb_avail;             /* Signal sent when data becomes available after the buffer was empty. */
-    wordbuffer_word_t       wb_buffer[MAX_INPUT]; /* The actual buffer. */
+    union wordbuffer_state  wb_state;                   /* The current state of the key buffer. */
+    struct async_sig        wb_avail;                   /* Signal sent when data becomes available after the buffer was empty. */
+    wordbuffer_word_t       wb_buffer[WORDBUFFER_SIZE]; /* The actual buffer. */
 };
 
 #define WORDBUFFER_INIT     { { 0 }, ASYNC_SIG_INIT, { 0, } }
@@ -55,13 +57,38 @@ struct wordbuffer {
  * Block indefinitely if no keys are available.
  * NOTE: Reads return keys in order of being put (typed) */
 FUNDEF wordbuffer_word_t KCALL wordbuffer_getword(struct wordbuffer *__restrict self);
-/* Same as `wordbuffer_getword()', but return `WORDBUFFER_EMPTY_WORD' if no strokes are available. */
+/* Same as `wordbuffer_getword()', but return `WORDBUFFER_EMPTY_WORD' if no words are available. */
 FUNDEF wordbuffer_word_t KCALL wordbuffer_trygetword(struct wordbuffer *__restrict self);
+
+/* Read in a packet consisting of `num_words' words.
+ * Packets can only be read one-at-a-time, and the caller is responsible
+ * to ensure packet alignment by _ALWAYS_ reading the same amount of data
+ * as is written by multiple successive calls to `wordbuffer_putword()',
+ * or better yet, a call to `wordbuffer_putpacket()'
+ * If that rule was broken, packet would become unaligned _PERMANENTLY_
+ * NOTE: To prevent misalignments, make sure that `(WORDBUFFER_SIZE % num_words) == 0' */
+FUNDEF void KCALL wordbuffer_getpacket(struct wordbuffer *__restrict self,
+                                       wordbuffer_word_t *__restrict buf,
+                                       size_t num_words);
+FUNDEF bool KCALL wordbuffer_trygetpacket(struct wordbuffer *__restrict self,
+                                          wordbuffer_word_t *__restrict buf,
+                                          size_t num_words);
 
 /* Add the given `key' stroke to the buffer and wake waiters.
  * NOTE: This function is async-safe.
  * NOTE: If the buffer was full, the least recently written key is overwritten. */
-FUNDEF ASYNCSAFE void KCALL wordbuffer_putword(struct wordbuffer *__restrict self, wordbuffer_word_t key);
+FUNDEF ASYNCSAFE void KCALL
+wordbuffer_putword(struct wordbuffer *__restrict self,
+                   wordbuffer_word_t key);
+
+/* Same semantic behavior as calling `wordbuffer_putword()' `num_words'
+ * number of times, passing words from `words' in successive order.
+ * However, this function will only broadcast the data-available signal
+ * once, after the entire packet has been written. */
+FUNDEF ASYNCSAFE void KCALL
+wordbuffer_putpacket(struct wordbuffer *__restrict self,
+                     wordbuffer_word_t const *__restrict words,
+                     size_t num_words);
 
 
 DECL_END

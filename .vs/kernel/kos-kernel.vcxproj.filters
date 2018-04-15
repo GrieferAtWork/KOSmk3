@@ -734,5 +734,8 @@
     <ClInclude Include="..\..\src\kernel\include\kernel\boot.h">
       <Filter>kernel\include\kernel</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\dev\mouse.h">
+      <Filter>kernel\include\dev</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

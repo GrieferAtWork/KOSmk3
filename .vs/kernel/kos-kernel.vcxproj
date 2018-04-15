@@ -170,6 +170,7 @@
     <ClInclude Include="..\..\src\kernel\include\dev\devconfig.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\keyboard.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\keymap.h" />
+    <ClInclude Include="..\..\src\kernel\include\dev\mouse.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\pci.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\ps2-keyboard.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\ps2-mouse.h" />
