@@ -27,16 +27,19 @@
 #include <kernel/heap.h>
 #include <kernel/debug.h>
 #include <kernel/malloc.h>
+#include <kernel/user.h>
 #include <kos/kdev_t.h>
 #include <fs/driver.h>
 #include <fs/device.h>
 #include <fs/node.h>
 #include <fs/ramfs.h>
+#include <sys/mount.h>
 #include <string.h>
 #include <except.h>
 #include <assert.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <limits.h>
 
 DECL_BEGIN
 
@@ -177,14 +180,74 @@ device_ioctl(struct device *__restrict self,
  if (self->d_type == DEVICE_TYPE_FBLOCKDEV) {
   struct block_device *me;
   me = (struct block_device *)self;
-  if (me->b_io.io_ioctl)
-      return (*me->b_io.io_ioctl)(me,cmd,arg,flags);
+  switch (cmd) {
+
+  {
+   int new_roflag;
+  case BLKROSET:
+   validate_readable(arg,sizeof(int));
+   new_roflag = *(int *)arg;
+   COMPILER_READ_BARRIER();
+   if (new_roflag) {
+    ATOMIC_FETCHOR(self->d_flags,DEVICE_FREADONLY);
+   } else {
+    ATOMIC_FETCHAND(self->d_flags,~DEVICE_FREADONLY);
+   }
+  } break;
+
+  case BLKROGET:
+   validate_writable(arg,sizeof(int));
+   *(int *)arg = ATOMIC_READ(self->d_flags) & DEVICE_FREADONLY ? 1 : 0;
+   break;
+
+  case BLKRRPART:
+   /* TODO: Partitioning */
+   break;
+
+  case BLKGETSIZE:
+   if (me->b_blockcount > ULONG_MAX)
+       error_throwf(E_FILESYSTEM_ERROR,ERROR_FS_FILE_TOO_LARGE);
+   validate_writable(arg,sizeof(unsigned long));
+   *(unsigned long *)arg = (unsigned long)me->b_blockcount;
+   break;
+
+  case BLKFLSBUF:
+   block_device_sync(me);
+   break;
+
+  case BLKRASET:
+  case BLKFRASET:
+   /* TODO: Implement once DMA support is a thing */
+   break;
+  case BLKRAGET:
+  case BLKFRAGET:
+   /* TODO: Implement once DMA support is a thing */
+   break;
+
+  case BLKSSZGET:
+  case BLKBSZGET:
+   validate_writable(arg,sizeof(unsigned int));
+   *(unsigned int *)arg = (unsigned int)me->b_blocksize;
+   break;
+
+  case BLKGETSIZE64:
+   validate_writable(arg,sizeof(u64));
+   *(u64 *)arg = me->b_blockcount * me->b_blocksize;
+   break;
+
+  default:
+   if (me->b_io.io_ioctl)
+       return (*me->b_io.io_ioctl)(me,cmd,arg,flags);
+   goto unsupported;
+  }
+  return 0;
  } else {
   struct character_device *me;
   me = (struct character_device *)self;
   if (me->c_ops->c_file.f_ioctl)
       return (*me->c_ops->c_file.f_ioctl)(me,cmd,arg,flags);
  }
+unsupported:
  error_throw(E_NOT_IMPLEMENTED);
 }
 /* @throw: E_NOT_IMPLEMENTED: Stat information cannot be gathered about the given device. */
