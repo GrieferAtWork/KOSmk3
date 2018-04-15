@@ -94,7 +94,7 @@ x86_sigreturn_impl(void *UNUSED(arg),
   /* Restore the saved FPU state. */
   x86_fpu_alloc();
   COMPILER_BARRIER();
-  memcpy(PERTASK(x86_fpu_context),
+  memcpy(PERTASK_GET(x86_fpu_context),
         &frame->sf_return.m_fpu,
          sizeof(struct fpu_context));
   COMPILER_BARRIER();
@@ -202,7 +202,7 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
 #endif
 
  if (action->sa_flags & SA_SIGINFO) {
-  struct userstack *stack = PERTASK(_this_user_stack);
+  struct userstack *stack = PERTASK_GET(_this_user_stack);
   struct signal_frame_ex *xframe;
   xframe = (struct signal_frame_ex *)context->c_esp-1;
   validate_writable(xframe,sizeof(*xframe));
@@ -228,7 +228,7 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
 
  {
   /* Copy the signal-blocking-set to-be applied upon return. */
-  struct sigblock *block = PERTASK(_this_sigblock);
+  struct sigblock *block = PERTASK_GET(_this_sigblock);
   if (!block)
    memset(&frame->sf_sigmask,0,sizeof(sigset_t));
   else {
@@ -264,7 +264,7 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
 #ifndef CONFIG_NO_FPU
  if (x86_fpu_save()) {
   memcpy(&frame->sf_return.m_fpu,
-          PERTASK(x86_fpu_context),
+          PERTASK_GET(x86_fpu_context),
           sizeof(struct fpu_context));
   frame->sf_return.m_flags |= __MCONTEXT_FHAVEFPU;
  }
@@ -276,10 +276,10 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
  if ((mode == TASK_USERCTX_FAFTERINTERRUPT) &&
      (error_info()->e_error.e_flag & ERR_FSYSCALL_EXC)) {
   /* Set the exceptions-enabled bit in the system call vector number. */
-  frame->sf_sigreturn = (void *)(PERTASK(x86_sysbase)+
+  frame->sf_sigreturn = (void *)(PERTASK_GET(x86_sysbase)+
                                  X86_ENCODE_PFSYSCALL(SYS_sigreturn|0x80000000));
  } else {
-  frame->sf_sigreturn = (void *)(PERTASK(x86_sysbase)+
+  frame->sf_sigreturn = (void *)(PERTASK_GET(x86_sysbase)+
                                  X86_ENCODE_PFSYSCALL(SYS_sigreturn));
  }
 

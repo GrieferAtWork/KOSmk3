@@ -61,12 +61,12 @@ PUBLIC void KCALL x86_fpu_reset(void) {
      PERCPU(x86_fpu_current) = NULL;
  PREEMPTION_POP(was);
  /* Free any saved FPU context. */
- size = PERTASK(x86_fpu_size);
+ size = PERTASK_GET(x86_fpu_size);
  if (size) {
   struct fpu_context *context;
-  context = PERTASK(x86_fpu_context);
-  PERTASK(x86_fpu_context) = NULL;
-  PERTASK(x86_fpu_size)    = 0;
+  context = PERTASK_GET(x86_fpu_context);
+  PERTASK_SET(x86_fpu_context,NULL);
+  PERTASK_SET(x86_fpu_size,0);
   FPU_FREE(context,size);
  }
 }
@@ -83,7 +83,7 @@ again:
  was = PREEMPTION_PUSHOFF();
  if (PERCPU(x86_fpu_current) == THIS_TASK) {
   /* We're the ones using the FPU */
-  if (!PERTASK(x86_fpu_size)) {
+  if (!PERTASK_TEST(x86_fpu_size)) {
    /* Make sure our context is allocated. */
    PREEMPTION_POP(was);
    x86_fpu_alloc();
@@ -92,7 +92,7 @@ again:
   /* Actually save the context. */
   __asm__ __volatile__("clts; fxsave %0\n"
                        :
-                       : "m" (*PERTASK(x86_fpu_context))
+                       : "m" (*PERTASK_GET(x86_fpu_context))
                        : "memory");
   PREEMPTION_POP(was);
   return true;
@@ -100,7 +100,7 @@ again:
  PREEMPTION_POP(was);
  /* The calling thread either hasn't used the FPU, or
   * it's FPU context is already up-to-date. */
- return PERTASK(x86_fpu_size) != 0;
+ return PERTASK_TEST(x86_fpu_size);
 }
 
 /* Reconfigure the FPU to either load `x86_fpu_context' lazily, or
@@ -109,7 +109,7 @@ again:
  * @assume(WAS_ALLOCATED(x86_fpu_context)); */
 PUBLIC void KCALL x86_fpu_load(void) {
  pflag_t was = PREEMPTION_PUSHOFF();
- assertf(PERTASK(x86_fpu_size) != 0,"FPU state hasn't been allocated");
+ assertf(PERTASK_GET(x86_fpu_size) != 0,"FPU state hasn't been allocated");
 #if 1
  /* If we're holding the active FPU context, change
   * it so no-one is holding it, meaning that during
@@ -119,7 +119,7 @@ PUBLIC void KCALL x86_fpu_load(void) {
 #else
  __asm__ __volatile__("clts; fxrstor %0\n"
                       :
-                      : "m" (*PERTASK(x86_fpu_context))
+                      : "m" (*PERTASK_GET(x86_fpu_context))
                       : "memory");
 #endif
  PREEMPTION_POP(was);
@@ -130,16 +130,16 @@ PUBLIC void KCALL x86_fpu_load(void) {
 PUBLIC void KCALL x86_fpu_alloc(void) {
  struct heapptr fpu;
  assert(PREEMPTION_ENABLED());
- if (PERTASK(x86_fpu_size)) return;
+ if (PERTASK_GET(x86_fpu_size)) return;
  fpu = FPU_ALLOC();
  COMPILER_BARRIER();
  /* Check if the FPU context got allocated in the mean time. */
- if unlikely(PERTASK(x86_fpu_size)) {
+ if unlikely(PERTASK_TEST(x86_fpu_size)) {
   FPU_FREE(fpu.hp_ptr,fpu.hp_siz);
   return;
  }
- PERTASK(x86_fpu_context) = (struct fpu_context *)fpu.hp_ptr;
- PERTASK(x86_fpu_size)    = fpu.hp_siz;
+ PERTASK_SET(x86_fpu_context,(struct fpu_context *)fpu.hp_ptr);
+ PERTASK_SET(x86_fpu_size,fpu.hp_siz);
 }
 
 

@@ -1327,9 +1327,11 @@ exec_user(struct exec_args *__restrict args,
 
    /* Update the thread configuration to indicate that stack and segments are gone. */
    THIS_TASK->t_flags &= ~(TASK_FOWNUSERSEG);
-   if (PERTASK(_this_user_stack)) {
-    userstack_decref(PERTASK(_this_user_stack)); /* XXX: Re-use the user-space stack object. */
-    PERTASK(_this_user_stack) = NULL;
+   {
+    REF struct userstack *stack;
+    stack = PERTASK_XCH(_this_user_stack,NULL);
+    /* XXX: Re-use the user-space stack object. */
+    if (stack) userstack_decref(stack);
    }
 
    /* Setup the application. */

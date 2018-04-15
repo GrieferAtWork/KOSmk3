@@ -387,7 +387,7 @@ DATDEF struct vfs vfs_kernel;
 /* [1..1] Per-thread filesystem information.
  * NOTE: Initialized to NULL. - Must be initialized before the task is started. */
 DATDEF ATTR_PERTASK REF struct fs *_this_fs;
-#define THIS_FS   PERTASK(_this_fs)
+#define THIS_FS     PERTASK_GET(_this_fs)
 
 
 /* Return a reference for a given path.

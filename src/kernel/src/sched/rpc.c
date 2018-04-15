@@ -28,6 +28,7 @@
 #include <kernel/sections.h>
 #include <kernel/malloc.h>
 #include <sched/task.h>
+#include <sched/pertask-arith.h>
 #include <sched/signal.h>
 #include <sched/stat.h>
 #include <string.h>
@@ -80,8 +81,6 @@ INTERN void KCALL rpc_fini(struct task *__restrict thread) {
 #endif
  kfree(info->ri_vec);
 }
-
-#define MY_RPC  PERTASK(my_rpc)
 
 
 /* Allocate a new RPC slot and set the `TASK_STATE_FINTERRUPTING' bit.
@@ -194,7 +193,7 @@ again:
   while (ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FINTERRUPTING) &
                                            TASK_STATE_FINTERRUPTING)
          task_yield();
-  if (!MY_RPC.ri_cnt) {
+  if (!PERTASK_TEST(my_rpc.ri_cnt)) {
    /* No more RPCs (delete the interrupted-flag) */
    ATOMIC_FETCHAND(THIS_TASK->t_state,
                  ~(TASK_STATE_FINTERRUPTING|
@@ -202,10 +201,10 @@ again:
    return;
   }
   /* Take away the first RPC */
-  --MY_RPC.ri_cnt;
-  memcpy(&slot,&MY_RPC.ri_vec[0],sizeof(struct rpc_slot));
-  memmove(&MY_RPC.ri_vec[0],&MY_RPC.ri_vec[1],
-           MY_RPC.ri_cnt*sizeof(struct rpc_slot));
+  PERTASK_DEC(my_rpc.ri_cnt);
+  memcpy(&slot,&PERTASK(my_rpc.ri_vec)[0],sizeof(struct rpc_slot));
+  memmove(&PERTASK(my_rpc.ri_vec)[0],&PERTASK(my_rpc.ri_vec)[1],
+           PERTASK_GET(my_rpc.ri_cnt)*sizeof(struct rpc_slot));
   ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINTERRUPTING);
   TRY {
    TRY {
@@ -277,7 +276,7 @@ continue_serving:
   while (ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FINTERRUPTING) &
                                            TASK_STATE_FINTERRUPTING)
          task_yield();
-  if (!MY_RPC.ri_cnt) {
+  if (!PERTASK_TEST(my_rpc.ri_cnt)) {
    /* No more RPCs (delete the interrupted-flag) */
    ATOMIC_FETCHAND(THIS_TASK->t_state,
                  ~(TASK_STATE_FINTERRUPTING|TASK_STATE_FINTERRUPTED|
@@ -286,7 +285,7 @@ done_serving:
    task_pop_connections(&connections);
    return true;
   }
-  if (MY_RPC.ri_vec[0].rs_flag & RPC_SLOT_FUSER) {
+  if (PERTASK_GET(my_rpc.ri_vec)[0].rs_flag & RPC_SLOT_FUSER) {
    /* Remaining RPC must be called before returning to user-space. */
    assert(!(THIS_TASK->t_flags & TASK_FKERNELJOB));
    ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINTERRUPTING);
@@ -302,10 +301,10 @@ done_serving:
    error_throw(E_INTERRUPT);
   }
   /* Take away the first RPC */
-  --MY_RPC.ri_cnt;
-  memcpy(&slot,&MY_RPC.ri_vec[0],sizeof(struct rpc_slot));
-  memmove(&MY_RPC.ri_vec[0],&MY_RPC.ri_vec[1],
-           MY_RPC.ri_cnt*sizeof(struct rpc_slot));
+  PERTASK_DEC(my_rpc.ri_cnt);
+  memcpy(&slot,&PERTASK(my_rpc.ri_vec)[0],sizeof(struct rpc_slot));
+  memmove(&PERTASK(my_rpc.ri_vec)[0],&PERTASK(my_rpc.ri_vec)[1],
+           PERTASK_GET(my_rpc.ri_cnt)*sizeof(struct rpc_slot));
   ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINTERRUPTING);
 #ifndef NDEBUG
   old_nothrow_serve_recursion = THIS_TASK->t_nothrow_serve;

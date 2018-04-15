@@ -26,7 +26,7 @@
 #include <hybrid/asm.h>
 #include <kos/types.h>
 #include <kos/context.h>
-#include <kos/fcntl.h>
+#include <kos/handle.h>
 #include <except.h>
 #include <string.h>
 

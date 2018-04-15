@@ -69,7 +69,7 @@ DATDEF ATTR_PERTASK REF struct sigblock *_this_sigblock;
 
 /* Allocate a missing `_this_sigblock', or replace it
  * with a copy of itself when `sb_share > 1'.
- * @return: * : Always returns `PERTASK(_this_sigblock)'
+ * @return: * : Always returns `PERTASK_GET(_this_sigblock)'
  * @throw E_BADALLOC: Not enough available memory. */
 FUNDEF ATTR_RETNONNULL struct sigblock *KCALL sigblock_unique(void);
 
@@ -165,7 +165,7 @@ DATDEF ATTR_PERTASK REF struct sigshare *_this_sigpending_proc;
 FUNDEF ATTR_RETNONNULL struct sigpending *KCALL sigpending_gettask(void);
 FUNDEF ATTR_RETNONNULL struct sigpending *KCALL sigpending_getfor(struct task *__restrict thread);
 #else
-#define sigpending_gettask()      (&PERTASK(_this_sigpending_task))
+#define sigpending_gettask()      (&PERTASK_GET(_this_sigpending_task))
 #define sigpending_getfor(thread) (&FORTASK(thread,_this_sigpending_task))
 #endif
 FUNDEF ATTR_RETNONNULL struct sigpending *KCALL sigpending_getproc(void);

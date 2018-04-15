@@ -20,15 +20,95 @@
 #define GUARD_KERNEL_INCLUDE_I386_KOS_PERTASK_H 1
 
 #include <hybrid/compiler.h>
-#include <kos/types.h>
-#include <kos/i386-kos/thread.h>
 
+#ifdef __CC__
 DECL_BEGIN
+struct task;
 
-#ifdef __INTELLISENSE__
-DATDEF struct task *THIS_TASK;
-#define THIS_TASK  THIS_TASK
-#define PERTASK    /* ... */
+#if 1
+#define THIS_TASK                         __get_this_task()
+FORCELOCAL ATTR_CONST WUNUSED struct task *(KCALL __get_this_task)(void) {
+    register struct task *__result;
+#ifdef __ASM_TASK_SEGMENT_ISFS
+#ifdef __x86_64__
+    __asm__("movq %%fs:0, %0\n" : "=r" (__result));
+#else
+    __asm__("movl %%fs:0, %0\n" : "=r" (__result));
+#endif
+#else
+#ifdef __x86_64__
+    __asm__("movq %%gs:0, %0\n" : "=r" (__result));
+#else
+    __asm__("movl %%gs:0, %0\n" : "=r" (__result));
+#endif
+#endif
+    return __result;
+}
+
+#define PERTASK(x)    (*(__typeof__(&(x)))__get_per_task(&(x)))
+FORCELOCAL ATTR_CONST WUNUSED void *(KCALL __get_per_task)(void *__ptr) {
+    register void *__result;
+#ifdef __ASM_TASK_SEGMENT_ISFS
+#ifdef __x86_64__
+    __asm__("addq %%fs:0, %0\n" : "=r" (__result) : "0" (__ptr));
+#else
+    __asm__("addl %%fs:0, %0\n" : "=r" (__result) : "0" (__ptr));
+#endif
+#else
+#ifdef __x86_64__
+    __asm__("addq %%gs:0, %0\n" : "=r" (__result) : "0" (__ptr));
+#else
+    __asm__("addl %%gs:0, %0\n" : "=r" (__result) : "0" (__ptr));
+#endif
+#endif
+    return __result;
+}
+#elif 1
+#ifdef __ASM_TASK_SEGMENT_ISFS
+#ifdef __x86_64__
+#define THIS_TASK \
+ XBLOCK({ register struct task *_this_task; \
+          __asm__("movq %%fs:0, %0\n" : "=r" (_this_task)); \
+          XRETURN _this_task; })
+#define PERTASK(x) \
+ (*XBLOCK({ register void *_result; \
+            __asm__("addq %%fs:0, %0\n" \
+                    : "=r" (_result) : "0" ((void *)(uintptr_t)&(x))); \
+            XRETURN (__typeof__(&(x)))_result; }))
+#else
+#define THIS_TASK \
+ XBLOCK({ register struct task *_this_task; \
+          __asm__("movl %%fs:0, %0\n" : "=r" (_this_task)); \
+          XRETURN _this_task; })
+#define PERTASK(x) \
+ (*XBLOCK({ register void *_result; \
+            __asm__("addl %%fs:0, %0\n" \
+                    : "=r" (_result) : "0" ((void *)(uintptr_t)&(x))); \
+            XRETURN (__typeof__(&(x)))_result; }))
+#endif
+#else /* __ASM_TASK_SEGMENT_ISFS */
+#ifdef __x86_64__
+#define THIS_TASK \
+ XBLOCK({ register struct task *_this_task; \
+          __asm__("movq %%gs:0, %0\n" : "=r" (_this_task)); \
+          XRETURN _this_task; })
+#define PERTASK(x) \
+ (*XBLOCK({ register void *_result; \
+            __asm__("addq %%gs:0, %0\n" \
+                    : "=r" (_result) : "0" ((void *)(uintptr_t)&(x))); \
+            XRETURN (__typeof__(&(x)))_result; }))
+#else
+#define THIS_TASK \
+ XBLOCK({ register struct task *_this_task; \
+          __asm__("movl %%gs:0, %0\n" : "=r" (_this_task)); \
+          XRETURN _this_task; })
+#define PERTASK(x) \
+ (*XBLOCK({ register void *_result; \
+            __asm__("addl %%gs:0, %0\n" \
+                    : "=r" (_result) : "0" ((void *)(uintptr_t)&(x))); \
+            XRETURN (__typeof__(&(x)))_result; }))
+#endif
+#endif /* !__ASM_TASK_SEGMENT_ISFS */
 #else
 #ifdef __ASM_TASK_SEGMENT_ISFS
 #ifdef __x86_64__
@@ -77,14 +157,11 @@ DATDEF struct task *THIS_TASK;
 #endif /* !__ASM_TASK_SEGMENT_ISFS */
 #endif
 
-
-#ifdef __CC__
 /* Set the current value of the user TLS register (the base address of %gs/%fs)
  * NOTE: During a context switch, this is done automatically. */
 FUNDEF void KCALL set_user_tls_register(void *value);
-#endif
-
 
 DECL_END
+#endif /* __CC__ */
 
 #endif /* !GUARD_KERNEL_INCLUDE_I386_KOS_PERTASK_H */

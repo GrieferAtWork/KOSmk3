@@ -28,6 +28,7 @@
 #include <kernel/heap.h>
 #include <sched/task.h>
 #include <sched/rwlock.h>
+#include <sched/pertask-arith.h>
 #include <except.h>
 #include <assert.h>
 #include <string.h>
@@ -171,12 +172,12 @@ get_readlock(struct rwlock *__restrict lock) {
 /* Delete the given rlock. */
 PRIVATE void KCALL
 del_readlock(struct read_lock *__restrict rlock) {
- assert(PERTASK(my_readlocks.rls_use));
- assert(PERTASK(my_readlocks.rls_cnt));
- assert(rlock >= PERTASK(my_readlocks.rls_vec));
- assert(rlock <= PERTASK(my_readlocks.rls_vec)+PERTASK(my_readlocks.rls_msk));
+ assert(PERTASK_TEST(my_readlocks.rls_use));
+ assert(PERTASK_TEST(my_readlocks.rls_cnt));
+ assert(rlock >= PERTASK_GET(my_readlocks.rls_vec));
+ assert(rlock <= PERTASK_GET(my_readlocks.rls_vec)+PERTASK_GET(my_readlocks.rls_msk));
  rlock->rl_rwlock = READLOCK_DUMMYLOCK;
- --PERTASK(my_readlocks.rls_use);
+ PERTASK_DEC(my_readlocks.rls_use);
 }
 
 
@@ -700,8 +701,8 @@ __os_rwlock_end(struct rwlock *__restrict self) {
           "You're not holding any read-locks\n"
           "PERTASK(my_readlocks).rls_use = %Iu\n"
           "PERTASK(my_readlocks).rls_cnt = %Iu",
-          PERTASK(my_readlocks).rls_use,
-          PERTASK(my_readlocks).rls_cnt);
+          PERTASK_GET(my_readlocks.rls_use),
+          PERTASK_GET(my_readlocks.rls_cnt));
   assert(desc->rl_recursion != 0);
   if (desc->rl_recursion == 1) {
    u32 control_word;

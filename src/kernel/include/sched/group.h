@@ -123,7 +123,7 @@ struct threadgroup {
 
 /* The thread-group descriptor for the calling thread. */
 DATDEF ATTR_PERTASK struct threadgroup _this_group;
-#define THIS_GROUP  PERTASK(_this_group)
+#define THIS_GROUP  PERTASK_GET(_this_group)
 
 /* Return a reference to the parent of the calling thread (as defined by POSIX).
  * If the calling thread doesn't have a parent, return NULL instead. */

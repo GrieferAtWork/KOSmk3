@@ -75,7 +75,7 @@ FUNDEF void KCALL thread_pid_destroy(struct thread_pid *__restrict self);
 /* [0..1][const] PID Descriptor of this thread (or `NULL' for kernel workers, or
  *               hacky threads that don't have a PID (cannot be created in userspace)) */
 DATDEF ATTR_PERTASK REF struct thread_pid *_this_pid;
-#define THIS_THREAD_PID PERTASK(_this_pid)
+#define THIS_THREAD_PID PERTASK_GET(_this_pid)
 #define THIS_PIDNS     (THIS_THREAD_PID ? THIS_THREAD_PID->tp_ns : &pidns_kernel)
 
 

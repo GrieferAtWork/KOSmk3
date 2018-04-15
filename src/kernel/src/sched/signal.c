@@ -33,6 +33,7 @@
 #include <kernel/interrupt.h>
 #include <sched/signal.h>
 #include <sched/task.h>
+#include <sched/pertask-arith.h>
 #include <except.h>
 #include <assert.h>
 #include <string.h>
@@ -214,11 +215,11 @@ PRIVATE ATTR_PERTASK struct task_connections *connections_push_stack[16];
 #define DEBUG_POP_CONNECTIONS(safe)  do_debug_pop_connections(safe)
 PRIVATE void KCALL
 do_debug_push_connections(struct task_connections *__restrict safe) {
- unsigned int i;
- assert(PERTASK(connections_push_recursion) != (unsigned int)-1);
- if (PERTASK(connections_push_recursion) < COMPILER_LENOF(connections_push_stack)) {
-  PERTASK(connections_push_stack[PERTASK(connections_push_recursion)]) = safe;
-  for (i = 0; i < PERTASK(connections_push_recursion); ++i) {
+ unsigned int i,index = PERTASK_GET(connections_push_recursion);
+ assert(index != (unsigned int)-1);
+ if (index < COMPILER_LENOF(connections_push_stack)) {
+  PERTASK_SET(connections_push_stack[index],safe);
+  for (i = 0; i < index; ++i) {
    assertf(safe <  PERTASK(connections_push_stack[i]) ||
            safe >= PERTASK(connections_push_stack[i])+1,
            "Overlapping connections restore descriptors:\n"
@@ -228,17 +229,19 @@ do_debug_push_connections(struct task_connections *__restrict safe) {
            safe,PERTASK(connections_push_stack[i]));
   }
  }
- ++PERTASK(connections_push_recursion);
+ PERTASK_INC(connections_push_recursion);
 }
 PRIVATE void KCALL
 do_debug_pop_connections(struct task_connections *__restrict safe) {
- assertf(PERTASK(connections_push_recursion) != 0,"Connections weren't pushed");
- if (PERTASK(connections_push_recursion) < COMPILER_LENOF(connections_push_stack)) {
-  assertf(PERTASK(connections_push_stack[PERTASK(connections_push_recursion)-1]) == safe,
+ unsigned int count;
+ count = PERTASK_GET(connections_push_recursion);
+ assertf(count != 0,"Connections weren't pushed");
+ if (count < COMPILER_LENOF(connections_push_stack)) {
+  assertf(PERTASK_GET(connections_push_stack[count-1]) == safe,
           "Incorrect restore location (expected %p, but got %p)\n",
-          PERTASK(connections_push_stack[PERTASK(connections_push_recursion)-1]),safe);
+          PERTASK_GET(connections_push_stack[count-1]),safe);
  }
- --PERTASK(connections_push_recursion);
+ PERTASK_DEC(connections_push_recursion);
 }
 #else
 #define DEBUG_PUSH_CONNECTIONS(safe) (void)0
@@ -564,11 +567,11 @@ struct sig *KCALL task_disconnect(void) {
 
 PUBLIC ATTR_NOTHROW bool KCALL
 task_isconnected(void) {
- return PERTASK(my_connections.tcs_cnt) != 0;
+ return PERTASK_TEST(my_connections.tcs_cnt);
 }
 PUBLIC ATTR_NOTHROW size_t KCALL
 task_numconnected(void) {
- return PERTASK(my_connections.tcs_cnt);
+ return PERTASK_GET(my_connections.tcs_cnt);
 }
 PUBLIC ATTR_NOTHROW bool KCALL
 task_connected(struct sig *__restrict signal) {
@@ -632,7 +635,9 @@ KCALL __os_task_waitfor(jtime_t abs_timeout) {
  return result;
 }
 PUBLIC ATTR_NOTHROW struct sig *KCALL task_trywait(void) {
- struct sig *result = PERTASK(my_connections.tcs_sig);
+ struct sig *result;
+ result = PERTASK_GET(my_connections.tcs_sig);
+ COMPILER_READ_BARRIER();
  if (result) task_disconnect();
  return result;
 }
@@ -998,16 +1003,16 @@ sig_broadcast_channel_locked(struct sig *__restrict self,
 PUBLIC ATTR_NOTHROW uintptr_t KCALL
 task_channelmask(uintptr_t mask) {
  /* Simply set the channel mask. */
- assertf(!PERTASK(my_connections).tcs_cnt ||
-          PERTASK(my_connections).tcs_chn == mask,
+ assertf(!PERTASK_GET(my_connections.tcs_cnt) ||
+          PERTASK_GET(my_connections.tcs_chn) == mask,
          "You may not change the channel mask after already being connected");
- return ATOMIC_XCH(PERTASK(my_connections).tcs_chn,mask);
+ return ATOMIC_XCH(PERTASK(my_connections.tcs_chn),mask);
 }
 
 PUBLIC ATTR_NOTHROW uintptr_t KCALL
 task_openchannel(uintptr_t mask) {
  /* Simply open more channels. */
- return ATOMIC_FETCHOR(PERTASK(my_connections).tcs_chn,mask);
+ return ATOMIC_FETCHOR(PERTASK(my_connections.tcs_chn),mask);
 }
 
 

@@ -2552,7 +2552,7 @@ INTERN void KCALL task_vm_clone(struct task *__restrict new_thread, u32 flags) {
   new_thread->t_vm = vm_clone();
   /* Duplicate and update the associated thread's user-space stack descriptor. */
   if (new_thread->t_vm->vm_map != NULL) {
-   if ((ustack = PERTASK(_this_user_stack)) != NULL) {
+   if ((ustack = PERTASK_GET(_this_user_stack)) != NULL) {
     struct userstack *new_stack;
     new_stack = (struct userstack *)kmalloc(sizeof(struct userstack),GFP_SHARED);
     new_stack->us_refcnt  = 1;

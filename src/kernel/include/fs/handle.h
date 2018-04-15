@@ -21,7 +21,7 @@
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
-#include <kos/fcntl.h>
+#include <kos/handle.h>
 #include <hybrid/list/list.h>
 #include <hybrid/sync/atomic-rwlock.h>
 #include <kernel/sections.h>
@@ -186,7 +186,7 @@ DATDEF struct handle_manager handle_manager_kernel;
 
 /* [1..1][lock(PRIVATE(THIS_TASK))] Handle manager of the calling thread. */
 DATDEF ATTR_PERTASK struct handle_manager *_this_handle_manager;
-#define THIS_HANDLE_MANAGER  PERTASK(_this_handle_manager)
+#define THIS_HANDLE_MANAGER  PERTASK_GET(_this_handle_manager)
 
 
 /* Allocate a new, empty handle manager. */

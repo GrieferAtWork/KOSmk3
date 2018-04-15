@@ -71,7 +71,8 @@ INTDEF void KCALL sighand_ptr_decref(struct sighand_ptr *__restrict self);
 PUBLIC bool KCALL task_unshare_sighand(void) {
  REF struct sighand *hand;
  struct sighand_ptr *new_ptr;
- struct sighand_ptr *handptr = PERTASK(_this_sighand_ptr);
+ struct sighand_ptr *handptr;
+ handptr = PERTASK_GET(_this_sighand_ptr);
  if (!handptr) return false; /* No handlers are being used. */
  assert(handptr->sp_refcnt != 0);
  atomic_rwlock_read(&handptr->sp_lock);
@@ -84,7 +85,7 @@ PUBLIC bool KCALL task_unshare_sighand(void) {
   }
   atomic_rwlock_endread(&handptr->sp_lock);
   /* Release the hand pointer. */
-  PERTASK(_this_sighand_ptr) = NULL;
+  PERTASK_SET(_this_sighand_ptr,NULL);
   sighand_ptr_decref(handptr);
   return true;
  }
@@ -108,7 +109,7 @@ PUBLIC bool KCALL task_unshare_sighand(void) {
   sighand_decref(hand);
   error_rethrow();
  }
- PERTASK(_this_sighand_ptr) = new_ptr; /* Inherit reference. */
+ PERTASK_SET(_this_sighand_ptr,new_ptr); /* Inherit reference. */
  sighand_ptr_decref(handptr);
  return true;
 }

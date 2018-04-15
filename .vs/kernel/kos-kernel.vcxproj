@@ -206,6 +206,7 @@
     <ClInclude Include="..\..\src\kernel\include\i386-kos\memory.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\paging.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\paging32.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\pertask-arith.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\pertask.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\pic.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\pit.h" />
@@ -239,6 +240,8 @@
     <ClInclude Include="..\..\src\kernel\include\sched\async_signal.h" />
     <ClInclude Include="..\..\src\kernel\include\sched\group.h" />
     <ClInclude Include="..\..\src\kernel\include\sched\mutex.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\pertask-arith.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\pertask.h" />
     <ClInclude Include="..\..\src\kernel\include\sched\pid.h" />
     <ClInclude Include="..\..\src\kernel\include\sched\posix_signals.h" />
     <ClInclude Include="..\..\src\kernel\include\sched\rwlock.h" />

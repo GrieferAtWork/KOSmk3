@@ -103,7 +103,7 @@ INTERN void KCALL
 posix_signals_clone_task(struct task *__restrict new_thread,
                          u32 flags) {
  /* Copy the signal mask. */
- struct sigblock *block = PERTASK(_this_sigblock);
+ struct sigblock *block = PERTASK_GET(_this_sigblock);
  if (block) { /* NULL would mean: not blocking anything. */
   ATOMIC_FETCHINC(block->sb_share);
   FORTASK(new_thread,_this_sigblock) = block;
@@ -116,7 +116,7 @@ posix_signals_clone_task(struct task *__restrict new_thread,
    * thread (and is identical), yet we don't need to ensure
    * that it actually points to anything. */
   REF struct sighand_ptr *ptr;
-  ptr = PERTASK(_this_sighand_ptr);
+  ptr = PERTASK_GET(_this_sighand_ptr);
   if (!ptr) {
    /* Allocate the pointer the first time a new thread
     * appears in the calling thread's thread group, when
@@ -126,7 +126,7 @@ posix_signals_clone_task(struct task *__restrict new_thread,
    ptr->sp_refcnt = 2; /* +1 for the calling thread; +1 for `new_thread' */
    ptr->sp_hand = NULL;
    atomic_rwlock_init(&ptr->sp_lock);
-   PERTASK(_this_sighand_ptr) = ptr;
+   PERTASK_SET(_this_sighand_ptr,ptr);
   } else {
    ATOMIC_FETCHINC(ptr->sp_refcnt);
   }
@@ -137,7 +137,7 @@ posix_signals_clone_task(struct task *__restrict new_thread,
   /* Use a lazily duplicated copy of signal handlers
    * for the new thread (the handler set itself will
    * be duplicated using copy-on-write) */
-  struct sighand_ptr *old_ptr = PERTASK(_this_sighand_ptr);
+  struct sighand_ptr *old_ptr = PERTASK_GET(_this_sighand_ptr);
   /* NOTE: When no handlers have been defined, no need to
    *       do anything to get the new thread to use default
    *       behavior for all signals. */
@@ -235,12 +235,12 @@ posix_signals_fini_task(struct task *__restrict thread) {
  * @return: * : Always returns `PERTASK(_this_sigblock)'
  * @throw E_BADALLOC: Not enough available memory. */
 PUBLIC ATTR_RETNONNULL struct sigblock *KCALL sigblock_unique(void) {
- struct sigblock *result = PERTASK(_this_sigblock);
+ struct sigblock *result = PERTASK_GET(_this_sigblock);
  if (!result) {
   result = (struct sigblock *)kmalloc(sizeof(struct sigblock),
                                       GFP_SHARED|GFP_CALLOC);
   result->sb_share = 1;
-  PERTASK(_this_sigblock) = result;
+  PERTASK_SET(_this_sigblock,result);
  } else if (ATOMIC_READ(result->sb_share) > 1) {
   struct sigblock *new_result;
   new_result = (struct sigblock *)kmalloc(sizeof(struct sigblock),
@@ -251,7 +251,7 @@ PUBLIC ATTR_RETNONNULL struct sigblock *KCALL sigblock_unique(void) {
   if unlikely(ATOMIC_DECFETCH(result->sb_share) == 0)
      kfree(result);
   /* Save the new set. */
-  PERTASK(_this_sigblock) = new_result;
+  PERTASK_SET(_this_sigblock,new_result);
   result = new_result;
  }
  return result;
@@ -267,7 +267,7 @@ PUBLIC ATTR_RETNONNULL struct sigblock *KCALL sigblock_unique(void) {
 PUBLIC ATTR_RETNONNULL struct sighand *KCALL sighand_lock_write(void) {
  struct sighand *oldhand;
  struct sighand_ptr *ptr;
- ptr = PERTASK(_this_sighand_ptr);
+ ptr = PERTASK_GET(_this_sighand_ptr);
  if (!ptr) {
   /* Allocate a new sighand pointer. */
   ptr = (struct sighand_ptr *)kmalloc(sizeof(struct sighand_ptr),
@@ -276,7 +276,7 @@ PUBLIC ATTR_RETNONNULL struct sighand *KCALL sighand_lock_write(void) {
   ptr->sp_hand   = NULL;
   atomic_rwlock_init(&ptr->sp_lock);
   /* No atomic operation, because this field is thread-private. */
-  PERTASK(_this_sighand_ptr) = ptr;
+  PERTASK_SET(_this_sighand_ptr,ptr);
  }
 again:
  atomic_rwlock_read(&ptr->sp_lock);
@@ -439,7 +439,8 @@ nonmatching_copy:
  * instead (implies DEFAULT behavior for all signals). */
 PUBLIC struct sighand *KCALL sighand_lock_read(void) {
  struct sighand *result;
- struct sighand_ptr *ptr = PERTASK(_this_sighand_ptr);
+ struct sighand_ptr *ptr;
+ ptr = PERTASK_GET(_this_sighand_ptr);
  if (!ptr) return NULL;
  atomic_rwlock_read(&ptr->sp_lock);
  result = ptr->sp_hand;
@@ -462,7 +463,7 @@ done:
 PUBLIC ATTR_RETNONNULL struct sigpending *
 KCALL sigpending_gettask(void) {
  struct sigpending *result,*new_result;
- result = PERTASK(_this_sigpending_task);
+ result = PERTASK_GET(_this_sigpending_task);
  if (result) return result;
  /* Construct a new thread-private sigpending controller. */
  result = (struct sigpending *)kmalloc(sizeof(struct sigpending),
@@ -504,7 +505,7 @@ KCALL sigpending_getfor(struct task *__restrict thread) {
 PUBLIC ATTR_RETNONNULL struct sigpending *
 KCALL sigpending_getproc(void) {
  struct sigshare *result,*new_result;
- result = PERTASK(_this_sigpending_proc);
+ result = PERTASK_GET(_this_sigpending_proc);
  if (!result) {
   /* Allocate a new sigshare descriptor. */
   result = (struct sigshare *)kmalloc(sizeof(struct sigshare),
@@ -786,16 +787,16 @@ signal_rpc(void *UNUSED(arg),
  struct sigblock *block;
  struct sigpending *pending[2]; unsigned int i;
 again:
- block = PERTASK(_this_sigblock);
+ block = PERTASK_GET(_this_sigblock);
 #ifdef CONFIG_SIGPENDING_TRACK_MASK
- pending[0] = PERTASK(_this_sigpending_task);
+ pending[0] = PERTASK_GET(_this_sigpending_task);
 #else
  pending[0] = &PERTASK(_this_sigpending_task);
 #endif
  if (offsetof(struct sigshare,ss_pending) == 0) {
-  pending[1] = &PERTASK(_this_sigpending_proc)->ss_pending;
+  pending[1] = &PERTASK_GET(_this_sigpending_proc)->ss_pending;
  } else {
-  struct sigshare *share = PERTASK(_this_sigpending_proc);
+  struct sigshare *share = PERTASK_GET(_this_sigpending_proc);
   pending[1] = share ? &share->ss_pending : NULL;
  }
  for (i = 0; i < COMPILER_LENOF(pending); ++i) {
@@ -1022,16 +1023,16 @@ PRIVATE void KCALL signal_test(void) {
   * a user-space signal handler (by redirecting `context'). */
  struct sigblock *block;
  struct sigpending *pending[2]; unsigned int i;
- block = PERTASK(_this_sigblock);
+ block = PERTASK_GET(_this_sigblock);
 #ifdef CONFIG_SIGPENDING_TRACK_MASK
- pending[0] = PERTASK(_this_sigpending_task);
+ pending[0] = PERTASK_GET(_this_sigpending_task);
 #else
  pending[0] = &PERTASK(_this_sigpending_task);
 #endif
  if (offsetof(struct sigshare,ss_pending) == 0) {
-  pending[1] = &PERTASK(_this_sigpending_proc)->ss_pending;
+  pending[1] = &PERTASK_GET(_this_sigpending_proc)->ss_pending;
  } else {
-  struct sigshare *share = PERTASK(_this_sigpending_proc);
+  struct sigshare *share = PERTASK_GET(_this_sigpending_proc);
   pending[1] = share ? &share->ss_pending : NULL;
  }
  for (i = 0; i < COMPILER_LENOF(pending); ++i) {
@@ -1074,7 +1075,7 @@ signal_chmask(USER CHECKED sigset_t const *mask,
  if (!mask) {
   /* Only copy the current mask to user-space. */
   if (!old_mask) return;
-  block = PERTASK(_this_sigblock);
+  block = PERTASK_GET(_this_sigblock);
   if (!block) {
    memset(old_mask,0,sigsetsize);
   } else {
@@ -1241,7 +1242,7 @@ again:
    /* We can delete the handler vector, as it
     * doesn't contain anything of interest anymore. */
    struct sighand_ptr *ptr;
-   ptr = PERTASK(_this_sighand_ptr);
+   ptr = PERTASK_GET(_this_sighand_ptr);
    atomic_rwlock_write(&ptr->sp_lock);
    if (ptr->sp_hand == hand && ptr->sp_refcnt == 1) {
     /* Delete it. (We're allowed to ZERO out `sp_hand' because
@@ -1419,13 +1420,13 @@ signal_pending(USER CHECKED sigset_t *wait_mask,
  memset(wait_mask,0,sigsetsize);
  COMPILER_WRITE_BARRIER();
  end = (iter = (byte_t *)wait_mask)+sigsetsize;
- pending = PERTASK(_this_sigpending_task);
+ pending = PERTASK_GET(_this_sigpending_task);
  if (pending) {
   src = (byte_t *)&pending->sp_mask;
   for (; iter != end; ++iter,++src)
       *iter |= *src;
  }
- share = PERTASK(_this_sigpending_proc);
+ share = PERTASK_GET(_this_sigpending_proc);
  if (share) {
   iter = (byte_t *)wait_mask;
   src = (byte_t *)&share->ss_pending.sp_mask;
@@ -1442,9 +1443,9 @@ signal_pending(USER CHECKED sigset_t *wait_mask,
  COMPILER_WRITE_BARRIER();
  pending[0] = &PERTASK(_this_sigpending_task);
  if (offsetof(struct sigshare,ss_pending) == 0) {
-  pending[1] = &PERTASK(_this_sigpending_proc)->ss_pending;
+  pending[1] = &PERTASK_GET(_this_sigpending_proc)->ss_pending;
  } else {
-  struct sigshare *share = PERTASK(_this_sigpending_proc);
+  struct sigshare *share = PERTASK_GET(_this_sigpending_proc);
   pending[1] = share ? &share->ss_pending : NULL;
  }
  for (i = 0; i < COMPILER_LENOF(pending); ++i) {

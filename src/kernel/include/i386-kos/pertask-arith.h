@@ -16,33 +16,17 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef GUARD_KERNEL_INCLUDE_SCHED_USERTHREAD_H
-#define GUARD_KERNEL_INCLUDE_SCHED_USERTHREAD_H 1
+#ifndef GUARD_KERNEL_INCLUDE_I386_KOS_PERTASK_ARITH_H
+#define GUARD_KERNEL_INCLUDE_I386_KOS_PERTASK_ARITH_H 1
 
 #include <hybrid/compiler.h>
-#include <kos/types.h>
-#include <kernel/sections.h>
-
-DECL_BEGIN
-
-/* Control functionality for user-space thread libraries. */
+#include "pertask.h"
 
 #ifdef __CC__
+DECL_BEGIN
 
-/* [0..1][lock(PRIVATE(THIS_TASK))]
- * The user-space address of the TID pointer of this thread.
- * Initially, this pointer is set according to the `ctid' argument
- * of the `clone()' system call. And in addition, it may be altered
- * at a later time using the `set_tid_address()' system call.
- * -> When the thread terminates and this pointer is non-NULL, the kernel will attempt to
- *    write ZERO(0) to this address (failure to do this is silently ignored), before broadcasting
- *    the signal of a futex at `vm_getfutex(THIS_TID_ADDRESS)' (should that futex exists)
- *    This functionality is used to implement user-space thread_join()-style functionality. */
-DATDEF ATTR_PERTASK USER UNCHECKED VIRT pid_t *_this_tid_address;
-#define THIS_TID_ADDRESS PERTASK_GET(_this_tid_address)
-
-#endif /* __CC__ */
 
 DECL_END
+#endif /* __CC__ */
 
-#endif /* !GUARD_KERNEL_INCLUDE_SCHED_USERTHREAD_H */
+#endif /* !GUARD_KERNEL_INCLUDE_I386_KOS_PERTASK_ARITH_H */

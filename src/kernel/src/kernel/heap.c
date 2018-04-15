@@ -199,7 +199,7 @@ PUBLIC void (KCALL heap_validate)(struct heap *__restrict self) {
 #ifdef CONFIG_DEBUG_HEAP
  unsigned int i;
 #ifdef CONFIG_HAVE_HEAP_NOVALIDATE
- if (PERTASK(heap_novalidate))
+ if (PERTASK_GET(heap_novalidate))
      return;
 #endif
  if (!atomic_rwlock_tryread(&self->h_lock))

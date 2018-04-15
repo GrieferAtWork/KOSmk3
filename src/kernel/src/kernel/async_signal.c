@@ -49,8 +49,7 @@ task_connect_async(struct async_task_connection *__restrict connection,
  COMPILER_WRITE_BARRIER();
  if (ATOMIC_CMPXCH(signal->as_ptr,NULL,connection)) {
   /* Primary connection (finish initialization as such). */
-  connection->atc_thrnext    = PERTASK(async_connections);
-  PERTASK(async_connections) = connection;
+  connection->atc_thrnext = PERTASK_XCH(async_connections,connection);
   COMPILER_WRITE_BARRIER();
  } else {
   /* Secondary connection (connect to the regular signal). */
@@ -87,7 +86,7 @@ task_disconnect_async1(struct async_task_connection *__restrict connection) {
 PUBLIC struct sig *KCALL task_disconnect_async(void) {
  struct async_sig *temp,*result = NULL;
  struct async_task_connection *chain;
- chain = XCH(PERTASK(async_connections),NULL);
+ chain = PERTASK_XCH(async_connections,NULL);
  for (; chain; chain = chain->atc_thrnext) {
   temp = task_disconnect_async1(chain);
   if (!result) result = temp;
@@ -131,7 +130,7 @@ task_waitfor_async(jtime_t abs_timeout) {
    if (result) { PREEMPTION_ENABLE(); break; }
 
    /* Check for asynchronous signals. */
-   chain = PERTASK(async_connections);
+   chain = PERTASK_GET(async_connections);
    for (; chain; chain = chain->atc_thrnext) {
     if (ATOMIC_READ(chain->atc_delivered) != ASYNC_SIG_STATUS_WAITING) {
      result = (struct sig *)chain->atc_signal;

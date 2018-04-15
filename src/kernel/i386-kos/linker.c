@@ -71,7 +71,7 @@ linker_unwind_user(struct cpu_hostcontext_user *__restrict context) {
  context->c_esp = context->c_gpregs.gp_esp;
  /* Special case: unwind a signal frame. */
  if (context->c_eip ==
-    (PERTASK(x86_sysbase)+X86_ENCODE_PFSYSCALL(SYS_sigreturn))) {
+    (PERTASK_GET(x86_sysbase)+X86_ENCODE_PFSYSCALL(SYS_sigreturn))) {
   struct signal_frame *frame;
   frame = (struct signal_frame *)(context->c_esp-4);
   /* XXX: Restore signal mask during exception unwind? */

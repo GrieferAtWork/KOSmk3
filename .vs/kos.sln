@@ -174,6 +174,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kos", "kos", "{AF58F0E7-505
 		..\include\kos\except.h = ..\include\kos\except.h
 		..\include\kos\fcntl.h = ..\include\kos\fcntl.h
 		..\include\kos\gc.h = ..\include\kos\gc.h
+		..\include\kos\handle.h = ..\include\kos\handle.h
 		..\include\kos\heap.h = ..\include\kos\heap.h
 		..\include\kos\intrin.h = ..\include\kos\intrin.h
 		..\include\kos\kdev_t.h = ..\include\kos\kdev_t.h

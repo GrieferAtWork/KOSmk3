@@ -72,7 +72,7 @@ DEFINE_PERTASK_CLEANUP(task_cleanup_user_stack);
 INTERN void KCALL task_cleanup_user_stack(void) {
  REF struct userstack *ustack;
  /* Unmap and decref() this thread's user-space stack. */
- if ((ustack = PERTASK(_this_user_stack)) != NULL) {
+ if ((ustack = PERTASK_GET(_this_user_stack)) != NULL) {
   TRY {
    assert(ustack->us_pageend >= ustack->us_pagemin);
    /* Unmap the user-space stack. */
@@ -83,7 +83,7 @@ INTERN void KCALL task_cleanup_user_stack(void) {
            ustack->us_pageend-ustack->us_pagemin);
   } FINALLY {
    /* Steal a reference from `_this_user_stack' */
-   PERTASK(_this_user_stack) = NULL;
+   PERTASK_SET(_this_user_stack,NULL);
    userstack_decref(ustack);
   }
  }
@@ -111,7 +111,7 @@ PUBLIC ATTR_RETNONNULL ATTR_CONST
 struct userstack *KCALL task_alloc_userstack(void) {
  struct userstack *result;
  REF struct vm_region *stack_region;
- result = PERTASK(_this_user_stack);
+ result = PERTASK_GET(_this_user_stack);
  /* Quick check: is the stack already allocated. */
  if (result) return result;
 #define USER_STACK_PAGES   CEILDIV(CONFIG_USERSTACK_SIZE,PAGESIZE)
@@ -167,8 +167,7 @@ struct userstack *KCALL task_alloc_userstack(void) {
   userstack_decref(result);
   error_rethrow();
  }
- PERTASK(_this_user_stack) = result; /* Inherit reference. */
-
+ PERTASK_SET(_this_user_stack,result); /* Inherit reference. */
  return result;
 }
 

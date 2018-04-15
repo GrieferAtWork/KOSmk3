@@ -31,6 +31,7 @@
 #include <kos/context.h>
 #include <kos/thread.h>
 #include <bits/sched.h>
+#include <sched/pertask.h>
 
 #include <errno.h>
 #include <stdbool.h>
@@ -38,7 +39,6 @@
 #if defined(__i386__) || defined(__x86_64__)
 #include <i386-kos/vm86.h>
 #include <i386-kos/scheduler.h>
-#include <i386-kos/pertask.h>
 #endif
 
 DECL_BEGIN
@@ -1084,17 +1084,6 @@ jiffies_from_timespec(struct timespec tmval) {
 
 
 #ifdef __CC__
-
-#ifndef THIS_TASK
-#ifdef CONFIG_NO_SMP
-#   define THIS_TASK  (&_boot_task)
-#else
-#   error "No SMP support for the target arch. Try builtin with -DCONFIG_NO_SMP"
-#endif
-#endif
-#ifndef PERTASK
-#define PERTASK(x) (*(__typeof__(&(x)))(uintptr_t)THIS_TASK+(uintptr_t)&(x))
-#endif
 
 /* Boot scheduling objects. */
 DATDEF struct cpu  _boot_cpu  ASMNAME("boot_cpu_start");

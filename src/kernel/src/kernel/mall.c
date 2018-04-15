@@ -556,7 +556,7 @@ release_heap_locks:
      * Since we loaded the entire kernel into the core above,
      * any page fault that might happen from this point on
      * certainly implies an invalid pointer. */
-    PERTASK(mall_leak_nocore) = true;
+    PERTASK_SET(mall_leak_nocore,true);
     TRY {
      /* Search for leaks. */
      mall_search_leaks_impl();
@@ -565,7 +565,7 @@ release_heap_locks:
 
     } FINALLY {
      /* Always re-enable loadcore() */
-     PERTASK(mall_leak_nocore) = false;
+     PERTASK_SET(mall_leak_nocore,false);
     }
    } FINALLY {
     PREEMPTION_ENABLE();
@@ -754,8 +754,8 @@ mall_register(gfp_t flags, struct heapptr pointer,
  struct mallnode *node = mallnode_alloc();
  struct mallheap *heap = &mall_heaps[flags & __GFP_HEAPMASK];
 #ifdef CONFIG_ONLY_SIMPLE_TRACEBACKS
- assert(!PERTASK(mall_leak_nocore));
- PERTASK(mall_leak_nocore) = true;
+ assert(!PERTASK_TEST(mall_leak_nocore));
+ PERTASK_SET(mall_leak_nocore,true);
 #endif
  TRY {
   unsigned int num_skip_frames = 1;
@@ -841,14 +841,14 @@ mall_register(gfp_t flags, struct heapptr pointer,
   atomic_rwlock_endwrite(&heap->m_lock);
  } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
 #ifdef CONFIG_ONLY_SIMPLE_TRACEBACKS
-  PERTASK(mall_leak_nocore) = false;
+  PERTASK_SET(mall_leak_nocore,false);
 #endif
   /* Free the node on error. */
   mallnode_free(node);
   error_rethrow();
  }
 #ifdef CONFIG_ONLY_SIMPLE_TRACEBACKS
- PERTASK(mall_leak_nocore) = false;
+ PERTASK_SET(mall_leak_nocore,false);
 #endif
 }
 

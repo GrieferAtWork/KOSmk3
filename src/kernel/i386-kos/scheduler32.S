@@ -260,8 +260,10 @@ PUBLIC_ENTRY(task_tryyield)
 	stc              /* Set the carry bit. */
 	ret
 	.cfi_adjust_cfa_offset  4
+	.cfi_rel_offset %eflags, 0
 1:	INCSTAT(ts_hyield)
-	popfl_cfi
+	popfl_cfi_r
+
 	/* Switch to the next task. */
 	cli
 	movl    %taskseg:t_sched+re_next, %edx
@@ -291,9 +293,9 @@ PUBLIC_ENTRY(task_yield)
 	jmp     task_yield
 	.cfi_adjust_cfa_offset  4
 	.cfi_rel_offset %eflags, 0
-1:	popfl_cfi_r
+1:	INCSTAT(ts_hyield)
+	popfl_cfi_r
 
-	INCSTAT(ts_hyield)
 	pause
 
 	/* Switch to the next task. */

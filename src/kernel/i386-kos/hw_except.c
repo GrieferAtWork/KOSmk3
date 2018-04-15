@@ -105,12 +105,12 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
  debug_printf("#PF at %p (from %p; errcode %x; esp %p%s)\n",
               fault_address,context->c_eip,errcode,
               X86_ANYCONTEXT32_ESP(*context),
-              PERTASK(mall_leak_nocore) ? "; SKIP_LOADCORE" : "");
+              PERTASK_TEST(mall_leak_nocore) ? "; SKIP_LOADCORE" : "");
 //  if (!(context->c_iret.ir_cs & 3))
 //      __asm__("int3");
 #endif
 #ifdef CONFIG_DEBUG_MALLOC
- if (PERTASK(mall_leak_nocore))
+ if (PERTASK_TEST(mall_leak_nocore))
      goto skip_loadcore;
 #endif
 
@@ -259,8 +259,7 @@ skip_loadcore:
   uintptr_t return_ip;
   if ((errcode & X86_SEGFAULT_FUSER) &&
       (context->c_iret.ir_cs & 3)) {
-   uintptr_t sysno;
-   sysno = PERTASK(x86_sysbase);
+   uintptr_t sysno = PERTASK_GET(x86_sysbase);
    if ((uintptr_t)fault_address >= sysno &&
        (uintptr_t)fault_address <  sysno+X86_ENCODE_PFSYSCALL_SIZE) {
     sysno = (uintptr_t)fault_address-sysno;

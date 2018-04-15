@@ -387,9 +387,7 @@ task_wake_ex(struct task *__restrict thread,
   /* Wait for the IPI to be processed. */
   while (ATOMIC_READ(status) == X86_IPI_WAKETASK_PENDING) {
    /* Use `tryyield()' here because we can't be sure
-    * if the caller has left interrupts enabled for us.
-    * NOTE:
-    */
+    * if the caller has left interrupts enabled for us. */
    task_tryyield();
    COMPILER_BARRIER();
   }
@@ -499,7 +497,7 @@ task_clone_sysbase(struct task *__restrict new_thread, u32 flags) {
    * the same sysbase address so we're not forced to fault the
    * page containing the user-space task segment by writing to
    * it even before returning to user-space. */
-  FORTASK(new_thread,x86_sysbase) = PERTASK(x86_sysbase);
+  FORTASK(new_thread,x86_sysbase) = PERTASK_GET(x86_sysbase);
  }
 }
 

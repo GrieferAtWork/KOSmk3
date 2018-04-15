@@ -737,5 +737,14 @@
     <ClInclude Include="..\..\src\kernel\include\dev\mouse.h">
       <Filter>kernel\include\dev</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\pertask.h">
+      <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\pertask-arith.h">
+      <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\pertask-arith.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -43,6 +43,7 @@
 #include <sys/timeb.h>
 #include <stdint.h>
 
+#ifndef __KERNEL__
 DECL_BEGIN
 
 #define LIBC_ENUMERATE_MALLOC_EXT(x) x
@@ -190,5 +191,6 @@ libc_throw_buffer_too_small(size_t reqsize, size_t bufsize);
 #endif /* __CC__ */
 
 DECL_END
+#endif /* !__KERNEL__ */
 
 #endif /* !GUARD_LIBS_LIBC_LIBC_H */

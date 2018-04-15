@@ -184,7 +184,7 @@ setup_user_segment(USER CHECKED struct user_task_segment *__restrict seg) {
  seg->ts_tid        = posix_gettid();
  seg->ts_process    = PERVM(vm_environ);
 #if defined(__i386__) || defined(__x86_64__)
- seg->ts_x86sysbase = PERTASK(x86_sysbase);
+ seg->ts_x86sysbase = PERTASK_GET(x86_sysbase);
 #endif
 }
 

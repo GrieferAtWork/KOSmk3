@@ -387,7 +387,7 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
 #if defined(__KERNEL__) && 1
  //INFO->e_context.c_esp = X86_ANYCONTEXT32_ESP(*INFO->e_context);
  if (INFO->e_context.c_iret.ir_cs & 3) {
-  struct userstack *stack = PERTASK(_this_user_stack);
+  struct userstack *stack = PERTASK_GET(_this_user_stack);
   if (stack != NULL) {
    PRINTF("stack: %p...%p\n",
           VM_PAGE2ADDR(stack->us_pagemin),

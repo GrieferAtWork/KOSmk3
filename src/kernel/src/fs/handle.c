@@ -33,6 +33,7 @@
 #include <sched/task.h>
 #include <sched/taskref.h>
 #include <bits/sched.h>
+#include <kos/fcntl.h>
 #include <fs/node.h>
 #include <fs/iomode.h>
 #include <fs/device.h>
@@ -1173,6 +1174,15 @@ handle_fcntl(fd_t fd, unsigned int cmd,
  struct handle_manager *hman;
  syscall_slong_t COMPILER_IGNORE_UNINITIALIZED(result);
  switch (cmd) {
+
+ {
+  struct handle hnd;
+ case FCNTL_KOS_TYPE:
+  hnd = handle_get(fd);
+  /* Simply return the type of this handle. */
+  result = hnd.h_type;
+  handle_decref(hnd);
+ } break;
   
  case F_DUPFD:
   result = handle_dupat(fd,(unsigned int)(uintptr_t)arg,0);

@@ -22,6 +22,7 @@
 #include "hybrid.h"
 #include <hybrid/compiler.h>
 #include <except.h>
+#include <kos/handle.h>
 #include <errno.h>
 #ifndef __KERNEL__
 #include "../libs/libc/rtl.h"
@@ -44,8 +45,14 @@ libc_exception_errno(struct exception_info *__restrict info) {
  case E_INTERRUPT:              result = EINTR; break;
  case E_INVALID_HANDLE:
   result = EBADF;
-  if (info->e_error.e_invalid_handle.h_reason == ERROR_INVALID_HANDLE_FWRONGKIND)
-      result = ENOTTY; /* Linux really just uses ENOTTY for all of the combinations... */
+  if (info->e_error.e_invalid_handle.h_reason == ERROR_INVALID_HANDLE_FWRONGKIND) {
+   switch (info->e_error.e_invalid_handle.h_rqkind) {
+   case HANDLE_KIND_FBLOCK: result = ENOTBLK; break;
+   case HANDLE_KIND_FCHAR: result = ENOSTR; break;
+    /* Linux really just uses ENOTTY for most combinations. */
+   default: result = ENOTTY; break;
+   }
+  }
   break;
  case E_IOERROR:                result = EIO; break;
  case E_NO_DATA:                result = ENODATA; break;
