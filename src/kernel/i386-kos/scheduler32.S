@@ -475,7 +475,7 @@ INTERN_ENTRY(x86_redirect_preemption)
 	subl   $12, %esp /* Make space for the missing part of the IRET tail. */
 	.cfi_adjust_cfa_offset 12
 /*	.cfi_offset %ss,     -1*4 */
-	.cfi_offset %esp,    -2*4
+/*	.cfi_offset %esp,    -2*4 */
 
 	/* Save segment registers. */
 #ifdef CONFIG_X86_SEGMENTATION
@@ -513,13 +513,13 @@ INTERN_ENTRY(x86_redirect_preemption)
 	 *       system calls), so we must still load them all! */
 	movl   %fs:iret_saved + 0*4, %eax    /* EIP (in user-space) */
 	movl   %eax, IRET_OFFSET + 0*4(%esp)
-	.cfi_offset %eip,    -5*4
+	.cfi_offset %eip,    -3*4
 	movl   %fs:iret_saved + 1*4, %eax    /* CS (should be X86_USER_CS) */
 	movl   %eax, IRET_OFFSET + 1*4(%esp)
-/*	.cfi_offset %cs,     -4*4 */
+/*	.cfi_offset %cs,     -2*4 */
 	movl   %fs:iret_saved + 2*4, %eax    /* EFLAGS */
 	movl   %eax, IRET_OFFSET + 2*4(%esp)
-	.cfi_offset %eflags, -3*4
+	.cfi_offset %eflags, -1*4
 	movl   %fs:iret_saved + 3*4, %eax    /* USERESP */
 	movl   %eax, IRET_OFFSET + 3*4(%esp)
 	movl   %fs:iret_saved + 4*4, %eax    /* SS (should be X86_USER_DS) */
