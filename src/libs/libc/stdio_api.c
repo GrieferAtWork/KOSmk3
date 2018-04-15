@@ -25,6 +25,7 @@
 #include "unistd.h"
 #include "malloc.h"
 #include "exit.h"
+#include "format.h"
 #include "tty.h"
 #include "system.h"
 #include "sched.h"
@@ -399,15 +400,28 @@ libc_Xfopencookie(void *__restrict magic_cookie,
 
 EXPORT(tmpfile,libc_tmpfile);
 CRT_STDIO_API ATTR_MALLOC FILE *LIBCCALL libc_tmpfile(void) {
- /* TODO */
- libc_seterrno(ENOSYS);
+ LIBC_TRY {
+  return libc_Xtmpfile();
+ } LIBC_EXCEPT(libc_except_errno()) {
+ }
  return NULL;
 }
 
 EXPORT(Xtmpfile,libc_Xtmpfile);
-CRT_STDIO_XAPI ATTR_MALLOC ATTR_RETNONNULL FILE *LIBCCALL libc_Xtmpfile(void) {
- /* TODO */
- libc_error_throw(E_NOT_IMPLEMENTED);
+CRT_STDIO_XAPI ATTR_MALLOC
+ATTR_RETNONNULL FILE *LIBCCALL libc_Xtmpfile(void) {
+ char name[32];
+again:
+ libc_sprintf(name,"::/tmp/stdio_%x.tmp",libc_rand());
+ LIBC_TRY {
+  return libc_Xfopen(name,"w+x");
+ } LIBC_CATCH (E_FILESYSTEM_ERROR) {
+  /* If the file already exists, generate a new random number and try once more. */
+  if (error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_FILE_ALREADY_EXISTS)
+      goto again;
+  /* Propagate all other errors. */
+  error_rethrow();
+ }
 }
 
 EXPORT(tmpfile64,libc_tmpfile64);
@@ -1280,9 +1294,40 @@ CRT_STDIO_API ssize_t LIBCCALL
 libc_getdelim_unlocked(char **__restrict lineptr,
                        size_t *__restrict n, int delimiter,
                        FILE *__restrict self) {
- /* TODO */
- libc_seterrno(ENOSYS);
- return -1;
+ int ch; char *buffer;
+ size_t bufsize,result = 0;
+ buffer = *lineptr;
+ bufsize = buffer ? *n : 0;
+ for (;;) {
+  if (result+1 >= bufsize) {
+   /* Allocate more memory. */
+   size_t new_bufsize = bufsize*2;
+   if (new_bufsize <= result+1)
+       new_bufsize = 16;
+   assert(new_bufsize > result+1);
+   buffer = (char *)libc_realloc(buffer,new_bufsize*sizeof(char));
+   if unlikely(!buffer) return -1;
+   *lineptr = buffer,*n = bufsize;
+  }
+  ch = libc_Xfgetc_unlocked(self);
+  if (ch == EOF) break; /* EOF */
+  buffer[result++] = (char)ch;
+  if (ch == delimiter)
+      break; /* Delimiter reached */
+  /* Special case for line-delimiter. */
+  if (delimiter == '\n' && ch == '\r') {
+   /* Deal with '\r\n', as well as '\r' */
+   ch = libc_fgetc_unlocked(self);
+   if (ch != EOF && ch != '\n')
+       libc_ungetc_unlocked(ch,self);
+   /* Unify linefeeds (to use POSIX notation) */
+   buffer[result-1] = '\n';
+   break;
+  }
+ }
+ /* NUL-Terminate the buffer. */
+ buffer[result] = '\0';
+ return result;
 }
 
 EXPORT(Xgetdelim_unlocked,libc_Xgetdelim_unlocked);
@@ -1290,7 +1335,39 @@ CRT_STDIO_XAPI size_t LIBCCALL
 libc_Xgetdelim_unlocked(char **__restrict lineptr,
                         size_t *__restrict n, int delimiter,
                         FILE *__restrict self) {
- libc_error_throw(E_NOT_IMPLEMENTED);
+ int ch; char *buffer;
+ size_t bufsize,result = 0;
+ buffer = *lineptr;
+ bufsize = buffer ? *n : 0;
+ for (;;) {
+  if (result+1 >= bufsize) {
+   /* Allocate more memory. */
+   size_t new_bufsize = bufsize*2;
+   if (new_bufsize <= result+1)
+       new_bufsize = 16;
+   assert(new_bufsize > result+1);
+   buffer = (char *)libc_Xrealloc(buffer,new_bufsize*sizeof(char));
+   *lineptr = buffer,*n = bufsize;
+  }
+  ch = libc_Xfgetc_unlocked(self);
+  if (ch == EOF) break; /* EOF */
+  buffer[result++] = (char)ch;
+  if (ch == delimiter)
+      break; /* Delimiter reached */
+  /* Special case for line-delimiter. */
+  if (delimiter == '\n' && ch == '\r') {
+   /* Deal with '\r\n', as well as '\r' */
+   ch = libc_Xfgetc_unlocked(self);
+   if (ch != EOF && ch != '\n')
+       libc_Xungetc_unlocked(ch,self);
+   /* Unify linefeeds (to use POSIX notation) */
+   buffer[result-1] = '\n';
+   break;
+  }
+ }
+ /* NUL-Terminate the buffer. */
+ buffer[result] = '\0';
+ return result;
 }
 
 EXPORT(getdelim,libc_getdelim);
@@ -1661,8 +1738,6 @@ EXPORT(__DSYM(_filbuf),libc_fgetc_unlocked);
 //EXPORT(_get_output_format,libc_get_output_format);
 //EXPORT(_set_output_format,libc_set_output_format);
 //EXPORT(_rmtmp,libc_rmtmp);
-//EXPORT(fread_s,libc_fread_s);
-//EXPORT(_fread_nolock_s,libc_fread_unlocked_s);
 //EXPORT(__KSYM(fopen_s),libc_fopen_s);
 //EXPORT(__DSYM(fopen_s),libc_dos_fopen_s);
 //EXPORT(__KSYM(freopen_s),libc_freopen_s);
