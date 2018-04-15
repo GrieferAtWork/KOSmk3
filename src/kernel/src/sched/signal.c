@@ -1020,6 +1020,18 @@ task_openchannel(uintptr_t mask) {
 }
 
 
+/* TODO: Implement these for real (Using ) */
+DEFINE_PUBLIC_ALIAS(sig_send_p,sig_send);
+DEFINE_PUBLIC_ALIAS(sig_broadcast_p,sig_broadcast);
+DEFINE_PUBLIC_ALIAS(sig_send_locked_p,sig_send_locked);
+DEFINE_PUBLIC_ALIAS(sig_broadcast_locked_p,sig_broadcast_locked);
+DEFINE_PUBLIC_ALIAS(sig_send_channel_p,sig_send_channel);
+DEFINE_PUBLIC_ALIAS(sig_broadcast_channel_p,sig_broadcast_channel);
+DEFINE_PUBLIC_ALIAS(sig_send_channel_locked_p,sig_send_channel_locked);
+DEFINE_PUBLIC_ALIAS(sig_broadcast_channel_locked_p,sig_broadcast_channel_locked);
+
+
+
 PUBLIC struct sig *KCALL
 task_waitfor_tmrel(USER CHECKED struct timespec const *rel_timeout) {
  return task_waitfor(jiffies + jiffies_from_timespec(*rel_timeout));

@@ -139,7 +139,7 @@ PUBLIC REF struct task *KCALL task_get_parent(void) {
 
 PRIVATE void KCALL exit_rpc(void *status) {
  struct exception_info *reason;
- reason         = error_info();
+ reason = error_info();
  reason->e_error.e_code = E_EXIT_THREAD;
  reason->e_error.e_flag = ERR_FNORMAL;
  memset(reason->e_error.e_pointers,0,sizeof(reason->e_error.e_pointers));

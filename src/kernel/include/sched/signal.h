@@ -89,7 +89,6 @@ FUNDEF ATTR_NOTHROW size_t KCALL sig_broadcast(struct sig *__restrict self);
 FUNDEF ATTR_NOTHROW size_t KCALL sig_send_locked(struct sig *__restrict self, size_t max_threads);
 FUNDEF ATTR_NOTHROW size_t KCALL sig_broadcast_locked(struct sig *__restrict self);
 
-
 /* Same as `sig_send()', but only wake thread connected to
  * any of the channels that are masked by `signal_mask'.
  * For more information, see the detailed documentation of
@@ -100,6 +99,31 @@ FUNDEF ATTR_NOTHROW size_t KCALL sig_send_channel(struct sig *__restrict self, u
 FUNDEF ATTR_NOTHROW size_t KCALL sig_broadcast_channel(struct sig *__restrict self, uintptr_t signal_mask);
 FUNDEF ATTR_NOTHROW size_t KCALL sig_send_channel_locked(struct sig *__restrict self, uintptr_t signal_mask, size_t max_threads);
 FUNDEF ATTR_NOTHROW size_t KCALL sig_broadcast_channel_locked(struct sig *__restrict self, uintptr_t signal_mask);
+
+/* As far as usage semantics go, these functions are 100% identical to
+ * their counterparts above. However, unlike the functions above, and under 
+ * the right conditions, these functions will do their best to have the
+ * woken threads continue executing as soon as possible.
+ * Use of these functions should be kept to a bare minimum, so-as not to
+ * utterly confuse the scheduler, however when used correctly, they can
+ * improve response time considerably, and should therefor be used to
+ * signal events related to user-input.
+ * NOTES:
+ *   - If no threads are woken, these functions are truly identical to those above.
+ *   - If more than one thread is woken, scheduling order to manipulated such that
+ *     threads will execute in order of initially connecting to signals.
+ *     If such a re-ordering operation isn't possible due to priority constraints,
+ *     or due to thread operating on different cores (meaning that the calling thread's
+ *     CPU can't interfere with the scheduling order of the woken thread's CPU),
+ *     woken threads are not re-ordered. */
+FUNDEF ATTR_NOTHROW size_t KCALL sig_send_p(struct sig *__restrict self, size_t max_threads);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_broadcast_p(struct sig *__restrict self);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_send_locked_p(struct sig *__restrict self, size_t max_threads);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_broadcast_locked_p(struct sig *__restrict self);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_send_channel_p(struct sig *__restrict self, uintptr_t signal_mask, size_t max_threads);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_broadcast_channel_p(struct sig *__restrict self, uintptr_t signal_mask);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_send_channel_locked_p(struct sig *__restrict self, uintptr_t signal_mask, size_t max_threads);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_broadcast_channel_locked_p(struct sig *__restrict self, uintptr_t signal_mask);
 
 
 DECL_END

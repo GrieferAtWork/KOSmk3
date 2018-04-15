@@ -481,6 +481,42 @@ task_setcpu(struct cpu *__restrict new_cpu) {
  error_throw(E_NOT_IMPLEMENTED);
 }
 
+PUBLIC REF struct task *KCALL
+task_runnext(struct task *__restrict prev,
+             struct task *__restrict next) {
+ struct task *result;
+ pflag_t was;
+ was = PREEMPTION_PUSHOFF();
+ if (prev->t_cpu != THIS_CPU)
+  result = THIS_TASK;
+ else {
+  if (prev->t_state & TASK_STATE_FSLEEPING)
+      prev = THIS_TASK;
+  if (prev->t_cpu != next->t_cpu ||
+     (next->t_state & TASK_STATE_FSLEEPING))
+   result = prev;
+  else {
+   /* Everything checks out. - Do the rescheduling. */
+   result = next;
+   /* Remove `next' from its current scheduler chain. */
+   next->t_sched.sched_ring.re_prev->t_sched.sched_ring.re_next = next->t_sched.sched_ring.re_next;
+   next->t_sched.sched_ring.re_next->t_sched.sched_ring.re_prev = next->t_sched.sched_ring.re_prev;
+   /* Insert `next' after `prev'. */
+   next->t_sched.sched_ring.re_next = prev->t_sched.sched_ring.re_next;
+   next->t_sched.sched_ring.re_next->t_sched.sched_ring.re_prev = next;
+   prev->t_sched.sched_ring.re_next = next;
+   next->t_sched.sched_ring.re_prev = prev;
+  }
+ }
+ /* Return a reference to prevent a race condition of the `result'
+  * thread exiting before, or while the caller is using it. */
+ task_incref(result);
+ PREEMPTION_POP(was);
+ return result;
+}
+
+
+
 /* The kernel-space equivalent of the `ts_x86sysbase'
  * field found in the user-space per-task data segment.
  * Used to implement `sigreturn' without the need of mapping additional
@@ -714,6 +750,7 @@ PUBLIC ATTR_NORETURN void KCALL task_exit(void) {
     *         I mean: We couldn't propagate the error, but
     *                 we might want to log it somewhere? */
    /* XXX: Free stack memory by restoring ESP to a value before `task_serve()' was called */
+   error_printf("Error in task_serve() during task_exit()\n");
   }
  }
 

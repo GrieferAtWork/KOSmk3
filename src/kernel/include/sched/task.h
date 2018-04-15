@@ -533,6 +533,35 @@ FUNDEF bool KCALL task_setaffinity(__cpu_set_t const *__restrict cpuset); /* TOD
 #endif /* !CONFIG_NO_SMP */
 
 
+
+/* Change execution order within the calling CPU to have
+ * `next' execute when `prev's next, or current quantum ends.
+ * This function is mean to-be used as follows:
+ * >> REF struct task *iter,*prev = THIS_TASK;
+ * >> REF struct task *high_priority;
+ * >> // Schedule all tasks returned by `get_high_priority_task()' for
+ * >> // immediate execution (even during times of high system loads)
+ * >> task_incref(prev);
+ * >> while ((high_priority = get_high_priority_task()) != NULL) {
+ * >>     iter = task_runnext(prev,high_priority);
+ * >>     task_decref(high_priority);
+ * >>     task_decref(prev);
+ * >>     prev = iter;
+ * >> }
+ * This function is used to implement `sig_(send|boardcast)[_channel][_locked]_p'
+ * NOTE: If `prev' is currently sleeping, run `next' after `THIS_TASK' instead.
+ * @return: prev:      `prev' and `next' are the same pointers (`prev == next'),
+ *                      or either `next' are not hosted by the current CPU.
+ * @return: THIS_TASK: `prev' isn't hosted by the current CPU.
+ * @return: prev:      `next' is currently sleeping.
+ * @return: next:       Execution order has been changed.
+ */
+FUNDEF REF struct task *KCALL
+task_runnext(struct task *__restrict prev,
+             struct task *__restrict next);
+
+
+
 /* Task signaling API. (Low-level scheduling) */
 
 
@@ -844,6 +873,9 @@ FUNDEF ASYNCSAFE ATTR_NOTHROW bool KCALL task_wake_for_rpc(struct task *__restri
  * >>         return DID_TIME_OUT;
  * >> }
  * >> return WAS_SIGNALED;
+ * The sleeping thread should then be woken as follows:
+ * >> SET_SHOULD_WAIT(false);
+ * >> task_wake(waiting_thread);
  */
 FUNDEF NOIRQ bool KCALL task_sleep(jtime_t abs_timeout);
 
