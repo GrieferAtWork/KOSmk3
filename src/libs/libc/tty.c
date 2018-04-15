@@ -194,21 +194,29 @@ libc_tcgetattr(fd_t fd, struct termios *termios_p) {
 }
 
 
-PRIVATE int const action[] = {
+#if TCSANOW == 0 && TCSADRAIN == 1 && TCSAFLUSH == 2 && \
+    TCSETS+1 == TCSETSW && TCSETS+2 == TCSETSF
+#define TSC_VALIDACTION(x) ((x) < 3)
+#define TSC_ACTION(x)      (TCSETS+(x))
+#else
+#define TSC_VALIDACTION(x) ((x) < COMPILER_LENOF(tsc_actions))
+#define TSC_ACTION(x)  tsc_actions[x]
+PRIVATE int const tsc_actions[] = {
     [TCSANOW]   = TCSETS,
     [TCSADRAIN] = TCSETSW,
     [TCSAFLUSH] = TCSETSF,
 };
+#endif
 
 EXPORT(tcsetattr,libc_tcsetattr);
 CRT_TTY int LIBCCALL
 libc_tcsetattr(fd_t fd, int optional_actions,
                struct termios const *termios_p) {
- if ((unsigned int)optional_actions >= COMPILER_LENOF(action)) {
+ if (!TSC_VALIDACTION((unsigned int)optional_actions)) {
   libc_seterrno(EINVAL);
   return -1;
  }
- return libc_ioctl(fd,action[optional_actions],termios_p);
+ return libc_ioctl(fd,TSC_ACTION(optional_actions),termios_p);
 }
 
 EXPORT(tcsendbreak,libc_tcsendbreak);
@@ -525,9 +533,9 @@ EXPORT(Xtcsetattr,libc_Xtcsetattr);
 CRT_TTY_EXCEPT void LIBCCALL
 libc_Xtcsetattr(fd_t fd, int optional_actions,
                 struct termios const *termios_p) {
- if ((unsigned int)optional_actions >= COMPILER_LENOF(action))
-      libc_error_throw(E_INVALID_ARGUMENT);
- libc_Xioctl(fd,action[optional_actions],termios_p);
+ if (!TSC_VALIDACTION((unsigned int)optional_actions))
+     libc_error_throw(E_INVALID_ARGUMENT);
+ libc_Xioctl(fd,TSC_ACTION(optional_actions),termios_p);
 }
 EXPORT(Xtcsendbreak,libc_Xtcsendbreak);
 CRT_TTY_EXCEPT void LIBCCALL
