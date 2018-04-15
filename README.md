@@ -83,7 +83,7 @@ Chaos|KOS - You probably got here through the definition of chaoticity (<i>which
    - Use of <code>hlt</code> when no threads are actively running
  - ELF binaries/libraries (<i>no extension</i> / <b>.so</b>)
  - Disk I/O
-   - ATA driver supporting PIO24, PIO48 and CHS addressing
+   - ATA driver supporting PIO28, PIO48 and CHS addressing
    - Filesystem
      - FAT-12/16/32
      - <code>/dev</code>
