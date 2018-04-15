@@ -1016,7 +1016,6 @@ PUBLIC ATTR_NOTHROW uintptr_t KCALL
 task_openchannel(uintptr_t mask) {
  /* Simply open more channels. */
  return ATOMIC_FETCHOR(PERTASK(my_connections.tcs_chn),mask);
- task_sleep();
 }
 
 
