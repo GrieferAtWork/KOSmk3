@@ -120,7 +120,8 @@ vm_user_mapnewat(struct vm *__restrict myvm, vm_vpage_t page_index,
  }
 }
 
-INTDEF ATTR_NORETURN void KCALL throw_invalid_handle(fd_t fd);
+INTDEF ATTR_NORETURN void KCALL
+throw_invalid_handle(fd_t fd, u16 reason, u16 istype, u16 rqtype, u16 rqkind);
 
 PRIVATE VIRT void *KCALL
 do_xmmap(struct mmap_info *__restrict info) {
@@ -312,7 +313,11 @@ try_invoke_inode_mmap:
       
      default:
 cannot_mmap_handle:
-      throw_invalid_handle(info->mi_virt.mv_file);
+      throw_invalid_handle(info->mi_virt.mv_file,
+                           ERROR_INVALID_HANDLE_FWRONGTYPE,
+                           hnd.h_type,
+                           HANDLE_TYPE_FINODE,
+                           HANDLE_KIND_FANY);
      }
      /* Map the INode as a regular file -> region memory mapping. */
      TRY {

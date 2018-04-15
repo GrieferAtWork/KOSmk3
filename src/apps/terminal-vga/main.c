@@ -31,7 +31,7 @@
 #include <hybrid/sync/atomic-rwlock.h>
 #include <kos/types.h>
 #include <kos/keyboard.h>
-#include <kos/keyboard_ioctl.h>
+#include <kos/keyboard-ioctl.h>
 #include <sys/syslog.h>
 #include <limits.h>
 #include <pty.h>

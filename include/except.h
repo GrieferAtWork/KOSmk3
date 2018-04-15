@@ -53,7 +53,9 @@ __LIBC __ATTR_NORETURN void (__FCALL error_throw)(except_t __code);
 /* Same as the functions above, but construct the error using format args.
  * Varargs are interpreted dependent on `CODE':
  *   (except_t code = E_BADALLOC, unsigned int ba_resource, size_t ba_amount);
- *   (except_t code = E_INVALID_HANDLE, int h_handle);
+ *   (except_t code = E_INVALID_HANDLE, int h_handle, int h_reason = ERROR_INVALID_HANDLE_FUNDEFINED, int h_illhnd);
+ *   (except_t code = E_INVALID_HANDLE, int h_handle, int h_reason = ERROR_INVALID_HANDLE_FWRONGTYPE, int h_istype, int h_rqtype);
+ *   (except_t code = E_INVALID_HANDLE, int h_handle, int h_reason = ERROR_INVALID_HANDLE_FWRONGKIND, int h_isrqtype, int h_rqkind);
  *   (except_t code = E_SEGFAULT, unsigned int sf_reason, void *sf_vaddr);
  *   (except_t code = E_STACK_OVERFLOW, unsigned int sf_reason, void *sf_vaddr);
  *   (except_t code = E_DIVIDE_BY_ZERO, unsigned int dz_type = ERROR_DIVIDE_BY_ZERO_INT, unsigned int dz_flag, int64_t da_int);

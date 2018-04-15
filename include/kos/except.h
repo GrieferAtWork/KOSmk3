@@ -314,9 +314,38 @@ struct __ATTR_PACKED exception_data_badalloc {
     __UINT16_TYPE__      ba_pad[(sizeof(void *)-2)/2]; /* ... */
     __SIZE_TYPE__        ba_amount;    /* The amount (e.g.: bytes for memory) that could not be allocated. */
 };
+#endif /* __CC__ */
 
+#define ERROR_INVALID_HANDLE_FUNDEFINED     0x0000 /* No object has been assigned to the handle.
+                                                    * In this case, `h_istype' and `h_rqtype' are set to `HANDLE_TYPE_FNONE',
+                                                    * though may in rare cases be set to some something else (don't rely on this).
+                                                    * The `h_illhnd' field is filled with additional information on why the handle is undefined. */
+#define ERROR_INVALID_HANDLE_FWRONGTYPE     0x0001 /* The associated object's type cannot be used.
+                                                    * In this case, `h_istype' and `h_rqtype' are filled
+                                                    * with the actual, as well as the required type.
+                                                    * Note however that some types can implicitly be cast to other types. */
+#define ERROR_INVALID_HANDLE_FWRONGKIND     0x0002 /* The object may have the correct typing, but is not the correct type of object.
+                                                    * Mainly used by ioctl() commands invoked on objects of an improper type.
+                                                    * Note however that within the kernel, `E_NOT_IMPLEMENTED' is used to signify
+                                                    * an ioctl() command not be supported. That error is then only translated to this
+                                                    * before being propagated to user-space.
+                                                    * In this case, `h_istype' and `h_rqtype' match each other, and `h_rqkind'
+                                                    * is filled with the kind of handle that was expected. */
+#define ERROR_INVALID_HANDLE_ILLHND_FUNSET  0x0000 /* The handle isn't assigned an object. */
+#define ERROR_INVALID_HANDLE_ILLHND_FNOSYM  0x0001 /* The handle refers to a non-existent symbolic handle location. */
+#define ERROR_INVALID_HANDLE_ILLHND_FRMSYM  0x0002 /* The handle refers to an unbound symbolic handle location (e.g. an unmounted DOS DRIVE). */
+#define ERROR_INVALID_HANDLE_ILLHND_FROSYM  0x0003 /* The handle refers to a read-only symbolic handle location. (may be thrown by dup2() with a read-only symbolic DFD) */
+#define ERROR_INVALID_HANDLE_ILLHND_FBOUND  0x0004 /* The handle ID exceeds the limit that is imposed by the kernel on the greatest allowed handle number (may be thrown by dup2()). */
+#ifdef __CC__
 struct __ATTR_PACKED exception_data_invalid_handle {
-    int                  h_handle;         /* The file descriptor number that is invalid. */
+    int                  h_handle;     /* The file descriptor number that is invalid. */
+    __UINT16_TYPE__      h_reason;     /* The reason for the error (one of `ERROR_INVALID_HANDLE_F*') */
+    __UINT16_TYPE__      h_istype;     /* The type of handle that was found (One of `HANDLE_TYPE_F*') */
+    __UINT16_TYPE__      h_rqtype;     /* The type of handle that was expected (One of `HANDLE_TYPE_F*') */
+    union __ATTR_PACKED {
+        __UINT16_TYPE__  h_illhnd;     /* Extended information on the reasoning behind `ERROR_INVALID_HANDLE_FUNDEFINED'. (One of `ERROR_INVALID_HANDLE_ILLHND_F*') */
+        __UINT16_TYPE__  h_rqkind;     /* The kind of a handle that was expected (for `ERROR_INVALID_HANDLE_FWRONGKIND'; one of `HANDLE_KIND_F*') */
+    };
 };
 #endif /* __CC__ */
 
@@ -385,6 +414,9 @@ struct __ATTR_PACKED exception_data_buffer_too_small {
 #define ERROR_FS_UNMOUNT_NOTAMOUNT     0x0013 /* [ERRNO(EINVAL)]       `umount()' cannot be used to remove something that isn't a mounting point. */
 #define ERROR_FS_RENAME_NOTAMOUNT      0x0014 /* [ERRNO(EBUSY)]        `rename()' cannot be used to perform a re-mount operation. */
 #define ERROR_FS_NEGATIVE_SEEK         0x0015 /* [ERRNO(ESPIPE)]       Cannot seek() to a negative file position. */
+#define ERROR_FS_FILE_TOO_LARGE        0x0016 /* [ERRNO(EFBIG)]        A file or device is too large to be representable in the associated operation. */
+#define ERROR_FS_TOO_MANY_HARD_LINKS   0x0017 /* [ERRNO(EMLINK)]       Cannot create another new hardlink. The hard link counter has already reached
+                                               *                       its limit (Highly unlikely, considering a common limit of at least 2^16). */
 #define ERROR_FS_CORRUPTED_FILESYSTEM  0xffff /* [ERRNO(EIO)]          Corrupted, miss-configured, or otherwise not compatible filesystem. */
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_filesystem_error {

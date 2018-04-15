@@ -394,6 +394,7 @@ struct inode_operations {
              * @throw: E_FILESYSTEM_ERROR.ERROR_FS_READONLY_FILESYSTEM:  [...]
              * @throw: E_FILESYSTEM_ERROR.ERROR_FS_ILLEGAL_PATH:         [...]
              * @throw: E_FILESYSTEM_ERROR.ERROR_FS_DISK_FULL:            [...]
+             * @throw: E_FILESYSTEM_ERROR.ERROR_FS_TOO_MANY_HARD_LINKS:  [...]
              * @throw: E_NO_DATA: Translated to `E_FILESYSTEM_ERROR.ERROR_FS_DISK_FULL' */
             void (KCALL *d_link)(struct directory_node *__restrict target_directory,
                                  struct directory_entry *__restrict target_dirent,
@@ -918,7 +919,8 @@ directory_rename(struct directory_node *__restrict source_directory,
  * @throw: E_FILESYSTEM_ERROR.ERROR_FS_ILLEGAL_PATH:         [...]
  * @throw: E_FILESYSTEM_ERROR.ERROR_FS_ILLEGAL_PATH:         `target_namelen' was ZERO(0)
  * @throw: E_FILESYSTEM_ERROR.ERROR_FS_FILE_ALREADY_EXISTS:  [...]
- * @throw: E_FILESYSTEM_ERROR.ERROR_FS_DISK_FULL:            [...] */
+ * @throw: E_FILESYSTEM_ERROR.ERROR_FS_DISK_FULL:            [...]
+ * @throw: E_FILESYSTEM_ERROR.ERROR_FS_TOO_MANY_HARD_LINKS:  [...] */
 FUNDEF void KCALL
 directory_link(struct directory_node *__restrict target_directory,
                CHECKED USER char const *__restrict target_name,

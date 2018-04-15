@@ -169,6 +169,14 @@ again:
   ATOMIC_WRITE(self->bv_bufv,vec);
   goto again;
  }
+#if 1
+ if unlikely(!count) {
+  debug_printf("Untargeted interrupt: %$q (port #%u)\n",
+               ps2_packet_size[self-ps2_input],ps2_bytes,
+               1+(self-ps2_input));
+ }
+#endif
+
  /* Add the key to every connected buffer. */
  for (i = 0; i < count; ++i)
      (*vec[i].c_func)(vec[i].c_arg,ps2_bytes);

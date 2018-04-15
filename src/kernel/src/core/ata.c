@@ -25,6 +25,7 @@
 #include <hybrid/section.h>
 #include <hybrid/host.h>
 #include <hybrid/align.h>
+#include <kernel/user.h>
 #include <kernel/heap.h>
 #include <kernel/malloc.h>
 #include <kernel/debug.h>
@@ -33,6 +34,7 @@
 #include <fs/device.h>
 #include <sched/mutex.h>
 #include <sched/async_signal.h>
+#include <sys/mount.h>
 #include <string.h>
 #include <fcntl.h>
 #include <except.h>
@@ -435,6 +437,42 @@ retry_io:
  }
 }
 
+PRIVATE ssize_t KCALL
+Ata_Ioctl(AtaDevice *__restrict self,
+          unsigned long cmd, USER UNCHECKED void *arg,
+          iomode_t flags) {
+ switch (cmd) {
+
+ case BLKSECTGET:
+  validate_writable(arg,sizeof(unsigned short));
+  if (self->a_device.b_io.io_read ==
+     (void(KCALL *)(struct block_device *__restrict,
+                    CHECKED USER void *,size_t,blkaddr_t))
+                   &Ata_ReadLBA48) {
+   *(unsigned short *)arg = 0xffff;
+  } else if (self->a_device.b_io.io_read ==
+            (void(KCALL *)(struct block_device *__restrict,
+                           CHECKED USER void *,size_t,blkaddr_t))
+                          &Ata_ReadLBA28) {
+   *(unsigned short *)arg = 0xff;
+  } else if (self->a_device.b_io.io_read ==
+            (void(KCALL *)(struct block_device *__restrict,
+                           CHECKED USER void *,size_t,blkaddr_t))
+                          &Ata_ReadCHS) {
+   *(unsigned short *)arg = self->a_chs_info.a_sectors_per_track;
+  } else {
+   /* Shouldn't get here... */
+   *(unsigned short *)arg = 1;
+  }
+  break;
+
+ default:
+  error_throw(E_NOT_IMPLEMENTED);
+ }
+ return 0;
+}
+
+
 
 STATIC_ASSERT(sizeof(AtaDeviceSpecifications) == 512);
 
@@ -489,6 +527,7 @@ use_lba28:
   }
   if (!self->a_device.b_blockcount)
        error_throw(E_IOERROR);
+  self->a_device.b_io.io_ioctl = (ssize_t(KCALL *)(struct block_device *__restrict,unsigned long,USER UNCHECKED void *,iomode_t))&Ata_Ioctl;
 
   /* Finalize the new block-device and register it. */
   self->a_bus                     = bus;

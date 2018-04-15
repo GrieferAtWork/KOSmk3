@@ -101,13 +101,18 @@ DEFINE_HANDLE_REFERENCE_FUNCTIONS(pipewriter)
 
 
 /* ==================== Handle manager implementation ==================== */
-INTERN ATTR_NORETURN void KCALL throw_invalid_handle(fd_t fd) {
+INTERN ATTR_NORETURN void KCALL
+throw_invalid_handle(fd_t fd, u16 reason, u16 istype, u16 rqtype, u16 rqkind) {
  struct exception_info *info;
  info = error_info();
  info->e_error.e_code = E_INVALID_HANDLE;
  info->e_error.e_flag = ERR_FNORMAL;
  memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
  info->e_error.e_invalid_handle.h_handle = fd;
+ info->e_error.e_invalid_handle.h_reason = reason;
+ info->e_error.e_invalid_handle.h_istype = istype;
+ info->e_error.e_invalid_handle.h_rqtype = rqtype;
+ info->e_error.e_invalid_handle.h_rqkind = rqkind;
  error_throw_current();
  __builtin_unreachable();
 }
@@ -521,7 +526,11 @@ handle_putinto(fd_t dfd, struct handle hnd) {
   } else if (hnd.h_type == HANDLE_TYPE_FFILE) {
    new_path = hnd.h_object.o_file->f_path;
   } else {
-   throw_invalid_handle(dfd);
+   throw_invalid_handle(dfd,
+                        ERROR_INVALID_HANDLE_FWRONGTYPE,
+                        hnd.h_type,
+                        HANDLE_TYPE_FPATH,
+                        HANDLE_KIND_FANY);
   }
 
   path_incref(new_path);
@@ -584,7 +593,22 @@ handle_putinto(fd_t dfd, struct handle hnd) {
   } FINALLY {
    path_decref(old_path);
   }
-  throw_invalid_handle(dfd);
+  {
+   u16 reason = ERROR_INVALID_HANDLE_ILLHND_FNOSYM;
+   u16 handle_type = HANDLE_TYPE_FPATH;
+   switch (dfd) {
+   case HANDLE_SYMBOLIC_THIS_TASK:
+    reason = ERROR_INVALID_HANDLE_ILLHND_FROSYM;
+    handle_type = HANDLE_TYPE_FTHREAD;
+    break;
+   default: break;
+   }
+   throw_invalid_handle(dfd,
+                        ERROR_INVALID_HANDLE_FUNDEFINED,
+                        HANDLE_TYPE_FNONE,
+                        handle_type,
+                        reason);
+  }
  }
  atomic_rwlock_write(&man->hm_lock);
  vector = man->hm_vector;
@@ -597,7 +621,12 @@ handle_putinto(fd_t dfd, struct handle hnd) {
    new_alloc = (unsigned int)dfd+1;
    if unlikely(new_alloc >= man->hm_limit) {
     atomic_rwlock_endwrite(&man->hm_lock);
-    throw_invalid_handle(dfd); /* Invalid handle. */
+    /* Handle is too large. */
+    throw_invalid_handle(dfd,
+                         ERROR_INVALID_HANDLE_FUNDEFINED,
+                         HANDLE_TYPE_FNONE,
+                         HANDLE_TYPE_FNONE,
+                         ERROR_INVALID_HANDLE_ILLHND_FBOUND);
    }
   }
 #if HANDLE_TYPE_FNONE != 0
@@ -673,7 +702,12 @@ get_symbolic_handle(fd_t fd) {
                                           (unsigned int)HANDLE_SYMBOLIC_DRIVE_CWD('A')];
   if unlikely(!result.h_object.o_path) {
    atomic_rwlock_endread(&my_fs->fs_lock);
-   goto bad_handle;
+unbound_handle:
+   throw_invalid_handle(fd,
+                        ERROR_INVALID_HANDLE_FUNDEFINED,
+                        HANDLE_TYPE_FNONE,
+                        HANDLE_TYPE_FPATH,
+                        ERROR_INVALID_HANDLE_ILLHND_FRMSYM);
   }
   path_incref(result.h_object.o_path);
   atomic_rwlock_endread(&my_fs->fs_lock);
@@ -681,14 +715,21 @@ get_symbolic_handle(fd_t fd) {
 
  case HANDLE_SYMBOLIC_DRIVE_ROOT('A') ... HANDLE_SYMBOLIC_DRIVE_ROOT('Z'):
   result.h_mode          = HANDLE_MODE(HANDLE_TYPE_FPATH,0);
-  result.h_object.o_path = vfs_drive((u8)((unsigned int)fd-
-                                          (unsigned int)HANDLE_SYMBOLIC_DRIVE_ROOT('A')));
+  TRY {
+   result.h_object.o_path = vfs_drive((u8)((unsigned int)fd-
+                                           (unsigned int)HANDLE_SYMBOLIC_DRIVE_ROOT('A')));
+  } CATCH (E_FILESYSTEM_ERROR) {
+   goto unbound_handle;
+  }
   break;
 
 
  default:
-bad_handle:
-  throw_invalid_handle(fd);
+  throw_invalid_handle(fd,
+                       ERROR_INVALID_HANDLE_FUNDEFINED,
+                       HANDLE_TYPE_FNONE,
+                       HANDLE_TYPE_FNONE,
+                       ERROR_INVALID_HANDLE_ILLHND_FNOSYM);
  }
  return result;
 }
@@ -757,7 +798,7 @@ PUBLIC REF struct handle KCALL handle_get(fd_t fd) {
  if unlikely((unsigned int)fd >= man->hm_alloc) {
   atomic_rwlock_endread(&man->hm_lock);
   COMPILER_BARRIER();
-  throw_invalid_handle(fd);
+  goto undefined_handle;
  }
  result = man->hm_vector[(unsigned int)fd];
  /* NOTE: incref() is a no-op on invalid handles. */
@@ -765,9 +806,14 @@ PUBLIC REF struct handle KCALL handle_get(fd_t fd) {
  atomic_rwlock_endread(&man->hm_lock);
 
  /* Check if this is an invalid handle. */
- if unlikely(result.h_type == HANDLE_TYPE_FNONE)
-    throw_invalid_handle(fd);
-
+ if unlikely(result.h_type == HANDLE_TYPE_FNONE) {
+undefined_handle:
+  throw_invalid_handle(fd,
+                       ERROR_INVALID_HANDLE_FUNDEFINED,
+                       HANDLE_TYPE_FNONE,
+                       HANDLE_TYPE_FNONE,
+                       ERROR_INVALID_HANDLE_ILLHND_FUNSET);
+ }
  return result;
 }
 
@@ -786,7 +832,11 @@ KCALL handle_get_device(fd_t fd) {
   return result;
  }
  handle_decref(hnd);
- throw_invalid_handle(fd);
+ throw_invalid_handle(fd,
+                      ERROR_INVALID_HANDLE_FWRONGTYPE,
+                      hnd.h_type,
+                      HANDLE_TYPE_FDEVICE,
+                      HANDLE_KIND_FANY);
 }
 PUBLIC ATTR_RETNONNULL REF struct superblock *
 KCALL handle_get_superblock(fd_t fd) {
@@ -801,7 +851,11 @@ KCALL handle_get_superblock(fd_t fd) {
   return result;
  }
  handle_decref(hnd);
- throw_invalid_handle(fd);
+ throw_invalid_handle(fd,
+                      ERROR_INVALID_HANDLE_FWRONGTYPE,
+                      hnd.h_type,
+                      HANDLE_TYPE_FSUPERBLOCK,
+                      HANDLE_KIND_FANY);
 }
 PUBLIC ATTR_RETNONNULL REF struct superblock *
 KCALL handle_get_superblock_relaxed(fd_t fd) {
@@ -836,7 +890,11 @@ KCALL handle_get_superblock_relaxed(fd_t fd) {
   return result;
  }
  handle_decref(hnd);
- throw_invalid_handle(fd);
+ throw_invalid_handle(fd,
+                      ERROR_INVALID_HANDLE_FWRONGTYPE,
+                      hnd.h_type,
+                      HANDLE_TYPE_FSUPERBLOCK,
+                      HANDLE_KIND_FANY);
 }
 
 
@@ -861,7 +919,11 @@ KCALL handle_get_inode(fd_t fd) {
   return result;
  }
  handle_decref(hnd);
- throw_invalid_handle(fd);
+ throw_invalid_handle(fd,
+                      ERROR_INVALID_HANDLE_FWRONGTYPE,
+                      hnd.h_type,
+                      HANDLE_TYPE_FINODE,
+                      HANDLE_KIND_FANY);
 }
 
 PUBLIC ATTR_RETNONNULL REF struct path *
@@ -877,7 +939,11 @@ KCALL handle_get_path(fd_t fd) {
   return result;
  }
  handle_decref(hnd);
- throw_invalid_handle(fd);
+ throw_invalid_handle(fd,
+                      ERROR_INVALID_HANDLE_FWRONGTYPE,
+                      hnd.h_type,
+                      HANDLE_TYPE_FPATH,
+                      HANDLE_KIND_FANY);
 }
 
 FUNDEF ATTR_RETNONNULL REF struct task *KCALL handle_get_task(fd_t fd) {
@@ -898,7 +964,11 @@ FUNDEF ATTR_RETNONNULL REF struct task *KCALL handle_get_task(fd_t fd) {
   return result;
  }
  handle_decref(hnd);
- throw_invalid_handle(fd);
+ throw_invalid_handle(fd,
+                      ERROR_INVALID_HANDLE_FWRONGTYPE,
+                      hnd.h_type,
+                      HANDLE_TYPE_FTHREAD,
+                      HANDLE_KIND_FANY);
 }
 
 PUBLIC ATTR_RETNONNULL REF struct vm *
@@ -929,7 +999,11 @@ KCALL handle_get_vm(fd_t fd) {
  } FINALLY {
   handle_decref(hnd);
  }
- throw_invalid_handle(fd);
+ throw_invalid_handle(fd,
+                      ERROR_INVALID_HANDLE_FWRONGTYPE,
+                      hnd.h_type,
+                      HANDLE_TYPE_FVM,
+                      HANDLE_KIND_FANY);
 }
 
 PRIVATE REF struct module *KCALL
@@ -983,7 +1057,11 @@ KCALL handle_get_application(fd_t fd) {
  } FINALLY {
   handle_decref(hnd);
  }
- throw_invalid_handle(fd);
+ throw_invalid_handle(fd,
+                      ERROR_INVALID_HANDLE_FWRONGTYPE,
+                      hnd.h_type,
+                      HANDLE_TYPE_FAPPLICATION,
+                      HANDLE_KIND_FANY);
 }
 PUBLIC ATTR_RETNONNULL REF struct module *
 KCALL handle_get_module(fd_t fd) {
@@ -1028,7 +1106,11 @@ KCALL handle_get_module(fd_t fd) {
  } FINALLY {
   handle_decref(hnd);
  }
- throw_invalid_handle(fd);
+ throw_invalid_handle(fd,
+                      ERROR_INVALID_HANDLE_FWRONGTYPE,
+                      hnd.h_type,
+                      HANDLE_TYPE_FMODULE,
+                      HANDLE_KIND_FANY);
 }
 PUBLIC ATTR_RETNONNULL REF struct pipe *
 KCALL handle_get_pipe(fd_t fd) {
@@ -1060,7 +1142,11 @@ KCALL handle_get_pipe(fd_t fd) {
  }
 #endif
  handle_decref(hnd);
- throw_invalid_handle(fd);
+ throw_invalid_handle(fd,
+                      ERROR_INVALID_HANDLE_FWRONGTYPE,
+                      hnd.h_type,
+                      HANDLE_TYPE_FPIPE,
+                      HANDLE_KIND_FANY);
 }
 
 
@@ -1071,7 +1157,11 @@ KCALL handle_get_typed(fd_t fd, u16 type) {
  /* Check if the given type matches the handle's type. */
  if (result.h_type != type) {
   handle_decref(result);
-  throw_invalid_handle(fd);
+  throw_invalid_handle(fd,
+                       ERROR_INVALID_HANDLE_FWRONGTYPE,
+                       result.h_type,
+                       type,
+                       HANDLE_KIND_FANY);
  }
  return result.h_ptr;
 }
@@ -1101,9 +1191,13 @@ handle_fcntl(fd_t fd, unsigned int cmd,
   hman = THIS_HANDLE_MANAGER;
   atomic_rwlock_read(&hman->hm_lock);
   if unlikely((unsigned int)fd >= hman->hm_alloc ||
-              hman->hm_vector[(unsigned int)fd].h_type == HANDLE_TYPE_FNONE) {
+               hman->hm_vector[(unsigned int)fd].h_type == HANDLE_TYPE_FNONE) {
    atomic_rwlock_endread(&hman->hm_lock);
-   throw_invalid_handle(fd);
+   throw_invalid_handle(fd,
+                        ERROR_INVALID_HANDLE_FUNDEFINED,
+                        HANDLE_TYPE_FNONE,
+                        HANDLE_TYPE_FNONE,
+                        ERROR_INVALID_HANDLE_ILLHND_FUNSET);
   }
   /* Read, write, or exchange the file flags. */
   if (cmd == F_GETFD) {
@@ -1136,9 +1230,13 @@ handle_fcntl(fd_t fd, unsigned int cmd,
   hman = THIS_HANDLE_MANAGER;
   atomic_rwlock_read(&hman->hm_lock);
   if unlikely((unsigned int)fd >= hman->hm_alloc ||
-              hman->hm_vector[(unsigned int)fd].h_type == HANDLE_TYPE_FNONE) {
+               hman->hm_vector[(unsigned int)fd].h_type == HANDLE_TYPE_FNONE) {
    atomic_rwlock_endread(&hman->hm_lock);
-   throw_invalid_handle(fd);
+   throw_invalid_handle(fd,
+                        ERROR_INVALID_HANDLE_FUNDEFINED,
+                        HANDLE_TYPE_FNONE,
+                        HANDLE_TYPE_FNONE,
+                        ERROR_INVALID_HANDLE_ILLHND_FUNSET);
   }
   /* Exchange file flags. */
   result = hman->hm_vector[(unsigned int)fd].h_flag & IO_SETFL_MASK;

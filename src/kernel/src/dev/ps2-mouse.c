@@ -32,9 +32,25 @@ DECL_BEGIN
 
 INTERN ATTR_FREETEXT void KCALL
 ps2_register_mouse(u8 port, u8 type) {
+ if (!ps2_runprogram(port,NULL,NULL,
+      PS2_PROGRAM(
+      ps2_send  PS2_MOUSE_FRESET;
+      ps2_wait  PS2_ACK;
+      ps2_wait  0xaa;
+      ps2_wait  0x00; /* ??? (What the hell is this?) (QEMU send this, but I don't
+                       *      know what it means. - The keyboard didn't have this...) */
+      ps2_send  PS2_MOUSE_FSETDEFAULT;
+      ps2_wait  PS2_ACK;
+      ps2_send  PS2_MOUSE_FENABLE_REPORTING;
+      ps2_wait  PS2_ACK;
+      ps2_stop;
+      )))
+      return;
  /* TODO */
+
  /* It's a mouse! (remember that) */
  ps2_port_device[port] = PS2_PORT_DEVICE_FMOUSE;
+ ps2_packet_size[port] = 3;
 }
 
 

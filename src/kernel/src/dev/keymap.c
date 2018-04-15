@@ -22,7 +22,7 @@
 #include <hybrid/compiler.h>
 #include <kos/types.h>
 #include <kos/keymap.h>
-#include <kos/keyboard_ioctl.h>
+#include <kos/keyboard-ioctl.h>
 #include <kos/keyboard.h>
 #include <kernel/malloc.h>
 #include <dev/keymap.h>

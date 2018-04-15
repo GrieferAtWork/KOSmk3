@@ -25,7 +25,7 @@
 #include <kos/types.h>
 #include <kos/keymap.h>
 #include <kos/keyboard.h>
-#include <kos/keyboard_ioctl.h>
+#include <kos/keyboard-ioctl.h>
 #include <kernel/malloc.h>
 #include <dev/keymap.h>
 #include <dev/keyboard.h>

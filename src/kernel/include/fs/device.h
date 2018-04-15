@@ -281,7 +281,10 @@ struct block_device {
 
                 /* [0..1][const] I/O control callback.
                  * @throw: E_NOT_IMPLEMENTED: Same as not implementing this operator.
-                 *                            Should be thrown for unrecognized commands. */
+                 *                            Should be thrown for unrecognized commands.
+                 * This callback is encouraged to implement the following ioctls:
+                 *   - BLKSECTGET: The max number of sectors that can be read/written using a single command.
+                 */
                 ssize_t (KCALL *io_ioctl)(struct block_device *__restrict self,
                                           unsigned long cmd, USER UNCHECKED void *arg,
                                           iomode_t flags);

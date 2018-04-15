@@ -145,51 +145,51 @@ __SYSDECL_BEGIN
 #endif /* !MS_MGC_MSK */
 
 /* The read-only stuff doesn't really belong here, but any other place
- * is probably as bad and I don't want to create yet another include file.*/
+ * is probably as bad and I don't want to create yet another include file. */
 #ifndef BLKROSET
-#define BLKROSET     _IO(0x12,93)  /* Set device read-only (0 = read-write). */
+#define BLKROSET     _IO(0x12,93)  /* Set device read-only (0 = read-write). (int *arg) */
 #endif /* !BLKROSET */
 #ifndef BLKROGET
-#define BLKROGET     _IO(0x12,94)  /* Get read-only status (0 = read_write). */
+#define BLKROGET     _IO(0x12,94)  /* Get read-only status (0 = read_write). (int *arg) */
 #endif /* !BLKROGET */
 #ifndef BLKRRPART
 #define BLKRRPART    _IO(0x12,95)  /* Re-read partition table. */
 #endif /* !BLKRRPART */
 #ifndef BLKGETSIZE
-#define BLKGETSIZE   _IO(0x12,96)  /* Return device size. */
+#define BLKGETSIZE   _IO(0x12,96)  /* Return device size. (unsigned long *arg) */
 #endif /* !BLKGETSIZE */
 #ifndef BLKFLSBUF
 #define BLKFLSBUF    _IO(0x12,97)  /* Flush buffer cache. */
 #endif /* !BLKFLSBUF */
 #ifndef BLKRASET
-#define BLKRASET     _IO(0x12,98)  /* Set read ahead for block device. */
+#define BLKRASET     _IO(0x12,98)  /* Set read ahead for block device. (unsigned long arg) */
 #endif /* !BLKRASET */
 #ifndef BLKRAGET
-#define BLKRAGET     _IO(0x12,99)  /* Get current read ahead setting. */
+#define BLKRAGET     _IO(0x12,99)  /* Get current read ahead setting. (unsigned long *arg) */
 #endif /* !BLKRAGET */
 #ifndef BLKFRASET
-#define BLKFRASET    _IO(0x12,100) /* Set filesystem read-ahead. */
+#define BLKFRASET    _IO(0x12,100) /* Set filesystem read-ahead. (unsigned long *arg) */
 #endif /* !BLKFRASET */
 #ifndef BLKFRAGET
-#define BLKFRAGET    _IO(0x12,101) /* Get filesystem read-ahead. */
+#define BLKFRAGET    _IO(0x12,101) /* Get filesystem read-ahead. (unsigned long *arg) */
 #endif /* !BLKFRAGET */
 #ifndef BLKSECTSET
 #define BLKSECTSET   _IO(0x12,102) /* Set max sectors per request. */
 #endif /* !BLKSECTSET */
 #ifndef BLKSECTGET
-#define BLKSECTGET   _IO(0x12,103) /* Get max sectors per request. */
+#define BLKSECTGET   _IO(0x12,103) /* Get max sectors per request. (unsigned short *arg) */
 #endif /* !BLKSECTGET */
 #ifndef BLKSSZGET
-#define BLKSSZGET    _IO(0x12,104) /* Get block device sector size. */
+#define BLKSSZGET    _IO(0x12,104) /* Get block device sector size. (unsigned int *arg) */
 #endif /* !BLKSSZGET */
 #ifndef BLKBSZGET
-#define BLKBSZGET    _IOR(0x12,112,size_t)
+#define BLKBSZGET    _IOR(0x12,112,size_t) /* (size_t *arg) */
 #endif /* !BLKBSZGET */
 #ifndef BLKBSZSET
-#define BLKBSZSET    _IOW(0x12,113,size_t)
+#define BLKBSZSET    _IOW(0x12,113,size_t) /* (size_t *arg) */
 #endif /* !BLKBSZSET */
 #ifndef BLKGETSIZE64
-#define BLKGETSIZE64 _IOR(0x12,114,size_t) /* return device size. */
+#define BLKGETSIZE64 _IOR(0x12,114,size_t) /* return device size. (u64 *arg) */
 #endif /* !BLKGETSIZE64 */
 
 /* Possible value for FLAGS parameter of `umount2'. */

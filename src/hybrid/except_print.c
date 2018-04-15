@@ -198,6 +198,7 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
          INFO->e_error.e_unknown_systemcall.us_args[5]);
   break;
  case E_INVALID_HANDLE:
+  /* TODO: Include new information in error messages. */
   PRINTF("\tInvalid handle number %d\n",
          INFO->e_error.e_invalid_handle.h_handle);
   break;

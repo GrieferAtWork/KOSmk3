@@ -29,10 +29,6 @@
 #include <i386-kos/gdt.h>
 #endif
 
-#if 1
-//#undef KERNEL_BASE
-//#define KERNEL_BASE 0
-#endif
 #define SECTION(name) \
 	name BLOCK(1) : AT(ADDR(name) - KERNEL_BASE)
 #define PHYSICAL_SECTION(name) \

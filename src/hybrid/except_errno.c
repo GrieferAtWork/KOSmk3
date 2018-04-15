@@ -42,7 +42,11 @@ libc_exception_errno(struct exception_info *__restrict info) {
  switch (info->e_error.e_code) {
  case E_BADALLOC:               result = ENOMEM; break;
  case E_INTERRUPT:              result = EINTR; break;
- case E_INVALID_HANDLE:         result = EBADF; break;
+ case E_INVALID_HANDLE:
+  result = EBADF;
+  if (info->e_error.e_invalid_handle.h_reason == ERROR_INVALID_HANDLE_FWRONGKIND)
+      result = ENOTTY; /* Linux really just uses ENOTTY for all of the combinations... */
+  break;
  case E_IOERROR:                result = EIO; break;
  case E_NO_DATA:                result = ENODATA; break;
  case E_NOT_EXECUTABLE:         result = ENOEXEC; break;
@@ -87,6 +91,8 @@ libc_exception_errno(struct exception_info *__restrict info) {
   case ERROR_FS_UNMOUNT_NOTAMOUNT:     result = EINVAL; break; /* Linux uses EINVAL for this (in umount). */
   case ERROR_FS_RENAME_NOTAMOUNT:      result = EBUSY; break; /* Linux uses EBUSY for this. */
   case ERROR_FS_NEGATIVE_SEEK:         result = ESPIPE; break;
+  case ERROR_FS_FILE_TOO_LARGE:        result = EFBIG; break;
+  case ERROR_FS_TOO_MANY_HARD_LINKS:   result = EMLINK; break;
   case ERROR_FS_CORRUPTED_FILESYSTEM:  result = EIO; break; /* ??? Questionable? */
   default: break;
   }

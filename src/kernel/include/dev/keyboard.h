@@ -21,7 +21,7 @@
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
-#include <kos/keyboard_ioctl.h>
+#include <kos/keyboard-ioctl.h>
 #include <hybrid/atomic.h>
 #include <sched/mutex.h>
 #include <fs/device.h>

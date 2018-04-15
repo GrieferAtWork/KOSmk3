@@ -51,6 +51,12 @@
 #include <sys/poll.h>
 #include <hybrid/align.h>
 #include <sys/mount.h>
+#include <sys/ioctl.h>
+#include <termios.h>
+#include <linux/fs.h>
+#include <kos/keymap.h>
+#include <kos/keyboard-ioctl.h>
+#include <linux/msdos_fs.h>
 
 /* FS System calls. */
 
@@ -67,20 +73,6 @@ throw_fs_error(u16 fs_error_code) {
  error_throw_current();
  __builtin_unreachable();
 }
-
-
-#if 0
-PRIVATE ATTR_NORETURN void KCALL throw_invalid_handle(fd_t fd) {
- struct exception_info *info;
- info = error_info();
- info->e_error.e_code = E_INVALID_HANDLE;
- info->e_error.e_flag = ERR_FNORMAL;
- memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
- info->e_error.e_invalid_handle.h_handle = fd;
- error_throw_current();
- __builtin_unreachable();
-}
-#endif
 
 
 DEFINE_SYSCALL0(sync) {
@@ -362,6 +354,56 @@ DEFINE_SYSCALL5(fchownat,
  return 0;
 }
 
+PRIVATE void KCALL
+translate_ioctl_error(int fd, unsigned long cmd, struct handle hnd) {
+ struct exception_info *info;
+ u16 expected_kind;
+ if (error_code() != E_NOT_IMPLEMENTED)
+     return;
+#define IOCTL_TYPEOF(x) (((x) >> _IOC_TYPESHIFT) & _IOC_TYPEMASK)
+ switch (IOCTL_TYPEOF(cmd)) {
+ case IOCTL_TYPEOF(TCGETS):
+  expected_kind = HANDLE_KIND_FTTY;
+  break;
+ case IOCTL_TYPEOF(BLKROSET):
+  expected_kind = HANDLE_KIND_FBLOCK;
+  break;
+#undef IOCTL_TYPEOF
+ default:
+#define IOCTL_MASKOF(x) ((x) & ((_IOC_NRMASK << _IOC_NRSHIFT)|(_IOC_TYPEMASK << _IOC_TYPESHIFT)))
+  switch (IOCTL_MASKOF(cmd)) {
+  case IOCTL_MASKOF(KEYBOARD_ENABLE_SCANNING):
+  case IOCTL_MASKOF(KEYBOARD_DISABLE_SCANNING):
+  case IOCTL_MASKOF(KEYBOARD_GET_LEDS):
+  case IOCTL_MASKOF(KEYBOARD_SET_LEDS):
+  case IOCTL_MASKOF(KEYBOARD_GET_MODE):
+  case IOCTL_MASKOF(KEYBOARD_SET_MODE):
+  case IOCTL_MASKOF(KEYBOARD_GET_DELAY):
+  case IOCTL_MASKOF(KEYBOARD_SET_DELAY):
+  case IOCTL_MASKOF(KEYBOARD_LOAD_KEYMAP):
+   expected_kind = HANDLE_KIND_FKEYBOARD;
+   break;
+   /* TODO: Mouse ioctls */
+  case IOCTL_MASKOF(VFAT_IOCTL_READDIR_BOTH):
+  case IOCTL_MASKOF(VFAT_IOCTL_READDIR_SHORT):
+  case IOCTL_MASKOF(FAT_IOCTL_GET_ATTRIBUTES):
+  case IOCTL_MASKOF(FAT_IOCTL_SET_ATTRIBUTES):
+  case IOCTL_MASKOF(FAT_IOCTL_GET_VOLUME_ID):
+   expected_kind = HANDLE_KIND_FFATFS;
+   break;
+  default: return;
+  }
+#undef IOCTL_MASKOF
+  break;
+ }
+ info = error_info();
+ info->e_error.e_code                    = E_INVALID_HANDLE;
+ info->e_error.e_invalid_handle.h_handle = fd;
+ info->e_error.e_invalid_handle.h_reason = ERROR_INVALID_HANDLE_FWRONGKIND;
+ info->e_error.e_invalid_handle.h_istype = hnd.h_type;
+ info->e_error.e_invalid_handle.h_rqtype = hnd.h_type;
+ info->e_error.e_invalid_handle.h_rqkind = expected_kind;
+}
 
 DEFINE_SYSCALL3(ioctl,int,fd,unsigned long,cmd,void *,arg) {
  struct handle hnd;
@@ -371,6 +413,8 @@ DEFINE_SYSCALL3(ioctl,int,fd,unsigned long,cmd,void *,arg) {
   result = handle_ioctl(hnd,cmd,arg);
  } FINALLY {
   handle_decref(hnd);
+  //if (FINALLY_WILL_RETHROW)
+  //    translate_ioctl_error(fd,cmd,hnd);
  }
  return result;
 }

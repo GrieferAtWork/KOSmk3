@@ -26,6 +26,7 @@
 #include <hybrid/asm.h>
 #include <kos/types.h>
 #include <kos/context.h>
+#include <kos/fcntl.h>
 #include <except.h>
 #include <string.h>
 
@@ -92,6 +93,25 @@ libc_error_setf(except_t code, va_list args) {
 
  case E_INVALID_HANDLE:
   info->e_error.e_invalid_handle.h_handle = va_arg(args,int);
+  info->e_error.e_invalid_handle.h_reason = (u16)va_arg(args,int);
+  switch (info->e_error.e_invalid_handle.h_reason) {
+  case ERROR_INVALID_HANDLE_FWRONGTYPE:
+   info->e_error.e_invalid_handle.h_istype = (u16)va_arg(args,int);
+   info->e_error.e_invalid_handle.h_rqtype = (u16)va_arg(args,int);
+   break;
+  case ERROR_INVALID_HANDLE_FWRONGKIND:
+   info->e_error.e_invalid_handle.h_istype = (u16)va_arg(args,int);
+   info->e_error.e_invalid_handle.h_rqtype = info->e_error.e_invalid_handle.h_istype;
+   info->e_error.e_invalid_handle.h_rqkind = (u16)va_arg(args,int);
+   break;
+  default:
+#if HANDLE_TYPE_FNONE != 0
+   info->e_error.e_invalid_handle.h_istype = HANDLE_TYPE_FNONE;
+   info->e_error.e_invalid_handle.h_rqtype = HANDLE_TYPE_FNONE;
+#endif
+   info->e_error.e_invalid_handle.h_illhnd = (u16)va_arg(args,int);
+   break;
+  }
   break;
 
  case E_SEGFAULT:
