@@ -397,6 +397,11 @@ struct task {
     u32                          t_nothrow_serve; /* Recursion counter for `task_serve()' to be NOTHROW. */
     /* PERTASK data goes here... */
 };
+
+/* Intended to be used like `PERTASK(this_task.foo)'
+ * Same as `THIS_TASK->foo', but allows for use of `PERTASK_GET' and friends. */
+INTDEF struct task this_task ASMNAME("NULL");
+
 #endif /* __CC__ */
 
 
@@ -519,19 +524,33 @@ FUNDEF ATTR_CONST vm_vpage_t KCALL task_temppage(void);
 
 
 #ifndef CONFIG_NO_SMP
-/* Transfer the calling thread to `new_cpu'.
- * WARNING: This function ignores affinity defined by `task_setaffinity'
- * @return: true:     You are now executing in the context of `new_cpu'
- * @return: true:     `new_cpu' was the cpu you were already running on (no change)
- * @return: false:    The `TASK_FKEEPCORE' flag is set.
- * @throw: E_IOERROR: Failed to communicate with `new_cpu' */
-FUNDEF bool KCALL task_setcpu(struct cpu *__restrict new_cpu);
-
-/* Get/Set the CPU affinity of the calling thread. */
-FUNDEF void KCALL task_getaffinity(__cpu_set_t *__restrict cpuset); /* TODO */
-FUNDEF bool KCALL task_setaffinity(__cpu_set_t const *__restrict cpuset); /* TODO */
-#endif /* !CONFIG_NO_SMP */
-
+/* Transfer the given thread to `new_cpu'.
+ * @param: overrule_affinity: Ignore the task's affinity
+ * @return: true:  The thread is now executing in the context of `new_cpu'
+ * @return: true:  `new_cpu' was the cpu `thread' was already running on (no change)
+ * @return: false: The `TASK_FKEEPCORE' flag is set.
+ * @return: false: `overrule_affinity' is `false' and `new_cpu' isn't part of `thread's affinity.
+ * @return: false: `thread' is the last task still being hosted
+ *                 by `new_cpu' and therefor cannot be moved.
+ *                 Shouldn't really happen because of per-cpu IDLE threads,
+ *                 however can actually happen because /bin/init is the IDLE
+ *                 thread of the boot CPU, meaning that the ability of moving
+ *                 it (which is possible) means that some thread could end up
+ *                 being the last thread still running on _boot_cpu.
+ * If `thread' is `THIS_TASK', this function will return in the context
+ * of `new_cpu', however unless the calling thread's affinity has been
+ * updated to disallow the previous CPU (s.a. `task_setaffinity()'),
+ * scheduling behavior may have chosen to move the task to another CPU
+ * (potentially even the original one) before this function returns.
+ * (In other words: This function isn't excluded from the usual rule
+ *                  that `THIS_CPU' is always volatile) */
+FUNDEF bool KCALL
+task_setcpu(struct task *__restrict thread,
+            struct cpu *__restrict new_cpu,
+            bool overrule_affinity);
+#else /* !CONFIG_NO_SMP */
+#define task_setcpu(thread,new_cpu,overrule_affinity)  true
+#endif /* CONFIG_NO_SMP */
 
 
 /* Change execution order within the calling CPU to have
@@ -548,7 +567,6 @@ FUNDEF bool KCALL task_setaffinity(__cpu_set_t const *__restrict cpuset); /* TOD
  * >>     task_decref(prev);
  * >>     prev = iter;
  * >> }
- * This function is used to implement `sig_(send|boardcast)[_channel][_locked]_p'
  * NOTE: If `prev' is currently sleeping, run `next' after `THIS_TASK' instead.
  * @return: prev:      `prev' and `next' are the same pointers (`prev == next'),
  *                      or either `next' are not hosted by the current CPU.
@@ -847,6 +865,22 @@ FUNDEF ASYNCSAFE ATTR_NOTHROW bool KCALL task_wake(struct task *__restrict threa
  * before returning to user-space at the start of its next quantum. */
 FUNDEF ASYNCSAFE ATTR_NOTHROW bool KCALL task_wake_for_rpc(struct task *__restrict thread);
 
+/* Same as `task_wake()', but try to schedule `next' for execution after
+ * `prev_threads[next->t_cpu->cpu_id]', following which that vector entry
+ * is updated to `next'.
+ * If the vector entry in `prev_threads' was NULL before, `next' is re-scheduled
+ * for execution following the thread currently being executed on the associated CPU.
+ * This function is used to implement `sig_(send|boardcast)[_channel][_locked]_p'
+ * @param: prev_threads: A vector of at least `cpu_count' entires
+ *                      (and at most `CONFIG_MAX_CPU_COUNT')
+ * @return: true:  The task was woken, or wasn't sleeping, and
+ *                 may have been re-scheduled for early execution.
+ * @return: false: The given task has terminated. */
+FUNDEF bool KCALL
+task_wake_p(REF struct task *prev_threads[],
+            struct task *__restrict next);
+
+
 /* Enter a sleeping state and return once being woken (true),
  * or once the given `abs_timeout' expires (false)
  * WARNING: Even though the caller must first disable preemption,
@@ -1123,7 +1157,7 @@ DATDEF struct task _boot_task ASMNAME("boot_task_start");
 DATDEF struct vm   _boot_vm   ASMNAME("boot_vm_start");
 
 
-#define THIS_CPU     (THIS_TASK->t_cpu)
+#define THIS_CPU      PERTASK_GET(this_task.t_cpu)
 #define PERCPU(x)  (*(__typeof__(&(x)))((uintptr_t)THIS_CPU+(uintptr_t)&(x)))
 
 /* Address a symbol for a given object. */

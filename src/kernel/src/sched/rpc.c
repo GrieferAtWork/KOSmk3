@@ -186,7 +186,7 @@ again:
 INTERN void FCALL
 task_serve_before_user(struct cpu_hostcontext_user *__restrict context,
                        unsigned int mode) {
- if (THIS_TASK->t_state & TASK_STATE_FINTERRUPTED) {
+ if (PERTASK_TESTF(this_task.t_state,TASK_STATE_FINTERRUPTED)) {
   /* Serve RPC function calls. */
   struct rpc_slot slot;
 again:
@@ -247,14 +247,14 @@ again:
  * @return: true:  At least one RPC function was served.
  * @return: false: No RPC functions were served. */
 PUBLIC bool KCALL task_serve(void) {
- u16 state = THIS_TASK->t_state;
+ u16 state = PERTASK_GET(this_task.t_state);
  if (state & TASK_STATE_FINTERRUPTED) {
   /* Serve RPC function calls. */
   struct rpc_slot slot;
   struct task_connections connections;
 #ifndef NDEBUG
   u32 old_nothrow_serve_recursion;
-  u16 old_flags = THIS_TASK->t_flags;
+  u16 old_flags = PERTASK_GET(this_task.t_flags);
 #endif
   /* If we're still supposed to serve an RPC exception once
    * the nothrow counter hits ZERO(0), we must not execute
@@ -264,7 +264,7 @@ PUBLIC bool KCALL task_serve(void) {
   /* When already inside an RPC callback, only serve
    * interrupts when that callback set the recursion flag. */
   if ((state & TASK_STATE_FINRPC) &&
-     !(THIS_TASK->t_flags & TASK_FRPCRECURSION))
+     !PERTASK_TESTF(this_task.t_flags,TASK_FRPCRECURSION))
        return false;
   /* Enable preemption while serving RPC functions. */
   PREEMPTION_ENABLE();
@@ -287,9 +287,9 @@ done_serving:
   }
   if (PERTASK_GET(my_rpc.ri_vec)[0].rs_flag & RPC_SLOT_FUSER) {
    /* Remaining RPC must be called before returning to user-space. */
-   assert(!(THIS_TASK->t_flags & TASK_FKERNELJOB));
+   assert(!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB));
    ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINTERRUPTING);
-   if (THIS_TASK->t_nothrow_serve) {
+   if (PERTASK_TEST(this_task.t_nothrow_serve)) {
     error_info()->e_error.e_code = E_INTERRUPT;
     error_info()->e_error.e_flag = ERR_FNORMAL;
     ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FSERVEEXCEPT);
@@ -307,7 +307,7 @@ done_serving:
            PERTASK_GET(my_rpc.ri_cnt)*sizeof(struct rpc_slot));
   ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINTERRUPTING);
 #ifndef NDEBUG
-  old_nothrow_serve_recursion = THIS_TASK->t_nothrow_serve;
+  old_nothrow_serve_recursion = PERTASK_GET(this_task.t_nothrow_serve);
 #endif
   /* Indicate that we're now executing RPC functions. */
   ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FINRPC);
@@ -320,20 +320,20 @@ done_serving:
    INCSTAT(ts_xrpc);
    (*slot.rs_fun)(slot.rs_arg);
   } FINALLY {
-   assertf(THIS_TASK->t_state & TASK_STATE_FINRPC,
+   assertf(PERTASK_TESTF(this_task.t_state,TASK_STATE_FINRPC),
            "RPC callback deleted the `TASK_STATE_FINRPC' flag");
 #ifndef NDEBUG
-   assertf((THIS_TASK->t_flags & TASK_FRPCRECURSION) ==
+   assertf(PERTASK_TESTF(this_task.t_flags,TASK_FRPCRECURSION) ==
            (old_flags & TASK_FRPCRECURSION),
            "RPC callback did not clean up `TASK_FRPCRECURSION'");
    /* Assert that the `nothrow_serve()' recursion was restored. */
-   assertf(old_nothrow_serve_recursion == THIS_TASK->t_nothrow_serve ||
+   assertf(old_nothrow_serve_recursion == PERTASK_GET(this_task.t_nothrow_serve) ||
            FINALLY_WILL_RETHROW,
            "RPC function call at %p with %p did not restore "
            "nothrow_serve recursion (expected %I32u, but got %I32u)",
            slot.rs_fun,slot.rs_arg,
            old_nothrow_serve_recursion,
-           THIS_TASK->t_nothrow_serve);
+           PERTASK_GET(this_task.t_nothrow_serve));
 #endif
    /* Unset the in-rpc bit if we're not here recursively. */
    if (!(state & TASK_STATE_FINRPC))
@@ -342,7 +342,7 @@ done_serving:
    if (slot.rs_done)
        sig_broadcast(slot.rs_done);
    if (FINALLY_WILL_RETHROW) {
-    if (THIS_TASK->t_nothrow_serve) {
+    if (PERTASK_TEST(this_task.t_nothrow_serve)) {
      /*  Set the exception-serve flag and don't continue
       *  running more RPC functions until this exception
       *  will have been dealt with once the caller invokes
@@ -423,7 +423,7 @@ task_queue_rpc(struct task *__restrict thread,
    INCSTAT(ts_xrpc);
    (*func)(arg);
   } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
-   if (THIS_TASK->t_nothrow_serve) {
+   if (PERTASK_TEST(this_task.t_nothrow_serve)) {
     /*  Set the exception-serve flag and don't continue
      *  running more RPC functions until this exception
      *  will has been dealt with once the caller invokes

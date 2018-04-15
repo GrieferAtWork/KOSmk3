@@ -615,12 +615,16 @@ do_suspend_thread(void *arg,
   TRY {
    /* Sleep until someone unsets the suspended bit and wakes us. */
    PREEMPTION_DISABLE();
-   if (!(ATOMIC_READ(THIS_TASK->t_state) & TASK_STATE_FSUSPENDED)) { PREEMPTION_ENABLE(); break; }
+   if (!PERTASK_TESTF(this_task.t_state,TASK_STATE_FSUSPENDED)) {
+    PREEMPTION_ENABLE();
+    break;
+   }
+   COMPILER_READ_BARRIER();
    if (task_serve()) continue; /* Serve RPC functions. */
    task_sleep(JTIME_INFINITE);
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
    if (error_code() == E_INTERRUPT &&
-      (THIS_TASK->t_state & TASK_STATE_FSUSPENDED)) {
+       PERTASK_TESTF(this_task.t_state,TASK_STATE_FSUSPENDED)) {
     /* For interrupts, re-schedule the suspension-wait RPC. */
     TRY {
      task_queue_rpc_user(THIS_TASK,&do_suspend_thread,arg,
@@ -854,7 +858,7 @@ signal_rpc_leader(void *arg,
                   unsigned int mode) {
  /* Try to handle the RPC in the leader. */
  signal_rpc(arg,context,mode);
- if (THIS_GROUP.tg_leader == THIS_TASK) {
+ if (get_this_process() == THIS_TASK) {
   /* Send the RPC request to all members of this thread-group. */
   taskgroup_queue_rpc_user(&signal_rpc,
                             NULL,
@@ -1375,7 +1379,7 @@ signal_suspend(USER CHECKED sigset_t const *wait_mask,
  assertf(!task_isconnected(),
          "This is for posix-signals only. Don't be "
          "connected to KOS signals (they're different things)");
- assertf(!THIS_TASK->t_nothrow_serve,
+ assertf(!PERTASK_TEST(this_task.t_nothrow_serve),
          "Without this, RPC functions won't be able to throw errors");
  block = sigblock_unique();
  if unlikely(sigsetsize > sizeof(sigset_t))
@@ -1572,8 +1576,8 @@ DEFINE_SYSCALL2(kill,pid_t,pid,int,sig) {
   }
  } else if (pid == 0) {
   /* Kill all processes in the calling thread's process group. */
-  info.si_pid = view_for(THIS_GROUP.tg_leader);
-  if (!signal_raise_pgroup(THIS_GROUP.tg_leader,&info))
+  info.si_pid = view_for(get_this_process());
+  if (!signal_raise_pgroup(get_this_process(),&info))
        error_throw(E_PROCESS_EXITED);
  } else if (pid == -1) {
   /* TODO: Kill all processes that we're allowed to. */
@@ -1641,7 +1645,7 @@ DEFINE_SYSCALL3(rt_sigqueueinfo,
  target = pid_lookup_task(tgid);
  /* Don't allow sending arbitrary signals to other processes. */
  if ((info.si_code >= 0 || info.si_code == SI_TKILL) &&
-     (FORTASK(target,_this_group).tg_leader != THIS_GROUP.tg_leader)) {
+     (FORTASK(target,_this_group).tg_leader != get_this_process())) {
   task_decref(target);
   return -EPERM;
  }
@@ -1666,7 +1670,7 @@ DEFINE_SYSCALL4(rt_tgsigqueueinfo,
  /* Don't allow sending arbitrary signals to other processes. */
  leader = FORTASK(target,_this_group).tg_leader;
  if ((info.si_code >= 0 || info.si_code == SI_TKILL) &&
-     (leader != THIS_GROUP.tg_leader)) {
+     (leader != get_this_process())) {
   task_decref(target);
   return -EPERM;
  }

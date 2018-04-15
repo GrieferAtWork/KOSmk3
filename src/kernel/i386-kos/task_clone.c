@@ -81,7 +81,7 @@ clone_entry(struct cpu_hostcontext_user *__restrict user_context, u32 flags) {
  /* If we're not supposed to clear the thread's TID once
   * it dies, just override that attribute with NULL. */
  if (!(flags & CLONE_CHILD_CLEARTID))
-       THIS_TID_ADDRESS = NULL;
+       PERTASK_SET(_this_tid_address,NULL);
  COMPILER_WRITE_BARRIER();
 
  /* Finally, switch to user-space. */
@@ -255,6 +255,15 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
 
   /* This will be deleted by the thread when `CLONE_CHILD_CLEARTID' isn't set. */
   FORTASK(new_task,_this_tid_address) = child_tidptr;
+
+#ifndef CONFIG_NO_SMP
+  /* Keep cache locality high by spawning the
+   * new thread on the same CPU as the caller.
+   * Also: Since CPU affinity is always inherited during a clone(),
+   *       this will ensure that the new thread starts running on a
+   *       core on which it is actually allowed to run. */
+  new_task->t_cpu = THIS_CPU;
+#endif
 
   /* Start the new thread. */
   task_start(new_task);

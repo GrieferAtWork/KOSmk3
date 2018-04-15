@@ -49,6 +49,8 @@
 ENTRY(_start)
 SECTIONS {
 
+#undef NULL
+	PROVIDE_HIDDEN(NULL = 0);
 	. = KERNEL_BASE + 1M;
 
 	/* Boot header */

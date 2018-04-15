@@ -88,11 +88,11 @@ INTERN void KCALL print_tb(struct cpu_context *__restrict context) {
     * to properly display tracebacks when execution tries to call a
     * NULL-function pointer. */
    if (!is_first) break;
-   if (info->e_context.c_esp >= (uintptr_t)THIS_TASK->t_stackend) {
+   if (info->e_context.c_esp >= (uintptr_t)PERTASK_GET(this_task.t_stackend)) {
     debug_printf("IP is out-of-bounds (%p not in %p...%p)\n",
                  info->e_context.c_esp,
-                (uintptr_t)THIS_TASK->t_stackmin,
-                (uintptr_t)THIS_TASK->t_stackend-1);
+                (uintptr_t)PERTASK_GET(this_task.t_stackmin),
+                (uintptr_t)PERTASK_GET(this_task.t_stackend)-1);
     break;
    }
    info->e_context.c_eip = *(u32 *)info->e_context.c_esp;

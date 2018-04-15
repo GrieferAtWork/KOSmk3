@@ -16,28 +16,24 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef GUARD_KERNEL_INCLUDE_I386_KOS_USER_H
-#define GUARD_KERNEL_INCLUDE_I386_KOS_USER_H 1
+#ifndef GUARD_KERNEL_INCLUDE_SCHED_AFFINITY_H
+#define GUARD_KERNEL_INCLUDE_SCHED_AFFINITY_H 1
 
 #include <hybrid/compiler.h>
-#include <hybrid/host.h>
+#include <sched/task.h>
 
 DECL_BEGIN
 
-/* Value for `PERTASK_GET(this_task.t_addrlimit)':
- * When set, `validate_*' functions accept kernel kernels.
- * NOTE: There is no reason to change `t_addrlimit' when calling
- *       functions that accept `CHECKED' user-space pointers, as
- *       functions like that will not validate user-pointer address
- *       ranges for themself, meaning that for such functions you
- *       are free to pass kernel pointers without updating anything. */
-#ifdef __x86_64__
-#define ADDRLIMIT_KERNELDATA  0xffffffffffffffffull
-#else
-#define ADDRLIMIT_KERNELDATA  0xfffffffful
-#endif
+#ifdef __CC__
 
+
+
+/* Get/Set the CPU affinity of the given thread. */
+FUNDEF void KCALL task_getaffinity(struct task *__restrict thread, kernel_cpuset_t affinity);
+FUNDEF bool KCALL task_setaffinity(struct task *__restrict thread, kernel_cpuset_t const affinity);
+
+#endif /* __CC__ */
 
 DECL_END
 
-#endif /* !GUARD_KERNEL_INCLUDE_I386_KOS_USER_H */
+#endif /* !GUARD_KERNEL_INCLUDE_SCHED_AFFINITY_H */

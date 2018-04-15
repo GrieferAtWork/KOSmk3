@@ -95,7 +95,7 @@ PUBLIC void KCALL task_signal_event(int event_code, int status) {
  assert(parent->t_refcnt != 0);
  memset(&taskevent,0,sizeof(siginfo_t));
  parent_leader       = FORTASK(parent,_this_group).tg_leader;
- leader              = THIS_GROUP.tg_leader;
+ leader              = get_this_process();
  taskevent.si_signo  = FORTASK(leader,_this_group).tg_process.h_sigcld;
  taskevent.si_code   = event_code;
  parent_pid          = FORTASK(parent_leader,_this_pid);
@@ -459,7 +459,7 @@ INTERN void KCALL task_clone_pid(struct task *__restrict new_thread, u32 flags) 
   if (!(flags & CLONE_THREAD)) {
    REF struct task *parent = NULL;
    struct task *parent_leader;
-   parent_leader = THIS_GROUP.tg_leader;
+   parent_leader = get_this_process();
    if (flags & CLONE_PARENT) {
     /* Try to use the parent of the calling thread as parent of the new
      * one, rather use the current thread as parent. */
@@ -494,7 +494,7 @@ PUBLIC ATTR_NOTHROW pid_t KCALL posix_getpid(void) {
  struct thread_pid *my_pid = THIS_THREAD_PID;
  struct thread_pid *leader_pid;
  if (!my_pid) return 0; /* Caller has no PID */
- leader_pid = FORTASK(THIS_GROUP.tg_leader,_this_pid);
+ leader_pid = FORTASK(get_this_process(),_this_pid);
  if (!leader_pid) return 0; /* Process leader has no PID */
  if (leader_pid->tp_ns != my_pid->tp_ns) return 0; /* Process leader in different PID namespace. */
  return leader_pid->tp_pids[my_pid->tp_ns->pn_indirection];
@@ -517,7 +517,7 @@ PUBLIC pid_t KCALL posix_getpgid(void) {
  struct thread_pid *my_pid = THIS_THREAD_PID;
  struct thread_pid *leader_pid;
  if (!my_pid) return 0; /* Caller has no PID */
- leader_pid = FORTASK(FORTASK(THIS_GROUP.tg_leader,_this_group).
+ leader_pid = FORTASK(FORTASK(get_this_process(),_this_group).
                       tg_process.h_procgroup.pg_leader,_this_pid);
  if (!leader_pid) return 0; /* Process group leader has no PID */
  if (leader_pid->tp_ns != my_pid->tp_ns) return 0; /* Process group leader in different PID namespace. */
@@ -528,7 +528,7 @@ PUBLIC pid_t KCALL posix_getsid(void) {
  struct thread_pid *leader_pid;
  if (!my_pid) return 0; /* Caller has no PID */
  leader_pid = FORTASK(FORTASK(FORTASK(
-                      THIS_GROUP.tg_leader,_this_group). /* Process */
+                      get_this_process(),_this_group). /* Process */
                       tg_process.h_procgroup.pg_leader,_this_group). /* Process-group */
                       tg_process.h_procgroup.pg_master.m_session,_this_pid); /* session */
  if (!leader_pid) return 0; /* Session leader has no PID */

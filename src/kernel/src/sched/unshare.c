@@ -38,13 +38,13 @@ DECL_BEGIN
 
 PUBLIC bool KCALL task_unshare_files(void) {
  REF struct handle_manager *new_man,*old_man;
- assert(THIS_HANDLE_MANAGER->hm_refcnt != 0);
+ old_man = THIS_HANDLE_MANAGER;
+ assert(old_man->hm_refcnt != 0);
  /* Check if the handler manager was already unshared. */
- if (THIS_HANDLE_MANAGER->hm_refcnt == 1)
+ if (old_man->hm_refcnt == 1)
      return false;
  new_man = handle_manager_clone();
- old_man = THIS_HANDLE_MANAGER;
- THIS_HANDLE_MANAGER = new_man;
+ PERTASK_SET(_this_handle_manager,new_man);
  COMPILER_WRITE_BARRIER();
  handle_manager_decref(old_man);
  return true;
@@ -52,13 +52,13 @@ PUBLIC bool KCALL task_unshare_files(void) {
 
 PUBLIC bool KCALL task_unshare_fs(void) {
  REF struct fs *new_fs,*old_fs;
- assert(THIS_FS->fs_refcnt != 0);
+ old_fs = THIS_FS;
+ assert(old_fs->fs_refcnt != 0);
  /* Check if the handler manager was already unshared. */
- if (THIS_FS->fs_refcnt == 1)
+ if (old_fs->fs_refcnt == 1)
      return false;
  new_fs = fs_clone();
- old_fs = THIS_FS;
- THIS_FS = new_fs;
+ PERTASK_SET(_this_fs,new_fs);
  COMPILER_WRITE_BARRIER();
  fs_decref(old_fs);
  return true;

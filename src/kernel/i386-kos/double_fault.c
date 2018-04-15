@@ -122,11 +122,11 @@ INTERN void FCALL c_x86_double_fault_handler(void) {
   * the current thread's kernel stack, as well
   * as that the return ESP value is located below
   * the allocated stack end, too. */
- if (context.c_esp <= (uintptr_t)THIS_TASK->t_stackmin) {
+ if (context.c_esp <= (uintptr_t)PERTASK_GET(this_task.t_stackmin)) {
   u32 cr2;
   __asm__ __volatile__("movl %%cr2, %0\n" : "=r" (cr2));
-  if (cr2          <  (uintptr_t)THIS_TASK->t_stackmin &&
-      cr2+PAGESIZE >= (uintptr_t)THIS_TASK->t_stackmin) {
+  if (cr2          <  (uintptr_t)PERTASK_GET(this_task.t_stackmin) &&
+      cr2+PAGESIZE >= (uintptr_t)PERTASK_GET(this_task.t_stackmin)) {
    /* Apparently, this whole problem was caused by a kernel stack-overflow... */
    info->e_error.e_code               = E_STACK_OVERFLOW;
    info->e_error.e_flag              &= ~ERR_FRESUMABLE;

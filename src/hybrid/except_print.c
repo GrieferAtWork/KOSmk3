@@ -403,12 +403,12 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
   }
  } else {
   PRINTF("stack: %p...%p\n",
-        (uintptr_t)THIS_TASK->t_stackmin,
-        (uintptr_t)THIS_TASK->t_stackend-1);
-  if (INFO->e_context.c_esp >= (uintptr_t)THIS_TASK->t_stackmin &&
-      INFO->e_context.c_esp <= (uintptr_t)THIS_TASK->t_stackend) {
+        (uintptr_t)PERTASK_GET(this_task.t_stackmin),
+        (uintptr_t)PERTASK_GET(this_task.t_stackend)-1);
+  if (INFO->e_context.c_esp >= (uintptr_t)PERTASK_GET(this_task.t_stackmin) &&
+      INFO->e_context.c_esp <= (uintptr_t)PERTASK_GET(this_task.t_stackend)) {
    PRINTF("%$[hex]\n",
-         (uintptr_t)THIS_TASK->t_stackend-INFO->e_context.c_esp,
+         (uintptr_t)PERTASK_GET(this_task.t_stackend)-INFO->e_context.c_esp,
                     INFO->e_context.c_esp);
   }
  }
@@ -435,11 +435,11 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
      * to properly display tracebacks when execution tries to call a
      * NULL-function pointer. */
     if (!is_first) break;
-    if (INFO->e_context.c_esp >= (uintptr_t)THIS_TASK->t_stackend) {
+    if (INFO->e_context.c_esp >= (uintptr_t)PERTASK_GET(this_task.t_stackend)) {
      PRINTF("SP is out-of-bounds (%p not in %p...%p)\n",
             INFO->e_context.c_esp,
-           (uintptr_t)THIS_TASK->t_stackmin,
-           (uintptr_t)THIS_TASK->t_stackend-1);
+           (uintptr_t)PERTASK_GET(this_task.t_stackmin),
+           (uintptr_t)PERTASK_GET(this_task.t_stackend)-1);
      break;
     }
     INFO->e_context.c_eip = *(u32 *)INFO->e_context.c_esp;

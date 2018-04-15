@@ -188,7 +188,7 @@ libc_error_rethrow_at_user(struct cpu_hostcontext_user *__restrict context,
    /* Force user-space target. */
    context->c_iret.ir_cs     |= 3;
    context->c_iret.ir_useresp = context->c_gpregs.gp_esp;
-   context->c_gpregs.gp_esp   = (uintptr_t)THIS_TASK->t_stackend;
+   context->c_gpregs.gp_esp   = (uintptr_t)PERTASK_GET(this_task.t_stackend);
    context->c_iret.ir_eflags |= EFLAGS_IF;
    context->c_iret.ir_eflags &= ~(EFLAGS_TF|EFLAGS_IOPL(3)|
                                   EFLAGS_NT|EFLAGS_RF|EFLAGS_VM|

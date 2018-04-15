@@ -71,7 +71,7 @@ INTERN void KCALL userthread_signal(void) {
 
 DEFINE_SYSCALL1(set_tid_address,
                 USER UNCHECKED pid_t *,tid_pointer) {
- THIS_TID_ADDRESS = tid_pointer;
+ PERTASK_SET(_this_tid_address,tid_pointer);
  return posix_gettid();
 }
 

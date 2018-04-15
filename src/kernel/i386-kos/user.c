@@ -47,31 +47,31 @@ throw_segfault(VIRT void *addr, uintptr_t reason) {
 
 PUBLIC void KCALL
 validate_readable(UNCHECKED USER void const *base, size_t num_bytes) {
- uintptr_t addr_end;
+ uintptr_t addr_end,limit = PERTASK_GET(this_task.t_addrlimit);
  if unlikely(__builtin_add_overflow((uintptr_t)base,num_bytes,&addr_end)) {
-  if unlikely((uintptr_t)base > THIS_TASK->t_addrlimit)
+  if unlikely((uintptr_t)base > limit)
      throw_segfault((void *)base,0);
-  throw_segfault((void *)THIS_TASK->t_addrlimit,0);
+  throw_segfault((void *)limit,0);
  }
- if unlikely(addr_end > THIS_TASK->t_addrlimit && num_bytes)
-    throw_segfault((void *)THIS_TASK->t_addrlimit,0);
+ if unlikely(addr_end > limit && num_bytes)
+    throw_segfault((void *)limit,0);
 }
 PUBLIC void KCALL
 validate_writable(UNCHECKED USER void *base, size_t num_bytes) {
- uintptr_t addr_end;
+ uintptr_t addr_end,limit = PERTASK_GET(this_task.t_addrlimit);
  if unlikely(__builtin_add_overflow((uintptr_t)base,num_bytes,&addr_end)) {
-  if unlikely((uintptr_t)base > THIS_TASK->t_addrlimit)
+  if unlikely((uintptr_t)base > limit)
      throw_segfault((void *)base,X86_SEGFAULT_FWRITE);
-  throw_segfault((void *)THIS_TASK->t_addrlimit,X86_SEGFAULT_FWRITE);
+  throw_segfault((void *)limit,X86_SEGFAULT_FWRITE);
  }
- if unlikely(addr_end > THIS_TASK->t_addrlimit && num_bytes)
-    throw_segfault((void *)THIS_TASK->t_addrlimit,X86_SEGFAULT_FWRITE);
+ if unlikely(addr_end > limit && num_bytes)
+    throw_segfault((void *)limit,X86_SEGFAULT_FWRITE);
  /* Ensure cow-writability on the address range. */
  vm_cow(base,num_bytes);
 }
 PUBLIC void KCALL
 validate_executable(UNCHECKED USER void const *base) {
- if unlikely((uintptr_t)base >= THIS_TASK->t_addrlimit)
+ if unlikely((uintptr_t)base >= PERTASK_GET(this_task.t_addrlimit))
     throw_segfault((void *)base,X86_SEGFAULT_FEXEC);
 }
 
@@ -83,7 +83,7 @@ validate_executable(UNCHECKED USER void const *base) {
  * the length of the string (in bytes) is returned. */
 PUBLIC size_t KCALL
 user_strlen(UNCHECKED USER char const *base) {
- if unlikely((uintptr_t)base >= THIS_TASK->t_addrlimit)
+ if unlikely((uintptr_t)base >= PERTASK_GET(this_task.t_addrlimit))
     throw_segfault((void *)base,0);
  return strlen(base);
 }

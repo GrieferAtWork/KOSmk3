@@ -26,7 +26,7 @@ DECL_BEGIN
 struct task;
 
 #if 1
-#define THIS_TASK                         __get_this_task()
+#define THIS_TASK  __get_this_task()
 FORCELOCAL ATTR_CONST WUNUSED struct task *(KCALL __get_this_task)(void) {
     register struct task *__result;
 #ifdef __ASM_TASK_SEGMENT_ISFS

@@ -1019,7 +1019,7 @@ task_openchannel(uintptr_t mask) {
 }
 
 
-/* TODO: Implement these for real (Using ) */
+/* TODO: Implement these for real (Using `task_wake_p()') */
 DEFINE_PUBLIC_ALIAS(sig_send_p,sig_send);
 DEFINE_PUBLIC_ALIAS(sig_broadcast_p,sig_broadcast);
 DEFINE_PUBLIC_ALIAS(sig_send_locked_p,sig_send_locked);

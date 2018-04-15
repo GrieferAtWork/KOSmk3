@@ -186,7 +186,7 @@ DATDEF struct handle_manager handle_manager_kernel;
 
 /* [1..1][lock(PRIVATE(THIS_TASK))] Handle manager of the calling thread. */
 DATDEF ATTR_PERTASK struct handle_manager *_this_handle_manager;
-#define THIS_HANDLE_MANAGER  PERTASK_GET(_this_handle_manager)
+#define THIS_HANDLE_MANAGER    PERTASK_GET(_this_handle_manager)
 
 
 /* Allocate a new, empty handle manager. */

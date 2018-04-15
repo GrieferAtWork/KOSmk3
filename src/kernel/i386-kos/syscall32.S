@@ -197,7 +197,7 @@ name##64:; \
 INTERN_ENTRY(sysenter_kernel_entry)
 	/* `SYSENTER_ESP_MSR' points at the ESP0 field of the CPU's TSS
 	 * In other words: we only need to replace ESP with its own
-	 * dereference, and we already have `THIS_TASK->t_stackend'. */
+	 * dereference, and we already have `PERTASK_GET(this_task.t_stackend)'. */
 	movl  %ss:0(%esp), %esp
 
 	/* Construct an IRET tail. */
@@ -503,7 +503,7 @@ SYMEND(irq_80_trace)
 INTERN_ENTRY(sysenter_kernel_entry_trace)
 	/* `SYSENTER_ESP_MSR' points at the ESP0 field of the CPU's TSS
 	 * In other words: we only need to replace ESP with its own
-	 * dereference, and we already have `THIS_TASK->t_stackend'. */
+	 * dereference, and we already have `PERTASK_GET(this_task.t_stackend)'. */
 	movl  %ss:0(%esp), %esp
 
 	/* Construct an IRET tail. */

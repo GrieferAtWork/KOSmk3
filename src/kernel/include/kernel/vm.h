@@ -697,7 +697,7 @@ struct vm {
 DATDEF struct vm vm_kernel;
 
 /* Helper macros for accessing per-VM variables. */
-#define THIS_VM           (THIS_TASK->t_vm)
+#define THIS_VM           PERTASK_GET(this_task.t_vm)
 #define PERVM(x)        (*(__typeof__(&(x)))((uintptr_t)THIS_VM+(uintptr_t)&(x)))
 #define FORVM(self,x)   (*(__typeof__(&(x)))((uintptr_t)(self)+(uintptr_t)&(x)))
 

@@ -2568,18 +2568,18 @@ INTERN void KCALL task_vm_clone(struct task *__restrict new_thread, u32 flags) {
                      ustack,
                      new_stack);
    }
-   if (THIS_TASK->t_flags & (TASK_FOWNUSERSEG|TASK_FUSEREXCEPT)) {
+   if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG|TASK_FUSEREXCEPT)) {
     if (!(flags & CLONE_SETTLS)) {
      /* Inherit user-segment addresses. */
-     new_thread->t_userseg = THIS_TASK->t_userseg;
-     new_thread->t_flags  |= THIS_TASK->t_flags & TASK_FUSEREXCEPT;
+     new_thread->t_userseg = PERTASK_GET(this_task.t_userseg);
+     new_thread->t_flags  |= PERTASK_GET(this_task.t_flags) & TASK_FUSEREXCEPT;
     }
-    if (THIS_TASK->t_flags & TASK_FOWNUSERSEG) {
+    if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG)) {
      if (flags & CLONE_SETTLS) {
       /* A new, explicit user-segment will be defined. - Unmap the copy of the old one. */
       vm_delete_useg(&new_thread->t_vm->vm_map,
-                     VM_ADDR2PAGE((uintptr_t)THIS_TASK->t_userseg),
-                     VM_ADDR2PAGE((uintptr_t)THIS_TASK->t_userseg+
+                     VM_ADDR2PAGE((uintptr_t)PERTASK_GET(this_task.t_userseg)),
+                     VM_ADDR2PAGE((uintptr_t)PERTASK_GET(this_task.t_userseg)+
                                    sizeof(struct user_task_segment)-1),
                      VM_SEMI0,
                      VM_LEVEL0,

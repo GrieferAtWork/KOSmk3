@@ -77,8 +77,8 @@ threadgroup_clone(struct task *__restrict new_thread, u32 flags) {
            new_thread,
           &FORTASK(new_thread,_this_group).tg_thread.g_group.le_pself,
            FORTASK(new_thread,_this_group).tg_thread.g_group.le_pself);
-  new_group->tg_leader = THIS_GROUP.tg_leader;
-  task_incref(THIS_GROUP.tg_leader);
+  new_group->tg_leader = get_this_process();
+  task_incref(new_group->tg_leader);
   assert(new_group->tg_leader != new_thread);
  } else
 #endif
@@ -91,24 +91,24 @@ threadgroup_clone(struct task *__restrict new_thread, u32 flags) {
   /* Setup the new thread as a child-process of the caller. */
   if (flags & CLONE_PARENT) {
    /* Re-use the parent of the current process. */
-   new_group->tg_process.h_parent = THIS_GROUP.tg_process.h_parent;
+   new_group->tg_process.h_parent = PERTASK_GET(_this_group.tg_process.h_parent);
    if (new_group->tg_process.h_parent)
     task_weakref_incref(new_group->tg_process.h_parent);
    else {
     /* If the calling thread (the original thread) doesn't
      * have a parent, overrule the `CLONE_PARENT' flag and
      * re-use the current process as parent. */
-    new_group->tg_process.h_parent = task_getweakref(THIS_GROUP.tg_leader);
+    new_group->tg_process.h_parent = task_getweakref(get_this_process());
    }
   } else {
    /* Use the current process as parent. */
-   new_group->tg_process.h_parent = task_getweakref(THIS_GROUP.tg_leader);
+   new_group->tg_process.h_parent = task_getweakref(get_this_process());
   }
   new_group->tg_leader           = new_thread;
   new_group->tg_process.h_sigcld = flags & CSIGNAL;
   /* The thread starts out within the same process group as the parent. */
   pgroup  = &new_group->tg_process.h_procgroup;
-  mygroup = &FORTASK(THIS_GROUP.tg_leader,_this_group).tg_process.h_procgroup;
+  mygroup = &FORTASK(get_this_process(),_this_group).tg_process.h_procgroup;
   atomic_rwlock_cinit(&pgroup->pg_lock);
   atomic_rwlock_read(&mygroup->pg_lock);
   pgroup->pg_leader = mygroup->pg_leader;
@@ -132,7 +132,7 @@ threadgroup_clone(struct task *__restrict new_thread, u32 flags) {
 
 PUBLIC REF struct task *KCALL task_get_parent(void) {
  struct task_weakref *ref;
- ref = FORTASK(THIS_GROUP.tg_leader,_this_group).tg_process.h_parent;
+ ref = FORTASK(get_this_process(),_this_group).tg_process.h_parent;
  return ref ? task_weakref_lock(ref) : NULL;
 }
 
@@ -149,12 +149,12 @@ PRIVATE void KCALL exit_rpc(void *status) {
 
 PUBLIC void KCALL
 task_exit_secondary_threads(int exit_status) {
- assertf(THIS_GROUP.tg_leader == THIS_TASK,
-         "You're not the leader of thread-group");
+ assertf(get_this_process() == THIS_TASK,
+         "You're not the leader of a thread-group");
  for (;;) {
   struct task *thread;
-  atomic_rwlock_write(&THIS_GROUP.tg_process.h_lock);
-  thread = THIS_GROUP.tg_process.h_group;
+  atomic_rwlock_write(&PERTASK(_this_group.tg_process.h_lock));
+  thread = PERTASK_GET(_this_group.tg_process.h_group);
   while (thread &&
        !(thread->t_flags&TASK_STATE_FTERMINATING) &&
        !ATOMIC_INCIFNONZERO(thread->t_refcnt))
@@ -173,7 +173,7 @@ task_exit_secondary_threads(int exit_status) {
    FORTASK(thread,_this_group).tg_thread.g_group.le_pself = NULL;
    FORTASK(thread,_this_group).tg_thread.g_group.le_next  = NULL;
   }
-  atomic_rwlock_endwrite(&THIS_GROUP.tg_process.h_lock);
+  atomic_rwlock_endwrite(&PERTASK(_this_group.tg_process.h_lock));
   if (!thread) break; /* All threads have been terminated, or are in the process of. */
   TRY {
    /* Queue an RPC callback that will terminate this thread. */
@@ -204,42 +204,47 @@ INTERN void KCALL threadgroup_cleanup(void) {
                    status);
 
  /* Called just prior to a thread that was part of the thread group exiting. */
- if (THIS_GROUP.tg_leader == THIS_TASK) {
+ if (get_this_process() == THIS_TASK) {
   /* Thread group leader has died.
    * Since the caller has set the `TASK_STATE_FTERMINATING' flag for
    * us, we can be sure that no new threads will appear while we're
    * terminating all threads that are still remaining using RPC functions. */
   task_exit_secondary_threads(error_info()->e_error.e_exit.e_status);
   for (;;) {
-   REF struct thread_pid *child;
+   REF struct thread_pid *child,*next;
    /* Drop a reference from all children that weren't joined. */
-   sig_get(&THIS_GROUP.tg_process.h_cldevent);
-   child = THIS_GROUP.tg_process.h_children; /* Inherit reference (if non-NULL). */
-   if (!child) { sig_put(&THIS_GROUP.tg_process.h_cldevent); break; }
-   assert(child->tp_siblings.le_pself == &THIS_GROUP.tg_process.h_children);
-   if ((THIS_GROUP.tg_process.h_children = child->tp_siblings.le_next) != NULL)
-        THIS_GROUP.tg_process.h_children->tp_siblings.le_pself = &THIS_GROUP.tg_process.h_children;
+   sig_get(&PERTASK(_this_group.tg_process.h_cldevent));
+   child = PERTASK_GET(_this_group.tg_process.h_children); /* Inherit reference (if non-NULL). */
+   if (!child) { sig_put(&PERTASK(_this_group.tg_process.h_cldevent)); break; }
+   assert(child->tp_siblings.le_pself == &PERTASK(_this_group.tg_process.h_children));
+   next = child->tp_siblings.le_next;
+   PERTASK_SET(_this_group.tg_process.h_children,next);
+   if (next) next->tp_siblings.le_pself = &PERTASK(_this_group.tg_process.h_children);
    child->tp_siblings.le_pself = NULL;
    child->tp_siblings.le_next  = NULL;
-   sig_put(&THIS_GROUP.tg_process.h_cldevent);
+   sig_put(&PERTASK(_this_group.tg_process.h_cldevent));
    thread_pid_decref(child);
   }
  } else {
   /* Not the leader of the thread group. */
   struct threadgroup *leader;
-  leader = &FORTASK(THIS_GROUP.tg_leader,_this_group);
+  leader = &FORTASK(get_this_process(),_this_group);
   atomic_rwlock_write(&leader->tg_process.h_lock);
   /* Remove the thread from its group. */
-  if (THIS_GROUP.tg_thread.g_group.le_pself) {
+  if (PERTASK_TEST(_this_group.tg_thread.g_group.le_pself)) {
+   struct task *next;
 #ifdef CONFIG_LOG_GROUP_ADD_DELETE
    debug_printf("GROUP_DEL(%p)\n",THIS_TASK);
 #endif
-   if ((*THIS_GROUP.tg_thread.g_group.le_pself = THIS_GROUP.tg_thread.g_group.le_next) != NULL) {
-    struct threadgroup *next_group = &FORTASK(THIS_GROUP.tg_thread.g_group.le_next,_this_group);
-    next_group->tg_thread.g_group.le_pself = THIS_GROUP.tg_thread.g_group.le_pself;
+   next = PERTASK_GET(_this_group.tg_thread.g_group.le_next);
+   *PERTASK_GET(_this_group.tg_thread.g_group.le_pself) = next;
+   if (next) {
+    struct threadgroup *next_group;
+    next_group = &FORTASK(PERTASK_GET(_this_group.tg_thread.g_group.le_next),_this_group);
+    next_group->tg_thread.g_group.le_pself = PERTASK_GET(_this_group.tg_thread.g_group.le_pself);
    }
-   THIS_GROUP.tg_thread.g_group.le_pself = NULL;
-   THIS_GROUP.tg_thread.g_group.le_next  = NULL;
+   PERTASK_SET(_this_group.tg_thread.g_group.le_pself,NULL);
+   PERTASK_SET(_this_group.tg_thread.g_group.le_next,NULL);
   }
   atomic_rwlock_endwrite(&leader->tg_process.h_lock);
  }
@@ -326,11 +331,11 @@ threadgroup_fini(struct task *__restrict thread) {
 DEFINE_PERTASK_STARTUP(task_startup_group);
 INTERN void KCALL task_startup_group(u32 UNUSED(flags)) {
  struct threadgroup *leader_group;
- assert(THIS_GROUP.tg_leader);
- leader_group = &FORTASK(THIS_GROUP.tg_leader,_this_group);
+ assert(get_this_process());
+ leader_group = &FORTASK(get_this_process(),_this_group);
  atomic_rwlock_write(&leader_group->tg_process.h_lock);
  /* Check if the leader is terminating. */
- if unlikely(THIS_GROUP.tg_leader->t_state &
+ if unlikely(get_this_process()->t_state &
             (TASK_STATE_FTERMINATING|TASK_STATE_FTERMINATED)) {
   struct exception_info *reason;
   atomic_rwlock_endwrite(&leader_group->tg_process.h_lock);
@@ -338,13 +343,13 @@ INTERN void KCALL task_startup_group(u32 UNUSED(flags)) {
   reason                  = error_info();
   reason->e_error.e_code          = E_EXIT_THREAD;
   reason->e_error.e_flag          = ERR_FNORMAL;
-  reason->e_error.e_exit.e_status = THIS_GROUP.tg_leader->t_segment.ts_xcurrent.e_error.e_exit.e_status;
+  reason->e_error.e_exit.e_status = get_this_process()->t_segment.ts_xcurrent.e_error.e_exit.e_status;
   error_throw_current();
   __builtin_unreachable();
  }
 #if 1
  if (leader_group != &THIS_GROUP) {
-  assertf(!THIS_GROUP.tg_thread.g_group.le_pself,
+  assertf(!PERTASK_TEST(_this_group.tg_thread.g_group.le_pself),
           "The calling thread was already added to a group\n"
           "THIS_TASK                             = %p\n"
           "leader_group                          = %p\n"
@@ -356,9 +361,11 @@ INTERN void KCALL task_startup_group(u32 UNUSED(flags)) {
   debug_printf("GROUP_ADD(%p)\n",THIS_TASK);
 #endif
   /* Add the calling thread to its associated group. */
-  if ((THIS_GROUP.tg_thread.g_group.le_next = leader_group->tg_process.h_group) != NULL)
-       FORTASK(leader_group->tg_process.h_group,_this_group).tg_thread.g_group.le_pself = &THIS_GROUP.tg_thread.g_group.le_next;
-  THIS_GROUP.tg_thread.g_group.le_pself = &leader_group->tg_process.h_group;
+  PERTASK_SET(_this_group.tg_thread.g_group.le_next,
+              leader_group->tg_process.h_group);
+  if (leader_group->tg_process.h_group != NULL)
+      FORTASK(leader_group->tg_process.h_group,_this_group).tg_thread.g_group.le_pself = &PERTASK(_this_group.tg_thread.g_group.le_next);
+  PERTASK_SET(_this_group.tg_thread.g_group.le_pself,&leader_group->tg_process.h_group);
   leader_group->tg_process.h_group = THIS_TASK;
  }
 #endif
@@ -376,15 +383,15 @@ taskgroup_queue_rpc(task_rpc_t func, void *arg,
  size_t num_threads;
  struct task *iter;
  struct task **thread_vec = NULL;
- assert(THIS_GROUP.tg_leader == THIS_TASK);
+ assert(get_this_process() == THIS_TASK);
  TRY {
   for (;;) {
 again:
    num_threads = 0;
-   atomic_rwlock_read(&THIS_GROUP.tg_process.h_lock);
-   iter = THIS_GROUP.tg_process.h_group;
+   atomic_rwlock_read(&PERTASK(_this_group.tg_process.h_lock));
+   iter = PERTASK_GET(_this_group.tg_process.h_group);
    for (; iter; iter = GROUP_NEXT(iter)) ++num_threads;
-   atomic_rwlock_endread(&THIS_GROUP.tg_process.h_lock);
+   atomic_rwlock_endread(&PERTASK(_this_group.tg_process.h_lock));
    if (!num_threads) break; /* No threads to signal! */
    if (num_threads > min_threads) {
     thread_vec = (struct task **)krealloc(thread_vec,num_threads*
@@ -392,15 +399,15 @@ again:
                                           GFP_SHARED);
     min_threads = num_threads;
    }
-   atomic_rwlock_read(&THIS_GROUP.tg_process.h_lock);
+   atomic_rwlock_read(&PERTASK(_this_group.tg_process.h_lock));
    num_threads = 0;
    /* Collect all threads. */
-   iter = THIS_GROUP.tg_process.h_group;
+   iter = PERTASK_GET(_this_group.tg_process.h_group);
    for (; iter; iter = GROUP_NEXT(iter)) {
     if (iter->t_state & TASK_STATE_FTERMINATING) continue;
     if (!ATOMIC_INCIFNONZERO(iter->t_refcnt)) continue;
     if unlikely(num_threads == min_threads) {
-     atomic_rwlock_endread(&THIS_GROUP.tg_process.h_lock);
+     atomic_rwlock_endread(&PERTASK(_this_group.tg_process.h_lock));
      task_decref(iter);
      while (num_threads--)
          task_decref(thread_vec[num_threads]);
@@ -408,7 +415,7 @@ again:
     }
     thread_vec[num_threads++] = iter;
    }
-   atomic_rwlock_endread(&THIS_GROUP.tg_process.h_lock);
+   atomic_rwlock_endread(&PERTASK(_this_group.tg_process.h_lock));
 
    /* With a snapshot of all threads now at hand, send an RPC to each of them. */
    TRY {
@@ -641,10 +648,10 @@ PUBLIC ATTR_NOTHROW bool KCALL task_set_session(void) {
  struct processgroup *pgroup;
  struct processgroup *old_pgroup;
  REF struct task *old_leader;
- pgroup = &FORTASK(THIS_GROUP.tg_leader,_this_group).tg_process.h_procgroup;
+ pgroup = &FORTASK(get_this_process(),_this_group).tg_process.h_procgroup;
  atomic_rwlock_write(&pgroup->pg_lock);
  old_leader = pgroup->pg_leader;
- if (pgroup->pg_leader == THIS_GROUP.tg_leader) {
+ if (pgroup->pg_leader == get_this_process()) {
   /* The current process is already the leader of a process
    * group. Posix mandates that we fail in this scenario. */
   atomic_rwlock_endwrite(&pgroup->pg_lock);
@@ -662,8 +669,8 @@ PUBLIC ATTR_NOTHROW bool KCALL task_set_session(void) {
  }
  atomic_rwlock_endwrite(&old_pgroup->pg_lock);
  /* Set the process as the leader of its own group and session. */
- pgroup->pg_leader           = THIS_GROUP.tg_leader;
- pgroup->pg_master.m_session = THIS_GROUP.tg_leader;
+ pgroup->pg_leader           = get_this_process();
+ pgroup->pg_master.m_session = pgroup->pg_leader;
  pgroup->pg_master.m_members = NULL; /* No additional members, yet. */
  atomic_rwlock_endwrite(&pgroup->pg_lock);
  /* Drop a reference from the old leader (inherited from `pgroup->pg_leader') */
@@ -758,7 +765,7 @@ posix_waitfor(int which, pid_t upid,
  struct thread_pid *child;
  size_t my_indirection;
  size_t num_candidates;
- my_process     = THIS_GROUP.tg_leader;
+ my_process     = get_this_process();
  my_group       = &FORTASK(my_process,_this_group);
  my_indirection = FORTASK(my_process,_this_pid) ? FORTASK(my_process,_this_pid)->tp_ns->pn_indirection : 0;
  /* Posix wants us to do some special handling when SIGCLD is being ignored... */

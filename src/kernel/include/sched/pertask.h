@@ -72,7 +72,7 @@ template<class T, class S> T PERTASK_XCH(T &object, S value);
 #endif
 
 #ifndef PERTASK_GET
-#define PERTASK_GET(x)            PERTASK(x)
+#define PERTASK_GET(x)           ((__typeof__(x))PERTASK(x))
 #endif
 #ifndef PERTASK_TEST
 #define PERTASK_TEST(x)        (!!PERTASK_GET(x))

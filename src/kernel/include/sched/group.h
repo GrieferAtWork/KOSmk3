@@ -123,21 +123,25 @@ struct threadgroup {
 
 /* The thread-group descriptor for the calling thread. */
 DATDEF ATTR_PERTASK struct threadgroup _this_group;
-#define THIS_GROUP  PERTASK_GET(_this_group)
+#define THIS_GROUP  PERTASK(_this_group)
 
 /* Return a reference to the parent of the calling thread (as defined by POSIX).
  * If the calling thread doesn't have a parent, return NULL instead. */
 FUNDEF REF struct task *KCALL task_get_parent(void);
 
 /* Returns a pointer to the process leader, process group leader, or session leader of the calling thread. */
-FORCELOCAL struct task *KCALL get_this_process(void);
+#ifdef __INTELLISENSE__
+FORCELOCAL struct task *(KCALL get_this_process)(void);
+#endif
 FORCELOCAL REF struct task *KCALL get_this_processgroup(void);
 FORCELOCAL REF struct task *KCALL get_this_session(void);
 FORCELOCAL WEAK struct task *KCALL get_this_processgroup_weak(void);
 FORCELOCAL WEAK struct task *KCALL get_this_session_weak(void);
 
 /* Same as the functions above, but return information about some other thread. */
-FORCELOCAL struct task *KCALL get_process_of(struct task *__restrict thread);
+#ifdef __INTELLISENSE__
+FORCELOCAL struct task *(KCALL get_process_of)(struct task *__restrict thread);
+#endif
 FORCELOCAL REF struct task *KCALL get_processgroup_of(struct task *__restrict thread);
 FORCELOCAL REF struct task *KCALL get_session_of(struct task *__restrict thread);
 FORCELOCAL WEAK struct task *KCALL get_processgroup_of_weak(struct task *__restrict thread);
@@ -191,9 +195,7 @@ FUNDEF ATTR_NOTHROW bool KCALL task_set_session(void);
 
 
 #if !defined(__INTELLISENSE__)
-FORCELOCAL struct task *KCALL get_this_process(void) {
- return THIS_GROUP.tg_leader;
-}
+#define get_this_process()   PERTASK_GET(_this_group.tg_leader)
 FORCELOCAL REF struct task *KCALL get_this_processgroup(void) {
  REF struct task *result; struct processgroup *group;
  group = &FORTASK(get_this_process(),_this_group).tg_process.h_procgroup;
@@ -235,10 +237,8 @@ FORCELOCAL WEAK struct task *KCALL get_this_session_weak(void) {
  return result;
 }
 
-FORCELOCAL struct task *KCALL
-get_process_of(struct task *__restrict thread) {
- return FORTASK(thread,_this_group).tg_leader;
-}
+
+#define get_process_of(thread) (FORTASK(thread,_this_group).tg_leader)
 FORCELOCAL REF struct task *KCALL
 get_processgroup_of(struct task *__restrict thread) {
  REF struct task *result; struct processgroup *group;

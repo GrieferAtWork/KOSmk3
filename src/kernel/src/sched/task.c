@@ -37,6 +37,7 @@
 #include <sched/mutex.h>
 #include <sched/pid.h>
 #include <sched/stat.h>
+#include <sched/pertask-arith.h>
 #include <stdbool.h>
 #include <string.h>
 #include <assert.h>
@@ -207,11 +208,10 @@ userseg_notify(void *closure, unsigned int code,
  return closure;
 }
 
-PUBLIC void KCALL
-task_alloc_userseg(void) {
+PUBLIC void KCALL task_alloc_userseg(void) {
  REF struct vm_region *region;
- assert(!(THIS_TASK->t_flags&TASK_FKERNELJOB));
- if (THIS_TASK->t_flags & TASK_FOWNUSERSEG) return;
+ assert(!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB));
+ if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG)) return;
  /* Allocate a new region for the user-space thread segment. */
  region = vm_region_alloc(USERSEG_SIZE);
 
@@ -221,22 +221,23 @@ task_alloc_userseg(void) {
 
  TRY {
   /* Map the stack a suitable location, using arch-specific hints. */
-  THIS_TASK->t_userseg = (USER struct user_task_segment *)vm_map(VM_USERSEG_HINT,
-                                                                 USERSEG_SIZE,
-                                                                 1,
-                                                                 0,
-                                                                 VM_USERSEG_MODE,
-                                                                 0,
-                                                                 region,
-                                                                 PROT_READ|PROT_WRITE,
-                                                                &userseg_notify,
-                                                                 THIS_TASK);
+  PERTASK_SET(this_task.t_userseg,
+             (USER struct user_task_segment *)vm_map(VM_USERSEG_HINT,
+                                                     USERSEG_SIZE,
+                                                     1,
+                                                     0,
+                                                     VM_USERSEG_MODE,
+                                                     0,
+                                                     region,
+                                                     PROT_READ|PROT_WRITE,
+                                                    &userseg_notify,
+                                                     THIS_TASK));
  } FINALLY {
   vm_region_decref(region);
  }
  ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_FOWNUSERSEG);
  COMPILER_WRITE_BARRIER();
- setup_user_segment(THIS_TASK->t_userseg);
+ setup_user_segment(PERTASK_GET(this_task.t_userseg));
 }
 
 
@@ -276,7 +277,7 @@ PRIVATE struct vm_region singlepage_reserved_region = {
 
 PUBLIC ATTR_CONST vm_vpage_t KCALL task_temppage(void) {
  struct vm_node *node;
- vm_vpage_t result = THIS_TASK->t_temppage;
+ vm_vpage_t result = PERTASK_GET(this_task.t_temppage);
  if (result != VM_VPAGE_MAX+1)
      return result;
  /* Construct a new temporary page mapping. */
@@ -310,20 +311,21 @@ PUBLIC ATTR_CONST vm_vpage_t KCALL task_temppage(void) {
   error_rethrow();
  }
  /* Save the new temppage location. */
- THIS_TASK->t_temppage = result;
+ PERTASK_SET(this_task.t_temppage,result);
  return result;
 }
 
 
 PUBLIC ATTR_NOTHROW
 void (KCALL task_nothrow_serve)(void) {
- ++THIS_TASK->t_nothrow_serve;
+ PERTASK_INC(this_task.t_nothrow_serve);
 }
 PUBLIC void (KCALL task_nothrow_end)(void) {
- assert(THIS_TASK->t_nothrow_serve);
- if (!--THIS_TASK->t_nothrow_serve &&
-       (THIS_TASK->t_state&TASK_STATE_FSERVEEXCEPT)) {
-  ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FSERVEEXCEPT);
+ struct task *t = THIS_TASK;
+ assert(t->t_nothrow_serve);
+ if (!--t->t_nothrow_serve &&
+       (t->t_state&TASK_STATE_FSERVEEXCEPT)) {
+  ATOMIC_FETCHAND(t->t_state,~TASK_STATE_FSERVEEXCEPT);
   /* Make the current error non-continuable. */
   error_info()->e_error.e_flag &= ~ERR_FRESUMABLE;
   /* Throw the last error (hopefully the one caused by the RPC function). */
@@ -400,7 +402,7 @@ again_newvm:
   task_yield();
   goto again;
  }
- if (!atomic_rwlock_trywrite(&THIS_TASK->t_vm_lock)) {
+ if (!atomic_rwlock_trywrite(&PERTASK(this_task.t_vm_lock))) {
   vm_release(new_vm);
   goto again_newvm;
  }
@@ -408,7 +410,7 @@ again_newvm:
  /* Set the new VM as active. */
  THIS_TASK->t_vm = new_vm;
  COMPILER_WRITE_BARRIER();
- atomic_rwlock_endwrite(&THIS_TASK->t_vm_lock);
+ atomic_rwlock_endwrite(&PERTASK(this_task.t_vm_lock));
  LIST_REMOVE(THIS_TASK,t_vmtasks);
  vm_release(old_vm);
  LIST_INSERT(new_vm->vm_tasks,THIS_TASK,t_vmtasks);

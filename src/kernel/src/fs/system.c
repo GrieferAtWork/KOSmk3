@@ -57,6 +57,7 @@
 #include <kos/keymap.h>
 #include <kos/keyboard-ioctl.h>
 #include <linux/msdos_fs.h>
+#include <sched/pertask-arith.h>
 
 /* FS System calls. */
 
@@ -1326,7 +1327,7 @@ exec_user(struct exec_args *__restrict args,
    pagedir_syncall();
 
    /* Update the thread configuration to indicate that stack and segments are gone. */
-   THIS_TASK->t_flags &= ~(TASK_FOWNUSERSEG);
+   PERTASK_AND(this_task.t_flags,~(TASK_FOWNUSERSEG));
    {
     REF struct userstack *stack;
     stack = PERTASK_XCH(_this_user_stack,NULL);
@@ -1380,7 +1381,7 @@ exec_user(struct exec_args *__restrict args,
   /* The new application has now been loaded.
    * Allocate the user-space task segment and a new stack. */
   task_alloc_userseg();
-  set_user_tls_register(THIS_TASK->t_userseg);
+  set_user_tls_register(PERTASK_GET(this_task.t_userseg));
   stack = task_alloc_userstack();
 
   /* Finally, update the user-space CPU context
@@ -1443,7 +1444,7 @@ DEFINE_SYSCALL5(execveat,fd_t,dfd,
         error_throw(E_NOT_EXECUTABLE);
 
   /* Send a request to the. */
-  if (!task_queue_rpc_user(THIS_GROUP.tg_leader,(task_user_rpc_t)&exec_user,
+  if (!task_queue_rpc_user(get_this_process(),(task_user_rpc_t)&exec_user,
                            args,TASK_RPC_SYNC|TASK_RPC_USER))
        error_throw(E_INTERRUPT); /* If the leader has been terminated, we'll be too sooner or later. */
   else {
@@ -1456,7 +1457,7 @@ DEFINE_SYSCALL5(execveat,fd_t,dfd,
    * tries to send an RPC to itself, then the RPC will have still been scheduled
    * successfully, meaning we must not decref() the module passed to the RPC function. */
   if (error_code() == E_INTERRUPT &&
-      THIS_GROUP.tg_leader == THIS_TASK)
+      get_this_process() == THIS_TASK)
       error_rethrow();
   debug_printf("EXEC FAILED\n");
   /* NOTE: Upon success, `task_queue_rpc_user()' and the `exec_user()' function

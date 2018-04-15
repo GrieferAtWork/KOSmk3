@@ -177,7 +177,7 @@ void KCALL x86_switch_to_userspace(void) {
 
  /* Allocate a user-space thread segment for the boot task. */
  task_alloc_userseg();
- set_user_tls_register(THIS_TASK->t_userseg);
+ set_user_tls_register(PERTASK_GET(this_task.t_userseg));
 
  {
   struct userstack *stack;

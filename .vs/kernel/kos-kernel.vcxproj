@@ -237,6 +237,7 @@
     <ClInclude Include="..\..\src\kernel\include\kernel\vm.h" />
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot.h" />
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\affinity.h" />
     <ClInclude Include="..\..\src\kernel\include\sched\async_signal.h" />
     <ClInclude Include="..\..\src\kernel\include\sched\group.h" />
     <ClInclude Include="..\..\src\kernel\include\sched\mutex.h" />

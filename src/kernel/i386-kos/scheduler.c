@@ -258,7 +258,7 @@ INTERN ATTR_PERTASK struct x86_irregs_user iret_saved;
  *          you must not set this IP as an override in the
  *          register state returned by `x86_interrupt_getiret()'! */
 INTDEF NOIRQ void ASMCALL x86_redirect_preemption(void);
-#define REAL_IRET() ((struct x86_irregs_user *)THIS_TASK->t_stackend-1)
+#define REAL_IRET() ((struct x86_irregs_user *)PERTASK_GET(this_task.t_stackend)-1)
 
 
 PUBLIC NOIRQ ATTR_RETNONNULL
@@ -267,10 +267,10 @@ struct x86_irregs_user *KCALL x86_interrupt_getiret(void) {
  assertf(!PREEMPTION_ENABLED(),
          "Preemption must be disabled to "
          "prevent sporadic modifications");
- assertf(!(THIS_TASK->t_flags&TASK_FKERNELJOB),
+ assertf(!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB),
          "Kernel worker threads never return to user-space");
 #ifdef CONFIG_VM86
- if (THIS_TASK->t_flags&TASK_FVM86) {
+ if (PERTASK_TESTF(this_task.t_flags,TASK_FVM86)) {
   /* Adjust for the additional fields saved by VM86 mode. */
   *(uintptr_t *)&iret -= (sizeof(struct x86_irregs_vm86)-
                           sizeof(struct x86_irregs_user));
@@ -475,10 +475,14 @@ PUBLIC NOIRQ ATTR_HOTTEXT bool KCALL task_sleep(jtime_t abs_timeout) {
 
 
 PUBLIC bool KCALL
-task_setcpu(struct cpu *__restrict new_cpu) {
+task_setcpu(struct task *__restrict thread,
+            struct cpu *__restrict new_cpu,
+            bool overrule_affinity) {
  /* TODO */
+ (void)thread;
  (void)new_cpu;
- error_throw(E_NOT_IMPLEMENTED);
+ (void)overrule_affinity;
+ return false;
 }
 
 PUBLIC REF struct task *KCALL
@@ -565,6 +569,14 @@ task_setup_kernel(struct task *__restrict thread,
 
  /* Set the kernel filesystem to-be used by this thread. */
  task_setup_kernel_environ(thread);
+
+#ifndef CONFIG_NO_SMP
+ /* Keep cache locality high by spawning the
+  * new thread on the same CPU as the caller.
+  * NOTE: Prior to task_start(), the caller will
+  *       still be able to change this again. */
+ thread->t_cpu = THIS_CPU;
+#endif
 
  /* Setup the thread's initial CPU state (arch-specific portion). */
  ((void **)thread->t_stackend)[-1] = arg;        /* `thread_main()' argument. */
@@ -741,7 +753,7 @@ PUBLIC ATTR_NORETURN void KCALL task_exit(void) {
 
  /* Set the terminating flag to prevent new RPCs from being added. */
  ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FTERMINATING);
- while (THIS_TASK->t_state & TASK_STATE_FINTERRUPTED) {
+ while (PERTASK_TESTF(this_task.t_state,TASK_STATE_FINTERRUPTED)) {
   /* With the flag now set, serve all remaining RPCs. */
   TRY {
    task_serve();
@@ -768,15 +780,15 @@ PUBLIC ATTR_NORETURN void KCALL task_exit(void) {
  }
 
  /* Destroy the task's temporary virtual page. */
- if (THIS_TASK->t_temppage != VM_VPAGE_MAX+1)
-     vm_unmap(THIS_TASK->t_temppage,1,VM_UNMAP_NOEXCEPT,NULL);
+ if (PERTASK_GET(this_task.t_temppage) != VM_VPAGE_MAX+1)
+     vm_unmap(PERTASK_GET(this_task.t_temppage),1,VM_UNMAP_NOEXCEPT,NULL);
 
- if (!(THIS_TASK->t_flags&TASK_FKERNELJOB)) {
-  if (THIS_TASK->t_flags&TASK_FOWNUSERSEG) {
+ if (!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB)) {
+  if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG)) {
    /* Delete the user task segment. */
-   assert(IS_ALIGNED((uintptr_t)THIS_TASK->t_userseg,PAGEALIGN));
+   assert(IS_ALIGNED((uintptr_t)PERTASK_GET(this_task.t_userseg),PAGEALIGN));
    assert(THIS_VM != &vm_kernel);
-   vm_unmap(VM_ADDR2PAGE((uintptr_t)THIS_TASK->t_userseg),
+   vm_unmap(VM_ADDR2PAGE((uintptr_t)PERTASK_GET(this_task.t_userseg)),
             CEILDIV(sizeof(struct task_segment),PAGESIZE),
             VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT,THIS_TASK);
   }
@@ -821,18 +833,18 @@ restart_final_decref:
   PREEMPTION_DISABLE();
   /* If this is the last task of the calling CPU, we
    * must wait until more tasks show up (from other CPUs). */
-  if unlikely(THIS_TASK->t_sched.sched_ring.re_next == THIS_TASK) {
+  if unlikely(PERTASK_GET(this_task.t_sched.sched_ring.re_next) == THIS_TASK) {
    PREEMPTION_ENABLE();
 
    if (!did_clear_vm) {
     did_clear_vm = true;
-    if (THIS_TASK->t_vm->vm_refcnt == 1 &&
+    if (THIS_VM->vm_refcnt == 1 &&
         /* Kernel-jobs use the kernel VM, meaning it would be a bad idea
          * for them to arbitrarily delete all mappings below the kernel... */
-      !(THIS_TASK->t_flags & TASK_FKERNELJOB) &&
+      !PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB) &&
         /* NOTE: We can't do something as convoluted as unmapping
          *       memory if we must fear getting terminated at random. */
-      !(THIS_TASK->t_state & TASK_STATE_FHELPMETERM)) {
+      !PERTASK_TESTF(this_task.t_state,TASK_STATE_FHELPMETERM)) {
      /* If we're the last thing keeping our VM going, then we
       * can already go ahead and unmap everything from userspace.
       * That way, we don't have to wait until we actually die
@@ -961,9 +973,10 @@ PRIVATE void KCALL exit_group_rpc(void *info) {
 }
 
 INTERN void KCALL take_down_process(unsigned int status) {
- if (THIS_GROUP.tg_leader != THIS_TASK) {
+ struct task *proc = get_this_process();
+ if (proc != THIS_TASK) {
   /* Send an RPC to terminate the leader with the same reason. */
-  task_queue_rpc(THIS_GROUP.tg_leader,&exit_group_rpc,
+  task_queue_rpc(proc,&exit_group_rpc,
                 (void *)(uintptr_t)status,
                  TASK_RPC_SINGLE);
  }
@@ -1065,7 +1078,7 @@ serve_rpc:
    return;
   }
 
-  if (THIS_TASK->t_flags & (TASK_FOWNUSERSEG|TASK_FUSEREXCEPT)) {
+  if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG|TASK_FUSEREXCEPT)) {
    struct cpu_context unwind;
    unwind.c_gpregs = context->c_gpregs;
 #ifdef CONFIG_X86_SEGMENTATION
@@ -1135,7 +1148,7 @@ serve_rpc:
        /* NOTE: Dereference the user-space segment's self-pointer, so
         *       user-space is able to quickly re-direct exception storage
         *       by overriding the thread-local TLS self-pointer. */
-       useg = THIS_TASK->t_userseg->ts_self;
+       useg = PERTASK_GET(this_task.t_userseg)->ts_self;
        validate_writable(useg,sizeof(struct user_task_segment));
        errorinfo_copy_to_user(useg,&info,context);
       }
@@ -1280,7 +1293,7 @@ serve_rpc:
 #endif
 
 #if 0
-  if (THIS_TASK->t_flags&(TASK_FOWNUSERSEG|TASK_FUSEREXCEPT)) {
+  if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG|TASK_FUSEREXCEPT)) {
    /* This is an exception-enabled user-space thread, but we
     * weren't able to find an exception handler, or signal handler.
     * Check if one of the linked applications contains an unhandled
@@ -1291,7 +1304,7 @@ serve_rpc:
     /* NOTE: Dereference the user-space segment's self-pointer, so
      *       user-space is able to quickly re-direct exception storage
      *       by overriding the thread-local TLS self-pointer. */
-    useg = THIS_TASK->t_userseg->ts_self;
+    useg = PERTASK_GET(this_task.t_userseg)->ts_self;
     validate_writable(useg,sizeof(struct user_task_segment));
  reload_state:
     user_state = useg->ts_state;

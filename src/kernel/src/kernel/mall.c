@@ -521,8 +521,7 @@ release_heap_locks:
       goto release_heap_locks;
   has_user_lock = true;
   /* Step #2: Set the keep-core flag in the calling thread. */
-  old_flags = THIS_TASK->t_flags;
-  ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_FKEEPCORE);
+  old_flags = ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_FKEEPCORE);
   TRY {
    /* Step #3: Suspend all other CPUs. */
    if (!x86_unicore_begin()) {
@@ -791,10 +790,10 @@ mall_register(gfp_t flags, struct heapptr pointer,
 #else
      f = (struct frame *)allocator_context->c_gpregs.gp_ebp;
 #endif
-     if ((uintptr_t)f >= (uintptr_t)THIS_TASK->t_stackmin &&
-         (uintptr_t)f <  (uintptr_t)THIS_TASK->t_stackend &&
-         (uintptr_t)f->f_caller >= (uintptr_t)THIS_TASK->t_stackmin &&
-         (uintptr_t)f->f_caller <  (uintptr_t)THIS_TASK->t_stackend &&
+     if ((uintptr_t)f >= (uintptr_t)PERTASK_GET(this_task.t_stackmin) &&
+         (uintptr_t)f <  (uintptr_t)PERTASK_GET(this_task.t_stackend) &&
+         (uintptr_t)f->f_caller >= (uintptr_t)PERTASK_GET(this_task.t_stackmin) &&
+         (uintptr_t)f->f_caller <  (uintptr_t)PERTASK_GET(this_task.t_stackend) &&
          (uintptr_t)f->f_return >= KERNEL_BASE) {
       register register_t temp;
       /* Make sure the supposed return address is valid by reading from it. */
