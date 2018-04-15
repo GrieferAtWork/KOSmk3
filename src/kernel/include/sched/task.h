@@ -534,7 +534,20 @@ FUNDEF bool KCALL task_setaffinity(__cpu_set_t const *__restrict cpuset); /* TOD
 
 
 /* Task signaling API. (Low-level scheduling) */
+
+
+/* Max number of signal connections guarantied to not invoke `kmalloc()'
+ * and potentially throw exceptions, or serve RPC functions.
+ * A value of ONE(1) would suffice, but a static buffer is mandatory
+ * due to the fact that allocating a dynamic buffer (using `kmalloc()')
+ * will do its own lock in the case that new memory must be vm_map()-ed
+ * In that case, locking needs to be done, meaning that to prevent logic
+ * recursion, it must be possible to have at least one signal slot that
+ * is allocated statically (`task_connect()' uses `task_push_connections()'
+ * to free up that static slot before calling `kmalloc()'). */
+#ifndef CONFIG_TASK_STATIC_CONNECTIONS
 #define CONFIG_TASK_STATIC_CONNECTIONS  3
+#endif
 
 struct sig;
 struct task_connection {
@@ -570,13 +583,13 @@ struct task_connections {
  * If there is insufficient memory to establish the connection, the set of
  * already connected signals is disconnected and an `E_BADALLOC' error is thrown.
  * NOTE: Any task is guarantied to sustain at least `CONFIG_TASK_STATIC_CONNECTIONS'
- *       simultaneous connections without running the chance to not be able to
+ *       simultaneous connections before running the chance to not be able to
  *       connect to more due to lack of resources.
  * If the given `signal' was already connected, this function is a no-op.
  * Note however, that the implementation will still register the signal
  * a second time, knowing that when send, the calling thread will only
  * receive it once.
- * @throw: E_BADALLOC: There are already more than `CONFIG_TASK_STATIC_CONNECTIONS'
+ * @throw: E_BADALLOC: There are already at least `CONFIG_TASK_STATIC_CONNECTIONS'
  *                     other connections, and not enough available memory to allocate
  *                     a new buffer for more. */
 FUNDEF void KCALL task_connect(struct sig *__restrict signal);
@@ -600,8 +613,8 @@ FUNDEF void KCALL task_connect(struct sig *__restrict signal);
  * For this purpose, ~ghost~ connections were introduced.
  * Ghost connections act identical to regular connections, however when `sig_send()'
  * is used to deliver the signal, although a ghost connection will still get the
- * signal delivered and be woken during the process, however will not count to the
- * total sum of signaled threads, meaning that `sig_send()' will continue to wake
+ * signal delivered and be woken during the process, they however will not count to
+ * the total sum of signaled threads, meaning that `sig_send()' will continue to wake
  * other threads until a sufficient number of non-ghostly (regularly) connected
  * threads have been signaled. */
 FUNDEF void KCALL task_connect_ghost(struct sig *__restrict signal);
@@ -780,9 +793,17 @@ FUNDEF void (KCALL task_yield)(void);
  * HINT: Because This function is a no-op when preemption is disabled,
  *       it is safe to be called from interrupt handlers (aka. ASYNCSAFE).
  * ---- ARCH-SPECIFIC ----
- * X86: When `true' is returned, EFLAGS_CF is cleared (`if (task_tryyield()) goto 1f' --> `jnc 1f')
- * X86: When `false' is returned, EFLAGS_CF is set    (`if (!task_tryyield()) goto 1f' --> `jc 1f') */
+ * X86: When `true' is returned, EFLAGS_CF is cleared (`if (task_tryyield()) goto 1f' --> `call task_tryyield; jnc 1f')
+ * X86: When `false' is returned, EFLAGS_CF is set    (`if (!task_tryyield()) goto 1f' --> `call task_tryyield; jc 1f') */
 FUNDEF ASYNCSAFE ATTR_NOTHROW bool (KCALL task_tryyield)(void);
+
+#if defined(__i386__) || defined(__x86_64__)
+#ifdef CONFIG_BUILDING_KERNEL_CORE
+#define task_tryyield() XBLOCK({ bool __ty_res; __asm__("call task_tryyield" : "=@ccnc" (__ty_res) : : "memory","eax","ecx","edx"); XRETURN __ty_res; })
+#else
+#define task_tryyield() XBLOCK({ bool __ty_res; __asm__("call task_tryyield@PLT" : "=@ccnc" (__ty_res) : : "memory","eax","ecx","edx"); XRETURN __ty_res; })
+#endif
+#endif
 
 /* Re-schedule the given `thread' if it was unscheduled (entered a sleeping state).
  * Using this function, a ~sporadic interrupt~ is implemented.

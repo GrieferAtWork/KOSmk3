@@ -413,8 +413,8 @@ DEFINE_SYSCALL3(ioctl,int,fd,unsigned long,cmd,void *,arg) {
   result = handle_ioctl(hnd,cmd,arg);
  } FINALLY {
   handle_decref(hnd);
-  //if (FINALLY_WILL_RETHROW)
-  //    translate_ioctl_error(fd,cmd,hnd);
+  if (FINALLY_WILL_RETHROW)
+      translate_ioctl_error(fd,cmd,hnd);
  }
  return result;
 }

@@ -426,12 +426,20 @@ read_through:
  /* If no buffer had been allocated, allocate one now. */
  if unlikely(!self->fb_size) {
   /* Start out with the smallest size. */
-  /* TODO: Use a larger size based on `bufsize' */
-  new_buffer = buffer_realloc_nolock(self,FILE_BUFSIZ_MIN);
+  if (bufsize >= FILE_BUFSIZ_MAX) {
+   new_buffer = buffer_realloc_nolock(self,FILE_BUFSIZ_MAX);
+  } else if (bufsize <= FILE_BUFSIZ_MIN) {
+   new_buffer = buffer_realloc_nolock(self,FILE_BUFSIZ_MIN);
+  } else {
+   /* Use a larger size based on `bufsize' */
+   size_t new_alloc = 1;
+   while (new_alloc < bufsize) new_alloc <<= 1;
+   new_buffer = buffer_realloc_nolock(self,new_alloc);
+  }
   self->fb_base = new_buffer;
   self->fb_size = FILE_BUFSIZ_MIN;
  } else if (bufsize >= self->fb_size) {
-  /* The caller want's at least as much as this buffer could even handle.
+  /* The caller wants at least as much as this buffer could even handle.
    * Upscale the buffer, or use load data using read-through mode. */
   if (self->fb_flag&(FILE_BUFFER_FNODYNSCALE|
                      FILE_BUFFER_FSTATICBUF|

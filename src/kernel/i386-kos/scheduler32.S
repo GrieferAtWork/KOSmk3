@@ -290,7 +290,8 @@ PUBLIC_ENTRY(task_yield)
 	call    error_throw_resumable
 	jmp     task_yield
 	.cfi_adjust_cfa_offset  4
-1:	popfl_cfi
+	.cfi_rel_offset %eflags, 0
+1:	popfl_cfi_r
 
 	INCSTAT(ts_hyield)
 	pause
