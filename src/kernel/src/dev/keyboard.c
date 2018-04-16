@@ -50,9 +50,14 @@ keymap_copyregion(struct vm_region *__restrict region,
  assert(region->vr_size == 1);
  /* Temporarily map the new keymap into the kernel address space. */
  vpage = task_temppage();
- pagedir_mapone(vpage,
-                region->vr_parts->vp_phys.py_iscatter[0].ps_addr,
-                PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE);
+ vm_acquire(&vm_kernel);
+ TRY {
+  pagedir_mapone(vpage,
+                 region->vr_parts->vp_phys.py_iscatter[0].ps_addr,
+                 PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE);
+ } FINALLY {
+  vm_release(&vm_kernel);
+ }
  pagedir_syncone(vpage);
  /* Copy data from the default keymap. */
  memcpyl((void *)VM_PAGE2ADDR(vpage),map,

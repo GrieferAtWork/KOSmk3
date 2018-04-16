@@ -108,8 +108,8 @@ __SYSDECL_BEGIN
             __X86_PIC_IMAGE_RELATIVE(begin); \
             __X86_PIC_IMAGE_RELATIVE(end); \
             __X86_PIC_IMAGE_RELATIVE(entry); \
-            .long  __X86_PIC_FLAGS|(flags); \
-            .long  mask; \
+            .int __X86_PIC_FLAGS|(flags); \
+            .int mask; \
         .popsection;
 #else /* __x86_64__ */
 #define __X86_DEFINE_EXCEPT_HANDLER(begin,end,entry,flags,mask) \
@@ -134,8 +134,8 @@ __SYSDECL_BEGIN
                                   __X86_PIC_IMAGE_RELATIVE("%l2") "\n" \
                                   __X86_PIC_IMAGE_RELATIVE("%l3") "\n" \
                                   __X86_PIC_IMAGE_RELATIVE("%l4") "\n" \
-                                  ".long %a0\n" \
-                                  ".long %a1\n" \
+                                  ".int %a0\n" \
+                                  ".int %a1\n" \
                                   ".popsection\n" : : \
                                   "i" (__X86_PIC_FLAGS|(flags)), "i" (mask) : : \
                                   begin, end, entry);

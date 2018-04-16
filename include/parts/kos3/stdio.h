@@ -80,9 +80,9 @@ __LIBC __ATTR_LIBC_PRINTF_P(2,0) __PORT_KOSONLY __WUNUSED __PRINTF_RETURN_TYPE (
 __LIBC __ATTR_LIBC_PRINTF_P(2,4) __PORT_KOSONLY __WUNUSED __PRINTF_RETURN_TYPE (__ATTR_CDECL asprintf_p_l)(char **__restrict __pstr, char const *__restrict __format, __locale_t __locale, ...);
 __LIBC __ATTR_LIBC_PRINTF_P(2,0) __PORT_KOSONLY __WUNUSED __PRINTF_RETURN_TYPE (__LIBCCALL vasprintf_p_l)(char **__restrict __pstr, char const *__restrict __format, __locale_t __locale, __builtin_va_list __args);
 #endif /* __USE_GNU */
-
-
 #endif /* __CRT_KOS */
+
+
 
 #undef __PRINTF_RETURN_TYPE
 
@@ -91,8 +91,15 @@ __SYSDECL_END
 
 #ifdef _WCHAR_H
 #ifndef _PARTS_KOS3_WSTDIO_H
-#include "wstdio.h"
+#include "parts/kos3/wstdio.h"
 #endif
+#endif /* _WCHAR_H */
+#ifdef __USE_UTF
+#ifdef _UCHAR_H
+#ifndef _PARTS_KOS3_USTDIO_H
+#include "parts/kos3/ustdio.h"
 #endif
+#endif /* _UCHAR_H */
+#endif /* __USE_UTF */
 
 #endif /* !_PARTS_KOS3_STDIO_H */

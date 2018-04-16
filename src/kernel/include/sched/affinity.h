@@ -26,6 +26,34 @@ DECL_BEGIN
 
 #ifdef __CC__
 
+#ifndef CONFIG_NO_SMP
+/* Transfer the given thread to `new_cpu'.
+ * @param: overrule_affinity: Ignore the task's affinity
+ * @return: true:  The thread is now executing in the context of `new_cpu'
+ * @return: true:  `new_cpu' was the cpu `thread' was already running on (no change)
+ * @return: false: The `TASK_FKEEPCORE' flag is set.
+ * @return: false: `overrule_affinity' is `false' and `new_cpu' isn't part of `thread's affinity.
+ * @return: false: `thread' is the last task still being hosted
+ *                 by `new_cpu' and therefor cannot be moved.
+ *                 Shouldn't really happen because of per-cpu IDLE threads,
+ *                 however can actually happen because /bin/init is the IDLE
+ *                 thread of the boot CPU, meaning that the ability of moving
+ *                 it (which is possible) means that some thread could end up
+ *                 being the last thread still running on _boot_cpu.
+ * If `thread' is `THIS_TASK', this function will return in the context
+ * of `new_cpu', however unless the calling thread's affinity has been
+ * updated to disallow the previous CPU (s.a. `task_setaffinity()'),
+ * scheduling behavior may have chosen to move the task to another CPU
+ * (potentially even the original one) before this function returns.
+ * (In other words: This function isn't excluded from the usual rule
+ *                  that `THIS_CPU' is always volatile) */
+FUNDEF bool KCALL
+task_setcpu(struct task *__restrict thread,
+            struct cpu *__restrict new_cpu,
+            bool overrule_affinity);
+#else /* !CONFIG_NO_SMP */
+#define task_setcpu(thread,new_cpu,overrule_affinity)  true
+#endif /* CONFIG_NO_SMP */
 
 
 /* Get/Set the CPU affinity of the given thread. */

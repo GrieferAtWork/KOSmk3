@@ -180,7 +180,13 @@ vm_region_load_core(struct vm_node *__restrict node,
     *       However, when the mapping goes into kernel-space, we
     *       actually _have_ to map the page directly, as use of
     *       `task_temppage()' could otherwise cause a potential
-    *       infinite loop when that function causes another #PF. */
+    *       infinite loop when that function causes another #PF.
+    * NOTE: The lack of `PAGEDIR_MAP_FUSER' is undone by the fact
+    *       that lazy page directory bindings will consider it a
+    *       race condition and set the flag upon first access...
+    *      (Maybe somehow prevent it from doing that for the case
+    *       of user-space failing to access a PROT_NOUSER page,
+    *       even when the node doesn't have PROT_NOUSER set?) */
    pagedir_map(part_page,load_pages,
                part->vp_phys.py_iscatter[0].ps_addr,
                PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE);

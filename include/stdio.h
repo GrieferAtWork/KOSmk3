@@ -664,23 +664,10 @@ __LIBC __ATTR_LIBC_PRINTF(2,0) __PORT_NODOS __WUNUSED __PRINTF_RETURN_TYPE (__LI
 
 __SYSDECL_END
 
-
 #ifdef __USE_KOS3
 #ifndef _PARTS_KOS3_STDIO_H
 #include "parts/kos3/stdio.h"
 #endif
-#ifdef _WCHAR_H
-#ifndef _PARTS_KOS3_WSTDIO_H
-#include "parts/kos3/wstdio.h"
-#endif
-#endif /* _WCHAR_H */
-#ifdef __USE_UTF
-#ifdef _UCHAR_H
-#ifndef _PARTS_KOS3_USTDIO_H
-#include "parts/kos3/ustdio.h"
-#endif
-#endif /* _UCHAR_H */
-#endif /* __USE_UTF */
 #endif /* __USE_KOS3 */
 
 #ifdef __USE_DOS
