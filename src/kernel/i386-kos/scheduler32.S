@@ -459,20 +459,17 @@ SYMEND(x86_load_context)
 
 
 .section .text
-INTERN_ENTRY(x86_redirect_preemption)
 	.cfi_startproc simple
+	.cfi_signal_frame
+	.cfi_def_cfa %esp,     0 /* We must hide the 8 bytes from `cfi_signal_frame' */
+	nop
+INTERN_ENTRY(x86_redirect_preemption)
 	/* At this point, we're 8 bytes from the base of the kernel-stack
 	 * with those 8 bytes (supposedly) containing the user-space ESP
 	 * and SS.
 	 * However, we will override those registers irregardless in case
 	 * `x86_interrupt_getiret()' was used to modify them in their backup. */
-#if 1
-	.cfi_signal_frame
-	.cfi_def_cfa %esp,     0 /* We must hide the 8 bytes from `cfi_signal_frame' */
-#else
-	.cfi_def_cfa %esp,     8
-#endif
-	subl   $12, %esp /* Make space for the missing part of the IRET tail. */
+	subl   $12,  %esp        /* Make space for the missing part of the IRET tail. */
 	.cfi_adjust_cfa_offset 12
 /*	.cfi_offset %ss,     -1*4 */
 /*	.cfi_offset %esp,    -2*4 */

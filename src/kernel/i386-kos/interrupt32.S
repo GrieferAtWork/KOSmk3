@@ -600,33 +600,15 @@ INTERN_ENTRY(x86_interrupt_except)
 	testl $3, %ss:X86_IRREGS_HOST32_OFFSETOF_CS(%esp)
 	jnz   .interrupt_except_user
 
-	/* Interrupt originates from kernel-space (continue unwinding). */
-
-#ifdef CONFIG_X86_SEGMENTATION
-	/* If the exception happend after the thread was re-directed to kernel-space,
-	 * then we need to be careful because the %fs (%taskseg) register may not be
-	 * what we expect it to be, but rather some user-space segment.
-	 * This can happen when an exception is thrown in `clone_entry()', after
-	 * execution has been redirected to `x86_redirect_preemption()' */
+	/* Deal with the special case of exception propagation after user-space got redirected. */
 	cmpl  $(x86_redirect_preemption), %ss:X86_IRREGS_HOST32_OFFSETOF_EIP(%esp)
-	jne   1f
-	movl  %eax, %ss:X86_IRREGS_HOST32_OFFSETOF_CS(%esp)
-	movl  %ecx, %ss:X86_IRREGS_HOST32_OFFSETOF_EIP(%esp)
-	xorl  %ecx, %ecx
-	movw  $(X86_HOST_TLS), %ax
-	movw  %fs, %cx
-	movw  %ax, %fs
-	movl  %ss:X86_IRREGS_HOST32_OFFSETOF_CS(%esp), %eax
-	movl  %ecx, %ss:X86_IRREGS_HOST32_OFFSETOF_CS(%esp)
-	movl  %ss:X86_IRREGS_HOST32_OFFSETOF_EIP(%esp), %ecx
-	movl  $(x86_redirect_preemption), %ss:X86_IRREGS_HOST32_OFFSETOF_EIP(%esp)
-	/* NOTE: `X86_IRREGS_HOST32_OFFSETOF_CS(%esp)' now contains the user-space %FS register. */
-1:
-#endif
+	je    .interrupt_except_redirect
+
+	/* Interrupt originates from kernel-space (continue unwinding). */
 
 	/* We must rewind the stack to reclaim all the stack-space
 	 * that was deallocated when exception handling unwound the
-	 * stack to account for our `EXCEPTION_HANDLER_FUNWINDSP' flag.
+	 * stack to account for our `EXCEPT_DESC_FDEALLOC_CONTINUE' flag.
 	 * Luckily, the original stack-value (where the exception happend)
 	 * is still saved in the thread-local exception-context block.
 	 * However, we also need to keep the current stack-pointer around,
@@ -675,16 +657,6 @@ INTERN_ENTRY(x86_interrupt_except)
 	                 EXCEPTION_INFO_OFFSETOF_CONTEXT+ \
 	                 X86_CONTEXT32_OFFSETOF_ESP, %esi
 
-#ifdef CONFIG_X86_SEGMENTATION
-	cmpl  $(x86_redirect_preemption), X86_CONTEXT_OFFSETOF_EIP(%esp)
-	jne   1f
-	/* Fix the %CS register of the original IRET still containing the user-space %FS register. */
-	movl  X86_IRREGS_HOST32_OFFSETOF_CS(%esi), %eax
-	movl  %eax, X86_CONTEXT32_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FS(%esp)
-	movl  $(X86_KERNEL_CS), X86_IRREGS_HOST32_OFFSETOF_CS(%esi)
-1:
-#endif
-
 	/* Copy IRET tail information from the original stack-pointer (now located in ESI) */
 	leal    X86_CONTEXT32_OFFSETOF_IRET(%esp), %edi
 	movl    $(X86_IRREGS_HOST32_SIZE/4), %ecx
@@ -705,12 +677,44 @@ INTERN_ENTRY(x86_interrupt_except)
 	call  __error_rethrow_at
 	.cfi_endproc
 
-.interrupt_except_user:
 	.cfi_startproc simple
 	.cfi_signal_frame
 	.cfi_def_cfa %esp,     X86_IRREGS_HOST32_SIZE
 	.cfi_offset %eflags, (-X86_IRREGS_HOST32_SIZE) + X86_IRREGS_HOST32_OFFSETOF_EFLAGS
 	.cfi_offset %eip,    (-X86_IRREGS_HOST32_SIZE) + X86_IRREGS_HOST32_OFFSETOF_EIP
+.interrupt_except_redirect:
+	/* We know the following:
+	 *   - `X86_IRREGS_HOST32_OFFSETOF_EIP(%esp) == x86_redirect_preemption'
+	 *   - `X86_IRREGS_HOST32_OFFSETOF_CS(%esp) == X86_KERNEL_CS'
+	 *   - `%ss == X86_KERNEL_DS'
+	 * Now we must copy `iret_saved' into the on-stack IRET tail.
+	 * NOTE: `task_propagate_user_exception()' below will serve RPC functions
+	 *        that were requested for execution by the redirection.
+	 */
+#ifdef CONFIG_X86_SEGMENTATION
+	movw  %taskseg, %ss:(+0 + (-CONFIG_KERNELSTACK_SIZE) + X86_IRREGS_USER32_SIZE)(%esp)
+#endif /* CONFIG_X86_SEGMENTATION */
+	movl  %eax, %ss:0(%esp) /* Preserve EAX */
+	movw  $(X86_HOST_TLS), %ax
+	movw  %ax, %taskseg
+	/* Now copy the saved IRET tail into the current one. */
+	movl  %taskseg:iret_saved + 4, %eax
+	movl  %eax, %ss:4(%esp)
+	movl  %taskseg:iret_saved + 8, %eax
+	movl  %eax, %ss:8(%esp)
+	movl  %taskseg:iret_saved + 16, %eax
+	movl  %eax, %ss:16(%esp)
+	movl  %taskseg:iret_saved + 20, %eax
+	movl  %eax, %ss:20(%esp)
+	movl  %taskseg:iret_saved + 0, %eax
+	xchgl %ss:0(%esp), %eax /* Restore EAX */
+#ifdef CONFIG_X86_SEGMENTATION
+	/* Restore the user-space version of the %fs register. */
+	movw  %ss:(+0 + (-CONFIG_KERNELSTACK_SIZE) + X86_IRREGS_USER32_SIZE)(%esp), %taskseg
+#endif /* CONFIG_X86_SEGMENTATION */
+	/* Fallthrough to propagate the exception to user-space. */
+
+.interrupt_except_user:
 	/* Interrupt originates from user-space.
 	 * In this case, we don't want to preserve stack information
 	 * about where exactly in kernel-space the interrupt happened. */

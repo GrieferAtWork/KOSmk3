@@ -50,6 +50,7 @@ libc_error_rethrow_at(struct cpu_context *__restrict context,
  /* Safe the original stack-pointer. */
  uintptr_t sp;
  memcpy(&unwind,context,sizeof(struct cpu_context));
+ assert(unwind.c_iret.ir_cs != 0);
 
  sp = CPU_CONTEXT_SP(unwind);
 #if 0
@@ -58,6 +59,7 @@ libc_error_rethrow_at(struct cpu_context *__restrict context,
 #endif
  for (;;) {
   uintptr_t ip = CPU_CONTEXT_IP(unwind);
+  assert(unwind.c_iret.ir_cs != 0);
   if (ip < KERNEL_BASE && !(THIS_TASK->t_flags & TASK_FKERNELJOB))
       goto no_handler; /* Exception must be propagated to userspace. */
 
@@ -76,7 +78,7 @@ libc_error_rethrow_at(struct cpu_context *__restrict context,
     /* Unwind the stack to the caller-site. */
     if (!eh_return(&info,&unwind,EH_FDONT_UNWIND_SIGFRAME))
          goto cannot_unwind;
-    /* Override the IP to use the entry point.  */
+    /* Override the IP to use the entry point. */
     unwind.c_eip = (uintptr_t)hand.ehi_entry;
     assert(hand.ehi_desc.ed_type == EXCEPT_DESC_TYPE_BYPASS); /* XXX: What should we do here? */
 
@@ -104,8 +106,10 @@ libc_error_rethrow_at(struct cpu_context *__restrict context,
     CPU_CONTEXT_SP(unwind) = sp;
    }
 #if 0
-   debug_printf("%[vinfo:%f(%l,%c) : %n : cpu_setcontext(%p)\n]",
-               (uintptr_t)CPU_CONTEXT_IP(unwind)-1);
+   debug_printf("%[vinfo:%f(%l,%c) : %n : cpu_setcontext(%p)] cs = %p, eflags = %p\n",
+               (uintptr_t)CPU_CONTEXT_IP(unwind)-1,
+               unwind.c_iret.ir_cs,
+               unwind.c_iret.ir_eflags);
    debug_printf("CONTEXT %p: { ds: %p, es: %p, fs: %p, gs: %p }\n",
                 &unwind,
                 unwind.c_segments.sg_ds,
@@ -113,15 +117,18 @@ libc_error_rethrow_at(struct cpu_context *__restrict context,
                 unwind.c_segments.sg_fs,
                 unwind.c_segments.sg_gs);
 #endif
+   assert(unwind.c_iret.ir_cs != 0);
    cpu_setcontext(&unwind);
    /* Never get here... */
   }
   /* Continue unwinding the stack. */
+  assert(unwind.c_iret.ir_cs != 0);
   if (!eh_return(&info,&unwind,EH_FDONT_UNWIND_SIGFRAME)) {
 cannot_unwind:
    debug_printf("Failed to unwind frame at %p\n",ip);
    goto no_handler;
   }
+  assert(unwind.c_iret.ir_cs != 0);
 #if 0
   debug_printf("%[vinfo:%f(%l,%c) : %n :] Unwind %p -> %p (ebp %p; fs: %p)\n",
                ip,ip,unwind.c_eip,unwind.c_gpregs.gp_ebp,unwind.c_segments.sg_fs);

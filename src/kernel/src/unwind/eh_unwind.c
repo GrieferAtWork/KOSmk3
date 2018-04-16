@@ -27,6 +27,7 @@
 #include <kernel/user.h>
 #include <kos/context.h>
 #include <kernel/debug.h>
+#include <sched/task.h>
 #include <string.h>
 #include <except.h>
 #include <assert.h>
@@ -610,12 +611,17 @@ err:
 }
 
 
+#if defined(__x86_64__) || defined(__i386__)
+INTDEF ATTR_PERTASK struct x86_irregs_user iret_saved;
+INTDEF NOIRQ void ASMCALL x86_redirect_preemption(void);
+#endif
 
 PUBLIC bool KCALL
 eh_return(struct fde_info *__restrict info,
           struct cpu_context *__restrict ctx,
           unsigned int flags) {
- struct dw_state state; bool changed = false;
+ struct dw_state state;
+ bool changed = false;
  uintptr_t cfa; unsigned int i;
  uintptr_t ip = UNWIND_CONTEXT_IP(ctx) - info->fi_pcbegin;
  if unlikely(!dw_state_init(&state,info))
@@ -656,21 +662,30 @@ eh_return(struct fde_info *__restrict info,
 #error TODO
 #elif defined(__i386__)
   struct x86_irregs_user32 *iret;
-  iret = (struct x86_irregs_user32 *)((struct x86_irregs_host32 *)ctx->c_esp-1);
-  assertf(ctx->c_eip == iret->ir_eip,"Forgot to restore EIP at %p",info->fi_pcbegin);
-  assertf(ctx->c_eflags == iret->ir_eflags,"Forgot to restore EFLAGS at %p",info->fi_pcbegin);
-  ctx->c_iret.ir_cs = iret->ir_cs;
-  if (iret->ir_cs & 3) {
-   /* Return to user-space. */
-   ctx->c_esp = iret->ir_useresp;
-   assertf(iret->ir_eflags & EFLAGS_IF,"Corrupt unwind IRET tail {%p,%p,%p,%p}",
-           ctx->c_eip,ctx->c_esp,iret->ir_cs,iret->ir_eflags);
-   assertf(iret->ir_cs == X86_USER_CS,"Corrupt unwind IRET tail {%p,%p,%p,%p}",
-           ctx->c_eip,ctx->c_esp,iret->ir_cs,iret->ir_eflags);
+  if (ctx->c_eip == (uintptr_t)&x86_redirect_preemption) {
+   struct x86_irregs_user *saved = &PERTASK(iret_saved);
+   ctx->c_iret.ir_eip    = saved->ir_eip;
+   ctx->c_iret.ir_cs     = saved->ir_cs;
+   ctx->c_iret.ir_eflags = saved->ir_eflags;
+   ctx->c_esp            = saved->ir_useresp;
   } else {
-   assertf(iret->ir_cs == X86_KERNEL_CS,"Corrupt unwind IRET tail=%p {%p,%p,%p,%p}",
-           iret,ctx->c_eip,ctx->c_esp,iret->ir_cs,iret->ir_eflags);
+   iret = (struct x86_irregs_user32 *)((struct x86_irregs_host32 *)ctx->c_esp-1);
+   assertf(ctx->c_eip == iret->ir_eip,"Forgot to restore EIP at %p",info->fi_pcbegin);
+   assertf(ctx->c_eflags == iret->ir_eflags,"Forgot to restore EFLAGS at %p",info->fi_pcbegin);
+   ctx->c_iret.ir_cs = iret->ir_cs;
+   if (iret->ir_cs & 3) {
+    /* Return to user-space. */
+    ctx->c_esp = iret->ir_useresp;
+    assertf(iret->ir_eflags & EFLAGS_IF,"Corrupt unwind IRET tail {%p,%p,%p,%p}",
+            ctx->c_eip,ctx->c_esp,iret->ir_cs,iret->ir_eflags);
+    assertf(iret->ir_cs == X86_USER_CS,"Corrupt unwind IRET tail {%p,%p,%p,%p}",
+            ctx->c_eip,ctx->c_esp,iret->ir_cs,iret->ir_eflags);
+   } else {
+    assertf(iret->ir_cs == X86_KERNEL_CS,"Corrupt unwind IRET tail=%p {%p,%p,%p,%p}",
+            iret,ctx->c_eip,ctx->c_esp,iret->ir_cs,iret->ir_eflags);
+   }
   }
+  changed = true;
 #else
 #error "Unsupported architecture"
 #endif
