@@ -1,17 +1,17 @@
 
 ### <b>KOS (Hooby) Operating System & Kernel</b> ###
 
-The third rendition of the KOS Operating System & Kernel, this time with a lot more emphasis on integration, as well as streamlining. Additionally, many optional features have been implemented this time around, including actually working true <b>SMP</b> and <b>IPI</b>, support for the x86 <code>sysenter</code> instruction, or making use of <b>APIC</b> interrupt timers for preemption (all things that KOSmk2 couldn't do)
+The third rendition of the KOS Operating System & Kernel, this time with a lot more emphasis on integration, as well as streamlining. Additionally, many optional features have been implemented this time around, including actually working true <b>SMP</b> and <b>IPI</b>, support for the x86 <code>sysenter</code> instruction, and making use of <b>APIC</b> interrupt timers for preemption (all things that KOSmk2 couldn't do)
 
-Much emphasis has also been put on implementing posix <code>signal()</code> behavior <i>correctly</i> without any shortcuts with a lot of work put into speeding up system calls such as <code>fork()</code>, making use of lazy copy-on-write, rather than duplicating data immediatly. Similarly, the kernel now implements much better support for <code>termios</code> flags, supporting numerous options that had no support at all before.
+Much emphasis has also been put on implementing posix <code>signal()</code> behavior <i>correctly</i> without any shortcuts. Similarly, the kernel now implements much better support for <code>termios</code> flags, supporting numerous options that were completely unsupported before. A lot of work was also put into speeding up system calls such as <code>fork()</code>, making use of lazy copy-on-write, rather than duplicating data immediatly.
 
-The most important difference between this and KOSmk2 is probably the idea that initially convinced me to start over from scratch, that idea being: <b>Exceptions</b>. But not just any exceptions. Oh no. I'm not using some C++ compiler now. It's all still 100% pure C code making use of inline assembly, as well as DWARF's CFI meta-instruction set, alongside a lot of preprocessor <i>magic</i>.
+The most important difference between this and KOSmk2 is probably the idea that initially convinced me to start over from scratch, that idea being: <b>Exceptions</b>. But not just any exceptions. Oh no. I'm not using some C++ compiler now. It's all still 100% pure C code, making use of inline assembly as well as DWARF's CFI meta-instruction set, alongside a lot of preprocessor <i>magic</i>.
 
-Also, a large number of the core concepts already found in KOSmk2 have been re-invisioned using new logic facilities that completely remove functions such as <code>task_crit()</code>, now instead relying on <b>RPC</b> functionality that could not be seen anywhere in KOSmk2, allowing for much easier to use scheduling semantics, as well as new mechanisms for defining per-cpu, per-task or per-vm variables, rather than having to cram everything into one humonguous and overcomplicated control structure.
+Also, a large number of the core concepts already found in KOSmk2 have been re-invisioned using the new conceptual facilities that, among other things, completely remove functions such as <code>task_crit()</code>, now instead relying on <b>RPC</b> functionality that could not be seen anywhere in KOSmk2, and allowing for much easier to use scheduling semantics, as well as new mechanisms for defining per-cpu, per-task or per-vm variables, rather than having to cram everything into one humonguous and overcomplicated control structure. E.g: to terminate a thread, you just schedule and RPC function that throws an <code>E_THREAD_EXIT<code> exception.
 
 KOSmk3 is a much more stable platform than its predecessors, relying less than ever on code that hasn't been written by me personally, including my very own heap implementation with support for GC-based memory leak detection that scans registers, global data, as well as stack memory for pointers in order to determine what memory is actually reachable, similar to what the linux kernel does (presumably), leading to my bold claim that the KOS kernel should currently be <b>leakless</b>.
 
-Like everything, this is another <b>one-person project</b>, with development (of this rendition) having started on <b>10.02.2017</b>.
+Like everything, this is another <b>one-person project</b>, with development (of this rendition) having started on <b>10.02.2018</b>.
 
 Chaos|KOS - You probably got here through the definition of chaoticity (<i>which totally is a real word</i>).
 
@@ -36,7 +36,6 @@ Chaos|KOS - You probably got here through the definition of chaoticity (<i>which
    - ALLOA (ALLocateOnAccess)
    - LOA (LoadOnAccess)
    - COW (CopyOnWrite)
-   - SWAP (SWAPping memory to disk)
    - memory-mapped files for reading/writing
  - Heap
    - GC-based memory leak detection
@@ -116,7 +115,7 @@ Chaos|KOS - You probably got here through the definition of chaoticity (<i>which
    - KOSmk2 though it was a good idea to not include any way of caching directory contents, or have some way of loading INodes using only their number
    - Implementation of a <code>pread()</code> and <code>pwrite()</code> operator as basis of any INode now negates the need of intermediate and file streams (the FAT driver simply caches disk positions of file chunks)
    - Much better support for <code>O\_\*</code> flags, such as <code>O\_NONBLOCK</code>
- - Using exceptions, hardware-generated exceptions such as divide-by-zero, or overflow is possible
+ - Using exceptions, dealing with hardware-generated exceptions such as divide-by-zero, or overflow is possible
 
 ## Interesting, but potentially useless functions ##
  - VIO
