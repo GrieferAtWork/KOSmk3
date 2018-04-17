@@ -31,6 +31,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <except.h>
+#include <endian.h>
 
 DECL_BEGIN
 

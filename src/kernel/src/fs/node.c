@@ -683,6 +683,12 @@ continue_reading:
   result = NULL;
  }
  assert(!result || result->de_namelen != 0);
+ assertf(!result || !isspace(result->de_name[0]),
+         "Directory entry %$q must not start with spaces",
+        (size_t)result->de_namelen,result->de_name);
+ assertf(!result || !isspace(result->de_name[result->de_namelen-1]),
+         "Directory entry %$q must not end with spaces",
+        (size_t)result->de_namelen,result->de_name);
 
  TRY {
   /* get a write lock to the directory. */
