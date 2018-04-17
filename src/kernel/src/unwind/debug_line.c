@@ -40,7 +40,7 @@ module_debug_delete(struct module_debug *__restrict self) {
  if (self->md_debug_line.ms_size)
      vm_unmap(VM_ADDR2PAGE((uintptr_t)self->md_data),
               CEIL_ALIGN(self->md_debug_line.ms_size,PAGESIZE),
-              VM_UNMAP_NOEXCEPT,NULL);
+              VM_UNMAP_NOEXCEPT|VM_UNMAP_SYNC,NULL);
  kfree(self);
 }
 

@@ -1078,6 +1078,8 @@ vm_unmap(vm_vpage_t page, size_t num_pages,
  size_t result = 0;
  struct vm *EXCEPT_VAR effective_vm;
  struct vm_node *EXCEPT_VAR nodes = NULL;
+ vm_vpage_t unmap_min = (vm_vpage_t)-1;
+ vm_vpage_t unmap_max = 0;
  if unlikely(!num_pages) goto done;
  assert(page+num_pages > page);
  assert(page+num_pages <= VM_VPAGE_MAX+1);
@@ -1098,10 +1100,13 @@ vm_unmap(vm_vpage_t page, size_t num_pages,
   }
   /* Pop all nodes in the affected range. */
   nodes = vm_pop_nodes(effective_vm,page,page+num_pages-1,mode,tag);
+  if (nodes) unmap_min = VM_NODE_MIN(nodes);
   iter = nodes;
   TRY {
    /* Try to unmap the nodes that were removed. */
    for (; iter; iter = iter->vn_byaddr.le_next) {
+    if (unmap_max < VM_NODE_MAX(iter))
+        unmap_max = VM_NODE_MAX(iter);
     pagedir_map(VM_NODE_BEGIN(iter),
                 VM_NODE_SIZE(iter),
                 0,PAGEDIR_MAP_FUNMAP);
@@ -1130,6 +1135,10 @@ vm_unmap(vm_vpage_t page, size_t num_pages,
   }
 done_unlock:;
  } FINALLY {
+  /* If the sync flag is set, automatically sync
+   * unmapped memory before unlocking the VM. */
+  if (mode & VM_UNMAP_SYNC)
+      vm_sync(unmap_min,(unmap_max-unmap_min)+1);
   vm_release(effective_vm);
   /* Drop all nodes that were unmapped. */
   while (nodes) {

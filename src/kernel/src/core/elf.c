@@ -591,13 +591,18 @@ Elf_NewApplication(struct module_patcher *__restrict self) {
    }
   }
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  /* Unmap everything that had already been mapped. */
 #if 1
+  /* Unmap everything that had already been mapped. */
   while (i--) {
    vm_unmap(loadpage + VM_ADDR2PAGE(mod->e_phdr[i].p_vaddr),
             vector[i]->vr_size,VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT,
             app);
   }
+  /* Make sure that unmapped memory is synced immediately.
+   * NOTE: An unmap() race condition is prevented because the
+   *       caller is holding a lock on the effective VM. */
+  vm_sync(loadpage+app->a_module->m_imagemin,
+          app->a_module->m_size);
 #endif
   error_rethrow();
  }

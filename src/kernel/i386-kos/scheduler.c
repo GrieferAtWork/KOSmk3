@@ -627,9 +627,10 @@ task_start(struct task *__restrict self) {
 #ifndef NDEBUG
  /* Do some validation on where the thread will start. */
  { struct x86_irregs_user *iret = (struct x86_irregs_user *)self->t_stackend-1;
-   assert(iret->ir_cs == X86_KERNEL_CS ||
-         (iret->ir_cs == X86_USER_CS &&
-        !(self->t_flags&TASK_FKERNELJOB)));
+   assertf(iret->ir_cs == X86_KERNEL_CS ||
+          (iret->ir_cs == X86_USER_CS &&
+         !(self->t_flags&TASK_FKERNELJOB)),
+          "iret->ir_cs = %p:%p",&iret->ir_cs,iret->ir_cs);
 #if 0 /* Can't be asserted. - If user-space doesn't follow this, it'll just get a GPF after launch. */
    assert((iret->ir_cs == X86_USER_CS) ? (iret->ir_eip < KERNEL_BASE) :
          ((iret->ir_eip >= KERNEL_BASE) || (self->t_vm == &vm_kernel)));
@@ -790,7 +791,7 @@ PUBLIC ATTR_NORETURN void KCALL task_exit(void) {
    assert(THIS_VM != &vm_kernel);
    vm_unmap(VM_ADDR2PAGE((uintptr_t)PERTASK_GET(this_task.t_userseg)),
             CEILDIV(sizeof(struct task_segment),PAGESIZE),
-            VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT,THIS_TASK);
+            VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT|VM_UNMAP_SYNC,THIS_TASK);
   }
  }
 
@@ -839,12 +840,12 @@ restart_final_decref:
    if (!did_clear_vm) {
     did_clear_vm = true;
     if (THIS_VM->vm_refcnt == 1 &&
-        /* Kernel-jobs use the kernel VM, meaning it would be a bad idea
-         * for them to arbitrarily delete all mappings below the kernel... */
-      !PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB) &&
-        /* NOTE: We can't do something as convoluted as unmapping
-         *       memory if we must fear getting terminated at random. */
-      !PERTASK_TESTF(this_task.t_state,TASK_STATE_FHELPMETERM)) {
+         /* Kernel-jobs use the kernel VM, meaning it would be a bad idea
+          * for them to arbitrarily delete all mappings below the kernel... */
+       !PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB) &&
+         /* NOTE: We can't do something as convoluted as unmapping
+          *       memory if we must fear getting terminated at random. */
+       !PERTASK_TESTF(this_task.t_state,TASK_STATE_FHELPMETERM)) {
      /* If we're the last thing keeping our VM going, then we
       * can already go ahead and unmap everything from userspace.
       * That way, we don't have to wait until we actually die

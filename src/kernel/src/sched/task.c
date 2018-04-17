@@ -366,7 +366,8 @@ task_destroy(struct task *__restrict self) {
    /* Unmap the host stack of this task. */
    vm_unmap(stack_minpage,
             stack_endpage-stack_minpage,
-            VM_UNMAP_NOEXCEPT,NULL);
+            VM_UNMAP_NOEXCEPT|
+            VM_UNMAP_SYNC,NULL);
   }
   atomic_rwlock_write(&self->t_vm->vm_tasklock);
   LIST_REMOVE(self,t_vmtasks);

@@ -761,6 +761,7 @@ FUNDEF size_t KCALL vm_unmap(vm_vpage_t page_index, size_t num_pages,
 #define VM_UNMAP_TAG       0x0001 /* Only unmap nodes who's `vn_closure' argument matches the given `tag' */
 #define VM_UNMAP_NOEXCEPT  0x0002 /* Ignore E_BADALLOC errors and simply log them. */
 #define VM_UNMAP_IMMUTABLE 0x0004 /* Also unmap immutable nodes (Must only be set internally when the node will be re-mapped elsewhere). */
+#define VM_UNMAP_SYNC      0x8000 /* Automatically sync unmapped address ranges. */
 
 
 #ifdef __CC__

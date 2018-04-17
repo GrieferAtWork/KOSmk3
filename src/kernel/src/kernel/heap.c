@@ -545,14 +545,15 @@ core_page_free(vm_vpage_t page_index,
  old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
  assert(num_pages != 0);
  vm_unmap(page_index,num_pages,
-          VM_UNMAP_NOEXCEPT,NULL);
+          VM_UNMAP_NOEXCEPT|VM_UNMAP_SYNC,NULL);
  if (!(old_state & TASK_STATE_FDONTSERVE))
        ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
 #else
  assert(num_pages != 0);
  vm_unmap(page_index,num_pages,
           VM_UNMAP_NOEXCEPT|
-          VM_UNMAP_ATOMIC,
+          VM_UNMAP_ATOMIC|
+          VM_UNMAP_SYNC,
           NULL);
 #endif
 }

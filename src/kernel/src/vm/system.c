@@ -622,11 +622,11 @@ DEFINE_SYSCALL5(mremap,
  new_size = VM_SIZE2PAGES(new_len);
 
  if (new_size <= old_size) {
-  /* Unmap tailing pages. */
+  /* Unmap trailing pages. */
   if (old_size != new_size) {
    vm_unmap(old_page+new_size,
             old_size-new_size,
-            VM_UNMAP_NORMAL,
+            VM_UNMAP_NORMAL|VM_UNMAP_SYNC,
             NULL);
   }
   result = old_page;
@@ -650,7 +650,8 @@ DEFINE_SYSCALL5(mremap,
    vm_sync(old_page,old_size);
    vm_sync(new_page,old_size);
    /* Unmap memory in the new address range. */
-   vm_unmap(new_page+old_page,new_size-old_size,VM_UNMAP_NORMAL,NULL);
+   vm_unmap(new_page+old_page,new_size-old_size,
+            VM_UNMAP_NORMAL|VM_UNMAP_SYNC,NULL);
    /* Extend the last page of the old range to fill the additional memory. */
    vm_extend(new_page+old_size,new_size-old_size,(vm_prot_t)~0,(vm_prot_t)0,VM_EXTEND_ABOVE);
   } FINALLY {
@@ -736,12 +737,13 @@ DEFINE_SYSCALL4(xmunmap,VIRT void *,addr,size_t,len,int,flags,void *,tag) {
  num_pages     = len/PAGESIZE;
  result = vm_unmap(starting_page,num_pages,
 #if XUNMAP_TAG == VM_UNMAP_TAG
-                   flags&XUNMAP_TAG,
+                  (flags&XUNMAP_TAG)|VM_UNMAP_SYNC,
 #else
-                   flags&XUNMAP_TAG ? VM_UNMAP_TAG : VM_UNMAP_NORMAL,
+                   flags&XUNMAP_TAG
+                ? (VM_UNMAP_TAG|VM_UNMAP_SYNC)
+                : (VM_UNMAP_NORMAL|VM_UNMAP_SYNC),
 #endif
                    tag);
- if (result) vm_sync(starting_page,num_pages);
  return result;
 }
 
@@ -754,8 +756,7 @@ DEFINE_SYSCALL2(munmap,VIRT void *,addr,size_t,len) {
  /* Do the unmap. */
  starting_page = VM_ADDR2PAGE((uintptr_t)addr);
  num_pages     = len/PAGESIZE;
- if (vm_unmap(starting_page,num_pages,VM_UNMAP_NORMAL,NULL))
-     vm_sync(starting_page,num_pages);
+ vm_unmap(starting_page,num_pages,VM_UNMAP_NORMAL|VM_UNMAP_SYNC,NULL);
  return 0;
 }
 

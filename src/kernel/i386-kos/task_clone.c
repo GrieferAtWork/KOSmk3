@@ -202,7 +202,7 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
   user_context->c_iret.ir_ss = X86_USER_DS;
   user_context->c_iret.ir_cs = X86_USER_CS;
 #endif /* CONFIG_X86_SEGMENTATION */
-
+  assert(user_context->c_iret.ir_cs != 0);
 
   /* Place the stack-pointer given from user-space in its proper slot. */
   user_context->c_iret.ir_useresp = user_context->c_gpregs.gp_esp;
@@ -220,10 +220,12 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
 #else
   user_context->c_gpregs.gp_esp = (uintptr_t)new_task->t_stackend-8;
 #endif
+  COMPILER_WRITE_BARRIER();
 
   /* Set the user-space TLS pointer (this will get overwritten
    * during `clone_entry' if `CLONE_SETTLS' isn't set) */
   new_task->t_userseg = (USER struct user_task_segment *)tls_val;
+  COMPILER_WRITE_BARRIER();
 
   /* Invoke clone operators. */
   {

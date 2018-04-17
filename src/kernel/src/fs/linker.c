@@ -742,7 +742,7 @@ application_load(struct module_patcher *__restrict self) {
   if unlikely(!app->a_mapcnt) {
 #if 0
    vm_unmap(VM_ADDR2PAGE(app_base+mod->m_imagemin),
-            req_pages,VM_UNMAP_NOEXCEPT,NULL);
+            req_pages,VM_UNMAP_NOEXCEPT|VM_UNMAP_SYNC,NULL);
 #endif
    error_throw(E_NOT_EXECUTABLE);
   }

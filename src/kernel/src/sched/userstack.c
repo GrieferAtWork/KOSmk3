@@ -78,9 +78,8 @@ INTERN void KCALL task_cleanup_user_stack(void) {
    /* Unmap the user-space stack. */
    vm_unmap(ustack->us_pagemin,
             ustack->us_pageend-ustack->us_pagemin,
-            VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT,ustack);
-   vm_sync(ustack->us_pagemin,
-           ustack->us_pageend-ustack->us_pagemin);
+            VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT|
+            VM_UNMAP_SYNC,ustack);
   } FINALLY {
    /* Steal a reference from `_this_user_stack' */
    PERTASK_SET(_this_user_stack,NULL);

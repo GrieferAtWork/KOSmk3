@@ -229,7 +229,7 @@ corebase_decref(struct vm_corebase *__restrict self) {
   LIST_REMOVE(self,cb_chain);
   /* Unmap this corebase, seeing as how it's no longer being used. */
   vm_unmap(VM_ADDR2PAGE((uintptr_t)self),1,
-           VM_UNMAP_NOEXCEPT,NULL);
+           VM_UNMAP_NOEXCEPT|VM_UNMAP_SYNC,NULL);
  }
 }
 

@@ -216,6 +216,9 @@ void KCALL x86_switch_to_userspace(void) {
    * devices have been properly initialized (s.a. setup code in /bin/init). */
   kernel_join_bootworkers();
 
+#if 0
+  cpu_setcontext((struct cpu_context *)&ctx);
+#else
   /* Free the kernel's .free section.
    * NOTE: Any race conditions that could normally cause our own
    *       code to become remapped as it is still running are
@@ -281,6 +284,7 @@ no_free_segment:
                         : "memory");
    __builtin_unreachable();
   }
+#endif
  }
 }
 
