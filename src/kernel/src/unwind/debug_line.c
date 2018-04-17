@@ -48,7 +48,7 @@ module_debug_delete(struct module_debug *__restrict self) {
  * If `app' doesn't contain debug information, return `NULL' instead. */
 FUNDEF /*inherit*/struct module_debug *KCALL
 module_debug_alloc(struct application *__restrict app) {
- struct module_debug *result;
+ struct module_debug *EXCEPT_VAR result;
  struct module_section debug_line;
  /* Lookup the .debug_line section */
  debug_line = application_dlsect(app,".debug_line");
@@ -59,7 +59,7 @@ module_debug_alloc(struct application *__restrict app) {
  memcpy(&result->md_debug_line,&debug_line,sizeof(struct module_section));
  /* Map the debug_line section into memory. */
  TRY {
-  REF struct vm_region *region;
+  REF struct vm_region *EXCEPT_VAR region;
   size_t num_pages,padding_size;
   padding_size = 64; /* Add some padding to guard against curruption. */
   num_pages = CEILDIV(debug_line.ms_size+padding_size,PAGESIZE);
@@ -139,9 +139,10 @@ module_debug_open(struct application *__restrict app) {
 FUNDEF uintptr_t KCALL
 linker_debug_query(uintptr_t ip,
                    struct module_addr2line *__restrict result) {
- REF struct application *app = NULL; 
+ REF struct application *EXCEPT_VAR app = NULL; 
  uintptr_t return_value = (uintptr_t)-1;
- struct vm *effective_vm; struct vm_node *node;
+ struct vm *EXCEPT_VAR effective_vm;
+ struct vm_node *node;
  effective_vm = ip >= KERNEL_BASE ? &vm_kernel : THIS_VM;
  vm_acquire(effective_vm);
  TRY {

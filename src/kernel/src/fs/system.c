@@ -82,7 +82,7 @@ DEFINE_SYSCALL0(sync) {
 }
 
 DEFINE_SYSCALL1(syncfs,int,fd) {
- REF struct superblock *block;
+ REF struct superblock *EXCEPT_VAR block;
  block = handle_get_superblock_relaxed(fd);
  TRY {
   superblock_sync(block);
@@ -104,13 +104,13 @@ DEFINE_SYSCALL4(xftruncateat,
                 u64,length,int,flags)
 #endif
 {
- REF struct inode *node;
+ REF struct inode *EXCEPT_VAR node;
  REF struct path *p;
  if (flags & ~(FS_MODE_FKNOWNBITS))
      error_throw(E_INVALID_ARGUMENT);
  /* Lookup the user-path. */
  p = fs_pathat(dfd,path,user_strlen(path),
-              &node,FS_ATMODE(flags));
+              (struct inode **)&node,FS_ATMODE(flags));
  path_decref(p);
  TRY {
   /* Truncate the INode. */
@@ -128,14 +128,14 @@ DEFINE_SYSCALL4(xftruncateat,
 DEFINE_SYSCALL4(xfpathconfat,
                 fd_t,dfd,USER UNCHECKED char const *,path,
                 int,name,int,flags) {
- long int result;
- REF struct inode *node;
+ long int COMPILER_IGNORE_UNINITIALIZED(result);
+ REF struct inode *EXCEPT_VAR node;
  REF struct path *p;
  if (flags & ~(FS_MODE_FKNOWNBITS))
      error_throw(E_INVALID_ARGUMENT);
  /* Lookup the user-path. */
  p = fs_pathat(dfd,path,user_strlen(path),
-              &node,FS_ATMODE(flags));
+              (struct inode **)&node,FS_ATMODE(flags));
  path_decref(p);
  TRY {
   /* Query information in the INode. */
@@ -150,8 +150,8 @@ DEFINE_SYSCALL6(xfrealpathat,fd_t,dfd,
                 USER UNCHECKED char const *,path,int,flags,
                 USER UNCHECKED char *,buf,size_t,bufsize,
                 unsigned int,type) {
- ssize_t result;
- REF struct path *p;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+ REF struct path *EXCEPT_VAR p;
  if (flags & ~(FS_MODE_FKNOWNBITS))
      error_throw(E_INVALID_ARGUMENT);
  
@@ -174,8 +174,8 @@ DEFINE_SYSCALL6(xfrealpathat,fd_t,dfd,
 }
 
 DEFINE_SYSCALL2(getcwd,USER UNCHECKED char *,buf,size_t,bufsize) {
- ssize_t result;
- REF struct path *p;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+ REF struct path *EXCEPT_VAR p;
  validate_writable(buf,bufsize);
  p = fs_getcwd();
  TRY {
@@ -189,7 +189,7 @@ DEFINE_SYSCALL2(getcwd,USER UNCHECKED char *,buf,size_t,bufsize) {
 
 DEFINE_SYSCALL2(fstat64,int,fd,
                 USER UNCHECKED struct stat64 *,statbuf) {
- REF struct handle hnd;
+ REF struct handle EXCEPT_VAR hnd;
  hnd = handle_get(fd);
  TRY {
   /* Query information in the handle. */
@@ -202,13 +202,13 @@ DEFINE_SYSCALL2(fstat64,int,fd,
 
 DEFINE_SYSCALL4(fstatat64,fd_t,dfd,USER UNCHECKED char const *,path,
                 USER UNCHECKED struct stat64 *,statbuf,int,flags) {
- REF struct inode *node;
+ REF struct inode *EXCEPT_VAR node;
  REF struct path *p;
  if (flags & ~(FS_MODE_FKNOWNBITS))
      error_throw(E_INVALID_ARGUMENT);
  /* Lookup the user-path. */
  p = fs_pathat(dfd,path,user_strlen(path),
-              &node,FS_ATMODE(flags));
+              (struct inode **)&node,FS_ATMODE(flags));
  path_decref(p);
  TRY {
   /* Query information in the INode. */
@@ -221,13 +221,13 @@ DEFINE_SYSCALL4(fstatat64,fd_t,dfd,USER UNCHECKED char const *,path,
 
 DEFINE_SYSCALL4(utimensat,fd_t,dfd,USER UNCHECKED char const *,path,
                 USER UNCHECKED struct timespec64 *,utimes,int,flags) {
- REF struct inode *node;
+ REF struct inode *EXCEPT_VAR node;
  REF struct path *p;
  if (flags & ~(FS_MODE_FKNOWNBITS|AT_CHANGE_CTIME))
      error_throw(E_INVALID_ARGUMENT);
  /* Lookup the user-path. */
  p = fs_pathat(dfd,path,user_strlen(path),
-              &node,FS_ATMODE(flags));
+              (struct inode **)&node,FS_ATMODE(flags));
  path_decref(p);
  TRY {
   struct timespec new_times[3]; /* 0: A; 1: M ; 2: C */
@@ -273,7 +273,7 @@ DEFINE_SYSCALL3(ftruncate,
 DEFINE_SYSCALL2(ftruncate,int,fd,u64,length)
 #endif
 {
- REF struct inode *node;
+ REF struct inode *EXCEPT_VAR node;
  /* Lookup the user-path. */
  node = handle_get_inode(fd);
  TRY {
@@ -290,7 +290,7 @@ DEFINE_SYSCALL2(ftruncate,int,fd,u64,length)
 }
 
 DEFINE_SYSCALL2(fchmod,int,fd,mode_t,mode) {
- REF struct inode *node;
+ REF struct inode *EXCEPT_VAR node;
  if (mode & ~07777)
      error_throw(E_INVALID_ARGUMENT);
  node = handle_get_inode(fd);
@@ -305,7 +305,7 @@ DEFINE_SYSCALL2(fchmod,int,fd,mode_t,mode) {
 DEFINE_SYSCALL4(fchmodat,
                 fd_t,dfd,char const *,path,
                 mode_t,mode,int,flags) {
- REF struct inode *node;
+ REF struct inode *EXCEPT_VAR node;
  REF struct path *p;
  if (mode & ~07777)
      error_throw(E_INVALID_ARGUMENT);
@@ -313,7 +313,7 @@ DEFINE_SYSCALL4(fchmodat,
      error_throw(E_INVALID_ARGUMENT);
  /* Lookup the user-path. */
  p = fs_pathat(dfd,path,user_strlen(path),
-              &node,FS_ATMODE(flags));
+              (struct inode **)&node,FS_ATMODE(flags));
  path_decref(p);
  TRY {
   /* Change the file mode. */
@@ -325,7 +325,7 @@ DEFINE_SYSCALL4(fchmodat,
 }
 
 DEFINE_SYSCALL3(fchown,int,fd,uid_t,owner,gid_t,group) {
- REF struct inode *node;
+ REF struct inode *EXCEPT_VAR node;
  node = handle_get_inode(fd);
  TRY {
   /* Change the file owner and group. */
@@ -338,13 +338,13 @@ DEFINE_SYSCALL3(fchown,int,fd,uid_t,owner,gid_t,group) {
 DEFINE_SYSCALL5(fchownat,
                 fd_t,dfd,char const *,path,
                 uid_t,owner,gid_t,group,int,flags) {
- REF struct inode *node;
+ REF struct inode *EXCEPT_VAR node;
  REF struct path *p;
  if (flags & ~(FS_MODE_FKNOWNBITS))
      error_throw(E_INVALID_ARGUMENT);
  /* Lookup the user-path. */
  p = fs_pathat(dfd,path,user_strlen(path),
-              &node,FS_ATMODE(flags));
+              (struct inode **)&node,FS_ATMODE(flags));
  path_decref(p);
  TRY {
   /* Change the file owner and group. */
@@ -406,9 +406,10 @@ translate_ioctl_error(int fd, unsigned long cmd, struct handle hnd) {
  info->e_error.e_invalid_handle.h_rqkind = expected_kind;
 }
 
-DEFINE_SYSCALL3(ioctl,int,fd,unsigned long,cmd,void *,arg) {
- struct handle hnd;
- ssize_t result;
+DEFINE_SYSCALL3(ioctl,int EXCEPT_VAR,fd,
+                unsigned long EXCEPT_VAR,cmd,void *,arg) {
+ struct handle EXCEPT_VAR hnd;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
  hnd = handle_get(fd);
  TRY {
   result = handle_ioctl(hnd,cmd,arg);
@@ -420,8 +421,8 @@ DEFINE_SYSCALL3(ioctl,int,fd,unsigned long,cmd,void *,arg) {
  return result;
 }
 DEFINE_SYSCALL4(xioctlf,int,fd,unsigned long,cmd,oflag_t,flags,void *,arg) {
- struct handle hnd;
- ssize_t result;
+ struct handle EXCEPT_VAR hnd;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
  hnd = handle_get(fd);
  TRY {
   result = handle_ioctlf(hnd,cmd,arg,flags);
@@ -439,10 +440,10 @@ DEFINE_SYSCALL5(xfreadlinkat,fd_t,dfd,
                 USER UNCHECKED char *,buf,
                 size_t,len,int,flags) {
  REF struct path *p;
- REF struct symlink_node *node;
- REF struct directory_node *dir;
+ REF struct symlink_node *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(node);
+ REF struct directory_node *EXCEPT_VAR dir;
  size_t filename_length = user_strlen(path);
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  if (flags & ~FS_MODE_FKNOWNBITS)
      error_throw(E_INVALID_ARGUMENT);
  flags = FS_ATMODE(flags);
@@ -491,7 +492,7 @@ DEFINE_SYSCALL4(readlinkat,fd_t,dfd,
 DEFINE_SYSCALL5(xfmknodat,fd_t,dfd,
                 USER UNCHECKED char const *,filename,
                 mode_t,mode,dev_t,dev,int,flags) {
- REF struct directory_node *dir;
+ REF struct directory_node *EXCEPT_VAR dir;
  REF struct path *p;
  REF struct inode *node;
  size_t filename_length = user_strlen(filename);
@@ -521,7 +522,8 @@ DEFINE_SYSCALL5(xfmknodat,fd_t,dfd,
  return 0;
 }
 DEFINE_SYSCALL4(xfmkdirat,fd_t,dfd,USER UNCHECKED char const *,filename,mode_t,mode,int,flags) {
- REF struct directory_node *dir,*node;
+ REF struct directory_node *EXCEPT_VAR dir;
+ REF struct directory_node *node;
  REF struct path *p;
  size_t filename_length = user_strlen(filename);
  /* Validate the mode argument. */
@@ -548,8 +550,8 @@ DEFINE_SYSCALL4(xfmkdirat,fd_t,dfd,USER UNCHECKED char const *,filename,mode_t,m
  return 0;
 }
 DEFINE_SYSCALL3(unlinkat,fd_t,dfd,USER UNCHECKED char const *,filename,int,flags) {
- REF struct directory_node *dir;
- REF struct path *p; unsigned int mode;
+ REF struct directory_node *EXCEPT_VAR dir;
+ REF struct path *EXCEPT_VAR p; unsigned int mode;
  size_t filename_length = user_strlen(filename);
  mode = DIRECTORY_REMOVE_FREGULAR;
  /* Validate the flags argument. */
@@ -581,9 +583,8 @@ DEFINE_SYSCALL3(unlinkat,fd_t,dfd,USER UNCHECKED char const *,filename,int,flags
 DEFINE_SYSCALL4(xfsymlinkat,
                 USER UNCHECKED char const *,link_text,
                 fd_t,dfd,USER UNCHECKED char const *,filename,int,flags) {
- REF struct directory_node *dir;
- REF struct symlink_node *node;
- REF struct path *p;
+ REF struct directory_node *EXCEPT_VAR dir;
+ REF struct symlink_node *node; REF struct path *p;
  size_t link_text_size = user_strlen(link_text);
  size_t filename_length = user_strlen(filename);
  if (flags & ~FS_MODE_FKNOWNBITS)
@@ -611,8 +612,8 @@ DEFINE_SYSCALL5(linkat,
                 int,olddfd,USER UNCHECKED char const *,oldname,
                 int,newdfd,USER UNCHECKED char const *,newname,
                 int,flags) {
- REF struct directory_node *target_dir;
- REF struct inode *link_target;
+ REF struct directory_node *EXCEPT_VAR target_dir;
+ REF struct inode *EXCEPT_VAR link_target;
  REF struct path *p;
  size_t newname_length = user_strlen(newname);
  if (flags & ~FS_MODE_FKNOWNBITS)
@@ -623,7 +624,7 @@ DEFINE_SYSCALL5(linkat,
                    flags|FS_MODE_FDIRECTORY);
  path_decref(p);
  TRY {
-  p = fs_pathat(olddfd,oldname,user_strlen(oldname),&link_target,
+  p = fs_pathat(olddfd,oldname,user_strlen(oldname),(struct inode **)&link_target,
                 flags|FS_MODE_FIGNORE_TRAILING_SLASHES);
   path_decref(p);
   TRY {
@@ -645,10 +646,10 @@ DEFINE_SYSCALL5(xfrenameat,
                 int,olddfd,USER UNCHECKED char const *,oldname,
                 int,newdfd,USER UNCHECKED char const *,newname,
                 int,flags) {
- REF struct directory_node *target_dir;
- REF struct directory_node *source_dir;
- REF struct directory_entry *source_entry;
- REF struct path *p;
+ REF struct directory_node *EXCEPT_VAR target_dir;
+ REF struct directory_node *EXCEPT_VAR source_dir;
+ REF struct directory_entry *EXCEPT_VAR source_entry;
+ REF struct path *EXCEPT_VAR p;
  size_t oldname_length = user_strlen(oldname);
  size_t newname_length = user_strlen(newname);
  if (flags & ~FS_MODE_FKNOWNBITS)
@@ -715,8 +716,10 @@ DEFINE_SYSCALL1(close,fd_t,fd) {
 DEFINE_SYSCALL4(openat,
                 fd_t,dfd,char const *,filename,
                 oflag_t,flags,mode_t,mode) {
- REF struct inode *target_node; int result_fd;
- REF struct path *path; struct handle result;
+ REF struct inode *EXCEPT_VAR target_node;
+ int COMPILER_IGNORE_UNINITIALIZED(result_fd);
+ REF struct path *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(path);
+ struct handle EXCEPT_VAR result;
  atflag_t at_flags;
  size_t newname_length = user_strlen(filename);
  at_flags = FS_MODE_FNORMAL;
@@ -731,7 +734,7 @@ DEFINE_SYSCALL4(openat,
   path = fs_lastpathat(dfd,
                       &filename,
                       &newname_length,
-                      &target_node,
+                      (struct inode **)&target_node,
                        at_flags);
   if (!(flags & (O_SYMLINK|O_EXCL))) {
    /* TODO: If the target file is a symbolic link, traverse that link! */
@@ -747,7 +750,7 @@ DEFINE_SYSCALL4(openat,
   }
  } else {
   if (flags & O_SYMLINK) {
-   REF struct path *filedir;
+   REF struct path *EXCEPT_VAR filedir;
    /* `O_SYMLINK' -- Open a symbolic link.
     * Implemented by not including the last part during regular path traversal. */
    filedir = fs_lastpathat(dfd,&filename,&newname_length,
@@ -799,8 +802,8 @@ DEFINE_SYSCALL4(openat,
 DEFINE_SYSCALL4(xreaddir,
                 int,fd,USER UNCHECKED struct dirent *,buf,
                 size_t,bufsize,int,mode) {
- size_t result;
- struct handle hnd;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd;
  hnd = handle_get(fd);
  TRY {
   unsigned int mode_id;
@@ -864,8 +867,8 @@ DEFINE_SYSCALL4(xreaddir,
 DEFINE_SYSCALL5(xreaddirf,
                 int,fd,USER UNCHECKED struct dirent *,buf,
                 size_t,bufsize,int,mode,oflag_t,flags) {
- size_t result;
- struct handle hnd;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd;
  hnd = handle_get(fd);
  TRY {
   /* Check for read permissions. */
@@ -945,8 +948,8 @@ DEFINE_SYSCALL3(xfchdirat,fd_t,dfd,USER UNCHECKED char const *,reldir,int,flags)
  return 0;
 }
 DEFINE_SYSCALL3(read,int,fd,USER UNCHECKED void *,buf,size_t,bufsize) {
- size_t result;
- struct handle hnd = handle_get(fd);
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd = handle_get(fd);
  TRY {
   /* Check for read permissions. */
   if ((hnd.h_flag & IO_ACCMODE) == IO_WRONLY)
@@ -958,8 +961,8 @@ DEFINE_SYSCALL3(read,int,fd,USER UNCHECKED void *,buf,size_t,bufsize) {
  return result;
 }
 DEFINE_SYSCALL3(write,int,fd,USER UNCHECKED void const *,buf,size_t,bufsize) {
- size_t result;
- struct handle hnd = handle_get(fd);
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd = handle_get(fd);
  TRY {
   /* Check for write permissions. */
   if ((hnd.h_flag & IO_ACCMODE) == IO_RDONLY)
@@ -973,8 +976,8 @@ DEFINE_SYSCALL3(write,int,fd,USER UNCHECKED void const *,buf,size_t,bufsize) {
 DEFINE_SYSCALL4(xreadf,
                 int,fd,USER UNCHECKED void *,buf,
                 size_t,bufsize,oflag_t,flags) {
- size_t result;
- struct handle hnd = handle_get(fd);
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd = handle_get(fd);
  TRY {
   /* Check for read permissions. */
   if ((hnd.h_flag & IO_ACCMODE) == IO_WRONLY ||
@@ -991,8 +994,8 @@ DEFINE_SYSCALL4(xreadf,
 DEFINE_SYSCALL4(xwritef,
                 int,fd,USER UNCHECKED void const *,buf,
                 size_t,bufsize,oflag_t,flags) {
- size_t result;
- struct handle hnd = handle_get(fd);
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd = handle_get(fd);
  TRY {
   /* Check for read permissions. */
   if ((hnd.h_flag & IO_ACCMODE) == IO_WRONLY ||
@@ -1016,8 +1019,8 @@ DEFINE_SYSCALL4_64(lseek,int,fd,
 DEFINE_SYSCALL3_64(lseek,int,fd,s64,off,int,whence)
 #endif
 {
- pos_t result;
- struct handle hnd = handle_get(fd);
+ pos_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd = handle_get(fd);
  TRY {
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
   result = handle_seek(hnd,
@@ -1044,8 +1047,8 @@ DEFINE_SYSCALL4(pread64,int,fd,
                 pos_t,pos)
 #endif
 {
- size_t result;
- struct handle hnd = handle_get(fd);
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd = handle_get(fd);
  TRY {
   /* Check for read permissions. */
   if ((hnd.h_flag & IO_ACCMODE) == IO_WRONLY)
@@ -1074,8 +1077,8 @@ DEFINE_SYSCALL4(pwrite64,int,fd,
                 pos_t,pos)
 #endif
 {
- size_t result;
- struct handle hnd = handle_get(fd);
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd = handle_get(fd);
  TRY {
   /* Check for write permissions. */
   if ((hnd.h_flag & IO_ACCMODE) == IO_RDONLY)
@@ -1106,8 +1109,8 @@ DEFINE_SYSCALL5(xpreadf64,int,fd,
                 pos_t,pos,oflag_t,flags)
 #endif
 {
- size_t result;
- struct handle hnd = handle_get(fd);
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd = handle_get(fd);
  TRY {
   /* Check for read permissions. */
   if ((hnd.h_flag & IO_ACCMODE) == IO_WRONLY ||
@@ -1141,8 +1144,8 @@ DEFINE_SYSCALL5(xpwritef64,int,fd,
                 pos_t,pos,oflag_t,flags)
 #endif
 {
- size_t result;
- struct handle hnd = handle_get(fd);
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd = handle_get(fd);
  TRY {
   /* Check for write permissions. */
   if ((hnd.h_flag & IO_ACCMODE) == IO_RDONLY ||
@@ -1168,7 +1171,7 @@ DEFINE_SYSCALL5(xpwritef64,int,fd,
 
 PRIVATE syscall_ulong_t KCALL
 do_fsync(fd_t fd, bool data_only) {
- struct handle hnd = handle_get(fd);
+ struct handle EXCEPT_VAR hnd = handle_get(fd);
  TRY {
   handle_sync(hnd,data_only);
  } FINALLY {
@@ -1292,8 +1295,8 @@ PRIVATE void KCALL
 exec_user(struct exec_args *__restrict args,
           struct cpu_hostcontext_user *__restrict context,
           unsigned int UNUSED(mode)) {
- REF struct application *app;
- REF struct module *mod;
+ REF struct application *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(app);
+ REF struct module *EXCEPT_VAR mod;
  USER UNCHECKED char *USER UNCHECKED *argv;
  USER UNCHECKED char *USER UNCHECKED *envp;
  /* Load arguments and free their buffer. */
@@ -1311,8 +1314,8 @@ exec_user(struct exec_args *__restrict args,
  }
  TRY {
   struct userstack *stack;
-  REF struct vm_node *environ_node;
-  struct process_environ *environ_address;
+  REF struct vm_node *EXCEPT_VAR environ_node;
+  struct process_environ *COMPILER_IGNORE_UNINITIALIZED(environ_address);
   /* Terminate all other threads running in the current process.
    * NOTE: This function is executed in the context of the process leader. */
   task_exit_secondary_threads(__W_EXITCODE(0,0));
@@ -1408,14 +1411,15 @@ DEFINE_SYSCALL5(execveat,fd_t,dfd,
                 USER UNCHECKED char const *,filename,
                 USER UNCHECKED char **,argv,
                 USER UNCHECKED char **,envp,int,flags) {
- REF struct module *COMPILER_IGNORE_UNINITIALIZED(exec_module);
- REF struct path *exec_path; REF struct inode *exec_node;
- struct exec_args *args;
+ REF struct module *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(exec_module);
+ REF struct path *EXCEPT_VAR exec_path;
+ REF struct inode *EXCEPT_VAR exec_node;
+ struct exec_args *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(args);
  if (flags & ~(FS_MODE_FKNOWNBITS))
      error_throw(E_INVALID_ARGUMENT);
  /* Load the file that should be executed. */
  exec_path = fs_pathat(dfd,filename,user_strlen(filename),
-                      &exec_node,FS_ATMODE(flags));
+                      (struct inode **)&exec_node,FS_ATMODE(flags));
  TRY {
   if (!INODE_ISREG(exec_node))
        error_throw(E_NOT_EXECUTABLE);
@@ -1482,11 +1486,12 @@ DEFINE_SYSCALL1(umask,mode_t,mask) {
 }
 
 DEFINE_SYSCALL5(ppoll,
-                USER UNCHECKED struct pollfd *,ufds,size_t,nfds,
+                USER UNCHECKED struct pollfd *EXCEPT_VAR,ufds,size_t,nfds,
                 USER UNCHECKED struct timespec const *,tsp,
-                USER UNCHECKED sigset_t const *,sigmask,
-                size_t,sigsetsize) {
- size_t result,i,insize; sigset_t old_blocking;
+                USER UNCHECKED sigset_t const *EXCEPT_VAR,sigmask,
+                size_t EXCEPT_VAR,sigsetsize) {
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ size_t i,insize; sigset_t old_blocking;
  /* */if (!sigmask);
  else if (sigsetsize > sizeof(sigset_t)) {
   error_throw(E_INVALID_ARGUMENT);
@@ -1504,7 +1509,7 @@ scan_again:
    * may be re-opened by poll-callbacks as needed. */
   task_channelmask(0);
   for (i = 0; i < nfds; ++i) {
-   struct handle hnd;
+   struct handle EXCEPT_VAR hnd;
    TRY {
     hnd = handle_get(ufds[i].fd);
     TRY {
@@ -1559,8 +1564,8 @@ DEFINE_SYSCALL6(pselect6,size_t,n,
                 USER UNCHECKED fd_set *,outp,
                 USER UNCHECKED fd_set *,exp,
                 USER UNCHECKED struct timespec const *,tsp,
-                USER UNCHECKED struct pselect6_sig *,sig) {
- unsigned int result;
+                USER UNCHECKED struct pselect6_sig *EXCEPT_VAR,sig) {
+ unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
  sigset_t old_blocking;
  validate_readable_opt(sig,sizeof(*sig));
  validate_readable_opt(inp,CEILDIV(n,8));
@@ -1592,7 +1597,7 @@ scan_again:
    /* Quick check: If we're not supposed to wait for anything, skip ahead. */
    if (!part_i && !part_o && !part_e) continue;
    for (fd_no = fd_base,mask = 1; part_bits; mask <<= 1,++fd_no,--part_bits) {
-    unsigned int mode = 0; REF struct handle hnd;
+    unsigned int mode = 0; REF struct handle EXCEPT_VAR hnd;
     if (part_i & mask) mode |= POLLIN|POLLPRI;
     if (part_o & mask) mode |= POLLOUT;
     if (part_e & mask) mode |= POLLERR;
@@ -1658,7 +1663,7 @@ DEFINE_SYSCALL4(fallocate,
                 syscall_ulong_t,len)
 #endif
 {
- struct handle hnd;
+ struct handle EXCEPT_VAR hnd;
  hnd = handle_get(fd);
  TRY {
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
@@ -1695,11 +1700,11 @@ DEFINE_SYSCALL5(xfdlopenat,
                 fd_t,dfd,USER UNCHECKED char const *,filename,
                 int,at_flags,int,open_flags,char const *,runpath) {
  void *result;
- REF struct path *module_path;
- REF struct inode *module_inode;
- REF struct module *mod;
+ REF struct path *EXCEPT_VAR module_path;
+ REF struct inode *EXCEPT_VAR module_inode;
+ REF struct module *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(mod);
  REF struct application *root_app;
- REF struct application *result_app;
+ REF struct application *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result_app);
  /* Validate arguments. */
  validate_readable_opt(runpath,1);
  if ((at_flags & ~FS_MODE_FKNOWNBITS) ||
@@ -1711,7 +1716,7 @@ DEFINE_SYSCALL5(xfdlopenat,
 
  /* XXX: Search the library path? */
  module_path = fs_pathat(dfd,filename,user_strlen(filename),
-                        &module_inode,at_flags);
+                        (struct inode **)&module_inode,at_flags);
  TRY {
   if (!INODE_ISREG(module_inode))
        error_throw(E_NOT_EXECUTABLE);
@@ -1741,9 +1746,9 @@ again:
      error_rethrow();
     }
    } else {
-    struct module_patcher patcher;
+    struct module_patcher EXCEPT_VAR patcher;
     /* Now load the module in the current VM (as a dependency of the root application). */
-    patcher.mp_root     = &patcher;
+    patcher.mp_root     = (struct module_patcher *)&patcher;
     patcher.mp_prev     = NULL;
     patcher.mp_app      = root_app;
     patcher.mp_requirec = 0;
@@ -1756,10 +1761,10 @@ again:
     patcher.mp_appflags = APPLICATION_FDYNAMIC;
     TRY {
      /* Open the module user the new patcher. */
-     result_app = patcher_require(&patcher,mod);
+     result_app = patcher_require((struct module_patcher *)&patcher,mod);
      application_incref(result_app);
     } FINALLY {
-     patcher_fini(&patcher);
+     patcher_fini((struct module_patcher *)&patcher);
     }
    }
   } FINALLY {
@@ -1785,7 +1790,7 @@ again:
 
 
 DEFINE_SYSCALL1(xdlclose,void *,handle) {
- struct application *app;
+ struct application *EXCEPT_VAR app;
  app = vm_getapp(handle);
  TRY {
   if (ATOMIC_DECIFNOTZERO(app->a_mapcnt) &&
@@ -1810,7 +1815,7 @@ DEFINE_SYSCALL2(xdlsym,void *,handle,
  if (!handle) {
   sym = vm_apps_dlsym(symbol);
  } else {
-  REF struct application *app;
+  REF struct application *EXCEPT_VAR app;
   app = vm_getapp(handle);
   TRY {
    /* Lookup a symbol within the specified application. */
@@ -1891,8 +1896,9 @@ DEFINE_SYSCALL5(mount,
                 USER UNCHECKED char const *,dir_name,
                 USER UNCHECKED char const *,type,unsigned int,flags,
                 USER UNCHECKED void const *,data) {
- REF struct path *p,*dev_path;
- REF struct inode *dev_node;
+ REF struct path *EXCEPT_VAR p;
+ REF struct path *dev_path;
+ REF struct inode *EXCEPT_VAR dev_node;
  if (flags & ~(MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC|
                MS_SYNCHRONOUS|MS_REMOUNT|MS_MANDLOCK|
                MS_DIRSYNC|MS_NOATIME|MS_NODIRATIME|
@@ -1908,15 +1914,15 @@ DEFINE_SYSCALL5(mount,
   if (flags & MS_BIND) {
    /* Create a virtual, secondary binding of another, existing mounting point. */
    dev_path = fs_path(NULL,dev_name,user_strlen(dev_name),
-                      &dev_node,FS_DEFAULT_ATMODE);
+                      (struct inode **)&dev_node,FS_DEFAULT_ATMODE);
    path_decref(dev_path);
   } else {
-   REF struct superblock *block;
+   REF struct superblock *COMPILER_IGNORE_UNINITIALIZED(block);
    if (!type) {
-    REF struct block_device *inode_device;
+    REF struct block_device *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(inode_device);
     /* Automatically determine how to mount some superblock. */
     dev_path = fs_path(NULL,dev_name,user_strlen(dev_name),
-                       &dev_node,FS_DEFAULT_ATMODE);
+                       (struct inode **)&dev_node,FS_DEFAULT_ATMODE);
     path_decref(dev_path);
     TRY {
      if (!S_ISBLK(dev_node->i_attr.a_mode))
@@ -1931,7 +1937,7 @@ DEFINE_SYSCALL5(mount,
      block_device_decref(inode_device);
     }
    } else {
-    REF struct superblock_type *fstype;
+    REF struct superblock_type *EXCEPT_VAR fstype;
     fstype = lookup_filesystem_type(type);
     TRY {
      if (fstype->st_flags & SUPERBLOCK_TYPE_FSINGLE) {
@@ -1940,9 +1946,9 @@ DEFINE_SYSCALL5(mount,
      } else if (fstype->st_flags & SUPERBLOCK_TYPE_FNODEV) {
       block = superblock_open(&null_device,fstype,(char *)data);
      } else {
-      REF struct block_device *inode_device;
+      REF struct block_device *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(inode_device);
       dev_path = fs_path(NULL,dev_name,user_strlen(dev_name),
-                        &dev_node,FS_DEFAULT_ATMODE);
+                        (struct inode **)&dev_node,FS_DEFAULT_ATMODE);
       path_decref(dev_path);
       TRY {
        if (!S_ISBLK(dev_node->i_attr.a_mode))

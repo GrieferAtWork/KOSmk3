@@ -100,7 +100,7 @@ PtyMaster_Write(struct ptymaster *__restrict self,
 }
 PRIVATE void KCALL
 PtyMaster_Sync(struct ptymaster *__restrict self) {
- uintptr_t old_mask;
+ uintptr_t EXCEPT_VAR old_mask;
  /* Wait until the slave application has read
   * all data, or until the display was closed. */
  old_mask = task_channelmask(RBUF_STATE_CHANNEL_EMPTY);
@@ -187,9 +187,9 @@ KCALL pty_allocmaster(struct ptyslave *__restrict master) {
 
 
 PUBLIC void KCALL
-pty_register(struct ptymaster *__restrict master,
-             struct ptyslave *__restrict slave) {
- struct pty_devpair ids;
+pty_register(struct ptymaster *__restrict EXCEPT_VAR master,
+             struct ptyslave *__restrict EXCEPT_VAR slave) {
+ struct pty_devpair EXCEPT_VAR ids;
  /* Allocate a pair of device IDs. */
 again:
  ids = devno_alloc_pty();
@@ -270,9 +270,10 @@ again:
 DEFINE_SYSCALL3_64(xopenpty,USER char *,name,
                    USER UNCHECKED struct termios const *,termp,
                    USER UNCHECKED struct winsize const *,winp) {
- u32 fd_master,fd_slave;
- REF struct ptyslave *slave;
- REF struct ptymaster *master;
+ u32 EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(fd_master);
+ u32 COMPILER_IGNORE_UNINITIALIZED(fd_slave);
+ REF struct ptyslave *EXCEPT_VAR slave;
+ REF struct ptymaster *EXCEPT_VAR master;
  validate_readable_opt(termp,sizeof(*termp));
  validate_readable_opt(winp,sizeof(*winp));
 

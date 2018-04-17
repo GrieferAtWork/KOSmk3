@@ -462,7 +462,7 @@ SYMEND(x86_load_context)
 	.cfi_startproc simple
 	.cfi_signal_frame
 	.cfi_def_cfa %esp,     0 /* We must hide the 8 bytes from `cfi_signal_frame' */
-	nop
+	nop /* Keep this here for the sake of tracebacks. */
 INTERN_ENTRY(x86_redirect_preemption)
 	/* At this point, we're 8 bytes from the base of the kernel-stack
 	 * with those 8 bytes (supposedly) containing the user-space ESP

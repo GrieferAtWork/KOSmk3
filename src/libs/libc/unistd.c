@@ -1864,11 +1864,13 @@ EXPORT(Xopen,libc_Xopen);
 EXPORT(Xopen64,libc_Xopen);
 CRT_EXCEPT int ATTR_CDECL
 libc_Xopen(char const *filename, oflag_t flags, ...) {
+#if defined(CONFIG_VA_END_IS_NOOP)
  va_list args; int result;
  va_start(args,flags);
-#if defined(CONFIG_VA_END_IS_NOOP)
  result = Xsys_openat(AT_FDCWD,filename,flags,va_arg(args,mode_t));
 #else
+ va_list EXCEPT_VAR args; int result;
+ va_start(args,flags);
  TRY {
   result = Xsys_openat(AT_FDCWD,filename,flags,va_arg(args,mode_t));
  } FINALLY {
@@ -1929,8 +1931,9 @@ libc_throw_buffer_too_small(size_t reqsize, size_t bufsize) {
 EXPORT(Xxfrealpathat,libc_Xxfrealpathat);
 CRT_EXCEPT ATTR_RETNONNULL char *LIBCCALL
 libc_Xxfrealpathat(fd_t fd, char const *path, int flags,
-                   char *buf, size_t bufsize, unsigned int type) {
- size_t reqsize; bool is_libc_buffer = false;
+                   char *EXCEPT_VAR buf, size_t bufsize, unsigned int type) {
+ size_t COMPILER_IGNORE_UNINITIALIZED(reqsize);
+ bool EXCEPT_VAR is_libc_buffer = false;
  if (!buf && bufsize)
       is_libc_buffer = true,
       buf = (char *)libc_Xmalloc(bufsize*sizeof(char));

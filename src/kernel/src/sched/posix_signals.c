@@ -142,8 +142,8 @@ posix_signals_clone_task(struct task *__restrict new_thread,
    *       do anything to get the new thread to use default
    *       behavior for all signals. */
   if (old_ptr != NULL) {
-   REF struct sighand *cow_handlers;
-   REF struct sighand_ptr *new_ptr;
+   REF struct sighand *EXCEPT_VAR cow_handlers;
+   REF struct sighand_ptr *COMPILER_IGNORE_UNINITIALIZED(new_ptr);
    atomic_rwlock_read(&old_ptr->sp_lock);
    cow_handlers = old_ptr->sp_hand;
    if (!cow_handlers) {
@@ -308,7 +308,7 @@ again:
   atomic_rwlock_write(&oldhand->sh_lock);
   atomic_rwlock_endread(&ptr->sp_lock);
   if (oldhand->sh_share > 1) {
-   struct sighand *newhand;
+   struct sighand *EXCEPT_VAR newhand;
    /* Acquire a reference to the vector that we want to copy. */
    ++oldhand->sh_share;
    atomic_rwlock_endwrite(&oldhand->sh_lock);
@@ -603,10 +603,10 @@ PRIVATE void KCALL resume_thread(void *arg) {
 }
 
 PRIVATE void KCALL
-do_suspend_thread(void *arg,
+do_suspend_thread(void *EXCEPT_VAR arg,
                   struct cpu_hostcontext_user *__restrict context,
                   unsigned int UNUSED(mode)) {
- u16 old_flags;
+ u16 EXCEPT_VAR old_flags;
  /* Enable recursive RPC handling, allowing other RPC functions to be called from here.
   * If we didn't do this, we'd be stuck because other threads would be unable
   * to continue this one if they couldn't schedule new RPC callbacks. */
@@ -804,7 +804,8 @@ again:
   pending[1] = share ? &share->ss_pending : NULL;
  }
  for (i = 0; i < COMPILER_LENOF(pending); ++i) {
-  struct sigqueue **piter,*iter;
+  struct sigqueue **piter;
+  struct sigqueue *EXCEPT_VAR iter;
   mutex_t *pending_lock;
   if (!pending[i]) continue; /* Skip empty pending sets. */
   pending_lock = &pending[i]->sp_lock;
@@ -879,9 +880,9 @@ signal_rpc_leader(void *arg,
 PUBLIC bool KCALL
 signal_raise_group(struct task *__restrict threadgroup,
                    USER CHECKED siginfo_t *__restrict info) {
- bool result = true;
- struct sigqueue *slot;
- struct sigpending *pending;
+ bool EXCEPT_VAR result = true;
+ struct sigqueue *EXCEPT_VAR slot;
+ struct sigpending *EXCEPT_VAR pending;
  pending = sigpending_getprocfor(threadgroup);
  /* Allocate the new slot. */
  slot = (struct sigqueue *)kmalloc(sizeof(struct sigqueue),
@@ -953,9 +954,9 @@ signal_raise_group(struct task *__restrict threadgroup,
 PUBLIC bool KCALL
 signal_raise_thread(struct task *__restrict thread,
                     USER CHECKED siginfo_t *__restrict info) {
- bool result = true;
- struct sigqueue *slot;
- struct sigpending *pending;
+ bool EXCEPT_VAR result = true;
+ struct sigqueue *EXCEPT_VAR slot;
+ struct sigpending *EXCEPT_VAR pending;
  pending = sigpending_getfor(thread);
  /* Allocate the new slot. */
  slot = (struct sigqueue *)kmalloc(sizeof(struct sigqueue),
@@ -1138,8 +1139,8 @@ PUBLIC void KCALL
 signal_chaction(int signo,
                 USER CHECKED struct sigaction const *new_action,
                 USER CHECKED struct sigaction *old_action) {
- struct sigaction *kernel_new_action;
- struct sigaction *kernel_old_action;
+ struct sigaction *EXCEPT_VAR kernel_new_action;
+ struct sigaction *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(kernel_old_action);
  struct sighand *hand;
  assert(signo < _NSIG);
  if (!new_action) {
@@ -1274,7 +1275,7 @@ again:
 /* Deque a pending signal from `pending' that is matching `mask'.
  * Otherwise, return `false' after connecting to `pending->sp_newsig' */
 PRIVATE bool KCALL
-deque_pending_signal(struct sigpending *__restrict self,
+deque_pending_signal(struct sigpending *__restrict EXCEPT_VAR self,
                      sigset_t const *__restrict mask,
                      USER CHECKED siginfo_t *info) {
  bool result = false;
@@ -1375,7 +1376,7 @@ PUBLIC void KCALL
 signal_suspend(USER CHECKED sigset_t const *wait_mask,
                size_t sigsetsize, jtime_t abs_timeout) {
  sigset_t old_mask;
- struct sigblock *block;
+ struct sigblock *EXCEPT_VAR block;
  assertf(!task_isconnected(),
          "This is for posix-signals only. Don't be "
          "connected to KOS signals (they're different things)");
@@ -1438,7 +1439,7 @@ signal_pending(USER CHECKED sigset_t *wait_mask,
       *iter |= *src;
  }
 #else
- struct sigpending *pending[2];
+ struct sigpending *EXCEPT_VAR pending[2];
  struct sigqueue *item; unsigned int i;
  if unlikely(sigsetsize > sizeof(sigset_t))
     error_throw(E_INVALID_ARGUMENT);
@@ -1554,7 +1555,7 @@ view_for(struct task *__restrict thread) {
 
 
 DEFINE_SYSCALL2(kill,pid_t,pid,int,sig) {
- REF struct task *target;
+ REF struct task *EXCEPT_VAR target;
  siginfo_t info;
  memset(&info,0,sizeof(siginfo_t));
  /* Make sure we've been given a valid signal number. */
@@ -1598,7 +1599,7 @@ DEFINE_SYSCALL2(kill,pid_t,pid,int,sig) {
 PRIVATE void KCALL
 do_tkill(pid_t tgid, pid_t pid, int sig) {
  siginfo_t info;
- REF struct task *target;
+ REF struct task *EXCEPT_VAR target;
  if (sig < 0 || sig >= _NSIG+1)
      error_throw(E_INVALID_ARGUMENT);
  memset(&info,0,sizeof(siginfo_t));
@@ -1638,7 +1639,7 @@ DEFINE_SYSCALL2(tkill,pid_t,pid,int,sig) {
 DEFINE_SYSCALL3(rt_sigqueueinfo,
                 pid_t,tgid,int,sig,
                 siginfo_t const *,uinfo) {
- REF struct task *target;
+ REF struct task *EXCEPT_VAR target;
  siginfo_t info;
  memcpy(&info,uinfo,sizeof(siginfo_t));
  info.si_signo = sig;
@@ -1660,7 +1661,7 @@ DEFINE_SYSCALL3(rt_sigqueueinfo,
 DEFINE_SYSCALL4(rt_tgsigqueueinfo,
                 pid_t,tgid,pid_t,tid,int,sig,
                 siginfo_t const *,uinfo) {
- REF struct task *target;
+ REF struct task *EXCEPT_VAR target;
  struct task *leader;
  struct thread_pid *leader_pid;
  siginfo_t info;

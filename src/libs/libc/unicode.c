@@ -1419,7 +1419,7 @@ EXPORT(Xuni_utf16to8ms,libc_Xutf16to8ms);
 CRT_EXCEPT ATTR_RETNONNULL ATTR_MALLOC __MALL_DEFAULT_ALIGNED
 char *LIBCCALL libc_Xutf16to8ms(char16_t const *__restrict utf16, size_t utf16len) {
  size_t reqlen,buflen = (utf16len+1);
- char *result = (char *)libc_Xmalloc(buflen*sizeof(char));
+ char *EXCEPT_VAR result = (char *)libc_Xmalloc(buflen*sizeof(char));
  if unlikely(!result) return NULL;
 again:
  TRY {
@@ -1441,7 +1441,7 @@ EXPORT(Xuni_utf32to8ms,libc_Xutf32to8ms);
 CRT_EXCEPT ATTR_RETNONNULL ATTR_MALLOC __MALL_DEFAULT_ALIGNED
 char *LIBCCALL libc_Xutf32to8ms(char32_t const *__restrict utf32, size_t utf32len) {
  size_t reqlen,buflen = (utf32len+1);
- char *result = (char *)libc_Xmalloc(buflen*sizeof(char));
+ char *EXCEPT_VAR result = (char *)libc_Xmalloc(buflen*sizeof(char));
  if unlikely(!result) return NULL;
 again:
  TRY {

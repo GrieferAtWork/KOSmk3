@@ -69,8 +69,8 @@ INTDEF void KCALL sighand_decref(struct sighand *__restrict self);
 INTDEF void KCALL sighand_ptr_decref(struct sighand_ptr *__restrict self);
 
 PUBLIC bool KCALL task_unshare_sighand(void) {
- REF struct sighand *hand;
- struct sighand_ptr *new_ptr;
+ REF struct sighand *EXCEPT_VAR hand;
+ struct sighand_ptr *COMPILER_IGNORE_UNINITIALIZED(new_ptr);
  struct sighand_ptr *handptr;
  handptr = PERTASK_GET(_this_sighand_ptr);
  if (!handptr) return false; /* No handlers are being used. */
@@ -115,7 +115,7 @@ PUBLIC bool KCALL task_unshare_sighand(void) {
 }
 
 PUBLIC bool KCALL task_unshare_vm(void) {
- REF struct vm *new_vm;
+ REF struct vm *EXCEPT_VAR new_vm;
  assert(THIS_VM->vm_refcnt != 0);
  if (THIS_VM->vm_refcnt == 1)
      return true;

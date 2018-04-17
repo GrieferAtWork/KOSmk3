@@ -160,7 +160,8 @@ Fat_ReadFromCluster(struct superblock *__restrict self,
                     CHECKED USER byte_t *buf,
                     size_t bufsize, pos_t abs_diskpos,
                     FatClusterIndex cluster, iomode_t flags) {
- size_t temp,result = bufsize;
+ size_t temp;
+ size_t EXCEPT_VAR result = bufsize;
  Fat *fat = self->s_fsdata;
  TRY {
   while (bufsize) {
@@ -209,8 +210,9 @@ Fat_WriteToCluster(struct superblock *__restrict self,
                    CHECKED USER byte_t const *buf,
                    size_t bufsize, pos_t abs_diskpos,
                    FatClusterIndex cluster, iomode_t flags) {
- size_t temp,result = bufsize;
- Fat *fat = self->s_fsdata;
+ size_t temp;
+ size_t EXCEPT_VAR result = bufsize;
+ Fat *EXCEPT_VAR fat = self->s_fsdata;
  TRY {
   while (bufsize) {
    size_t max_io;
@@ -244,7 +246,7 @@ Fat_WriteToCluster(struct superblock *__restrict self,
    COMPILER_WRITE_BARRIER();
    cluster = Fat_GetFatIndirection(self,cluster,flags);
    if (cluster >= fat->f_cluster_eof_marker) {
-    FatClusterIndex next_index;
+    FatClusterIndex COMPILER_IGNORE_UNINITIALIZED(next_index);
     /* Allocate another cluster. */
     mutex_getf(&fat->f_fat_lock,flags);
     TRY {
@@ -463,13 +465,13 @@ Fat_GetAbsDiskPos(struct inode *__restrict self, pos_t pos, iomode_t flags) {
 
 
 INTERN FatClusterIndex KCALL
-Fat_GetFileCluster(struct inode *__restrict node,
+Fat_GetFileCluster(struct inode *__restrict EXCEPT_VAR node,
                    size_t nth_cluster,
                    unsigned int mode, iomode_t flags) {
- FatClusterIndex result;
- FatNode *data = node->i_fsdata;
- Fat *fat = node->i_super->s_fsdata;
- bool has_write_lock = false;
+ FatClusterIndex COMPILER_IGNORE_UNINITIALIZED(result);
+ FatNode *EXCEPT_VAR data = node->i_fsdata;
+ Fat *EXCEPT_VAR fat = node->i_super->s_fsdata;
+ bool EXCEPT_VAR has_write_lock = false;
  assert(rwlock_reading(&node->i_lock));
  if unlikely(!data->i_clusterc) {
   /* Load the initial file cluster. */
@@ -900,7 +902,7 @@ again:
 PRIVATE void KCALL
 FatDirectory_AllocFreeRange(FatNode *__restrict node) {
  size_t new_alloc = node->i_directory.i_freea*2;
- FatDirectoryFreeRange *vector;
+ FatDirectoryFreeRange *EXCEPT_VAR vector;
  if (!new_alloc) new_alloc = 2;
  vector = node->i_directory.i_freev;
  TRY {
@@ -1071,13 +1073,13 @@ Fat32_PRead(struct inode *__restrict self,
 }
 
 PRIVATE size_t KCALL
-Fat32_PWrite(struct inode *__restrict self,
+Fat32_PWrite(struct inode *__restrict EXCEPT_VAR self,
              CHECKED USER void const *buf, size_t bufsize,
              pos_t pos, iomode_t flags) {
  pos_t new_size = pos+bufsize;
  inode_loadattr(self);
  if (new_size > self->i_attr.a_size) {
-  pos_t old_size;
+  pos_t EXCEPT_VAR old_size;
   /* Limit the max write area to 32 bits */
   if unlikely(new_size > (u32)-1) {
    if unlikely(pos >= (u32)-1)
@@ -1477,10 +1479,12 @@ dos_8dot3:
 }
 
 PRIVATE void KCALL
-Fat_AddFileToDirectory(struct directory_node *__restrict target_directory,
+Fat_AddFileToDirectory(struct directory_node *__restrict EXCEPT_VAR target_directory,
                        struct directory_entry *__restrict target_dirent,
                        struct inode *__restrict new_node) {
- FatFile dos83; u32 num_files; u32 file_index;
+ FatFile dos83;
+ u32 EXCEPT_VAR num_files;
+ u32 EXCEPT_VAR file_index;
  /* Construct the 8.3 filename. */
  num_files = Fat_Create8Dot3Filename(target_directory,target_dirent,
                                      new_node,&dos83);
@@ -1500,8 +1504,9 @@ Fat_AddFileToDirectory(struct directory_node *__restrict target_directory,
 
 PRIVATE ATTR_RETNONNULL FatNode *KCALL
 Fat_AllocateEmptyNode(Fat *__restrict fat) {
- FatNode *result = (FatNode *)kmalloc(sizeof(FatNode),
-                                      GFP_SHARED|GFP_CALLOC|GFP_NOFS);
+ FatNode *EXCEPT_VAR result;
+ result = (FatNode *)kmalloc(sizeof(FatNode),
+                             GFP_SHARED|GFP_CALLOC|GFP_NOFS);
  result->i_clusterc = 1;
  result->i_clustera = 2;
  TRY {
@@ -1552,10 +1557,10 @@ PRIVATE FatFile directory_pattern[3] = {
 };
 
 PRIVATE void KCALL
-Fat_CreateDirectory(struct directory_node *__restrict target_directory,
+Fat_CreateDirectory(struct directory_node *__restrict EXCEPT_VAR target_directory,
                     struct directory_entry *__restrict target_dirent,
                     struct directory_node *__restrict new_node) {
- FatFile dirinit[3]; FatClusterIndex clusno;
+ FatFile dirinit[3]; FatClusterIndex EXCEPT_VAR clusno;
  new_node->d_node.i_nlink  = 1;
  new_node->d_node.i_fsdata = Fat_AllocateEmptyNode(target_directory->d_node.i_super->s_fsdata);
  new_node->d_node.i_ops    = &Fat_DirectoryNodeOperators;
@@ -1835,7 +1840,7 @@ Fat32_SetFatIndirection(Fat *__restrict self,
 INTERN FatClusterIndex KCALL
 Fat_GetFatIndirection(struct superblock *__restrict self,
                       FatClusterIndex index, iomode_t flags) {
- Fat *fat = self->s_fsdata;
+ Fat *EXCEPT_VAR fat = self->s_fsdata;
  FatSectorIndex table_sector;
  table_sector = (*fat->f_fat_sector)(fat,index);
  assertf(table_sector < fat->f_sec4fat,
@@ -1961,7 +1966,7 @@ Fat_WriteFatIndirectionTableSegment(struct superblock *__restrict self,
 INTERN void KCALL
 Fat_WriteFatIndirectionTable(struct superblock *__restrict self) {
  FatSectorIndex changed_begin,changed_end;
- Fat *fat = self->s_fsdata;
+ Fat *EXCEPT_VAR fat = self->s_fsdata;
  if (!(fat->f_flags & FAT_FCHANGED))
        return;
  mutex_get(&fat->f_fat_lock);
@@ -2014,7 +2019,8 @@ Fat_OpenSuperblock(struct superblock *__restrict self,
                    UNCHECKED USER char *args) {
  FatDiskHeader disk_header;
  struct block_device *dev = self->s_device;
- Fat *fat; FatNode *root_node;
+ Fat *EXCEPT_VAR fat;
+ FatNode *EXCEPT_VAR root_node;
 
  (void)args; /* TODO: User-arguments. */
 

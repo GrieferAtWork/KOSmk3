@@ -621,9 +621,10 @@ HSYM(heap_free_overallocation)(STRUCT_HEAP *__restrict self,
 
 
 INTERN struct heapptr LIBCCALL
-HSYM(libc_heap_alloc_untraced)(STRUCT_HEAP *__restrict self,
-                               size_t num_bytes, gfp_t flags) {
- struct heapptr result; STRUCT_MFREE **iter,**end;
+HSYM(libc_heap_alloc_untraced)(STRUCT_HEAP *__restrict EXCEPT_VAR self,
+                               size_t num_bytes,
+                               gfp_t EXCEPT_VAR flags) {
+ struct heapptr EXCEPT_VAR result; STRUCT_MFREE **iter,**end;
  if unlikely(__builtin_add_overflow(num_bytes,LOCAL_HEAP_ALIGNMENT-1,&result.hp_siz))
     libc_heap_allocation_failed(num_bytes);
  result.hp_siz &= ~(LOCAL_HEAP_ALIGNMENT-1);
@@ -760,7 +761,8 @@ without_random:
 
  /* No pre-allocated memory found. -> Allocate new memory. */
  {
-  size_t page_bytes,unused_size;
+  size_t EXCEPT_VAR page_bytes;
+  size_t unused_size;
   if unlikely(__builtin_add_overflow(result.hp_siz,PAGESIZE-1,&page_bytes))
      libc_heap_allocation_failed(result.hp_siz);
 #ifdef OPTION_DEBUG_HEAP
@@ -947,10 +949,11 @@ again:
 }
 
 INTERN size_t LIBCCALL
-HSYM(libc_heap_allat_untraced)(STRUCT_HEAP *__restrict self,
-                               void *__restrict ptr,
-                               size_t num_bytes, gfp_t flags) {
- size_t unused_size,alloc_size,result = 0;
+HSYM(libc_heap_allat_untraced)(STRUCT_HEAP *__restrict EXCEPT_VAR self,
+                               void *__restrict EXCEPT_VAR ptr,
+                               size_t num_bytes, gfp_t EXCEPT_VAR flags) {
+ size_t unused_size,alloc_size;
+ size_t EXCEPT_VAR result = 0;
  if unlikely(__builtin_add_overflow(num_bytes,LOCAL_HEAP_ALIGNMENT-1,&alloc_size))
     libc_heap_allocation_failed(num_bytes);
  alloc_size &= ~(LOCAL_HEAP_ALIGNMENT-1);
@@ -958,7 +961,7 @@ HSYM(libc_heap_allat_untraced)(STRUCT_HEAP *__restrict self,
              alloc_size = LOCAL_HEAP_MINSIZE;
  /* Allocate memory from the given range. */
  while (result < alloc_size) {
-  size_t part;
+  size_t COMPILER_IGNORE_UNINITIALIZED(part);
   /* Allocate the new missing part. */
   TRY {
    part = HSYM(heap_allat_partial)(self,
@@ -1174,11 +1177,14 @@ HSYM(libc_heap_align_untraced)(STRUCT_HEAP *__restrict self,
 
 
 INTERN struct heapptr LIBCCALL
-HSYM(libc_heap_realloc_untraced)(STRUCT_HEAP *__restrict self,
-                                 void *old_ptr, size_t old_bytes,
-                                 size_t new_bytes, gfp_t alloc_flags,
+HSYM(libc_heap_realloc_untraced)(STRUCT_HEAP *__restrict EXCEPT_VAR self,
+                                 void *old_ptr,
+                                 size_t old_bytes,
+                                 size_t new_bytes,
+                                 gfp_t EXCEPT_VAR alloc_flags,
                                  gfp_t free_flags) {
- struct heapptr result; size_t missing_bytes;
+ struct heapptr EXCEPT_VAR result;
+ size_t missing_bytes;
  assert(IS_ALIGNED((uintptr_t)old_ptr,LOCAL_HEAP_ALIGNMENT));
  assert(IS_ALIGNED(old_bytes,LOCAL_HEAP_ALIGNMENT));
  if (old_bytes == 0) /* Special case: initial allocation */

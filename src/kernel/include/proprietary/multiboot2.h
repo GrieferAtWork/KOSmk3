@@ -115,255 +115,264 @@ DECL_BEGIN
 #endif
 
 struct mb2_header {
-  u32 magic;         /* Must be MB2_MAGIC - see above.  */
-  u32 architecture;  /* ISA */
-union PACKED {
-  u64 header_length_and_checksum;
-struct PACKED {
-  u32 header_length; /* Total header length.  */
-  u32 checksum;      /* The above fields plus this one must equal 0 mod 2^32. */
-};};
+    u32 magic;         /* Must be MB2_MAGIC - see above.  */
+    u32 architecture;  /* ISA */
+    union PACKED {
+#if __SIZEOF_POINTER__ >= 8
+        u64 header_length_and_checksum;
+        struct PACKED {
+            u32 header_length; /* Total header length.  */
+            u32 checksum;      /* The above fields plus this one must equal 0 mod 2^32. */
+        };
+#else
+        struct PACKED {
+            u32 header_length; /* Total header length.  */
+            u32 checksum;      /* The above fields plus this one must equal 0 mod 2^32. */
+        };
+        u64 header_length_and_checksum;
+#endif
+    };
 };
 
 struct mb2_header_tag {
-  u16 type;
-  u16 flags;
-  u32 size;
+    u16 type;
+    u16 flags;
+    u32 size;
 };
 
 struct mb2_header_tag_information_request {
-  u16 type;
-  u16 flags;
-  u32 size;
-  __empty_arr(u32,requests);
+    u16 type;
+    u16 flags;
+    u32 size;
+    __empty_arr(u32,requests);
 };
 
 struct mb2_header_tag_address {
-  u16 type;
-  u16 flags;
-  u32 size;
-  u32 header_addr;
-  u32 load_addr;
-  u32 load_end_addr;
-  u32 bss_end_addr;
+    u16 type;
+    u16 flags;
+    u32 size;
+    u32 header_addr;
+    u32 load_addr;
+    u32 load_end_addr;
+    u32 bss_end_addr;
 };
 
 struct mb2_header_tag_entry_address {
-  u16 type;
-  u16 flags;
-  u32 size;
-  u32 entry_addr;
+    u16 type;
+    u16 flags;
+    u32 size;
+    u32 entry_addr;
 };
 
 struct mb2_header_tag_console_flags {
-  u16 type;
-  u16 flags;
-  u32 size;
-  u32 console_flags;
+    u16 type;
+    u16 flags;
+    u32 size;
+    u32 console_flags;
 };
 
 struct mb2_header_tag_framebuffer {
-  u16 type;
-  u16 flags;
-  u32 size;
-  u32 width;
-  u32 height;
-  u32 depth;
+    u16 type;
+    u16 flags;
+    u32 size;
+    u32 width;
+    u32 height;
+    u32 depth;
 };
 
 struct mb2_header_tag_module_align {
-  u16 type;
-  u16 flags;
-  u32 size;
+    u16 type;
+    u16 flags;
+    u32 size;
 };
 
 struct mb2_header_tag_relocatable {
-  u16 type;
-  u16 flags;
-  u32 size;
-  u32 min_addr;
-  u32 max_addr;
-  u32 align;
-  u32 preference;
+    u16 type;
+    u16 flags;
+    u32 size;
+    u32 min_addr;
+    u32 max_addr;
+    u32 align;
+    u32 preference;
 };
 
 struct mb2_color {
-  u8 red;
-  u8 green;
-  u8 blue;
+    u8 red;
+    u8 green;
+    u8 blue;
 };
 
 typedef struct mb2_mmap_entry {
-  u64 addr;
-  u64 len;
+    u64 addr;
+    u64 len;
 #define MB2_MEMORY_AVAILABLE        1
 #define MB2_MEMORY_RESERVED         2
 #define MB2_MEMORY_ACPI_RECLAIMABLE 3
 #define MB2_MEMORY_NVS              4
 #define MB2_MEMORY_BADRAM           5
-  u32 type;
-  u32 zero;
+    u32 type;
+    u32 zero;
 } mb2_memory_map_t;
 
 struct mb2_tag {
-  u32 type;
-  u32 size;
+    u32 type;
+    u32 size;
 };
 struct mb2_tag_string {
-  u32  type;
-  u32  size;
-  char string[EMPTY_ARRAY_SIZE];
+    u32  type;
+    u32  size;
+    char string[EMPTY_ARRAY_SIZE];
 };
 struct mb2_tag_module {
-  u32  type;
-  u32  size;
-  u32  mod_start;
-  u32  mod_end;
-  char cmdline[EMPTY_ARRAY_SIZE];
+    u32  type;
+    u32  size;
+    u32  mod_start;
+    u32  mod_end;
+    char cmdline[EMPTY_ARRAY_SIZE];
 };
 struct mb2_tag_basic_meminfo {
-  u32 type;
-  u32 size;
-  u32 mem_lower;
-  u32 mem_upper;
+    u32 type;
+    u32 size;
+    u32 mem_lower;
+    u32 mem_upper;
 };
 struct mb2_tag_bootdev {
-  u32 type;
-  u32 size;
-  u32 biosdev;
-  u32 slice;
-  u32 part;
+    u32 type;
+    u32 size;
+    u32 biosdev;
+    u32 slice;
+    u32 part;
 };
 struct mb2_tag_mmap {
-  u32                   type;
-  u32                   size;
-  u32                   entry_size;
-  u32                   entry_version;
-  struct mb2_mmap_entry entries[EMPTY_ARRAY_SIZE];
+    u32                   type;
+    u32                   size;
+    u32                   entry_size;
+    u32                   entry_version;
+    struct mb2_mmap_entry entries[EMPTY_ARRAY_SIZE];
 };
 struct mb2_vbe_info_block {
-  u8 external_specification[512];
+    u8 external_specification[512];
 };
 struct mb2_vbe_mode_info_block {
-  u8 external_specification[256];
+    u8 external_specification[256];
 };
 struct mb2_tag_vbe {
-  u32                            type;
-  u32                            size;
-  u16                            vbe_mode;
-  u16                            vbe_interface_seg;
-  u16                            vbe_interface_off;
-  u16                            vbe_interface_len;
-  struct mb2_vbe_info_block      vbe_control_info;
-  struct mb2_vbe_mode_info_block vbe_mode_info;
+    u32                            type;
+    u32                            size;
+    u16                            vbe_mode;
+    u16                            vbe_interface_seg;
+    u16                            vbe_interface_off;
+    u16                            vbe_interface_len;
+    struct mb2_vbe_info_block      vbe_control_info;
+    struct mb2_vbe_mode_info_block vbe_mode_info;
 };
 struct mb2_tag_framebuffer_common {
-  u32 type;
-  u32 size;
-  u64 framebuffer_addr;
-  u32 framebuffer_pitch;
-  u32 framebuffer_width;
-  u32 framebuffer_height;
-  u8  framebuffer_bpp;
+    u32 type;
+    u32 size;
+    u64 framebuffer_addr;
+    u32 framebuffer_pitch;
+    u32 framebuffer_width;
+    u32 framebuffer_height;
+    u8  framebuffer_bpp;
 #define MB2_FRAMEBUFFER_TYPE_INDEXED  0
 #define MB2_FRAMEBUFFER_TYPE_RGB      1
 #define MB2_FRAMEBUFFER_TYPE_EGA_TEXT 2
-  u8  framebuffer_type;
-  u16 reserved;
+    u8  framebuffer_type;
+    u16 reserved;
 };
 
 struct mb2_tag_framebuffer {
-  struct mb2_tag_framebuffer_common common;
-  union {
-    struct {
-      u16 framebuffer_palette_num_colors;
-      __empty_arr(struct mb2_color,framebuffer_palette);
+    struct mb2_tag_framebuffer_common common;
+    union PACKED {
+        struct PACKED {
+            u16 framebuffer_palette_num_colors;
+            __empty_arr(struct mb2_color,framebuffer_palette);
+        };
+        struct PACKED {
+            u8 framebuffer_red_field_position;
+            u8 framebuffer_red_mask_size;
+            u8 framebuffer_green_field_position;
+            u8 framebuffer_green_mask_size;
+            u8 framebuffer_blue_field_position;
+            u8 framebuffer_blue_mask_size;
+        };
     };
-    struct {
-      u8 framebuffer_red_field_position;
-      u8 framebuffer_red_mask_size;
-      u8 framebuffer_green_field_position;
-      u8 framebuffer_green_mask_size;
-      u8 framebuffer_blue_field_position;
-      u8 framebuffer_blue_mask_size;
-    };
-  };
 };
 struct mb2_tag_elf_sections {
-  u32  type;
-  u32  size;
-  u32  num;
-  u32  entsize;
-  u32  shndx;
-  char sections[EMPTY_ARRAY_SIZE];
+    u32  type;
+    u32  size;
+    u32  num;
+    u32  entsize;
+    u32  shndx;
+    char sections[EMPTY_ARRAY_SIZE];
 };
 struct mb2_tag_apm {
-  u32 type;
-  u32 size;
-  u16 version;
-  u16 cseg;
-  u32 offset;
-  u16 cseg_16;
-  u16 dseg;
-  u16 flags;
-  u16 cseg_len;
-  u16 cseg_16_len;
-  u16 dseg_len;
+    u32 type;
+    u32 size;
+    u16 version;
+    u16 cseg;
+    u32 offset;
+    u16 cseg_16;
+    u16 dseg;
+    u16 flags;
+    u16 cseg_len;
+    u16 cseg_16_len;
+    u16 dseg_len;
 };
 struct mb2_tag_efi32 {
-  u32 type;
-  u32 size;
-  u32 pointer;
+    u32 type;
+    u32 size;
+    u32 pointer;
 };
 struct mb2_tag_efi64 {
-  u32 type;
-  u32 size;
-  u64 pointer;
+    u32 type;
+    u32 size;
+    u64 pointer;
 };
 struct mb2_tag_smbios {
-  u32 type;
-  u32 size;
-  u8  major;
-  u8  minor;
-  u8  reserved[6];
-  u8  tables[EMPTY_ARRAY_SIZE];
+    u32 type;
+    u32 size;
+    u8  major;
+    u8  minor;
+    u8  reserved[6];
+    u8  tables[EMPTY_ARRAY_SIZE];
 };
 struct mb2_tag_old_acpi {
-  u32 type;
-  u32 size;
-  u8  rsdp[EMPTY_ARRAY_SIZE];
+    u32 type;
+    u32 size;
+    u8  rsdp[EMPTY_ARRAY_SIZE];
 };
 struct mb2_tag_new_acpi {
-  u32 type;
-  u32 size;
-  u8  rsdp[EMPTY_ARRAY_SIZE];
+    u32 type;
+    u32 size;
+    u8  rsdp[EMPTY_ARRAY_SIZE];
 };
 struct mb2_tag_network {
-  u32 type;
-  u32 size;
-  u8  dhcpack[EMPTY_ARRAY_SIZE];
+    u32 type;
+    u32 size;
+    u8  dhcpack[EMPTY_ARRAY_SIZE];
 };
 struct mb2_tag_efi_mmap {
-  u32 type;
-  u32 size;
-  u32 descr_size;
-  u32 descr_vers;
-  u8  efi_mmap[EMPTY_ARRAY_SIZE];
+    u32 type;
+    u32 size;
+    u32 descr_size;
+    u32 descr_vers;
+    u8  efi_mmap[EMPTY_ARRAY_SIZE];
 }; 
 struct mb2_tag_efi32_ih {
-  u32 type;
-  u32 size;
-  u32 pointer;
+    u32 type;
+    u32 size;
+    u32 pointer;
 };
 struct mb2_tag_efi64_ih {
-  u32 type;
-  u32 size;
-  u64 pointer;
+    u32 type;
+    u32 size;
+    u64 pointer;
 };
 struct mb2_tag_load_base_addr {
-  u32 type;
-  u32 size;
-  u32 load_base_addr;
+    u32 type;
+    u32 size;
+    u32 load_base_addr;
 };
 
 #undef EMPTY_ARRAY_SIZE

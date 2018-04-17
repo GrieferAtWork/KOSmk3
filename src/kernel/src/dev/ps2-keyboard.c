@@ -390,7 +390,7 @@ PRIVATE struct keyboard_ops KeyboardOps = {
 #define PS2_ORIGINAL_SCANSET  1
 
 INTERN ATTR_FREETEXT void KCALL ps2_register_keyboard(u8 port) {
- REF Keyboard *kbd; u8 scanset;
+ REF Keyboard *EXCEPT_VAR kbd; u8 scanset;
  /* Try to reset the keyboard. */
  if (!ps2_runprogram(port,NULL,NULL,ps2_keyboard_reset))
       return;

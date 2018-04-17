@@ -536,7 +536,7 @@ dw_update_register(struct dw_register *__restrict reg,
                    struct cpu_context *__restrict ctx,
                    unsigned int regno, uintptr_t cfa,
                    unsigned int flags) {
- UnwindRegister result;
+ UnwindRegister COMPILER_IGNORE_UNINITIALIZED(result);
  switch (reg->r_rule) {
  case rule_offsetn:
   result = cfa + reg->r_value;

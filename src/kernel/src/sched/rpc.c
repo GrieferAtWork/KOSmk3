@@ -106,9 +106,9 @@ again:
  info = &FORTASK(thread,my_rpc);
  assert(info->ri_cnt <= info->ri_siz);
  if unlikely(info->ri_cnt == info->ri_siz) {
-  size_t new_alloc;
+  size_t EXCEPT_VAR new_alloc;
   struct rpc_slot *old_vector;
-  struct rpc_slot *new_vector;
+  struct rpc_slot *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(new_vector);
   /* Must allocate more memory for RPC functions. */
   new_alloc = info->ri_siz * 2;
 #if CONFIG_STATIC_RPC_SLOTS == 0
@@ -188,7 +188,7 @@ task_serve_before_user(struct cpu_hostcontext_user *__restrict context,
                        unsigned int mode) {
  if (PERTASK_TESTF(this_task.t_state,TASK_STATE_FINTERRUPTED)) {
   /* Serve RPC function calls. */
-  struct rpc_slot slot;
+  struct rpc_slot EXCEPT_VAR slot;
 again:
   while (ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FINTERRUPTING) &
                                            TASK_STATE_FINTERRUPTING)
@@ -202,7 +202,7 @@ again:
   }
   /* Take away the first RPC */
   PERTASK_DEC(my_rpc.ri_cnt);
-  memcpy(&slot,&PERTASK(my_rpc.ri_vec)[0],sizeof(struct rpc_slot));
+  memcpy((void *)&slot,&PERTASK(my_rpc.ri_vec)[0],sizeof(struct rpc_slot));
   memmove(&PERTASK(my_rpc.ri_vec)[0],&PERTASK(my_rpc.ri_vec)[1],
            PERTASK_GET(my_rpc.ri_cnt)*sizeof(struct rpc_slot));
   ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINTERRUPTING);
@@ -247,11 +247,11 @@ again:
  * @return: true:  At least one RPC function was served.
  * @return: false: No RPC functions were served. */
 PUBLIC bool KCALL task_serve(void) {
- u16 state = PERTASK_GET(this_task.t_state);
+ u16 EXCEPT_VAR state = PERTASK_GET(this_task.t_state);
  if (state & TASK_STATE_FINTERRUPTED) {
   /* Serve RPC function calls. */
-  struct rpc_slot slot;
-  struct task_connections connections;
+  struct rpc_slot EXCEPT_VAR slot;
+  struct task_connections EXCEPT_VAR connections;
 #ifndef NDEBUG
   u32 old_nothrow_serve_recursion;
   u16 old_flags = PERTASK_GET(this_task.t_flags);
@@ -271,7 +271,7 @@ PUBLIC bool KCALL task_serve(void) {
   /* Save connections of the caller (as they're likely waiting for
    * some kind of signal). Otherwise, RPC function calls could be
    * able to clobber the connection set. */
-  task_push_connections(&connections);
+  task_push_connections((struct task_connections *)&connections);
 continue_serving:
   while (ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FINTERRUPTING) &
                                            TASK_STATE_FINTERRUPTING)
@@ -282,7 +282,7 @@ continue_serving:
                  ~(TASK_STATE_FINTERRUPTING|TASK_STATE_FINTERRUPTED|
                   (state & TASK_STATE_FINRPC ? 0 : TASK_STATE_FINRPC)));
 done_serving:
-   task_pop_connections(&connections);
+   task_pop_connections((struct task_connections *)&connections);
    return true;
   }
   if (PERTASK_GET(my_rpc.ri_vec)[0].rs_flag & RPC_SLOT_FUSER) {
@@ -296,13 +296,13 @@ done_serving:
     goto done_serving;
    }
    /* Throw an interrupt error, so we will return to user-space more quickly. */
-   task_pop_connections(&connections);
+   task_pop_connections((struct task_connections *)&connections);
    task_disconnect();
    error_throw(E_INTERRUPT);
   }
   /* Take away the first RPC */
   PERTASK_DEC(my_rpc.ri_cnt);
-  memcpy(&slot,&PERTASK(my_rpc.ri_vec)[0],sizeof(struct rpc_slot));
+  memcpy((void *)&slot,&PERTASK(my_rpc.ri_vec)[0],sizeof(struct rpc_slot));
   memmove(&PERTASK(my_rpc.ri_vec)[0],&PERTASK(my_rpc.ri_vec)[1],
            PERTASK_GET(my_rpc.ri_cnt)*sizeof(struct rpc_slot));
   ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINTERRUPTING);
@@ -352,7 +352,7 @@ done_serving:
      goto done_serving;
     }
     /* Restore connections if the finally will rethrow */
-    task_pop_connections(&connections);
+    task_pop_connections((struct task_connections *)&connections);
     /* Then, disconnect all signals (enter exception
      * handling with an empty set of connections) */
     task_disconnect();

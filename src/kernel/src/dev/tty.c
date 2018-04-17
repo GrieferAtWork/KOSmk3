@@ -129,10 +129,10 @@ done:
  * This function is used for implementing keyboard ECHO, and called
  * internally by `tty_write_display()' after checks have been done. */
 PUBLIC size_t KCALL
-tty_dowrite_display(struct tty *__restrict self,
+tty_dowrite_display(struct tty *__restrict EXCEPT_VAR self,
                     USER CHECKED void const *buf,
                     size_t bufsize, iomode_t flags) {
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  rwlock_read(&self->t_lock);
  TRY {
@@ -149,7 +149,7 @@ tty_dowrite_echo2(struct tty *__restrict self,
                   USER CHECKED void const *buf,
                   size_t bufsize, iomode_t flags,
                   tcflag_t lflags) {
- size_t result,temp,temp2;
+ size_t result = 0,temp,temp2;
  char *flush_start,*iter,*end;
  if (!(lflags & ECHOCTL))
      return tty_dowrite_display_impl(self,buf,bufsize,flags);
@@ -213,7 +213,7 @@ tty_do_echo_display(struct tty *__restrict self, char ch, tcflag_t iflags) {
 
 PRIVATE void KCALL
 tty_check_sigchar(struct tty *__restrict self, char ch) {
- siginfo_t info; struct task *t;
+ siginfo_t info; struct task *EXCEPT_VAR t;
  if (ch == self->t_ios.c_cc[VINTR]) {
   info.si_signo = SIGINT+1;
  } else if (ch == self->t_ios.c_cc[VQUIT]) {
@@ -238,7 +238,8 @@ tty_check_sigchar(struct tty *__restrict self, char ch) {
 
 PRIVATE size_t KCALL
 tty_dump_canon(struct tty *__restrict self, iomode_t flags) {
- struct canon can; size_t result;
+ struct canon EXCEPT_VAR can;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  can = canonbuffer_capture(&self->t_can);
  TRY {
   result = ringbuffer_write(&self->t_input,can.c_base,can.c_size,flags);
@@ -250,13 +251,15 @@ tty_dump_canon(struct tty *__restrict self, iomode_t flags) {
 
 
 PRIVATE size_t KCALL
-tty_dowrite_input(struct tty *__restrict self,
+tty_dowrite_input(struct tty *__restrict EXCEPT_VAR self,
                   USER CHECKED void const *buf,
-                  size_t bufsize, iomode_t flags,
-                  tcflag_t lflags) {
- size_t result;
+                  size_t bufsize, iomode_t EXCEPT_VAR flags,
+                  tcflag_t EXCEPT_VAR lflags) {
+ size_t EXCEPT_VAR result;
  if (lflags & ICANON) {
-  char *flush_start,*iter,*end;
+  char *EXCEPT_VAR flush_start;
+  char *EXCEPT_VAR iter;
+  char *end;
   /* Print directly to the canon. */
   result = 0;
   flush_start = iter = (char *)buf;
@@ -329,7 +332,7 @@ erase_char:
           ringbuffer_close(&self->t_input);
     } else if ((lflags & IEXTEN) &&
                (ch == self->t_ios.c_cc[VREPRINT])) {
-     struct canon can;
+     struct canon EXCEPT_VAR can;
      if (lflags & ECHO) {
       tty_dowrite_echo(self,flush_start,
                       (size_t)(iter-flush_start),
@@ -408,10 +411,10 @@ erase_char:
 }
 
 PUBLIC size_t KCALL
-tty_write_input(struct tty *__restrict self,
+tty_write_input(struct tty *__restrict EXCEPT_VAR self,
                 USER CHECKED void const *buf,
                 size_t bufsize, iomode_t flags) {
- size_t result,temp,temp2;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result),temp,temp2;
  tcflag_t iflags,lflags;
 again:
  rwlock_read(&self->t_lock);
@@ -422,7 +425,7 @@ again:
    char *iter,*end,*flush_start;
    /* Must perform some kind of input transformation,
     * or behave specially for certain characters. */
-   result = 0; /* TODO */
+   result = 0;
    flush_start = iter = (char *)buf;
    end = iter+bufsize;
    for (; iter < end; ++iter) {
@@ -553,10 +556,10 @@ tty_read_input(struct tty *__restrict self,
  * if `TOSTOP' is set, a `SIGTTOU' is sent to the calling thread if its process isn't part of
  * the TTY's foreground process group, causing `E_INTERRUPT' to be thrown by this function. */
 PUBLIC size_t KCALL
-tty_write_display(struct tty *__restrict self,
+tty_write_display(struct tty *__restrict EXCEPT_VAR self,
                   USER CHECKED void const *buf,
                   size_t bufsize, iomode_t flags) {
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  rwlock_read(&self->t_lock);
  TRY {
@@ -595,7 +598,7 @@ tty_fini(struct character_device *__restrict self) {
 }
 
 PUBLIC ssize_t KCALL
-tty_ioctl(struct tty *__restrict self,
+tty_ioctl(struct tty *__restrict EXCEPT_VAR self,
           unsigned long cmd, USER UNCHECKED void *arg,
           iomode_t flags) {
  ssize_t result = 0;
@@ -675,7 +678,7 @@ again_get:
    (*self->t_ops->t_set_display_size)(self,&new_size);
    /* Save the finalized window size. */
    if (memcmp(&self->t_size,&new_size,sizeof(struct winsize)) != 0) {
-    REF struct task *t;
+    REF struct task *EXCEPT_VAR t;
     memcpy(&self->t_size,&new_size,sizeof(struct winsize));
     if ((t = thread_pid_get(self->t_fproc)) != NULL) {
      TRY {
@@ -695,10 +698,9 @@ again_get:
   }
  } break;
 
- {
-  pid_t respid;
  case TIOCGPGRP:
- case TIOCGSID:
+ case TIOCGSID: {
+  pid_t COMPILER_IGNORE_UNINITIALIZED(respid);
   validate_writable(arg,sizeof(pid_t));
 again_gpgrp:
   rwlock_read(&self->t_lock);
@@ -725,7 +727,7 @@ again_gpgrp:
  } break;
 
  {
-  REF struct task *new_task;
+  REF struct task *EXCEPT_VAR new_task;
   REF struct thread_pid *new_pid;
   REF struct thread_pid *old_pid;
  case TIOCSPGRP:

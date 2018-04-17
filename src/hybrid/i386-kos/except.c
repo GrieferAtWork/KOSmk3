@@ -33,8 +33,8 @@
 DECL_BEGIN
 
 INTERN void FCALL private_error_continue(int retry) {
- struct exception_info *info = libc_error_info();
- struct exception_info context;
+ struct exception_info *EXCEPT_VAR info = libc_error_info();
+ struct exception_info EXCEPT_VAR context;
  if (!(info->e_error.e_flag & ERR_FRESUMABLE))
        goto non_continuable;
  /* Deal with resume function calls.
@@ -50,7 +50,7 @@ INTERN void FCALL private_error_continue(int retry) {
   libc_cpu_setcontext(&info->e_context);
  }
  /* Copy the context. */
- libc_memcpy(&context,info,sizeof(struct exception_info));
+ libc_memcpy((void *)&context,info,sizeof(struct exception_info));
  /* Load the address of a neighboring instruction.
   * NOTE: In order to deal with problems that might arise
   *       when the instruction pointer is faulty, this
@@ -60,20 +60,20 @@ INTERN void FCALL private_error_continue(int retry) {
                                   : (uintptr_t)libc_next_instruction((void *)context.e_context.c_eip);
  } CATCH (E_SEGFAULT) {
   /* Restore the saved context */
-  libc_memcpy(info,&context,sizeof(struct exception_info));
+  libc_memcpy(info,(void *)&context,sizeof(struct exception_info));
   goto non_continuable;
  }
  if (!context.e_context.c_eip)
       goto non_continuable;
  /* Load the custom, new CPU context. */
- libc_cpu_setcontext(&context.e_context);
+ libc_cpu_setcontext((struct cpu_context *)&context.e_context);
 non_continuable:
  /* Setup a non-continuable error. */
  context.e_error.e_noncont.nc_origcode = info->e_error.e_code;
  context.e_error.e_noncont.nc_origflag = info->e_error.e_flag;
  context.e_error.e_noncont.nc_origip   = info->e_context.c_eip;
  libc_memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
- libc_memcpy(&info->e_error.e_noncont,&context.e_error.e_noncont,
+ libc_memcpy(&info->e_error.e_noncont,(void *)&context.e_error.e_noncont,
               sizeof(context.e_error.e_noncont));
 }
 

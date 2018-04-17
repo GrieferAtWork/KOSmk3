@@ -163,7 +163,7 @@ Elf_FiniModule(struct module *__restrict self) {
 
 PRIVATE void KCALL
 Elf_LoadSections(struct module *__restrict self) {
- Elf_Shdr *vector;
+ Elf_Shdr *EXCEPT_VAR vector;
  ElfModule *mod = self->m_data;
  /* Quick check if the sections have already been loaded. */
  if (mod->e_shdr) return;
@@ -186,7 +186,7 @@ Elf_LoadSections(struct module *__restrict self) {
 
 PRIVATE char *KCALL
 Elf_LoadShStrtab(struct module *__restrict self) {
- char *result; Elf32_Shdr *strtab;
+ char *EXCEPT_VAR result; Elf32_Shdr *strtab;
  ElfModule *mod = self->m_data;
  /* Quick check if the sections have already been loaded. */
  if (mod->e_shstrtab) return mod->e_shstrtab;
@@ -218,8 +218,8 @@ Elf_LoadShStrtab(struct module *__restrict self) {
 
 PRIVATE void KCALL
 Elf_LoadRegions(struct module *__restrict self) {
- REF struct vm_region **vector; Elf_Half i,count;
- ElfModule *mod = self->m_data;
+ REF struct vm_region **EXCEPT_VAR vector;
+ Elf_Half i,count; ElfModule *mod = self->m_data;
  /* Quick check if the sections have already been loaded. */
  if (mod->e_sections) return;
  count  = mod->e_phnum;
@@ -273,7 +273,7 @@ typedef struct {
 } Elf_HashTable;
 
 LOCAL void KCALL
-Elf_LoadDynamic(ElfModule *__restrict self,
+Elf_LoadDynamic(ElfModule *__restrict EXCEPT_VAR self,
                 struct module *__restrict mod,
                 USER CHECKED byte_t *__restrict begin,
                 USER CHECKED byte_t *__restrict end,
@@ -498,12 +498,13 @@ no_symbols:
 
 PRIVATE void KCALL
 Elf_NewApplication(struct module_patcher *__restrict self) {
- struct application *app = self->mp_app;
- ElfModule *mod = app->a_module->m_data;
+ struct application *EXCEPT_VAR app = self->mp_app;
+ ElfModule *EXCEPT_VAR mod = app->a_module->m_data;
  USER CHECKED uintptr_t loadaddr = app->a_loadaddr;
- USER CHECKED uintptr_t loadpage = loadaddr;
+ USER CHECKED uintptr_t EXCEPT_VAR loadpage = loadaddr;
  USER CHECKED uintptr_t image_min,image_end;
- unsigned int i; struct vm_region **vector;
+ unsigned int EXCEPT_VAR i;
+ struct vm_region **EXCEPT_VAR vector;
  image_min = APPLICATION_MAPMIN(app);
  image_end = APPLICATION_MAPEND(app);
  assert(IS_ALIGNED(loadpage,PAGESIZE));
@@ -591,7 +592,7 @@ Elf_NewApplication(struct module_patcher *__restrict self) {
   }
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Unmap everything that had already been mapped. */
-#if 0
+#if 1
   while (i--) {
    vm_unmap(loadpage + VM_ADDR2PAGE(mod->e_phdr[i].p_vaddr),
             vector[i]->vr_size,VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT,
@@ -975,7 +976,7 @@ end:
 
 PRIVATE bool KCALL
 Elf_LoadModule(REF struct module *__restrict self) {
- REF ElfModule *result;
+ REF ElfModule *EXCEPT_VAR result;
  Elf_Ehdr hdr; unsigned int i;
  inode_kreadall(&self->m_fsloc->re_node,&hdr,sizeof(hdr),0,IO_RDONLY);
  if (hdr.e_ident[EI_MAG0] != ELFMAG0) goto fail;

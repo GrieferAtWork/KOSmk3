@@ -53,8 +53,8 @@ DECL_BEGIN
 /* Mount the kernel VFS root filesystem. */
 INTERN ATTR_FREETEXT
 void KCALL x86_mount_rootfs(void) {
- REF struct block_device *dev;
- REF struct superblock *fs;
+ REF struct block_device *EXCEPT_VAR dev;
+ REF struct superblock *EXCEPT_VAR fs;
  /* XXX: Ask the BIOS for what the boot device was? */
  /* XXX: Bootloader drivers should have a word in this. */
  /* ... */ dev = (REF struct block_device *)try_lookup_device(DEVICE_TYPE_FBLOCKDEV,MKDEV(3,0));

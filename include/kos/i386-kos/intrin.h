@@ -51,7 +51,7 @@ __FORCELOCAL __UINT8_TYPE__ (__dal)(__UINT8_TYPE__ __x) { __UINT8_TYPE__ __resul
 __FORCELOCAL void (__hlt)(void) { __asm__("hlt"); }
 __FORCELOCAL void (__into)(void) { __asm__("into"); }
 __FORCELOCAL void (__int3)(void) { __asm__("int {$}3"); }
-__FORCELOCAL void (__int)(__UINT8_TYPE__ __intno) { __asm__("int %0" : : "N" (__intno)); }
+__FORCELOCAL void (__int_)(__UINT8_TYPE__ __intno) { __asm__("int %0" : : "N" (__intno)); }
 __FORCELOCAL void (__invd)(void) { __asm__("invd"); }
 __FORCELOCAL void (__wbinvd)(void) { __asm__("wbinvd"); }
 __FORCELOCAL void (__invlpg)(void *__p) { __asm__("invlpg" : : "m" (*(int *)__p)); }
@@ -60,10 +60,10 @@ __FORCELOCAL __UINT32_TYPE__ (__stmxcsr)(void) { __UINT32_TYPE__ __result; __asm
 __FORCELOCAL void (__lfence)(void) { __asm__("lfence"); }
 __FORCELOCAL void (__sfence)(void) { __asm__("sfence"); }
 __FORCELOCAL void (__mfence)(void) { __asm__("mfence"); }
-__FORCELOCAL void (__lgdt)(void *__p) { __asm__("lgdt %0" : : "m" (*(struct { __UINT16_TYPE__ __x[3]; } *)__p)); }
-__FORCELOCAL void (__lidt)(void *__p) { __asm__("lidt %0" : : "m" (*(struct { __UINT16_TYPE__ __x[3]; } *)__p)); }
-__FORCELOCAL void (__sgdt)(void *__p) { __asm__("sgdt %0" : "=m" (*(struct { __UINT16_TYPE__ __x[3]; } *)__p)); }
-__FORCELOCAL void (__sidt)(void *__p) { __asm__("sidt %0" : "=m" (*(struct { __UINT16_TYPE__ __x[3]; } *)__p)); }
+__FORCELOCAL void (__lgdt)(void *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__("lgdt %0" : : "m" (*(__T *)__p)); }
+__FORCELOCAL void (__lidt)(void *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__("lidt %0" : : "m" (*(__T *)__p)); }
+__FORCELOCAL void (__sgdt)(void *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__("sgdt %0" : "=m" (*(__T *)__p)); }
+__FORCELOCAL void (__sidt)(void *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__("sidt %0" : "=m" (*(__T *)__p)); }
 __FORCELOCAL void (__lldt)(__UINT16_TYPE__ __x) { __asm__("lldt %0" : : "g" (__x)); }
 __FORCELOCAL __UINT16_TYPE__ (__sldt)(void) { __UINT16_TYPE__ __result; __asm__("sldt %0" : "=g" (__result)); return __result; }
 __FORCELOCAL void (__ud2)(void) { __asm__("ud2"); }

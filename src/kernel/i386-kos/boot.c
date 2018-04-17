@@ -94,8 +94,8 @@ ATTR_USED struct mb_tag mb_multiboot = {
 PRIVATE ATTR_SECTION(".multiboot2.tag.end")
         ATTR_ALIGNED(MB2_TAG_ALIGN)
 ATTR_USED struct mb2_header_tag tag_empty = {
-    .type = MB2_HEADER_TAG_END,
-    .size = sizeof(struct mb2_header_tag),
+    .type  = MB2_HEADER_TAG_END,
+    .size  = sizeof(struct mb2_header_tag),
 };
 
 #if __SIZEOF_POINTER__ >= 8
@@ -109,12 +109,14 @@ PRIVATE ATTR_SECTION(".multiboot2")
 ATTR_USED struct mb2_header mb_multiboot2 = {
     .magic         =  MB2_HEADER_MAGIC,
     .architecture  =  MB2_ARCHITECTURE,
+    {
 #if __SIZEOF_POINTER__ >= 8
-    .header_length_and_checksum = (u64)kernel_multiboot2_hdrlen_chksum
+        .header_length_and_checksum = (u64)kernel_multiboot2_hdrlen_chksum
 #else
-    .header_length = (u32)kernel_multiboot2_hdrlen,
-    .checksum      = (u32)kernel_multiboot2_chksum
+        .header_length = (u32)kernel_multiboot2_hdrlen,
+        .checksum      = (u32)kernel_multiboot2_chksum
 #endif
+    }
 };
 
 

@@ -441,7 +441,7 @@ CRT_EXCEPT void LIBCCALL libc_Xbrk(void *addr) {
 
 EXPORT(Xsbrk,libc_Xsbrk);
 CRT_EXCEPT void *LIBCCALL libc_Xsbrk(intptr_t delta) {
- byte_t *result;
+ byte_t *COMPILER_IGNORE_UNINITIALIZED(result);
  atomic_rwlock_write(&brk_lock);
  LIBC_TRY {
   if ((result = brk_curr) == NULL)

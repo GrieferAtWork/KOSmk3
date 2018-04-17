@@ -425,7 +425,7 @@ FUNDEF void KCALL task_destroy(struct task *__restrict self);
 /* Safely set flags to indicate termination of a task
  * who's `TASK_STATE_FSTARTED' flag has never been set.
  * The intended use is as follows:
- * >> REF struct task *new_thread = task_alloc();
+ * >> REF struct task *EXCEPT_VAR new_thread = task_alloc();
  * >> TRY {
  * >>     
  * >>     ... // Setup the thread's configuration.
@@ -449,7 +449,7 @@ typedef void (KCALL *task_main_t)(void *arg);
  * This function does _all_ the initialization between
  * `task_alloc()' and `task_start()'.
  * The intended use is as follows:
- * >> struct task *thread = task_alloc();
+ * >> struct task *EXCEPT_VAR thread = task_alloc();
  * >> TRY {
  * >>     task_setup_kernel(thread,&my_thread_main,NULL);
  * >>     task_start(thread);

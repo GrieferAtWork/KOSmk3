@@ -37,13 +37,13 @@ DECL_BEGIN
 
 PUBLIC bool KCALL
 linker_findfde_consafe(uintptr_t ip, struct fde_info *__restrict result) {
- bool fde_ok;
- struct task_connections cons;
- task_push_connections(&cons);
+ bool COMPILER_IGNORE_UNINITIALIZED(fde_ok);
+ struct task_connections EXCEPT_VAR cons;
+ task_push_connections((struct task_connections *)&cons);
  TRY {
   fde_ok = linker_findfde(ip,result);
  } FINALLY {
-  task_pop_connections(&cons);
+  task_pop_connections((struct task_connections *)&cons);
  }
  return fde_ok;
 }
@@ -51,13 +51,13 @@ linker_findfde_consafe(uintptr_t ip, struct fde_info *__restrict result) {
 PUBLIC bool KCALL
 linker_findexcept_consafe(uintptr_t ip, u16 exception_code,
                           struct exception_handler_info *__restrict result) {
- bool except_ok;
- struct task_connections cons;
- task_push_connections(&cons);
+ bool COMPILER_IGNORE_UNINITIALIZED(except_ok);
+ struct task_connections EXCEPT_VAR cons;
+ task_push_connections((struct task_connections *)&cons);
  TRY {
   except_ok = linker_findexcept(ip,exception_code,result);
  } FINALLY {
-  task_pop_connections(&cons);
+  task_pop_connections((struct task_connections *)&cons);
  }
  return except_ok;
 }
@@ -77,16 +77,17 @@ INTDEF byte_t kernel_ehframe_size[];
  * @return: false: Could not find an FDE entry for `ip' */
 PUBLIC bool KCALL
 linker_findfde(uintptr_t ip, struct fde_info *__restrict result) {
- REF struct application *app = NULL; bool fde_ok;
- REF struct vm_region *region; uintptr_t reloffset;
- struct vm *effective_vm; struct vm_node *node;
+ REF struct application *EXCEPT_VAR app = NULL;
+ bool COMPILER_IGNORE_UNINITIALIZED(fde_ok);
+ REF struct vm_region *EXCEPT_VAR region; uintptr_t reloffset;
+ struct vm *EXCEPT_VAR effective_vm; struct vm_node *node;
  effective_vm = ip >= KERNEL_BASE ? &vm_kernel : THIS_VM;
 #ifdef NDEBUG
  if (!vm_tryacquire(effective_vm))
 #endif
  {
   if (PREEMPTION_ENABLED()) {
-   u16 old_state;
+   u16 EXCEPT_VAR old_state;
    old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
    TRY {
     vm_acquire(effective_vm);
@@ -238,15 +239,16 @@ find_exception(struct except_handler *__restrict iter,
 FUNDEF bool KCALL
 linker_findexcept(uintptr_t ip, u16 exception_code,
                   struct exception_handler_info *__restrict result) {
- REF struct application *app = NULL; bool except_ok;
- struct vm *effective_vm; struct vm_node *node;
+ REF struct application *EXCEPT_VAR app = NULL;
+ bool COMPILER_IGNORE_UNINITIALIZED(except_ok);
+ struct vm *EXCEPT_VAR effective_vm; struct vm_node *node;
  effective_vm = ip >= KERNEL_BASE ? &vm_kernel : THIS_VM;
 #ifdef NDEBUG
  if (!vm_tryacquire(effective_vm))
 #endif
  {
   if (PREEMPTION_ENABLED()) {
-   u16 old_state;
+   u16 EXCEPT_VAR old_state;
    old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
    TRY {
     vm_acquire(effective_vm);

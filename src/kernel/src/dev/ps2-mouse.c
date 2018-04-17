@@ -38,7 +38,15 @@ ps2_register_mouse(u8 port, u8 type) {
       ps2_wait  PS2_ACK;
       ps2_wait  0xaa;
       ps2_wait  0x00; /* ??? (What the hell is this?) (QEMU send this, but I don't
-                       *      know what it means. - The keyboard didn't have this...) */
+                       *      know what it means. - The keyboard didn't have this...)
+                       * OK. I found the relevant linux source:
+                       *   /drivers/input/mouse/psmouse-base.c:psmouse_reset
+                       * In there, it does practically the same as I do here, naming this
+                       * 0x00 as `PSMOUSE_RET_ID', a macro that is (you guessed it: 0x00)
+                       * While that doesn't really answer the question above, it does seem
+                       * to suggest that the reset command always returns { 0xfe, 0xaa, 0x00 }
+                       * Though I do wonder what linux's sources are for that name... (hmm... `RET_ID')
+                       */
       ps2_send  PS2_MOUSE_FSETDEFAULT;
       ps2_wait  PS2_ACK;
       ps2_send  PS2_MOUSE_FENABLE_REPORTING;

@@ -42,19 +42,19 @@ PUBLIC size_t _mzone_count ASMNAME("mzone_count");
 INTERN ATTR_FREERODATA struct meminfo const predefined_meminfo[MEMINSTALL_EARLY_PREDEFINED] = {
       /*  Pre-allocate the first page of physical memory
        * (Paging uses its address to indicate a non-allocated page) */
-    { .mi_type = MEMTYPE_ALLOCATED, .mi_addr   = __UINT64_C(0x0000000000000000), },
-    { .mi_type = MEMTYPE_NDEF,      .mi_addr   = __UINT64_C(0x0000000000001000), },
+    { .mi_type = MEMTYPE_ALLOCATED, .mi_addr   = __UINT64_C(0x0000000000000000) },
+    { .mi_type = MEMTYPE_NDEF,      .mi_addr   = __UINT64_C(0x0000000000001000) },
       /* VGA display buffer (Not defined by BIOS functions) */
     { .mi_type = MEMTYPE_DEVICE,    .mi_addr   = __UINT64_C(0x00000000000A0000), },
     { .mi_type = MEMTYPE_NDEF,      .mi_addr   = __UINT64_C(0x0000000000100000), },
 #ifdef __x86_64__
-    { .mi_type = MEMTYPE_KERNEL,    .mi_addr   = (uintptr_t)kernel_start - KERNEL_BASE, },
-    { .mi_type = MEMTYPE_KFREE,     .mi_addr   = (uintptr_t)kernel_free_start - KERNEL_BASE, },
-    { .mi_type = MEMTYPE_NDEF,      .mi_addr   = (uintptr_t)kernel_free_end - KERNEL_BASE, }
+    { .mi_type = MEMTYPE_KERNEL,    .mi_addr   = (uintptr_t)kernel_start - KERNEL_BASE },
+    { .mi_type = MEMTYPE_KFREE,     .mi_addr   = (uintptr_t)kernel_free_start - KERNEL_BASE },
+    { .mi_type = MEMTYPE_NDEF,      .mi_addr   = (uintptr_t)kernel_free_end - KERNEL_BASE }
 #else
-    { .mi_type = MEMTYPE_KERNEL,    .mi_addr32 = (uintptr_t)kernel_start - KERNEL_BASE, },
-    { .mi_type = MEMTYPE_KFREE,     .mi_addr32 = (uintptr_t)kernel_free_start - KERNEL_BASE, },
-    { .mi_type = MEMTYPE_NDEF,      .mi_addr32 = (uintptr_t)kernel_free_end - KERNEL_BASE, }
+    { .mi_type = MEMTYPE_KERNEL,    .mi_addr32 = (uintptr_t)kernel_start - KERNEL_BASE },
+    { .mi_type = MEMTYPE_KFREE,     .mi_addr32 = (uintptr_t)kernel_free_start - KERNEL_BASE },
+    { .mi_type = MEMTYPE_NDEF,      .mi_addr32 = (uintptr_t)kernel_free_end - KERNEL_BASE }
 #endif
 };
 

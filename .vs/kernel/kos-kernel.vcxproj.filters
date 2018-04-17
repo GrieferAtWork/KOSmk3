@@ -384,9 +384,6 @@
     <ClCompile Include="..\..\src\kernel\src\unwind\debug_line.c">
       <Filter>kernel\src\unwind</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\kernel\i386-kos\syscall-table.c">
-      <Filter>kernel\i386-kos</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\kernel\src\kernel\syscall.c">
       <Filter>kernel\src\kernel</Filter>
     </ClCompile>

@@ -213,7 +213,7 @@ FileBuffer_Free(FileBuffer *__restrict self) {
 
 CRT_STDIO int LIBCCALL
 FileBuffer_Destroy(FileBuffer *__restrict self) {
- int result;
+ int COMPILER_IGNORE_UNINITIALIZED(result);
  LIBC_TRY {
   /* Unregister the file. */
   FileBuffer_RemoveChangedTTY(self);
@@ -225,7 +225,7 @@ FileBuffer_Destroy(FileBuffer *__restrict self) {
   if (!(self->fb_flag & FILE_BUFFER_FSTATIC))
         FileBuffer_Free(self);
  } LIBC_EXCEPT(libc_except_errno()) {
-  return -1;
+  result = -1;
  }
  return result;
 }
@@ -1079,7 +1079,7 @@ CRT_STDIO size_t LIBCCALL
 FileBuffer_XRead(FileBuffer *__restrict self,
               void *__restrict buffer,
               size_t bufsize) {
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(self);
  LIBC_TRY {
   result = FileBuffer_XReadUnlocked(self,buffer,bufsize);
@@ -1092,7 +1092,7 @@ CRT_STDIO size_t LIBCCALL
 FileBuffer_XWrite(FileBuffer *__restrict self,
                void const *__restrict buffer,
                size_t bufsize) {
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(self);
  LIBC_TRY {
   result = FileBuffer_XWriteUnlocked(self,buffer,bufsize);
@@ -1134,7 +1134,7 @@ FileBuffer_XSetvbuf(FileBuffer *__restrict self,
 
 CRT_STDIO int LIBCCALL
 FileBuffer_XGetc(FileBuffer *__restrict self) {
- int result;
+ int COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(self);
  LIBC_TRY {
   result = FileBuffer_XGetcUnlocked(self);
@@ -1146,7 +1146,7 @@ FileBuffer_XGetc(FileBuffer *__restrict self) {
 
 CRT_STDIO int LIBCCALL
 FileBuffer_XUngetc(FileBuffer *__restrict self, int ch) {
- int result;
+ int COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(self);
  LIBC_TRY {
   result = FileBuffer_XUngetcUnlocked(self,ch);
@@ -1158,7 +1158,7 @@ FileBuffer_XUngetc(FileBuffer *__restrict self, int ch) {
 
 CRT_STDIO int LIBCCALL
 FileBuffer_XFill(FileBuffer *__restrict self) {
- int result;
+ int COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(self);
  LIBC_TRY {
   result = FileBuffer_XFillUnlocked(self);

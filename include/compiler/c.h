@@ -33,7 +33,7 @@
 #define __NAMESPACE_INT_SYM        /* Nothing */
 #define __NAMESPACE_INT_USING(x)   /* Nothing */
 
-#if 1
+#if defined(__STDC__) && __STDC__ >= 201103L /* C11 */
 #   define __BOOL _Bool
 #else
 #   define __BOOL unsigned char

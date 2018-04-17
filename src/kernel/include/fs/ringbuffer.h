@@ -249,7 +249,7 @@ ringbuffer_poll_close(struct ringbuffer *__restrict self) {
 LOCAL bool KCALL
 ringbuffer_wait_full(struct ringbuffer *__restrict self, jtime_t abs_timeout) {
  bool result = true;
- uintptr_t old_mask;
+ uintptr_t EXCEPT_VAR old_mask;
  assert(!task_isconnected());
  old_mask = task_channelmask(RBUF_STATE_CHANNEL_FULL);
  TRY {
@@ -270,7 +270,7 @@ ringbuffer_wait_full(struct ringbuffer *__restrict self, jtime_t abs_timeout) {
 LOCAL bool KCALL
 ringbuffer_wait_nonfull(struct ringbuffer *__restrict self, jtime_t abs_timeout) {
  bool result = true;
- uintptr_t old_mask;
+ uintptr_t EXCEPT_VAR old_mask;
  assert(!task_isconnected());
  old_mask = task_channelmask(RBUF_STATE_CHANNEL_NOTFULL);
  TRY {
@@ -291,7 +291,7 @@ ringbuffer_wait_nonfull(struct ringbuffer *__restrict self, jtime_t abs_timeout)
 LOCAL bool KCALL
 ringbuffer_wait_empty(struct ringbuffer *__restrict self, jtime_t abs_timeout) {
  bool result = true;
- uintptr_t old_mask;
+ uintptr_t EXCEPT_VAR old_mask;
  assert(!task_isconnected());
  old_mask = task_channelmask(RBUF_STATE_CHANNEL_EMPTY);
  TRY {
@@ -312,7 +312,7 @@ ringbuffer_wait_empty(struct ringbuffer *__restrict self, jtime_t abs_timeout) {
 LOCAL bool KCALL
 ringbuffer_wait_nonempty(struct ringbuffer *__restrict self, jtime_t abs_timeout) {
  bool result = true;
- uintptr_t old_mask;
+ uintptr_t EXCEPT_VAR old_mask;
  assert(!task_isconnected());
  old_mask = task_channelmask(0);
  TRY {
@@ -333,7 +333,7 @@ ringbuffer_wait_nonempty(struct ringbuffer *__restrict self, jtime_t abs_timeout
 LOCAL bool KCALL
 ringbuffer_wait_close(struct ringbuffer *__restrict self, jtime_t abs_timeout) {
  bool result = true;
- uintptr_t old_mask;
+ uintptr_t EXCEPT_VAR old_mask;
  assert(!task_isconnected());
  old_mask = task_channelmask(0);
  TRY {

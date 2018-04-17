@@ -169,7 +169,7 @@ EXPORT(__SYMw16(Xgetwc),libc_Xfgetwc16);
 EXPORT(__SYMw16(Xfgetwc),libc_Xfgetwc16);
 CRT_W16STDIO_XAPI wint_t LIBCCALL
 libc_Xfgetwc16(FILE *__restrict stream) {
- wint_t result;
+ wint_t COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(stream);
  LIBC_TRY {
   result = libc_Xfgetwc16_unlocked(stream);
@@ -183,7 +183,7 @@ EXPORT(__SYMw32(Xgetwc),libc_Xfgetwc32);
 EXPORT(__SYMw32(Xfgetwc),libc_Xfgetwc32);
 CRT_W32STDIO_XAPI wint_t LIBCCALL
 libc_Xfgetwc32(FILE *__restrict stream) {
- wint_t result;
+ wint_t COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(stream);
  LIBC_TRY {
   result = libc_Xfgetwc32_unlocked(stream);
@@ -435,7 +435,7 @@ EXPORT(__SYMw16(Xputwc),libc_Xfputwc16);
 EXPORT(__SYMw16(Xfputwc),libc_Xfputwc16);
 CRT_W16STDIO_XAPI wint_t LIBCCALL
 libc_Xfputwc16(char16_t wc, FILE *__restrict stream) {
- wint_t result;
+ wint_t COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(stream);
  LIBC_TRY {
   result = libc_Xfputwc16_unlocked(wc,stream);
@@ -564,7 +564,7 @@ EXPORT(__SYMw16(Xfgetws),libc_Xfgetws16);
 CRT_W16STDIO_XAPI char16_t *LIBCCALL
 libc_Xfgetws16(char16_t *__restrict s, size_t n,
                FILE *__restrict self) {
- char16_t *result;
+ char16_t *COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(self);
  LIBC_TRY {
   result = libc_Xfgetws16_unlocked(s,n,self);
@@ -653,7 +653,7 @@ EXPORT(__SYMw32(Xfgetws),libc_Xfgetws32);
 CRT_W32STDIO_XAPI char32_t *LIBCCALL
 libc_Xfgetws32(char32_t *__restrict s, size_t n,
                FILE *__restrict self) {
- char32_t *result;
+ char32_t *COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(self);
  LIBC_TRY {
   result = libc_Xfgetws32_unlocked(s,n,self);
@@ -880,7 +880,7 @@ libc_fputws32(char32_t const *__restrict ws, FILE *__restrict stream) {
 EXPORT(__SYMw32(Xfputws),libc_Xfputws32);
 CRT_W32STDIO_XAPI size_t LIBCCALL
 libc_Xfputws32(char32_t const *__restrict ws, FILE *__restrict stream) {
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(stream);
  LIBC_TRY {
   result = libc_Xfputws32_unlocked(ws,stream);
@@ -905,7 +905,7 @@ libc_fputws16(char16_t const *__restrict ws, FILE *__restrict stream) {
 EXPORT(__SYMw16(Xfputws),libc_Xfputws16);
 CRT_W16STDIO_XAPI size_t LIBCCALL
 libc_Xfputws16(char16_t const *__restrict ws, FILE *__restrict stream) {
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(stream);
  LIBC_TRY {
   result = libc_Xfputws16_unlocked(ws,stream);
@@ -993,7 +993,7 @@ libc_Xungetwc32_unlocked(wint_t wc, FILE *__restrict stream) {
 EXPORT(__SYMw32(Xungetwc),libc_Xungetwc32);
 CRT_W32STDIO_XAPI wint_t LIBCCALL
 libc_Xungetwc32(wint_t wc, FILE *__restrict stream) {
- wint_t result;
+ wint_t COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(stream);
  LIBC_TRY {
   result = libc_Xungetwc32_unlocked(wc,stream);
@@ -1077,7 +1077,7 @@ libc_Xungetwc16_unlocked(wint_t wc, FILE *__restrict stream) {
 EXPORT(__SYMw16(Xungetwc),libc_Xungetwc16);
 CRT_W16STDIO_XAPI wint_t LIBCCALL
 libc_Xungetwc16(wint_t wc, FILE *__restrict stream) {
- wint_t result;
+ wint_t COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(stream);
  LIBC_TRY {
   result = libc_Xungetwc16_unlocked(wc,stream);

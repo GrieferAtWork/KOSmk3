@@ -56,7 +56,7 @@ throw_invalid_segment(u16 segment_index, u16 segment_register);
 
 INTERN void KCALL
 x86_sigreturn_impl(void *UNUSED(arg),
-                   struct cpu_hostcontext_user *__restrict context,
+                   struct cpu_hostcontext_user *__restrict EXCEPT_VAR context,
                    unsigned int UNUSED(mode)) {
  struct signal_frame *frame;
  unsigned int frame_mode;

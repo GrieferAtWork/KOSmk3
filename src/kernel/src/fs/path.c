@@ -354,8 +354,8 @@ err:
 PUBLIC ssize_t KCALL
 path_print(struct path *__restrict self, pformatprinter printer,
            void *closure, unsigned int type) {
- ssize_t result = 0,temp;
- REF struct path *root; struct fs *f;
+ ssize_t result = 0,COMPILER_IGNORE_UNINITIALIZED(temp);
+ REF struct path *EXCEPT_VAR root; struct fs *f;
  /* Check of unknown bits. */
  if (type & ~(REALPATH_FTYPEMASK|REALPATH_FFLAGMASK))
      error_throw(E_INVALID_ARGUMENT);
@@ -557,7 +557,8 @@ PUBLIC ATTR_RETNONNULL REF struct path *KCALL
 path_child(struct path *__restrict self,
            USER CHECKED char const *path, u16 pathlen) {
  uintptr_t hash;
- REF struct path *result,*new_result,**pbucket;
+ REF struct path *EXCEPT_VAR result;
+ REF struct path *new_result,**pbucket;
  assertf(self->p_node,"Path hasn't been initialized");
  assertf(self->p_vfs,"Path hasn't been initialized");
  hash = directory_entry_hash(path,pathlen);
@@ -595,22 +596,19 @@ again:
 
  /* Consult the filesystem for this directory entry. */
  {
-  REF struct directory_entry *entry;
-  REF struct inode *entry_node;
-  struct directory_node *dir;
+  REF struct directory_entry *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(entry);
+  REF struct inode *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(entry_node);
+  struct directory_node *EXCEPT_VAR dir;
   dir = (struct directory_node *)self->p_node;
 again_getentry:
   rwlock_read(&dir->d_node.i_lock);
-  assert(rwlock_reading(&dir->d_node.i_lock));
   TRY {
    entry = directory_getentry(dir,path,pathlen,hash);
-   assert(rwlock_reading(&dir->d_node.i_lock));
-   if (!entry) throw_fs_error(ERROR_FS_PATH_NOT_FOUND);
+   if (!entry)
+        throw_fs_error(ERROR_FS_PATH_NOT_FOUND);
    /* Got the entry! */
    directory_entry_incref(entry);
-   assert(rwlock_reading(&dir->d_node.i_lock));
   } FINALLY {
-   assert(rwlock_reading(&dir->d_node.i_lock));
    if (rwlock_endread(&dir->d_node.i_lock))
        goto again_getentry;
   }
@@ -631,10 +629,10 @@ again_getentry:
   }
   /* Construct the new path node. */
   path_incref(self); /* For `result->p_parent' */
-  result->p_refcnt        = 1;
-  result->p_node          = entry_node;  /* Inherit reference. */
-  result->p_dirent        = entry;       /* Inherit reference. */
-  result->p_parent        = self;        /* Inherit reference. */
+  result->p_refcnt = 1;
+  result->p_node   = entry_node;  /* Inherit reference. */
+  result->p_dirent = entry;       /* Inherit reference. */
+  result->p_parent = self;        /* Inherit reference. */
   vfs_incref(self->p_vfs);
   result->p_vfs           = self->p_vfs;
   result->p_mount.m_rnode = entry_node;
@@ -671,7 +669,8 @@ PUBLIC ATTR_RETNONNULL REF struct path *KCALL
 path_casechild(struct path *__restrict self,
                USER CHECKED char const *path, u16 pathlen) {
  uintptr_t hash;
- REF struct path *result,*new_result,**pbucket;
+ REF struct path *EXCEPT_VAR result;
+ REF struct path *new_result,**pbucket;
  assertf(self->p_node,"Path hasn't been initialized");
  assertf(self->p_vfs,"Path hasn't been initialized");
  hash = directory_entry_hash(path,pathlen);
@@ -746,9 +745,9 @@ again:
 
  /* Consult the filesystem for this directory entry. */
  {
-  REF struct directory_entry *entry;
-  REF struct inode *entry_node;
-  struct directory_node *dir;
+  REF struct directory_entry *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(entry);
+  REF struct inode *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(entry_node);
+  struct directory_node *EXCEPT_VAR dir;
   dir = (struct directory_node *)self->p_node;
 again_getentry:
   rwlock_read(&dir->d_node.i_lock);
@@ -1311,7 +1310,8 @@ handle_path_pread(struct path *__restrict self,
                   CHECKED USER void *buf,
                   size_t bufsize, pos_t pos,
                   iomode_t flags) {
- REF struct inode *node; size_t result;
+ REF struct inode *EXCEPT_VAR node;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  /* Invoke on the node of the path. */
  atomic_rwlock_read(&self->p_lock);
  node = self->p_node;
@@ -1330,7 +1330,8 @@ handle_path_pwrite(struct path *__restrict self,
                    CHECKED USER void const *buf,
                    size_t bufsize, pos_t pos,
                    iomode_t flags) {
- REF struct inode *node; size_t result;
+ REF struct inode *EXCEPT_VAR node;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  /* Invoke on the node of the path. */
  atomic_rwlock_read(&self->p_lock);
  node = self->p_node;
@@ -1347,7 +1348,7 @@ handle_path_pwrite(struct path *__restrict self,
 INTERN void KCALL
 handle_path_truncate(struct path *__restrict self,
                      pos_t new_smaller_size) {
- REF struct inode *node;
+ REF struct inode *EXCEPT_VAR node;
  /* Invoke on the node of the path. */
  atomic_rwlock_read(&self->p_lock);
  node = self->p_node;
@@ -1373,7 +1374,8 @@ handle_path_ioctl(struct path *__restrict self,
                   unsigned long cmd,
                   USER UNCHECKED void *arg,
                   iomode_t flags) {
- REF struct inode *node; ssize_t result;
+ REF struct inode *EXCEPT_VAR node;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
  /* Invoke on the node of the path. */
  atomic_rwlock_read(&self->p_lock);
  node = self->p_node;
@@ -1390,7 +1392,7 @@ handle_path_ioctl(struct path *__restrict self,
 INTERN void KCALL
 handle_path_sync(struct path *__restrict self,
                  bool data_only) {
- REF struct inode *node;
+ REF struct inode *EXCEPT_VAR node;
  atomic_rwlock_read(&self->p_lock);
  node = self->p_node;
  inode_incref(node);
@@ -1404,7 +1406,7 @@ handle_path_sync(struct path *__restrict self,
 INTERN void KCALL
 handle_path_stat(struct path *__restrict self,
                  USER CHECKED struct stat64 *result) {
- REF struct inode *node;
+ REF struct inode *EXCEPT_VAR node;
  atomic_rwlock_read(&self->p_lock);
  node = self->p_node;
  inode_incref(node);
@@ -1418,8 +1420,8 @@ handle_path_stat(struct path *__restrict self,
 INTERN unsigned int KCALL
 handle_path_poll(struct path *__restrict self,
                  unsigned int mode) {
- unsigned int result;
- REF struct inode *node;
+ unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
+ REF struct inode *EXCEPT_VAR node;
  atomic_rwlock_read(&self->p_lock);
  node = self->p_node;
  inode_incref(node);

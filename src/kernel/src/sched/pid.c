@@ -183,7 +183,7 @@ again:
  assert(self->pn_size <= self->pn_mask);
  if unlikely(self->pn_size >= (self->pn_mask >> 1)) {
   /* Try to rehash the PID namespace. */
-  WEAK struct thread_pid **new_list;
+  WEAK struct thread_pid **EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(new_list);
   size_t new_mask = (self->pn_mask << 1)|1;
   if unlikely(new_mask < 15) new_mask = 15;
   atomic_rwlock_endwrite(&self->pn_lock);
@@ -324,9 +324,10 @@ pidns_delpid(struct pidns *__restrict self,
 
 
 /* Allocate a new PID descriptor for the given thread. */
-PUBLIC ATTR_RETNONNULL ATTR_MALLOC REF
-struct thread_pid *KCALL pidns_newpid(struct pidns *__restrict self, pid_t fixed_pid) {
- REF struct thread_pid *result; struct pidns *ns;
+PUBLIC ATTR_RETNONNULL ATTR_MALLOC REF struct thread_pid *
+KCALL pidns_newpid(struct pidns *__restrict EXCEPT_VAR self, pid_t fixed_pid) {
+ REF struct thread_pid *EXCEPT_VAR result;
+ struct pidns *EXCEPT_VAR ns;
  result = (REF struct thread_pid *)kmalloc(offsetof(struct thread_pid,tp_pids)+
                                           (self->pn_indirection+1)*sizeof(pid_t),
                                            GFP_SHARED|GFP_CALLOC);
@@ -434,8 +435,8 @@ INTERN void KCALL task_fini_pid(struct task *__restrict thread) {
 DEFINE_PERTASK_CLONE(task_clone_pid);
 INTERN void KCALL task_clone_pid(struct task *__restrict new_thread, u32 flags) {
  if (!(new_thread->t_flags & TASK_FKERNELJOB)) {
-  REF struct thread_pid *pid;
-  REF struct pidns *ns;
+  REF struct thread_pid *COMPILER_IGNORE_UNINITIALIZED(pid);
+  REF struct pidns *EXCEPT_VAR ns;
   if (flags & CLONE_NEWPID) {
    /* Use a PID sub-namespace for the new thread. */
    ns = pidns_alloc(THIS_PIDNS);

@@ -202,7 +202,8 @@ union PACKED pipefd {
 
 DEFINE_SYSCALL1_64(xpipe,oflag_t,flags) {
  union pipefd result; REF struct pipe *p;
- struct handle hreader,hwriter;
+ struct handle EXCEPT_VAR hreader;
+ struct handle EXCEPT_VAR hwriter;
  /* Setup handles. */
  hreader.h_mode = HANDLE_MODE(HANDLE_TYPE_FPIPEREADER,IO_RDONLY);
  hwriter.h_mode = HANDLE_MODE(HANDLE_TYPE_FPIPEWRITER,IO_WRONLY);
@@ -240,7 +241,7 @@ DEFINE_SYSCALL1_64(xpipe,oflag_t,flags) {
 
 
 DEFINE_SYSCALL2(pipe2,USER UNCHECKED int *,pipefd,oflag_t,flags) {
- union pipefd p;
+ union pipefd EXCEPT_VAR p;
  validate_writable(pipefd,2*sizeof(int));
  p.pf_64 = SYSC_xpipe(flags);
  TRY {

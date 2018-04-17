@@ -74,7 +74,7 @@ keymap_copyregion(struct vm_region *__restrict region,
  * NOTE: The data contained within the region is a `struct keyboard_keymap' */
 PUBLIC PAGE_ALIGNED ATTR_RETNONNULL
 REF struct vm_region *KCALL keymap_alloc(void) {
- REF struct vm_region *result;
+ REF struct vm_region *EXCEPT_VAR result;
  result = vm_region_alloc(1);
  TRY {
   result->vr_flags |= (VM_REGION_FCANTSHARE|VM_REGION_FDONTMERGE);
@@ -94,8 +94,8 @@ REF struct vm_region *KCALL keymap_alloc(void) {
 PUBLIC bool KCALL
 keyboard_loadmap(struct keyboard *__restrict self,
                  USER CHECKED void *blob) {
- bool result;
- struct heapptr temp_map;
+ bool COMPILER_IGNORE_UNINITIALIZED(result);
+ struct heapptr EXCEPT_VAR temp_map;
  /* Allocate a temporary buffer for the new keymap in the heap.
   * Since a keymap is as large as it is, better not put it on
   * the stack, just so we don't run into any troubles when it
@@ -291,7 +291,7 @@ PUBLIC ATTR_RETNONNULL REF struct keyboard *
 (KCALL keyboard_alloc)(size_t struct_size,
                        struct keyboard_ops *__restrict ops,
                        struct driver *__restrict caller) {
- REF struct keyboard *result;
+ REF struct keyboard *EXCEPT_VAR result;
  assert(struct_size >= sizeof(struct keyboard));
  assert(ops);
  /* Assert mandatory callbacks. */
@@ -319,7 +319,8 @@ PUBLIC ATTR_RETNONNULL REF struct keyboard *
 
 /* Enable/Disable scanning of keycodes. */
 PUBLIC void KCALL
-keyboard_enable_scanning(struct keyboard *__restrict self, iomode_t flags) {
+keyboard_enable_scanning(struct keyboard *__restrict EXCEPT_VAR self,
+                         iomode_t flags) {
  mutex_getf(&self->k_lock,flags);
  TRY {
   if (self->k_mode & KEYBOARD_FDISABLED) {
@@ -333,7 +334,8 @@ keyboard_enable_scanning(struct keyboard *__restrict self, iomode_t flags) {
  }
 }
 PUBLIC void KCALL
-keyboard_disable_scanning(struct keyboard *__restrict self, iomode_t flags) {
+keyboard_disable_scanning(struct keyboard *__restrict EXCEPT_VAR self,
+                          iomode_t flags) {
  mutex_getf(&self->k_lock,flags);
  TRY {
   if (!(self->k_mode & KEYBOARD_FDISABLED)) {
@@ -354,7 +356,7 @@ keyboard_disable_scanning(struct keyboard *__restrict self, iomode_t flags) {
  * HINT: `keyboard_setmode(...,~0,KEYBOARD_FDISABLED)' is the same as calling `keyboard_disable_scanning()'
  * HINT: `keyboard_setmode(...,~KEYBOARD_FDISABLED,0)' is the same as calling `keyboard_enable_scanning()' */
 PUBLIC void KCALL
-keyboard_setmode(struct keyboard *__restrict self,
+keyboard_setmode(struct keyboard *__restrict EXCEPT_VAR self,
                  unsigned int mask, unsigned int mode,
                  iomode_t flags) {
  mutex_getf(&self->k_lock,flags);
@@ -397,7 +399,7 @@ keyboard_setmode(struct keyboard *__restrict self,
 /* Set the state of keyboard LEDs.
  * The new led state is set to `(old_leds & mask) | leds' */
 PUBLIC void KCALL
-keyboard_setleds(struct keyboard *__restrict self,
+keyboard_setleds(struct keyboard *__restrict EXCEPT_VAR self,
                  keyboard_ledset_t mask,
                  keyboard_ledset_t leds,
                  iomode_t flags) {
@@ -423,9 +425,8 @@ keyboard_setleds(struct keyboard *__restrict self,
 
 /* Set the hardware-supported repeat capability of the keyboard. */
 PUBLIC void KCALL
-keyboard_setrepeat(struct keyboard *__restrict self,
-                   struct kbdelay mode,
-                   iomode_t flags) {
+keyboard_setrepeat(struct keyboard *__restrict EXCEPT_VAR self,
+                   struct kbdelay mode, iomode_t flags) {
  if (!self->k_ops->ko_setdelay)
       return; /* No-op. */
  mutex_getf(&self->k_lock,flags);

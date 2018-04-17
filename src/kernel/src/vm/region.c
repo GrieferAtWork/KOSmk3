@@ -177,9 +177,13 @@ vm_region_prefault(struct vm_region *__restrict self) {
 
 
 INTERN ATTR_RETNONNULL struct vm_part *KCALL
-vm_part_splitafter(struct vm_part *__restrict part,
+vm_part_splitafter(struct vm_part *__restrict
+#ifndef NDEBUG
+                   EXCEPT_VAR
+#endif
+                   part,
                    vm_raddr_t part_offset) {
- struct vm_part *new_part;
+ struct vm_part *COMPILER_IGNORE_UNINITIALIZED(new_part);
  assert(part_offset != 0);
  assertf(part->vp_start+part_offset > part->vp_start,
          "part->vp_start = %Iu\n"
@@ -471,14 +475,15 @@ nomerge:
 
 
 PUBLIC void KCALL
-vm_region_incref_range(struct vm_region *__restrict self,
+vm_region_incref_range(struct vm_region *__restrict EXCEPT_VAR self,
                        vm_raddr_t first_page, size_t num_pages) {
  vm_raddr_t incref_end;
  incref_end = first_page+num_pages;
  assert(incref_end <= self->vr_size);
  mutex_get(&self->vr_lock);
  TRY {
-  struct vm_part *first_part,*iter;
+  struct vm_part *EXCEPT_VAR first_part;
+  struct vm_part *EXCEPT_VAR iter;
   /* Split at the lower bound. */
   first_part = vm_region_split_before(self,first_page);
   /* Enumerate all pages in the affected area. */
@@ -525,7 +530,7 @@ vm_region_incref_range(struct vm_region *__restrict self,
  }
 }
 PUBLIC void KCALL
-vm_region_decref_range(struct vm_region *__restrict self,
+vm_region_decref_range(struct vm_region *__restrict EXCEPT_VAR self,
                        vm_raddr_t first_page, size_t num_pages) {
  vm_raddr_t decref_end;
  decref_end = first_page+num_pages;
@@ -581,14 +586,15 @@ vm_region_decref_range(struct vm_region *__restrict self,
 
 
 PUBLIC void KCALL
-vm_region_inclck_range(struct vm_region *__restrict self,
+vm_region_inclck_range(struct vm_region *__restrict EXCEPT_VAR self,
                        vm_raddr_t first_page, size_t num_pages) {
  vm_raddr_t inclck_end;
  inclck_end = first_page+num_pages;
  assert(inclck_end <= self->vr_size);
  mutex_get(&self->vr_lock);
  TRY {
-  struct vm_part *first_part,*iter;
+  struct vm_part *EXCEPT_VAR first_part;
+  struct vm_part *EXCEPT_VAR iter;
   /* Split at the lower bound. */
   first_part = vm_region_split_before(self,first_page);
   /* Enumerate all pages in the affected area. */
@@ -637,14 +643,15 @@ vm_region_inclck_range(struct vm_region *__restrict self,
  }
 }
 PUBLIC void KCALL
-vm_region_declck_range(struct vm_region *__restrict self,
+vm_region_declck_range(struct vm_region *__restrict EXCEPT_VAR self,
                        vm_raddr_t first_page, size_t num_pages) {
  vm_raddr_t inclck_end;
  inclck_end = first_page+num_pages;
  assert(inclck_end <= self->vr_size);
  mutex_get(&self->vr_lock);
  TRY {
-  struct vm_part *first_part,*iter;
+  struct vm_part *EXCEPT_VAR first_part;
+  struct vm_part *EXCEPT_VAR iter;
   /* Split at the lower bound. */
   first_part = vm_region_split_before(self,first_page);
   /* Enumerate all pages in the affected area. */

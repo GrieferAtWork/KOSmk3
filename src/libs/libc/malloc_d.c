@@ -640,7 +640,7 @@ libc_realloc_in_place_d(void *ptr, size_t num_bytes) {
  total = CEIL_ALIGN(total,HEAP_ALIGNMENT);
 compare:
  if (total > result->m_size) {
-  size_t more_bytes;
+  size_t COMPILER_IGNORE_UNINITIALIZED(more_bytes);
   /* Try to allocate more memory. */
   TRY {
    more_bytes = libc_heap_allat_d(&mheap,(void *)((uintptr_t)result+result->m_size),
@@ -675,7 +675,7 @@ libc_recalloc_in_place_d(void *ptr, size_t num_bytes) {
  total = CEIL_ALIGN(total,HEAP_ALIGNMENT);
 compare:
  if (total > result->m_size) {
-  size_t more_bytes;
+  size_t COMPILER_IGNORE_UNINITIALIZED(more_bytes);
   /* Try to allocate more memory. */
   TRY {
    more_bytes = libc_heap_allat_d(&mheap,(void *)((uintptr_t)result+result->m_size),

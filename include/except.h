@@ -236,6 +236,13 @@ __LIBC void const *(__FCALL __rtl_prev_instruction)(void const *__restrict ip);
 #ifndef __EXCEPT_CLOBBER_REGS
 #define __EXCEPT_CLOBBER_REGS() (void)0
 #endif
+#ifndef __EXCEPT_BARRIER
+#if 1
+#define __EXCEPT_BARRIER() __asm__ __volatile__("" : : : "memory")
+#else
+#define __EXCEPT_BARRIER() __COMPILER_BARRIER()
+#endif
+#endif
 
 #ifndef __ERROR_CURRENT_RETHROW
 #define __ERROR_CURRENT_RETHROW  error_rethrow
@@ -252,13 +259,11 @@ extern bool FINALLY_WILL_RETHROW;
 #define FINALLY_WILL_RETHROW FINALLY_WILL_RETHROW
 #if 1
 #define TRY                   if(0)
-#define LEAVE                (void)0
 #define FINALLY               else
 #define EXCEPT                else if
 #define CATCH                 else if
 #else
 #define TRY                   __try
-#define LEAVE                 __leave
 #define FINALLY               __finally
 #define EXCEPT                __except
 #define CATCH                 __except /* Same semantics, but different behavior. */
@@ -272,7 +277,6 @@ extern bool FINALLY_WILL_RETHROW;
  * will have already been preprocessed for the most part. */
 #define FINALLY_WILL_RETHROW FINALLY_WILL_RETHROW
 #define TRY                  TRY
-#define LEAVE                LEAVE
 #define FINALLY              FINALLY
 #define EXCEPT               EXCEPT
 #define CATCH                CATCH
@@ -298,34 +302,31 @@ extern bool FINALLY_WILL_RETHROW;
 #define __TRY_INDIRECTION_BEGIN   __PP_CAT4(__try_label_begin_,__TRY_INDIRECTION,__x,__PP_CAT2(__TRY_INDIRECTION_U,__TRY_INDIRECTION))
 #define __TRY_INDIRECTION_END     __PP_CAT4(__try_label_end_,__TRY_INDIRECTION,__x,__PP_CAT2(__TRY_INDIRECTION_U,__TRY_INDIRECTION))
 #define __TRY_INDIRECTION_ENTRY   __PP_CAT4(__try_label_entry_,__TRY_INDIRECTION,__x,__PP_CAT2(__TRY_INDIRECTION_U,__TRY_INDIRECTION))
-#define __TRY_INDIRECTION_EXIT    __PP_CAT4(__try_label_exit_,__TRY_INDIRECTION,__x,__PP_CAT2(__TRY_INDIRECTION_U,__TRY_INDIRECTION))
 #define __TRY_INDIRECTION_TEMP    __PP_CAT4(__try_label_temp_,__TRY_INDIRECTION,__x,__PP_CAT2(__TRY_INDIRECTION_U,__TRY_INDIRECTION))
 #define TRY \
  __TRY_INDIRECTION_INCREMENT() \
  __TRY_INDIRECTION_NEXTUNIQUE() \
  __TRY_INDIRECTION_BEGIN: \
  __asm__ __volatile__ goto("" : : : : __TRY_INDIRECTION_END); \
- __COMPILER_BARRIER(); \
+ __EXCEPT_BARRIER(); \
  __IF1
-#define LEAVE   goto __TRY_INDIRECTION_EXIT
 #define FINALLY_WILL_RETHROW  __rethrow
 #define FINALLY \
  else{} \
- __COMPILER_BARRIER(); \
+ __EXCEPT_BARRIER(); \
  __IF0 { \
  __TRY_INDIRECTION_END: \
      __DEFINE_FINALLY_HANDLER(__TRY_INDIRECTION_BEGIN, \
                               __TRY_INDIRECTION_END, \
                               __TRY_INDIRECTION_ENTRY) \
      __builtin_unreachable(); \
- } else __TRY_INDIRECTION_EXIT: \
- for(register int __rethrow = 0; !__rethrow; \
-     __rethrow ? __ERROR_CURRENT_RETHROW() : (void)(__rethrow=1)) \
- __IF0{ __TRY_INDIRECTION_ENTRY: __EXCEPT_CLOBBER_REGS(); __rethrow = 1; goto __TRY_INDIRECTION_TEMP;} \
+ } else for(register int __rethrow = 0; !__rethrow; \
+                         __rethrow ? __ERROR_CURRENT_RETHROW() : (void)(__rethrow=1)) \
+            __IF0{ __TRY_INDIRECTION_ENTRY: __EXCEPT_CLOBBER_REGS(); __rethrow = 1; goto __TRY_INDIRECTION_TEMP;} \
  else __TRY_INDIRECTION_TEMP: __TRY_INDIRECTION_DECREMENT()
 #define EXCEPT(mode) \
  else{} \
- __COMPILER_BARRIER(); \
+ __EXCEPT_BARRIER(); \
  __IF0 { \
  __TRY_INDIRECTION_END: \
      if (!__builtin_constant_p(mode) || (mode) != EXCEPT_CONTINUE_SEARCH) { \
@@ -334,7 +335,7 @@ extern bool FINALLY_WILL_RETHROW;
                                  __TRY_INDIRECTION_ENTRY) \
      } \
      __builtin_unreachable(); \
- } else __IF1 __TRY_INDIRECTION_EXIT:; else __TRY_INDIRECTION_ENTRY: \
+ } else __IF1; else __TRY_INDIRECTION_ENTRY: \
    if((__EXCEPT_CLOBBER_REGS(),__builtin_constant_p(mode) ? \
      ((mode) == EXCEPT_CONTINUE_SEARCH ? (__ERROR_CURRENT_RETHROW(),0) : \
       (mode) == EXCEPT_EXECUTE_HANDLER ? 0 : \
@@ -342,7 +343,7 @@ extern bool FINALLY_WILL_RETHROW;
        __ERROR_CURRENT_EXCEPT(mode),0)); else __TRY_INDIRECTION_DECREMENT()
 #define CATCH(error) \
  else{} \
- __COMPILER_BARRIER(); \
+ __EXCEPT_BARRIER(); \
  __IF0 { \
  __TRY_INDIRECTION_END: \
      if (__builtin_constant_p(error)) { \
@@ -356,7 +357,7 @@ extern bool FINALLY_WILL_RETHROW;
                                  __TRY_INDIRECTION_ENTRY) \
      } \
      __builtin_unreachable(); \
- } else __IF1 __TRY_INDIRECTION_EXIT:; else __TRY_INDIRECTION_ENTRY: \
+ } else __IF1; else __TRY_INDIRECTION_ENTRY: \
    if((__EXCEPT_CLOBBER_REGS(), \
        __builtin_constant_p(error) ? 0 : \
       (__ERROR_CURRENT_EXCEPT(error_code() == error),0))); \
@@ -366,39 +367,26 @@ extern bool FINALLY_WILL_RETHROW;
 #define __TRY_LABEL_LINE2 __PP_CAT2(__try_label_entry2_,__LINE__)
 #define __TRY_LABEL_LINE3 __PP_CAT2(__try_label_entry3_,__LINE__)
 
-#if 1
 #define __FORCE_REACHABLE(label) \
    __asm__ __volatile__ goto("" : : : : label);
-#else
-#define __FORCE_REACHABLE(label) \
- { extern volatile unsigned int __some_undefined_symbol; \
-   __asm__ __volatile__(".pushsection .discard" : : : "memory"); \
-   if (__some_undefined_symbol) goto label; \
-   __asm__ __volatile__(".popsection" : : : "memory"); }
-#endif
-
 #define TRY \
  __IF1{ __label__ __try_label_begin; \
         __label__ __try_label_end; \
-        __label__ __try_label_exit; \
         __try_label_begin: \
+        __EXCEPT_BARRIER(); \
         __FORCE_REACHABLE(__try_label_end) \
-        __COMPILER_BARRIER(); \
         __IF1
-#define LEAVE   goto __try_label_exit
 #define FINALLY_WILL_RETHROW  __rethrow
+
+#if 1
 #define FINALLY \
         else{} \
-        __COMPILER_BARRIER(); \
-        __IF0 { \
+        __EXCEPT_BARRIER(); \
         __try_label_end: \
-            __DEFINE_FINALLY_HANDLER(__try_label_begin, \
-                                     __try_label_end, \
-                                     __TRY_LABEL_LINE2) \
-            __builtin_unreachable(); \
-        } \
-        goto __try_label_exit; \
-        __try_label_exit: goto __TRY_LABEL_LINE1; \
+        __DEFINE_FINALLY_HANDLER(__try_label_begin, \
+                                 __try_label_end, \
+                                 __TRY_LABEL_LINE2) \
+        goto __TRY_LABEL_LINE1; \
  } else __TRY_LABEL_LINE1: \
  for(register int __rethrow = 0; !__rethrow; \
      __rethrow ? __ERROR_CURRENT_RETHROW() : (void)(__rethrow=1)) \
@@ -406,7 +394,55 @@ extern bool FINALLY_WILL_RETHROW;
  else __TRY_LABEL_LINE3:
 #define EXCEPT(mode) \
         else{} \
-        __COMPILER_BARRIER(); \
+        __EXCEPT_BARRIER(); \
+        __try_label_end: \
+        if (!__builtin_constant_p(mode) || (mode) != EXCEPT_CONTINUE_SEARCH) { \
+            __DEFINE_EXCEPT_HANDLER(__try_label_begin, \
+                                    __try_label_end, \
+                                    __TRY_LABEL_LINE1) \
+        } \
+ } else __TRY_LABEL_LINE1:if((__EXCEPT_CLOBBER_REGS(),__builtin_constant_p(mode) ? \
+                            ((mode) == EXCEPT_CONTINUE_SEARCH ? (__ERROR_CURRENT_RETHROW(),0) : \
+                             (mode) == EXCEPT_EXECUTE_HANDLER ? 0 : \
+                             (__ERROR_CURRENT_CONTINUE((mode) == EXCEPT_CONTINUE_RETRY),0)) : \
+                             (__ERROR_CURRENT_EXCEPT(mode),0))); else 
+#define CATCH(error) \
+        else{} \
+        __EXCEPT_BARRIER(); \
+        __try_label_end: \
+        if (__builtin_constant_p(error)) { \
+            __DEFINE_CATCH_HANDLER(__try_label_begin, \
+                                   __try_label_end, \
+                                   __TRY_LABEL_LINE1, \
+                                   error) \
+        } else { \
+            __DEFINE_EXCEPT_HANDLER(__try_label_begin, \
+                                    __try_label_end, \
+                                    __TRY_LABEL_LINE1) \
+        } \
+ } else __TRY_LABEL_LINE1:if((__EXCEPT_CLOBBER_REGS(), \
+                              __builtin_constant_p(error) ? 0 : \
+                             (__ERROR_CURRENT_EXCEPT(error_code() == error),0)));else 
+#else
+#define FINALLY \
+        else{} \
+        __EXCEPT_BARRIER(); \
+        __IF0 { \
+        __try_label_end: \
+            __DEFINE_FINALLY_HANDLER(__try_label_begin, \
+                                     __try_label_end, \
+                                     __TRY_LABEL_LINE2) \
+            __builtin_unreachable(); \
+        } \
+        goto __TRY_LABEL_LINE1; \
+ } else __TRY_LABEL_LINE1: \
+ for(register int __rethrow = 0; !__rethrow; \
+     __rethrow ? __ERROR_CURRENT_RETHROW() : (void)(__rethrow=1)) \
+ __IF0{ __TRY_LABEL_LINE2: __EXCEPT_CLOBBER_REGS(); __rethrow = 1; goto __TRY_LABEL_LINE3;} \
+ else __TRY_LABEL_LINE3:
+#define EXCEPT(mode) \
+        else{} \
+        __EXCEPT_BARRIER(); \
         __IF0 { \
         __try_label_end: \
             if (!__builtin_constant_p(mode) || (mode) != EXCEPT_CONTINUE_SEARCH) { \
@@ -416,8 +452,6 @@ extern bool FINALLY_WILL_RETHROW;
             } \
             __builtin_unreachable(); \
         } \
-        goto __try_label_exit; \
-        __try_label_exit:; \
  } else __TRY_LABEL_LINE1:if((__EXCEPT_CLOBBER_REGS(),__builtin_constant_p(mode) ? \
                             ((mode) == EXCEPT_CONTINUE_SEARCH ? (__ERROR_CURRENT_RETHROW(),0) : \
                              (mode) == EXCEPT_EXECUTE_HANDLER ? 0 : \
@@ -425,7 +459,7 @@ extern bool FINALLY_WILL_RETHROW;
                               __ERROR_CURRENT_EXCEPT(mode),0)); else 
 #define CATCH(error) \
         else{} \
-        __COMPILER_BARRIER(); \
+        __EXCEPT_BARRIER(); \
         __IF0 { \
         __try_label_end: \
             if (__builtin_constant_p(error)) { \
@@ -440,13 +474,37 @@ extern bool FINALLY_WILL_RETHROW;
             } \
             __builtin_unreachable(); \
         } \
-        goto __try_label_exit; \
-        __try_label_exit:; \
  } else __TRY_LABEL_LINE1:if((__EXCEPT_CLOBBER_REGS(), \
                               __builtin_constant_p(error) ? 0 : \
                              (__ERROR_CURRENT_EXCEPT(error_code() == error),0)));else 
 #endif
+#endif
 #endif /* __CC__ */
+
+/* Declare a variable for use within an exception handler.
+ * The volatile is required to ensure that the variable
+ * is saved on the stack, and is in a consistent state.
+ * >> After wasting half a day tracking down weirdly
+ *    changing variables, I eventually figured that
+ *    GCC was re-using the stack locations of variables
+ *    that were seemingly not being used, prior to calling
+ *    some function, or piece of code marked as ATTR_NORETURN.
+ * USAGE:
+ * >> int EXCEPT_VAR x = 42;
+ * >> TRY {
+ * >>     debug_printf("In try %d\n",x);
+ * >>     x = 17;
+ * >>     error_throw(E_INVALID_ARGUMENT);
+ * >> } FINALLY {
+ * >>     debug_printf("In finally %d\n",x);
+ * >> }
+ */
+#ifdef __INTELLISENSE__
+#define EXCEPT_VAR  /* nothing */
+#else
+#define EXCEPT_VAR  volatile
+#endif
+
 
 #if defined(__USE_KOS) || defined(__ASSEMBLER__)
 /* Define public versions of the private define-handler macros. */

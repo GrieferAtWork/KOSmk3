@@ -112,8 +112,8 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
                USER UNCHECKED pid_t *parent_tidptr,
                USER UNCHECKED void *tls_val,
                USER UNCHECKED pid_t *child_tidptr) {
- pid_t result;
- REF struct task *new_task;
+ pid_t COMPILER_IGNORE_UNINITIALIZED(result);
+ REF struct task *EXCEPT_VAR new_task;
  assert(PREEMPTION_ENABLED());
  if (flags & CLONE_PARENT_SETTID)
      validate_writable(parent_tidptr,sizeof(pid_t));

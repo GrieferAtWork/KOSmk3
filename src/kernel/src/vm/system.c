@@ -47,9 +47,9 @@ DECL_BEGIN
  * mapping already exists at the target address `page_index'. */
 PRIVATE void KCALL
 vm_user_mapnewat_fast(struct vm *__restrict myvm, vm_vpage_t page_index,
-                      struct vm_region *__restrict region,
+                      struct vm_region *__restrict EXCEPT_VAR region,
                       vm_prot_t prot, void *closure) {
- struct vm_node *node;
+ struct vm_node *EXCEPT_VAR node;
  node = (struct vm_node *)kmalloc(sizeof(struct vm_node),
                                   GFP_SHARED|GFP_LOCKED);
  assert(region->vr_parts == &region->vr_part0);
@@ -81,10 +81,10 @@ vm_user_mapnewat_fast(struct vm *__restrict myvm, vm_vpage_t page_index,
 
 PRIVATE void KCALL
 vm_user_mapnewat(struct vm *__restrict myvm, vm_vpage_t page_index,
-                 vm_raddr_t region_start, size_t num_pages,
-                 struct vm_region *__restrict region,
+                 vm_raddr_t EXCEPT_VAR region_start, size_t EXCEPT_VAR num_pages,
+                 struct vm_region *__restrict EXCEPT_VAR region,
                  vm_prot_t prot, void *closure) {
- struct vm_node *node;
+ struct vm_node *EXCEPT_VAR node;
  assert(num_pages != 0);
  assert(region_start+num_pages >= region_start);
  assert(region_start+num_pages <= region->vr_size);
@@ -125,13 +125,14 @@ throw_invalid_handle(fd_t fd, u16 reason, u16 istype, u16 rqtype, u16 rqkind);
 
 PRIVATE VIRT void *KCALL
 do_xmmap(struct mmap_info *__restrict info) {
- REF struct vm_region *region,*guard_region;
+ REF struct vm_region *EXCEPT_VAR region;
+ REF struct vm_region *EXCEPT_VAR guard_region;
  bool is_extenal_region = false;
- struct vm *user_vm = THIS_VM;
- vm_vpage_t result;
- vm_vpage_t hint;
+ struct vm *EXCEPT_VAR user_vm = THIS_VM;
+ vm_vpage_t EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
+ vm_vpage_t EXCEPT_VAR hint;
  uintptr_t result_offset = 0;
- size_t num_pages;
+ size_t EXCEPT_VAR num_pages;
 
  /* Validate known flag bits. */
  if (info->mi_xflag & ~(XMAP_TYPE|XMAP_FINDBELOW|XMAP_FINDABOVE|
@@ -231,8 +232,8 @@ do_xmmap(struct mmap_info *__restrict info) {
     region->vr_init           = VM_REGION_INIT_FFILLER;
     region->vr_setup.s_filler = info->mi_virt.mv_fill;
    } else {
-    REF struct handle hnd;
-    REF struct inode *node;
+    REF struct handle EXCEPT_VAR hnd;
+    REF struct inode *EXCEPT_VAR node;
     hnd = handle_get(info->mi_virt.mv_file);
     TRY {
      switch (hnd.h_type) {
@@ -457,9 +458,9 @@ got_regions:
                   region,info->mi_prot,NULL,info->mi_tag);
     }
    } else {
-    unsigned int mode;
-    vm_vpage_t gap_pages;
-    size_t page_alignment;
+    unsigned int EXCEPT_VAR mode;
+    vm_vpage_t EXCEPT_VAR gap_pages;
+    size_t EXCEPT_VAR page_alignment;
     if (info->mi_align & (info->mi_align-1))
         error_throw(E_INVALID_ARGUMENT);
     if (info->mi_align < PAGEALIGN)
@@ -480,7 +481,8 @@ got_regions:
          mode |= VM_GETFREE_FNOSMARTGAP;
      if (info->mi_xflag & XMAP_FINDABOVE) {
       if (info->mi_xflag & XMAP_FINDBELOW) {
-       vm_vpage_t result_low,result_high;
+       vm_vpage_t result_low;
+       vm_vpage_t EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result_high);
        TRY {
         result_high = vm_getfree(hint,num_pages,page_alignment,
                                  gap_pages,mode);
@@ -586,8 +588,11 @@ DEFINE_SYSCALL5(mremap,
                 VIRT void *,addr,size_t,old_len,size_t,new_len,
                 int,flags,VIRT void *,new_addr) {
  uintptr_t offset = 0;
- vm_vpage_t old_page,new_page,result;
- size_t     old_size,new_size;
+ vm_vpage_t EXCEPT_VAR old_page;
+ vm_vpage_t EXCEPT_VAR result;
+ vm_vpage_t new_page;
+ size_t EXCEPT_VAR new_size;
+ size_t old_size;
  /* Check for known flags. */
  if (flags & ~(MREMAP_MAYMOVE|MREMAP_FIXED))
      error_throw(E_INVALID_ARGUMENT);

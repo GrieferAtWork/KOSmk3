@@ -203,6 +203,7 @@ eh_findfde(byte_t *__restrict eh_frame_start,
   result->fi_sigframe = 0;
   /* No personality function by default. */
   result->fi_persofun = 0;
+  result->fi_lsdaaddr = 0;
   if (cie_augstr[0] == 'z') {
    char *aug_iter = cie_augstr;
    /* Interpret the augmentation string. */
@@ -277,6 +278,13 @@ eh_findfde(byte_t *__restrict eh_frame_start,
 
   /* Save the given relocation information, so it can be re-used later on. */
   result->fi_relinfo = relinfo;
+  if (result->fi_lsdaaddr != 0) {
+   debug_printf("result->fi_persofun = %p\n",
+                 result->fi_persofun);
+   debug_printf("result->fi_lsdaaddr = %p\n",
+                 result->fi_lsdaaddr);
+  }
+
   return true;
 next_chunk:
   if unlikely(next < reader)

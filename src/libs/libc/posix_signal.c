@@ -424,7 +424,8 @@ libd_psiginfo(siginfo_t const *pinfo, char const *s) {
 }
 INTERN int LIBCCALL
 libc_sigstack(struct sigstack *ss, struct sigstack *oss) {
- struct sigaltstack ass,aoss; int result;
+ struct sigaltstack ass,aoss;
+ int COMPILER_IGNORE_UNINITIALIZED(result);
  LIBC_TRY {
   if (ss) {
     ass.ss_flags = ss->ss_onstack ? SS_ONSTACK : SS_DISABLE;
@@ -436,10 +437,10 @@ libc_sigstack(struct sigstack *ss, struct sigstack *oss) {
    oss->ss_onstack = !!(aoss.ss_flags&SS_ONSTACK);
    oss->ss_sp      = aoss.ss_sp;
   }
-  return result;
  } LIBC_EXCEPT(libc_except_errno()) {
-  return -1;
+  result = -1;
  }
+ return result;
 }
 
 

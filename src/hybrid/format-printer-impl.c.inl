@@ -380,9 +380,11 @@ UNIQUE(xformat_vinfo)(PFORMATPRINTER printer, void *closure,
  return 0;
 #elif 1
  uintptr_t addr = va_arg(args->args,uintptr_t);
- size_t arglen = 0; unsigned int recursion = 1; ssize_t result;
- struct vm *effective_vm = &vm_kernel; bool has_lock;
- struct vm_node *node; REF struct application *app = NULL;
+ size_t arglen = 0; unsigned int recursion = 1;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct vm *effective_vm = &vm_kernel;
+ bool has_lock; struct vm_node *node;
+ REF struct application *EXCEPT_VAR app = NULL;
  if (addr < KERNEL_BASE) effective_vm = THIS_VM;
  if (!arg) arg = "%f(%l,%c) : %n";
  for (; arg[arglen]; ++arglen) {
@@ -626,7 +628,7 @@ LIBC_FORMAT_VPRINTF(PFORMATPRINTER printer, void *closure,
                     locale_t locale,
 #endif
                     va_list args) {
- ssize_t result = 0,temp;
+ ssize_t result = 0,COMPILER_IGNORE_UNINITIALIZED(temp);
  format_T_char const *flush_start;
  format_T_char ch;
  size_t width,precision;

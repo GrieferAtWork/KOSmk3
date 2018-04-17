@@ -52,7 +52,7 @@ canonbuffer_fini(struct canonbuffer *__restrict self) {
  * @return: false: The buffer is full and the given `ch' wasn't added. */
 PUBLIC bool KCALL
 canonbuffer_putc(struct canonbuffer *__restrict self, byte_t ch) {
- size_t written_size;
+ size_t EXCEPT_VAR written_size;
 again:
  atomic_rwlock_read(&self->cb_lock);
  do {
@@ -61,7 +61,7 @@ again:
   assert(written_size <= self->cb_bufsize);
   if unlikely(written_size == self->cb_bufsize) {
    size_t new_size,max_size;
-   struct heapptr new_buffer;
+   struct heapptr EXCEPT_VAR new_buffer;
    struct heapptr old_buffer;
    /* Must increase the available buffer size. */
    atomic_rwlock_endread(&self->cb_lock);
@@ -134,7 +134,7 @@ canonbuffer_unputc(struct canonbuffer *__restrict self, byte_t *__restrict ch) {
 /* Capture / Release the current buffer, while simultaniously
  * resetting the active buffer to being empty.
  * These functions are what differentiates canons from other buffers.
- * >> struct canon c;
+ * >> struct canon EXCEPT_VAR c;
  * >> c = canonbuffer_capture(self);
  * >> TRY {
  * >>     PROCESS_DATA(c.c_base,c.c_size);
@@ -189,7 +189,7 @@ canonbuffer_release(struct canonbuffer *__restrict self,
 PUBLIC struct canon KCALL
 canonbuffer_clone(struct canonbuffer *__restrict self) {
  struct canon result;
- struct heapptr buffer;
+ struct heapptr EXCEPT_VAR buffer;
  buffer.hp_siz = 0;
  TRY {
   for (;;) {

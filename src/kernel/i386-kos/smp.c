@@ -280,7 +280,6 @@ skip_processor:
     }
    }
   }
-
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
  }
 }

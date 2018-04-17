@@ -85,7 +85,6 @@
     <ClCompile Include="..\..\src\kernel\i386-kos\safecall.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\scheduler.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\smp.c" />
-    <ClCompile Include="..\..\src\kernel\i386-kos\syscall-table.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\syscall.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\sysenter.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\task_clone.c" />

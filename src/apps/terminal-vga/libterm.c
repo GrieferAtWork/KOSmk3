@@ -342,14 +342,15 @@ enter_escape_mode:
    SET_CURSOR(self->tr_savex,self->tr_savey);
    break;
 
+   /* Set Graphics Rendition */
+  case ANSI_SGR:
   {
    uint8_t new_colors;
-   struct term_rgba new_fg,new_bg;
+   struct term_rgba COMPILER_IGNORE_UNINITIALIZED(new_fg);
+   struct term_rgba COMPILER_IGNORE_UNINITIALIZED(new_bg);
    int real_color_mode;
 #define REAL_FG 0x1
 #define REAL_BG 0x2
-   /* Set Graphics Rendition */
-  case ANSI_SGR:
    real_color_mode = 0;
    new_colors = self->tr_palette_idx;
 #define SET_TRUE_COLOR_MODE_FG()   { real_color_mode |= REAL_FG; }

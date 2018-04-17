@@ -456,7 +456,7 @@ unregister_device_nodevfs(struct device *__restrict dev) {
 
 PUBLIC bool KCALL
 register_device_nodevfs(struct device *__restrict dev) {
- struct device_map *map = &device_maps[dev->d_type];
+ struct device_map *EXCEPT_VAR map = &device_maps[dev->d_type];
  struct device **pbucket,*bucket;
  assert(dev->d_type < DEVICE_TYPE_COUNT);
 again:
@@ -464,7 +464,7 @@ again:
  assert(dev->d_chain.le_pself == NULL);
  if (map->dm_mapc >= (map->dm_mapm/3)*2) {
   size_t new_mask = (map->dm_mapm << 1) | 1;
-  LIST_HEAD(struct device) *new_map;
+  LIST_HEAD(struct device) *COMPILER_IGNORE_UNINITIALIZED(new_map);
   LIST_HEAD(struct device) *old_map;
   atomic_rwlock_endwrite(&map->dm_lock);
   if (new_mask < 15) new_mask = 15;
@@ -526,7 +526,7 @@ use_map:
 }
 
 PUBLIC bool KCALL
-register_device(struct device *__restrict dev) {
+register_device(struct device *__restrict EXCEPT_VAR dev) {
  bool result;
  result = register_device_nodevfs(dev);
  if (result) {
@@ -576,9 +576,9 @@ devno_free(u16 type,
 
 
 PUBLIC void KCALL
-register_dynamic_device_mask(struct device *__restrict dev,
+register_dynamic_device_mask(struct device *__restrict EXCEPT_VAR dev,
                              dev_t start, minor_t mask) {
- minor_t num_numbers = 1;
+ minor_t EXCEPT_VAR num_numbers = 1;
  if (dev->d_type == DEVICE_TYPE_FBLOCKDEV)
      num_numbers = ((struct block_device *)dev)->b_partmaxcnt;
 again:
@@ -592,7 +592,9 @@ again:
   }
   dev->d_flags |= DEVICE_FDYNDEVICE;
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  devno_free(dev->d_type,dev->d_devno,num_numbers);
+  devno_free(dev->d_type,
+             dev->d_devno,
+             num_numbers);
   error_rethrow();
  }
 }
@@ -658,7 +660,7 @@ PUBLIC ATTR_RETNONNULL REF struct block_device *
 
 PUBLIC REF struct superblock *KCALL
 block_device_getsuper(struct block_device *__restrict self) {
- REF struct superblock *result;
+ REF struct superblock *EXCEPT_VAR result;
 again:
  atomic_rwlock_read(&self->b_fslock);
  result = self->b_filesystem;
@@ -727,9 +729,10 @@ find_page(struct block_device *__restrict self,
  * Additionally, if the page already exists and `page_data'
  * is non-NULL, it's buffer is overwritten when `page_data'. */
 PRIVATE ATTR_RETNONNULL struct block_page *KCALL
-new_page(struct block_device *__restrict self, blkaddr_t addr,
+new_page(struct block_device *__restrict EXCEPT_VAR self, blkaddr_t addr,
          CHECKED USER void const *page_data, iomode_t flags) {
- struct block_page *entry,*result; size_t new_mask;
+ struct block_page *EXCEPT_VAR result;
+ struct block_page *entry; size_t new_mask;
  size_t i,perturb,hash = BLKADDR_HASH(addr);
  assert(self->b_pagebuf.ps_mapc <= self->b_pagebuf.ps_mapm);
  assert(self->b_pagebuf.ps_mapu <= self->b_pagebuf.ps_mapc);
@@ -921,8 +924,8 @@ load_result:
   } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
    if (!BLOCK_PAGE_ISDUMMYORNULL(result->bp_data))
         heap_free_untraced(&kernel_heaps[GFP_SHARED|GFP_LOCKED],
-                   result->bp_data,result->bp_size,
-                   GFP_SHARED|GFP_LOCKED);
+                            result->bp_data,result->bp_size,
+                            GFP_SHARED|GFP_LOCKED);
    /* Turn the resulting page into a dummy entry to keep the cache consistent. */
    result->bp_data = BLOCK_PAGE_DUMMY;
    error_rethrow();
@@ -943,10 +946,10 @@ load_result:
  * @throw E_SEGFAULT: The given user-buffer is faulty.
  * @throw E_NO_DATA:  The given block range is overflowing, or out-of-bounds. */
 PUBLIC size_t KCALL
-block_device_read(struct block_device *__restrict self,
-                  CHECKED USER void *buf, size_t num_bytes,
+block_device_read(struct block_device *__restrict EXCEPT_VAR self,
+                  CHECKED USER void *buf, size_t EXCEPT_VAR num_bytes,
                   pos_t device_position, iomode_t flags) {
- size_t result = num_bytes;
+ size_t EXCEPT_VAR result = num_bytes;
  if unlikely(!num_bytes) goto done;
  /* Add the indirection associated with a partition. */
  if unlikely(__builtin_add_overflow(device_position,self->b_partstart,
@@ -983,10 +986,10 @@ done:
 }
 
 PUBLIC size_t KCALL
-block_device_write(struct block_device *__restrict self,
-                   CHECKED USER void const *buf, size_t num_bytes,
+block_device_write(struct block_device *__restrict EXCEPT_VAR self,
+                   CHECKED USER void const *buf, size_t EXCEPT_VAR num_bytes,
                    pos_t device_position, iomode_t flags) {
- size_t result = num_bytes;
+ size_t EXCEPT_VAR result = num_bytes;
  if unlikely(!num_bytes) goto done;
  /* Add the indirection associated with a partition. */
  if unlikely(__builtin_add_overflow(device_position,self->b_partstart,
@@ -1042,7 +1045,7 @@ done:
 }
 
 PUBLIC void KCALL
-block_device_sync(struct block_device *__restrict self) {
+block_device_sync(struct block_device *__restrict EXCEPT_VAR self) {
  rwlock_write(&self->b_pagebuf.ps_lock);
  TRY {
   if (self->b_pagebuf.ps_mapv) {
@@ -1077,7 +1080,7 @@ block_device_partition(struct block_device *__restrict self,
                        pos_t partition_offset,
                        blkcnt_t partition_size,
                        minor_t partition_number) {
- REF struct block_device *result;
+ REF struct block_device *EXCEPT_VAR result;
  pos_t part_end;
  /* Validate partition bounds. */
  if unlikely(__builtin_mul_overflow(partition_size,self->b_blocksize,&part_end) ||

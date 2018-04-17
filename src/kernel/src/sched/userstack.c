@@ -70,7 +70,7 @@ PUBLIC ATTR_PERTASK REF struct userstack *_this_user_stack = NULL;
 
 DEFINE_PERTASK_CLEANUP(task_cleanup_user_stack);
 INTERN void KCALL task_cleanup_user_stack(void) {
- REF struct userstack *ustack;
+ REF struct userstack *EXCEPT_VAR ustack;
  /* Unmap and decref() this thread's user-space stack. */
  if ((ustack = PERTASK_GET(_this_user_stack)) != NULL) {
   TRY {
@@ -109,8 +109,8 @@ INTERN void KCALL task_clone_user_stack(struct task *__restrict thread) {
  * will return the same object after being called a second time. */
 PUBLIC ATTR_RETNONNULL ATTR_CONST
 struct userstack *KCALL task_alloc_userstack(void) {
- struct userstack *result;
- REF struct vm_region *stack_region;
+ struct userstack *EXCEPT_VAR result;
+ REF struct vm_region *EXCEPT_VAR stack_region;
  result = PERTASK_GET(_this_user_stack);
  /* Quick check: is the stack already allocated. */
  if (result) return result;
@@ -120,7 +120,7 @@ struct userstack *KCALL task_alloc_userstack(void) {
                                       GFP_SHARED);
  result->us_refcnt = 1;
  TRY {
-  void *stack_base;
+  void *COMPILER_IGNORE_UNINITIALIZED(stack_base);
   stack_region = vm_region_alloc(USER_STACK_PAGES);
 
   /* Setup custom initialization of user-space stacks. */

@@ -36,6 +36,11 @@
 
 DECL_BEGIN
 
+#undef CONFIG_LOG_RWLOCKS
+#if !defined(NDEBUG) && 0
+#define CONFIG_LOG_RWLOCKS 1
+#endif
+
 
 /* A dummy R/W lock pointer. */
 #define READLOCK_DUMMYLOCK  ((struct rwlock *)-1)
@@ -59,7 +64,7 @@ struct read_locks {
                                 * As hash-index, use `RWLOCK_HASH()' */
 };
 
-PRIVATE ATTR_PERTASK struct read_locks my_readlocks = {
+INTERN ATTR_PERTASK struct read_locks my_readlocks = {
     .rls_use = 0,
     .rls_cnt = 0,
     .rls_msk = CONFIG_TASK_STATIC_READLOCKS-1
@@ -82,7 +87,7 @@ readlocks_fini(struct task *__restrict thread) {
 }
 
 /* Find an existing read-lock descriptor for `lock', or return NULL. */
-PRIVATE struct read_lock *KCALL
+INTERN struct read_lock *KCALL
 find_readlock(struct rwlock *__restrict lock) {
  uintptr_t i,perturb;
  struct read_locks *locks;
@@ -113,7 +118,7 @@ get_readlock(struct rwlock *__restrict lock) {
  assert(locks->rls_cnt <= locks->rls_msk);
  if (locks->rls_cnt == locks->rls_msk) {
   struct read_lock *old_vector;
-  struct read_lock *new_vector;
+  struct read_lock *EXCEPT_VAR new_vector;
   size_t new_mask,i;
   /* Must re-hash the readlock hash-vector. */
   new_mask   = (locks->rls_msk << 1)|1;
@@ -162,6 +167,8 @@ get_readlock(struct rwlock *__restrict lock) {
   }
  }
  /* New descriptor. */
+ assert(result->rl_rwlock == NULL ||
+        result->rl_rwlock == READLOCK_DUMMYLOCK);
  result->rl_recursion = 0;
  result->rl_rwlock = lock;
  ++locks->rls_use;
@@ -184,17 +191,23 @@ del_readlock(struct read_lock *__restrict rlock) {
 
 PUBLIC bool KCALL
 rwlock_reading(struct rwlock *__restrict self) {
+ struct read_lock *lock;
  if (self->rw_scnt == 0)
      return false;
  if (self->rw_mode == RWLOCK_MODE_FWRITING)
      return self->rw_xowner == THIS_TASK;
- return find_readlock(self) != NULL;
+ lock = find_readlock(self);
+ assert(!lock || lock->rl_recursion != 0);
+ return lock != NULL;
 }
 
 PUBLIC bool KCALL
 __os_rwlock_tryread(struct rwlock *__restrict self) {
  struct read_lock *desc;
  u32 control_word;
+#ifdef CONFIG_LOG_RWLOCKS
+ debug_printf("[RWLOCK][%p] TRY_READ(%p)\n",THIS_TASK,self);
+#endif
  if (self->rw_mode == RWLOCK_MODE_FWRITING) {
   if (self->rw_xowner == THIS_TASK) {
    /* Recursive read-after-write. */
@@ -240,6 +253,9 @@ __os_rwlock_timedread(struct rwlock *__restrict self,
                       jtime_t abs_timeout) {
  struct read_lock *desc;
  u32 control_word;
+#ifdef CONFIG_LOG_RWLOCKS
+ debug_printf("[RWLOCK][%p] READ(%p)\n",THIS_TASK,self);
+#endif
  assertf(!task_isconnected(),
          "You mustn't be connected when calling this function");
  if (self->rw_mode == RWLOCK_MODE_FWRITING) {
@@ -309,6 +325,9 @@ initial_lock:
 PUBLIC bool KCALL
 __os_rwlock_trywrite(struct rwlock *__restrict self) {
  u32 control_word;
+#ifdef CONFIG_LOG_RWLOCKS
+ debug_printf("[RWLOCK][%p] TRY_WRITE(%p)\n",THIS_TASK,self);
+#endif
 again:
  control_word = ATOMIC_READ(self->rw_state);
  switch (__RWLOCK_MODE(control_word)) {
@@ -358,6 +377,9 @@ __os_rwlock_timedwrite(struct rwlock *__restrict self,
  u32 control_word;
  assertf(!task_isconnected(),
          "You mustn't be connected when calling this function");
+#ifdef CONFIG_LOG_RWLOCKS
+ debug_printf("[RWLOCK][%p] WRITE(%p,%p)\n",THIS_TASK,self,self->rw_state);
+#endif
 again:
  control_word = ATOMIC_READ(self->rw_state);
  switch (__RWLOCK_MODE(control_word)) {
@@ -477,6 +499,9 @@ __os_rwlock_tryupgrade(struct rwlock *__restrict self) {
  /* Special handling to upgrade a non-shared
   * read-lock to an exclusive write-lock. */
  u32 control_word;
+#ifdef CONFIG_LOG_RWLOCKS
+ debug_printf("[RWLOCK][%p] TRY_UPGRADE(%p)\n",THIS_TASK,self);
+#endif
 again:
  control_word = ATOMIC_READ(self->rw_state);
  switch (__RWLOCK_MODE(control_word)) {
@@ -519,6 +544,9 @@ __os_rwlock_timedupgrade(struct rwlock *__restrict self,
  /* Special handling to upgrade a non-shared
   * read-lock to an exclusive write-lock. */
  u32 control_word;
+#ifdef CONFIG_LOG_RWLOCKS
+ debug_printf("[RWLOCK][%p] UPGRADE(%p)\n",THIS_TASK,self);
+#endif
  assertf(!task_isconnected(),
          "You mustn't be connected when calling this function");
 again:
@@ -611,6 +639,9 @@ wait_for_unshare:
 
 PUBLIC void KCALL
 __os_rwlock_downgrade(struct rwlock *__restrict self) {
+#ifdef CONFIG_LOG_RWLOCKS
+ debug_printf("[RWLOCK][%p] DOWNGRADE(%p)\n",THIS_TASK,self);
+#endif
  assertf(self->rw_mode == RWLOCK_MODE_FWRITING,
          "Lock isn't in write-mode");
  assertf(self->rw_xowner == THIS_TASK,
@@ -631,6 +662,9 @@ __os_rwlock_downgrade(struct rwlock *__restrict self) {
 
 PUBLIC ATTR_NOTHROW void KCALL
 __os_rwlock_endwrite(struct rwlock *__restrict self) {
+#ifdef CONFIG_LOG_RWLOCKS
+ debug_printf("[RWLOCK][%p] END_WRITE(%p)\n",THIS_TASK,self);
+#endif
  assertf(self->rw_mode == RWLOCK_MODE_FWRITING,
          "Lock isn't in write-mode");
  assertf(self->rw_xowner == THIS_TASK,
@@ -643,9 +677,11 @@ __os_rwlock_endwrite(struct rwlock *__restrict self) {
   ATOMIC_WRITE(self->rw_xowner,NULL);
   /* If our thread has older read-locks, restore them. */
   desc = find_readlock(self);
+  assert(!desc || desc->rl_rwlock == self);
   if (desc) {
    assert(desc->rl_recursion != 0);
    /* Downgrade to read-mode (keep the indirection of `1'). */
+   assert(self->rw_scnt == 1);
    ATOMIC_WRITE(self->rw_mode,RWLOCK_MODE_FREADING);
   } else {
    /* Last lock. */
@@ -665,6 +701,9 @@ DEFINE_PUBLIC_ALIAS(rwlock_endread,rwlock_end);
 
 PUBLIC ATTR_NOTHROW bool KCALL
 __os_rwlock_end(struct rwlock *__restrict self) {
+#ifdef CONFIG_LOG_RWLOCKS
+ debug_printf("[RWLOCK][%p] END(%p)\n",THIS_TASK,self);
+#endif
  if (self->rw_mode == RWLOCK_MODE_FWRITING) {
   /* end-read after already writing */
   assertf(self->rw_xowner == THIS_TASK,

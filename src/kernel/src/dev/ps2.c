@@ -105,7 +105,7 @@ PRIVATE struct ps2_progreq *pending_programs[2] = { NULL, NULL };
 /* List of free programs. */
 PRIVATE struct ps2_progreq *free_programs = NULL;
 
-PRIVATE jtime_t ps2_timeout = JIFFIES_FROM_MILLI(100);
+PRIVATE jtime_t ps2_timeout = JIFFIES_FROM_MILLI(200);
 PRIVATE u8      ps2_retries = 3; /* Number of times to restart a program. */
 
 PRIVATE struct ps2_progreq *KCALL pop_pending(u8 port) {
@@ -230,11 +230,11 @@ sub_ps2_callback(byte_t UNUSED(ps2_byte), void *UNUSED(arg)) {
 
 
 PRIVATE bool KCALL
-ps2_inputdata_delfunc(struct ps2_inputdata *__restrict self,
+ps2_inputdata_delfunc(struct ps2_inputdata *__restrict EXCEPT_VAR self,
                       ps2_callback_t func, void *arg) {
  size_t old_count,i;
  struct ps2_callback *old_vector;
- struct ps2_callback *new_vector;
+ struct ps2_callback *COMPILER_IGNORE_UNINITIALIZED(new_vector);
  struct ps2_callback last_buffer;
 again:
  old_count  = ATOMIC_READ(self->bv_bufc);
@@ -729,7 +729,7 @@ ps2_detect_threadmain(void *UNUSED(arg)) {
 
 DEFINE_DRIVER_PREINIT(ps2_initialize);
 PRIVATE ATTR_USED ATTR_FREETEXT void KCALL ps2_initialize(void) {
- REF struct task *worker;
+ REF struct task *EXCEPT_VAR worker;
  /* Make sure both ports are disabled while we configure PS/2. */
  ps2_write_cmd(PS2_CONTROLLER_DISABLE_PORT1);
  ps2_write_cmd(PS2_CONTROLLER_DISABLE_PORT2);

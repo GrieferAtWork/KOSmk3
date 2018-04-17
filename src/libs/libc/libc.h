@@ -172,11 +172,13 @@ struct fsmask {
 /* Helper macros for defining exception wrappers */
 #define DEFINE_EXCEPT_WRAPPER(Treturn,error_return,name,params,Xname,args) \
 INTERN Treturn (LIBCCALL name) params { \
+    Treturn COMPILER_IGNORE_UNINITIALIZED(result); \
     LIBC_TRY { \
-        return Xname args; \
+        result = Xname args; \
     } LIBC_EXCEPT(libc_except_errno()) { \
-        return error_return; \
+        result = error_return; \
     } \
+    return result; \
 }
 #define DEFINE_NULL_WRAPPER(Treturn,name,params,Xname,args) DEFINE_EXCEPT_WRAPPER(Treturn,NULL,name,params,Xname,args)
 #define DEFINE_M1_WRAPPER(Treturn,name,params,Xname,args)   DEFINE_EXCEPT_WRAPPER(Treturn,-1,name,params,Xname,args)

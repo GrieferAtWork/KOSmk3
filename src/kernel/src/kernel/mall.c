@@ -215,7 +215,9 @@ mall_reachable_pointer(void *ptr) {
 
 PRIVATE ATTR_NOTHROW size_t KCALL
 mall_reachable_data(void *base, size_t num_bytes) {
- size_t result = 0; byte_t *iter,*end;
+ size_t result = 0;
+ byte_t *EXCEPT_VAR iter;
+ byte_t *EXCEPT_VAR end;
  if unlikely((uintptr_t)base & (sizeof(void *)-1)) {
   /* Align the base pointer. */
   size_t offset;
@@ -484,10 +486,11 @@ PRIVATE size_t KCALL mall_print_leaks_impl(void) {
 
 
 PUBLIC size_t KCALL mall_dump_leaks(gfp_t heap_max) {
- volatile unsigned int COMPILER_IGNORE_UNINITIALIZED(lock_count);
+ unsigned int EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(lock_count);
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
- volatile bool has_user_lock;
- volatile bool has_vm_lock; u16 old_flags;
+ bool EXCEPT_VAR has_user_lock;
+ bool EXCEPT_VAR has_vm_lock;
+ u16 EXCEPT_VAR old_flags;
  assert(PREEMPTION_ENABLED());
  TRY {
   /* Step #1: Acquire locks to all MALL heaps, as well as the kernel VM. */
@@ -688,7 +691,7 @@ again:
 }
 PUBLIC void KCALL
 mall_validate_padding(gfp_t heap_max) {
- unsigned int i;
+ unsigned int EXCEPT_VAR i;
  if (heap_max > (GFP_SHARED|GFP_LOCKED) &&
      THIS_VM != &vm_kernel)
      heap_max = GFP_SHARED|GFP_LOCKED;
@@ -750,7 +753,7 @@ PRIVATE void KCALL
 mall_register(gfp_t flags, struct heapptr pointer,
               struct cpu_context *__restrict allocator_context) {
  /* Must propagate the GFP_LOCKED-flag to prevent an infinite loop. */
- struct mallnode *node = mallnode_alloc();
+ struct mallnode *EXCEPT_VAR node = mallnode_alloc();
  struct mallheap *heap = &mall_heaps[flags & __GFP_HEAPMASK];
 #ifdef CONFIG_ONLY_SIMPLE_TRACEBACKS
  assert(!PERTASK_TEST(mall_leak_nocore));
@@ -908,9 +911,9 @@ PUBLIC void KCALL mall_print_traceback(void *ptr) {
 
 PRIVATE WUNUSED ATTR_MALLOC ATTR_RETNONNULL
 VIRT void *(KCALL mall_alloc)(size_t min_alignment, ptrdiff_t offset,
-                              size_t n_bytes, gfp_t flags,
+                              size_t n_bytes, gfp_t EXCEPT_VAR flags,
                               struct cpu_context *__restrict allocator_context) {
- struct heapptr result;
+ struct heapptr EXCEPT_VAR result;
  result = heap_align_untraced(&kernel_heaps[flags & __GFP_HEAPMASK],
                                min_alignment,CONFIG_MALL_HEAD_SIZE+offset,
                                CONFIG_MALL_HEAD_SIZE+n_bytes+CONFIG_MALL_TAIL_SIZE,
@@ -944,9 +947,10 @@ VIRT void *(KCALL mall_realloc)(VIRT void *ptr,
                                 size_t min_alignment, ptrdiff_t offset,
                                 size_t n_bytes, gfp_t flags) {
  size_t old_size,new_size;
- struct mallnode *node; unsigned int heap;
+ struct mallnode *EXCEPT_VAR node;
+ unsigned int EXCEPT_VAR heap;
  /* Pop the node from its heap. */
- node = mall_lookup((uintptr_t)ptr,NULL,true,&heap);
+ node = mall_lookup((uintptr_t)ptr,NULL,true,(unsigned int *)&heap);
  mallnode_verify_padding(node);
  new_size = n_bytes + (CONFIG_MALL_HEAD_SIZE + CONFIG_MALL_TAIL_SIZE);
  new_size = CEIL_ALIGN(new_size,HEAP_ALIGNMENT);
@@ -1190,9 +1194,9 @@ PUBLIC void (KCALL kffree)(VIRT void *ptr, gfp_t flags) {
 
 /* Define traced versions of heap allocator functions. */
 PUBLIC struct heapptr KCALL
-heap_alloc(struct heap *__restrict self,
-           size_t num_bytes, gfp_t flags) {
- struct heapptr result;
+heap_alloc(struct heap *__restrict EXCEPT_VAR self,
+           size_t num_bytes, gfp_t EXCEPT_VAR flags) {
+ struct heapptr EXCEPT_VAR result;
  /* Allocate the new data block. */
  result = heap_alloc_untraced(self,num_bytes,flags);
  TRY {
@@ -1200,16 +1204,19 @@ heap_alloc(struct heap *__restrict self,
   mall_trace(result.hp_ptr,result.hp_siz);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Free the allocated data block on error. */
-  heap_free_untraced(self,result.hp_ptr,result.hp_siz,flags);
+  heap_free_untraced(self,
+                     result.hp_ptr,
+                     result.hp_siz,
+                     flags);
   error_rethrow();
  }
  return result;
 }
 PUBLIC struct heapptr KCALL
-heap_align(struct heap *__restrict self,
+heap_align(struct heap *__restrict EXCEPT_VAR self,
            size_t min_alignment, ptrdiff_t offset,
-           size_t num_bytes, gfp_t flags) {
- struct heapptr result;
+           size_t num_bytes, gfp_t EXCEPT_VAR flags) {
+ struct heapptr EXCEPT_VAR result;
  /* Allocate the new data block. */
  result = heap_align_untraced(self,min_alignment,
                               offset,num_bytes,flags);
@@ -1218,16 +1225,19 @@ heap_align(struct heap *__restrict self,
   mall_trace(result.hp_ptr,result.hp_siz);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Free the allocated data block on error. */
-  heap_free_untraced(self,result.hp_ptr,result.hp_siz,flags);
+  heap_free_untraced(self,
+                     result.hp_ptr,
+                     result.hp_siz,
+                     flags);
   error_rethrow();
  }
  return result;
 }
 PUBLIC size_t KCALL
-heap_allat(struct heap *__restrict self,
-           VIRT void *__restrict ptr,
-           size_t num_bytes, gfp_t flags) {
- size_t result;
+heap_allat(struct heap *__restrict EXCEPT_VAR self,
+           VIRT void *__restrict EXCEPT_VAR ptr,
+           size_t num_bytes, gfp_t EXCEPT_VAR flags) {
+ size_t EXCEPT_VAR result;
  /* Allocate the new data block. */
  result = heap_allat_untraced(self,ptr,num_bytes,flags);
  TRY {
@@ -1251,10 +1261,12 @@ heap_free(struct heap *__restrict self,
 
 
 PUBLIC struct heapptr KCALL
-heap_realloc(struct heap *__restrict self,
+heap_realloc(struct heap *__restrict EXCEPT_VAR self,
              VIRT void *old_ptr, size_t old_bytes,
-             size_t new_bytes, gfp_t alloc_flags, gfp_t free_flags) {
- struct heapptr result; size_t missing_bytes;
+             size_t new_bytes,
+             gfp_t EXCEPT_VAR alloc_flags,
+             gfp_t free_flags) {
+ struct heapptr EXCEPT_VAR result; size_t missing_bytes;
  assert(IS_ALIGNED(old_bytes,HEAP_ALIGNMENT));
  assert(!old_bytes || IS_ALIGNED((uintptr_t)old_ptr,HEAP_ALIGNMENT));
  assert(!old_bytes || old_bytes >= HEAP_MINSIZE);
@@ -1290,7 +1302,9 @@ heap_realloc(struct heap *__restrict self,
   /* The try block is here because of the possibility of a LOA failure. */
   memcpy(result.hp_ptr,old_ptr,old_bytes);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  heap_free(self,result.hp_ptr,result.hp_siz,
+  heap_free(self,
+            result.hp_ptr,
+            result.hp_siz,
             alloc_flags & ~GFP_CALLOC);
   error_rethrow();
  }
@@ -1300,11 +1314,13 @@ heap_realloc(struct heap *__restrict self,
  return result;
 }
 PUBLIC struct heapptr KCALL
-heap_realign(struct heap *__restrict self,
+heap_realign(struct heap *__restrict EXCEPT_VAR self,
              VIRT void *old_ptr, size_t old_bytes,
              size_t min_alignment, ptrdiff_t offset,
-             size_t new_bytes, gfp_t alloc_flags, gfp_t free_flags) {
- struct heapptr result; size_t missing_bytes;
+             size_t new_bytes,
+             gfp_t EXCEPT_VAR alloc_flags,
+             gfp_t free_flags) {
+ struct heapptr EXCEPT_VAR result; size_t missing_bytes;
  assert(IS_ALIGNED(old_bytes,HEAP_ALIGNMENT));
  assert(!old_bytes || IS_ALIGNED((uintptr_t)old_ptr,HEAP_ALIGNMENT));
  assert(!old_bytes || old_bytes >= HEAP_MINSIZE);
@@ -1340,7 +1356,9 @@ heap_realign(struct heap *__restrict self,
   /* The try block is here because of the possibility of a LOA failure. */
   memcpy(result.hp_ptr,old_ptr,old_bytes);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  heap_free(self,result.hp_ptr,result.hp_siz,
+  heap_free(self,
+            result.hp_ptr,
+            result.hp_siz,
             alloc_flags & ~GFP_CALLOC);
   error_rethrow();
  }

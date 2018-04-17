@@ -1020,14 +1020,14 @@ x86_default_error_unhandled_exception(bool is_standalone);
 
 PUBLIC void FCALL
 task_propagate_user_exception(struct cpu_hostcontext_user *__restrict context) {
- struct exception_info *error = error_info();
- struct exception_info info; u16 flags;
+ struct exception_info *EXCEPT_VAR error = error_info();
+ struct exception_info EXCEPT_VAR info; u16 flags;
  bool is_standalone = false;
  /* Always use flags of the original exception for context determination. */
  flags = error->e_error.e_flag;
 copy_error:
  /* Save exception information if something goes wrong during cleanup. */
- memcpy(&info,error,sizeof(struct exception_info));
+ memcpy((void *)&info,error,sizeof(struct exception_info));
 
 serve_rpc:
 
@@ -1074,7 +1074,7 @@ serve_rpc:
 #if 0
    error_printf("Translate to errno\n");
 #endif
-   context->c_gpregs.gp_eax = -exception_errno(&info);
+   context->c_gpregs.gp_eax = -exception_errno((struct exception_info *)&info);
    return;
   }
 
@@ -1150,7 +1150,7 @@ serve_rpc:
         *       by overriding the thread-local TLS self-pointer. */
        useg = PERTASK_GET(this_task.t_userseg)->ts_self;
        validate_writable(useg,sizeof(struct user_task_segment));
-       errorinfo_copy_to_user(useg,&info,context);
+       errorinfo_copy_to_user(useg,(struct exception_info *)&info,context);
       }
       /* Set the unwound context as what should be returned to for user-space. */
 #ifdef CONFIG_X86_SEGMENTATION
@@ -1262,7 +1262,7 @@ serve_rpc:
    memcpy(action_copy,action,sizeof(struct sigaction));
    atomic_rwlock_endread(&hand->sh_lock);
 
-   memcpy(error,&info,sizeof(struct exception_info));
+   memcpy(error,(void *)&info,sizeof(struct exception_info));
 
    /* TODO: Special actions, such as SIG_SUSP, etc. */
 
@@ -1368,11 +1368,11 @@ serve_rpc:
       goto copy_error;
   /* Ignore low-priority exceptions (such as additional interrupts...) */
   if (ERRORCODE_ISLOWPRIORITY(error->e_error.e_code)) {
-   memcpy(error,&info,sizeof(struct exception_info));
+   memcpy(error,(void *)&info,sizeof(struct exception_info));
    goto serve_rpc;
   }
 #ifdef NDEBUG
-  memcpy(error,&info,sizeof(struct exception_info));
+  memcpy(error,(void *)&info,sizeof(struct exception_info));
   goto serve_rpc;
 #else
   /* This shouldn't happen... */
@@ -1384,7 +1384,7 @@ serve_rpc:
 unhandled_exception: ATTR_UNUSED
  /* Fallback: Restore the original exception and enter the
   *           kernel's default unhandled exception handler. */
- memcpy(error,&info,sizeof(struct exception_info));
+ memcpy(error,(void *)&info,sizeof(struct exception_info));
  x86_default_error_unhandled_exception(is_standalone);
 }
 

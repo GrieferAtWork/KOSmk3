@@ -59,8 +59,7 @@ struct __ATTR_PACKED x86_fpu_register {
     __UINT8_TYPE__          __X86_CONTEXT_SYMBOL(fr_pad)[6];
 };
 
-__ATTR_ALIGNED(__X86_FPUCONTEXT_ALIGN)
-struct __ATTR_PACKED x86_fpucontext32 {
+struct __ATTR_ALIGNED(__X86_FPUCONTEXT_ALIGN) __ATTR_PACKED x86_fpucontext32 {
     /* FPU context structure, as described here: 
      *   - http://asm.inightmare.org/opcodelst/index.php?op=FXSAVE
      *   - http://x86.renejeschke.de/html/file_module_x86_id_128.html */

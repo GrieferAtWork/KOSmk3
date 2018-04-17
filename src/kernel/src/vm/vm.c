@@ -391,8 +391,8 @@ PUBLIC size_t KCALL
 vm_protect(vm_vpage_t page_index, size_t num_pages,
            vm_prot_t mask, vm_prot_t flag,
            unsigned int mode, void *tag) {
- size_t result;
- struct vm *effective_vm;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct vm *EXCEPT_VAR effective_vm;
  if unlikely(!num_pages) return 0;
  assert(page_index+num_pages > page_index);
  assert(page_index+num_pages <= VM_VPAGE_MAX+1);
@@ -455,11 +455,15 @@ PUBLIC ATTR_NOTHROW void KCALL
 vm_insert_node(struct vm *__restrict effective_vm,
                struct vm_node *__restrict node) {
  struct vm_node **pinsert,*insert_before;
+#ifdef CONFIG_VM_USE_RWLOCK
  assertf(vm_holding(effective_vm),
          "effective_vm->vm_lock.rw_state  = %p\n"
          "effective_vm->vm_lock.rw_xowner = %p\n",
          effective_vm->vm_lock.rw_state,
          effective_vm->vm_lock.rw_xowner);
+#else
+ assert(vm_holding(effective_vm));
+#endif
  assert(node->vn_region->vr_parts->vp_chain.le_pself ==
        &node->vn_region->vr_parts);
  assertf(VM_NODE_MIN(node) <= VM_NODE_MAX(node),
@@ -515,7 +519,7 @@ vm_insert_node(struct vm *__restrict effective_vm,
 
 PUBLIC void KCALL
 vm_map_node(struct vm_node *__restrict node) {
- struct vm_region *region; u16 perm;
+ struct vm_region *EXCEPT_VAR region; u16 perm;
  vm_raddr_t region_begin,region_end;
  region = node->vn_region;
  region_begin = node->vn_start;
@@ -671,7 +675,7 @@ vmapps_destroy(struct vmapps *__restrict self);
 
 
 PUBLIC void KCALL vm_unmap_userspace(void) {
- struct vm *uservm = THIS_VM;
+ struct vm *EXCEPT_VAR uservm = THIS_VM;
  struct vm_node *nodes,*next;
  assert(uservm != &vm_kernel);
  vm_acquire(uservm);
@@ -742,7 +746,7 @@ PUBLIC void KCALL vm_unmap_userspace(void) {
 
 PUBLIC size_t FCALL
 vm_unswap(vm_vpage_t page_index, size_t num_pages) {
- size_t result = 0; struct vm *effective_vm;
+ size_t result = 0; struct vm *EXCEPT_VAR effective_vm;
  assert(page_index+num_pages >= page_index);
  assert(page_index+num_pages <= VM_VPAGE_MAX+1);
  if unlikely(!num_pages) goto done;
@@ -1070,10 +1074,10 @@ done:
 
 PUBLIC size_t KCALL
 vm_unmap(vm_vpage_t page, size_t num_pages,
-         unsigned int mode, void *tag) {
+         unsigned int EXCEPT_VAR mode, void *tag) {
  size_t result = 0;
- struct vm *effective_vm;
- struct vm_node *nodes = NULL;
+ struct vm *EXCEPT_VAR effective_vm;
+ struct vm_node *EXCEPT_VAR nodes = NULL;
  if unlikely(!num_pages) goto done;
  assert(page+num_pages > page);
  assert(page+num_pages <= VM_VPAGE_MAX+1);
@@ -1178,7 +1182,8 @@ PUBLIC size_t KCALL
 vm_remap(vm_vpage_t old_page_index, size_t num_pages,
          vm_vpage_t new_page_index, vm_prot_t prot_mask,
          vm_prot_t prot_flag, unsigned int mode, void *tag) {
- struct vm_maps maps; size_t result;
+ struct vm_maps EXCEPT_VAR maps;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  STATIC_ASSERT(VM_REMAP_TAG == VM_EXTRACT_TAG);
  STATIC_ASSERT(VM_REMAP_FULL == VM_EXTRACT_FULL);
  maps = vm_extract(old_page_index,num_pages,mode,tag);
@@ -1230,11 +1235,11 @@ PUBLIC void KCALL vm_maps_delete(struct vm_maps self) {
  * @param: mode:       Set of `VM_EXTRACT_*'
  * @param: tag:        Tag used to select which mappings to extract. */
 PUBLIC struct vm_maps KCALL
-vm_extract(VIRT vm_vpage_t page_index, size_t num_pages,
+vm_extract(VIRT vm_vpage_t EXCEPT_VAR page_index, size_t num_pages,
            unsigned int mode, void *tag) {
  STATIC_ASSERT(VM_UNMAP_TAG == VM_EXTRACT_TAG);
- struct vm_maps result;
- struct vm *effective_vm;
+ struct vm_maps EXCEPT_VAR result;
+ struct vm *EXCEPT_VAR effective_vm;
  result.v_maps = NULL;
  if unlikely(!num_pages) goto done;
  assert(page_index+num_pages > page_index);
@@ -1242,7 +1247,7 @@ vm_extract(VIRT vm_vpage_t page_index, size_t num_pages,
  effective_vm = page_index >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
  vm_acquire(effective_vm);
  TRY {
-  struct vm_node *iter;
+  struct vm_node *EXCEPT_VAR iter;
   /* Split the address space where the unmap should take place. */
   vm_split_before(effective_vm,page_index);
   vm_split_before(effective_vm,page_index+num_pages);
@@ -1305,14 +1310,14 @@ incomplete_unmap:
     /* Try to re-map all nodes that were already unmapped. */
     for (; temp != iter; temp = temp->vn_byaddr.le_next) {
      /* Restore the relative node position. */
-     iter->vn_node.a_vmin += page_index;
-     iter->vn_node.a_vmax += page_index;
-     if (iter->vn_notify) {
-      INVOKE_NOTIFY_V(iter->vn_notify,
-                      iter->vn_closure,
+     temp->vn_node.a_vmin += page_index;
+     temp->vn_node.a_vmax += page_index;
+     if (temp->vn_notify) {
+      INVOKE_NOTIFY_V(temp->vn_notify,
+                      temp->vn_closure,
                       VM_NOTIFY_RESTORE,
-                      VM_NODE_BEGIN(iter),
-                      VM_NODE_SIZE(iter),
+                      VM_NODE_BEGIN(temp),
+                      VM_NODE_SIZE(temp),
                       NULL);
      }
      vm_map_node(temp);
@@ -1347,11 +1352,12 @@ done:
  * @param: mode: One of `VM_RESTORE_*'
  * @return: * :  The actual number of restored pages. */
 FUNDEF size_t KCALL
-vm_restore(VIRT vm_vpage_t page_index,
-           struct vm_maps maps,
+vm_restore(VIRT vm_vpage_t EXCEPT_VAR page_index,
+           struct vm_maps EXCEPT_VAR maps,
            unsigned int mode) {
- struct vm *effective_vm;
- struct vm_node *iter,*next;
+ struct vm *EXCEPT_VAR effective_vm;
+ struct vm_node *EXCEPT_VAR iter;
+ struct vm_node *next;
  size_t num_pages;
  assert(mode == VM_RESTORE_NORMAL ||
         mode == VM_RESTORE_NEWVM);
@@ -1535,7 +1541,7 @@ PUBLIC bool KCALL
 vm_loadcore(vm_vpage_t page, size_t num_pages,
             unsigned int mode) {
  bool result = false; int temp;
- struct vm *effective_vm;
+ struct vm *EXCEPT_VAR effective_vm;
  if (page < X86_KERNEL_BASE_PAGE) {
   effective_vm = THIS_VM;
   if (page+num_pages < page ||
@@ -1598,7 +1604,7 @@ again:
      page_max >= node->vn_node.a_vmin) {
   vm_raddr_t region_begin,region_end;
   size_t region_size;
-  struct vm_region *region;
+  struct vm_region *EXCEPT_VAR region;
   /* Found a matching entry!
    * >> Figure out how much of this must be loaded into the core. */
   assert(page_min >= node->vn_node.a_vmin);
@@ -1641,7 +1647,8 @@ again:
 
 PUBLIC size_t KCALL
 vm_lock(vm_vpage_t page, size_t num_pages, unsigned int mode) {
- struct vm *effective_vm; size_t result;
+ struct vm *EXCEPT_VAR effective_vm;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  if unlikely(!num_pages) return 0;
  assert(page+num_pages > page);
  assert(page+num_pages-1 <= VM_VPAGE_MAX);
@@ -1678,7 +1685,8 @@ vm_lock(vm_vpage_t page, size_t num_pages, unsigned int mode) {
 PUBLIC void KCALL
 vm_split_before(struct vm *__restrict effective_vm,
                 vm_vpage_t page_address) {
- struct vm_node **pnode,*node,*new_node;
+ struct vm_node **pnode,*node;
+ struct vm_node *EXCEPT_VAR new_node;
  vm_vpage_t split_semi; unsigned int split_level;
  vm_raddr_t split_offset;
  assert(vm_holding(effective_vm));
@@ -1800,7 +1808,7 @@ vm_region_mergenext(struct vm_region *__restrict region,
 
 
 PUBLIC ATTR_NOTHROW void KCALL
-vm_merge_before(struct vm *__restrict effective_vm,
+vm_merge_before(struct vm *__restrict EXCEPT_VAR effective_vm,
                 vm_vpage_t page_address) {
 #ifndef CONFIG_VM_MERGING
  (void)effective_vm;
@@ -1869,7 +1877,7 @@ vm_merge_before(struct vm *__restrict effective_vm,
 #ifndef CONFIG_VM_MERGING_COMPLEX
   return;
 #else /* !CONFIG_VM_MERGING_COMPLEX */
-  REF struct vm_region *new_region;
+  REF struct vm_region *EXCEPT_VAR new_region;
   struct vm_region *self_region;
   struct vm_region *next_region;
   size_t self_size,next_size;
@@ -2236,10 +2244,12 @@ REF struct vm *KCALL vm_alloc(void) {
   *       overhead caused by the huge alignment requirements
   *       of the page directory stored inline with the VM. */
  vm_func_t *iter;
- struct heapptr vm_ptr = heap_align(&kernel_heaps[VM_HEAP],VM_ALIGN,0,
-                                   (size_t)kernel_pervm_size + PAGEDIR_SIZE,
-                                    VM_HEAP|GFP_CALLOC);
- REF struct vm *result = (REF struct vm *)vm_ptr.hp_ptr;
+ struct heapptr EXCEPT_VAR vm_ptr;
+ REF struct vm *result;
+ vm_ptr = heap_align(&kernel_heaps[VM_HEAP],VM_ALIGN,0,
+                    (size_t)kernel_pervm_size + PAGEDIR_SIZE,
+                     VM_HEAP|GFP_CALLOC);
+ result = (REF struct vm *)vm_ptr.hp_ptr;
  /* Save the allocated size in the VM structure. */
  assert(vm_ptr.hp_siz >= (size_t)kernel_pervm_size + PAGEDIR_SIZE);
  TRY {
@@ -2279,7 +2289,7 @@ REF struct vm *KCALL vm_alloc(void) {
 
 DEFINE_PERTASK_STARTUP(task_vm_startup);
 INTERN void KCALL task_vm_startup(u32 flags) {
- struct vm *my_vm;
+ struct vm *EXCEPT_VAR my_vm;
  if (flags & CLONE_VM) return;
  /* Map all nodes that were copied from the old VM in the new (current) one.
   * NOTE: No need to sync as we're the only thread using them right now. */
@@ -2297,8 +2307,8 @@ INTERN void KCALL task_vm_startup(u32 flags) {
 
 
 PUBLIC REF struct vm *KCALL vm_clone(void) {
- REF struct vm *result = vm_alloc();
- struct vm *myvm = THIS_VM;
+ REF struct vm *EXCEPT_VAR result = vm_alloc();
+ struct vm *EXCEPT_VAR myvm = THIS_VM;
  vm_vpage_t sync_min = (vm_vpage_t)-1;
  vm_vpage_t sync_max = 0;
  TRY {
@@ -2306,7 +2316,8 @@ PUBLIC REF struct vm *KCALL vm_clone(void) {
   TRY {
    vm_acquire(result);
    TRY {
-    struct vm_node *iter,*copy;
+    struct vm_node *EXCEPT_VAR iter;
+    struct vm_node *EXCEPT_VAR copy;
     iter = myvm->vm_byaddr;
     for (; iter; iter = iter->vn_byaddr.le_next) {
      void *new_closure;
@@ -2657,11 +2668,15 @@ vm_destroy(struct vm *__restrict self) {
 
 
 PUBLIC void KCALL
-vm_mapat(vm_vpage_t page_index, size_t num_pages,
-         vm_raddr_t region_start, struct vm_region *__restrict region,
-         vm_prot_t prot, vm_notify_t notify, void *closure) {
- struct vm_node *node;
- struct vm *effective_vm;
+vm_mapat(vm_vpage_t page_index,
+         size_t EXCEPT_VAR num_pages,
+         vm_raddr_t EXCEPT_VAR region_start,
+         struct vm_region *__restrict EXCEPT_VAR region,
+         vm_prot_t prot,
+         vm_notify_t EXCEPT_VAR notify,
+         void *closure) {
+ struct vm_node *EXCEPT_VAR node;
+ struct vm *EXCEPT_VAR effective_vm;
  if unlikely(!num_pages) return;
  effective_vm = page_index >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
  assert(page_index+num_pages > page_index);
@@ -2694,7 +2709,7 @@ vm_mapat(vm_vpage_t page_index, size_t num_pages,
    TRY {
     vm_acquire(effective_vm);
     TRY {
-     struct vm_node *nodes;
+     struct vm_node *EXCEPT_VAR nodes;
      vm_split_before(effective_vm,page_index);
      vm_split_before(effective_vm,page_index+num_pages);
      /* Pop all nodes from the affected range. */
@@ -2768,15 +2783,19 @@ vm_mapat(vm_vpage_t page_index, size_t num_pages,
 
 
 PUBLIC VIRT void *KCALL
-vm_map(vm_vpage_t hint, size_t num_pages,
+vm_map(vm_vpage_t hint,
+       size_t EXCEPT_VAR num_pages,
        size_t min_alignment_in_pages,
-       size_t min_gap_size, unsigned int getfree_mode,
-       vm_raddr_t region_start, 
-       struct vm_region *__restrict region, vm_prot_t prot,
-       vm_notify_t notify, void *closure) {
- struct vm_node *node;
- vm_vpage_t result;
- struct vm *effective_vm;
+       size_t min_gap_size,
+       unsigned int getfree_mode,
+       vm_raddr_t EXCEPT_VAR region_start, 
+       struct vm_region *__restrict EXCEPT_VAR region,
+       vm_prot_t prot,
+       vm_notify_t EXCEPT_VAR notify,
+       void *closure) {
+ struct vm_node *EXCEPT_VAR node;
+ vm_vpage_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct vm *EXCEPT_VAR effective_vm;
  effective_vm = &vm_kernel;
  if (hint < X86_KERNEL_BASE_PAGE ||
     (hint == X86_KERNEL_BASE_PAGE && (getfree_mode&VM_GETFREE_FBELOW)))
@@ -2851,7 +2870,7 @@ vm_extend(vm_vpage_t threshold, size_t num_additional_pages,
           vm_prot_t prot_mask, vm_prot_t prot_flag,
           unsigned int mode) {
  size_t result = 0;
- struct vm *effective_vm;
+ struct vm *EXCEPT_VAR effective_vm;
  struct vm_node *extension_node;
  assert(mode == VM_EXTEND_ABOVE ||
         mode == VM_EXTEND_BELOW);
@@ -2951,7 +2970,7 @@ handle_vm_region_poll(struct vm_region *__restrict self, unsigned int mode) {
  return mutex_poll(&self->vr_lock) ? (mode & (POLLIN|POLLOUT)) : 0;
 }
 INTERN void KCALL
-handle_vm_state(struct vm *__restrict self,
+handle_vm_state(struct vm *__restrict EXCEPT_VAR self,
                 USER CHECKED struct stat64 *result) {
  size_t total_pages = 0,num_nodes = 0;
  vm_acquire(self);
@@ -2970,7 +2989,7 @@ handle_vm_state(struct vm *__restrict self,
  result->st_blksize = PAGESIZE;                      /* Size of a single page. */
 }
 INTERN void KCALL
-handle_vm_region_stat(struct vm_region *__restrict self,
+handle_vm_region_stat(struct vm_region *__restrict EXCEPT_VAR self,
                       USER CHECKED struct stat64 *result) {
  size_t num_parts = 0;
  mutex_get(&self->vr_lock);

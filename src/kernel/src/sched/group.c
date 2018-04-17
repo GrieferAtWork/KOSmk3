@@ -152,7 +152,7 @@ task_exit_secondary_threads(int exit_status) {
  assertf(get_this_process() == THIS_TASK,
          "You're not the leader of a thread-group");
  for (;;) {
-  struct task *thread;
+  struct task *EXCEPT_VAR thread;
   atomic_rwlock_write(&PERTASK(_this_group.tg_process.h_lock));
   thread = PERTASK_GET(_this_group.tg_process.h_group);
   while (thread &&
@@ -380,9 +380,9 @@ taskgroup_queue_rpc(task_rpc_t func, void *arg,
                     unsigned int mode) {
  size_t result = 0;
  size_t min_threads = 0;
- size_t num_threads;
+ size_t EXCEPT_VAR num_threads;
  struct task *iter;
- struct task **thread_vec = NULL;
+ struct task **EXCEPT_VAR thread_vec = NULL;
  assert(get_this_process() == THIS_TASK);
  TRY {
   for (;;) {
@@ -513,14 +513,14 @@ struct threadlist {
 #define THREADLIST_INIT  {0,0,NULL}
 
 LOCAL void KCALL
-threadlist_fini(struct threadlist *__restrict self) {
+threadlist_fini(struct threadlist EXCEPT_VAR *__restrict self) {
  size_t i;
  for (i = 0; i < self->tl_size; ++i)
      task_decref(self->tl_threads[i]);
  kfree(self->tl_threads);
 }
 LOCAL bool KCALL
-threadlist_contains(struct threadlist *__restrict self,
+threadlist_contains(struct threadlist EXCEPT_VAR *__restrict self,
                     struct task *__restrict thread) {
  size_t i;
  for (i = 0; i < self->tl_size; ++i)
@@ -529,7 +529,7 @@ threadlist_contains(struct threadlist *__restrict self,
  return false;
 }
 LOCAL bool KCALL
-threadlist_append(struct threadlist *__restrict self,
+threadlist_append(struct threadlist EXCEPT_VAR *__restrict self,
                   struct task *__restrict thread) {
  if (self->tl_size == self->tl_alloc)
      return false;
@@ -537,7 +537,7 @@ threadlist_append(struct threadlist *__restrict self,
  return true;
 }
 LOCAL void KCALL
-threadlist_reserve(struct threadlist *__restrict self,
+threadlist_reserve(struct threadlist EXCEPT_VAR *__restrict self,
                    size_t num_slots) {
  size_t new_alloc = self->tl_alloc+num_slots;
  /* Allocate more memory. */
@@ -549,7 +549,7 @@ threadlist_reserve(struct threadlist *__restrict self,
 
 
 PUBLIC size_t KCALL
-signal_raise_pgroup(struct task *__restrict processgroup,
+signal_raise_pgroup(struct task *__restrict EXCEPT_VAR processgroup,
                     USER CHECKED siginfo_t *__restrict info) {
  size_t result = 0;
  struct processgroup *pgroup;
@@ -560,7 +560,7 @@ signal_raise_pgroup(struct task *__restrict processgroup,
  task_incref(processgroup);
  atomic_rwlock_endread(&pgroup->pg_lock);
  {
-  struct threadlist threads = THREADLIST_INIT;
+  struct threadlist EXCEPT_VAR threads = THREADLIST_INIT;
   TRY {
    struct task *iter; size_t req_threads,start;
    pgroup = &FORTASK(processgroup,_this_group).tg_process.h_procgroup;
@@ -682,7 +682,8 @@ PUBLIC ATTR_NOTHROW bool KCALL task_set_session(void) {
 
 /* Define system calls for process group / session control. */
 DEFINE_SYSCALL2(setpgid,pid_t,pid,pid_t,pgid) {
- REF struct task *thread,*leader;
+ REF struct task *EXCEPT_VAR thread;
+ REF struct task *leader;
  if (pid == 0) {
   thread = THIS_TASK;
   task_incref(thread);
@@ -762,7 +763,7 @@ posix_waitfor(int which, pid_t upid,
               USER CHECKED struct rusage *ru) {
  struct task *my_process;
  struct threadgroup *my_group;
- struct thread_pid *child;
+ struct thread_pid *EXCEPT_VAR child;
  size_t my_indirection;
  size_t num_candidates;
  my_process     = get_this_process();
@@ -864,7 +865,7 @@ continue_next_child_unlock:
   }
   if (!child->tp_task || !ATOMIC_READ(child->tp_task->t_refcnt) ||
       (ATOMIC_READ(child->tp_task->t_state) & TASK_STATE_FTERMINATED)) {
-   pid_t result;
+   pid_t COMPILER_IGNORE_UNINITIALIZED(result);
 child_died:
    /* The thread has died. */
    if (has_write_lock)

@@ -410,11 +410,12 @@ CRT_STDIO_API ATTR_MALLOC FILE *LIBCCALL libc_tmpfile(void) {
 EXPORT(Xtmpfile,libc_Xtmpfile);
 CRT_STDIO_XAPI ATTR_MALLOC
 ATTR_RETNONNULL FILE *LIBCCALL libc_Xtmpfile(void) {
+ FILE *COMPILER_IGNORE_UNINITIALIZED(result);
  char name[32];
 again:
  libc_sprintf(name,"::/tmp/stdio_%x.tmp",libc_rand());
  LIBC_TRY {
-  return libc_Xfopen(name,"w+x");
+  result = libc_Xfopen(name,"w+x");
  } LIBC_CATCH (E_FILESYSTEM_ERROR) {
   /* If the file already exists, generate a new random number and try once more. */
   if (error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_FILE_ALREADY_EXISTS)
@@ -422,6 +423,7 @@ again:
   /* Propagate all other errors. */
   error_rethrow();
  }
+ return result;
 }
 
 EXPORT(tmpfile64,libc_tmpfile64);
@@ -435,18 +437,20 @@ EXPORT(__KSYM(fopenat),libc_fopenat);
 CRT_STDIO_API ATTR_MALLOC FILE *LIBCCALL
 libc_fopenat(fd_t dfd, char const *__restrict filename,
              char const *__restrict modes, atflag_t flags) {
+ FILE *COMPILER_IGNORE_UNINITIALIZED(result);
  LIBC_TRY {
-  return libc_Xfopenat(dfd,filename,modes,flags);
+  result = libc_Xfopenat(dfd,filename,modes,flags);
  } LIBC_EXCEPT(libc_except_errno()) {
-  return NULL;
+  result = NULL;
  }
+ return result;
 }
 EXPORT(Xfopenat,libc_Xfopenat);
 CRT_STDIO_API ATTR_MALLOC ATTR_RETNONNULL FILE *LIBCCALL
 libc_Xfopenat(fd_t dfd, char const *__restrict filename,
               char const *__restrict modes, atflag_t flags) {
- FILE *result; oflag_t mode; fd_t fd;
- mode = libc_parsemode(modes);
+ FILE *COMPILER_IGNORE_UNINITIALIZED(result);
+ fd_t fd; oflag_t mode = libc_parsemode(modes);
  if ((mode == (oflag_t)-1) ||
      (flags & ~(AT_SYMLINK_NOFOLLOW|AT_DOSPATH|AT_EMPTY_PATH)))
       libc_error_throw(E_INVALID_ARGUMENT);
@@ -604,11 +608,13 @@ CRT_STDIO_API FILE *LIBCCALL
 libc_freopenat(fd_t dfd, char const *__restrict filename,
                char const *__restrict modes, atflag_t flags,
                FILE *__restrict self) {
+ FILE *COMPILER_IGNORE_UNINITIALIZED(result);
  LIBC_TRY {
-  return libc_Xfreopenat(dfd,filename,modes,flags,self);
+  result = libc_Xfreopenat(dfd,filename,modes,flags,self);
  } LIBC_EXCEPT(libc_except_errno()) {
-  return NULL;
+  result = NULL;
  }
+ return result;
 }
 
 EXPORT(Xfreopenat,libc_Xfreopenat);
@@ -768,7 +774,7 @@ done:
 EXPORT(Xfmemopen,libc_Xfmemopen);
 CRT_STDIO_XAPI ATTR_MALLOC ATTR_RETNONNULL FILE *LIBCCALL
 libc_Xfmemopen(void *buf, size_t len, char const *modes) {
- FILE *result; struct memopen_file *cookie;
+ FILE *COMPILER_IGNORE_UNINITIALIZED(result); struct memopen_file *cookie;
  cookie = (struct memopen_file *)libc_Xmalloc(sizeof(struct memopen_file));
  LIBC_TRY {
   cookie_io_functions_t io_funcs;
@@ -893,7 +899,7 @@ libc_open_memstream(char **bufloc, size_t *sizeloc) {
 EXPORT(Xopen_memstream,libc_Xopen_memstream);
 CRT_STDIO_XAPI ATTR_MALLOC ATTR_RETNONNULL FILE *LIBCCALL
 libc_Xopen_memstream(char **bufloc, size_t *sizeloc) {
- FILE *result; struct memstream_file *cookie;
+ FILE *COMPILER_IGNORE_UNINITIALIZED(result); struct memstream_file *cookie;
  cookie = (struct memstream_file *)libc_Xmalloc(sizeof(struct memstream_file));
  LIBC_TRY {
   cookie_io_functions_t io_funcs;
@@ -961,7 +967,7 @@ libc_popen(char const *command, char const *modes) {
 EXPORT(Xpopen,libc_Xpopen);
 CRT_STDIO_XAPI ATTR_MALLOC ATTR_RETNONNULL FILE *LIBCCALL
 libc_Xpopen(char const *command, char const *modes) {
- FILE *result; struct process_file *cookie;
+ FILE *COMPILER_IGNORE_UNINITIALIZED(result); struct process_file *cookie;
  cookie = (struct process_file *)libc_Xmalloc(sizeof(struct process_file));
  LIBC_TRY {
   cookie_io_functions_t io_funcs;
@@ -971,6 +977,7 @@ libc_Xpopen(char const *command, char const *modes) {
   io_funcs.cio_read  = (cookie_read_function_t *)&processstream_read;
   io_funcs.cio_write = (cookie_write_function_t *)&processstream_write;
   io_funcs.cio_close = (cookie_close_function_t *)&processstream_close;
+  io_funcs.cio_seek  = NULL;
   result = libc_Xfopencookie_impl(cookie,modes,io_funcs);
   LIBC_TRY {
    /* Create the communications pipe. */
@@ -1389,7 +1396,7 @@ CRT_STDIO_XAPI size_t LIBCCALL
 libc_Xgetdelim(char **__restrict lineptr,
                size_t *__restrict n, int delimiter,
                FILE *__restrict self) {
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(self);
  LIBC_TRY {
   result = libc_Xgetdelim_unlocked(lineptr,n,delimiter,self);
@@ -1438,8 +1445,8 @@ libc_feof(FILE *__restrict self) {
  LIBC_TRY {
   return (self->fb_flag & FILE_BUFFER_FEOF) != 0;
  } LIBC_EXCEPT(libc_except_errno()) {
-  return -1;
  }
+ return -1;
 }
 
 EXPORT(ferror,libc_ferror);
@@ -1449,8 +1456,8 @@ libc_ferror(FILE *__restrict self) {
  LIBC_TRY {
   return (self->fb_flag & FILE_BUFFER_FERR) != 0;
  } LIBC_EXCEPT(libc_except_errno()) {
-  return -1;
  }
+ return -1;
 }
 
 EXPORT(fileno,libc_fileno);
@@ -1458,7 +1465,7 @@ EXPORT(fileno_unlocked,libc_fileno); /* ??? Why? (Once the function returns, it'
 EXPORT(__DSYM(_fileno),libc_fileno);
 CRT_STDIO_API fd_t LIBCCALL
 libc_fileno(FILE *__restrict self) {
- fd_t result;
+ fd_t COMPILER_IGNORE_UNINITIALIZED(result);
  LIBC_TRY {
   result = ATOMIC_READ(self->fb_file);
   if unlikely(result < 0)
@@ -1565,7 +1572,7 @@ EXPORT(Xfgets,libc_Xfgets);
 CRT_STDIO_XAPI char *LIBCCALL
 libc_Xfgets(char *__restrict s, size_t n,
             FILE *__restrict self) {
- char *result;
+ char *COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(self);
  LIBC_TRY {
   result = libc_Xfgets_unlocked(s,n,self);
@@ -1683,7 +1690,7 @@ libc_puts(char const *__restrict s) {
 EXPORT(Xputs,libc_Xputs);
 CRT_STDIO_XAPI size_t LIBCCALL
 libc_Xputs(char const *__restrict s) {
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  FileBuffer_XLock(libc_stdout);
  LIBC_TRY {
   result = libc_Xputs_unlocked(s);

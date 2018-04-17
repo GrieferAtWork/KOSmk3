@@ -597,7 +597,7 @@ FUNDEF void KCALL vm_node_free(struct vm_node *__restrict self);
 #define VM_NODE_BEGIN(self)        ((self)->vn_node.a_vmin)
 #define VM_NODE_END(self)          ((self)->vn_node.a_vmax+1)
 #define VM_NODE_SIZE(self)        (((self)->vn_node.a_vmax-(self)->vn_node.a_vmin)+1)
-#define VM_NODE_HASNEXT(self,vm)   ((self)->vn_byaddr.le_next)
+#define VM_NODE_HASNEXT(self,vm)   ((self)->vn_byaddr.le_next != NULL)
 #define VM_NODE_HASPREV(self,vm)   ((self)->vn_byaddr.le_pself != &(vm)->vm_byaddr)
 #define VM_NODE_NEXT(self)         ((self)->vn_byaddr.le_next)
 #define VM_NODE_PREV(self)           __COMPILER_CONTAINER_OF((self)->vn_byaddr.le_pself,struct vm_node,vn_byaddr.le_next)
@@ -644,7 +644,7 @@ FUNDEF struct vm_corepair KCALL vm_corealloc(void);
 #define VM_OFFSETOF_PHYSDIR  PAGEDIR_SIZE
 
 #undef CONFIG_VM_USE_RWLOCK
-#define CONFIG_VM_USE_RWLOCK  1
+//#define CONFIG_VM_USE_RWLOCK  1
 
 #ifdef __CC__
 struct vm {

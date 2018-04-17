@@ -331,8 +331,8 @@ do_remainder:
 PRIVATE VIRT vm_vpage_t KCALL
 core_page_alloc(struct heap *__restrict self,
                 size_t num_pages, gfp_t flags) {
- struct vm_corepair corepair;
- vm_vpage_t result;
+ struct vm_corepair EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(corepair);
+ vm_vpage_t COMPILER_IGNORE_UNINITIALIZED(result);
  assert(num_pages != 0);
  /* Throw a would-block error if we're not allowed to map new memory. */
  if (flags & GFP_NOMAP)
@@ -435,7 +435,7 @@ core_page_alloc(struct heap *__restrict self,
 PRIVATE bool KCALL
 core_page_allocat(vm_vpage_t page_index,
                   size_t num_pages, gfp_t flags) {
- struct vm_corepair corepair;
+ struct vm_corepair EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(corepair);
  assert(num_pages != 0);
  /* Throw a would-block error if we're not allowed to map new memory. */
  if (flags & GFP_NOMAP)
@@ -1093,7 +1093,9 @@ search_heap:
 
  /* No pre-allocated memory found. -> Allocate new memory. */
  {
-  vm_vpage_t pageaddr; size_t page_bytes,unused_size;
+  vm_vpage_t EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(pageaddr);
+  size_t EXCEPT_VAR page_bytes;
+  size_t unused_size;
   if unlikely(__builtin_add_overflow(result.hp_siz,PAGESIZE-1,&page_bytes))
      heap_allocation_overflow(result.hp_siz);
   if (!(flags & GFP_NOOVER)) {
@@ -1297,10 +1299,11 @@ again:
 }
 
 PUBLIC size_t KCALL
-heap_allat_untraced(struct heap *__restrict self,
-                    VIRT void *__restrict ptr,
-                    size_t num_bytes, gfp_t flags) {
- size_t unused_size,alloc_size,result = 0;
+heap_allat_untraced(struct heap *__restrict EXCEPT_VAR self,
+                    VIRT void *__restrict EXCEPT_VAR ptr,
+                    size_t num_bytes, gfp_t EXCEPT_VAR flags) {
+ size_t unused_size,alloc_size;
+ size_t EXCEPT_VAR result = 0;
  if unlikely(__builtin_add_overflow(num_bytes,HEAP_ALIGNMENT-1,&alloc_size))
     heap_allocation_overflow(num_bytes);
  alloc_size &= ~(HEAP_ALIGNMENT-1);
@@ -1308,7 +1311,7 @@ heap_allat_untraced(struct heap *__restrict self,
              alloc_size = HEAP_MINSIZE;
  /* Allocate memory from the given range. */
  while (result < alloc_size) {
-  size_t part;
+  size_t COMPILER_IGNORE_UNINITIALIZED(part);
   /* Allocate the new missing part. */
   TRY {
    part = heap_allat_partial(self,
@@ -1529,10 +1532,12 @@ heap_align_untraced(struct heap *__restrict self,
 }
 
 PUBLIC struct heapptr KCALL
-heap_realloc_untraced(struct heap *__restrict self,
+heap_realloc_untraced(struct heap *__restrict EXCEPT_VAR self,
              VIRT void *old_ptr, size_t old_bytes,
-             size_t new_bytes, gfp_t alloc_flags, gfp_t free_flags) {
- struct heapptr result; size_t missing_bytes;
+             size_t new_bytes,
+             gfp_t EXCEPT_VAR alloc_flags,
+             gfp_t free_flags) {
+ struct heapptr EXCEPT_VAR result; size_t missing_bytes;
  assert(IS_ALIGNED(old_bytes,HEAP_ALIGNMENT));
  assert(!old_bytes || IS_ALIGNED((uintptr_t)old_ptr,HEAP_ALIGNMENT));
  assert(!old_bytes || old_bytes >= HEAP_MINSIZE);
@@ -1578,11 +1583,13 @@ heap_realloc_untraced(struct heap *__restrict self,
  return result;
 }
 PUBLIC struct heapptr KCALL
-heap_realign_untraced(struct heap *__restrict self,
+heap_realign_untraced(struct heap *__restrict EXCEPT_VAR self,
                       VIRT void *old_ptr, size_t old_bytes,
                       size_t min_alignment, ptrdiff_t offset,
-                      size_t new_bytes, gfp_t alloc_flags, gfp_t free_flags) {
- struct heapptr result; size_t missing_bytes;
+                      size_t new_bytes,
+                      gfp_t EXCEPT_VAR alloc_flags,
+                      gfp_t free_flags) {
+ struct heapptr EXCEPT_VAR result; size_t missing_bytes;
  assert(IS_ALIGNED(old_bytes,HEAP_ALIGNMENT));
  assert(!old_bytes || IS_ALIGNED((uintptr_t)old_ptr,HEAP_ALIGNMENT));
  assert(!old_bytes || old_bytes >= HEAP_MINSIZE);

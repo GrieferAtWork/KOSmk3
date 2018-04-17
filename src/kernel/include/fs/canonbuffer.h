@@ -73,7 +73,7 @@ FUNDEF bool KCALL canonbuffer_unputc(struct canonbuffer *__restrict self, byte_t
 /* Capture / Release the current buffer, while simultaniously
  * resetting the active buffer to being empty.
  * These functions are what differentiates canons from other buffers.
- * >> struct canon c;
+ * >> struct canon EXCEPT_VAR c;
  * >> c = canonbuffer_capture(self);
  * >> TRY {
  * >>     PROCESS_DATA(c.c_base,c.c_size);

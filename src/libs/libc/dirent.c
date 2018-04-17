@@ -207,13 +207,15 @@ CRT_EXCEPT DIR *LIBCCALL libc_Xfdopendir(fd_t fd) {
 
 CRT_EXCEPT ATTR_RETNONNULL DIR *LIBCCALL
 libc_Xfopendirat(fd_t dfd, char const *name, oflag_t flags) {
+ DIR *COMPILER_IGNORE_UNINITIALIZED(result);
  fd_t fd = libc_Xopenat(dfd,name,flags);
  LIBC_TRY {
-  return libc_Xfdopendir(fd);
+  result = libc_Xfdopendir(fd);
  } LIBC_EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   sys_close(fd);
   error_rethrow();
  }
+ return result;
 }
 
 EXPORT(Xfopendirat,libc_public_Xfopendirat);
@@ -239,7 +241,7 @@ libc_public_Xfopendirat(fd_t dfd, char const *name, int flags) {
                             : LIBC_DOSMODE_ENABLED()))))
          --end;
   if (end == name) {
-   DIR *result;
+   DIR *COMPILER_IGNORE_UNINITIALIZED(result);
    dfd = libc_dup(dfd);
    LIBC_TRY {
     result = libc_Xfdopendir(dfd);

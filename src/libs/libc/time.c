@@ -332,7 +332,7 @@ INTERN time32_t LIBCCALL libc_time(time32_t *timer) {
  return t32;
 }
 INTERN int LIBCCALL libc_stime64(time64_t const *when) {
- struct timeval64 now;
+ struct timeval64 COMPILER_IGNORE_UNINITIALIZED(now);
  LIBC_TRY {
   now.tv_sec = *when;
  } LIBC_EXCEPT(libc_except_errno()) {
@@ -342,7 +342,7 @@ INTERN int LIBCCALL libc_stime64(time64_t const *when) {
  return libc_settimeofday64(&now,NULL);
 }
 INTERN int LIBCCALL libc_stime(time32_t const *when) {
- time64_t w64;
+ time64_t COMPILER_IGNORE_UNINITIALIZED(w64);
  LIBC_TRY {
   w64 = *when;
  } LIBC_EXCEPT(libc_except_errno()) {
@@ -675,7 +675,8 @@ CRT_CLOCK int LIBCCALL
 libc_clock_nanosleep(clockid_t clock_id, int flags,
                      struct timespec32 const *requested_time,
                      struct timespec32 *remaining) {
- struct timespec64 areq,arem; int result;
+ struct timespec64 areq,arem;
+ int COMPILER_IGNORE_UNINITIALIZED(result);
  LIBC_TRY {
   areq.tv_sec  = requested_time->tv_sec;
   areq.tv_nsec = requested_time->tv_nsec;
@@ -685,7 +686,7 @@ libc_clock_nanosleep(clockid_t clock_id, int flags,
    remaining->tv_nsec = arem.tv_nsec;
   }
  } LIBC_EXCEPT(libc_except_errno()) {
-  return -1;
+  result = -1;
  }
  return result;
 }

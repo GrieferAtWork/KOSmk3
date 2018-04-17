@@ -1679,12 +1679,12 @@ extend_instruction:
    if (X86_ANYCONTEXT32_ESP(*context) == (uintptr_t)abs_addr)
        goto fail;
    if (flags & F_OP16) {
-    u16 value;
+    u16 COMPILER_IGNORE_UNINITIALIZED(value);
     TRY value = *(*(u16 **)&X86_ANYCONTEXT32_ESP(*context))++;
     CATCH (E_SEGFAULT) goto fail;
     vio_writew(ops,closure,addr,value);
    } else {
-    u32 value;
+    u32 COMPILER_IGNORE_UNINITIALIZED(value);
     TRY value = *(*(u32 **)&X86_ANYCONTEXT32_ESP(*context))++;
     CATCH (E_SEGFAULT) goto fail;
     vio_writel(ops,closure,addr,value);

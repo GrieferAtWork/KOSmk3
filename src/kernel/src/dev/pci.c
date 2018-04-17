@@ -126,7 +126,7 @@ AllocatePCIDeviceRessource(struct pci_device *__restrict dev,
 
 PRIVATE ATTR_FREETEXT
 struct pci_device *KCALL RegisterPCIDevice(pci_addr_t addr) {
- struct pci_device *result; u32 maxsize,state;
+ struct pci_device *EXCEPT_VAR result; u32 maxsize,state;
  struct pci_resource *iter; unsigned int i;
  result = NULL;
  TRY {

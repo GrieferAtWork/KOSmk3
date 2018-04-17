@@ -403,7 +403,7 @@ PRIVATE u8 const access_matrix[] = {
 
 /* High-level open a given INode and path pair as a file stream. */
 FUNDEF REF struct handle KCALL
-file_open(struct inode *__restrict node,
+file_open(struct inode *__restrict EXCEPT_VAR node,
           struct path *__restrict p, oflag_t flags) {
  REF struct handle result;
  if (flags & O_NOATIME) /* TODO: Implement permissions for this */
@@ -433,7 +433,7 @@ file_open(struct inode *__restrict node,
      return (*node->i_ops->io_file.f_open)(node,p,flags);
  /* Special handling for block/character device nodes. */
  if (S_ISDEV(node->i_attr.a_mode)) {
-  REF struct device *dev;
+  REF struct device *EXCEPT_VAR dev;
   if (S_ISBLK(node->i_attr.a_mode)) {
    dev = lookup_device(DEVICE_TYPE_FBLOCKDEV,
                        node->i_attr.a_rdev);
@@ -481,13 +481,14 @@ file_creat(struct directory_node *__restrict path_node,
            CHECKED USER char const *__restrict name,
            u16 namelen, oflag_t flags,
            uid_t owner, gid_t group, mode_t mode) {
- REF struct directory_entry *entry;
- REF struct inode *node;
- REF struct path *result_path;
+ REF struct directory_entry *EXCEPT_VAR entry;
+ REF struct inode *EXCEPT_VAR node;
+ REF struct path *EXCEPT_VAR result_path;
  REF struct handle result;
  /* Create the node for the new file. */
  node = directory_creatfile(path_node,name,namelen,flags,
-                            owner,group,mode,&entry);
+                            owner,group,mode,
+                           (struct directory_entry **)&entry);
  TRY {
   /* Construct a path node for the new file. */
   result_path = path_newchild(path_desc,path_node,node,entry);
@@ -513,10 +514,10 @@ file_seek(struct file *__restrict self,
 }
 
 PUBLIC size_t KCALL
-file_read(struct file *__restrict self,
+file_read(struct file *__restrict EXCEPT_VAR self,
           USER CHECKED void *buf,
           size_t bufsize, iomode_t flags) {
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  rwlock_read(&self->f_node->i_lock);
  TRY {
@@ -529,10 +530,10 @@ again:
 }
 
 PUBLIC size_t KCALL
-file_write(struct file *__restrict self,
+file_write(struct file *__restrict EXCEPT_VAR self,
            USER CHECKED void const *buf,
            size_t bufsize, iomode_t flags) {
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  rwlock_write(&self->f_node->i_lock);
  TRY {
   if (flags & IO_APPEND) {
@@ -549,10 +550,10 @@ file_write(struct file *__restrict self,
 }
 
 PUBLIC size_t KCALL
-file_readdir(struct file *__restrict self,
+file_readdir(struct file *__restrict EXCEPT_VAR self,
              USER CHECKED struct dirent *buf,
              size_t bufsize, int mode, iomode_t flags) {
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  rwlock_read(&self->f_node->i_lock);
  TRY {
@@ -565,10 +566,10 @@ again:
 }
 
 PUBLIC ssize_t KCALL
-file_ioctl(struct file *__restrict self,
+file_ioctl(struct file *__restrict EXCEPT_VAR self,
            unsigned long cmd,
            USER UNCHECKED void *arg, iomode_t flags) {
- ssize_t result;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
  rwlock_write(&self->f_node->i_lock);
  TRY {
   result = SAFECALL_KCALL_4(self->f_ops->f_ioctl,self,cmd,arg,flags);
@@ -578,8 +579,8 @@ file_ioctl(struct file *__restrict self,
  return result;
 }
 PUBLIC unsigned int KCALL
-file_poll(struct file *__restrict self, unsigned int mode) {
- unsigned int result;
+file_poll(struct file *__restrict EXCEPT_VAR self, unsigned int mode) {
+ unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
  rwlock_write(&self->f_node->i_lock);
  TRY {
   result = SAFECALL_KCALL_2(self->f_ops->f_poll,self,mode);

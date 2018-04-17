@@ -43,6 +43,7 @@
 #include <sched/pid.h>
 
 #include "emulator.h"
+#include <sched/userstack.h>
 
 DECL_BEGIN
 
@@ -120,17 +121,18 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
      x86_interrupt_enable();
 
  {
-  bool vm_ok; struct vm *effective_vm;
-  struct task_connections old_connections;
+  bool EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(vm_ok);
+  struct vm *EXCEPT_VAR effective_vm;
+  struct task_connections EXCEPT_VAR old_connections;
   vm_vpage_t fault_page = VM_ADDR2PAGE((uintptr_t)fault_address);
   effective_vm = fault_page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
 
   /* Preserve the set of active task connections while faulting. */
-  task_push_connections(&old_connections);
+  task_push_connections((struct task_connections *)&old_connections);
   COMPILER_BARRIER();
   TRY {
 #ifndef CONFIG_NO_VIO
-   bool has_vm_lock = true;
+   bool EXCEPT_VAR has_vm_lock = true;
 #endif
    vm_acquire(effective_vm);
    TRY {
@@ -151,7 +153,8 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
 #ifndef CONFIG_NO_VIO
      else if (node->vn_region->vr_type == VM_REGION_VIO &&
              (uintptr_t)fault_address != CONTEXT_IP(*context)) {
-      REF struct vm_region *vio_region; uintptr_t vio_addr;
+      REF struct vm_region *EXCEPT_VAR vio_region;
+      uintptr_t vio_addr;
       vio_addr   = node->vn_start*PAGESIZE+
                  ((uintptr_t)fault_address-
                   (uintptr_t)VM_NODE_MINADDR(node));
@@ -228,7 +231,7 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
    }
   } FINALLY {
    /* Restore task connections. */
-   task_pop_connections(&old_connections);
+   task_pop_connections((struct task_connections *)&old_connections);
   }
   /* If the VM says the error is OK, return without throwing a SEGFAULT. */
   if (vm_ok)
@@ -420,14 +423,43 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
  /* Re-enable interrupts if they were enabled before. */
  if (context->c_eflags&EFLAGS_IF)
      x86_interrupt_enable();
+#if defined(__KERNEL__) && 1
+ //context->c_esp = X86_ANYCONTEXT32_ESP(*INFO->e_context);
+ if (context->c_iret.ir_cs & 3) {
+  struct userstack *stack = PERTASK_GET(_this_user_stack);
+  if (stack != NULL) {
+   debug_printf("stack: %p...%p\n",
+          VM_PAGE2ADDR(stack->us_pagemin),
+          VM_PAGE2ADDR(stack->us_pageend)-1);
+   if (context->c_useresp >= VM_PAGE2ADDR(stack->us_pagemin) &&
+       context->c_useresp <  VM_PAGE2ADDR(stack->us_pageend)) {
+    debug_printf("%$[hex]\n",
+          (VM_PAGE2ADDR(stack->us_pageend)-context->c_useresp)+16,
+           context->c_useresp-16);
+   }
+  } else {
+   debug_printf("No stack\n");
+  }
+ } else {
+  debug_printf("stack: %p...%p\n",
+        (uintptr_t)PERTASK_GET(this_task.t_stackmin),
+        (uintptr_t)PERTASK_GET(this_task.t_stackend)-1);
+  if (context->c_hostesp >= (uintptr_t)PERTASK_GET(this_task.t_stackmin) &&
+      context->c_hostesp <= (uintptr_t)PERTASK_GET(this_task.t_stackend)) {
+   debug_printf("%$[hex]\n",
+         (uintptr_t)PERTASK_GET(this_task.t_stackend)-context->c_hostesp,
+                    context->c_hostesp);
+  }
+ }
+#endif
  /* Print a traceback. */
 #if 1
  {
   struct cpu_context dup;
   struct fde_info unwind_info;
   struct exception_info old_info;
-  struct task_connections cons;
-  task_push_connections(&cons);
+  struct task_connections EXCEPT_VAR cons;
+  task_push_connections((struct task_connections *)&cons);
   memcpy(&old_info,error_info(),sizeof(struct exception_info));
   TRY {
    dup = context->c_host;
@@ -463,7 +495,7 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
    error_printf("Unwind failure\n");
   }
   memcpy(error_info(),&old_info,sizeof(struct exception_info));
-  task_pop_connections(&cons);
+  task_pop_connections((struct task_connections *)&cons);
  }
 #endif
 

@@ -138,7 +138,7 @@ REF struct task *KCALL task_alloc(void) {
 PUBLIC void KCALL
 task_alloc_stack(struct task *__restrict thread,
                  size_t num_pages) {
- REF struct vm_region *region;
+ REF struct vm_region *EXCEPT_VAR region;
  assert(!thread->t_stackmin);
  assert(!thread->t_stackend);
  assert(!(thread->t_state & TASK_STATE_FSTARTED));
@@ -209,7 +209,7 @@ userseg_notify(void *closure, unsigned int code,
 }
 
 PUBLIC void KCALL task_alloc_userseg(void) {
- REF struct vm_region *region;
+ REF struct vm_region *EXCEPT_VAR region;
  assert(!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB));
  if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG)) return;
  /* Allocate a new region for the user-space thread segment. */
@@ -276,7 +276,7 @@ PRIVATE struct vm_region singlepage_reserved_region = {
 };
 
 PUBLIC ATTR_CONST vm_vpage_t KCALL task_temppage(void) {
- struct vm_node *node;
+ struct vm_node *EXCEPT_VAR node;
  vm_vpage_t result = PERTASK_GET(this_task.t_temppage);
  if (result != VM_VPAGE_MAX+1)
      return result;

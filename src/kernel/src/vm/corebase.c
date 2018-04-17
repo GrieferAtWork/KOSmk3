@@ -154,6 +154,7 @@ PUBLIC struct vm_corepair KCALL vm_corealloc(void) {
   REGION.vr_part0.vp_phys.py_num_scatter         = 1;
   REGION.vr_part0.vp_phys.py_iscatter[0].ps_addr = page_malloc(1,MZONE_ANY);
   REGION.vr_part0.vp_phys.py_iscatter[0].ps_size = 1;
+  COMPILER_WRITE_BARRIER();
 
   TRY {
 

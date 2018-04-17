@@ -302,7 +302,7 @@ Ata_ReadLBA28(AtaDevice *__restrict self,
               CHECKED USER void *buf, size_t num_blocks,
               blkaddr_t first_block) {
  while (num_blocks) {
-  unsigned int reset_count = 0;
+  unsigned int EXCEPT_VAR reset_count = 0;
   u8 part = num_blocks > 0xff ? 0xff : (u8)num_blocks;
   TRY {
 retry_io:
@@ -323,7 +323,7 @@ Ata_ReadLBA48(AtaDevice *__restrict self,
               CHECKED USER void *buf, size_t num_blocks,
               blkaddr_t first_block) {
  while (num_blocks) {
-  unsigned int reset_count = 0;
+  unsigned int EXCEPT_VAR reset_count = 0;
   u16 part = num_blocks > 0xffff ? 0xffff : (u16)num_blocks;
   TRY {
 retry_io:
@@ -344,7 +344,7 @@ Ata_ReadCHS(AtaDevice *__restrict self,
             CHECKED USER void *buf, size_t num_blocks,
             blkaddr_t first_block) {
  while (num_blocks) {
-  unsigned int reset_count = 0;
+  unsigned int EXCEPT_VAR reset_count = 0;
   u32 temp      =  first_block / (u8)self->a_chs_info.a_sectors_per_track;
   u8  sector    = (first_block % (u8)self->a_chs_info.a_sectors_per_track)+1;
   u8  head      =  temp % (u8)self->a_chs_info.a_number_of_heads;
@@ -372,7 +372,7 @@ Ata_WriteLBA28(AtaDevice *__restrict self,
                CHECKED USER void *buf, size_t num_blocks,
                blkaddr_t first_block) {
  while (num_blocks) {
-  unsigned int reset_count = 0;
+  unsigned int EXCEPT_VAR reset_count = 0;
   u8 part = num_blocks > 0xff ? 0xff : (u8)num_blocks;
   TRY {
 retry_io:
@@ -393,7 +393,7 @@ Ata_WriteLBA48(AtaDevice *__restrict self,
                CHECKED USER void *buf, size_t num_blocks,
                blkaddr_t first_block) {
  while (num_blocks) {
-  unsigned int reset_count = 0;
+  unsigned int EXCEPT_VAR reset_count = 0;
   u16 part = num_blocks > 0xffff ? 0xffff : (u16)num_blocks;
   TRY {
 retry_io:
@@ -414,7 +414,7 @@ Ata_WriteCHS(AtaDevice *__restrict self,
              CHECKED USER void *buf, size_t num_blocks,
              blkaddr_t first_block) {
  while (num_blocks) {
-  unsigned int reset_count = 0;
+  unsigned int EXCEPT_VAR reset_count = 0;
   u32 temp      =  first_block / (u8)self->a_chs_info.a_sectors_per_track;
   u8  sector    = (first_block % (u8)self->a_chs_info.a_sectors_per_track)+1;
   u8  head      =  temp % (u8)self->a_chs_info.a_number_of_heads;
@@ -479,7 +479,7 @@ STATIC_ASSERT(sizeof(AtaDeviceSpecifications) == 512);
 PRIVATE ATTR_FREETEXT void KCALL
 Ata_RegisterAtaDevice(u16 bus, u8 drive) {
  AtaDeviceSpecifications device_specs;
- AtaDevice *self;
+ AtaDevice *EXCEPT_VAR self;
  debug_printf("[ATA] Found ATA device on %.4I16x:%.2I8x\n",bus,drive);
  self = BLOCK_DEVICE_ALLOC(AtaDevice,63);
  TRY {

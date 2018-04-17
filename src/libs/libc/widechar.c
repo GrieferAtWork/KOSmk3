@@ -176,7 +176,8 @@ libc_dos_shm_w32open(char32_t const *name, oflag_t oflag, mode_t mode) {
 EXPORT(__SYMw16(Xshm_wopen),libc_Xshm_w16open);
 CRT_WIDECHAR_EXCEPT int LIBCCALL
 libc_Xshm_w16open(char16_t const *name, oflag_t oflag, mode_t mode) {
- char buf[UTF_STACK_BUFFER_SIZE]; int result;
+ char buf[UTF_STACK_BUFFER_SIZE];
+ int COMPILER_IGNORE_UNINITIALIZED(result);
  char *str = libc_Xloadutf16(buf,name);
  LIBC_TRY {
   result = libc_Xshm_open(str,oflag,mode);
@@ -188,7 +189,8 @@ libc_Xshm_w16open(char16_t const *name, oflag_t oflag, mode_t mode) {
 EXPORT(__SYMw32(Xshm_wopen),libc_Xshm_w32open);
 CRT_WIDECHAR_EXCEPT int LIBCCALL
 libc_Xshm_w32open(char32_t const *name, oflag_t oflag, mode_t mode) {
- char buf[UTF_STACK_BUFFER_SIZE]; int result;
+ char buf[UTF_STACK_BUFFER_SIZE];
+ int COMPILER_IGNORE_UNINITIALIZED(result);
  char *str = libc_Xloadutf32(buf,name);
  LIBC_TRY {
   result = libc_Xshm_open(str,oflag,mode);
@@ -376,7 +378,8 @@ EXPORT(__SYMw16(Xwopenat),libc_Xw16openat);
 EXPORT(__SYMw16(Xwopenat64),libc_Xw16openat);
 CRT_WIDECHAR_EXCEPT int ATTR_CDECL
 libc_Xw16openat(fd_t dfd, char16_t const *filename, oflag_t flags, ...) {
- char buf[UTF_STACK_BUFFER_SIZE]; int result; va_list args;
+ char buf[UTF_STACK_BUFFER_SIZE]; va_list args;
+ int COMPILER_IGNORE_UNINITIALIZED(result);
  char *str = libc_Xloadutf16(buf,filename);
  va_start(args,flags);
  LIBC_TRY {
@@ -391,7 +394,8 @@ EXPORT(__SYMw32(Xwopenat),libc_Xw32openat);
 EXPORT(__SYMw32(Xwopenat64),libc_Xw32openat);
 CRT_WIDECHAR_EXCEPT int ATTR_CDECL
 libc_Xw32openat(fd_t dfd, char32_t const *filename, oflag_t flags, ...) {
- char buf[UTF_STACK_BUFFER_SIZE]; int result; va_list args;
+ char buf[UTF_STACK_BUFFER_SIZE]; va_list args;
+ int COMPILER_IGNORE_UNINITIALIZED(result);
  char *str = libc_Xloadutf32(buf,filename);
  va_start(args,flags);
  LIBC_TRY {
@@ -406,7 +410,7 @@ EXPORT(__SYMw16(Xwopen),libc_Xw16open);
 EXPORT(__SYMw16(Xwopen64),libc_Xw16open);
 CRT_WIDECHAR_EXCEPT int ATTR_CDECL
 libc_Xw16open(char16_t const *filename, oflag_t flags, ...) {
- int result; va_list args;
+ int COMPILER_IGNORE_UNINITIALIZED(result); va_list args;
  va_start(args,flags);
 #ifdef CONFIG_VA_END_IS_NOOP
  result = libc_Xw16openat(AT_FDCWD,filename,flags,va_arg(args,mode_t));
@@ -424,7 +428,7 @@ EXPORT(__SYMw32(Xwopen),libc_Xw32open);
 EXPORT(__SYMw32(Xwopen64),libc_Xw32open);
 CRT_WIDECHAR_EXCEPT int ATTR_CDECL
 libc_Xw32open(char32_t const *filename, oflag_t flags, ...) {
- int result; va_list args;
+ int COMPILER_IGNORE_UNINITIALIZED(result); va_list args;
  va_start(args,flags);
 #ifdef CONFIG_VA_END_IS_NOOP
  result = libc_Xw32openat(AT_FDCWD,filename,flags,va_arg(args,mode_t));
@@ -810,8 +814,9 @@ libc_xw32frealpathat2(fd_t dfd, char32_t const *path, int flags,
 EXPORT(__SYMw16(Xxwfrealpathat),libc_Xxw16frealpathat);
 CRT_WIDECHAR_EXCEPT ATTR_RETNONNULL char16_t *LIBCCALL
 libc_Xxw16frealpathat(fd_t dfd, char16_t const *path, int flags,
-                      char16_t *buf, size_t bufsize, unsigned int type) {
- size_t reqsize; bool is_libc_buffer = false;
+                      char16_t *EXCEPT_VAR buf, size_t bufsize, unsigned int type) {
+ size_t COMPILER_IGNORE_UNINITIALIZED(reqsize);
+ bool EXCEPT_VAR is_libc_buffer = false;
  if (!buf && bufsize)
       is_libc_buffer = true,
       buf = (char16_t *)libc_Xmalloc(bufsize*sizeof(char16_t));
@@ -868,8 +873,9 @@ do_dynamic:
 EXPORT(__SYMw32(Xxwfrealpathat),libc_Xxw32frealpathat);
 CRT_WIDECHAR_EXCEPT ATTR_RETNONNULL char32_t *LIBCCALL
 libc_Xxw32frealpathat(fd_t dfd, char32_t const *path, int flags,
-                      char32_t *buf, size_t bufsize, unsigned int type) {
- size_t reqsize; bool is_libc_buffer = false;
+                      char32_t *EXCEPT_VAR buf, size_t bufsize, unsigned int type) {
+ size_t COMPILER_IGNORE_UNINITIALIZED(reqsize);
+ bool EXCEPT_VAR is_libc_buffer = false;
  if (!buf && bufsize)
       is_libc_buffer = true,
       buf = (char32_t *)libc_Xmalloc(bufsize*sizeof(char32_t));
@@ -929,8 +935,9 @@ CRT_WIDECHAR_EXCEPT size_t LIBCCALL
 libc_Xxw16frealpathat2(fd_t dfd, char16_t const *path, int flags,
                        char16_t *buf, size_t bufsize, unsigned int type) {
  char *temp = NULL,tempbuf[UTF_STACK_BUFFER_SIZE];
- char *path8,pathbuf[UTF_STACK_BUFFER_SIZE]; size_t result;
- path8 = libc_loadutf16(pathbuf,path);
+ char *path8,pathbuf[UTF_STACK_BUFFER_SIZE];
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ path8 = libc_Xloadutf16(pathbuf,path);
  LIBC_TRY {
   mbstate_t state = MBSTATE_INIT;
   LIBC_TRY {
@@ -954,8 +961,9 @@ CRT_WIDECHAR_EXCEPT size_t LIBCCALL
 libc_Xxw32frealpathat2(fd_t dfd, char32_t const *path, int flags,
                        char32_t *buf, size_t bufsize, unsigned int type) {
  char *temp = NULL,tempbuf[UTF_STACK_BUFFER_SIZE];
- char *path8,pathbuf[UTF_STACK_BUFFER_SIZE]; size_t result;
- path8 = libc_loadutf32(pathbuf,path);
+ char *path8,pathbuf[UTF_STACK_BUFFER_SIZE];
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ path8 = libc_Xloadutf32(pathbuf,path);
  LIBC_TRY {
   mbstate_t state = MBSTATE_INIT;
   LIBC_TRY {
@@ -1372,7 +1380,8 @@ libc_Xw32pathconf(char32_t const *path, int name) {
 EXPORT(__SYMw16(Xwfpathconfat),libc_Xw16fpathconfat);
 CRT_WIDECHAR_EXCEPT long int LIBCCALL
 libc_Xw16fpathconfat(fd_t dfd, char16_t const *file, int name, int flags) {
- char buf[UTF_STACK_BUFFER_SIZE]; long int result;
+ char buf[UTF_STACK_BUFFER_SIZE];
+ long int COMPILER_IGNORE_UNINITIALIZED(result);
  char *str = libc_Xloadutf16(buf,file);
  LIBC_TRY {
   result = libc_Xfpathconfat(dfd,str,name,flags);
@@ -1384,7 +1393,8 @@ libc_Xw16fpathconfat(fd_t dfd, char16_t const *file, int name, int flags) {
 EXPORT(__SYMw32(Xwfpathconfat),libc_Xw32fpathconfat);
 CRT_WIDECHAR_EXCEPT long int LIBCCALL
 libc_Xw32fpathconfat(fd_t dfd, char32_t const *file, int name, int flags) {
- char buf[UTF_STACK_BUFFER_SIZE]; long int result;
+ char buf[UTF_STACK_BUFFER_SIZE];
+ long int COMPILER_IGNORE_UNINITIALIZED(result);
  char *str = libc_Xloadutf32(buf,file);
  LIBC_TRY {
   result = libc_Xfpathconfat(dfd,str,name,flags);
@@ -2180,9 +2190,9 @@ libc_Xw16linkat(int fromfd, char16_t const *from,
                 int tofd, char16_t const *to, int flags) {
  char from_buf[UTF_STACK_BUFFER_SIZE],*from_str;
  char to_buf[UTF_STACK_BUFFER_SIZE],*to_str = to_buf;
- from_str = libc_loadutf16(from_buf,from);
+ from_str = libc_Xloadutf16(from_buf,from);
  LIBC_TRY {
-  to_str = libc_loadutf16(to_buf,to);
+  to_str = libc_Xloadutf16(to_buf,to);
   libc_linkat(fromfd,from_str,tofd,to_str,flags);
  } LIBC_FINALLY {
   libc_freeutf(to_buf,to_str);
@@ -2194,9 +2204,9 @@ libc_Xw32linkat(int fromfd, char32_t const *from,
                 int tofd, char32_t const *to, int flags) {
  char from_buf[UTF_STACK_BUFFER_SIZE],*from_str;
  char to_buf[UTF_STACK_BUFFER_SIZE],*to_str = to_buf;
- from_str = libc_loadutf32(from_buf,from);
+ from_str = libc_Xloadutf32(from_buf,from);
  LIBC_TRY {
-  to_str = libc_loadutf32(to_buf,to);
+  to_str = libc_Xloadutf32(to_buf,to);
   libc_linkat(fromfd,from_str,tofd,to_str,flags);
  } LIBC_FINALLY {
   libc_freeutf(to_buf,to_str);
@@ -2265,9 +2275,9 @@ libc_Xw16frenameat(fd_t oldfd, char16_t const *oldname,
                    int flags) {
  char old_buf[UTF_STACK_BUFFER_SIZE],*old_str;
  char new_buf[UTF_STACK_BUFFER_SIZE],*new_str = new_buf;
- old_str = libc_loadutf16(old_buf,oldname);
+ old_str = libc_Xloadutf16(old_buf,oldname);
  LIBC_TRY {
-  new_str = libc_loadutf16(new_buf,newname);
+  new_str = libc_Xloadutf16(new_buf,newname);
   libc_frenameat(oldfd,old_str,newfd,new_str,flags);
  } LIBC_FINALLY {
   libc_freeutf(new_buf,new_str);
@@ -2280,9 +2290,9 @@ libc_Xw32frenameat(fd_t oldfd, char32_t const *oldname,
                    int flags) {
  char old_buf[UTF_STACK_BUFFER_SIZE],*old_str;
  char new_buf[UTF_STACK_BUFFER_SIZE],*new_str = new_buf;
- old_str = libc_loadutf32(old_buf,oldname);
+ old_str = libc_Xloadutf32(old_buf,oldname);
  LIBC_TRY {
-  new_str = libc_loadutf32(new_buf,newname);
+  new_str = libc_Xloadutf32(new_buf,newname);
   libc_frenameat(oldfd,old_str,newfd,new_str,flags);
  } LIBC_FINALLY {
   libc_freeutf(new_buf,new_str);
@@ -2339,9 +2349,9 @@ CRT_WIDECHAR_EXCEPT void LIBCCALL
 libc_Xw16fsymlinkat(char16_t const *from, int tofd, char16_t const *to, int flags) {
  char from_buf[UTF_STACK_BUFFER_SIZE],*from_str;
  char to_buf[UTF_STACK_BUFFER_SIZE],*to_str = to_buf;
- from_str = libc_loadutf16(from_buf,from);
+ from_str = libc_Xloadutf16(from_buf,from);
  LIBC_TRY {
-  to_str = libc_loadutf16(to_buf,to);
+  to_str = libc_Xloadutf16(to_buf,to);
   libc_fsymlinkat(from_str,tofd,to_str,flags);
  } LIBC_FINALLY {
   libc_freeutf(to_buf,to_str);
@@ -2352,9 +2362,9 @@ CRT_WIDECHAR_EXCEPT void LIBCCALL
 libc_Xw32fsymlinkat(char32_t const *from, int tofd, char32_t const *to, int flags) {
  char from_buf[UTF_STACK_BUFFER_SIZE],*from_str;
  char to_buf[UTF_STACK_BUFFER_SIZE],*to_str = to_buf;
- from_str = libc_loadutf32(from_buf,from);
+ from_str = libc_Xloadutf32(from_buf,from);
  LIBC_TRY {
-  to_str = libc_loadutf32(to_buf,to);
+  to_str = libc_Xloadutf32(to_buf,to);
   libc_fsymlinkat(from_str,tofd,to_str,flags);
  } LIBC_FINALLY {
   libc_freeutf(to_buf,to_str);
@@ -2436,13 +2446,14 @@ read_full_link(fd_t dfd, char const *path,
    result = (char *)libc_Xrealloc(result,reqlen*sizeof(char));
    new_reqlen = libc_Xreadlinkat(dfd,path,result,reqlen);
    if (new_reqlen <= reqlen)
-       return result;
+       break;
    reqlen = new_reqlen;
   }
  } LIBC_EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   libc_free(result);
   error_rethrow();
  }
+ return result;
 }
 
 EXPORT(__SYMw16(Xwfreadlinkat),libc_Xw16freadlinkat);
@@ -2450,10 +2461,10 @@ EXPORT(__SYMw32(Xwfreadlinkat),libc_Xw32freadlinkat);
 CRT_WIDECHAR_EXCEPT size_t LIBCCALL
 libc_Xw16freadlinkat(fd_t dfd, char16_t const *path,
                      char16_t *buf, size_t buflen, int flags) {
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  char linkbuf[FULL_LINK_BUFSIZE],*linkstr = linkbuf;
  char pathbuf[UTF_STACK_BUFFER_SIZE],*pathstr;
- pathstr = libc_loadutf16(pathbuf,path);
+ pathstr = libc_Xloadutf16(pathbuf,path);
  LIBC_TRY {
   mbstate_t state = MBSTATE_INIT;
   linkstr = read_full_link(dfd,pathstr,linkbuf,flags);
@@ -2474,10 +2485,10 @@ libc_Xw16freadlinkat(fd_t dfd, char16_t const *path,
 }
 CRT_WIDECHAR_EXCEPT size_t LIBCCALL
 libc_Xw32freadlinkat(fd_t dfd, char32_t const *path, char32_t *buf, size_t buflen, int flags) {
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  char linkbuf[FULL_LINK_BUFSIZE],*linkstr = linkbuf;
  char pathbuf[UTF_STACK_BUFFER_SIZE],*pathstr;
- pathstr = libc_loadutf32(pathbuf,path);
+ pathstr = libc_Xloadutf32(pathbuf,path);
  LIBC_TRY {
   mbstate_t state = MBSTATE_INIT;
   linkstr = read_full_link(dfd,pathstr,linkbuf,flags);
@@ -2881,7 +2892,7 @@ libc_dos_w32system(char32_t const *command) {
 EXPORT(__SYMw16(Xwsystem),libc_Xw16system);
 INTERN int LIBCCALL
 libc_Xw16system(char16_t const *command) {
- int result;
+ int COMPILER_IGNORE_UNINITIALIZED(result);
  char *str,filebuf[UTF_STACK_BUFFER_SIZE];
  if (!command) {
   result = libc_Xsystem(NULL);
@@ -2899,7 +2910,7 @@ libc_Xw16system(char16_t const *command) {
 EXPORT(__SYMw32(Xwsystem),libc_Xw32system);
 INTERN int LIBCCALL
 libc_Xw32system(char32_t const *command) {
- int result;
+ int COMPILER_IGNORE_UNINITIALIZED(result);
  char *str,filebuf[UTF_STACK_BUFFER_SIZE];
  if (!command) {
   result = libc_Xsystem(NULL);

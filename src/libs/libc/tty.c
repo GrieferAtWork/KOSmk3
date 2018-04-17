@@ -67,7 +67,9 @@ CRT_TTY pid_t LIBCCALL
 libc_forkpty(int *amaster, char *name,
              struct termios const *termp,
              struct winsize const *winp) {
- int master,slave; pid_t pid;
+ int COMPILER_IGNORE_UNINITIALIZED(master);
+ int COMPILER_IGNORE_UNINITIALIZED(slave);
+ pid_t pid;
  if (libc_openpty(&master,&slave,name,termp,winp) == -1)
      return -1;
  switch (pid = libc_fork()) {
@@ -476,7 +478,9 @@ CRT_TTY_EXCEPT pid_t LIBCCALL
 libc_Xforkpty(int *amaster, char *name,
               struct termios const *termp,
               struct winsize const *winp) {
- int master,slave; pid_t pid;
+ int COMPILER_IGNORE_UNINITIALIZED(master);
+ int COMPILER_IGNORE_UNINITIALIZED(slave);
+ pid_t COMPILER_IGNORE_UNINITIALIZED(pid);
  libc_Xopenpty(&master,&slave,name,termp,winp);
  LIBC_TRY {
   if ((pid = libc_Xfork()) == 0) {

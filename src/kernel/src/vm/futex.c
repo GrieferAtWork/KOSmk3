@@ -135,7 +135,8 @@ PUBLIC ATTR_RETNONNULL REF
 struct futex *KCALL vm_futex(VIRT void *addr) {
  struct vm_node *node;
  struct futex *new_futex;
- struct futex *result,*next_futex;
+ struct futex *COMPILER_IGNORE_UNINITIALIZED(result);
+ struct futex *next_futex;
  atomic_rwptr_t *iter;
 again:
  assert((uintptr_t)addr);
@@ -231,7 +232,8 @@ done:;
 
 PUBLIC REF struct futex *KCALL vm_getfutex(VIRT void *addr) {
  struct vm_node *node;
- struct futex *new_futex,*result;
+ struct futex *new_futex;
+ struct futex *COMPILER_IGNORE_UNINITIALIZED(result);
  atomic_rwptr_t *iter;
  assert((uintptr_t)addr);
  if ((uintptr_t)addr >= KERNEL_BASE) goto fail;
@@ -282,7 +284,7 @@ DEFINE_SYSCALL6(futex,
                 USER UNCHECKED u32 *,uaddr2,
                 u32,val3) {
  syscall_slong_t result = 0;
- REF struct futex *ftx;
+ REF struct futex *EXCEPT_VAR ftx;
 #ifdef __INTELLISENSE__
  u32 val2;
 #else

@@ -67,11 +67,6 @@ C_FLAGS("-Wno-strict-aliasing")
 C_FLAGS("-Wno-missing-field-initializers")
 C_FLAGS("-Wno-type-limits")
 
-/* Disable reordering of blocks to prevent exception handlers
- * from breaking due parts of code guarded by them having been
- * moved elsewhere. */
-C_FLAGS("-fno-reorder-blocks")
-
 /* Among other things, this optimization can create arbitrary
  * jumps anywhere in code that could break the try ranges:
  * >> TRY {
@@ -100,13 +95,20 @@ C_FLAGS("-fno-reorder-blocks")
  */
 //C_FLAGS("-fno-gcse")
 
-//C_FLAGS("-fno-crossjumping")
-//C_FLAGS("-fno-cse-follow-jumps")
-//C_FLAGS("-fno-cse-skip-blocks")
-//C_FLAGS("-fno-function-cse")
-//C_FLAGS("-fno-thread-jumps")
-//C_FLAGS("-fno-rerun-cse-after-loop")
-//C_FLAGS("-fno-reorder-blocks-and-partition")
+C_FLAGS("-fno-crossjumping") /* Definitely */
+
+/* Disable reordering of blocks to prevent exception handlers
+ * from breaking due parts of code guarded by them having been
+ * moved elsewhere. */
+C_FLAGS("-fno-reorder-blocks") /* Definitely */
+C_FLAGS("-fno-reorder-blocks-and-partition") /* Definitely */
+
+//C_FLAGS("-fno-thread-jumps") /* NOPE#1 */
+
+//C_FLAGS("-fno-cse-follow-jumps") /* NOPE#2 */
+//C_FLAGS("-fno-function-cse") /* NOPE#2 */
+//C_FLAGS("-fno-rerun-cse-after-loop") /* NOPE#2 */
+//C_FLAGS("-fno-cse-skip-blocks") /* NOPE#2 */
 
 DEFINE("CONFIG_X86_SEGMENTATION")
 

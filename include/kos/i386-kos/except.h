@@ -90,9 +90,9 @@ __SYSDECL_BEGIN
 #endif
 #else
 #ifdef __x86_64__
-#   define __X86_PIC_IMAGE_RELATIVE(x) ".qword " x
+#   define __X86_PIC_IMAGE_RELATIVE(x) "\t.qword " x
 #else
-#   define __X86_PIC_IMAGE_RELATIVE(x) ".long " x
+#   define __X86_PIC_IMAGE_RELATIVE(x) "\t.long " x
 #endif
 #endif
 #endif
@@ -130,75 +130,75 @@ __SYSDECL_BEGIN
 #else
 #ifdef __x86_64__
 #define __X86_DEFINE_EXCEPT_HANDLER(begin,end,entry,flags,mask) \
-        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l3") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l4") "\n" \
-                                  ".int %a0\n" \
-                                  ".int %a1\n" \
-                                  ".popsection\n" : : \
+        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l3") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l4") "\n\t" \
+                                  "\t.int %a0\n\t" \
+                                  "\t.int %a1\n\t" \
+                                  ".popsection" : : \
                                   "i" (__X86_PIC_FLAGS|(flags)), "i" (mask) : : \
                                   begin, end, entry);
 #define __DEFINE_FINALLY_HANDLER(begin,end,entry) \
-        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l0") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l1") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n" \
-                                  ".qword " __PP_STR(__X86_PIC_FLAGS) "|2\n" \
-                                  ".popsection\n" : : : : \
+        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l0") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l1") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n\t" \
+                                  "\t.qword " __PP_STR(__X86_PIC_FLAGS) "|2\n\t" \
+                                  ".popsection" : : : : \
                                   begin, end, entry);
 #define __DEFINE_EXCEPT_HANDLER(begin,end,entry) \
-        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l0") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l1") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n" \
-                                  ".qword " __PP_STR(__X86_PIC_FLAGS) "\n" \
-                                  ".popsection\n" : : : : \
+        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l0") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l1") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n\t" \
+                                  "\t.qword " __PP_STR(__X86_PIC_FLAGS) "\n\t" \
+                                  ".popsection" : : : : \
                                   begin, end, entry);
 #define __DEFINE_CATCH_HANDLER(begin,end,entry,mask) \
-        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l1") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l3") "\n" \
-                                  ".long " __PP_STR(__X86_PIC_FLAGS) "|1\n" \
-                                  ".long %a0\n" \
-                                  ".popsection\n" : : "i" (mask) : : \
+        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l1") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l3") "\n\t" \
+                                  "\t.long " __PP_STR(__X86_PIC_FLAGS) "|1\n\t" \
+                                  "\t.long %a0\n\t" \
+                                  ".popsection" : : "i" (mask) : : \
                                   begin, end, entry);
 #else
 #define __X86_DEFINE_EXCEPT_HANDLER(begin,end,entry,flags,mask) \
-        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l3") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l4") "\n" \
-                                  ".word %a0\n" \
-                                  ".word %a1\n" \
-                                  ".popsection\n" : : \
+        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l3") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l4") "\n\t" \
+                                  "\t.word %a0\n\t" \
+                                  "\t.word %a1\n\t" \
+                                  ".popsection" : : \
                                   "i" (__X86_PIC_FLAGS|(flags)), "i" (mask) : : \
                                   begin, end, entry);
 #define __DEFINE_FINALLY_HANDLER(begin,end,entry) \
-        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l0") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l1") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n" \
-                                  ".long " __PP_STR(__X86_PIC_FLAGS) "|2\n" \
-                                  ".popsection\n" : : : : \
+        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l0") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l1") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n\t" \
+                                  "\t.long " __PP_STR(__X86_PIC_FLAGS) "|2\n\t" \
+                                  ".popsection" : : : : \
                                   begin, end, entry);
 #define __DEFINE_EXCEPT_HANDLER(begin,end,entry) \
-        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l0") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l1") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n" \
-                                  ".long " __PP_STR(__X86_PIC_FLAGS) "\n" \
-                                  ".popsection\n" : : : : \
+        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l0") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l1") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n\t" \
+                                  "\t.long " __PP_STR(__X86_PIC_FLAGS) "\n\t" \
+                                  ".popsection" : : : : \
                                   begin, end, entry);
 #define __DEFINE_CATCH_HANDLER(begin,end,entry,mask) \
-        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l1") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n" \
-                                  __X86_PIC_IMAGE_RELATIVE("%l3") "\n" \
-                                  ".word " __PP_STR(__X86_PIC_FLAGS) "|1\n" \
-                                  ".word %a0\n" \
-                                  ".popsection\n" : : "i" (mask) : : \
+        __asm__ __volatile__ goto(".pushsection " __X86_EXCEPT_SECTION_NAME_S "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l1") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l2") "\n\t" \
+                                  __X86_PIC_IMAGE_RELATIVE("%l3") "\n\t" \
+                                  "\t.word " __PP_STR(__X86_PIC_FLAGS) "|1\n\t" \
+                                  "\t.word %a0\n\t" \
+                                  ".popsection" : : "i" (mask) : : \
                                   begin, end, entry);
 #endif
 #endif
@@ -289,23 +289,23 @@ __SYSDECL_BEGIN
  */
 #ifndef __INTELLISENSE__
 #if defined(__BUILDING_LIBC)
-#define error_rethrow()       __XBLOCK({ __asm__ __volatile__("call libc_error_rethrow#%=\n" : : : "memory"); __builtin_unreachable(); (void)0; })
-#define error_throw(code)     __XBLOCK({ __asm__ __volatile__("call libc_error_throw#%=\n" : : "c" ((__UINT16_TYPE__)(code)) : "memory"); __builtin_unreachable(); (void)0; })
-#define error_continue(retry) __XBLOCK({ __asm__ __volatile__("call libc_error_continue#%=\n" : : "c" ((int)(retry)) : "memory"); __builtin_unreachable(); (void)0; })
-#define error_except(mode)    __XBLOCK({ __asm__ __volatile__("call libc_error_except#%=\n" : : "c" ((int)(mode)) : "memory"); (void)0; })
-#define error_throw_current() __XBLOCK({ __BOOL __etc_res; __asm__ __volatile__("call libc_error_throw_current#%=\n" : "=a" (__etc_res) : : "memory"); __XRETURN __etc_res; })
+#define error_rethrow()       __XBLOCK({ __asm__ __volatile__("call libc_error_rethrow#%=" : : : "memory"); __builtin_unreachable(); (void)0; })
+#define error_throw(code)     __XBLOCK({ __asm__ __volatile__("call libc_error_throw#%=" : : "c" ((__UINT16_TYPE__)(code)) : "memory"); __builtin_unreachable(); (void)0; })
+#define error_continue(retry) __XBLOCK({ __asm__ __volatile__("call libc_error_continue#%=" : : "c" ((int)(retry)) : "memory"); __builtin_unreachable(); (void)0; })
+#define error_except(mode)    __XBLOCK({ __asm__ __volatile__("call libc_error_except#%=" : : "c" ((int)(mode)) : "memory"); (void)0; })
+#define error_throw_current() __XBLOCK({ __BOOL __etc_res; __asm__ __volatile__("call libc_error_throw_current#%=" : "=a" (__etc_res) : : "memory"); __XRETURN __etc_res; })
 #elif defined(__KERNEL__) && defined(CONFIG_BUILDING_KERNEL_CORE)
-#define error_rethrow()       __XBLOCK({ __asm__ __volatile__("call error_rethrow#%=\n" : : : "memory"); __builtin_unreachable(); (void)0; })
-#define error_throw(code)     __XBLOCK({ __asm__ __volatile__("call error_throw#%=\n" : : "c" ((__UINT16_TYPE__)(code)) : "memory"); __builtin_unreachable(); (void)0; })
-#define error_continue(retry) __XBLOCK({ __asm__ __volatile__("call error_continue#%=\n" : : "c" ((int)(retry)) : "memory"); __builtin_unreachable(); (void)0; })
-#define error_except(mode)    __XBLOCK({ __asm__ __volatile__("call error_except#%=\n" : : "c" ((int)(mode)) : "memory"); (void)0; })
-#define error_throw_current() __XBLOCK({ __BOOL __etc_res; __asm__ __volatile__("call error_throw_current#%=\n" : "=a" (__etc_res) : : "memory"); __XRETURN __etc_res; })
+#define error_rethrow()       __XBLOCK({ __asm__ __volatile__("call error_rethrow#%=" : : : "memory"); __builtin_unreachable(); (void)0; })
+#define error_throw(code)     __XBLOCK({ __asm__ __volatile__("call error_throw#%=" : : "c" ((__UINT16_TYPE__)(code)) : "memory"); __builtin_unreachable(); (void)0; })
+#define error_continue(retry) __XBLOCK({ __asm__ __volatile__("call error_continue#%=" : : "c" ((int)(retry)) : "memory"); __builtin_unreachable(); (void)0; })
+#define error_except(mode)    __XBLOCK({ __asm__ __volatile__("call error_except#%=" : : "c" ((int)(mode)) : "memory"); (void)0; })
+#define error_throw_current() __XBLOCK({ __BOOL __etc_res; __asm__ __volatile__("call error_throw_current#%=" : "=a" (__etc_res) : : "memory"); __XRETURN __etc_res; })
 #else
-#define error_rethrow()       __XBLOCK({ __asm__ __volatile__("call error_rethrow@PLT#%=\n" : : : "memory"); __builtin_unreachable(); (void)0; })
-#define error_throw(code)     __XBLOCK({ __asm__ __volatile__("call error_throw@PLT#%=\n" : : "c" ((__UINT16_TYPE__)(code)) : "memory"); __builtin_unreachable(); (void)0; })
-#define error_continue(retry) __XBLOCK({ __asm__ __volatile__("call error_continue@PLT#%=\n" : : "c" ((int)(retry)) : "memory"); __builtin_unreachable(); (void)0; })
-#define error_except(mode)    __XBLOCK({ __asm__ __volatile__("call error_except@PLT#%=\n" : : "c" ((int)(mode)) : "memory"); (void)0; })
-#define error_throw_current() __XBLOCK({ __BOOL __etc_res; __asm__ __volatile__("call error_throw_current@PLT#%=\n" : "=a" (__etc_res) : : "memory"); __XRETURN __etc_res; })
+#define error_rethrow()       __XBLOCK({ __asm__ __volatile__("call error_rethrow@PLT#%=" : : : "memory"); __builtin_unreachable(); (void)0; })
+#define error_throw(code)     __XBLOCK({ __asm__ __volatile__("call error_throw@PLT#%=" : : "c" ((__UINT16_TYPE__)(code)) : "memory"); __builtin_unreachable(); (void)0; })
+#define error_continue(retry) __XBLOCK({ __asm__ __volatile__("call error_continue@PLT#%=" : : "c" ((int)(retry)) : "memory"); __builtin_unreachable(); (void)0; })
+#define error_except(mode)    __XBLOCK({ __asm__ __volatile__("call error_except@PLT#%=" : : "c" ((int)(mode)) : "memory"); (void)0; })
+#define error_throw_current() __XBLOCK({ __BOOL __etc_res; __asm__ __volatile__("call error_throw_current@PLT#%=" : "=a" (__etc_res) : : "memory"); __XRETURN __etc_res; })
 #endif
 #endif /* __INTELLISENSE__ */
 
@@ -385,20 +385,20 @@ __SYSDECL_END
 #ifdef __x86_64__
 #define error_code() \
  __XBLOCK({ __UINT16_TYPE__ __ecode; \
-            __asm__("movw %%" __PP_STR(__ASM_TASK_SEGMENT) ":8, %w0" : "=g" (__ecode)); \
+            __asm__("movw %%" __PP_STR(__ASM_TASK_SEGMENT) ":8, %w0" : "=r" (__ecode)); \
             __XRETURN __ecode; })
 #define error_info() \
  __XBLOCK({ struct exception_info *__einfo; \
-            __asm__("addq %%" __PP_STR(__ASM_TASK_SEGMENT) ":0, %0" : "=g" (__einfo) : "0" (8)); \
+            __asm__("addq %%" __PP_STR(__ASM_TASK_SEGMENT) ":0, %0" : "=r" (__einfo) : "0" (8)); \
             __XRETURN __einfo; })
 #else
 #define error_code() \
  __XBLOCK({ __UINT16_TYPE__ __ecode; \
-            __asm__("movw %%" __PP_STR(__ASM_TASK_SEGMENT) ":4, %w0" : "=g" (__ecode)); \
+            __asm__("movw %%" __PP_STR(__ASM_TASK_SEGMENT) ":4, %w0" : "=r" (__ecode)); \
             __XRETURN __ecode; })
 #define error_info() \
  __XBLOCK({ struct exception_info *__einfo; \
-            __asm__("addl %%" __PP_STR(__ASM_TASK_SEGMENT) ":0, %0" : "=g" (__einfo) : "0" (4)); \
+            __asm__("addl %%" __PP_STR(__ASM_TASK_SEGMENT) ":0, %0" : "=r" (__einfo) : "0" (4)); \
             __XRETURN __einfo; })
 #endif
 #endif

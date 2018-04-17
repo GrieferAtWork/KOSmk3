@@ -155,10 +155,10 @@ inode_destroy(struct inode *__restrict self) {
 
 
 PUBLIC size_t KCALL
-inode_read(struct inode *__restrict self,
+inode_read(struct inode *__restrict EXCEPT_VAR self,
            CHECKED USER void *buf, size_t bufsize,
            pos_t pos, iomode_t flags) {
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  if (!rwlock_tryread(&self->i_lock)) {
   if (flags & IO_NONBLOCK)
@@ -171,7 +171,7 @@ again:
   else if likely(self->i_ops->io_file.f_pread)
    result = (*self->i_ops->io_file.f_pread)(self,buf,bufsize,pos,flags);
   else if (S_ISCHR(self->i_attr.a_mode)) {
-   REF struct character_device *dev;
+   REF struct character_device *EXCEPT_VAR dev;
    result = 0; /* Try to read using the pread() operator of a pointed-to character device. */
    if ((dev = try_lookup_character_device(self->i_attr.a_rdev)) != NULL) {
     TRY {
@@ -192,10 +192,10 @@ again:
  return result;
 }
 PUBLIC size_t KCALL
-inode_write(struct inode *__restrict self,
+inode_write(struct inode *__restrict EXCEPT_VAR self,
             CHECKED USER void const *buf,
             size_t bufsize, pos_t pos, iomode_t flags) {
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  if (!rwlock_trywrite(&self->i_lock)) {
   if (flags & IO_NONBLOCK)
       return 0;
@@ -207,7 +207,7 @@ inode_write(struct inode *__restrict self,
   else if likely(self->i_ops->io_file.f_pwrite)
    result = (*self->i_ops->io_file.f_pwrite)(self,buf,bufsize,pos,flags);
   else if (S_ISCHR(self->i_attr.a_mode)) {
-   REF struct character_device *dev;
+   REF struct character_device *EXCEPT_VAR dev;
    result = 0; /* Try to write using the pwrite() operator of a pointed-to character device. */
    if ((dev = try_lookup_character_device(self->i_attr.a_rdev)) != NULL) {
     TRY {
@@ -301,7 +301,7 @@ inode_changed(struct inode *__restrict self) {
 
 /* Ensure that attributes have been loaded for the given INode. */
 PUBLIC void KCALL
-inode_loadattr(struct inode *__restrict self) {
+inode_loadattr(struct inode *__restrict EXCEPT_VAR self) {
  /* Check attribute have already been loaded. */
  if (!(self->i_flags&INODE_FATTRLOADED)) {
   assert(self->i_ops->io_loadattr);
@@ -331,7 +331,7 @@ inode_loadattr(struct inode *__restrict self) {
  * @throw: E_FILESYSTEM_ERROR.ERROR_FS_READONLY_FILESYSTEM:   [...]
  * @throw: E_FILESYSTEM_ERROR.ERROR_FS_TRUNCATE_GREATER_SIZE: [...] */
 PUBLIC void KCALL
-inode_truncate(struct inode *__restrict self,
+inode_truncate(struct inode *__restrict EXCEPT_VAR self,
                pos_t new_smaller_size) {
  inode_access(self,W_OK);
  if (!self->i_ops->io_file.f_truncate)
@@ -426,7 +426,7 @@ inode_pathconf(struct inode *__restrict self, int name) {
 }
 
 PUBLIC void KCALL
-inode_stat(struct inode *__restrict self,
+inode_stat(struct inode *__restrict EXCEPT_VAR self,
            USER CHECKED struct stat64 *result) {
  struct block_device *superdev;
 again:
@@ -472,7 +472,7 @@ inode_poll(struct inode *__restrict self,
 
 
 PUBLIC void KCALL
-inode_chtime(struct inode *__restrict self,
+inode_chtime(struct inode *__restrict EXCEPT_VAR self,
              struct timespec *new_atime,
              struct timespec *new_mtime,
              struct timespec *new_ctime) {
@@ -504,9 +504,9 @@ inode_chtime(struct inode *__restrict self,
 
 
 PUBLIC mode_t KCALL
-inode_chmod(struct inode *__restrict self,
+inode_chmod(struct inode *__restrict EXCEPT_VAR self,
             mode_t perm_mask, mode_t perm_flag) {
- mode_t result,old_mode;
+ mode_t COMPILER_IGNORE_UNINITIALIZED(result),old_mode;
  if (!self->i_ops->io_saveattr)
       throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
  rwlock_write(&self->i_lock);
@@ -536,7 +536,7 @@ inode_chmod(struct inode *__restrict self,
 }
 
 PUBLIC void KCALL
-inode_chown(struct inode *__restrict self,
+inode_chown(struct inode *__restrict EXCEPT_VAR self,
             uid_t owner, gid_t group) {
  if (!self->i_ops->io_saveattr)
       throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
@@ -600,7 +600,7 @@ inode_syncatttr(struct inode *__restrict self) {
  * @throw: E_IO_ERROR:              [...]
  * @throw: ERROR_FS_FILE_NOT_FOUND: [...] */
 PUBLIC void KCALL
-symlink_node_load(struct symlink_node *__restrict self) {
+symlink_node_load(struct symlink_node *__restrict EXCEPT_VAR self) {
  assert(INODE_ISLNK(&self->sl_node));
  /* Check if the symbolic link has already been loaded. */
  if (self->sl_text == NULL) {
@@ -655,9 +655,9 @@ directory_rehash(struct directory_node *__restrict self) {
  * once the entirety of the directory has been loaded.
  * NOTE: The caller must be holding a read-lock on the directory INode. */
 PUBLIC WUNUSED struct directory_entry *KCALL
-directory_readnext(struct directory_node *__restrict self,
+directory_readnext(struct directory_node *__restrict EXCEPT_VAR self,
                    iomode_t flags) {
- struct directory_entry *result;
+ struct directory_entry *COMPILER_IGNORE_UNINITIALIZED(result);
  pos_t last_directory_position;
 #ifndef NDEBUG
  pos_t entry_start_position;
@@ -879,11 +879,11 @@ read_directory:
 /* Same as `directory_getentry()', but automatically dereference
  * the directory entry to retrieve the associated INode. */
 PUBLIC WUNUSED REF struct inode *KCALL
-directory_getnode(struct directory_node *__restrict self,
+directory_getnode(struct directory_node *__restrict EXCEPT_VAR self,
                   CHECKED USER char const *__restrict name,
                   u16 namelen, uintptr_t hash) {
- struct directory_entry *entry;
- REF struct inode *result;
+ struct directory_entry *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(entry);
+ REF struct inode *COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  rwlock_read(&self->d_node.i_lock);
  TRY {
@@ -909,11 +909,11 @@ again:
  return result;
 }
 PUBLIC WUNUSED REF struct inode *KCALL
-directory_getcasenode(struct directory_node *__restrict self,
+directory_getcasenode(struct directory_node *__restrict EXCEPT_VAR self,
                       CHECKED USER char const *__restrict name,
                       u16 namelen, uintptr_t hash) {
- struct directory_entry *entry;
- REF struct inode *result;
+ struct directory_entry *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(entry);
+ REF struct inode *COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  rwlock_read(&self->d_node.i_lock);
  TRY {
@@ -947,7 +947,7 @@ again:
 
 PRIVATE void KCALL
 superblock_rehash_and_unlock(struct superblock *__restrict self) {
- REF LIST_HEAD(struct inode) *new_map;
+ REF LIST_HEAD(struct inode) *COMPILER_IGNORE_UNINITIALIZED(new_map);
  REF LIST_HEAD(struct inode) *old_map;
  struct inode *iter,*next,**pbucket;
  size_t i,new_mask = (self->s_nodesm << 1)|1;
@@ -1080,13 +1080,13 @@ directory_addentry(struct directory_node *__restrict self,
 
 
 PUBLIC WUNUSED ATTR_RETNONNULL REF struct inode *KCALL
-directory_creatfile(struct directory_node *__restrict self,
+directory_creatfile(struct directory_node *__restrict EXCEPT_VAR self,
                     CHECKED USER char const *__restrict name,
                     u16 namelen, oflag_t open_mode,
                     uid_t owner, gid_t group, mode_t mode,
-                    REF struct directory_entry **pentry) {
- REF struct regular_node *result;
- REF struct directory_entry *result_dirent;
+                    REF struct directory_entry **EXCEPT_VAR pentry) {
+ REF struct regular_node *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
+ REF struct directory_entry *EXCEPT_VAR result_dirent;
  assert(rwlock_reading(&self->d_node.i_lock));
  if unlikely(!namelen)
     throw_fs_error(ERROR_FS_ILLEGAL_PATH);
@@ -1192,7 +1192,7 @@ directory_creatfile(struct directory_node *__restrict self,
      directory_entry_incref(result_dirent);
     }
     /* assert(result->de_type != DT_WHT); // Actually, this is allowed... */
-    directory_addentry(self,&result_dirent);
+    directory_addentry(self,(struct directory_entry **)&result_dirent);
    } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
     if (pentry && *pentry)
         directory_entry_decref(*pentry);
@@ -1222,12 +1222,13 @@ directory_creatfile(struct directory_node *__restrict self,
 
 
 PUBLIC void KCALL
-directory_remove(struct directory_node *__restrict self,
+directory_remove(struct directory_node *__restrict EXCEPT_VAR self,
                  CHECKED USER char const *__restrict name,
                  u16 namelen, uintptr_t hash, unsigned int mode,
                  struct path *self_path) {
- REF struct inode *node;
- struct directory_entry *entry,**pentry;
+ REF struct inode *EXCEPT_VAR node;
+ struct directory_entry *COMPILER_IGNORE_UNINITIALIZED(entry);
+ struct directory_entry **pentry;
  rwlock_write(&self->d_node.i_lock);
  TRY {
   if unlikely(INODE_ISCLOSED(&self->d_node))
@@ -1264,7 +1265,7 @@ directory_remove(struct directory_node *__restrict self,
    assert(node->i_super == self->d_node.i_super);
    TRY {
     if (INODE_ISDIR(node)) {
-     struct directory_node *dir;
+     struct directory_node *EXCEPT_VAR dir;
      if (!(mode&DIRECTORY_REMOVE_FDIRECTORY))
          throw_fs_error(ERROR_FS_UNLINK_DIRECTORY);
      dir = (struct directory_node *)node;
@@ -1353,9 +1354,9 @@ directory_remove(struct directory_node *__restrict self,
 
 
 PUBLIC void KCALL
-directory_rename(struct directory_node *__restrict source_directory,
+directory_rename(struct directory_node *__restrict EXCEPT_VAR source_directory,
                  struct directory_entry *__restrict source_dirent,
-                 struct directory_node *__restrict target_directory,
+                 struct directory_node *__restrict EXCEPT_VAR target_directory,
                  CHECKED USER char const *__restrict target_name,
                  u16 target_namelen) {
  REF struct directory_entry *target_dirent;
@@ -1395,7 +1396,7 @@ directory_rename(struct directory_node *__restrict source_directory,
   rwlock_write(&target_directory->d_node.i_lock);
   TRY {
    struct directory_entry **psource_dirent;
-   REF struct inode *source_node;
+   REF struct inode *EXCEPT_VAR source_node;
    if unlikely(INODE_ISCLOSED(&target_directory->d_node))
       throw_fs_error(ERROR_FS_PATH_NOT_FOUND);
    /* Check if a directory entry matching the target name already exists. */
@@ -1512,11 +1513,11 @@ directory_rename(struct directory_node *__restrict source_directory,
 }
 
 PUBLIC void KCALL
-directory_link(struct directory_node *__restrict target_directory,
+directory_link(struct directory_node *__restrict EXCEPT_VAR target_directory,
                CHECKED USER char const *__restrict target_name,
-               u16 target_namelen, struct inode *__restrict link_target,
+               u16 target_namelen, struct inode *__restrict EXCEPT_VAR link_target,
                bool ignore_casing) {
- REF struct directory_entry *target_dirent;
+ REF struct directory_entry *EXCEPT_VAR target_dirent;
  /* Check for cross-device links. */
  if unlikely(link_target->i_super != target_directory->d_node.i_super)
     throw_fs_error(ERROR_FS_CROSSDEVICE_LINK);
@@ -1580,7 +1581,7 @@ directory_link(struct directory_node *__restrict target_directory,
     rwlock_endwrite(&link_target->i_lock);
    }
    /* Add the new target directory entry to the target directory. */
-   directory_addentry(target_directory,&target_dirent);
+   directory_addentry(target_directory,(struct directory_entry **)&target_dirent);
   } FINALLY {
    rwlock_endwrite(&target_directory->d_node.i_lock);
   }
@@ -1594,12 +1595,12 @@ directory_link(struct directory_node *__restrict target_directory,
 }
 
 PUBLIC WUNUSED ATTR_RETNONNULL REF struct symlink_node *KCALL
-directory_symlink(struct directory_node *__restrict target_directory,
+directory_symlink(struct directory_node *__restrict EXCEPT_VAR target_directory,
                   CHECKED USER char const *__restrict target_name, u16 target_namelen,
                   CHECKED USER char const *__restrict link_text, size_t link_text_size,
                   uid_t owner, gid_t group, mode_t mode, bool ignore_casing) {
- REF struct directory_entry *target_dirent;
- REF struct symlink_node *link_node;
+ REF struct directory_entry *EXCEPT_VAR target_dirent;
+ REF struct symlink_node *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(link_node);
  /* Check if the target directory even supports symbolic links. */
  if unlikely(!target_directory->d_node.i_ops->io_directory.d_symlink)
     throw_fs_error(ERROR_FS_UNSUPPORTED_FUNCTION);
@@ -1677,7 +1678,7 @@ directory_symlink(struct directory_node *__restrict target_directory,
     assert(target_dirent->de_ino == link_node->sl_node.i_attr.a_ino);
 
     /* Add the new target directory entry to the target directory. */
-    directory_addentry(target_directory,&target_dirent);
+    directory_addentry(target_directory,(struct directory_entry **)&target_dirent);
 
     /* Add the new symlink INode to the associated superblock. */
     superblock_addnode(target_directory->d_node.i_super,
@@ -1701,12 +1702,12 @@ directory_symlink(struct directory_node *__restrict target_directory,
 
 
 PUBLIC WUNUSED ATTR_RETNONNULL REF struct inode *KCALL
-directory_mknod(struct directory_node *__restrict target_directory,
+directory_mknod(struct directory_node *__restrict EXCEPT_VAR target_directory,
                 CHECKED USER char const *__restrict target_name,
                 u16 target_namelen, mode_t mode, uid_t owner,
                 gid_t group, dev_t referenced_device, bool ignore_casing) {
- REF struct directory_entry *target_dirent;
- REF struct inode *device_node;
+ REF struct directory_entry *EXCEPT_VAR target_dirent;
+ REF struct inode *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(device_node);
  if (S_ISREG(mode)) {
   /* Create a regular file when `mode' says so. */
   return directory_creatfile(target_directory,
@@ -1796,7 +1797,7 @@ directory_mknod(struct directory_node *__restrict target_directory,
     assert(target_dirent->de_ino == device_node->i_attr.a_ino);
 
     /* Add the new target directory entry to the target directory. */
-    directory_addentry(target_directory,&target_dirent);
+    directory_addentry(target_directory,(struct directory_entry **)&target_dirent);
 
     /* Add the new symlink INode to the associated superblock. */
     superblock_addnode(target_directory->d_node.i_super,
@@ -1822,7 +1823,7 @@ directory_mknod(struct directory_node *__restrict target_directory,
 
 PUBLIC WUNUSED ATTR_RETNONNULL REF struct directory_node *
 KCALL directory_node_alloc(void) {
- REF struct directory_node *result;
+ REF struct directory_node *EXCEPT_VAR result;
  result = (REF struct directory_node *)kmalloc(sizeof(struct directory_node),
                                                GFP_SHARED|GFP_CALLOC);
  /* Initialize the new INode */
@@ -1848,12 +1849,12 @@ KCALL directory_node_alloc(void) {
 
 
 PUBLIC REF struct directory_node *KCALL
-directory_mkdir(struct directory_node *__restrict target_directory,
+directory_mkdir(struct directory_node *__restrict EXCEPT_VAR target_directory,
                 CHECKED USER char const *__restrict target_name,
                 u16 target_namelen, mode_t mode, uid_t owner,
                 gid_t group, bool ignore_casing) {
- REF struct directory_entry *target_dirent;
- REF struct directory_node *dir_node;
+ REF struct directory_entry *EXCEPT_VAR target_dirent;
+ REF struct directory_node *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(dir_node);
 
  /* Check if the target directory even supports symbolic links. */
  if unlikely(!target_directory->d_node.i_ops->io_directory.d_mkdir)
@@ -1927,7 +1928,7 @@ directory_mkdir(struct directory_node *__restrict target_directory,
     assert(target_dirent->de_ino == dir_node->d_node.i_attr.a_ino);
 
     /* Add the new target directory entry to the target directory. */
-    directory_addentry(target_directory,&target_dirent);
+    directory_addentry(target_directory,(struct directory_entry **)&target_dirent);
 
     /* Add the new symlink INode to the associated superblock. */
     superblock_addnode(target_directory->d_node.i_super,
@@ -2009,9 +2010,9 @@ again:
 }
 
 PUBLIC void KCALL
-superblock_sync(struct superblock *__restrict self) {
+superblock_sync(struct superblock *__restrict EXCEPT_VAR self) {
  while (ATOMIC_READ(self->s_changed)) {
-  struct inode *node;
+  struct inode *EXCEPT_VAR node;
   atomic_rwlock_write(&self->s_changed_lock);
   COMPILER_READ_BARRIER();
   node = self->s_changed;
@@ -2059,10 +2060,10 @@ struct blocklist {
 };
 
 PRIVATE void KCALL
-blocklist_insert(struct blocklist *__restrict self,
+blocklist_insert(struct blocklist EXCEPT_VAR *__restrict EXCEPT_VAR self,
                  struct superblock *__restrict item) {
  if (self->bl_alloc == self->bl_count) {
-  size_t new_alloc = self->bl_alloc*2;
+  size_t EXCEPT_VAR new_alloc = self->bl_alloc*2;
   if (!new_alloc) new_alloc = 1;
   TRY {
    self->bl_blocks = (struct superblock **)krealloc(self->bl_blocks,new_alloc*
@@ -2079,7 +2080,7 @@ blocklist_insert(struct blocklist *__restrict self,
  self->bl_blocks[self->bl_count++] = item;
 }
 PRIVATE ATTR_NOTHROW bool KCALL
-blocklist_contains(struct blocklist *__restrict self,
+blocklist_contains(struct blocklist EXCEPT_VAR *__restrict self,
                    struct superblock *__restrict item) {
  size_t i;
  for (i = 0; i < self->bl_count; ++i)
@@ -2090,8 +2091,8 @@ blocklist_contains(struct blocklist *__restrict self,
 
 
 PUBLIC void KCALL superblock_syncall(void) {
- struct superblock *iter;
- struct blocklist blocks = { 0, 0, NULL };
+ struct superblock *EXCEPT_VAR iter;
+ struct blocklist EXCEPT_VAR blocks = { 0, 0, NULL };
  TRY {
 again:
   atomic_rwlock_read(&fs_filesystems.f_superlock);
@@ -2184,7 +2185,7 @@ superblock_shutdown(struct superblock *__restrict self) {
 PUBLIC size_t KCALL
 superblock_shutdownall(void) {
  size_t result = 0;
- struct superblock *iter;
+ struct superblock *EXCEPT_VAR iter;
 again:
  atomic_rwlock_read(&fs_filesystems.f_superlock);
  iter = fs_filesystems.f_superblocks;
@@ -2213,7 +2214,7 @@ again:
 
 PUBLIC ATTR_RETNONNULL
 REF struct superblock *KCALL superblock_alloc(void) {
- REF struct superblock *result;
+ REF struct superblock *EXCEPT_VAR result;
  result = (REF struct superblock *)kmalloc(sizeof(struct superblock),
                                            GFP_SHARED|GFP_CALLOC);
  result->s_refcnt = 1;
@@ -2322,10 +2323,10 @@ superblock_load(struct superblock *__restrict self,
 
 
 PUBLIC REF struct superblock *KCALL
-superblock_open(struct block_device *__restrict device,
-                struct superblock_type *type,
+superblock_open(struct block_device *__restrict EXCEPT_VAR device,
+                struct superblock_type *EXCEPT_VAR type,
                 UNCHECKED USER char *args) {
- REF struct superblock *result;
+ REF struct superblock *EXCEPT_VAR result;
 again:
  atomic_rwlock_read(&device->b_fslock);
  result = device->b_filesystem;
@@ -2457,7 +2458,7 @@ PUBLIC ATTR_RETNONNULL REF struct inode *KCALL
 superblock_opennode(struct superblock *__restrict self,
                     struct directory_node *__restrict parent_directory,
                     struct directory_entry *__restrict parent_directory_entry) {
- REF struct inode *result,*new_result,**pbucket;
+ REF struct inode *EXCEPT_VAR result,*new_result,**pbucket;
  uintptr_t ino_hash = INO_HASH(parent_directory_entry->de_ino);
  atomic_rwlock_read(&self->s_nodes_lock);
  if unlikely(self->s_flags & SUPERBLOCK_FCLOSED) {
@@ -2493,7 +2494,7 @@ superblock_opennode(struct superblock *__restrict self,
   break;
 
  {
-  REF struct directory_node *me;
+  REF struct directory_node *EXCEPT_VAR me;
  case DT_DIR:
   me = (REF struct directory_node *)kmalloc(sizeof(struct directory_node),
                                             GFP_SHARED|GFP_CALLOC);

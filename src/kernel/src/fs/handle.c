@@ -186,7 +186,7 @@ REF struct handle_manager *KCALL handle_manager_alloc(void) {
 PUBLIC ATTR_RETNONNULL ATTR_MALLOC
 REF struct handle_manager *KCALL handle_manager_clone(void) {
  struct handle_manager *orig = THIS_HANDLE_MANAGER;
- REF struct handle_manager *result;
+ REF struct handle_manager *EXCEPT_VAR result;
  unsigned int i,count; struct handle *vector;
  result = (REF struct handle_manager *)kmalloc(sizeof(struct handle_manager),
                                                GFP_SHARED);
@@ -248,11 +248,11 @@ REF struct handle_manager *KCALL handle_manager_clone(void) {
   atomic_rwlock_endread(&orig->hm_lock);
 done:
   result->hm_flags = HANDLE_MANAGER_FNORMAL;
-  return result;
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   kfree(result);
   error_rethrow();
  }
+ return result;
 }
 
 DEFINE_PERTASK_CLONE(task_clone_handle_manager);
@@ -327,8 +327,8 @@ PUBLIC bool KCALL handle_close(fd_t fd) {
  * @throw: E_INVALID_HANDLE:   The given `fd' is an invalid handle.
  * @throw: E_TOO_MANY_HANDLES: Too many open handles. */
 PUBLIC unsigned int KCALL handle_dup(fd_t fd, iomode_t flags) {
- struct handle hnd;
- unsigned int result;
+ struct handle EXCEPT_VAR hnd;
+ unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
  hnd = handle_get(fd);
  hnd.h_flag &= ~IO_HANDLE_FMASK;
  hnd.h_flag |= flags;
@@ -347,8 +347,8 @@ PUBLIC unsigned int KCALL handle_dup(fd_t fd, iomode_t flags) {
  * @throw: E_TOO_MANY_HANDLES: Too many open handles. */
 PUBLIC unsigned int KCALL
 handle_dupat(fd_t fd, unsigned int hint, iomode_t flags) {
- struct handle hnd;
- unsigned int result;
+ struct handle EXCEPT_VAR hnd;
+ unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
  hnd = handle_get(fd);
  hnd.h_flag &= ~IO_HANDLE_FMASK;
  hnd.h_flag |= flags;
@@ -365,7 +365,7 @@ handle_dupat(fd_t fd, unsigned int hint, iomode_t flags) {
  * @throw: E_INVALID_HANDLE: The given `dfd' is too large. */
 PUBLIC void KCALL
 handle_dupinto(fd_t fd, fd_t dfd, iomode_t flags) {
- struct handle hnd;
+ struct handle EXCEPT_VAR hnd;
  hnd = handle_get(fd);
  hnd.h_flag &= ~IO_HANDLE_FMASK;
  hnd.h_flag |= flags;
@@ -380,14 +380,14 @@ handle_dupinto(fd_t fd, fd_t dfd, iomode_t flags) {
  * return the handle number of where it was placed.
  * @throw: E_TOO_MANY_HANDLES: Too many open handles. */
 PUBLIC unsigned int KCALL handle_put(struct handle hnd) {
- struct handle *vector; unsigned int result;
- struct handle_manager *man = THIS_HANDLE_MANAGER;
+ struct handle *EXCEPT_VAR vector; unsigned int result;
+ struct handle_manager *EXCEPT_VAR man = THIS_HANDLE_MANAGER;
  assert(hnd.h_type != HANDLE_TYPE_FNONE);
  atomic_rwlock_write(&man->hm_lock);
  vector = man->hm_vector;
  if unlikely(man->hm_count == man->hm_alloc) {
   /* Must allocate more vector entries. */
-  unsigned int new_alloc = man->hm_alloc * 2;
+  unsigned int EXCEPT_VAR new_alloc = man->hm_alloc * 2;
   if unlikely(!new_alloc) new_alloc = 16;
   if unlikely(new_alloc > man->hm_limit) {
    new_alloc = man->hm_limit;
@@ -441,15 +441,15 @@ PUBLIC unsigned int KCALL handle_put(struct handle hnd) {
 }
 
 PUBLIC unsigned int KCALL
-handle_putat(struct handle hnd, unsigned int hint) {
- struct handle *vector; unsigned int result;
- struct handle_manager *man = THIS_HANDLE_MANAGER;
+handle_putat(struct handle hnd, unsigned int EXCEPT_VAR hint) {
+ struct handle *EXCEPT_VAR vector; unsigned int result;
+ struct handle_manager *EXCEPT_VAR man = THIS_HANDLE_MANAGER;
  assert(hnd.h_type != HANDLE_TYPE_FNONE);
  atomic_rwlock_write(&man->hm_lock);
  vector = man->hm_vector;
  if unlikely(hint >= man->hm_alloc) {
   /* Must allocate more vector entries. */
-  unsigned int new_alloc = man->hm_alloc * 2;
+  unsigned int EXCEPT_VAR new_alloc = man->hm_alloc * 2;
   if unlikely(!new_alloc) new_alloc = 16;
   if unlikely(hint >= man->hm_limit) {
    /* Invalid hint position. */
@@ -510,9 +510,10 @@ handle_putat(struct handle hnd, unsigned int hint) {
 /* Place the given handle into the specified handler slot.
  * @throw: E_INVALID_HANDLE: The given `dfd' is too large. */
 PUBLIC void KCALL
-handle_putinto(fd_t dfd, struct handle hnd) {
- struct handle *vector,old_hnd;
- struct handle_manager *man = THIS_HANDLE_MANAGER;
+handle_putinto(fd_t EXCEPT_VAR dfd, struct handle hnd) {
+ struct handle *EXCEPT_VAR vector;
+ struct handle old_hnd;
+ struct handle_manager *EXCEPT_VAR man = THIS_HANDLE_MANAGER;
  assert(hnd.h_type != HANDLE_TYPE_FNONE);
  if unlikely(dfd < 0) {
   /* Special handling for symbolic handle numbers.
@@ -520,7 +521,7 @@ handle_putinto(fd_t dfd, struct handle hnd) {
    * as a way of changing the root directory to
    * a path obtained from a file descriptor. */
   struct fs *my_fs = THIS_FS;
-  REF struct path *COMPILER_IGNORE_UNINITIALIZED(old_path);
+  REF struct path *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(old_path);
   REF struct path *new_path;
   if (hnd.h_type == HANDLE_TYPE_FPATH) {
    new_path = hnd.h_object.o_path;
@@ -615,7 +616,7 @@ handle_putinto(fd_t dfd, struct handle hnd) {
  vector = man->hm_vector;
  if unlikely((unsigned int)dfd >= man->hm_alloc) {
   /* Must allocate more vector entries. */
-  unsigned int new_alloc = man->hm_alloc * 2;
+  unsigned int EXCEPT_VAR new_alloc = man->hm_alloc * 2;
   if unlikely(!new_alloc) new_alloc = 16;
   while (new_alloc <= (unsigned int)dfd) new_alloc *= 2;
   if unlikely(new_alloc > man->hm_limit) {
@@ -673,7 +674,7 @@ handle_putinto(fd_t dfd, struct handle hnd) {
 
 
 PRIVATE REF struct handle KCALL
-get_symbolic_handle(fd_t fd) {
+get_symbolic_handle(fd_t EXCEPT_VAR fd) {
  REF struct handle result;
  /* Special, symbolic handles. */
  switch (fd) {
@@ -976,7 +977,7 @@ PUBLIC ATTR_RETNONNULL REF struct vm *
 KCALL handle_get_vm(fd_t fd) {
  REF struct vm *result;
  REF struct task *thread;
- struct handle hnd;
+ struct handle EXCEPT_VAR hnd;
  if (fd == HANDLE_SYMBOLIC_THIS_TASK) {
   /* Special optimization to work around the creation
    * of `task_getweakref()' for the calling thread. */
@@ -1023,9 +1024,9 @@ vm_getmodule(struct vm *__restrict self) {
 
 PUBLIC ATTR_RETNONNULL REF struct application *
 KCALL handle_get_application(fd_t fd) {
- REF struct application *result;
+ REF struct application *COMPILER_IGNORE_UNINITIALIZED(result);
  REF struct task *thread;
- struct handle hnd;
+ struct handle EXCEPT_VAR hnd;
  if (fd == HANDLE_SYMBOLIC_THIS_TASK) {
   /* Special optimization to work around the creation
    * of `task_getweakref()' for the calling thread. */
@@ -1041,7 +1042,7 @@ KCALL handle_get_application(fd_t fd) {
    return result; /* XXX: Finally-skip is intended. */
   }
   if (hnd.h_type == HANDLE_TYPE_FTHREAD) {
-   REF struct vm *thread_vm;
+   REF struct vm *EXCEPT_VAR thread_vm;
    thread = task_weakref_lock(hnd.h_object.o_thread);
    task_weakref_decref(hnd.h_object.o_thread);
    if (!thread) error_throw(E_PROCESS_EXITED);
@@ -1066,9 +1067,9 @@ KCALL handle_get_application(fd_t fd) {
 }
 PUBLIC ATTR_RETNONNULL REF struct module *
 KCALL handle_get_module(fd_t fd) {
- REF struct module *result;
+ REF struct module *COMPILER_IGNORE_UNINITIALIZED(result);
  REF struct task *thread;
- struct handle hnd;
+ struct handle EXCEPT_VAR hnd;
  if (fd == HANDLE_SYMBOLIC_THIS_TASK) {
   /* Special optimization to work around the creation
    * of `task_getweakref()' for the calling thread. */
@@ -1090,7 +1091,7 @@ KCALL handle_get_module(fd_t fd) {
    return result; /* XXX: Finally-skip is intended. */
   }
   if (hnd.h_type == HANDLE_TYPE_FTHREAD) {
-   REF struct vm *thread_vm;
+   REF struct vm *EXCEPT_VAR thread_vm;
    thread = task_weakref_lock(hnd.h_object.o_thread);
    task_weakref_decref(hnd.h_object.o_thread);
    if (!thread) error_throw(E_PROCESS_EXITED);

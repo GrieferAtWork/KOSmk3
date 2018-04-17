@@ -318,7 +318,8 @@ vm_region_copy_core(struct vm *__restrict effective_vm,
      (part  = *ppart) != NULL;
       ppart = &part->vp_chain.le_next) {
   u16 part_prot; vm_raddr_t part_end_page;
-  size_t part_size,chunk_start,i;
+  size_t EXCEPT_VAR part_size;
+  size_t chunk_start,i;
   assert(part->vp_chain.le_next != part);
   /* Skip parts that have not been loaded into the core. */
   if (part->vp_state != VM_PART_INCORE)
@@ -386,9 +387,9 @@ vm_region_copy_core(struct vm *__restrict effective_vm,
     *       cannot be used for COW (because it is allowed using physical regions), we are
     *       actually allowed to use `kmalloc()' for this part (with `GFP_SHARED|GFP_LOCKED',
     *       as well as a few other flags). */
-   vm_vpage_t temporary_mapping;
-   vm_vpage_t copy_part_vpage;
-   struct vm_region *new_region;
+   vm_vpage_t EXCEPT_VAR temporary_mapping;
+   vm_vpage_t COMPILER_IGNORE_UNINITIALIZED(copy_part_vpage);
+   struct vm_region *EXCEPT_VAR new_region;
    new_region = (struct vm_region *)kmalloc(sizeof(struct vm_region),
                                             COW_DESCRIPTOR_GFP|GFP_CALLOC);
    new_region->vr_refcnt = 1;
@@ -537,7 +538,7 @@ impl_vm_node_loadcore(struct vm_node *__restrict node,
                       vm_raddr_t region_starting_page,
                       size_t num_region_pages,
                       unsigned int mode) {
- struct vm_region *region;
+ struct vm_region *EXCEPT_VAR region;
  vm_vpage_t region_base;
  int result = VM_LOADNODE_UNCHANGED;
  /* Simple check: Ignore no-user branches in user-requests. */

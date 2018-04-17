@@ -292,7 +292,7 @@ libc_XstringX(printer_print)(T_char const *__restrict data,
                              size_t datalen, void *closure) {
  struct T_stringprinter *self;
  size_t size_avail,newsize,reqsize;
- T_char *new_buffer;
+ T_char *COMPILER_IGNORE_UNINITIALIZED(new_buffer);
  self = (struct T_stringprinter *)closure;
  assert(self->sp_bufpos >= self->sp_buffer);
  assert(self->sp_bufpos <= self->sp_bufend);

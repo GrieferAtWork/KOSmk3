@@ -60,9 +60,9 @@ PUBLIC ATTR_RETNONNULL struct vm_node *KCALL
 environ_alloc(USER UNCHECKED char *USER UNCHECKED *argv,
               USER UNCHECKED char *USER UNCHECKED *envp) {
  size_t argc,envc,i;
- struct vm_node *result;
- REF struct vm_region *result_region;
- struct vm *myvm = THIS_VM;
+ struct vm_node *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
+ REF struct vm_region *EXCEPT_VAR result_region;
+ struct vm *EXCEPT_VAR myvm = THIS_VM;
  vm_acquire(myvm);
  TRY {
   validate_readable(argv,sizeof(char *));
@@ -231,8 +231,9 @@ environ_relocate(USER CHECKED struct process_environ *__restrict self) {
 PUBLIC void KCALL
 environ_create(char const *__restrict init_name,
                size_t init_name_length) {
- REF struct vm_region *region; size_t req_bytes;
- struct process_environ *env; byte_t *iter;
+ REF struct vm_region *EXCEPT_VAR region; size_t req_bytes;
+ struct process_environ *COMPILER_IGNORE_UNINITIALIZED(env);
+ byte_t *iter;
  req_bytes = (sizeof(struct process_environ)+
               2*sizeof(char *)+ /* argv: { init_name, NULL } */
               1*sizeof(char *)+ /* envp: { NULL } */

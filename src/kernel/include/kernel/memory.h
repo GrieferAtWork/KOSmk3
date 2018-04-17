@@ -128,30 +128,30 @@ typedef int memtype_t;
 
 #ifdef __CC__
 struct PACKED meminfo {
-    union PACKED {
-        memtype_t              mi_type; /* [const] Memory type (One of `MEMTYPE_*')
-                                         * NOTE: Adjacent meminfo descriptors never feature the same type!
-                                         *       If a situation arises where they do, they are split. */
-        uintptr_t            __mi_pad0; /* ... */
-    };
+    memtype_t              mi_type; /* [const] Memory type (One of `MEMTYPE_*')
+                                     * NOTE: Adjacent meminfo descriptors never feature the same type!
+                                     *       If a situation arises where they do, they are split. */
+#if __SIZEOF_POINTER__ > __SIZEOF_INT__
+    byte_t               __mi_pad0[__SIZEOF_POINTER__-__SIZEOF_INT__]; /* ... */
+#endif
 #if __SIZEOF_POINTER__ == 4
-    u32                      __mi_pad1; /* ... */
+    u32                  __mi_pad1; /* ... */
 #endif
 #if __SIZEOF_POINTER__ == 8
-    u64                        mi_addr;   /* [const] First associated address.
-                                           * NOTE: This pointer is _NOT_ necessarily page-aligned! */
+    u64                    mi_addr;   /* [const] First associated address.
+                                       * NOTE: This pointer is _NOT_ necessarily page-aligned! */
 #else
     union PACKED {
+        u64                mi_addr;   /* [const] First associated address.
+                                       * NOTE: This pointer is _NOT_ necessarily page-aligned! */
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-        u32                    mi_addr32; /* [const] 32-bit starting address. */
+        u32                mi_addr32; /* [const] 32-bit starting address. */
 #else
         struct PACKED {
-            u32              __mi_pad2;   /* ... */
-            u32                mi_addr32; /* [const] 32-bit starting address. */
+            u32          __mi_pad2;   /* ... */
+            u32            mi_addr32; /* [const] 32-bit starting address. */
         };
 #endif
-        u64                    mi_addr;   /* [const] First associated address.
-                                           * NOTE: This pointer is _NOT_ necessarily page-aligned! */
     };
 #endif
 };

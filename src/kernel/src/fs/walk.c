@@ -83,7 +83,7 @@ dosfs_walk_path_one(struct path *__restrict root,
                     size_t *premaining_pathlen,
                     u16 *__restrict premaining_links,
                     int flags) {
- REF struct path *COMPILER_IGNORE_UNINITIALIZED(result);
+ REF struct path *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
  char const *remaining_path = *premaining_path;
  size_t remaining_pathlen = *premaining_pathlen;
  size_t segment_length,segment_relevant; char ch;
@@ -135,8 +135,8 @@ default_lookup:
    result = path_casechild(pwd,remaining_path,(u16)segment_relevant);
    atomic_rwlock_read(&result->p_lock);
    if (INODE_ISLNK(result->p_node)) {
-    REF struct path *new_result;
-    REF struct symlink_node *node;
+    REF struct path *COMPILER_IGNORE_UNINITIALIZED(new_result);
+    REF struct symlink_node *EXCEPT_VAR node;
     /* Check if we've got any remaining link tickets. */
     if unlikely(!*premaining_links) {
      atomic_rwlock_endread(&result->p_lock);
@@ -189,7 +189,7 @@ fs_walk_path_one(struct path *__restrict root,
                  size_t *premaining_pathlen,
                  u16 *__restrict premaining_links,
                  int flags) {
- REF struct path *COMPILER_IGNORE_UNINITIALIZED(result);
+ REF struct path *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
  char const *remaining_path = *premaining_path;
  size_t remaining_pathlen = *premaining_pathlen;
  size_t segment_length,segment_relevant; char ch;
@@ -235,8 +235,8 @@ default_lookup:
    result = path_child(pwd,remaining_path,(u16)segment_relevant);
    atomic_rwlock_read(&result->p_lock);
    if (INODE_ISLNK(result->p_node)) {
-    REF struct path *new_result;
-    REF struct symlink_node *node;
+    REF struct path *COMPILER_IGNORE_UNINITIALIZED(new_result);
+    REF struct symlink_node *EXCEPT_VAR node;
     /* Check if we've got any remaining link tickets. */
     if unlikely(!*premaining_links) {
      atomic_rwlock_endread(&result->p_lock);
@@ -291,7 +291,7 @@ dosfs_walk_path_all(struct path *__restrict root,
                     size_t pathlen,
                     u16 *__restrict premaining_links,
                     int flags) {
- struct path *result = pwd;
+ struct path *EXCEPT_VAR result = pwd;
  path_incref(result);
  TRY {
   /* Skip leading whitespace. */
@@ -322,7 +322,7 @@ fs_walk_path_all(struct path *__restrict root,
                  size_t pathlen,
                  u16 *__restrict premaining_links,
                  int flags) {
- struct path *result = pwd;
+ REF struct path *EXCEPT_VAR result = pwd;
  path_incref(result);
  TRY {
   /* Skip leading whitespace. */
@@ -371,10 +371,11 @@ use_root:
 
 
 PRIVATE ATTR_RETNONNULL REF struct path *KCALL
-dosfs_path(struct path *cwd, USER CHECKED char const *path,
+dosfs_path(struct path *EXCEPT_VAR cwd, USER CHECKED char const *path,
            size_t pathlen, REF struct inode **pnode, int flags) {
  struct fs *f = THIS_FS; u16 max_links;
- REF struct path *root,*COMPILER_IGNORE_UNINITIALIZED(result);
+ REF struct path *EXCEPT_VAR root;
+ REF struct path *COMPILER_IGNORE_UNINITIALIZED(result);
  bool need_directory = !!(flags & FS_MODE_FDIRECTORY);
  /* Strip leading whitespace. */
  while (pathlen && isspace(path[0]))
@@ -537,10 +538,11 @@ got_result:
  * @throw: E_FILESYSTEM_ERROR.ERROR_FS_TOO_MANY_LINKS:       [...]
  * @throw: E_FILESYSTEM_ERROR.ERROR_FS_FILENAME_TOO_LONG:    [...] */
 PUBLIC ATTR_RETNONNULL REF struct path *KCALL
-fs_path(struct path *cwd, USER CHECKED char const *path,
+fs_path(struct path *EXCEPT_VAR cwd, USER CHECKED char const *path,
         size_t pathlen, REF struct inode **pnode, int flags) {
  struct fs *f = THIS_FS; u16 max_links;
- REF struct path *root,*COMPILER_IGNORE_UNINITIALIZED(result);
+ REF struct path *EXCEPT_VAR root;
+ REF struct path *COMPILER_IGNORE_UNINITIALIZED(result);
  bool need_directory;
  if (flags & FS_MODE_FDOSPATH)
      return dosfs_path(cwd,path,pathlen,pnode,flags);
@@ -738,7 +740,8 @@ search_end:
 PUBLIC ATTR_RETNONNULL REF struct path *KCALL
 fs_pathat(fd_t dfd, USER CHECKED char const *path,
           size_t pathlen, REF struct inode **pnode, int flags) {
- REF struct path *cwd,*result;
+ REF struct path *EXCEPT_VAR cwd;
+ REF struct path *COMPILER_IGNORE_UNINITIALIZED(result);
  /* Load the base directory that should be used.
   * NOTE: When `HANDLE_SYMBOLIC_CWD' is used for `dfd',
   *       let `fs_path()' load the workind directory so
@@ -761,7 +764,8 @@ fs_pathat(fd_t dfd, USER CHECKED char const *path,
 PUBLIC ATTR_RETNONNULL REF struct path *KCALL
 fs_lastpathat(fd_t dfd, USER CHECKED char const **__restrict ppath,
               size_t *__restrict ppathlen, REF struct inode **pnode, int flags) {
- REF struct path *cwd,*result;
+ REF struct path *EXCEPT_VAR cwd;
+ REF struct path *COMPILER_IGNORE_UNINITIALIZED(result);
  /* Load the base directory that should be used.
   * NOTE: When `HANDLE_SYMBOLIC_CWD' is used for `dfd',
   *       let `fs_path()' load the workind directory so

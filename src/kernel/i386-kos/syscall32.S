@@ -32,6 +32,40 @@
 
 
 
+.section .rodata.hot
+.macro define_syscall_entry id, sym
+	.if \id < .last_sysno
+		.error "Unordered system call: `\sym' and its predecessor"
+	.endif
+	.rept \id - .last_sysno
+		.long x86_bad_syscall_except
+	.endr
+	.long \sym
+	.last_sysno = \id + 1
+.endm
+
+PUBLIC_OBJECT(x86_syscall_router)
+.last_sysno = __NR_syscall_min
+#define __SYSCALL(id,sym)     define_syscall_entry id, sym;
+#define __SYSCALL_ASM(id,sym) __SYSCALL(id,sym)
+#include <asm/syscallno.ci>
+	.rept (__NR_syscall_max+1) - .last_sysno
+		.long x86_bad_syscall_except
+	.endr
+SYMEND(x86_syscall_router)
+
+.section .rodata.hot
+PUBLIC_OBJECT(x86_xsyscall_router)
+.last_sysno = __NR_xsyscall_min
+#define __XSYSCALL(id,sym)     define_syscall_entry id, sym;
+#define __XSYSCALL_ASM(id,sym) __XSYSCALL(id,sym)
+#include <asm/syscallno.ci>
+	.rept (__NR_xsyscall_max+1) - .last_sysno
+		.long x86_bad_syscall_except
+	.endr
+SYMEND(x86_xsyscall_router)
+
+
 #ifndef CONFIG_NO_X86_SYSENTER
 .section .rodata
 .macro define_syscall_argc id, sym

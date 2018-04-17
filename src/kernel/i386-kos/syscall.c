@@ -97,7 +97,8 @@ x86_set_sysenter_ip(void *arg) {
 PUBLIC void KCALL
 enable_syscall_tracing(void) {
  uintptr_t addr = (uintptr_t)&irq_80_trace;
- u16 old_flags = ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_FKEEPCORE);
+ u16 EXCEPT_VAR old_flags;
+ old_flags = ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_FKEEPCORE);
  TRY {
   pflag_t was;
   /* Suspend all other CPUs */
@@ -128,7 +129,8 @@ enable_syscall_tracing(void) {
 PUBLIC void KCALL
 disable_syscall_tracing(void) {
  uintptr_t addr = (uintptr_t)&irq_80;
- u16 old_flags = ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_FKEEPCORE);
+ u16 EXCEPT_VAR old_flags;
+ old_flags = ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_FKEEPCORE);
  TRY {
   pflag_t was;
   while (!x86_unicore_begin()) task_tryyield();

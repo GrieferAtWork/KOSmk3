@@ -108,7 +108,8 @@ PUBLIC struct sig *KCALL
 task_waitfor_async(jtime_t abs_timeout) {
  struct task_connections *mycon;
  struct async_task_connection *chain;
- struct sig *result,*new_result;
+ struct sig *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
+ struct sig *EXCEPT_VAR new_result;
  bool sleep_ok;
  mycon = &PERTASK(my_connections);
  TRY {
@@ -384,7 +385,7 @@ task_disconnect_async(void) {
  * @return: NULL: The given timeout has expired. */
 PUBLIC struct async_sig *KCALL
 task_waitfor_async(jtime_t abs_timeout) {
- struct async_sig *result;
+ struct async_sig *EXCEPT_VAR result;
  struct async_task_connection *chain;
  chain = PERTASK(async_connections);
  TRY {
@@ -436,7 +437,8 @@ INTDEF ATTR_PERTASK struct task_connections my_connections;
 PUBLIC void *KCALL task_uwaitfor(jtime_t abs_timeout) {
  struct task_connections *mycon;
  struct async_task_connection *chain;
- void *result,*new_result;
+ void *EXCEPT_VAR result;
+ void *EXCEPT_VAR new_result;
  bool sleep_ok;
  mycon = &PERTASK(my_connections);
  TRY {

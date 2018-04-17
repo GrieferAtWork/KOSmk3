@@ -277,7 +277,7 @@ again:
  * @throw: E_INTERRUPT: [ringbuffer_read] The calling thread was interrupted.
  * @throw: E_SEGFAULT:  A faulty buffer was given. */
 PUBLIC size_t KCALL
-ringbuffer_read_atomic(struct ringbuffer *__restrict self,
+ringbuffer_read_atomic(struct ringbuffer *__restrict EXCEPT_VAR self,
                        USER CHECKED void *buf, size_t num_bytes) {
  byte_t *bufend,*old_pointer,*new_pointer,*dst;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
@@ -370,7 +370,7 @@ PUBLIC size_t KCALL
 ringbuffer_read(struct ringbuffer *__restrict self,
                 USER CHECKED void *buf, size_t num_bytes, iomode_t flags) {
  size_t result;
- uintptr_t old_mask;
+ uintptr_t EXCEPT_VAR old_mask;
 again:
  result = ringbuffer_read_atomic(self,buf,num_bytes);
  if (likely(result || !num_bytes) ||
@@ -415,7 +415,7 @@ done:
  * @throw: E_INTERRUPT: [ringbuffer_write] The calling thread was interrupted.
  * @throw: E_SEGFAULT:  A faulty buffer was given. */
 PUBLIC size_t KCALL
-ringbuffer_write_atomic(struct ringbuffer *__restrict self,
+ringbuffer_write_atomic(struct ringbuffer *__restrict EXCEPT_VAR self,
                         USER CHECKED void const *buf, size_t num_bytes) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  bool COMPILER_IGNORE_UNINITIALIZED(was_empty);
@@ -491,9 +491,10 @@ again:
  }
  return result;
  {
-  struct heapptr new_buffer;
+  struct heapptr EXCEPT_VAR new_buffer;
   struct heapptr old_buffer;
   size_t old_size;
+  size_t old_size_hi,old_size_lo;
 increase_buffer:
   /* The buffer is full (allocate more memory). */
   if (self->r_limt & RBUFFER_LIMT_FSTATIC) {
@@ -560,10 +561,10 @@ increase_buffer:
   /* Install the new buffer. */
   bufend = (self->r_base+self->r_size);
   /* Copy unread data into the new buffer. */
+  old_size_hi = (size_t)(bufend-self->r_rptr);
+  old_size_lo = (size_t)(self->r_wptr-self->r_base);
+  old_size    = old_size_hi+old_size_lo;
   TRY {
-   size_t old_size_hi = (size_t)(bufend-self->r_rptr);
-   size_t old_size_lo = (size_t)(self->r_wptr-self->r_base);
-   old_size = old_size_hi+old_size_lo;
    assert(old_size < new_buffer.hp_siz);
    memcpy(new_buffer.hp_ptr,self->r_rptr,old_size_hi);
    memcpy((byte_t *)new_buffer.hp_ptr+old_size_hi,
@@ -601,7 +602,7 @@ ringbuffer_write(struct ringbuffer *__restrict self,
                  USER CHECKED void const *buf,
                  size_t num_bytes, iomode_t flags) {
  size_t result;
- uintptr_t old_mask;
+ uintptr_t EXCEPT_VAR old_mask;
 again:
  result = ringbuffer_write_atomic(self,buf,num_bytes);
  if (likely(result || !num_bytes) ||

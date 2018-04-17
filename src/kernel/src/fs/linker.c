@@ -82,7 +82,7 @@ INTERN void KCALL vm_apps_clone(struct vm *__restrict new_vm)     {
  * This is the application that should be listed as `/proc/self/exe',
  * as well as the one used during implicit handle casts. */
 PUBLIC REF struct application *KCALL
-vm_apps_primary(struct vm *__restrict effective_vm) {
+vm_apps_primary(struct vm *__restrict EXCEPT_VAR effective_vm) {
  REF struct application *COMPILER_IGNORE_UNINITIALIZED(result);
  struct vmapps *apps;
 again:
@@ -145,8 +145,8 @@ vm_apps_dlsym(USER CHECKED char const *__restrict name) {
 PUBLIC struct module_symbol KCALL
 vm_apps_dlsym2(USER CHECKED char const *__restrict name, u32 hash) {
  struct module_symbol result,new_result;
- struct application *app;
- struct vmapps *apps; struct vm *myvm = THIS_VM;
+ struct application *EXCEPT_VAR app; struct vmapps *apps;
+ struct vm *EXCEPT_VAR myvm = THIS_VM;
 again:
  vm_acquire_read(myvm);
  TRY {
@@ -256,8 +256,8 @@ again:
  if (apps->va_share != 1 ||
      apps->va_count == apps->va_alloc) {
   /* Unshare the applications vector. */
-  struct vmapps *new_apps;
-  size_t count,i,new_alloc;
+  struct vmapps *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(new_apps);
+  size_t EXCEPT_VAR count; size_t i,new_alloc;
   count = apps->va_count;
   new_alloc = count+1;
   if (apps->va_share == 1)
@@ -347,6 +347,7 @@ REF struct module *KCALL module_alloc(void) {
 
 PUBLIC bool KCALL
 module_load(struct module *__restrict mod) {
+ bool COMPILER_IGNORE_UNINITIALIZED(result);
  assert(mod->m_refcnt == 1);
  assert(mod->m_type);
  assert(mod->m_driver);
@@ -363,7 +364,7 @@ module_load(struct module *__restrict mod) {
  memset(&mod->m_entry,0xcc,sizeof(image_rva_t));
 #endif
  TRY {
-  return (*mod->m_type->m_loadmodule)(mod);
+  result = (*mod->m_type->m_loadmodule)(mod);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   except_t code = error_code();
   /* Check for errors that indicate a corrupt module. */
@@ -372,6 +373,7 @@ module_load(struct module *__restrict mod) {
       return false;
   error_rethrow();
  }
+ return result;
 }
 
 
@@ -403,7 +405,8 @@ module_open_new(struct regular_node *__restrict node,
  /* Read some magic. */
  byte_t magic[MODULE_MAX_MAGIC];
  size_t magsz = inode_read(&node->re_node,magic,sizeof(magic),0,IO_RDONLY);
- struct module_type *type; REF struct module *result;
+ struct module_type *EXCEPT_VAR type;
+ REF struct module *EXCEPT_VAR result;
  if unlikely(!magsz) error_throw(E_NOT_EXECUTABLE);
  /* Search for a fitting type. */
 again:
@@ -490,8 +493,8 @@ module_open(struct regular_node *__restrict node,
 
 PUBLIC ATTR_RETNONNULL REF struct module *KCALL
 module_openpath(struct path *__restrict modpath) {
- REF struct module *result;
- REF struct regular_node *module_node;
+ REF struct module *COMPILER_IGNORE_UNINITIALIZED(result);
+ REF struct regular_node *EXCEPT_VAR module_node;
  atomic_rwlock_read(&modpath->p_lock);
  /* Extract the node pointed to by the given path. */
  module_node = (REF struct regular_node *)modpath->p_node;
@@ -512,7 +515,7 @@ module_openpath(struct path *__restrict modpath) {
 
 PUBLIC bool KCALL
 module_loadexcept(struct application *__restrict self) {
- struct module *mod = self->a_module;
+ struct module *EXCEPT_VAR mod = self->a_module;
  for (;;) {
   u16 flags = ATOMIC_FETCHOR(mod->m_flags,MODULE_FSECTLOADING);
   if (mod->m_flags & MODULE_FSECTLOADED) goto done;
@@ -816,10 +819,10 @@ patcher_getrequire(struct module_patcher *__restrict self,
 /* Add `mod' as a required dependency of `self', loading it as a new dependency.
  * NOTE: The caller must be holding a lock on the effective VM. */
 PUBLIC ATTR_RETNONNULL struct application *KCALL
-patcher_require(struct module_patcher *__restrict self,
+patcher_require(struct module_patcher *__restrict EXCEPT_VAR self,
                 struct module *__restrict mod) {
  struct module_patcher *iter;
- struct application *result;
+ struct application *EXCEPT_VAR result;
  struct vm *effective_vm;
  /* Search for an existing use of this dependency in the patcher tree. */
  assert(self);
@@ -874,7 +877,7 @@ recheck_apps:
 not_cached:
  /* Create a new dependency for `mod'. */
  {
-  struct module_patcher patcher;
+  struct module_patcher EXCEPT_VAR patcher;
   result              = application_alloc();
   result->a_module    = mod;
   module_incref(mod);
@@ -889,13 +892,13 @@ not_cached:
   patcher.mp_apptype  = self->mp_apptype;
   patcher.mp_appflags = self->mp_appflags;
 #ifndef NDEBUG /* Mustn't be used by non-root patchers. */
-  memset(&patcher.mp_runpath,0xcc,sizeof(char *));
+  memset((void *)&patcher.mp_runpath,0xcc,sizeof(char *));
 #endif
   TRY {
    /* Load the application. */
-   application_load(&patcher);
+   application_load((struct module_patcher *)&patcher);
    /* Patch the application. */
-   application_patch(&patcher);
+   application_patch((struct module_patcher *)&patcher);
 
    assertf(result->a_mapcnt != 0,"The application didn't get mapped");
    assertf(result->a_refcnt >= 2,
@@ -903,12 +906,12 @@ not_cached:
            "held by the application being mapped (a_mapcnt != 0).");
   } FINALLY {
    application_decref(result);
-   patcher_fini(&patcher);
+   patcher_fini((struct module_patcher *)&patcher);
   }
   /* Add the application to the list of requirements of the current patcher. */
   assert(self->mp_requirec <= self->mp_requirea);
   if (self->mp_requirec == self->mp_requirea) {
-   size_t new_alloc = self->mp_requirea * 2;
+   size_t EXCEPT_VAR new_alloc = self->mp_requirea * 2;
    if (!new_alloc) new_alloc = 1;
    TRY {
     self->mp_requirev = (WEAK REF struct application **)krealloc(self->mp_requirev,new_alloc*
@@ -950,11 +953,11 @@ patcher_open_path(struct module_patcher *__restrict self,
                   USER CHECKED char const *__restrict name,
                   u16 name_length) {
  struct application *COMPILER_IGNORE_UNINITIALIZED(result);
- REF struct module *COMPILER_IGNORE_UNINITIALIZED(appmodule);
- REF struct path *module_path;
+ REF struct module *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(appmodule);
+ REF struct path *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(module_path);
  TRY {
   module_path = (self->mp_flags & DL_OPEN_FNOCASE) ? path_casechild(p,name,name_length)
-                                                        : path_child(p,name,name_length);
+                                                   : path_child(p,name,name_length);
  } CATCH (E_FILESYSTEM_ERROR) {
   if (error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_PATH_NOT_FOUND)
       error_info()->e_error.e_filesystem_error.fs_errcode = ERROR_FS_FILE_NOT_FOUND;
@@ -979,10 +982,12 @@ PUBLIC ATTR_RETNONNULL struct application *KCALL
 patcher_require_string(struct module_patcher *__restrict self,
                        USER CHECKED char const *__restrict name,
                        size_t name_length) {
- struct application *result;
- struct module_patcher *iter;
- REF struct path *search_path;
- USER CHECKED char *p,*end; char ch;
+ struct application *COMPILER_IGNORE_UNINITIALIZED(result);
+ struct module_patcher *EXCEPT_VAR iter;
+ REF struct path *EXCEPT_VAR search_path;
+ USER CHECKED char *EXCEPT_VAR p;
+ USER CHECKED char *EXCEPT_VAR end;
+ char EXCEPT_VAR ch;
  if unlikely(name_length > (u16)-1)
     goto not_found;
  iter = self;
@@ -996,7 +1001,7 @@ next_part:
    if (ch == ':' && !(iter->mp_flags&DL_OPEN_FDOSALT)) break;
    if (ch == ';' && (iter->mp_flags&DL_OPEN_FDOSALT)) break;
   }
-  TRY TRY {
+  TRY {
    search_path = fs_path(NULL,p,(size_t)(end-p),NULL,
                         (iter->mp_flags&DL_OPEN_FDOSALT)
                        ? FS_MODE_FDIRECTORY|FS_MODE_FIGNORE_TRAILING_SLASHES|FS_MODE_FDOSPATH
@@ -1008,8 +1013,10 @@ next_part:
     path_decref(search_path);
    }
    return result;
-  } CATCH (ERROR_FS_NOT_A_DIRECTORY) {
-  } CATCH (ERROR_FS_PATH_NOT_FOUND) {
+  } CATCH (E_FILESYSTEM_ERROR) {
+   if (error_info()->e_error.e_filesystem_error.fs_errcode != ERROR_FS_NOT_A_DIRECTORY &&
+       error_info()->e_error.e_filesystem_error.fs_errcode != ERROR_FS_PATH_NOT_FOUND)
+       error_rethrow();
   }
   if (ch) {
    p = ++end;
@@ -1027,7 +1034,7 @@ next_rootpart:
   if (ch == ':' && !(iter->mp_flags&DL_OPEN_FDOSRUN)) break;
   if (ch == ';' && (iter->mp_flags&DL_OPEN_FDOSRUN)) break;
  }
- TRY TRY {
+ TRY {
   search_path = fs_path(NULL,p,(size_t)(end-p),NULL,
                        (iter->mp_flags&DL_OPEN_FDOSRUN)
                       ? FS_MODE_FDIRECTORY|FS_MODE_FIGNORE_TRAILING_SLASHES|FS_MODE_FDOSPATH
@@ -1039,8 +1046,10 @@ next_rootpart:
    path_decref(search_path);
   }
   return result;
- } CATCH (ERROR_FS_NOT_A_DIRECTORY) {
- } CATCH (ERROR_FS_PATH_NOT_FOUND) {
+ } CATCH (E_FILESYSTEM_ERROR) {
+  if (error_info()->e_error.e_filesystem_error.fs_errcode != ERROR_FS_NOT_A_DIRECTORY &&
+      error_info()->e_error.e_filesystem_error.fs_errcode != ERROR_FS_PATH_NOT_FOUND)
+      error_rethrow();
  }
  if (ch) {
   p = ++end;
@@ -1132,9 +1141,9 @@ patcher_symhash(USER CHECKED char const *__restrict name) {
 PUBLIC void KCALL
 application_loadroot(struct application *__restrict self, u16 flags,
                      USER CHECKED char const *runpath) {
- struct module_patcher patcher;
- struct vm *effective_vm;
- patcher.mp_root     = &patcher;
+ struct module_patcher EXCEPT_VAR patcher;
+ struct vm *EXCEPT_VAR effective_vm;
+ patcher.mp_root     = (struct module_patcher *)&patcher;
  patcher.mp_prev     = NULL;
  patcher.mp_app      = self;
  patcher.mp_requirec = 0;
@@ -1149,12 +1158,12 @@ application_loadroot(struct application *__restrict self, u16 flags,
  vm_acquire(effective_vm);
  TRY {
   /* Load the application. */
-  application_load(&patcher);
+  application_load((struct module_patcher *)&patcher);
   /* Patch the application. */
-  application_patch(&patcher);
+  application_patch((struct module_patcher *)&patcher);
  } FINALLY {
   vm_release(effective_vm);
-  patcher_fini(&patcher);
+  patcher_fini((struct module_patcher *)&patcher);
  }
 }
 
@@ -1219,7 +1228,7 @@ application_enumfini(struct application *__restrict app,
 PUBLIC void KCALL
 vm_apps_initall(struct cpu_hostcontext_user *__restrict context) {
  struct vmapps *apps;
- struct vm *myvm = THIS_VM;
+ struct vm *EXCEPT_VAR myvm = THIS_VM;
 again:
  vm_acquire_read(myvm);
  TRY {
@@ -1229,7 +1238,7 @@ again:
 again_inner:
    atomic_rwlock_read(&apps->va_lock);
    for (i = 0; i < apps->va_count; ++i) {
-    WEAK REF struct application *app;
+    WEAK REF struct application *EXCEPT_VAR app;
     app = apps->va_apps[i];
     if (app->a_flags & APPLICATION_FDIDINIT) continue;
     if (!application_tryincref(app)) continue;
@@ -1251,7 +1260,7 @@ again_inner:
 PUBLIC void KCALL
 vm_apps_finiall(struct cpu_hostcontext_user *__restrict context) {
  struct vmapps *apps;
- struct vm *myvm = THIS_VM;
+ struct vm *EXCEPT_VAR myvm = THIS_VM;
 again:
  vm_acquire_read(myvm);
  TRY {
@@ -1261,7 +1270,7 @@ again:
 again_inner:
    atomic_rwlock_read(&apps->va_lock);
    for (i = 0; i < apps->va_count; ++i) {
-    WEAK REF struct application *app;
+    WEAK REF struct application *EXCEPT_VAR app;
     app = apps->va_apps[i];
     if (app->a_flags & APPLICATION_FDIDFINI) continue;
     if (!(app->a_flags & APPLICATION_FDIDINIT)) continue;
@@ -1287,8 +1296,8 @@ throw_segfault(VIRT void *addr, uintptr_t reason);
 
 PUBLIC ATTR_RETNONNULL REF struct application *
 KCALL vm_getapp(USER UNCHECKED void *user_handle) {
- REF struct application *result;
- struct vm *myvm;
+ REF struct application *COMPILER_IGNORE_UNINITIALIZED(result);
+ struct vm *EXCEPT_VAR myvm;
  if (!user_handle) {
   result = vm_apps_primary(THIS_VM);
   if unlikely(!result)
