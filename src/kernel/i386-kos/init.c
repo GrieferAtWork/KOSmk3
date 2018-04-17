@@ -259,6 +259,8 @@ no_free_segment:
    page_free(VM_ADDR2PAGE((uintptr_t)kernel_free_start - KERNEL_BASE),
             (uintptr_t)kernel_free_size / PAGESIZE);
 
+   debug_printf("[BOOT] Commencing initial switch to user-space\n");
+
    /* With all memory descriptors now updated to view the
     * kernel's .free segment as unused RAM, the only thing
     * left for us to do, is to unmap() the segment in the

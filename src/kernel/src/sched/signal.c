@@ -611,8 +611,7 @@ KCALL __os_task_waitfor(jtime_t abs_timeout) {
     * that any task_wake IPIs will only be received once
     * `task_sleep()' gets around to re-enable interrupts. */
    PREEMPTION_DISABLE();
-   COMPILER_READ_BARRIER();
-   result = mycon->tcs_sig;
+   result = ATOMIC_READ(mycon->tcs_sig);
    if (result) { PREEMPTION_ENABLE(); break; }
    /* Serve RPC functions. */
    if (task_serve()) continue;
@@ -620,8 +619,7 @@ KCALL __os_task_waitfor(jtime_t abs_timeout) {
    /* Sleep for a bit, or until we're interrupted. */
    sleep_ok = task_sleep(abs_timeout);
 
-   COMPILER_READ_BARRIER();
-   result = mycon->tcs_sig;
+   result = ATOMIC_READ(mycon->tcs_sig);
    /* A signal was received in the mean time. */
    if (result) break;
    if (!sleep_ok) break; /* Timeout */
@@ -643,7 +641,7 @@ PUBLIC ATTR_NOTHROW struct sig *KCALL task_trywait(void) {
 }
 PUBLIC ATTR_HOTTEXT ATTR_RETNONNULL
 struct sig *KCALL task_wait(void) {
- return task_waitfor(JTIME_INFINITE);
+ return __os_task_waitfor(JTIME_INFINITE);
 }
 
 
