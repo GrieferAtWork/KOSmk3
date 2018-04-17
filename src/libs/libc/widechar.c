@@ -410,36 +410,28 @@ EXPORT(__SYMw16(Xwopen),libc_Xw16open);
 EXPORT(__SYMw16(Xwopen64),libc_Xw16open);
 CRT_WIDECHAR_EXCEPT int ATTR_CDECL
 libc_Xw16open(char16_t const *filename, oflag_t flags, ...) {
- int COMPILER_IGNORE_UNINITIALIZED(result); va_list args;
+ int COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,flags);
-#ifdef CONFIG_VA_END_IS_NOOP
- result = libc_Xw16openat(AT_FDCWD,filename,flags,va_arg(args,mode_t));
- va_end(args);
-#else
- LIBC_TRY {
+ __TRY_VALIST {
   result = libc_Xw16openat(AT_FDCWD,filename,flags,va_arg(args,mode_t));
- } LIBC_FINALLY {
+ } __FINALLY_VALIST {
   va_end(args);
  }
-#endif
  return result;
 }
 EXPORT(__SYMw32(Xwopen),libc_Xw32open);
 EXPORT(__SYMw32(Xwopen64),libc_Xw32open);
 CRT_WIDECHAR_EXCEPT int ATTR_CDECL
 libc_Xw32open(char32_t const *filename, oflag_t flags, ...) {
- int COMPILER_IGNORE_UNINITIALIZED(result); va_list args;
+ int COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,flags);
-#ifdef CONFIG_VA_END_IS_NOOP
- result = libc_Xw32openat(AT_FDCWD,filename,flags,va_arg(args,mode_t));
- va_end(args);
-#else
- LIBC_TRY {
+ __TRY_VALIST {
   result = libc_Xw32openat(AT_FDCWD,filename,flags,va_arg(args,mode_t));
- } LIBC_FINALLY {
+ } __FINALLY_VALIST {
   va_end(args);
  }
-#endif
  return result;
 }
 EXPORT(__SYMw16(Xwcreat),libc_Xw16creat);

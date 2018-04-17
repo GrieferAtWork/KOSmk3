@@ -512,7 +512,7 @@ increase_buffer:
       new_buffer.hp_siz = (self->r_limt & RBUFFER_LIMT_FMASK);
   if (new_buffer.hp_siz <= old_buffer.hp_siz) {
    /* The buffer is full and has reached its limit. */
-#if 1
+#if 0
    debug_printf("Ring buffer is full\n");
    debug_printf("    self->r_rptr = %p\n",self->r_rptr);
    debug_printf("    self->r_wptr = %p\n",self->r_wptr);

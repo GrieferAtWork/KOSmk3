@@ -33,6 +33,7 @@
 
 DECL_BEGIN
 
+EXPORT(mmap,libc_mmap);
 INTERN void *LIBCCALL
 libc_mmap(void *addr, size_t len, int prot,
           int flags, fd_t fd, pos32_t offset) {
@@ -42,6 +43,8 @@ libc_mmap(void *addr, size_t len, int prot,
  libc_seterrno(-(errno_t)(intptr_t)result);
  return MAP_FAILED;
 }
+
+EXPORT(mmap64,libc_mmap64);
 INTERN void *LIBCCALL
 libc_mmap64(void *addr, size_t len, int prot,
             int flags, fd_t fd, pos64_t offset) {
@@ -71,42 +74,99 @@ libc_mmap64(void *addr, size_t len, int prot,
  libc_seterrno(-(errno_t)(intptr_t)(uintptr_t)result);
  return MAP_FAILED;
 }
+
+EXPORT(mremap,libc_mremap);
 INTERN void *ATTR_CDECL
 libc_mremap(void *addr, size_t old_len, size_t new_len, int flags, ...) {
- va_list args; void *result;
+ void *COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,flags);
-#ifdef CONFIG_VA_END_IS_NOOP
- result = sys_mremap(addr,old_len,new_len,flags,va_arg(args,void *));
- va_end(args);
-#else
- LIBC_TRY {
+ __TRY_VALIST {
   result = sys_mremap(addr,old_len,new_len,flags,va_arg(args,void *));
- } LIBC_FINALLY {
+ } __FINALLY_VALIST {
   va_end(args);
  }
-#endif
  if (E_ISERR(result)) {
   libc_seterrno(-(errno_t)(intptr_t)(uintptr_t)result);
   result = MAP_FAILED;
  }
  return result;
 }
-INTERN int LIBCCALL libc_mprotect(void *addr, size_t len, int prot) { return FORWARD_SYSTEM_ERROR(sys_mprotect(addr,len,prot)); }
-INTERN int LIBCCALL libc_msync(void *addr, size_t len, int flags) { libc_seterrno(ENOSYS); return -1; }
-INTERN int LIBCCALL libc_mlock(void const *addr, size_t len) { libc_seterrno(ENOSYS); return -1; }
-INTERN int LIBCCALL libc_munlock(void const *addr, size_t len) { libc_seterrno(ENOSYS); return -1; }
-INTERN int LIBCCALL libc_mlockall(int flags) { libc_seterrno(ENOSYS); return -1; }
-INTERN int LIBCCALL libc_munlockall(void) { libc_seterrno(ENOSYS); return -1; }
-INTERN int LIBCCALL libc_madvise(void *addr, size_t len, int advice) { libc_seterrno(ENOSYS); return -1; }
-INTERN int LIBCCALL libc_mincore(void *start, size_t len, unsigned char *vec) { libc_seterrno(ENOSYS); return -1; }
-INTERN int LIBCCALL libc_posix_madvise(void *addr, size_t len, int advice) { libc_seterrno(ENOSYS); return -1; }
-INTERN int LIBCCALL libc_remap_file_pages(void *start, size_t size, int prot, size_t pgoff, int flags) { libc_seterrno(ENOSYS); return -1; }
+
+EXPORT(mprotect,libc_mprotect);
+INTERN int LIBCCALL
+libc_mprotect(void *addr, size_t len, int prot) {
+ return FORWARD_SYSTEM_ERROR(sys_mprotect(addr,len,prot));
+}
+
+EXPORT(msync,libc_msync);
+INTERN int LIBCCALL
+libc_msync(void *addr, size_t len, int flags) {
+ libc_seterrno(ENOSYS);
+ return -1;
+}
+
+EXPORT(mlock,libc_mlock);
+INTERN int LIBCCALL
+libc_mlock(void const *addr, size_t len) {
+ libc_seterrno(ENOSYS);
+ return -1;
+}
+
+EXPORT(munlock,libc_munlock);
+INTERN int LIBCCALL
+libc_munlock(void const *addr, size_t len) {
+ libc_seterrno(ENOSYS);
+ return -1;
+}
+
+EXPORT(mlockall,libc_mlockall);
+INTERN int LIBCCALL
+libc_mlockall(int flags) {
+ libc_seterrno(ENOSYS);
+ return -1;
+}
+
+
+EXPORT(munlockall,libc_munlockall);
+INTERN int LIBCCALL
+libc_munlockall(void) {
+ libc_seterrno(ENOSYS); return -1;
+}
+
+EXPORT(madvise,libc_madvise);
+INTERN int LIBCCALL
+libc_madvise(void *addr, size_t len, int advice) {
+ libc_seterrno(ENOSYS);
+ return -1;
+}
+
+EXPORT(mincore,libc_mincore);
+INTERN int LIBCCALL
+libc_mincore(void *start, size_t len, unsigned char *vec) {
+ libc_seterrno(ENOSYS);
+ return -1;
+}
+
+EXPORT(posix_madvise,libc_posix_madvise);
+INTERN int LIBCCALL
+libc_posix_madvise(void *addr, size_t len, int advice) {
+ libc_seterrno(ENOSYS);
+ return -1;
+}
+
+EXPORT(remap_file_pages,libc_remap_file_pages);
+INTERN int LIBCCALL
+libc_remap_file_pages(void *start, size_t size, int prot, size_t pgoff, int flags) {
+ libc_seterrno(ENOSYS);
+ return -1;
+}
 
 PRIVATE ATTR_SECTION(".rodata.str.rare")
 char const dev_shm[] = "::/dev/shm";
 
-PRIVATE int shm_fd = -1;
-INTERN ATTR_RARETEXT int LIBCCALL libc_shm_getfd(void) {
+CRT_RARE_DATA int shm_fd = -1;
+CRT_RARE int LIBCCALL libc_shm_getfd(void) {
  fd_t fd,old_fd;
  if (shm_fd >= 0) return shm_fd;
  fd = libc_open(dev_shm,O_RDONLY|O_DIRECTORY);
@@ -120,7 +180,8 @@ INTERN ATTR_RARETEXT int LIBCCALL libc_shm_getfd(void) {
  return fd;
 }
 
-INTERN ATTR_RARETEXT int LIBCCALL
+EXPORT(__KSYM(shm_open),libc_shm_open);
+CRT_RARE int LIBCCALL
 libc_shm_open(char const *name, oflag_t oflag, mode_t mode) {
  int shm_fd;
  if unlikely(!name) { libc_seterrno(EINVAL); return -1; }
@@ -132,11 +193,15 @@ libc_shm_open(char const *name, oflag_t oflag, mode_t mode) {
  /* NOTE: Append `O_NOFOLLOW' to go along `AT_SYMLINK_NOFOLLOW' in shm_unlink(). */
  return libc_openat(shm_fd,name,oflag|O_NOFOLLOW,mode);
 }
-INTERN int LIBCCALL
+
+EXPORT(__DSYM(shm_open),libc_dos_shm_open);
+CRT_DOS_EXT int LIBCCALL
 libc_dos_shm_open(char const *name, oflag_t oflag, mode_t mode) {
  return libc_shm_open(name,oflag|O_DOSPATH,mode);
 }
-INTERN ATTR_RARETEXT int LIBCCALL
+
+EXPORT(__KSYM(shm_unlink),libc_shm_unlink);
+CRT_RARE int LIBCCALL
 libc_shm_unlink(char const *name) {
  int shm_fd;
  if unlikely(!name) { libc_seterrno(EINVAL); return -1; }
@@ -146,7 +211,9 @@ libc_shm_unlink(char const *name) {
  if ((shm_fd = libc_shm_getfd()) < 0) return -1;
  return libc_unlinkat(shm_fd,name,AT_SYMLINK_NOFOLLOW);
 }
-INTERN ATTR_RARETEXT int LIBCCALL
+
+EXPORT(__DSYM(shm_unlink),libc_dos_shm_unlink);
+CRT_DOS_EXT int LIBCCALL
 libc_dos_shm_unlink(char const *name) {
  int shm_fd;
  if unlikely(!name) { libc_seterrno(EINVAL); return -1; }
@@ -159,12 +226,15 @@ libc_dos_shm_unlink(char const *name) {
 
 
 
+EXPORT(munmap,libc_munmap);
 INTERN int LIBCCALL
 libc_munmap(void *addr, size_t len) {
  ssize_t result = sys_munmap(addr,len);
  if (E_ISERR(result)) { libc_seterrno(-E_GTERR(result)); return -1; }
  return 0;
 }
+
+EXPORT(xmmap1,libc_xmmap1);
 INTERN void *LIBCCALL
 libc_xmmap1(struct mmap_info const *data) {
  void *result;
@@ -172,12 +242,16 @@ libc_xmmap1(struct mmap_info const *data) {
  if (E_ISERR(result)) { libc_seterrno(-E_GTERR(result)); return MAP_FAILED; }
  return result;
 }
+
+EXPORT(xmunmap,libc_xmunmap);
 INTERN ssize_t LIBCCALL
 libc_xmunmap(void *addr, size_t len, int flags, void *tag) {
  ssize_t result = sys_xmunmap(addr,len,flags,tag);
  if (E_ISERR(result)) { libc_seterrno(-E_GTERR(result)); return -1; }
  return result;
 }
+
+EXPORT(xmprotect,libc_xmprotect);
 INTERN ssize_t LIBCCALL
 libc_xmprotect(void *start, size_t len, int protmask,
                int protflag, int flags, void *tag) {
@@ -215,6 +289,7 @@ PRIVATE int LIBCCALL do_brk(void *addr) {
  return 0;
 }
 
+EXPORT(brk,libc_brk);
 INTERN int LIBCCALL libc_brk(void *addr) {
  int result;
  atomic_rwlock_write(&brk_lock);
@@ -223,6 +298,7 @@ INTERN int LIBCCALL libc_brk(void *addr) {
  return result;
 }
 
+EXPORT(sbrk,libc_sbrk);
 INTERN void *LIBCCALL libc_sbrk(intptr_t delta) {
  byte_t *result;
  atomic_rwlock_write(&brk_lock);
@@ -234,29 +310,6 @@ INTERN void *LIBCCALL libc_sbrk(intptr_t delta) {
 }
 
 
-EXPORT(mmap,                       libc_mmap);
-EXPORT(mmap64,                     libc_mmap64);
-EXPORT(mremap,                     libc_mremap);
-EXPORT(munmap,                     libc_munmap);
-EXPORT(mprotect,                   libc_mprotect);
-EXPORT(msync,                      libc_msync);
-EXPORT(mlock,                      libc_mlock);
-EXPORT(munlock,                    libc_munlock);
-EXPORT(mlockall,                   libc_mlockall);
-EXPORT(munlockall,                 libc_munlockall);
-EXPORT(__KSYM(shm_open),           libc_shm_open);
-EXPORT(__DSYM(shm_open),           libc_dos_shm_open);
-EXPORT(__KSYM(shm_unlink),         libc_shm_unlink);
-EXPORT(__DSYM(shm_unlink),         libc_dos_shm_unlink);
-EXPORT(madvise,                    libc_madvise);
-EXPORT(mincore,                    libc_mincore);
-EXPORT(posix_madvise,              libc_posix_madvise);
-EXPORT(remap_file_pages,           libc_remap_file_pages);
-EXPORT(xmmap1,                     libc_xmmap1);
-EXPORT(xmunmap,                    libc_xmunmap);
-EXPORT(xmprotect,                  libc_xmprotect);
-EXPORT(brk,                        libc_brk);
-EXPORT(sbrk,                       libc_sbrk);
 
 
 
@@ -287,23 +340,22 @@ libc_Xmmap64(void *addr, size_t len, int prot,
  return Xsys_mmap(addr,len,prot,flags,fd,(syscall_ulong_t)offset);
 }
 
+#if !defined(CONFIG_LIBCCALL_IS_CDECL) || \
+    !defined(CONFIG_VAARGS_IS_HIDDEN_ARGS)
 EXPORT(Xmremap,libc_Xmremap);
 CRT_EXCEPT void *ATTR_CDECL
 libc_Xmremap(void *addr, size_t old_len, size_t new_len, int flags, ...) {
- va_list args; void *result;
+ void *COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,flags);
-#ifdef CONFIG_VA_END_IS_NOOP
- result = Xsys_mremap(addr,old_len,new_len,flags,va_arg(args,void *));
- va_end(args);
-#else
- LIBC_TRY {
+ __TRY_VALIST {
   result = Xsys_mremap(addr,old_len,new_len,flags,va_arg(args,void *));
- } LIBC_FINALLY {
+ } __FINALLY_VALIST {
   va_end(args);
  }
-#endif
  return result;
 }
+#endif
 
 EXPORT(Xmsync,libc_Xmsync);
 CRT_EXCEPT void LIBCCALL

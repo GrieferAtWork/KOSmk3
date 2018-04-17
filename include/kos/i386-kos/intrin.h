@@ -51,7 +51,7 @@ __FORCELOCAL __UINT8_TYPE__ (__dal)(__UINT8_TYPE__ __x) { __UINT8_TYPE__ __resul
 __FORCELOCAL void (__hlt)(void) { __asm__("hlt"); }
 __FORCELOCAL void (__into)(void) { __asm__("into"); }
 __FORCELOCAL void (__int3)(void) { __asm__("int {$}3"); }
-__FORCELOCAL void (__int_)(__UINT8_TYPE__ __intno) { __asm__("int %0" : : "N" (__intno)); }
+__FORCELOCAL void (__int)(__UINT8_TYPE__ __intno) { __asm__("int %0" : : "N" (__intno)); }
 __FORCELOCAL void (__invd)(void) { __asm__("invd"); }
 __FORCELOCAL void (__wbinvd)(void) { __asm__("wbinvd"); }
 __FORCELOCAL void (__invlpg)(void *__p) { __asm__("invlpg" : : "m" (*(int *)__p)); }

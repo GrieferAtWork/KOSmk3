@@ -77,7 +77,8 @@ INTERN ssize_t ATTR_CDECL
 libc_format_printf_l(pformatprinter printer, void *closure,
                      char const *__restrict format,
                      locale_t locale, ...) {
- ssize_t result; va_list args;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,locale);
  __TRY_VALIST {
   result = libc_format_vprintf_l(printer,closure,format,locale,args);
@@ -96,8 +97,8 @@ INTERN ssize_t
 INTERN ssize_t
 (ATTR_CDECL libc_format_printf)(pformatprinter printer, void *closure,
                                 char const *__restrict format, ...) {
- ssize_t result;
- va_list args;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,format);
  __TRY_VALIST {
   result = libc_format_vprintf(printer,closure,format,args);
@@ -113,7 +114,8 @@ INTERN ssize_t ATTR_CDECL
 libd_format_printf_l(pformatprinter printer, void *closure,
                      char const *__restrict format,
                      locale_t locale, ...) {
- ssize_t result; va_list args;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,locale);
  __TRY_VALIST {
   result = libd_format_vprintf_l(printer,closure,format,locale,args);
@@ -132,7 +134,8 @@ INTERN ssize_t
 INTERN ssize_t
 (ATTR_CDECL libd_format_printf)(pformatprinter printer, void *closure,
                                 char const *__restrict format, ...) {
- ssize_t result; va_list args;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,format);
  __TRY_VALIST {
   result = libd_format_vprintf(printer,closure,format,args);
@@ -224,7 +227,8 @@ EXPORT(sprintf,libc_sprintf);
 INTERN size_t ATTR_CDECL
 libc_sprintf(char *__restrict buf,
              char const *__restrict format, ...) {
- va_list args; size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,format);
  __TRY_VALIST {
   result = libc_vsprintf(buf,format,args);
@@ -268,7 +272,8 @@ EXPORT(snprintf,libc_snprintf);
 INTERN size_t ATTR_CDECL
 libc_snprintf(char *__restrict buf, size_t buflen,
               char const *__restrict format, ...) {
- va_list args; size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,format);
  __TRY_VALIST {
   result = libc_vsnprintf(buf,buflen,format,args);

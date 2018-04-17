@@ -60,12 +60,12 @@ typedef enum {
 #define __DEFINE_COMPARE_EXCHANGE_STD(__T) \
     bool (compare_exchange_weak)(__T &__builtin_expect, __T __val, memory_order __succ, memory_order __fail) __CXX_NOEXCEPT { __T __oldval = __hybrid_atomic_cmpxch_val_weak(__m_val,__val,__builtin_expect,__succ,__fail); bool __result = __builtin_expect == __oldval; __builtin_expect = __oldval; return __result; }  \
     bool (compare_exchange_weak)(__T &__builtin_expect, __T __val, memory_order __succ, memory_order __fail) volatile __CXX_NOEXCEPT { __T __oldval = __hybrid_atomic_cmpxch_val_weak(__m_val,__val,__builtin_expect,__succ,__fail); bool __result = __builtin_expect == __oldval; __builtin_expect = __oldval; return __result; } \
-    bool (compare_exchange_weak)(__T &__builtin_expect, __T __val, memory_order __order = memory_order_seq_cst) __CXX_NOEXCEPT { return compare_exchange_weak(__builtin_expect,__val,__order,::std::__int::__cmpexch_failure_order(__order)); } \
-    bool (compare_exchange_weak)(__T &__builtin_expect, __T __val, memory_order __order = memory_order_seq_cst) volatile __CXX_NOEXCEPT { return compare_exchange_weak(__builtin_expect,__val,__order,::std::__int::__cmpexch_failure_order(__order)); } \
+    bool (compare_exchange_weak)(__T &__builtin_expect, __T __val, memory_order __order = memory_order_seq_cst) __CXX_NOEXCEPT { return compare_exchange_weak(__builtin_expect,__val,__order,::std::__intern::__cmpexch_failure_order(__order)); } \
+    bool (compare_exchange_weak)(__T &__builtin_expect, __T __val, memory_order __order = memory_order_seq_cst) volatile __CXX_NOEXCEPT { return compare_exchange_weak(__builtin_expect,__val,__order,::std::__intern::__cmpexch_failure_order(__order)); } \
     bool (compare_exchange_strong)(__T &__builtin_expect, __T __val, memory_order __succ, memory_order __fail) __CXX_NOEXCEPT { __T __oldval = __hybrid_atomic_cmpxch_val(__m_val,__val,__builtin_expect,__succ,__fail); bool __result = __builtin_expect == __oldval; __builtin_expect = __oldval; return __result; } \
     bool (compare_exchange_strong)(__T &__builtin_expect, __T __val, memory_order __succ, memory_order __fail) volatile __CXX_NOEXCEPT { __T __oldval = __hybrid_atomic_cmpxch_val(__m_val,__val,__builtin_expect,__succ,__fail); bool __result = __builtin_expect == __oldval; __builtin_expect = __oldval; return __result; } \
-    bool (compare_exchange_strong)(__T &__builtin_expect, __T __val, memory_order __order = memory_order_seq_cst) __CXX_NOEXCEPT { return compare_exchange_strong(__builtin_expect,__val,__order,::std::__int::__cmpexch_failure_order(__order)); } \
-    bool (compare_exchange_strong)(__T &__builtin_expect, __T __val, memory_order __order = memory_order_seq_cst) volatile __CXX_NOEXCEPT { return compare_exchange_strong(__builtin_expect,__val,__order,::std::__int::__cmpexch_failure_order(__order)); }
+    bool (compare_exchange_strong)(__T &__builtin_expect, __T __val, memory_order __order = memory_order_seq_cst) __CXX_NOEXCEPT { return compare_exchange_strong(__builtin_expect,__val,__order,::std::__intern::__cmpexch_failure_order(__order)); } \
+    bool (compare_exchange_strong)(__T &__builtin_expect, __T __val, memory_order __order = memory_order_seq_cst) volatile __CXX_NOEXCEPT { return compare_exchange_strong(__builtin_expect,__val,__order,::std::__intern::__cmpexch_failure_order(__order)); }
 
 /* KOS Extensions. */
 #ifdef __USE_KOS
@@ -73,20 +73,20 @@ typedef enum {
         __DEFINE_COMPARE_EXCHANGE_STD(__T) \
     bool (cmpxch)(__T __oldv, __T __newv, memory_order __succ, memory_order __fail) __CXX_NOEXCEPT { return __hybrid_atomic_cmpxch(__m_val,__oldv,__newv,__succ,__fail); } \
     bool (cmpxch)(__T __oldv, __T __newv, memory_order __succ, memory_order __fail) volatile __CXX_NOEXCEPT { return __hybrid_atomic_cmpxch(__m_val,__oldv,__newv,__succ,__fail); } \
-    bool (cmpxch)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) __CXX_NOEXCEPT { return cmpxch(__oldv,__newv,__order,::std::__int::__cmpexch_failure_order(__order)); } \
-    bool (cmpxch)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) volatile __CXX_NOEXCEPT { return cmpxch(__oldv,__newv,__order,::std::__int::__cmpexch_failure_order(__order)); } \
+    bool (cmpxch)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) __CXX_NOEXCEPT { return cmpxch(__oldv,__newv,__order,::std::__intern::__cmpexch_failure_order(__order)); } \
+    bool (cmpxch)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) volatile __CXX_NOEXCEPT { return cmpxch(__oldv,__newv,__order,::std::__intern::__cmpexch_failure_order(__order)); } \
     __T  (cmpxch_val)(__T __oldv, __T __newv, memory_order __succ, memory_order __fail) __CXX_NOEXCEPT { return __hybrid_atomic_cmpxch_val(__m_val,__oldv,__newv,__succ,__fail); } \
     __T  (cmpxch_val)(__T __oldv, __T __newv, memory_order __succ, memory_order __fail) volatile __CXX_NOEXCEPT { return __hybrid_atomic_cmpxch_val(__m_val,__oldv,__newv,__succ,__fail); } \
-    __T  (cmpxch_val)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) __CXX_NOEXCEPT { return cmpxch_val(__oldv,__newv,__order,::std::__int::__cmpexch_failure_order(__order)); } \
-    __T  (cmpxch_val)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) volatile __CXX_NOEXCEPT { return cmpxch_val(__oldv,__newv,__order,::std::__int::__cmpexch_failure_order(__order)); } \
+    __T  (cmpxch_val)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) __CXX_NOEXCEPT { return cmpxch_val(__oldv,__newv,__order,::std::__intern::__cmpexch_failure_order(__order)); } \
+    __T  (cmpxch_val)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) volatile __CXX_NOEXCEPT { return cmpxch_val(__oldv,__newv,__order,::std::__intern::__cmpexch_failure_order(__order)); } \
     bool (cmpxch_weak)(__T __oldv, __T __newv, memory_order __succ, memory_order __fail) __CXX_NOEXCEPT { return __hybrid_atomic_cmpxch_weak(__m_val,__oldv,__newv,__succ,__fail); } \
     bool (cmpxch_weak)(__T __oldv, __T __newv, memory_order __succ, memory_order __fail) volatile __CXX_NOEXCEPT { return __hybrid_atomic_cmpxch_weak(__m_val,__oldv,__newv,__succ,__fail); } \
-    bool (cmpxch_weak)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) __CXX_NOEXCEPT { return cmpxch_weak(__oldv,__newv,__order,::std::__int::__cmpexch_failure_order(__order)); } \
-    bool (cmpxch_weak)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) volatile __CXX_NOEXCEPT { return cmpxch_weak(__oldv,__newv,__order,::std::__int::__cmpexch_failure_order(__order)); } \
+    bool (cmpxch_weak)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) __CXX_NOEXCEPT { return cmpxch_weak(__oldv,__newv,__order,::std::__intern::__cmpexch_failure_order(__order)); } \
+    bool (cmpxch_weak)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) volatile __CXX_NOEXCEPT { return cmpxch_weak(__oldv,__newv,__order,::std::__intern::__cmpexch_failure_order(__order)); } \
     __T  (cmpxch_val_weak)(__T __oldv, __T __newv, memory_order __succ, memory_order __fail) __CXX_NOEXCEPT { return __hybrid_atomic_cmpxch_val_weak(__m_val,__oldv,__newv,__succ,__fail); } \
     __T  (cmpxch_val_weak)(__T __oldv, __T __newv, memory_order __succ, memory_order __fail) volatile __CXX_NOEXCEPT { return __hybrid_atomic_cmpxch_val_weak(__m_val,__oldv,__newv,__succ,__fail); } \
-    __T  (cmpxch_val_weak)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) __CXX_NOEXCEPT { return cmpxch_val_weak(__oldv,__newv,__order,::std::__int::__cmpexch_failure_order(__order)); } \
-    __T  (cmpxch_val_weak)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) volatile __CXX_NOEXCEPT { return cmpxch_val_weak(__oldv,__newv,__order,::std::__int::__cmpexch_failure_order(__order)); }
+    __T  (cmpxch_val_weak)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) __CXX_NOEXCEPT { return cmpxch_val_weak(__oldv,__newv,__order,::std::__intern::__cmpexch_failure_order(__order)); } \
+    __T  (cmpxch_val_weak)(__T __oldv, __T __newv, memory_order __order = memory_order_seq_cst) volatile __CXX_NOEXCEPT { return cmpxch_val_weak(__oldv,__newv,__order,::std::__intern::__cmpexch_failure_order(__order)); }
 #else /* __USE_KOS */
 #define __DEFINE_COMPARE_EXCHANGE(__T) \
         __DEFINE_COMPARE_EXCHANGE_STD(__T)
@@ -248,9 +248,9 @@ public:
 #undef __DEFINE_COMPARE_EXCHANGE
 
 #define __SPECIALIZE_INTEGRAL(T) \
-template<> struct atomic<T>: __int::__atomic_int<T> { \
+template<> struct atomic<T>: __intern::__atomic_int<T> { \
     typedef T                      __integral_type; \
-    typedef __int::__atomic_int<T> __base_type; \
+    typedef __intern::__atomic_int<T> __base_type; \
 public: \
     __CXX_DEFAULT_CTOR_NOEXCEPT(atomic); \
     __CXX_DEFAULT_DTOR_NOEXCEPT(atomic); \

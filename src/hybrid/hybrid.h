@@ -80,8 +80,23 @@ DECL_BEGIN
 #define LIBC_LIBCCALL_RET64_IS_RET32 1
 #endif
 
+/* Optimization hint: variadic arguments passed to an ATTR_CDECL
+ *                    function could be written out as explicit
+ *                    parameters in the argument list.
+ *                    If this was done and the caller didn't pass
+ *                    them, they'd only have undefined values,
+ *                    however can still be accessed without any
+ *                    hardware-generated undefined behavior, or
+ *                    some other exception. */
+#undef CONFIG_VAARGS_IS_HIDDEN_ARGS
+#if defined(__x86_64__) || defined(__arm__) || defined(__i386__)
+#define CONFIG_VAARGS_IS_HIDDEN_ARGS 1
+#endif
+
 #if defined(__KERNEL__)
 #define CONFIG_LIBC_LIMITED_API 1
+#else
+#define CONFIG_LIBCCALL_IS_CDECL 1
 #endif
 
 #ifdef __KERNEL__
@@ -113,11 +128,13 @@ typedef int errno_t;
 
 
 #ifdef CONFIG_VA_END_IS_NOOP
-#define __TRY_VALIST     /* Nothing */
-#define __FINALLY_VALIST /* Nothing */
+#define __EXCEPTVAR_VALIST /* Nothing */
+#define __TRY_VALIST       /* Nothing */
+#define __FINALLY_VALIST   /* Nothing */
 #else
-#define __TRY_VALIST     LIBC_TRY
-#define __FINALLY_VALIST LIBC_FINALLY
+#define __EXCEPTVAR_VALIST EXCEPT_VAR
+#define __TRY_VALIST       LIBC_TRY
+#define __FINALLY_VALIST   LIBC_FINALLY
 #endif
 
 #ifndef __char16_t_defined

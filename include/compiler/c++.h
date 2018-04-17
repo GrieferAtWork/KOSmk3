@@ -73,10 +73,10 @@
 #define __NAMESPACE_STD_END      }
 #define __NAMESPACE_STD_SYM      ::std::
 #define __NAMESPACE_STD_USING(x) using ::std::x;
-#define __NAMESPACE_INT_BEGIN    namespace __int {
+#define __NAMESPACE_INT_BEGIN    namespace __intern {
 #define __NAMESPACE_INT_END      }
-#define __NAMESPACE_INT_SYM      ::__int::
-#define __NAMESPACE_INT_USING(x) using ::__int::x;
+#define __NAMESPACE_INT_SYM      ::__intern::
+#define __NAMESPACE_INT_USING(x) using ::__intern::x;
 #define __BOOL                   bool
 
 __NAMESPACE_INT_BEGIN

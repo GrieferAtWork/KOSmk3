@@ -903,6 +903,9 @@ EXPORT(Xxdlmodule_info,libc_Xxdlmodule_info)
 DEFINE_INTERN_ALIAS(libc_Xsysconf,Xsys_xsysconf)
 EXPORT(Xsysconf,libc_Xsysconf)
 
+DEFINE_INTERN_ALIAS(libc_Xmremap,Xsys_mremap)
+EXPORT(Xmremap,libc_Xmremap)
+
 
 
 

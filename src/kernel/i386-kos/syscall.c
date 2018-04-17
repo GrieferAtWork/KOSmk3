@@ -43,6 +43,7 @@ x86_run_on_each_cpu(void (KCALL *func)(void *arg), void *arg) {
  cpuid_t id;
  status = (volatile int *)alloca(cpu_count*sizeof(volatile int));
  memsetl((void *)status,X86_IPI_EXEC_PENDING,cpu_count);
+ COMPILER_WRITE_BARRIER();
  /* Send an IPI to each CPU */
  for (id = 0; id < cpu_count; ++id) {
   struct x86_ipi ipi;

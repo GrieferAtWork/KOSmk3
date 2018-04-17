@@ -36,8 +36,8 @@ DECL_BEGIN
 
 #define DEFINE_PRINTF(Treturn,printf,args,vprintf,params,before_va_start) \
 INTERN Treturn (ATTR_CDECL printf) args { \
-  Treturn result; \
-  va_list varargs; \
+  Treturn COMPILER_IGNORE_UNINITIALIZED(result); \
+  va_list __EXCEPTVAR_VALIST varargs; \
   va_start(varargs,before_va_start); \
   __TRY_VALIST { \
     result = PRINTF_CALL(vprintf,(PRINTF_UNPACK params,varargs)); \

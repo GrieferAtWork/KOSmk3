@@ -1530,18 +1530,14 @@ TODO: GLC aliases / extensions
 /* Deprecated (now stub) debug variants of KOS Mk2 allocator functions. */
 INTERN char *ATTR_CDECL
 libc_compat_mk2_strdupf_d(DEBUGINFO_UNUSED, char const *__restrict format, ...) {
- char *result; va_list args;
+ char *COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,format);
-#ifdef CONFIG_VA_END_IS_NOOP
- result = libc_vstrdupf(format,args);
- va_end(args);
-#else
- LIBC_TRY {
+ __TRY_VALIST {
   result = libc_vstrdupf(format,args);
- } LIBC_FINALLY {
+ } __FINALLY_VALIST {
   va_end(args);
  }
-#endif
  return result;
 }
 EXPORT(_strdupf_d,libc_compat_mk2_strdupf_d);

@@ -342,60 +342,60 @@
 /* In C++, we can use use namespaces to prevent collisions with incompatible prototypes. */
 #define __REDIRECT_UNIQUE  __PP_CAT2(__u,__LINE__)
 #define __REDIRECT(decl,attr,Treturn,cc,name,param,asmname,args) \
-namespace __int { namespace __REDIRECT_UNIQUE { extern "C" { decl Treturn (cc asmname) param; } } } \
+namespace __intern { namespace __REDIRECT_UNIQUE { extern "C" { decl Treturn (cc asmname) param; } } } \
 __LOCAL attr Treturn (cc name) param { \
-    return (__int::__REDIRECT_UNIQUE:: asmname) args; \
+    return (__intern::__REDIRECT_UNIQUE:: asmname) args; \
 }
 #define __REDIRECT_NOTHROW(decl,attr,Treturn,cc,name,param,asmname,args) \
-namespace __int { namespace __REDIRECT_UNIQUE { extern "C" { decl Treturn __NOTHROW((cc asmname) param); } } } \
+namespace __intern { namespace __REDIRECT_UNIQUE { extern "C" { decl Treturn __NOTHROW((cc asmname) param); } } } \
 __LOCAL attr Treturn __NOTHROW((cc name) param) { \
-    return (__int::__REDIRECT_UNIQUE:: asmname) args; \
+    return (__intern::__REDIRECT_UNIQUE:: asmname) args; \
 }
 #define __REDIRECT_VOID(decl,attr,cc,name,param,asmname,args) \
-namespace __int { namespace __REDIRECT_UNIQUE { extern "C" { decl void (cc asmname) param; } } } \
+namespace __intern { namespace __REDIRECT_UNIQUE { extern "C" { decl void (cc asmname) param; } } } \
 __LOCAL attr void (cc name) param { \
-    (__int::__REDIRECT_UNIQUE:: asmname) args; \
+    (__intern::__REDIRECT_UNIQUE:: asmname) args; \
 }
 #define __REDIRECT_VOID_NOTHROW(decl,attr,cc,name,param,asmname,args) \
-namespace __int { namespace __REDIRECT_UNIQUE { extern "C" { decl void __NOTHROW((cc asmname) param); } } } \
+namespace __intern { namespace __REDIRECT_UNIQUE { extern "C" { decl void __NOTHROW((cc asmname) param); } } } \
 __LOCAL attr void __NOTHROW((cc name) param) { \
-    (__int::__REDIRECT_UNIQUE:: asmname) args; \
+    (__intern::__REDIRECT_UNIQUE:: asmname) args; \
 }
 #define ____PRIVATE_VREDIRECT_UNPACK(...) __VA_ARGS__
 #define __VREDIRECT(decl,attr,Treturn,cc,namef,param,asmnamef,vasmnamef,args,before_va_start) \
-namespace __int { namespace __REDIRECT_UNIQUE { extern "C" { decl Treturn (cc vasmnamef)(____PRIVATE_VREDIRECT_UNPACK param, __builtin_va_list ____va_args); } } } \
+namespace __intern { namespace __REDIRECT_UNIQUE { extern "C" { decl Treturn (cc vasmnamef)(____PRIVATE_VREDIRECT_UNPACK param, __builtin_va_list ____va_args); } } } \
 __LOCAL attr Treturn (cc name) param { \
     Treturn ____va_result; \
     __builtin_va_list ____va_args; \
     __builtin_va_start(____va_args,before_va_start); \
-    ____va_result = (__int::__REDIRECT_UNIQUE:: vasmnamef)(____PRIVATE_VREDIRECT_UNPACK args,____va_args); \
+    ____va_result = (__intern::__REDIRECT_UNIQUE:: vasmnamef)(____PRIVATE_VREDIRECT_UNPACK args,____va_args); \
     __builtin_va_end(____va_args); \
     return ____va_result; \
 }
 #define __VREDIRECT_VOID(decl,attr,cc,namef,param,asmnamef,vasmnamef,args,before_va_start) \
-namespace __int { namespace __REDIRECT_UNIQUE { extern "C" { decl void (cc vasmnamef)(____PRIVATE_VREDIRECT_UNPACK param, __builtin_va_list ____va_args); } } } \
+namespace __intern { namespace __REDIRECT_UNIQUE { extern "C" { decl void (cc vasmnamef)(____PRIVATE_VREDIRECT_UNPACK param, __builtin_va_list ____va_args); } } } \
 __LOCAL attr void (cc name) param { \
     __builtin_va_list ____va_args; \
     __builtin_va_start(____va_args,before_va_start); \
-    (__int::__REDIRECT_UNIQUE:: vasmnamef)(____PRIVATE_VREDIRECT_UNPACK args,____va_args); \
+    (__intern::__REDIRECT_UNIQUE:: vasmnamef)(____PRIVATE_VREDIRECT_UNPACK args,____va_args); \
     __builtin_va_end(____va_args); \
 }
 #define __VREDIRECT_NOTHROW(decl,attr,Treturn,cc,namef,param,asmnamef,vasmnamef,args,before_va_start) \
-namespace __int { namespace __REDIRECT_UNIQUE { extern "C" { decl Treturn __NOTHROW((cc vasmnamef)(____PRIVATE_VREDIRECT_UNPACK param, __builtin_va_list ____va_args)); } } } \
+namespace __intern { namespace __REDIRECT_UNIQUE { extern "C" { decl Treturn __NOTHROW((cc vasmnamef)(____PRIVATE_VREDIRECT_UNPACK param, __builtin_va_list ____va_args)); } } } \
 __LOCAL attr Treturn __NOTHROW((cc name) param) { \
     Treturn ____va_result; \
     __builtin_va_list ____va_args; \
     __builtin_va_start(____va_args,before_va_start); \
-    ____va_result = (__int::__REDIRECT_UNIQUE:: vasmnamef)(____PRIVATE_VREDIRECT_UNPACK args,____va_args); \
+    ____va_result = (__intern::__REDIRECT_UNIQUE:: vasmnamef)(____PRIVATE_VREDIRECT_UNPACK args,____va_args); \
     __builtin_va_end(____va_args); \
     return ____va_result; \
 }
 #define __VREDIRECT_VOID_NOTHROW(decl,attr,cc,namef,param,asmnamef,vasmnamef,args,before_va_start) \
-namespace __int { namespace __REDIRECT_UNIQUE { extern "C" { decl void __NOTHROW((cc vasmnamef)(____PRIVATE_VREDIRECT_UNPACK param, __builtin_va_list ____va_args)); } } } \
+namespace __intern { namespace __REDIRECT_UNIQUE { extern "C" { decl void __NOTHROW((cc vasmnamef)(____PRIVATE_VREDIRECT_UNPACK param, __builtin_va_list ____va_args)); } } } \
 __LOCAL attr void __NOTHROW((cc name) param) { \
     __builtin_va_list ____va_args; \
     __builtin_va_start(____va_args,before_va_start); \
-    (__int::__REDIRECT_UNIQUE:: vasmnamef)(____PRIVATE_VREDIRECT_UNPACK args,____va_args); \
+    (__intern::__REDIRECT_UNIQUE:: vasmnamef)(____PRIVATE_VREDIRECT_UNPACK args,____va_args); \
     __builtin_va_end(____va_args); \
 }
 #define __XREDIRECT(decl,attr,Treturn,cc,namef,param,asmname,code) \

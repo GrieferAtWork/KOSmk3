@@ -47,7 +47,8 @@ INTERN ssize_t
                                pformatungetc returnch,
                                void *closure,
                                char const *__restrict format, ...) {
- va_list args; ssize_t result;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,format);
  __TRY_VALIST {
   result = libc_format_vscanf(scanner,returnch,closure,format,args);
@@ -72,7 +73,8 @@ ATTR_CDECL libc_format_scanf_l(pformatgetc scanner,
                                void *closure,
                                char const *__restrict format,
                                locale_t locale, ...) {
- va_list args; ssize_t result;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,locale);
  __TRY_VALIST {
   result = libc_format_vscanf_l(scanner,returnch,closure,format,locale,args);
@@ -94,7 +96,8 @@ INTERN ssize_t
 INTERN ssize_t
 (ATTR_CDECL libd_format_scanf)(pformatgetc scanner, pformatungetc returnch,
                                void *closure, char const *__restrict format, ...) {
- ssize_t result; va_list args;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,format);
  __TRY_VALIST {
   result = libd_format_vscanf(scanner,returnch,closure,format,args);
@@ -107,7 +110,8 @@ INTERN ssize_t ATTR_CDECL
 libd_format_scanf_l(pformatgetc scanner, pformatungetc returnch,
                     void *closure, char const *__restrict format,
                     locale_t locale, ...) {
- ssize_t result; va_list args;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,locale);
  __TRY_VALIST {
   result = libd_format_vscanf_l(scanner,returnch,closure,format,locale,args);

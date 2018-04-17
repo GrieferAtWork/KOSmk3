@@ -92,23 +92,23 @@ typedef decltype(nullptr) nullptr_t;
 
 class exception_ptr {
 public:
-    exception_ptr() { __int::__ExceptionPtrCreate(this); }
-    exception_ptr(nullptr_t) { __int::__ExceptionPtrCreate(this); }
-    exception_ptr(exception_ptr const &__other) { __int::__ExceptionPtrCopy(this, &__other); }
-    ~exception_ptr() __CXX_NOEXCEPT { __int::__ExceptionPtrDestroy(this); }
-    exception_ptr& operator = (exception_ptr const &__other) { __int::__ExceptionPtrAssign(this, &__other); return *this; }
-    exception_ptr& operator = (nullptr_t) { exception_ptr __ptr; __int::__ExceptionPtrAssign(this, &__ptr); return *this; }
-    explicit operator bool() const __CXX_NOEXCEPT { return __int::__ExceptionPtrToBool(this); }
-    void __rethrow_exception() const { __int::__ExceptionPtrRethrow(this); }
-    static exception_ptr __current_exception(void) { exception_ptr __result; __int::__ExceptionPtrCurrentException(&__result); return __result; }
-    static exception_ptr __copy_exception(void *__exception, void const *__ptr) { exception_ptr __result((nullptr_t())); if (__ptr) __int::__ExceptionPtrCopyException(&__result,__exception,__ptr); return __result; }
+    exception_ptr() { __intern::__ExceptionPtrCreate(this); }
+    exception_ptr(nullptr_t) { __intern::__ExceptionPtrCreate(this); }
+    exception_ptr(exception_ptr const &__other) { __intern::__ExceptionPtrCopy(this, &__other); }
+    ~exception_ptr() __CXX_NOEXCEPT { __intern::__ExceptionPtrDestroy(this); }
+    exception_ptr& operator = (exception_ptr const &__other) { __intern::__ExceptionPtrAssign(this, &__other); return *this; }
+    exception_ptr& operator = (nullptr_t) { exception_ptr __ptr; __intern::__ExceptionPtrAssign(this, &__ptr); return *this; }
+    explicit operator bool() const __CXX_NOEXCEPT { return __intern::__ExceptionPtrToBool(this); }
+    void __rethrow_exception() const { __intern::__ExceptionPtrRethrow(this); }
+    static exception_ptr __current_exception(void) { exception_ptr __result; __intern::__ExceptionPtrCurrentException(&__result); return __result; }
+    static exception_ptr __copy_exception(void *__exception, void const *__ptr) { exception_ptr __result((nullptr_t())); if (__ptr) __intern::__ExceptionPtrCopyException(&__result,__exception,__ptr); return __result; }
 private:
     void *__d0;
     void *__d1;
 };
 
-__LOCAL void (swap)(exception_ptr& __lhs, exception_ptr& __rhs) { __int::__ExceptionPtrSwap(&__lhs, &__rhs); }
-__LOCAL bool operator == (exception_ptr const &__lhs, exception_ptr const &__rhs) { return __int::__ExceptionPtrCompare(&__lhs, &__rhs); }
+__LOCAL void (swap)(exception_ptr& __lhs, exception_ptr& __rhs) { __intern::__ExceptionPtrSwap(&__lhs, &__rhs); }
+__LOCAL bool operator == (exception_ptr const &__lhs, exception_ptr const &__rhs) { return __intern::__ExceptionPtrCompare(&__lhs, &__rhs); }
 __LOCAL bool operator == (nullptr_t, exception_ptr const &__rhs) { return !__rhs; }
 __LOCAL bool operator == (exception_ptr const &__lhs, nullptr_t) { return !__lhs; }
 __LOCAL bool operator != (exception_ptr const &__lhs, exception_ptr const &__rhs) { return !(__lhs == __rhs); }

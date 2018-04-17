@@ -51,12 +51,12 @@ typedef __UINT64_TYPE__ __KTYPE(u64);
 #endif
 
 #ifdef ____INTELLISENSE_STDINC_SYNTAX_H
-typedef ::__int::____INTELLISENSE_integer<1234,__UINT16_TYPE__> __KTYPE(le16);
-typedef ::__int::____INTELLISENSE_integer<4321,__UINT16_TYPE__> __KTYPE(be16);
-typedef ::__int::____INTELLISENSE_integer<1234,__UINT32_TYPE__> __KTYPE(le32);
-typedef ::__int::____INTELLISENSE_integer<4321,__UINT32_TYPE__> __KTYPE(be32);
-typedef ::__int::____INTELLISENSE_integer<1234,__UINT64_TYPE__> __KTYPE(le64);
-typedef ::__int::____INTELLISENSE_integer<4321,__UINT64_TYPE__> __KTYPE(be64);
+typedef ::__intern::____INTELLISENSE_integer<1234,__UINT16_TYPE__> __KTYPE(le16);
+typedef ::__intern::____INTELLISENSE_integer<4321,__UINT16_TYPE__> __KTYPE(be16);
+typedef ::__intern::____INTELLISENSE_integer<1234,__UINT32_TYPE__> __KTYPE(le32);
+typedef ::__intern::____INTELLISENSE_integer<4321,__UINT32_TYPE__> __KTYPE(be32);
+typedef ::__intern::____INTELLISENSE_integer<1234,__UINT64_TYPE__> __KTYPE(le64);
+typedef ::__intern::____INTELLISENSE_integer<4321,__UINT64_TYPE__> __KTYPE(be64);
 #else /* ____INTELLISENSE_STDINC_SYNTAX_H */
 typedef __UINT16_TYPE__ __KTYPE(le16),__KTYPE(be16);
 typedef __UINT32_TYPE__ __KTYPE(le32),__KTYPE(be32);

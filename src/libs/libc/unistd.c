@@ -1864,19 +1864,14 @@ EXPORT(Xopen,libc_Xopen);
 EXPORT(Xopen64,libc_Xopen);
 CRT_EXCEPT int ATTR_CDECL
 libc_Xopen(char const *filename, oflag_t flags, ...) {
-#if defined(CONFIG_VA_END_IS_NOOP)
- va_list args; int result;
+ int COMPILER_IGNORE_UNINITIALIZED(result);
+ va_list __EXCEPTVAR_VALIST args;
  va_start(args,flags);
- result = Xsys_openat(AT_FDCWD,filename,flags,va_arg(args,mode_t));
-#else
- va_list EXCEPT_VAR args; int result;
- va_start(args,flags);
- TRY {
+ __TRY_VALIST {
   result = Xsys_openat(AT_FDCWD,filename,flags,va_arg(args,mode_t));
- } FINALLY {
+ } __FINALLY_VALIST {
   va_end(args);
  }
-#endif
  return result;
 }
 

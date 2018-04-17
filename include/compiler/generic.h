@@ -524,8 +524,8 @@
        defined(__DCC_VERSION__) || defined(__TINYC__)
 #   define __COMPILER_ALIGNOF __alignof__
 #elif defined(__cplusplus)
-namespace __int { template<class T> struct __compiler_alignof { char __x; T __y; }; }
-#   define __COMPILER_ALIGNOF(T) (sizeof(::__int::__compiler_alignof< T >)-sizeof(T))
+namespace __intern { template<class T> struct __compiler_alignof { char __x; T __y; }; }
+#   define __COMPILER_ALIGNOF(T) (sizeof(::__intern::__compiler_alignof< T >)-sizeof(T))
 #else
 #   define __COMPILER_ALIGNOF(T) ((__SIZE_TYPE__)&((struct{ char __x; T __y; } *)0)->__y)
 #endif

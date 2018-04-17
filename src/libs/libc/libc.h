@@ -106,6 +106,7 @@ DECL_BEGIN
 #define CRT_COLD             INTERN ATTR_SECTION(".text.crt.cold")        /* Rarely used CRT functions (usually for very specific purposes). */
 #define CRT_RARE             INTERN ATTR_SECTION(".text.crt.rare")        /* Rarely used CRT functions (usually for dealing with errors). */
 #define CRT_RARE_BSS         INTERN ATTR_SECTION(".bss.crt.rare")         /* Rarely used .bss. */
+#define CRT_RARE_DATA        INTERN ATTR_SECTION(".data.crt.rare")        /* Rarely used .data. */
 #define CRT_RARE_RODATA      INTERN ATTR_SECTION(".rodata.crt.rare")      /* Rarely used .rodata. */
 #define CRT_DRARE            INTERN ATTR_SECTION(".data.crt.rare")        /* Rarely used CRT functions (usually for dealing with errors). */
 #define CRT_EXCEPT           INTERN ATTR_SECTION(".text.crt.except")      /* Exception-related functions. */

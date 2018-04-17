@@ -84,11 +84,11 @@ template<typename __rt, typename ...__args> struct __is_fcn<__rt(__args...,...)>
 template<typename    > struct __is_ptr: false_type {};
 template<typename __T> struct __is_ptr<__T *>: true_type {};
 __NAMESPACE_INT_END
-template<typename __T> struct is_function: __int::__is_fcn<__CXX_DEDUCE_TYPENAME remove_cv<__CXX_DEDUCE_TYPENAME remove_reference<__T>::type>::type> {};
+template<typename __T> struct is_function: __intern::__is_fcn<__CXX_DEDUCE_TYPENAME remove_cv<__CXX_DEDUCE_TYPENAME remove_reference<__T>::type>::type> {};
 template<typename    > struct is_array: false_type {};
 template<typename __T> struct is_array<__T[]>: true_type {};
 template<typename __T, __SIZE_TYPE__ __size> struct is_array<__T[__size]>: true_type {};
-template<typename __T> struct is_pointer: __int::__is_ptr<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
+template<typename __T> struct is_pointer: __intern::__is_ptr<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
 template<typename    > struct is_const: false_type {};
 template<typename __T> struct is_const<__T const>: true_type {};
 template<typename    > struct is_volatile: false_type {};
@@ -116,9 +116,9 @@ template<> struct __is_nlp<decltype(nullptr)>: true_type {};
 #endif
 __NAMESPACE_INT_END
 template<typename __T> struct is_void:
-  __int::__is_vod<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
+  __intern::__is_vod<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
 template<typename __T> struct is_null_pointer:
-  __int::__is_nlp<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
+  __intern::__is_nlp<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
 
 
 #ifdef __COMPILER_HAVE_CXX_PARTIAL_TPL_SPEC
@@ -221,12 +221,12 @@ __DEFINE_UNSIGNED(unsigned __int64)
 #undef __DEFINE_FLOAT
 #ifdef __COMPILER_HAVE_CXX_PARTIAL_TPL_SPEC
 __NAMESPACE_INT_END
-template<typename __T> struct is_fundamental:    __int::__is_fun<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
-template<typename __T> struct is_arithmetic:     __int::__is_art<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
-template<typename __T> struct is_floating_point: __int::__is_fpt<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
-template<typename __T> struct is_integral:       __int::__is_int<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
-template<typename __T> struct is_signed:         __int::__is_sig<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
-template<typename __T> struct is_unsigned:       __int::__is_usg<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
+template<typename __T> struct is_fundamental:    __intern::__is_fun<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
+template<typename __T> struct is_arithmetic:     __intern::__is_art<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
+template<typename __T> struct is_floating_point: __intern::__is_fpt<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
+template<typename __T> struct is_integral:       __intern::__is_int<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
+template<typename __T> struct is_signed:         __intern::__is_sig<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
+template<typename __T> struct is_unsigned:       __intern::__is_usg<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
 #endif /* __COMPILER_HAVE_CXX_PARTIAL_TPL_SPEC */
 
 
@@ -260,7 +260,7 @@ template<class __S> __yes __cls_check(void(__S::*)(void));
 template<class __S> __no __cls_check(...);
 template<class __T> struct __is_class: integral_constant<bool,sizeof(__cls_check<T>(0)) == sizeof(__yes)> {};
 __NAMESPACE_INT_END
-template<typename __T> struct is_class: __int::__is_class<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
+template<typename __T> struct is_class: __intern::__is_class<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> {};
 #endif
 
 #ifdef __define_is_union_later
@@ -277,7 +277,7 @@ template<typename __T> struct is_enum: integral_constant<bool,
   !is_arithmetic<__T>::value && !is_array<__T>::value &&
   !is_class<__T>::value && !is_function<__T>::value &&
   !is_reference<__T>::value && !is_union<__T>::value &&
-   is_convertible<__T,__int::__int_convertible>::value> {};
+   is_convertible<__T,__intern::__int_convertible>::value> {};
 #endif
 
 #ifdef __BORLANDC__
@@ -295,9 +295,9 @@ template<typename __T, typename __C> struct __is_mfp<__T __C::*>:
   integral_constant<bool,is_function<__T>::value> {};
 __NAMESPACE_INT_END
 template<typename __T> struct is_member_object_pointer:
-  __int::__is_mop<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> { };
+  __intern::__is_mop<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> { };
 template<typename __T> struct is_member_function_pointer:
-  __int::__is_mfp<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> { };
+  __intern::__is_mfp<__CXX_DEDUCE_TYPENAME remove_cv<__T>::type> { };
 #endif
 template<typename __T> struct is_compound:
   integral_constant<bool,!is_fundamental<__T>::value> { };
