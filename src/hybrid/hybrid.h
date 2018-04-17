@@ -339,6 +339,7 @@ typedef ssize_t (LIBCCALL *pformatgetc)(void *closure);
 typedef ssize_t (LIBCCALL *pformatungetc)(int ch, void *closure);
 #endif /* !__pformatprinter_defined */
 INTDEF char const libc_decimals[2][17];
+INTDEF ssize_t LIBCCALL libc_format_width(char const *__restrict data, size_t datalen, void *closure);
 INTDEF ssize_t (LIBCCALL   libc_format_quote)(pformatprinter printer, void *closure, char const *__restrict text, size_t textlen, u32 flags);
 INTDEF ssize_t (LIBCCALL   libc_format_hexdump)(pformatprinter printer, void *closure, void const *__restrict data, size_t size, size_t linesize, u32 flags);
 INTDEF ssize_t (ATTR_CDECL libc_format_printf)(pformatprinter printer, void *closure, char const *__restrict format, ...);

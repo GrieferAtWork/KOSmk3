@@ -49,6 +49,9 @@ struct buffer;
 struct w16buffer;
 struct w32buffer;
 
+INTDEF ssize_t LIBCCALL libc_format_width16(char16_t const *__restrict data, size_t datalen, void *closure) ASMNAME("libc_format_width");
+INTDEF ssize_t LIBCCALL libc_format_width32(char32_t const *__restrict data, size_t datalen, void *closure) ASMNAME("libc_format_width");
+
 /* String printer functions for construction of C-style NUL-terminated strings. */
 INTDEF int       LIBCCALL libc_stringprinter_init(struct stringprinter *__restrict self, size_t hint);
 INTDEF char     *LIBCCALL libc_stringprinter_pack(struct stringprinter *__restrict self, size_t *length);

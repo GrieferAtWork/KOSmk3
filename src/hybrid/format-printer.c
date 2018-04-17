@@ -180,6 +180,16 @@ EXPORT(__DSYM(format_vprintf_l),libd_format_vprintf_l);
 #endif
 
 
+EXPORT(format_width,libc_format_width);
+INTERN ssize_t LIBCCALL
+libc_format_width(char const *__restrict UNUSED(data),
+                  size_t datalen, void *UNUSED(closure)) {
+ /* Simply re-return `datalen', thus allowing this printer
+  * to be used to determine the width of text. */
+ return (ssize_t)datalen;
+}
+
+
 
 /* Unlimited string printers for kernel-space.
  * User-space defines these as part of libc (including a wide variety
