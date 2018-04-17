@@ -67,9 +67,16 @@ int main(int argc, char *argv[]) {
   return 0;
  }
  for (i = 0; i < COMPILER_LENOF(ctls); ++i) {
-  unsigned int count = 10000;
   if (strcmp(ctls[i].name,cmd) != 0) continue;
-  while (count--) Xkernctl(ctls[i].cmd);
+#if 0
+  Xkernctl(ctls[i].cmd);
+#else
+  {
+   unsigned int count = 10000;
+   /* Only here to debug some race condition with IPIs... */
+   while (count--) Xkernctl(ctls[i].cmd);
+  }
+#endif
   return 0;
  }
  fprintf(stderr,"Unknown command %q\n",cmd);

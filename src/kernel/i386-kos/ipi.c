@@ -298,7 +298,7 @@ restart:
   PREEMPTION_POP(was);
   return;
  }
- /* Allocate an IPI on the target CPU. */
+ /* Allocate an IPI on every target CPU. */
  caller = THIS_CPU;
  for (cpunum = 0; cpunum < cpu_count; ++cpunum) {
   struct cpu *target = cpu_vector[cpunum];
@@ -333,7 +333,7 @@ restart:
  }
 
  /* Send an IPI to all CPUs other than the calling
-  * NOTE: If the caller want to execute the IPI, too, we do so manually. */
+  * NOTE: If the caller wants to execute the IPI too, we do so manually. */
  lapic_write(APIC_ICR0,
              X86_INTERRUPT_APIC_IPI |
              APIC_ICR0_TYPE_FNORMAL |
