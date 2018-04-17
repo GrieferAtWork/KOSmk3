@@ -19,8 +19,6 @@
 #ifdef __INTELLISENSE__
 #define _UTF_SOURCE 1
 #include "format-printer.c"
-#include "../libs/libc/libc.h"
-#include "../libs/libc/format.h"
 #define FORMAT_OPTION_CHARTYPE   CHARACTER_TYPE_CHAR
 //#define FORMAT_OPTION_LOCALE     1 /* Enable locale support. */
 //#define FORMAT_OPTION_WCHAR16    1 /* `%ls' uses 16-bit wide characters. */
@@ -30,7 +28,11 @@
 #include <format-printer.h>
 #include <except.h>
 #include <stdbool.h>
+#include <unicode.h>
 #ifndef __KERNEL__
+#include "../libs/libc/libc.h"
+#include "../libs/libc/format.h"
+#include "../libs/libc/unicode.h"
 #include "../libs/libc/ushare.h"
 #endif
 
@@ -71,6 +73,26 @@
 #   define LIBC_FORMAT_QUOTE   libc_format_w32quote
 #endif
 #endif /* !LIBC_FORMAT_QUOTE */
+
+#ifndef LIBC_FORMAT_WIDTH
+#   if FORMAT_OPTION_CHARTYPE == CHARACTER_TYPE_CHAR
+#      define LIBC_FORMAT_WIDTH libc_format_width
+#   elif FORMAT_OPTION_CHARTYPE == CHARACTER_TYPE_CHAR16
+#      define LIBC_FORMAT_WIDTH libc_format_w16width
+#   else
+#      define LIBC_FORMAT_WIDTH libc_format_w32width
+#   endif
+#endif /* !LIBC_FORMAT_WIDTH */
+
+#ifndef LIBC_FORMAT_REPEAT
+#   if FORMAT_OPTION_CHARTYPE == CHARACTER_TYPE_CHAR
+#      define LIBC_FORMAT_REPEAT libc_format_repeat
+#   elif FORMAT_OPTION_CHARTYPE == CHARACTER_TYPE_CHAR16
+#      define LIBC_FORMAT_REPEAT libc_format_w16repeat
+#   else
+#      define LIBC_FORMAT_REPEAT libc_format_w32repeat
+#   endif
+#endif /* !LIBC_FORMAT_REPEAT */
 
 #ifndef PFORMATPRINTER
 #if FORMAT_OPTION_CHARTYPE == CHARACTER_TYPE_CHAR
@@ -731,6 +753,7 @@ nextfmt:
 
  { unsigned int numsys; char const *dec; bool is_neg;
    union { u64 u; s64 i; } data;
+   size_t print_width,space_width;
    format_T_char *iter,buffer[67]; /* 64-bit binary, w/prefix + sign */
    __IF0 { case 'b': numsys = 2; }
    __IF0 { case 'o': numsys = 8; }
@@ -781,32 +804,50 @@ if (length == LENGTH_I16) {
     else if (numsys == 2)  *--iter = dec[11]; /* B/b */
     *--iter = '0';
    }
-   /* */if (is_neg) *--iter = '-';
-   else if (flags&F_SIGN) *--iter = '+';
-   for (;;) {
-    size_t bufsize = (size_t)(COMPILER_ENDOF(buffer)-iter);
-    if ((flags&F_HASPREC) && precision > bufsize) {
-     size_t precbufsize = COMPILER_LENOF(buffer)-bufsize;
-     precision -= bufsize;
-     if (precbufsize > precision)
-         precbufsize = precision;
-     assert(precbufsize);
-     bufsize += precbufsize;
-     iter    -= precbufsize;
-     libc_memset(iter,'0',precbufsize);
-     assert(precbufsize <= precision);
-     precision -= precbufsize;
+   space_width = 0;
+   print_width = (size_t)(COMPILER_ENDOF(buffer)-iter);
+   if ((flags&F_HASPREC) && precision > print_width)
+        print_width = precision;
+   if (is_neg || (flags&F_SIGN)) ++print_width;
+   if ((flags&F_HASWIDTH) && width > print_width) {
+    space_width = width-print_width;
+    if (!(flags & F_LJUST)) {
+     temp = LIBC_FORMAT_REPEAT(printer,closure,' ',space_width);
+     if unlikely(temp < 0) goto err;
+     result += temp;
+     space_width = 0;
     }
-    DO_PRINT(iter,bufsize);
-    if (precision <= bufsize) break;
-    assert(flags&F_HASPREC);
-    iter = COMPILER_ENDOF(buffer);
+   }
+   {
+    format_T_char sign[] = { 0 };
+    /* */if (is_neg) sign[0] = '-';
+    else if (flags&F_SIGN) sign[0] = '+';
+    if (sign[0]) {
+     temp = (*printer)(sign,1,closure);
+     if unlikely(temp < 0) goto err;
+     result += temp;
+    }
+   }
+   print_width = (size_t)(COMPILER_ENDOF(buffer)-iter);
+   if ((flags&F_HASPREC) && precision > print_width) {
+    temp = LIBC_FORMAT_REPEAT(printer,closure,'0',precision-print_width);
+    if unlikely(temp < 0) goto err;
+    result += temp;
+   }
+   temp = (*printer)(iter,print_width,closure);
+   if unlikely(temp < 0) goto err;
+   result += temp;
+   if (space_width) {
+    temp = LIBC_FORMAT_REPEAT(printer,closure,' ',space_width);
+    if unlikely(temp < 0) goto err;
+    result += temp;
    }
  } break;
 
  {
   char *string;
   size_t string_length;
+  size_t string_width;
   char given_char[1];
  case 'c':
   given_char[0] = (char)va_arg(args,int);
@@ -821,6 +862,46 @@ if (length == LENGTH_I16) {
   if (flags&F_FIXBUF) string_length = precision;
   else string_length = libc_strnlen(string,precision);
 print_string:
+  if (ch == 'q') {
+   string_width = (size_t)libc_format_quote(&libc_format_width,NULL,string,string_length,
+#if F_PREFIX == FORMAT_QUOTE_FLAG_PRINTRAW
+                                            flags&F_PREFIX
+#else
+                                            flags&F_PREFIX
+                                            ? FORMAT_QUOTE_FLAG_PRINTRAW
+                                            : FORMAT_QUOTE_FLAG_NONE
+#endif
+                                            );
+  } else {
+#if FORMAT_OPTION_CHARTYPE == CHARACTER_TYPE_CHAR
+   string_width = string_length;
+#else
+   if (!(flags & F_HASWIDTH)) {
+    string_width = (size_t)-1;
+#if 1 /* Optimization for `printf("%*s",(int)num_spaces,"");' */
+   } else if (!string_length) {
+    string_width = 0;
+#endif
+   } else {
+#if FORMAT_OPTION_CHARTYPE == CHARACTER_TYPE_CHAR16
+    mbstate_t state = MBSTATE_INIT;
+    string_width = libc_utf8to16(string,string_length,NULL,0,&state,
+                                 UNICODE_F_NOZEROTERM|
+                                 UNICODE_F_NOFAIL);
+#else
+    mbstate_t state = MBSTATE_INIT;
+    string_width = libc_utf8to32(string,string_length,NULL,0,&state,
+                                 UNICODE_F_NOZEROTERM|
+                                 UNICODE_F_NOFAIL);
+#endif
+   }
+#endif
+  }
+  if ((width > string_width) && !(flags&F_LJUST)) {
+   temp = LIBC_FORMAT_REPEAT(printer,closure,' ',width-string_width);
+   if unlikely(temp < 0) goto err;
+   result += temp;
+  }
 #if FORMAT_OPTION_CHARTYPE == CHARACTER_TYPE_CHAR
   if (ch == 'q') {
    temp = libc_format_quote(printer,closure,string,string_length,
@@ -864,6 +945,11 @@ print_string:
 #endif
   if unlikely(temp < 0) goto err;
   result += temp;
+  if ((width > string_width) && (flags&F_LJUST)) {
+   temp = LIBC_FORMAT_REPEAT(printer,closure,' ',width-string_width);
+   if unlikely(temp < 0) goto err;
+   result += temp;
+  }
  } break;
 
 #ifndef FORMAT_OPTION_POSITIONAL
@@ -972,6 +1058,8 @@ err:
 #undef LIBC_FORMAT_HEXDUMP
 #undef LIBC_FORMAT_PRINTF
 #undef LIBC_FORMAT_VPRINTF
+#undef LIBC_FORMAT_REPEAT
+#undef LIBC_FORMAT_WIDTH
 
 #if FORMAT_OPTION_CHARTYPE != CHARACTER_TYPE_CHAR
 #undef STRUCT_PRINTER
