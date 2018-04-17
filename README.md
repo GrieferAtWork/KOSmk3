@@ -129,7 +129,8 @@ Chaos|KOS - You probably got here through the definition of chaoticity (<i>which
 ## Known problems ##
  - You can't just compile the kernel with <code>-O3</code>. That'll break exception support due to GCC re-arranging code.
    - Related to this, I have yet to fully trace down which optimization flags actually cause problems.
-   - Once I figured that out, I'll build a GCC toolchain with those options hard-disabled.
+   - As far as I can tell, the following optimization flags cannot be enabled:
+     - <code>-fcrossjumping</code>, <code>-freorder-blocks</code>, <code>-freorder-blocks-and-partition</code>
 
 ## Planned ##
  - Rewrite the VGA terminal to run in kernel-space as a real TTY supporting job control (CTRL + ALT + F1-F12)

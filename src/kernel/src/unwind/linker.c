@@ -38,12 +38,12 @@ DECL_BEGIN
 PUBLIC bool KCALL
 linker_findfde_consafe(uintptr_t ip, struct fde_info *__restrict result) {
  bool COMPILER_IGNORE_UNINITIALIZED(fde_ok);
- struct task_connections EXCEPT_VAR cons;
- task_push_connections((struct task_connections *)&cons);
+ struct task_connections cons;
+ task_push_connections(&cons);
  TRY {
   fde_ok = linker_findfde(ip,result);
  } FINALLY {
-  task_pop_connections((struct task_connections *)&cons);
+  task_pop_connections(&cons);
  }
  return fde_ok;
 }
@@ -52,12 +52,12 @@ PUBLIC bool KCALL
 linker_findexcept_consafe(uintptr_t ip, u16 exception_code,
                           struct exception_handler_info *__restrict result) {
  bool COMPILER_IGNORE_UNINITIALIZED(except_ok);
- struct task_connections EXCEPT_VAR cons;
- task_push_connections((struct task_connections *)&cons);
+ struct task_connections cons;
+ task_push_connections(&cons);
  TRY {
   except_ok = linker_findexcept(ip,exception_code,result);
  } FINALLY {
-  task_pop_connections((struct task_connections *)&cons);
+  task_pop_connections(&cons);
  }
  return except_ok;
 }

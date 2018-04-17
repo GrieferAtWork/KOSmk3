@@ -174,12 +174,12 @@ connect_fini(struct task *__restrict thread) {
 PRIVATE void *KCALL
 kmalloc_consafe(size_t n_bytes, gfp_t flags) {
  void *COMPILER_IGNORE_UNINITIALIZED(result);
- struct task_connections EXCEPT_VAR consave;
- task_push_connections((struct task_connections *)&consave);
+ struct task_connections consave;
+ task_push_connections(&consave);
  TRY {
   result = kmalloc(n_bytes,flags);
  } FINALLY {
-  task_pop_connections((struct task_connections *)&consave);
+  task_pop_connections(&consave);
  }
  return result;
 }
@@ -187,24 +187,24 @@ kmalloc_consafe(size_t n_bytes, gfp_t flags) {
 PRIVATE void *KCALL
 krealloc_consafe(void *ptr, size_t n_bytes, gfp_t flags) {
  void *COMPILER_IGNORE_UNINITIALIZED(result);
- struct task_connections EXCEPT_VAR consave;
- task_push_connections((struct task_connections *)&consave);
+ struct task_connections consave;
+ task_push_connections(&consave);
  TRY {
   result = krealloc(ptr,n_bytes,flags);
  } FINALLY {
-  task_pop_connections((struct task_connections *)&consave);
+  task_pop_connections(&consave);
  }
  return result;
 }
 
 PRIVATE void KCALL
 kfree_consafe(void *ptr) {
- struct task_connections EXCEPT_VAR consave;
- task_push_connections((struct task_connections *)&consave);
+ struct task_connections consave;
+ task_push_connections(&consave);
  TRY {
   kfree(ptr);
  } FINALLY {
-  task_pop_connections((struct task_connections *)&consave);
+  task_pop_connections(&consave);
  }
 }
 
@@ -701,7 +701,7 @@ again:
     * >> struct sig s = SIG_INIT;
     * >> 
     * >> thread:
-    * >>     struct task_connections EXCEPT_VAR cons;
+    * >>     struct task_connections cons;
     * >>     task_connect(&s);
     * >>
     * >>     // This code is basically what is executed during #PF handling
@@ -714,12 +714,12 @@ again:
     * >>     // Otherwise, what would be the point of it when a mutex could
     * >>     // be sure that at least one waiter was woken unless it woke all
     * >>     // of them whenever the lock gets released.
-    * >>     task_push_connections((struct task_connections *)&cons);
+    * >>     task_push_connections(&cons);
     * >>     TRY {
     * >>         if (!try_some_stuff())
     * >>              error_throw(E_BADALLOC);
     * >>     } FINALLY {
-    * >>         task_pop_connections((struct task_connections *)&cons);
+    * >>         task_pop_connections(&cons);
     * >>     }
     * >>
     * >>     // Wait for the signal

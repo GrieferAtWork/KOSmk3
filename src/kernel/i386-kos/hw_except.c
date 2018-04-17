@@ -123,12 +123,12 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
  {
   bool EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(vm_ok);
   struct vm *EXCEPT_VAR effective_vm;
-  struct task_connections EXCEPT_VAR old_connections;
+  struct task_connections old_connections;
   vm_vpage_t fault_page = VM_ADDR2PAGE((uintptr_t)fault_address);
   effective_vm = fault_page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
 
   /* Preserve the set of active task connections while faulting. */
-  task_push_connections((struct task_connections *)&old_connections);
+  task_push_connections(&old_connections);
   COMPILER_BARRIER();
   TRY {
 #ifndef CONFIG_NO_VIO
@@ -231,7 +231,7 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
    }
   } FINALLY {
    /* Restore task connections. */
-   task_pop_connections((struct task_connections *)&old_connections);
+   task_pop_connections(&old_connections);
   }
   /* If the VM says the error is OK, return without throwing a SEGFAULT. */
   if (vm_ok)
@@ -458,8 +458,8 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
   struct cpu_context dup;
   struct fde_info unwind_info;
   struct exception_info old_info;
-  struct task_connections EXCEPT_VAR cons;
-  task_push_connections((struct task_connections *)&cons);
+  struct task_connections cons;
+  task_push_connections(&cons);
   memcpy(&old_info,error_info(),sizeof(struct exception_info));
   TRY {
    dup = context->c_host;
@@ -495,7 +495,7 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
    error_printf("Unwind failure\n");
   }
   memcpy(error_info(),&old_info,sizeof(struct exception_info));
-  task_pop_connections((struct task_connections *)&cons);
+  task_pop_connections(&cons);
  }
 #endif
 

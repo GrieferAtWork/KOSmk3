@@ -251,7 +251,7 @@ PUBLIC bool KCALL task_serve(void) {
  if (state & TASK_STATE_FINTERRUPTED) {
   /* Serve RPC function calls. */
   struct rpc_slot EXCEPT_VAR slot;
-  struct task_connections EXCEPT_VAR connections;
+  struct task_connections connections;
 #ifndef NDEBUG
   u32 old_nothrow_serve_recursion;
   u16 old_flags = PERTASK_GET(this_task.t_flags);
@@ -271,7 +271,7 @@ PUBLIC bool KCALL task_serve(void) {
   /* Save connections of the caller (as they're likely waiting for
    * some kind of signal). Otherwise, RPC function calls could be
    * able to clobber the connection set. */
-  task_push_connections((struct task_connections *)&connections);
+  task_push_connections(&connections);
 continue_serving:
   while (ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FINTERRUPTING) &
                                            TASK_STATE_FINTERRUPTING)
@@ -282,7 +282,7 @@ continue_serving:
                  ~(TASK_STATE_FINTERRUPTING|TASK_STATE_FINTERRUPTED|
                   (state & TASK_STATE_FINRPC ? 0 : TASK_STATE_FINRPC)));
 done_serving:
-   task_pop_connections((struct task_connections *)&connections);
+   task_pop_connections(&connections);
    return true;
   }
   if (PERTASK_GET(my_rpc.ri_vec)[0].rs_flag & RPC_SLOT_FUSER) {
@@ -296,7 +296,7 @@ done_serving:
     goto done_serving;
    }
    /* Throw an interrupt error, so we will return to user-space more quickly. */
-   task_pop_connections((struct task_connections *)&connections);
+   task_pop_connections(&connections);
    task_disconnect();
    error_throw(E_INTERRUPT);
   }
@@ -352,7 +352,7 @@ done_serving:
      goto done_serving;
     }
     /* Restore connections if the finally will rethrow */
-    task_pop_connections((struct task_connections *)&connections);
+    task_pop_connections(&connections);
     /* Then, disconnect all signals (enter exception
      * handling with an empty set of connections) */
     task_disconnect();

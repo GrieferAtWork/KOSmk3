@@ -498,7 +498,8 @@ extern bool FINALLY_WILL_RETHROW;
  * >> } FINALLY {
  * >>     debug_printf("In finally %d\n",x);
  * >> }
- */
+ * NOTE: This modifier is not required for variables
+ *       that are passed to functions as pointers. */
 #ifdef __INTELLISENSE__
 #define EXCEPT_VAR  /* nothing */
 #else
