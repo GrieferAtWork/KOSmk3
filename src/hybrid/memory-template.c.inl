@@ -210,10 +210,27 @@ F(libc_memchr)(T *__restrict haystack, Ti needle, size_t n) {
  return NULL;
 }
 CRT_STRING T *LIBCCALL
+F(libc_memxchr)(T *__restrict haystack, Ti needle, size_t n) {
+ for (; n--; ++haystack) {
+  if (*haystack != (T)needle)
+       return haystack;
+ }
+ return NULL;
+}
+CRT_STRING T *LIBCCALL
 F(libc_memrchr)(T *__restrict haystack, Ti needle, size_t n) {
  haystack += n;
  while (n--) {
   if (*--haystack == (T)needle)
+      return haystack;
+ }
+ return NULL;
+}
+CRT_STRING T *LIBCCALL
+F(libc_memrxchr)(T *__restrict haystack, Ti needle, size_t n) {
+ haystack += n;
+ while (n--) {
+  if (*--haystack != (T)needle)
       return haystack;
  }
  return NULL;
@@ -228,10 +245,27 @@ F(libc_memend)(T *__restrict haystack, Ti needle, size_t n) {
  return haystack;
 }
 CRT_STRING T *LIBCCALL
+F(libc_memxend)(T *__restrict haystack, Ti needle, size_t n) {
+ for (; n--; ++haystack) {
+  if (*haystack != (T)needle)
+       break;
+ }
+ return haystack;
+}
+CRT_STRING T *LIBCCALL
 F(libc_memrend)(T *__restrict haystack, Ti needle, size_t n) {
  haystack += n;
  while (n--) {
   if (*--haystack == (T)needle)
+      break;
+ }
+ return haystack;
+}
+CRT_STRING T *LIBCCALL
+F(libc_memrxend)(T *__restrict haystack, Ti needle, size_t n) {
+ haystack += n;
+ while (n--) {
+  if (*--haystack != (T)needle)
       break;
  }
  return haystack;
@@ -242,14 +276,30 @@ F(libc_memlen)(T *__restrict haystack, Ti needle, size_t n) {
  return (size_t)(F(libc_memend)(haystack,needle,n) - haystack);
 }
 CRT_STRING size_t LIBCCALL
+F(libc_memxlen)(T *__restrict haystack, Ti needle, size_t n) {
+ return (size_t)(F(libc_memxend)(haystack,needle,n) - haystack);
+}
+CRT_STRING size_t LIBCCALL
 F(libc_memrlen)(T *__restrict haystack, Ti needle, size_t n) {
  return (size_t)(F(libc_memrend)(haystack,needle,n) - haystack);
+}
+CRT_STRING size_t LIBCCALL
+F(libc_memrxlen)(T *__restrict haystack, Ti needle, size_t n) {
+ return (size_t)(F(libc_memrxend)(haystack,needle,n) - haystack);
 }
 
 CRT_STRING T *LIBCCALL
 F(libc_rawmemchr)(T *__restrict haystack, Ti needle) {
  for (;; ++haystack) {
   if (*haystack == (T)needle)
+       break;
+ }
+ return haystack;
+}
+CRT_STRING T *LIBCCALL
+F(libc_rawmemxchr)(T *__restrict haystack, Ti needle) {
+ for (;; ++haystack) {
+  if (*haystack != (T)needle)
        break;
  }
  return haystack;
@@ -264,14 +314,33 @@ F(libc_rawmemrchr)(T *__restrict haystack, Ti needle) {
  return haystack;
 }
 
+CRT_STRING T *LIBCCALL
+F(libc_rawmemrxchr)(T *__restrict haystack, Ti needle) {
+ for (;;) {
+  if (*--haystack != (T)needle)
+       break;
+ }
+ return haystack;
+}
+
 CRT_STRING size_t LIBCCALL
 F(libc_rawmemlen)(T *__restrict haystack, Ti needle) {
  return (size_t)(F(libc_rawmemchr)(haystack,needle) - haystack);
 }
 
 CRT_STRING size_t LIBCCALL
+F(libc_rawmemxlen)(T *__restrict haystack, Ti needle) {
+ return (size_t)(F(libc_rawmemxchr)(haystack,needle) - haystack);
+}
+
+CRT_STRING size_t LIBCCALL
 F(libc_rawmemrlen)(T *__restrict haystack, Ti needle) {
  return (size_t)(F(libc_rawmemrchr)(haystack,needle) - haystack);
+}
+
+CRT_STRING size_t LIBCCALL
+F(libc_rawmemrxlen)(T *__restrict haystack, Ti needle) {
+ return (size_t)(F(libc_rawmemrxchr)(haystack,needle) - haystack);
 }
 
 #if SIZE != 1
@@ -340,15 +409,25 @@ DEFINE_PUBLIC_WEAK_ALIAS(F(memmove),F(libc_memmove));
 DEFINE_PUBLIC_WEAK_ALIAS(F(mempmove),F(libc_mempmove));
 DEFINE_PUBLIC_WEAK_ALIAS(F(memcmp),F(libc_memcmp));
 DEFINE_PUBLIC_WEAK_ALIAS(F(memchr),F(libc_memchr));
+DEFINE_PUBLIC_WEAK_ALIAS(F(memxchr),F(libc_memxchr));
 DEFINE_PUBLIC_WEAK_ALIAS(F(memrchr),F(libc_memrchr));
+DEFINE_PUBLIC_WEAK_ALIAS(F(memrxchr),F(libc_memrxchr));
 DEFINE_PUBLIC_WEAK_ALIAS(F(memend),F(libc_memend));
+DEFINE_PUBLIC_WEAK_ALIAS(F(memxend),F(libc_memxend));
 DEFINE_PUBLIC_WEAK_ALIAS(F(memrend),F(libc_memrend));
+DEFINE_PUBLIC_WEAK_ALIAS(F(memrxend),F(libc_memrxend));
 DEFINE_PUBLIC_WEAK_ALIAS(F(memlen),F(libc_memlen));
+DEFINE_PUBLIC_WEAK_ALIAS(F(memxlen),F(libc_memxlen));
 DEFINE_PUBLIC_WEAK_ALIAS(F(memrlen),F(libc_memrlen));
+DEFINE_PUBLIC_WEAK_ALIAS(F(memrxlen),F(libc_memrxlen));
 DEFINE_PUBLIC_WEAK_ALIAS(F(rawmemchr),F(libc_rawmemchr));
+DEFINE_PUBLIC_WEAK_ALIAS(F(rawmemxchr),F(libc_rawmemxchr));
 DEFINE_PUBLIC_WEAK_ALIAS(F(rawmemrchr),F(libc_rawmemrchr));
+DEFINE_PUBLIC_WEAK_ALIAS(F(rawmemrxchr),F(libc_rawmemrxchr));
 DEFINE_PUBLIC_WEAK_ALIAS(F(rawmemlen),F(libc_rawmemlen));
+DEFINE_PUBLIC_WEAK_ALIAS(F(rawmemxlen),F(libc_rawmemxlen));
 DEFINE_PUBLIC_WEAK_ALIAS(F(rawmemrlen),F(libc_rawmemrlen));
+DEFINE_PUBLIC_WEAK_ALIAS(F(rawmemrxlen),F(libc_rawmemrxlen));
 DEFINE_PUBLIC_WEAK_ALIAS(PP_CAT2(F(_memcpy),_d),PP_CAT2(F(libc_memcpy),_d));
 DEFINE_PUBLIC_WEAK_ALIAS(PP_CAT2(F(_mempcpy),_d),PP_CAT2(F(libc_mempcpy),_d));
 #if SIZE > 1

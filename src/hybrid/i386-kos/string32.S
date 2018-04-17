@@ -528,6 +528,31 @@ DEFINE_PUBLIC_ALIAS(__SYMw32(wcsnend),libc_w32nend)
 #endif
 
 
+#if 1
+
+/* TODO: memchr() */
+/* TODO: memxchr() */
+/* TODO: memend() */
+/* TODO: memxend() */
+/* TODO: memlen() */
+/* TODO: memxlen() */
+/* TODO: memrchr() */
+/* TODO: memrxchr() */
+/* TODO: memrend() */
+/* TODO: memrxend() */
+/* TODO: memrlen() */
+/* TODO: memrxlen() */
+/* TODO: rawmemchr() */
+/* TODO: rawmemxchr() */
+/* TODO: rawmemrchr() */
+/* TODO: rawmemrxchr() */
+/* TODO: rawmemlen() */
+/* TODO: rawmemxlen() */
+/* TODO: rawmemrlen() */
+/* TODO: rawmemrxlen() */
+
+#endif
+
 
 
 
