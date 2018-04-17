@@ -452,6 +452,9 @@ __SYSDECL_END
 #endif /* __USE_KOS */
 
 #ifdef __USE_KOS3
+#ifndef _PARTS_KOS3_FORMATPRINTER_H
+#include "parts/kos3/formatprinter.h"
+#endif /* !_PARTS_KOS3_FORMATPRINTER_H */
 #ifdef _WCHAR_H
 #ifndef _PARTS_KOS3_WFORMATPRINTER_H
 #include "parts/kos3/wformatprinter.h"

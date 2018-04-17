@@ -490,6 +490,8 @@ EXPORT(__SYMw16(format_wquote_l),libc_format_w16quote_l);
 EXPORT(__SYMw32(format_wquote_l),libc_format_w32quote_l);
 EXPORT(__SYMw16(format_whexdump_l),libc_format_w16hexdump_l);
 EXPORT(__SYMw32(format_whexdump_l),libc_format_w32hexdump_l);
+EXPORT(__SYMw16(format_wrepeat),libc_format_w16repeat);
+EXPORT(__SYMw32(format_wrepeat),libc_format_w32repeat);
 
 /* Wide-character format scanners. */
 EXPORT(__KSYMw16(format_wscanf),libc_format_w16scanf);

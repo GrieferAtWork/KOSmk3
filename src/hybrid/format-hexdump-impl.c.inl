@@ -19,6 +19,7 @@
 #ifdef __INTELLISENSE__
 #include "format-printer.c"
 #include "../libs/libc/libc.h"
+#include "../libs/libc/format.h"
 #define FORMAT_OPTION_CHARTYPE   CHARACTER_TYPE_CHAR16
 #define FORMAT_OPTION_LOCALE     1 /* Enable locale support. */
 #endif
@@ -45,6 +46,16 @@
 #   error "Invalid character type"
 #endif
 #endif /* !format_T_char */
+
+#ifndef LIBC_FORMAT_REPEAT
+#   if FORMAT_OPTION_CHARTYPE == CHARACTER_TYPE_CHAR
+#      define LIBC_FORMAT_REPEAT libc_format_repeat
+#   elif FORMAT_OPTION_CHARTYPE == CHARACTER_TYPE_CHAR16
+#      define LIBC_FORMAT_REPEAT libc_format_w16repeat
+#   else
+#      define LIBC_FORMAT_REPEAT libc_format_w32repeat
+#   endif
+#endif /* !LIBC_FORMAT_REPEAT */
 
 #ifndef LIBC_FORMAT_HEXDUMP
 #ifdef FORMAT_OPTION_LOCALE
@@ -114,8 +125,6 @@
 
 DECL_BEGIN
 
-#define PRINT_SPACE   PP_CAT2(LIBC_FORMAT_HEXDUMP,_print_space)
-
 #ifndef MAX_SPACE_SIZE
 #define MAX_SPACE_SIZE  64
 #endif
@@ -123,29 +132,29 @@ DECL_BEGIN
 #define MAX_ASCII_SIZE  64
 #endif
 
-PRIVATE ssize_t LIBCCALL
-PRINT_SPACE(PFORMATPRINTER printer,
-            void *closure, size_t count) {
+INTERN ssize_t LIBCCALL
+LIBC_FORMAT_REPEAT(PFORMATPRINTER printer, void *closure,
+                   format_T_char ch, size_t num_repetitions) {
  size_t used_size,bufsize;
  format_T_char *spacebuf; ssize_t result = 0,temp;
- bufsize = MIN(count,MAX_SPACE_SIZE);
+ bufsize = MIN(num_repetitions,MAX_SPACE_SIZE);
  spacebuf = (format_T_char *)alloca(bufsize*sizeof(format_T_char));
 #if FORMAT_OPTION_CHARTYPE == CHARACTER_TYPE_CHAR
- libc_memset(spacebuf,' ',bufsize);
+ libc_memset(spacebuf,ch,bufsize);
 #elif FORMAT_OPTION_CHARTYPE == CHARACTER_TYPE_CHAR16
- libc_memsetw(spacebuf,' ',bufsize);
+ libc_memsetw(spacebuf,ch,bufsize);
 #else
- libc_memsetl(spacebuf,' ',bufsize);
+ libc_memsetl(spacebuf,ch,bufsize);
 #endif
  for (;;) {
-  used_size = MIN(count,bufsize);
-  assert(spacebuf[0] == ' ');
-  assert(spacebuf[used_size-1] == ' ');
+  used_size = MIN(num_repetitions,bufsize);
+  assert(spacebuf[0] == ch);
+  assert(spacebuf[used_size-1] == ch);
   temp = (*printer)(spacebuf,used_size,closure);
   if unlikely(temp < 0) goto err;
   result += temp;
-  if (used_size == count) break;
-  count -= used_size;
+  if (used_size == num_repetitions) break;
+  num_repetitions -= used_size;
  }
  return result;
 err:
@@ -228,8 +237,8 @@ INTERN ssize_t
     PRINT(hex_buf,COMPILER_LENOF(hex_buf));
    }
    if (overflow) {
-    temp = PRINT_SPACE(printer,closure,overflow*
-                       COMPILER_LENOF(hex_buf));
+    temp = LIBC_FORMAT_REPEAT(printer,closure,' ',overflow*
+                              COMPILER_LENOF(hex_buf));
     if unlikely(temp < 0) goto err;
     result += temp;
    }
@@ -251,7 +260,7 @@ INTERN ssize_t
    }
    if (overflow) {
     /* Fill any overflow with space. */
-    temp = PRINT_SPACE(printer,closure,overflow);
+    temp = LIBC_FORMAT_REPEAT(printer,closure,' ',overflow);
     if unlikely(temp < 0) goto err;
     result += temp;
    }
@@ -279,6 +288,7 @@ err:
 #undef format_T_char
 #undef LIBC_FORMAT_HEXDUMP
 #undef LIBC_FORMAT_PRINTF
+#undef LIBC_FORMAT_REPEAT
 #undef PFORMATPRINTER
 
 DECL_END

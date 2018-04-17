@@ -102,6 +102,8 @@ INTDEF ssize_t  LIBCCALL libc_format_w16quote_l(pw16formatprinter printer, void 
 INTDEF ssize_t  LIBCCALL libc_format_w32quote_l(pw32formatprinter printer, void *closure, char32_t const *__restrict text, size_t textlen, u32 flags, locale_t locale);
 INTDEF ssize_t  LIBCCALL libc_format_w16hexdump_l(pw16formatprinter printer, void *closure, void const *__restrict data, size_t size, size_t linesize, u32 flags, locale_t locale);
 INTDEF ssize_t  LIBCCALL libc_format_w32hexdump_l(pw32formatprinter printer, void *closure, void const *__restrict data, size_t size, size_t linesize, u32 flags, locale_t locale);
+INTDEF ssize_t  LIBCCALL libc_format_w16repeat(pw16formatprinter printer, void *closure, char16_t ch, size_t num_repetitions);
+INTDEF ssize_t  LIBCCALL libc_format_w32repeat(pw32formatprinter printer, void *closure, char32_t ch, size_t num_repetitions);
 #ifndef __OPTIMIZE_SIZE__
 #define libc_format_w16quote(printer,closure,text,textlen,flags)         libc_format_w16quote_l(printer,closure,text,textlen,flags,NULL)
 #define libc_format_w32quote(printer,closure,text,textlen,flags)         libc_format_w32quote_l(printer,closure,text,textlen,flags,NULL)

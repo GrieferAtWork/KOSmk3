@@ -30,6 +30,9 @@
 
 __SYSDECL_BEGIN
 
+__LIBC __ssize_t (__LIBCCALL format_wrepeat)(pwformatprinter __printer, void *__closure,
+                                             wchar_t __ch, __size_t __num_repetitions);
+
 __NAMESPACE_STD_BEGIN
 struct tm;
 __NAMESPACE_STD_END

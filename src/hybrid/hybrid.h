@@ -343,6 +343,7 @@ INTDEF ssize_t (LIBCCALL   libc_format_quote)(pformatprinter printer, void *clos
 INTDEF ssize_t (LIBCCALL   libc_format_hexdump)(pformatprinter printer, void *closure, void const *__restrict data, size_t size, size_t linesize, u32 flags);
 INTDEF ssize_t (ATTR_CDECL libc_format_printf)(pformatprinter printer, void *closure, char const *__restrict format, ...);
 INTDEF ssize_t (LIBCCALL   libc_format_vprintf)(pformatprinter printer, void *closure, char const *__restrict format, va_list args);
+INTDEF ssize_t  LIBCCALL   libc_format_repeat(pformatprinter printer, void *closure, char ch, size_t num_repetitions);
 #ifndef CONFIG_LIBC_LIMITED_API
 INTDEF ssize_t (ATTR_CDECL libd_format_printf)(pformatprinter printer, void *closure, char const *__restrict format, ...);
 INTDEF ssize_t (LIBCCALL   libd_format_vprintf)(pformatprinter printer, void *closure, char const *__restrict format, va_list args);

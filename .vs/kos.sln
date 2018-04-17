@@ -696,6 +696,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kos2", "kos2", "{AB26CC51-1
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kos3", "kos3", "{B4101B05-48CA-4968-B84F-B3525124A25A}"
 	ProjectSection(SolutionItems) = preProject
+		..\include\parts\kos3\formatprinter.h = ..\include\parts\kos3\formatprinter.h
 		..\include\parts\kos3\malloc.h = ..\include\parts\kos3\malloc.h
 		..\include\parts\kos3\process.h = ..\include\parts\kos3\process.h
 		..\include\parts\kos3\sched.h = ..\include\parts\kos3\sched.h

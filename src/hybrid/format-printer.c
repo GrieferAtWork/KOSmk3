@@ -164,6 +164,7 @@ EXPORT(__KSYM(format_printf),libc_format_printf);
 EXPORT(__KSYM(format_vprintf),libc_format_vprintf);
 EXPORT(format_quote,libc_format_quote);
 EXPORT(format_hexdump,libc_format_hexdump);
+EXPORT(format_repeat,libc_format_repeat);
 
 #ifndef CONFIG_LIBC_LIMITED_API
 EXPORT(__KSYM(format_printf_l),libc_format_printf_l);

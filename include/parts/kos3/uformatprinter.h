@@ -30,6 +30,9 @@
 
 __SYSDECL_BEGIN
 
+__REDIRECT_W16(__LIBC,,__ssize_t,__LIBCCALL,format_w16repeat,(pw16formatprinter __printer, void *__closure, char16_t __ch, __size_t __num_repetitions),format_wrepeat,(__printer,__closure,__ch,__num_repetitions))
+__REDIRECT_W32(__LIBC,,__ssize_t,__LIBCCALL,format_w32repeat,(pw32formatprinter __printer, void *__closure, char32_t __ch, __size_t __num_repetitions),format_wrepeat,(__printer,__closure,__ch,__num_repetitions))
+
 __NAMESPACE_STD_BEGIN
 struct tm;
 __NAMESPACE_STD_END
