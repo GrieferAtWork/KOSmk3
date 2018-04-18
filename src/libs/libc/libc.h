@@ -126,6 +126,9 @@ DECL_BEGIN
 #define CRT_TTY_EXCEPT       INTERN ATTR_SECTION(".text.crt.except.tty")  /* TTY-related functions */
 #define CRT_KOS              INTERN ATTR_SECTION(".text.crt.kos")         /* KOS-specific functions not found anywhere else. */
 #define CRT_KOS_DL           INTERN ATTR_SECTION(".text.crt.kos.dl")      /* KOS dynamic linking related functions. */
+#define CRT_KOS_DP           INTERN ATTR_SECTION(".text.crt.kos.dp")      /* Deprecated KOS functionality. */
+#define CRT_KOS_DP_DATA      INTERN ATTR_SECTION(".data.crt.kos.dp")      /* Deprecated KOS functionality. */
+#define CRT_KOS_DP_BSS       INTERN ATTR_SECTION(".bss.crt.kos.dp")       /* Deprecated KOS functionality. */
 #define CRT_GLC              INTERN ATTR_SECTION(".text.crt.glc")         /* GLibC-specific functions (ones that are implemented again for better KOS-integration, but still provided for compatibility; e.g. `stat()'). */
 #define CRT_DOS              INTERN ATTR_SECTION(".text.crt.dos")         /* DOS-specific functions. */
 #define CRT_DOS_RARE         INTERN ATTR_SECTION(".text.crt.dos.rare")    /* Rare, DOS-specific text. */

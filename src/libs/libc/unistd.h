@@ -80,9 +80,9 @@ INTDEF int LIBCCALL libc_getgroups(int size, gid_t list[]);
 INTDEF int LIBCCALL libc_setuid(uid_t uid);
 INTDEF int LIBCCALL libc_setgid(gid_t gid);
 /* HANDLES */
-INTDEF int LIBCCALL libc_dup(fd_t fd);
-INTDEF int LIBCCALL libc_dup2(int ofd, int nfd);
-INTDEF int LIBCCALL libc_dup3(int ofd, int nfd, int flags);
+INTDEF fd_t LIBCCALL libc_dup(fd_t fd);
+INTDEF fd_t LIBCCALL libc_dup2(fd_t ofd, fd_t nfd);
+INTDEF fd_t LIBCCALL libc_dup3(fd_t ofd, fd_t nfd, int flags);
 INTDEF int LIBCCALL libc_close(fd_t fd);
 /* FILESYSTEM CONTROL */
 INTDEF struct fsmask LIBCCALL libc_fsmode(struct fsmask new_mode);
@@ -459,18 +459,18 @@ INTDEF pid_t LIBCCALL libc_dos_fspawnveat(int mode, fd_t dfd, char const *path, 
 INTDEF pid_t LIBCCALL libc_dos_fspawnvpat(int mode, char const *file, char *const argv[], int flags);
 INTDEF pid_t LIBCCALL libc_dos_fspawnvpeat(int mode, char const *file, char *const argv[], char *const envp[], int flags);
 /* UNISTD W/ exception support */
-INTDEF int ATTR_CDECL libc_Xopen(char const *filename, oflag_t flags, ...);
-INTDEF int ATTR_CDECL libc_Xopenat(fd_t dfd, char const *filename, oflag_t flags, ...);
-INTDEF int LIBCCALL libc_Xcreat(char const *file, mode_t mode);
+INTDEF fd_t ATTR_CDECL libc_Xopen(char const *filename, oflag_t flags, ...);
+INTDEF fd_t ATTR_CDECL libc_Xopenat(fd_t dfd, char const *filename, oflag_t flags, ...);
+INTDEF fd_t LIBCCALL libc_Xcreat(char const *file, mode_t mode);
 INTDEF ssize_t ATTR_CDECL libc_Xfcntl(fd_t fd, unsigned int cmd, ...);
 INTDEF ssize_t ATTR_CDECL libc_Xioctl(fd_t fd, unsigned long cmd, ...);
-INTDEF void LIBCCALL libc_Xpipe(int pipedes[2]);
-INTDEF void LIBCCALL libc_Xpipe2(int pipedes[2], oflag_t flags);
+INTDEF void LIBCCALL libc_Xpipe(fd_t pipedes[2]);
+INTDEF void LIBCCALL libc_Xpipe2(fd_t pipedes[2], oflag_t flags);
 INTDEF void LIBCCALL libc_Xfsync(fd_t fd);
 INTDEF void LIBCCALL libc_Xfdatasync(fd_t fd);
-INTDEF int LIBCCALL libc_Xdup(fd_t fd);
-INTDEF int LIBCCALL libc_Xdup2(int ofd, int nfd);
-INTDEF int LIBCCALL libc_Xdup3(int ofd, int nfd, int flags);
+INTDEF fd_t LIBCCALL libc_Xdup(fd_t fd);
+INTDEF fd_t LIBCCALL libc_Xdup2(fd_t ofd, fd_t nfd);
+INTDEF fd_t LIBCCALL libc_Xdup3(fd_t ofd, fd_t nfd, int flags);
 INTDEF void LIBCCALL libc_Xchdir(char const *path);
 INTDEF void LIBCCALL libc_Xfchdirat(fd_t dfd, char const *path, int flags);
 INTDEF void LIBCCALL libc_Xfchdir(fd_t fd);

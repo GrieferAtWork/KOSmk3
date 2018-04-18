@@ -1368,14 +1368,14 @@ DEFINE_INTERN_ALIAS(libc_Xftell,libc_Xftello);
 DEFINE_INTERN_ALIAS(libc_ftell_unlocked,libc_ftello_unlocked);
 DEFINE_INTERN_ALIAS(libc_Xftell_unlocked,libc_Xftello_unlocked);
 #endif
-DEFINE_INTERN_ALIAS(fseek,libc_fseek);
-DEFINE_INTERN_ALIAS(Xfseek,libc_Xfseek);
-DEFINE_INTERN_ALIAS(fseek_unlocked,libc_fseek_unlocked);
-DEFINE_INTERN_ALIAS(Xfseek_unlocked,libc_Xfseek_unlocked);
-DEFINE_INTERN_ALIAS(ftell,libc_ftell);
-DEFINE_INTERN_ALIAS(Xftell,libc_Xftell);
-DEFINE_INTERN_ALIAS(ftell_unlocked,libc_ftell_unlocked);
-DEFINE_INTERN_ALIAS(Xftell_unlocked,libc_Xftell_unlocked);
+EXPORT(fseek,libc_fseek);
+EXPORT(Xfseek,libc_Xfseek);
+EXPORT(fseek_unlocked,libc_fseek_unlocked);
+EXPORT(Xfseek_unlocked,libc_Xfseek_unlocked);
+EXPORT(ftell,libc_ftell);
+EXPORT(Xftell,libc_Xftell);
+EXPORT(ftell_unlocked,libc_ftell_unlocked);
+EXPORT(Xftell_unlocked,libc_Xftell_unlocked);
 
 
 #undef getc

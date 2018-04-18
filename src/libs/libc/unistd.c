@@ -154,9 +154,9 @@ INTERN gid_t LIBCCALL libc_getegid(void) { libc_seterrno(ENOSYS); return -1; }
 INTERN int LIBCCALL libc_getgroups(int size, gid_t list[]) { libc_seterrno(ENOSYS); return -1; }
 INTERN int LIBCCALL libc_setuid(uid_t uid) { libc_seterrno(ENOSYS); return -1; }
 INTERN int LIBCCALL libc_setgid(gid_t gid) { libc_seterrno(ENOSYS); return -1; }
-INTERN int LIBCCALL libc_dup(fd_t fd) { return FORWARD_SYSTEM_VALUE(sys_dup(fd)); }
-INTERN int LIBCCALL libc_dup2(int ofd, int nfd) { return libc_dup3(ofd,nfd,0); }
-INTERN int LIBCCALL libc_dup3(int ofd, int nfd, int flags) { return FORWARD_SYSTEM_VALUE(sys_dup3(ofd,nfd,flags)); }
+INTERN fd_t LIBCCALL libc_dup(fd_t fd) { return FORWARD_SYSTEM_VALUE(sys_dup(fd)); }
+INTERN fd_t LIBCCALL libc_dup2(fd_t ofd, fd_t nfd) { return libc_dup3(ofd,nfd,0); }
+INTERN fd_t LIBCCALL libc_dup3(fd_t ofd, fd_t nfd, int flags) { return FORWARD_SYSTEM_VALUE(sys_dup3(ofd,nfd,flags)); }
 INTERN int LIBCCALL libc_close(fd_t fd) { return FORWARD_SYSTEM_ERROR(sys_close(fd)); }
 INTERN int LIBCCALL libc_chdir(char const *path) { return FORWARD_SYSTEM_ERROR(sys_chdir(path)); }
 CRT_DOS int LIBCCALL libc_dos_chdir(char const *path) { return libc_fchdirat(AT_FDCWD,path,AT_DOSPATH); }
@@ -247,9 +247,9 @@ CRT_DOS_EXT char *LIBCCALL libc_dos_frealpath(fd_t fd, char *resolved, size_t bu
 INTERN char *LIBCCALL libc_canonicalize_file_name(char const *name) { return libc_realpath(name,NULL); }
 CRT_DOS_EXT char *LIBCCALL libc_dos_canonicalize_file_name(char const *name) { return libc_dos_realpath(name,NULL); }
 
-INTERN char *LIBCCALL libc_xfdname(fd_t fd, int type, char *buf, size_t bufsize) { return libc_xfrealpathat(fd,libc_empty_string,AT_EMPTY_PATH,buf,bufsize,type); }
+CRT_KOS_DP char *LIBCCALL libc_xfdname(fd_t fd, int type, char *buf, size_t bufsize) { return libc_xfrealpathat(fd,libc_empty_string,AT_EMPTY_PATH,buf,bufsize,type); }
 CRT_DOS_EXT char *LIBCCALL libc_dos_xfdname(fd_t fd, int type, char *buf, size_t bufsize) { return libc_xfrealpathat(fd,libc_empty_string,AT_EMPTY_PATH,buf,bufsize,type|REALPATH_FDOSPATH); }
-INTERN ssize_t LIBCCALL libc_xfdname2(fd_t fd, int type, char *buf, size_t bufsize) { return libc_xfrealpathat2(fd,libc_empty_string,AT_EMPTY_PATH,buf,bufsize,type); }
+CRT_KOS_DP ssize_t LIBCCALL libc_xfdname2(fd_t fd, int type, char *buf, size_t bufsize) { return libc_xfrealpathat2(fd,libc_empty_string,AT_EMPTY_PATH,buf,bufsize,type); }
 CRT_DOS_EXT ssize_t LIBCCALL libc_dos_xfdname2(fd_t fd, int type, char *buf, size_t bufsize) { return libc_xfrealpathat2(fd,libc_empty_string,AT_EMPTY_PATH,buf,bufsize,type|REALPATH_FDOSPATH); }
 INTERN long int LIBCCALL libc_fpathconfat(fd_t dfd, char const *file, int name, int flags) { return FORWARD_SYSTEM_VALUE(sys_xfpathconfat(dfd,file,name,flags)); }
 CRT_DOS_EXT long int LIBCCALL libc_dos_fpathconfat(fd_t dfd, char const *file, int name, int flags) { return libc_fpathconfat(dfd,file,name,flags|AT_DOSPATH); }
@@ -1862,7 +1862,7 @@ EXPORT(__DSYMw32(wfspawnvpeat),    libc_dos_w32fspawnvpeat);
 
 EXPORT(Xopen,libc_Xopen);
 EXPORT(Xopen64,libc_Xopen);
-CRT_EXCEPT int ATTR_CDECL
+CRT_EXCEPT fd_t ATTR_CDECL
 libc_Xopen(char const *filename, oflag_t flags, ...) {
  int COMPILER_IGNORE_UNINITIALIZED(result);
  va_list __EXCEPTVAR_VALIST args;
@@ -1877,16 +1877,17 @@ libc_Xopen(char const *filename, oflag_t flags, ...) {
 
 EXPORT(Xcreat,libc_Xcreat);
 EXPORT(Xcreat64,libc_Xcreat);
-CRT_EXCEPT int LIBCCALL libc_Xcreat(char const *file, mode_t mode) {
+CRT_EXCEPT fd_t LIBCCALL libc_Xcreat(char const *file, mode_t mode) {
  return libc_Xopenat(AT_FDCWD,file,O_CREAT|O_WRONLY|O_TRUNC,mode);
 }
 EXPORT(Xpipe,libc_Xpipe);
-CRT_EXCEPT void LIBCCALL libc_Xpipe(int pipedes[2]) {
+CRT_EXCEPT void LIBCCALL
+libc_Xpipe(fd_t pipedes[2]) {
  libc_Xpipe2(pipedes,0);
 }
 EXPORT(Xdup2,libc_Xdup2);
-CRT_EXCEPT int LIBCCALL
-libc_Xdup2(int ofd, int nfd) {
+CRT_EXCEPT fd_t LIBCCALL
+libc_Xdup2(fd_t ofd, fd_t nfd) {
  return libc_Xdup3(ofd,nfd,0);
 }
 EXPORT(Xxfrealpath2,libc_Xxfrealpath2);
