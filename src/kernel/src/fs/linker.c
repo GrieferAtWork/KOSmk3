@@ -868,7 +868,7 @@ recheck_apps:
     }
     if (result->a_module == mod) {
      atomic_rwlock_endread(&apps->va_lock);
-     return result;
+     goto got_application;
     }
    }
    atomic_rwlock_endread(&apps->va_lock);
@@ -908,6 +908,8 @@ not_cached:
    application_decref(result);
    patcher_fini((struct module_patcher *)&patcher);
   }
+
+got_application:
   /* Add the application to the list of requirements of the current patcher. */
   assert(self->mp_requirec <= self->mp_requirea);
   if (self->mp_requirec == self->mp_requirea) {
