@@ -745,9 +745,9 @@ nextfmt:
  case 'I':
   ch = *format++;
   /* */if (ch == '8') length = LENGTH_I8;
-  else if (ch == '1' && *format == '6') { length = LENGTH_I16; }
-  else if (ch == '3' && *format == '2') { length = LENGTH_I32; }
-  else if (ch == '6' && *format == '4') { case 'j': length = LENGTH_I64; }
+  else if (ch == '1' && *format == '6') { ++format; length = LENGTH_I16; }
+  else if (ch == '3' && *format == '2') { ++format; length = LENGTH_I32; }
+  else if (ch == '6' && *format == '4') { ++format; case 'j': length = LENGTH_I64; }
   else { --format; length = LENGTH_SIZE; }
   goto nextfmt;
 
