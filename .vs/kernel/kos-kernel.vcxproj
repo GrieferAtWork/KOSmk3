@@ -145,6 +145,7 @@
     <ClCompile Include="..\..\src\kernel\src\sched\rwlock.c" />
     <ClCompile Include="..\..\src\kernel\src\sched\semaphore.c" />
     <ClCompile Include="..\..\src\kernel\src\sched\signal.c" />
+    <ClCompile Include="..\..\src\kernel\src\sched\suspend.c" />
     <ClCompile Include="..\..\src\kernel\src\sched\task.c" />
     <ClCompile Include="..\..\src\kernel\src\sched\task_weakref.c" />
     <ClCompile Include="..\..\src\kernel\src\sched\unshare.c" />
@@ -252,6 +253,7 @@
     <ClInclude Include="..\..\src\kernel\include\sched\semaphore.h" />
     <ClInclude Include="..\..\src\kernel\include\sched\signal.h" />
     <ClInclude Include="..\..\src\kernel\include\sched\stat.h" />
+    <ClInclude Include="..\..\src\kernel\include\sched\suspend.h" />
     <ClInclude Include="..\..\src\kernel\include\sched\task.h" />
     <ClInclude Include="..\..\src\kernel\include\sched\taskref.h" />
     <ClInclude Include="..\..\src\kernel\include\sched\userstack.h" />

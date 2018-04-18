@@ -462,6 +462,9 @@
     <ClCompile Include="..\..\src\kernel\src\sched\affinity.c">
       <Filter>kernel\src\sched</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\sched\suspend.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">
@@ -757,6 +760,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\kernel\include\i386-kos\ioport.h">
       <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\suspend.h">
+      <Filter>kernel\include\sched</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

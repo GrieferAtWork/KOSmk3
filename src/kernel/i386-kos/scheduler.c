@@ -1197,8 +1197,9 @@ serve_rpc:
   default: break;
   }
 #if 1
-  if (info.e_error.e_code == E_SEGFAULT/* &&
-     (uintptr_t)info.e_error.e_segfault.sf_vaddr >= KERNEL_BASE*/)
+  if (info.e_error.e_code == E_SEGFAULT &&
+   !((uintptr_t)info.e_error.e_segfault.sf_reason & X86_SEGFAULT_FUSER) &&
+      info.e_error.e_segfault.sf_vaddr != 0)
       goto unhandled_exception;
 #endif
 
@@ -1398,14 +1399,16 @@ serve_rpc:
 
    memcpy(error,(void *)&info,sizeof(struct exception_info));
 
-   /* TODO: Special actions, such as SIG_SUSP, etc. */
-
-   /* Redirect user-space to perform this action. */
-   arch_posix_signals_redirect_action(context,
-                                     &sinfo,
-                                      action_copy,
-                                      TASK_USERCTX_FAFTERINTERRUPT);
-
+   if (action_copy->sa_handler <= __SIG_SPECIAL_MAX) {
+    /* TODO: Special actions, such as SIG_SUSP, etc. */
+    goto cannot_signal;
+   } else {
+    /* Redirect user-space to perform this action. */
+    arch_posix_signals_redirect_action(context,
+                                      &sinfo,
+                                       action_copy,
+                                       TASK_USERCTX_FAFTERINTERRUPT);
+   }
    {
     /* Get the currently active sigblock set. */
     byte_t *iter,*end,*dst;

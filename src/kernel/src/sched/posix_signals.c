@@ -32,6 +32,7 @@
 #include <sched/task.h>
 #include <sched/group.h>
 #include <sched/pid.h>
+#include <sched/suspend.h>
 #include <alloca.h>
 #include <string.h>
 #include <assert.h>
@@ -598,60 +599,15 @@ PUBLIC u8 const signal_default_actions[_NSIG] = {
 };
 #pragma GCC diagnostic pop
 
-PRIVATE void KCALL resume_thread(void *arg) {
- ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FSUSPENDED);
+PRIVATE void KCALL resume_thread(void *UNUSED(arg)) {
+ task_resume(THIS_TASK);
 }
 
 PRIVATE void KCALL
-do_suspend_thread(void *EXCEPT_VAR arg,
-                  struct cpu_hostcontext_user *__restrict context,
-                  unsigned int UNUSED(mode)) {
- u16 EXCEPT_VAR old_flags;
- /* Enable recursive RPC handling, allowing other RPC functions to be called from here.
-  * If we didn't do this, we'd be stuck because other threads would be unable
-  * to continue this one if they couldn't schedule new RPC callbacks. */
- old_flags = ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_FRPCRECURSION);
- for (;;) {
-  TRY {
-   /* Sleep until someone unsets the suspended bit and wakes us. */
-   PREEMPTION_DISABLE();
-   if (!PERTASK_TESTF(this_task.t_state,TASK_STATE_FSUSPENDED)) {
-    PREEMPTION_ENABLE();
-    break;
-   }
-   COMPILER_READ_BARRIER();
-   if (task_serve()) continue; /* Serve RPC functions. */
-   task_sleep(JTIME_INFINITE);
-  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-   if (error_code() == E_INTERRUPT &&
-       PERTASK_TESTF(this_task.t_state,TASK_STATE_FSUSPENDED)) {
-    /* For interrupts, re-schedule the suspension-wait RPC. */
-    TRY {
-     task_queue_rpc_user(THIS_TASK,&do_suspend_thread,arg,
-                         TASK_RPC_NORMAL|TASK_RPC_USER);
-    } CATCH (E_INTERRUPT) {
-    }
-   } else {
-    /* Stop suspension for all other signals. */
-    ATOMIC_FETCHAND(THIS_TASK->t_state,~(TASK_STATE_FSUSPENDED));
-   }
-   /* Propagate all errors. */
-   if (!(old_flags & TASK_FRPCRECURSION))
-         ATOMIC_FETCHAND(THIS_TASK->t_flags,~(TASK_FRPCRECURSION));
-   error_rethrow();
-  }
- }
- /* Delete the RPC recursion flag once again. */
- if (!(old_flags & TASK_FRPCRECURSION))
-       ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_FRPCRECURSION);
-}
-PRIVATE void KCALL
-suspend_thread(void *arg, struct cpu_hostcontext_user *__restrict context,
-               unsigned int mode) {
- if (ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FSUSPENDED) &
-                                       TASK_STATE_FSUSPENDED)
-     return; /* Already suspended. (Recurse backwards to the previous sleep location) */
- do_suspend_thread(arg,context,mode);
+suspend_thread(void *UNUSED(arg),
+               struct cpu_hostcontext_user *__restrict UNUSED(context),
+               unsigned int UNUSED(mode)) {
+ task_suspend(JTIME_INFINITE);
 }
 
 /* Handle (process) a signal. */
@@ -677,13 +633,12 @@ special_action:
   case SIGNAL_ACTION_CONT:
    /* Unset the suspended-flag. */
    task_signal_event(CLD_CONTINUED,__W_CONTINUED);
-   if (ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FSUSPENDED) &
-                                          (TASK_STATE_FSUSPENDED)) {
+   if (task_resume(THIS_TASK)) {
     if (!is_thread_signal) {
      /* Continue all other threads in this process. */
      taskgroup_queue_rpc(&resume_thread,NULL,
-                         TASK_RPC_NORMAL|
-                         TASK_RPC_SINGLE);
+                          TASK_RPC_NORMAL|
+                          TASK_RPC_SINGLE);
     }
    }
    break;
@@ -695,10 +650,10 @@ do_action_stop:
    if (!is_thread_signal) {
     /* Suspend all other threads in this process. */
     taskgroup_queue_rpc_user(&suspend_thread,NULL,
-                             TASK_RPC_NORMAL|
-                             TASK_RPC_USER);
+                              TASK_RPC_NORMAL|
+                              TASK_RPC_USER);
    }
-   suspend_thread(NULL,context,0);
+   task_suspend(JTIME_INFINITE);
   } break;
 
   case SIGNAL_ACTION_CORE:

@@ -204,12 +204,9 @@ DATDEF struct cpu *const cpu_vector[CONFIG_MAX_CPU_COUNT];
                                              *    NOTE: This flag may be set sporadically to temporarily
                                              *          wake the task.
                                              *    NOTE: Only the task itself is allowed to unset this bit. */
-#define TASK_STATE_FSUSPENDED    0x0004     /* [lock(PRIVATE(THIS_TASK))] The thread has been suspended.
-                                             *  To resume the thread, you must schedule an RPC function
-                                             *  that unsets this bit, a behavior that is mirrored by
-                                             *  raising `SIGCONT' in user-space.
-                                             *  This bit is used to implement `SIGSTOP' / `SIGCONT' and should
-                                             *  not be used for other functions emulating suspend/continue. */
+#define TASK_STATE_FSUSPENDED    0x0004     /* [lock(SET(THIS_TASK),UNSET(ATOMIC))] The thread has been suspended.
+                                             *  To resume the thread, you must atomically unset this bit
+                                             *  and use `task_wake()' to wake the thread. */
 #define TASK_STATE_FTERMINATED   0x0008     /* [lock(WRITE_ONCE,SET(THIS_TASK))]
                                              *  Set before the join-signal for this task is broadcast.
                                              *  NOTE: This bit is set while a lock to the join-signal
