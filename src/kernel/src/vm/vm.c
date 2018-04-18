@@ -819,7 +819,7 @@ PUBLIC void FCALL vm_syncall(void) {
  struct x86_ipi ipi;
  ipi.ipi_type = X86_IPI_INVLPG_ALL;
  ipi.ipi_flag = X86_IPI_FNORMAL;
- x86_ipi_boardcast(&ipi,true);
+ x86_ipi_broadcast(&ipi,true);
 }
 #endif
 

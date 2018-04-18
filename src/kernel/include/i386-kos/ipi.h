@@ -119,7 +119,7 @@ x86_ipi_send(struct cpu *__restrict target,
 /* Broadcast an IPI to all CPUs (including the
  * calling when `also_send_to_self' is true) */
 FUNDEF ASYNCSAFE void KCALL
-x86_ipi_boardcast(struct x86_ipi const *__restrict ipi,
+x86_ipi_broadcast(struct x86_ipi const *__restrict ipi,
                   bool also_send_to_self);
 
 /* Lock that must be held while suspending other CPUs. */

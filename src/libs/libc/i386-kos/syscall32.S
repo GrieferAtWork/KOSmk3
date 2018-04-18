@@ -910,8 +910,8 @@ EXPORT(Xmremap,libc_Xmremap)
 
 
 DEFINE_INTERN_ALIAS(libc_umask,sys_umask)
-EXPORT(umask,libc_umask)
-EXPORT(_umask,libc_umask) /* DOS Alias */
+EXPORT(__KSYM(umask),libc_umask)
+EXPORT(__DSYM(_umask),libc_umask) /* DOS Alias */
 
 DEFINE_INTERN_ALIAS(libc_sync,sys_sync)
 EXPORT(sync,libc_sync)

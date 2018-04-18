@@ -53,6 +53,17 @@ INTDEF void KCALL x86_redirect_preempted_userspace(struct task *__restrict threa
 PUBLIC ATTR_PERCPU int x86_cpu_suspended = 0;
 
 
+/* Per-CPU IPI buffer.
+ * NOTE: This buffer _MUST_ be allocated statically, as we'd
+ *       never be be to get this working if it used kmalloc(),
+ *       as this too must be 100% async-safe. */
+INTERN ATTR_PERCPU ATOMIC_DATA u32 ipi_valid; /* Bitset of initialized IPIs. (NOTE: Bits in this set may only be unset by THIS_CPU). */
+INTERN ATTR_PERCPU ATOMIC_DATA u32 ipi_alloc; /* Bitset of allocated IPIs. (NOTE: Bits in this set may only be unset by THIS_CPU). */
+INTERN ATTR_PERCPU struct x86_ipi ipi_buffer[32];
+
+
+
+
 /* Handle an IPI request.
  * NOTE: The implementation of this function is async-safe.
  *       Additionally, this function must not throw any exceptions.
@@ -133,11 +144,13 @@ x86_ipi_handle(struct x86_ipi const *__restrict ipi,
   if (!ipi_acknowledged)
        lapic_write(APIC_EOI,APIC_EOI_FSIGNAL);
   COMPILER_WRITE_BARRIER();
+  /* TODO: Disable scheduling on this CPU */
   for (;;) {
    COMPILER_READ_BARRIER();
-   if (PERCPU(x86_cpu_suspended) <= 0)
+   if (PERCPU(x86_cpu_suspended) < 1)
        break; /* A `X86_IPI_RESUME_CPU' IPI was received. */
-   /* Because STI only enables interrupts after the next exception,
+#if 1
+   /* Because STI only enables interrupts after the next instruction,
     * this code actually doesn't introduce a race condition. */
    __asm__ __volatile__("sti\n" /* Enable interrupts so we can receive `X86_IPI_RESUME_CPU' */
                         "hlt\n" /* Wait for interrupts. */
@@ -145,7 +158,9 @@ x86_ipi_handle(struct x86_ipi const *__restrict ipi,
                         :
                         :
                         : "memory");
+#endif
   }
+  /* TODO: Re-enable scheduling on this CPU */
   /* Indicate that we've already acknowledged the IPI */
   return true;
 
@@ -173,33 +188,30 @@ x86_ipi_handle(struct x86_ipi const *__restrict ipi,
 
 
 
-/* Per-CPU IPI buffer.
- * NOTE: This buffer _MUST_ be allocated statically, as we'd
- *       never be be to get this working if it used kmalloc(),
- *       as this too must be 100% async-safe. */
-INTERN ATTR_PERCPU ATOMIC_DATA u32 ipi_valid; /* Bitset of initialized IPIs. (NOTE: Bits in this set may only be unset by THIS_CPU). */
-INTERN ATTR_PERCPU ATOMIC_DATA u32 ipi_alloc; /* Bitset of allocated IPIs. (NOTE: Bits in this set may only be unset by THIS_CPU). */
-INTERN ATTR_PERCPU struct x86_ipi ipi_buffer[32];
-
-
 INTERN NOIRQ bool KCALL x86_ipi_process(void) {
  u32 valid_mask; unsigned int ipi_index;
- bool result = false;
+ bool result = false; struct x86_ipi ipi;
  while ((valid_mask = ATOMIC_LOAD(PERCPU(ipi_valid))) != 0) {
   /* Find the first valid IPI index. */
   ipi_index = 0;
   while (!(valid_mask & (1 << ipi_index))) ++ipi_index;
-
-  /* Handle this IPI. */
-  result |= x86_ipi_handle(&PERCPU(ipi_buffer)[ipi_index],result);
-
+  /* Must copy the IPI to prevent recursive IPIs (like SUSPEND)
+   * from be re-executed (and causing a deadlock) when RESUME arrives.
+   * Similarly, we must deallocate the IPI before executive is (see below) */
+  memcpy(&ipi,&PERCPU(ipi_buffer)[ipi_index],sizeof(struct x86_ipi));
   valid_mask = ~(1 << ipi_index);
+  COMPILER_READ_BARRIER();
   /* Unset the VALID and ALLOC bits for this IPI.
    * NOTE: The order here is important because other CPUs first
    *       look at the `ipi_alloc' bitset before assuming that any
    *       ZERO-bit within implies a mirrored ZERO-bit in `ipi_valid'. */
   ATOMIC_FETCHAND(PERCPU(ipi_valid),valid_mask);
   ATOMIC_FETCHAND(PERCPU(ipi_alloc),valid_mask);
+  COMPILER_BARRIER();
+
+  /* Handle this IPI. */
+  result |= x86_ipi_handle(&ipi,result);
+
  }
  return result;
 }
@@ -213,7 +225,7 @@ INTERN NOIRQ bool KCALL x86_ipi_process(void) {
 PUBLIC ASYNCSAFE void KCALL
 x86_ipi_send(struct cpu *__restrict target,
              struct x86_ipi const *__restrict ipi) {
- u16 flags;
+ u16 flags; pflag_t was;
  /* Ensure that the keep-core flag is set, so we can
   * safely compare `target' against the current CPU
   * without running the risk of being moved to another CPU.
@@ -222,15 +234,13 @@ x86_ipi_send(struct cpu *__restrict target,
   */
 restart:
  flags = ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_FKEEPCORE);
+ was = PREEMPTION_PUSHOFF();
  if (THIS_CPU == target) {
   /* Just handle it ourselves */
-  pflag_t was = PREEMPTION_PUSHOFF();
   x86_ipi_handle(ipi,true);
-  PREEMPTION_POP(was);
  } else {
-  u32 alloc_mask; pflag_t was;
+  u32 alloc_mask;
   unsigned int my_bit;
-  was = PREEMPTION_PUSHOFF();
   assert(X86_HAVE_LAPIC);
   /* Allocate an IPI on the target CPU. */
   do {
@@ -241,7 +251,7 @@ restart:
     PREEMPTION_POP(was);
     if (!(flags&TASK_FKEEPCORE))
           ATOMIC_FETCHAND(THIS_TASK->t_flags,~TASK_FKEEPCORE);
-    task_yield();
+    task_tryyield();
     goto restart;
    }
    /* Find the first, free IPI slot. */
@@ -269,8 +279,8 @@ restart:
               APIC_ICR0_DEST_PHYSICAL |
               APIC_ICR0_FASSERT |
               APIC_ICR0_TARGET_FICR1);
-  PREEMPTION_POP(was);
  }
+ PREEMPTION_POP(was);
  if (!(flags&TASK_FKEEPCORE))
        ATOMIC_FETCHAND(THIS_TASK->t_flags,~TASK_FKEEPCORE);
 }
@@ -279,7 +289,7 @@ restart:
 /* Broadcast an IPI to all CPUs (including the
  * calling when `also_send_to_self' is true) */
 FUNDEF ASYNCSAFE void KCALL
-x86_ipi_boardcast(struct x86_ipi const *__restrict ipi,
+x86_ipi_broadcast(struct x86_ipi const *__restrict ipi,
                   bool also_send_to_self) {
  u32 alloc_mask; pflag_t was; cpuid_t cpunum;
  unsigned int my_bit; u16 flags; struct cpu *caller;
@@ -311,7 +321,7 @@ restart:
     PREEMPTION_POP(was);
     if (!(flags&TASK_FKEEPCORE))
           ATOMIC_FETCHAND(THIS_TASK->t_flags,~TASK_FKEEPCORE);
-    task_yield();
+    task_tryyield();
     goto restart;
    }
    /* Find the first, free IPI slot. */
@@ -373,7 +383,7 @@ PUBLIC bool KCALL x86_unicore_begin(void) {
  ipi.ipi_type = X86_IPI_SUSPEND_CPU;
  ipi.ipi_flag = X86_IPI_FNORMAL;
  /* Broadcast our request for all other CPUs to suspend execution. */
- x86_ipi_boardcast(&ipi,false);
+ x86_ipi_broadcast(&ipi,false);
  /* Wait for all CPUs to become suspended. */
  caller = THIS_CPU;
  for (;;) {
@@ -400,7 +410,7 @@ PUBLIC void KCALL x86_unicore_end(void) {
  ipi.ipi_type = X86_IPI_RESUME_CPU;
  ipi.ipi_flag = X86_IPI_FNORMAL;
  /* Broadcast our request for all other CPUs to resume execution. */
- x86_ipi_boardcast(&ipi,false);
+ x86_ipi_broadcast(&ipi,false);
  mutex_put(&x86_ipi_suspension_lock);
 }
 
