@@ -727,7 +727,7 @@ ps2_detect_threadmain(void *UNUSED(arg)) {
 }
 
 
-DEFINE_DRIVER_PREINIT(ps2_initialize);
+DEFINE_DRIVER_INIT(ps2_initialize);
 PRIVATE ATTR_USED ATTR_FREETEXT void KCALL ps2_initialize(void) {
  REF struct task *EXCEPT_VAR worker;
  /* Make sure both ports are disabled while we configure PS/2. */
@@ -752,10 +752,20 @@ PRIVATE ATTR_USED ATTR_FREETEXT void KCALL ps2_initialize(void) {
                    &ps2_detect_threadmain,
                     NULL);
 #ifndef CONFIG_NO_SMP
+#if 0 /* Although this does work, it is slow A.F. because of the enormous
+       * number of IPIs that need to be sent to the secondary CPU.
+       * (All the PS/2 interrupts happen on the boot CPU, but to wake
+       *  a thread running on a secondary core, we must send in close
+       *  to 50 additional interrupts, each coming with a slight delay)
+       * And I'm not speaking about a couple of milli-seconds. No.
+       * As far as I can tell, _not_ running this on a secondary core
+       * reduces boot time by almost 1/2 of a second.
+       * >> So just use same-core multithreading for this one... */
   /* Just to speed up booting a little bit more, have this
    * worker run on the second CPU if we have more than one. */
   if (cpu_count > 1)
       worker->t_cpu = cpu_vector[1];
+#endif
 #endif /* !CONFIG_NO_SMP */
 
   task_start(worker);
@@ -766,6 +776,10 @@ PRIVATE ATTR_USED ATTR_FREETEXT void KCALL ps2_initialize(void) {
  } FINALLY {
   task_decref(worker);
  }
+ /* Yield once to kick-start the PS/2 detection function.
+  * We're going to have to join it in init.c anyways, so
+  * might as well cause it to start as soon as possible. */
+ task_yield();
 }
 
 
