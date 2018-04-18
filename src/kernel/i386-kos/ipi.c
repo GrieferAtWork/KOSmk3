@@ -20,6 +20,8 @@
 #define GUARD_KERNEL_I386_KOS_IPI_C 1
 #define _KOS_SOURCE 1
 
+#include "scheduler.h"
+
 #include <hybrid/compiler.h>
 #include <kos/types.h>
 #include <i386-kos/apic.h>
@@ -42,7 +44,8 @@ STATIC_ASSERT(sizeof(struct x86_ipi) == X86_IPI_SIZE);
 
 
 INTDEF void KCALL x86_scheduler_loadpending(void);
-INTDEF bool KCALL x86_scheduler_localwake(struct task *__restrict thread);
+INTDEF NOIRQ bool KCALL x86_scheduler_localwake(struct task *__restrict thread);
+INTDEF NOIRQ bool KCALL x86_scheduler_localwake_p(struct task *prev, struct task *__restrict thread);
 INTDEF void KCALL x86_redirect_preempted_userspace(struct task *__restrict thread);
 
 
@@ -61,6 +64,18 @@ INTERN ATTR_PERCPU ATOMIC_DATA u32 ipi_valid; /* Bitset of initialized IPIs. (NO
 INTERN ATTR_PERCPU ATOMIC_DATA u32 ipi_alloc; /* Bitset of allocated IPIs. (NOTE: Bits in this set may only be unset by THIS_CPU). */
 INTERN ATTR_PERCPU struct x86_ipi ipi_buffer[32];
 
+/* Load the context of the given thread (next_task), which
+ * must the the currently active thread on the calling CPU,
+ * without saving the state of the calling thread.
+ * This function is called at the end of `task_exit()' cleanup in
+ * order to load the context of whatever that should be switched to.
+ * NOTE: When entered using a `jmp', don't modify the stack of
+ *       the old task, meaning that this is function can be used
+ *       to switch task contexts in situations where it is unclear
+ *       if the calling thread is still alive. */
+INTDEF NOIRQ ATTR_NORETURN void FCALL
+x86_load_context(struct task *__restrict next_task,
+                 PHYS uintptr_t old_pdir);
 
 
 
@@ -71,7 +86,10 @@ INTERN ATTR_PERCPU struct x86_ipi ipi_buffer[32];
  *       context of whatever task had been running when the
  *       interrupt occurred.
  * NOTE: This function is executed with interrupts disabled. */
-INTERN NOIRQ bool KCALL
+#define X86_IPI_CONTINUE      0x00
+#define X86_IPI_ACKNOWLEDGED  0x01
+#define X86_IPI_STOP          0x02
+INTERN NOIRQ int KCALL
 x86_ipi_handle(struct x86_ipi const *__restrict ipi,
                bool ipi_acknowledged) {
  assert(!PREEMPTION_ENABLED());
@@ -106,6 +124,87 @@ x86_ipi_handle(struct x86_ipi const *__restrict ipi,
   x86_scheduler_loadpending();
   break;
 
+ {
+  struct task *thread;
+ case X86_IPI_UNSCHEDULE:
+  thread = ipi->ipi_unschedule.us_thread;
+  if (thread->t_cpu != THIS_CPU) {
+   /* The thread is being hosted elsewhere. */
+   *ipi->ipi_unschedule.us_status = X86_IPI_UNSCHEDULE_RETRY;
+  } else if (thread->t_flags & TASK_FKEEPCORE) {
+   /* The thread can't be moved right now. */
+   *ipi->ipi_unschedule.us_status = X86_IPI_UNSCHEDULE_KEEP;
+  } else if (thread->t_state & (TASK_STATE_FTERMINATING|TASK_STATE_FTERMINATED)) {
+   /* The thread is dead (or dying). */
+   *ipi->ipi_unschedule.us_status = X86_IPI_UNSCHEDULE_DEAD;
+  } else if (thread != THIS_TASK) {
+   /* Make sure to load pending tasks first, just in case
+    * the given thread hasn't actually been started, yet. */
+   x86_scheduler_loadpending();
+   COMPILER_BARRIER();
+   /* Simple case: Unschedule some secondary thread. */
+   if (thread->t_state & TASK_STATE_FSLEEPING) {
+    LIST_REMOVE(thread,t_sched.sched_list);
+   } else {
+    RING_REMOVE(thread,t_sched.sched_ring);
+   }
+   /* Successfully unscheduled the thread.
+    * The sender of the IPI must now inherit the
+    * reference that used to be held by the scheduler. */
+   *ipi->ipi_unschedule.us_status = X86_IPI_UNSCHEDULE_OK;
+  } else {
+   /* Special case: The interrupted thread should be unscheduled.
+    * In this case we must check if it's the last thread, as well
+    * as do some pretty complicated stuff to acknowledge the
+    * unscheduling before atomically switching to the next task. */
+   struct task *sched_next;
+   assert(!(thread->t_state & TASK_STATE_FSLEEPING));
+   /* TODO: Save the FPU context */
+   sched_next = thread->t_sched.sched_ring.re_next;
+   if (sched_next == thread) {
+    /* TODO: Once implemented, check if we can load threads
+     *       with the `TASK_STATE_FIDLETHREAD' flag set. */
+    /* Special case: the current thread is the last one being hosted
+     *               by the CPU, meaning we can't take take it away. */
+    *ipi->ipi_unschedule.us_status = X86_IPI_UNSCHEDULE_LAST;
+   } else {
+    /* Atomically switch to the next task. */
+    RING_REMOVE(thread,t_sched.sched_ring);
+    /* Set the next pending thread as the one now actively running. */
+    THIS_CPU->c_running = sched_next;
+    __asm__ __volatile__ goto("pushfl\n"                         /* IRET.EFLAGS */
+                              "orl    %[eflags_if], (%%esp)\n"   /* IRET.EFLAGS */
+                              "pushl  %%cs\n"                    /* IRET.CS */
+                              "pushl  $%l5\n"                    /* IRET.EIP */
+#ifdef CONFIG_X86_SEGMENTATION
+                              "pushl  %%ds\n"                    /* SEGMENTS.DS */
+                              "pushl  %%es\n"                    /* SEGMENTS.ES */
+                              "pushl  %%fs\n"                    /* SEGMENTS.FS */
+                              "pushl  %%gs\n"                    /* SEGMENTS.GS */
+#endif /* CONFIG_X86_SEGMENTATION */
+                              "pushal\n"                         /* GPREGS */
+                              /* Saved the IRET tail that we just generated. */
+                              "movl   %%esp, %%" PP_STR(__ASM_TASK_SEGMENT) ":" PP_STR(TASK_OFFSETOF_CONTEXT) "\n"
+                              /* Indicate a successful unschedule. */
+                              "movl   %[status_ok], %[status]\n"
+                              /* Resume execution in this CPU by loading the next thread */
+                              "jmp    x86_load_context"
+                              :
+                              : [next]      "c" (sched_next)
+                              , [physdir]   "d" ((uintptr_t)thread->t_vm->vm_physdir)
+                              , [status]    "m" (*ipi->ipi_unschedule.us_status)
+                              , [eflags_if] "i" (EFLAGS_IF)
+                              , [status_ok] "i" (X86_IPI_UNSCHEDULE_OK)
+                              : "memory", "cc", "esp"
+                              : newcpu_continue);
+newcpu_continue:
+    /* This is where the calling thread continues
+     * execution within the context of the new CPU. */
+    return X86_IPI_STOP;
+   }
+  }
+ } break;
+
  case X86_IPI_WAKETASK:
  case X86_IPI_WAKETASK_FOR_RPC:
   if (ipi->ipi_wake.wt_task->t_cpu == THIS_CPU) {
@@ -137,6 +236,24 @@ x86_ipi_handle(struct x86_ipi const *__restrict ipi,
   }
   break;
 
+ case X86_IPI_WAKETASK_P:
+  if (ipi->ipi_wake_p.wt_task->t_cpu == THIS_CPU) {
+   if (ipi->ipi_wake_p.wt_task->t_state & TASK_STATE_FTERMINATED) {
+    *ipi->ipi_wake_p.wt_status = X86_IPI_WAKETASK_DEAD;
+   } else {
+    x86_scheduler_localwake_p(ipi->ipi_wake_p.wt_prev,
+                              ipi->ipi_wake_p.wt_task);
+    COMPILER_BARRIER();
+    *ipi->ipi_wake_p.wt_status = X86_IPI_WAKETASK_OK;
+    COMPILER_WRITE_BARRIER();
+   }
+  } else {
+   /* This task isn't running on our CPU */
+   *ipi->ipi_wake_p.wt_status = X86_IPI_WAKETASK_RETRY;
+   COMPILER_WRITE_BARRIER();
+  }
+  break;
+
  case X86_IPI_SUSPEND_CPU:
   if (++PERCPU(x86_cpu_suspended) != 1)
       break; /* Recursively suspended. */
@@ -162,7 +279,7 @@ x86_ipi_handle(struct x86_ipi const *__restrict ipi,
   }
   /* TODO: Re-enable scheduling on this CPU */
   /* Indicate that we've already acknowledged the IPI */
-  return true;
+  return X86_IPI_ACKNOWLEDGED;
 
  case X86_IPI_RESUME_CPU:
   /* Unset the suspended-flag. */
@@ -182,14 +299,14 @@ x86_ipi_handle(struct x86_ipi const *__restrict ipi,
 
  default: break;
  }
- return false;
+ return X86_IPI_CONTINUE;
 }
 
 
 
 
 INTERN NOIRQ bool KCALL x86_ipi_process(void) {
- u32 valid_mask; unsigned int ipi_index;
+ u32 valid_mask; unsigned int ipi_index; int mode;
  bool result = false; struct x86_ipi ipi;
  while ((valid_mask = ATOMIC_LOAD(PERCPU(ipi_valid))) != 0) {
   /* Find the first valid IPI index. */
@@ -210,8 +327,11 @@ INTERN NOIRQ bool KCALL x86_ipi_process(void) {
   COMPILER_BARRIER();
 
   /* Handle this IPI. */
-  result |= x86_ipi_handle(&ipi,result);
-
+  mode = x86_ipi_handle(&ipi,result);
+  if (mode == X86_IPI_STOP)
+      return true; /* Return from IPI after switching to a new CPU */
+  if (mode == X86_IPI_ACKNOWLEDGED)
+      result = true;
  }
  return result;
 }

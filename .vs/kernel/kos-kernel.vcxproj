@@ -127,6 +127,7 @@
     <ClCompile Include="..\..\src\kernel\src\kernel\boot.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\debug.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\heap.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\ioport.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\kernctl.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\mall.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\malloc.c" />
@@ -135,6 +136,7 @@
     <ClCompile Include="..\..\src\kernel\src\kernel\syscall.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\sysconf.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\system.c" />
+    <ClCompile Include="..\..\src\kernel\src\sched\affinity.c" />
     <ClCompile Include="..\..\src\kernel\src\sched\group.c" />
     <ClCompile Include="..\..\src\kernel\src\sched\mutex.c" />
     <ClCompile Include="..\..\src\kernel\src\sched\pid.c" />
@@ -201,6 +203,7 @@
     <ClInclude Include="..\..\src\kernel\include\i386-kos\gdt.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\idt_pointer.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\interrupt.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\ioport.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\ipi.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\memory.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\paging.h" />
@@ -223,6 +226,7 @@
     <ClInclude Include="..\..\src\kernel\include\kernel\environ.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\heap.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\interrupt.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\ioport.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\malloc.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\memory.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\paging.h" />

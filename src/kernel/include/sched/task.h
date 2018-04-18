@@ -78,11 +78,14 @@ struct cpu;
 #define KERNEL_CPUSET_NUMITEMS   \
       ((CONFIG_MAX_CPU_COUNT+(KERNEL_CPUSET_ITEMBITS-1))/KERNEL_CPUSET_ITEMBITS)
 #if KERNEL_CPUSET_NUMITEMS == 1
-#define KERNEL_CPUSET_INIT   {0}
+#define KERNEL_CPUSET_INIT       {0}
+#define KERNEL_CPUSET_INIT_FULL  {(KERNEL_CPUSET_ITEMTYPE)-1}
 #elif KERNEL_CPUSET_NUMITEMS == 2
-#define KERNEL_CPUSET_INIT   {0,0}
+#define KERNEL_CPUSET_INIT       {0,0}
+#define KERNEL_CPUSET_INIT_FULL  {(KERNEL_CPUSET_ITEMTYPE)-1,(KERNEL_CPUSET_ITEMTYPE)-1}
 #else
-#define KERNEL_CPUSET_INIT   { [0 ... KERNEL_CPUSET_NUMITEMS-1] = 0 }
+#define KERNEL_CPUSET_INIT       { [0 ... KERNEL_CPUSET_NUMITEMS-1] = 0 }
+#define KERNEL_CPUSET_INIT_FULL  { [0 ... KERNEL_CPUSET_NUMITEMS-1] = (KERNEL_CPUSET_ITEMTYPE)-1 }
 #endif
 #if KERNEL_CPUSET_NUMITEMS == 1
 #define KERNEL_CPUSET_FOREACH(set,cpuid) \
@@ -99,7 +102,7 @@ struct cpu;
 typedef KERNEL_CPUSET_ITEMTYPE kernel_cpuset_t[KERNEL_CPUSET_NUMITEMS];
 FORCELOCAL void KCALL kernel_cpuset_add(kernel_cpuset_t self, cpuid_t id) { self[id/KERNEL_CPUSET_ITEMBITS] |= (KERNEL_CPUSET_ITEMTYPE)1 << (id % KERNEL_CPUSET_ITEMBITS); }
 FORCELOCAL void KCALL kernel_cpuset_del(kernel_cpuset_t self, cpuid_t id) { self[id/KERNEL_CPUSET_ITEMBITS] &= ~((KERNEL_CPUSET_ITEMTYPE)1 << (id % KERNEL_CPUSET_ITEMBITS)); }
-FORCELOCAL bool KCALL kernel_cpuset_has(kernel_cpuset_t self, cpuid_t id) { return (self[id/KERNEL_CPUSET_ITEMBITS] & ((KERNEL_CPUSET_ITEMTYPE)1 << (id % KERNEL_CPUSET_ITEMBITS))) != 0; }
+FORCELOCAL bool KCALL kernel_cpuset_has(kernel_cpuset_t const self, cpuid_t id) { return (self[id/KERNEL_CPUSET_ITEMBITS] & ((KERNEL_CPUSET_ITEMTYPE)1 << (id % KERNEL_CPUSET_ITEMBITS))) != 0; }
 
 #endif
 
@@ -149,12 +152,6 @@ DATDEF struct cpu *const cpu_vector[CONFIG_MAX_CPU_COUNT];
  *       We've got a stack-overflow handler. We're just not using it right now...
  * TODO: Use a gap of 1 page when allocating kernel stacks.
  * TODO: Implement enforcing of gaps in `vm_getfree()'
- * TODO: Solve the INVTLB race condition:
- *     - We can only release physical memory associated
- *       with mappings that were deleted once all CPUs
- *       containing tasks using those mappings have
- *       acknowledged having invalidated their caches
- *       for those physical memory mappings.
  */
 
 #endif /* __CC__ */
@@ -171,8 +168,15 @@ DATDEF struct cpu *const cpu_vector[CONFIG_MAX_CPU_COUNT];
                                              * `cli' / `sti' instructions (if that feature is enabled for this thread) */
 #define TASK_FUSEREXCEPT         0x0004     /* [lock(THIS_TASK)] Userspace has defined a custom TLS address, but has promised
                                              *                   that the address is compatible with exception handling. */
-#define TASK_FKEEPCORE           0x0010     /* [lock(THIS_TASK)] Under no circumstances must the task be moved to a different core.
+#define TASK_FKEEPCORE           0x0010     /* [lock(THIS_TASK && !TASK_FALWAYSKEEPCORE)]
+                                             *  Under no circumstances must the task be moved to a different core.
                                              *  While this flag is set, `THIS_CPU' is guarantied not to change. */
+#define TASK_FALWAYSKEEPCORE     0x0100     /* [lock(THIS_TASK && WRITE_ONCE)]
+                                             *  The task can never change its core.
+                                             *  This flag is used to differentiate between situations where a thread
+                                             *  is able to eventually change its core when the `TASK_FKEEPCORE' flag
+                                             *  is unset, and thread that must not change core for the entirety of
+                                             *  their lifetime. */
 #define TASK_FRPCRECURSION       0x0020     /* [lock(THIS_TASK)] RPC functions should be served recursively.
                                              *                   Normally, RPC functions calling `task_serve()'
                                              *                   will simple have that function return immediately
@@ -303,7 +307,7 @@ struct task {
 #ifndef CONFIG_NO_SMP
     struct cpu                  *t_cpu;       /* [1..1][lock(THIS_CPU == t_cpu)] The current CPU
                                                *  NOTE: This pointer is never invalid, and even when it changes (which is _very_ rare),
-                                               *        there is no point in time where this field points somewhere else, but a valid
+                                               *        there is no point in time where this field points somewhere else, but at a valid
                                                *        CPU descriptor. */
 #endif /* !CONFIG_NO_SMP */
     atomic_rwlock_t              t_vm_lock;   /* Lock that must be held when the associated thread intending to modify the signal.
@@ -838,6 +842,9 @@ FUNDEF ASYNCSAFE ATTR_NOTHROW bool KCALL task_wake(struct task *__restrict threa
  * before returning to user-space at the start of its next quantum. */
 FUNDEF ASYNCSAFE ATTR_NOTHROW bool KCALL task_wake_for_rpc(struct task *__restrict thread);
 
+#ifdef CONFIG_NO_SMP
+#define task_wake_p(prev_threads,next)  task_wake(next)
+#else
 /* Same as `task_wake()', but try to schedule `next' for execution after
  * `prev_threads[next->t_cpu->cpu_id]', following which that vector entry
  * is updated to `next'.
@@ -849,9 +856,10 @@ FUNDEF ASYNCSAFE ATTR_NOTHROW bool KCALL task_wake_for_rpc(struct task *__restri
  * @return: true:  The task was woken, or wasn't sleeping, and
  *                 may have been re-scheduled for early execution.
  * @return: false: The given task has terminated. */
-FUNDEF bool KCALL
-task_wake_p(REF struct task *prev_threads[],
+FUNDEF ASYNCSAFE bool KCALL
+task_wake_p(REF struct task *prev_threads[/*CONFIG_MAX_CPU_COUNT*/],
             struct task *__restrict next);
+#endif
 
 
 /* Enter a sleeping state and return once being woken (true),

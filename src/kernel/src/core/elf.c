@@ -733,7 +733,7 @@ find_extern:
      /* NOTE: Weak symbols are linked as NULL when not found. */
      if (!value) {
       if (ELF_ST_BIND(sym->st_info) == STB_WEAK) goto got_symbol;
-      debug_printf(COLDSTR("[ELF] Failed to patch symbol %q in %q\n"),
+      debug_printf(COLDSTR("[ELF] Failed to patch symbol %q in %q (%Iu)\n"),
                    sym_name,app->a_module->m_path->p_dirent->de_name);
       error_throw(E_NOT_EXECUTABLE);
      }

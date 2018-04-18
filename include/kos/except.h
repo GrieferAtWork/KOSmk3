@@ -308,6 +308,7 @@ struct __ATTR_PACKED exception_data_noncontinuable {
 #define ERROR_BADALLOC_VIRTMEMORY 0x0000 /* Virtual memory resource. */
 #define ERROR_BADALLOC_PHYSMEMORY 0x0001 /* Physical memory resource. */
 #define ERROR_BADALLOC_DEVICEID   0x0002 /* Dynamically allocated device IDs (e.g. `pty' ids). */
+#define ERROR_BADALLOC_IOPORT     0x0003 /* Dynamically allocated I/O port IDs. */
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_badalloc {
     __UINT16_TYPE__      ba_resource;  /* The type of that was attempted to be allocated (One of `ERROR_BADALLOC_*'). */

@@ -16,17 +16,22 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef GUARD_KERNEL_INCLUDE_I386_KOS_DEVCONFIG_H
-#define GUARD_KERNEL_INCLUDE_I386_KOS_DEVCONFIG_H 1
+#ifndef GUARD_KERNEL_INCLUDE_I386_KOS_IOPORT_H
+#define GUARD_KERNEL_INCLUDE_I386_KOS_IOPORT_H 1
 
 #include <hybrid/compiler.h>
-#include <hybrid/host.h>
+#include <kos/types.h>
 
-/* Configure available devices. */
-#define CONFIG_HAVE_IOPORTS   1
-#define CONFIG_HAVE_DEV_PS2   1
-//#define CONFIG_HAVE_DEV_PCI 1
+DECL_BEGIN
 
+#define __SIZEOF_IOPORT_T__ 2
+#ifdef __CC__
+typedef u16 ioport_t;
+#endif /* __CC__ */
 
+#define IO_ALLOCBASE  0x1000 /* First I/O address that can be allocated dynamically. */
+#define IO_MAXPORT    0xffff /* The greatest legal I/O port. */
 
-#endif /* !GUARD_KERNEL_INCLUDE_I386_KOS_DEVCONFIG_H */
+DECL_END
+
+#endif /* !GUARD_KERNEL_INCLUDE_I386_KOS_IOPORT_H */

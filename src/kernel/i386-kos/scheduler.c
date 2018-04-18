@@ -49,6 +49,7 @@
 #include <sched/group.h>
 #include <sched/pid.h>
 #include <sched/stat.h>
+#include <sched/affinity.h>
 #include <fs/path.h>
 #include <fs/handle.h>
 #include <sys/io.h>
@@ -197,6 +198,27 @@ x86_scheduler_localwake(struct task *__restrict thread) {
 #endif
   thread->t_state &= ~TASK_STATE_FSLEEPING;
   return true;
+ }
+ return false;
+}
+
+INTERN NOIRQ bool KCALL
+x86_scheduler_localwake_p(struct task *prev,
+                          struct task *__restrict thread) {
+ /* Simply transfer the thread from the sleeping list, to the running ring.
+  * However, don't do anything if the task wasn't sleeping before. */
+ if (thread->t_state & TASK_STATE_FSLEEPING) {
+  LIST_REMOVE(thread,t_sched.sched_list);
+  if (!prev || prev->t_cpu != THIS_CPU)
+       prev = THIS_CPU->c_running;
+  RING_INSERT_AFTER(prev,thread,t_sched.sched_ring);
+  ATOMIC_FETCHAND(thread->t_state,~TASK_STATE_FSLEEPING);
+  return true;
+ } else if (prev && prev->t_cpu == THIS_CPU &&
+          !(prev->t_state & TASK_STATE_FSLEEPING)) {
+  /* Re-insert `thread' after `prev' */
+  RING_REMOVE(thread,t_sched.sched_ring);
+  RING_INSERT_AFTER(prev,thread,t_sched.sched_ring);
  }
  return false;
 }
@@ -385,11 +407,10 @@ task_wake_ex(struct task *__restrict thread,
   x86_ipi_send(hosting_cpu,&ipi);
 
   /* Wait for the IPI to be processed. */
-  while (ATOMIC_READ(status) == X86_IPI_WAKETASK_PENDING) {
+  while (status == X86_IPI_WAKETASK_PENDING) {
    /* Use `tryyield()' here because we can't be sure
     * if the caller has left interrupts enabled for us. */
    task_tryyield();
-   COMPILER_BARRIER();
   }
 
   /* Check if the IPI succeeded. */
@@ -410,6 +431,53 @@ task_wake(struct task *__restrict thread) {
  return task_wake_ex(thread,X86_IPI_WAKETASK);
 }
 
+
+#ifndef CONFIG_NO_SMP
+PUBLIC bool KCALL
+task_wake_p(REF struct task *prev_threads[/*CONFIG_MAX_CPU_COUNT*/],
+            struct task *__restrict next) {
+ volatile int status;
+ cpuid_t hosting_id;
+ /* Keep a reference for the `prev_threads' vector. */
+ task_incref(next);
+ for (;;) {
+  struct cpu *hosting_cpu;
+  struct x86_ipi ipi;
+  status = X86_IPI_WAKETASK_PENDING;
+  hosting_cpu = ATOMIC_READ(next->t_cpu);
+  /* Setup an IPI to wake this task. */
+  ipi.ipi_type             = X86_IPI_WAKETASK_P;
+  ipi.ipi_flag             = X86_IPI_FNORMAL;
+  hosting_id               = hosting_cpu->cpu_id;
+  ipi.ipi_wake_p.wt_prev   = prev_threads[hosting_id];
+  ipi.ipi_wake_p.wt_task   = next;
+  ipi.ipi_wake_p.wt_status = &status;
+
+  /* Send the IPI */
+  x86_ipi_send(hosting_cpu,&ipi);
+
+  /* Wait for the IPI to be processed. */
+  while (status == X86_IPI_WAKETASK_PENDING) {
+   /* Use `tryyield()' here because we can't be sure
+    * if the caller has left interrupts enabled for us. */
+   task_tryyield();
+  }
+
+  /* Check if the IPI succeeded. */
+  if (status != X86_IPI_WAKETASK_RETRY)
+      break;
+ }
+ if (status == X86_IPI_WAKETASK_DEAD) {
+  task_decref(next);
+  return false;
+ }
+ /* Update the prev-thread vector. */
+ if (prev_threads[hosting_id])
+     task_decref(prev_threads[hosting_id]);
+ prev_threads[hosting_id] = next; /* Inherit reference. */
+ return true;
+}
+#endif /* !CONFIG_NO_SMP */
 
 
 
@@ -474,16 +542,78 @@ PUBLIC NOIRQ ATTR_HOTTEXT bool KCALL task_sleep(jtime_t abs_timeout) {
 }
 
 
-PUBLIC bool KCALL
-task_setcpu(struct task *__restrict thread,
-            struct cpu *__restrict new_cpu,
-            bool overrule_affinity) {
- /* TODO */
- (void)thread;
- (void)new_cpu;
- (void)overrule_affinity;
- return false;
+#ifndef CONFIG_NO_SMP
+INTDEF ATTR_PERTASK kernel_cpuset_t _this_affinity;
+INTDEF ATTR_PERTASK atomic_rwlock_t _this_affinity_lock;
+
+PUBLIC int KCALL
+task_setcpu_impl(struct task *__restrict thread,
+                 struct cpu *__restrict new_cpu,
+                 bool overrule_affinity) {
+ struct cpu *old_cpu;
+ struct x86_ipi ipi;
+ struct task *next_task;
+ volatile int status;
+ if (!overrule_affinity) {
+  atomic_rwlock_read(&FORTASK(thread,_this_affinity_lock));
+  /* Check affinity */
+  if (!kernel_cpuset_has(FORTASK(thread,_this_affinity),
+                         new_cpu->cpu_id)) {
+   atomic_rwlock_endread(&FORTASK(thread,_this_affinity_lock));
+   return TASK_SETCPU_FAIL;
+  }
+ }
+ for (;;) {
+  old_cpu = ATOMIC_READ(thread->t_cpu);
+  if (old_cpu == new_cpu) {
+   if (!overrule_affinity)
+        atomic_rwlock_endread(&FORTASK(thread,_this_affinity_lock));
+   return TASK_SETCPU_OK; /* Nothing to do here! */
+  }
+  ipi.ipi_type                 = X86_IPI_UNSCHEDULE;
+  ipi.ipi_flag                 = X86_IPI_FNORMAL;
+  ipi.ipi_unschedule.us_thread = thread;
+  ipi.ipi_unschedule.us_status = &status;
+  status                       = X86_IPI_UNSCHEDULE_PENDING;
+  /* Send the IPI. */
+  x86_ipi_send(old_cpu,&ipi);
+  /* Wait for the IPI to get acknowledged. */
+  while (status == X86_IPI_UNSCHEDULE_PENDING)
+     task_tryyield();
+  if (status != X86_IPI_UNSCHEDULE_RETRY)
+      break;
+ }
+ /* Deal with error status codes. */
+ if (status != X86_IPI_UNSCHEDULE_OK) {
+  if (!overrule_affinity)
+       atomic_rwlock_endread(&FORTASK(thread,_this_affinity_lock));
+  if (status == X86_IPI_UNSCHEDULE_KEEP)
+      return TASK_SETCPU_AGAIN;
+  return TASK_SETCPU_FAIL;
+ }
+ COMPILER_BARRIER();
+ /* At this point, we own exclusive scheduling permissions for `thread',
+  * meaning we're in charge of starting the thread on a different core! */
+ thread->t_cpu = new_cpu;
+ COMPILER_WRITE_BARRIER();
+
+ /* Add the task to the pending-launch chain of the target CPU. */
+ do thread->t_sched.sched_slist.le_next = next_task = ATOMIC_READ(new_cpu->c_pending);
+ while (!ATOMIC_CMPXCH_WEAK(new_cpu->c_pending,
+                            thread->t_sched.sched_slist.le_next,thread));
+ if (!overrule_affinity)
+      atomic_rwlock_endread(&FORTASK(thread,_this_affinity_lock));
+ /* Setup an IPI to get the target CPU to load its pending task list. */
+ ipi.ipi_type = X86_IPI_SCHEDULE;
+ ipi.ipi_flag = X86_IPI_FNORMAL;
+
+ /* Send an IPI to the target CPU. */
+ x86_ipi_send(new_cpu,&ipi);
+
+ return TASK_SETCPU_OK;
 }
+#endif /* !CONFIG_NO_SMP */
+
 
 PUBLIC REF struct task *KCALL
 task_runnext(struct task *__restrict prev,
@@ -697,7 +827,11 @@ task_start(struct task *__restrict self) {
  * must the the currently active thread on the calling CPU,
  * without saving the state of the calling thread.
  * This function is called at the end of `task_exit()' cleanup in
- * order to load the context of whatever that should be switched to. */
+ * order to load the context of whatever that should be switched to.
+ * NOTE: When entered using a `jmp', don't modify the stack of
+ *       the old task, meaning that this is function can be used
+ *       to switch task contexts in situations where it is unclear
+ *       if the calling thread is still alive. */
 INTDEF NOIRQ ATTR_NORETURN void FCALL
 x86_load_context(struct task *__restrict next_task,
                  PHYS uintptr_t old_pdir);
@@ -953,10 +1087,9 @@ restart_final_decref:
 load_next_task:
  /* Finally, load the next task (who will then decref()
   * us the next time it serves RPC function calls).
-  * NOTE: We still know that our task hasn't been destroyed yet,
-  *       because preemption is still disabled, and the thread
-  *       that will eventually destroy us is running on our own
-  *       CPU. */
+  * NOTE: We know that our task (and stack) hasn't been destroyed
+  *       yet, because preemption is still disabled, and the thread
+  *       that will eventually destroy us is running on our own CPU. */
  x86_load_context(next_task,old_pagedir);
  /* Never get here. */
 }

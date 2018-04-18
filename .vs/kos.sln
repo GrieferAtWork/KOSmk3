@@ -182,6 +182,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kos", "kos", "{AF58F0E7-505
 		..\include\kos\keyboard-ioctl.h = ..\include\kos\keyboard-ioctl.h
 		..\include\kos\keyboard.h = ..\include\kos\keyboard.h
 		..\include\kos\keymap.h = ..\include\kos\keymap.h
+		..\include\kos\mask.h = ..\include\kos\mask.h
 		..\include\kos\mouse-ioctl.h = ..\include\kos\mouse-ioctl.h
 		..\include\kos\safecall.h = ..\include\kos\safecall.h
 		..\include\kos\thread.h = ..\include\kos\thread.h

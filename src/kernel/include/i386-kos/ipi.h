@@ -36,9 +36,18 @@ DECL_BEGIN
 #define X86_IPI_INVLPG_ALL       0x0002 /* Invalidate all page directory caches. */
 #define X86_IPI_INVLPG_ONE       0x0003 /* Invalidate a single page directory cache entry. */
 #define X86_IPI_SCHEDULE         0x0004 /* Schedule pending tasks from the `c_pending' chain (See `i386-kos/scheduler.c'). */
-#define X86_IPI_WAKETASK         0x0005 /* Wake a given task. */
-#define X86_IPI_WAKETASK_FOR_RPC 0x0006 /* Wake a given task or serve interrupts if preempted in user-space. */
-#define X86_IPI_SUSPEND_CPU      0x0007 /* Suspend execution of the CPU until `X86_IPI_RESUME_CPU' has been sent.
+#define X86_IPI_UNSCHEDULE       0x0005 /* Unschedule a given task from the receiving CPU.
+                                         * The task is allowed to either be sleeping, or be running.
+                                         * If the task is the one that got preempted by the IPI, the
+                                         * CPU will continue execution of the next task in line.
+                                         * However, if the task is the last one running on that CPU,
+                                         * it cannot be unscheduled.
+                                         * NOTE: Sending this 
+                                         */
+#define X86_IPI_WAKETASK         0x0006 /* Wake a given task. */
+#define X86_IPI_WAKETASK_FOR_RPC 0x0007 /* Wake a given task or serve interrupts if preempted in user-space. */
+#define X86_IPI_WAKETASK_P       0x0008 /* Wake a given task and schedule it following another. */
+#define X86_IPI_SUSPEND_CPU      0x0009 /* Suspend execution of the CPU until `X86_IPI_RESUME_CPU' has been sent.
                                          * Other IPIs sent until then will still executed immediately.
                                          * NOTE: This type of suspension is done asynchronously, meaning
                                          *       that the caller must implement their own lock to prevent
@@ -54,8 +63,8 @@ DECL_BEGIN
                                          *      `TASK_FKEEPCORE' flag set, as well as be holding a lock to
                                          *       the `x86_ipi_suspension_lock' mutex (defined below).
                                          * NOTE: This IPI and `X86_IPI_RESUME_CPU' operate recursively. */
-#define X86_IPI_RESUME_CPU       0x0008 /* Resume execution after `X86_IPI_SUSPEND_CPU' has been sent. */
-#define X86_IPI_EXEC             0x0009 /* Execute some user-defined function.
+#define X86_IPI_RESUME_CPU       0x000a /* Resume execution after `X86_IPI_SUSPEND_CPU' has been sent. */
+#define X86_IPI_EXEC             0x000b /* Execute some user-defined function.
                                          * WARNING: The function executed must be 100% async-safe
                                          *          and must not attempt to enable interrupts!
                                          *          It must not throw any exceptions (or cause
@@ -89,13 +98,31 @@ struct x86_ipi {
             size_t          ivp_numpages;  /* [valid_if(!X86_IPI_INVLPG_ONE)] The number of pages to invalidate (See `pagedir_sync') */
         }                   ipi_invlpg;    /* X86_IPI_INVLPG / X86_IPI_INVLPG_ONE */
         struct PACKED {
+            struct task    *us_thread;     /* [1..1] The thread that should get unscheduled. */
+#define X86_IPI_UNSCHEDULE_RETRY (-1)      /* Re-try the unschedule (the thread isn't being hosted on this CPU) */
+#define X86_IPI_UNSCHEDULE_PENDING 0       /* The command hasn't been processed yet. */
+#define X86_IPI_UNSCHEDULE_OK      1       /* Successfully unscheduled the thread.
+                                            * NOTE: In this case, the IPI sender inherits a reference to `us_thread' */
+#define X86_IPI_UNSCHEDULE_LAST    2       /* The thread could not be unscheduled, because it is the last one still running. */
+#define X86_IPI_UNSCHEDULE_DEAD    3       /* The thread has terminated. */
+#define X86_IPI_UNSCHEDULE_KEEP    4       /* The thread has the FKEEPCORE flag set. */
+            volatile int   *us_status;     /* [1..1] Pointer to the IPI status (One of X86_IPI_UNSCHEDULE_*) */
+        }                   ipi_unschedule; /* X86_IPI_UNSCHEDULE */
+        struct PACKED {
             struct task    *wt_task;       /* [1..1] The task that should be woken. */
 #define X86_IPI_WAKETASK_RETRY   (-1)      /* Re-try the wake (the task isn't running on this CPU) */
 #define X86_IPI_WAKETASK_PENDING   0       /* The command hasn't been processed yet. */
 #define X86_IPI_WAKETASK_OK        1       /* The task has been woken. */
 #define X86_IPI_WAKETASK_DEAD      2       /* The task has terminated. */
-            volatile int   *wt_status;     /* [1..1] Pointer to the IPI status (Set to one of `X86_IPI_WAKETASK_*') */
+            volatile int   *wt_status;     /* [1..1] Pointer to the IPI status (One to one of `X86_IPI_WAKETASK_*') */
         }                   ipi_wake;      /* X86_IPI_WAKETASK */
+        struct PACKED {
+            struct task    *wt_task;       /* [1..1] The task that should be woken. */
+            struct task    *wt_prev;       /* [0..1] The task after which to schedule `wt_task'
+                                            *       (When `NULL', or not hosted on this CPU, schedule after the currently running thread).
+                                            *  NOTE: The `wt_task' wasn't sleeping, schedule it for execution after `wt_prev' */
+            volatile int   *wt_status;     /* [1..1] Pointer to the IPI status (One to one of `X86_IPI_WAKETASK_*') */
+        }                   ipi_wake_p;    /* X86_IPI_WAKETASK_P */
         struct PACKED {
             ASYNCSAFE
             void    (KCALL *wt_func)(void *arg); /* [1..1] The function that should be executed. */

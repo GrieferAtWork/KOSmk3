@@ -34,13 +34,7 @@
 
 DECL_BEGIN
 
-DEFINE_NULL_WRAPPER(DIR *,libc_public_fopendirat,(fd_t dfd, char const *name, int flags),
-                          libc_public_Xfopendirat,(dfd,name,flags))
-INTERN DIR *LIBCCALL
-libc_dos_public_fopendirat(fd_t dfd, char const *name, int flags) {
- return libc_public_fopendirat(dfd,name,flags|AT_DOSPATH);
-}
-
+EXPORT(fdopendir,libc_fdopendir);
 INTERN DIR *LIBCCALL libc_fdopendir(fd_t fd) {
  DIR *result = (DIR *)libc_malloc(sizeof(DIR));
  if unlikely(!result) goto done;
@@ -48,6 +42,7 @@ INTERN DIR *LIBCCALL libc_fdopendir(fd_t fd) {
 done:
  return result;
 }
+
 PRIVATE DIR *LIBCCALL
 libc_fopendirat(fd_t dfd, char const *name, oflag_t flags) {
  DIR *result;
@@ -58,11 +53,41 @@ libc_fopendirat(fd_t dfd, char const *name, oflag_t flags) {
  return result;
 }
 
-INTERN DIR *LIBCCALL libc_opendir(char const *name) { return libc_fopendirat(AT_FDCWD,name,O_RDONLY|O_DIRECTORY); }
-INTERN DIR *LIBCCALL libc_opendirat(fd_t dfd, char const *name) { return libc_fopendirat(dfd,name,O_RDONLY|O_DIRECTORY); }
-INTERN DIR *LIBCCALL libc_dos_opendir(char const *name) { return libc_fopendirat(AT_FDCWD,name,O_RDONLY|O_DIRECTORY|O_DOSPATH); }
-INTERN DIR *LIBCCALL libc_dos_opendirat(fd_t dfd, char const *name) { return libc_fopendirat(dfd,name,O_RDONLY|O_DIRECTORY|O_DOSPATH); }
+EXPORT(__KSYM(opendir),libc_opendir);
+INTERN DIR *LIBCCALL
+libc_opendir(char const *name) {
+ return libc_fopendirat(AT_FDCWD,name,O_RDONLY|O_DIRECTORY);
+}
 
+EXPORT(__KSYM(opendirat),libc_opendirat);
+INTERN DIR *LIBCCALL
+libc_opendirat(fd_t dfd, char const *name) {
+ return libc_fopendirat(dfd,name,O_RDONLY|O_DIRECTORY);
+}
+
+EXPORT(__DSYM(opendir),libc_dos_opendir);
+CRT_DOS_EXT DIR *LIBCCALL
+libc_dos_opendir(char const *name) {
+ return libc_fopendirat(AT_FDCWD,name,O_RDONLY|O_DIRECTORY|O_DOSPATH);
+}
+
+EXPORT(__DSYM(opendirat),libc_dos_opendirat);
+CRT_DOS_EXT DIR *LIBCCALL
+libc_dos_opendirat(fd_t dfd, char const *name) {
+ return libc_fopendirat(dfd,name,O_RDONLY|O_DIRECTORY|O_DOSPATH);
+}
+
+EXPORT(__KSYM(fopendirat),libc_public_fopendirat);
+DEFINE_NULL_WRAPPER(DIR *,libc_public_fopendirat,(fd_t dfd, char const *name, int flags),
+                          libc_public_Xfopendirat,(dfd,name,flags))
+
+EXPORT(__DSYM(fopendirat),libc_dos_public_fopendirat);
+CRT_DOS_EXT DIR *LIBCCALL
+libc_dos_public_fopendirat(fd_t dfd, char const *name, int flags) {
+ return libc_public_fopendirat(dfd,name,flags|AT_DOSPATH);
+}
+
+EXPORT(closedir,libc_closedir);
 INTERN int LIBCCALL libc_closedir(DIR *self) {
  if (!self) { libc_seterrno(EINVAL); return -1; }
  dirstream_fini(self);
@@ -70,6 +95,7 @@ INTERN int LIBCCALL libc_closedir(DIR *self) {
  return 0;
 }
 
+EXPORT(readdir,libc_readdir);
 INTERN struct dirent *LIBCCALL
 libc_readdir(DIR *__restrict self) {
  struct dirent *result; ssize_t load_size;
@@ -114,21 +140,35 @@ again:
  self->ds_lodsize = (size_t)load_size;
  goto again;
 }
+EXPORT(readdir64,libc_readdir64);
 DEFINE_INTERN_ALIAS(libc_readdir64,libc_readdir);
-INTERN void LIBCCALL libc_rewinddir(DIR *__restrict self) { sys_lseek(self->ds_fd,0,SEEK_SET); }
 
-DEFINE_INTERN_ALIAS(libc_xreaddir64,libc_xreaddir);
-DEFINE_INTERN_ALIAS(libc_xreaddirf64,libc_xreaddirf);
+EXPORT(rewinddir,libc_rewinddir);
+INTERN void LIBCCALL
+libc_rewinddir(DIR *__restrict self) {
+ sys_lseek(self->ds_fd,0,SEEK_SET);
+}
+
+EXPORT(xreaddir,libc_xreaddir);
 INTERN ssize_t LIBCCALL
 libc_xreaddir(fd_t fd, struct dirent *buf,
               size_t bufsize, int mode) {
  return FORWARD_SYSTEM_VALUE(sys_xreaddir(fd,buf,bufsize,mode));
 }
+EXPORT(xreaddir64,libc_xreaddir64);
+DEFINE_INTERN_ALIAS(libc_xreaddir64,libc_xreaddir);
+
+EXPORT(xreaddirf,libc_xreaddirf);
 INTERN ssize_t LIBCCALL
 libc_xreaddirf(fd_t fd, struct dirent *buf,
                size_t bufsize, int mode, oflag_t flags) {
  return FORWARD_SYSTEM_VALUE(sys_xreaddirf(fd,buf,bufsize,mode,flags));
 }
+EXPORT(xreaddirf64,libc_xreaddirf64);
+DEFINE_INTERN_ALIAS(libc_xreaddirf64,libc_xreaddirf);
+
+
+EXPORT(seekdir,libc_seekdir);
 INTERN int LIBCCALL libc_seekdir(DIR *__restrict self, long int pos) {
 #if __SIZEOF_LONG__ == 4
  return libc_lseek(self->ds_fd,(off32_t)pos,SEEK_SET) < 0 ? -1 : 0;
@@ -136,6 +176,8 @@ INTERN int LIBCCALL libc_seekdir(DIR *__restrict self, long int pos) {
  return libc_lseek64(self->ds_fd,(off64_t)pos,SEEK_SET) < 0 ? -1 : 0;
 #endif
 }
+
+EXPORT(telldir,libc_telldir);
 INTERN long int LIBCCALL libc_telldir(DIR *__restrict self) {
 #if __SIZEOF_LONG__ == 4
  return (long int)libc_lseek(self->ds_fd,0,SEEK_CUR);
@@ -143,53 +185,82 @@ INTERN long int LIBCCALL libc_telldir(DIR *__restrict self) {
  return (long int)libc_lseek64(self->ds_fd,0,SEEK_CUR);
 #endif
 }
-INTERN int LIBCCALL libc_dirfd(DIR *__restrict self) { return self->ds_fd; }
-INTERN int LIBCCALL libc_readdir_r(DIR *__restrict self, struct dirent *__restrict entry, struct dirent **__restrict result) { libc_seterrno(ENOSYS); return -1; }
-INTERN int LIBCCALL libc_scandir(char const *__restrict dir, struct dirent ***__restrict namelist, int (*selector)(struct dirent const *), int (*cmp)(struct dirent const **, struct dirent const **)) { libc_seterrno(ENOSYS); return -1; }
-INTERN int LIBCCALL libc_scandirat(fd_t dfd, char const *__restrict dir, struct dirent ***__restrict namelist, int (*selector)(struct dirent const *), int (*cmp)(struct dirent const **, struct dirent const **)) { libc_seterrno(ENOSYS); return -1; }
-INTERN ssize_t LIBCCALL libc_getdirentries(fd_t fd, char *__restrict buf, size_t nbytes, pos_t *__restrict basep) { libc_seterrno(ENOSYS); return -1; }
-INTERN int LIBCCALL libc_alphasort(struct dirent const **e1, struct dirent const **e2) { libc_seterrno(ENOSYS); return -1; }
-INTERN int LIBCCALL libc_versionsort(struct dirent const **e1, struct dirent const **e2) { libc_seterrno(ENOSYS); return -1; }
+
+
+EXPORT(dirfd,libc_dirfd);
+INTERN int LIBCCALL
+libc_dirfd(DIR *__restrict self) {
+ return self->ds_fd;
+}
+
+EXPORT(readdir_r,libc_readdir_r);
+INTERN int LIBCCALL
+libc_readdir_r(DIR *__restrict self,
+               struct dirent *__restrict entry,
+               struct dirent **__restrict result) {
+ libc_seterrno(ENOSYS);
+ return -1;
+}
+EXPORT(readdir64_r,libc_readdir64_r);
 DEFINE_INTERN_ALIAS(libc_readdir64_r,libc_readdir_r);
+
+EXPORT(scandir,libc_scandir);
+INTERN int LIBCCALL
+libc_scandir(char const *__restrict dir,
+             struct dirent ***__restrict namelist,
+             int (*selector)(struct dirent const *),
+             int (*cmp)(struct dirent const **, struct dirent const **)) {
+ libc_seterrno(ENOSYS);
+ return -1;
+}
+EXPORT(scandir64,libc_scandir64);
 DEFINE_INTERN_ALIAS(libc_scandir64,libc_scandir);
+
+EXPORT(scandirat,libc_scandirat);
+INTERN int LIBCCALL
+libc_scandirat(fd_t dfd,
+               char const *__restrict dir,
+               struct dirent ***__restrict namelist,
+               int(*selector)(struct dirent const *),
+               int(*cmp)(struct dirent const **,struct dirent const **)) {
+ libc_seterrno(ENOSYS);
+ return -1;
+}
+EXPORT(scandirat64,libc_scandirat64);
 DEFINE_INTERN_ALIAS(libc_scandirat64,libc_scandirat);
+
+EXPORT(getdirentries,libc_getdirentries);
+INTERN ssize_t LIBCCALL
+libc_getdirentries(fd_t fd,
+                   char *__restrict buf,
+                   size_t nbytes,
+                   pos_t *__restrict basep) {
+ libc_seterrno(ENOSYS);
+ return -1;
+}
+EXPORT(getdirentries64,libc_getdirentries64);
 DEFINE_INTERN_ALIAS(libc_getdirentries64,libc_getdirentries);
+
+EXPORT(alphasort,libc_alphasort);
+INTERN int LIBCCALL
+libc_alphasort(struct dirent const **e1,
+               struct dirent const **e2) {
+ libc_seterrno(ENOSYS);
+ return -1;
+}
+EXPORT(alphasort64,libc_alphasort64);
 DEFINE_INTERN_ALIAS(libc_alphasort64,libc_alphasort);
+
+EXPORT(versionsort,libc_versionsort);
+INTERN int LIBCCALL
+libc_versionsort(struct dirent const **e1,
+                 struct dirent const **e2) {
+ libc_seterrno(ENOSYS);
+ return -1;
+}
+EXPORT(versionsort64,libc_versionsort64);
 DEFINE_INTERN_ALIAS(libc_versionsort64,libc_versionsort);
 
-
-
-
-EXPORT(fdopendir,                  libc_fdopendir);
-EXPORT(__KSYM(opendir),            libc_opendir);
-EXPORT(__DSYM(opendir),            libc_dos_opendir);
-EXPORT(__KSYM(opendirat),          libc_opendirat);
-EXPORT(__DSYM(opendirat),          libc_dos_opendirat);
-EXPORT(__KSYM(fopendirat),         libc_public_fopendirat);
-EXPORT(__DSYM(fopendirat),         libc_dos_public_fopendirat);
-EXPORT(closedir,                   libc_closedir);
-EXPORT(readdir,                    libc_readdir);
-EXPORT(readdir64,                  libc_readdir64);
-EXPORT(rewinddir,                  libc_rewinddir);
-EXPORT(readdir_r,                  libc_readdir_r);
-EXPORT(readdir64_r,                libc_readdir64_r);
-EXPORT(seekdir,                    libc_seekdir);
-EXPORT(telldir,                    libc_telldir);
-EXPORT(dirfd,                      libc_dirfd);
-EXPORT(scandir,                    libc_scandir);
-EXPORT(scandir64,                  libc_scandir64);
-EXPORT(scandirat,                  libc_scandirat);
-EXPORT(scandirat64,                libc_scandirat64);
-EXPORT(getdirentries,              libc_getdirentries);
-EXPORT(getdirentries64,            libc_getdirentries64);
-EXPORT(alphasort,                  libc_alphasort);
-EXPORT(alphasort64,                libc_alphasort64);
-EXPORT(versionsort,                libc_versionsort);
-EXPORT(versionsort64,              libc_versionsort64);
-EXPORT(xreaddir,                   libc_xreaddir);
-EXPORT(xreaddirf,                  libc_xreaddirf);
-EXPORT(xreaddir64,                 libc_xreaddir64);
-EXPORT(xreaddirf64,                libc_xreaddirf64);
 
 
 

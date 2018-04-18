@@ -16,17 +16,39 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef GUARD_KERNEL_INCLUDE_I386_KOS_DEVCONFIG_H
-#define GUARD_KERNEL_INCLUDE_I386_KOS_DEVCONFIG_H 1
+#ifndef GUARD_KERNEL_INCLUDE_KERNEL_IOPORT_H
+#define GUARD_KERNEL_INCLUDE_KERNEL_IOPORT_H 1
 
 #include <hybrid/compiler.h>
-#include <hybrid/host.h>
+#include <dev/devconfig.h>
 
-/* Configure available devices. */
-#define CONFIG_HAVE_IOPORTS   1
-#define CONFIG_HAVE_DEV_PS2   1
-//#define CONFIG_HAVE_DEV_PCI 1
+#ifdef CONFIG_HAVE_IOPORTS
+#include <stdbool.h>
 
+#if defined(__i386__) || defined(__x86_64__)
+#include <i386-kos/ioport.h>
+#else
+#error "Unsupported Architecture"
+#endif
 
+DECL_BEGIN
 
-#endif /* !GUARD_KERNEL_INCLUDE_I386_KOS_DEVCONFIG_H */
+#ifdef __CC__
+/* Dynamically allocate an I/O address range of `num_ports' consecutive I/O ports.
+ * All 1-bits of the returned port can be masked by `mask'.
+ * @throw: E_BADALLOC: Insufficient available dynamic I/O ports.
+ * @return: * : The first allocated I/O port. */
+FUNDEF ioport_t KCALL io_alloc(ioport_t mask, ioport_t num_ports);
+
+/* Try to allocate the given I/O address range.
+ * NOTE: Can be used to allocate I/O memory that is normally reserved. */
+FUNDEF bool KCALL io_alloc_at(ioport_t base, ioport_t num_ports);
+
+/* Free a previously allocated I/O port range. */
+FUNDEF void KCALL io_free(ioport_t base, ioport_t num_ports);
+#endif /* __CC__ */
+
+DECL_END
+#endif /* CONFIG_HAVE_IOPORTS */
+
+#endif /* !GUARD_KERNEL_INCLUDE_KERNEL_IOPORT_H */

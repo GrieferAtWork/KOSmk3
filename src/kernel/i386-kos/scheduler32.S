@@ -437,8 +437,9 @@ SYMEND(task_yield)
 
 .section .text
 INTERN_ENTRY(x86_load_context)
-	/* struct task *ecx */
-	.cfi_startproc simple
+	/* struct task *ecx    = NEW_TASK */
+	/* PHYS pagedir_t *edx = OLD_PAGEDIR */
+//	.cfi_startproc simple
 	/* Load the page directory of the new task. */
 	movl    t_vm(%ecx), %eax
 	movl    VM_OFFSETOF_PHYSDIR(%eax), %eax
@@ -450,7 +451,7 @@ INTERN_ENTRY(x86_load_context)
 	movl    t_cpu(%edi), %ebx /* Load our own CPU descriptor from the target thread. */
 #endif
 	jmp     .load_task_context_in_edi
-	.cfi_endproc
+//	.cfi_endproc
 SYMEND(x86_load_context)
 
 

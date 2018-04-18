@@ -141,7 +141,8 @@ KCALL smp_allocate_processor(void) {
  idle_bootstrap->t_sched.sched_ring.re_next = idle_bootstrap;
  /* NOTE: `TASK_FKEEPCORE' is actually only required, because
   *        the task keeps a pointer to the CPU in a register. */
- idle_bootstrap->t_flags         = TASK_FKEEPCORE|TASK_FNOSIGNALS|TASK_FKERNELJOB;
+ idle_bootstrap->t_flags         = (TASK_FALWAYSKEEPCORE|TASK_FKEEPCORE|
+                                    TASK_FNOSIGNALS|TASK_FKERNELJOB);
  idle_bootstrap->t_state         = TASK_STATE_FIDLETHREAD|TASK_STATE_FSTARTED;
  idle_bootstrap->t_nothrow_serve = 0x3fffffff;
  idle_bootstrap->t_vm            = &vm_kernel;
