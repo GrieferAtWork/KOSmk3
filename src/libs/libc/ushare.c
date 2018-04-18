@@ -29,8 +29,11 @@
 #include "rtl.h"
 #include "posix_signal.h"
 #include "unicode.h"
+#include "unistd.h"
+#include "malloc.h"
 
 #include <kos/ushare.h>
+#include <kos/keyboard-ioctl.h>
 #include <hybrid/section.h>
 #include <hybrid/atomic.h>
 #include <errno.h>
@@ -516,6 +519,57 @@ CRT_DOS char16_t *LIBCCALL libc_dos_w16error(derrno_t errnum) { return libc_w16e
 CRT_DOS_EXT char32_t *LIBCCALL libc_dos_w32error(derrno_t errnum) { return libc_w32error(libc_errno_dos2kos(errnum)); }
 
 
+
+#if 1
+
+#define KEYMAP_SIZEOF    1600
+__ATTR_ALIGNED(64) struct KOSmk2_keymap {
+    /* NOTE: Use `KEY_*' constants from '<kos/keyboard.h>' for these arrays. */
+    char            km_name[64];   /*< Key map name (ZERO-terminated). */
+    /* NOTE: Characters below are encoded in UTF-16 (host-endian)
+     *      (if you're lazy, you can just cast to `char' and be happy...) */
+    __UINT16_TYPE__ km_press[256]; /*< Regular key map. */
+    __UINT16_TYPE__ km_shift[256]; /*< Key map when case-shifting is active. */
+    __UINT16_TYPE__ km_altgr[256]; /*< Key map when RALT or CTRL+ALT is held down. */
+};
+
+/* Emulate the old KOSmk2 xsharesym() system calls. */
+EXPORT(xsharesym,libc_xsharesym);
+CRT_KOS_DP void *LIBCCALL
+libc_xsharesym(char const *__restrict name) {
+ LIBC_TRY {
+  if (!libc_strcmp(name,"keymap")) {
+   /* NOTE: We don't care about resource leaks here, so don't
+    *       worry about missing TRY-FINALLY blocks for dealing
+    *       with exceptions. */
+   struct KOSmk2_keymap *result;
+   struct keyboard_keymap *new_map; unsigned int i;
+   fd_t fd = libc_Xopen("/deb/keyboard",O_RDONLY);
+   new_map = (struct keyboard_keymap *)libc_Xmmap(NULL,
+                                                  sizeof(struct keyboard_keymap),
+                                                  PROT_READ,
+                                                  MAP_PRIVATE,
+                                                  fd,
+                                                  KEYBOARD_KEYMAP_OFFSET);
+   sys_close(fd);
+   result = (struct KOSmk2_keymap *)libc_malloc_f(sizeof(struct KOSmk2_keymap));
+   /* Fill in the old keyboard map. */
+   libc_memcpy(result->km_name,new_map->km_name,sizeof(result->km_name));
+   for (i = 0; i < 256*3; ++i) {
+    ((__UINT16_TYPE__ *)result->km_press)[i] =
+     ((struct keyboard_keymap_char *)new_map->km_press)[i].kmc_utf8[0];
+   }
+   libc_munmap(new_map,sizeof(struct keyboard_keymap));
+   return result;
+  }
+
+ } LIBC_EXCEPT(libc_except_errno()) {
+ }
+ return NULL;
+}
+
+
+#endif
 
 
 DECL_END
