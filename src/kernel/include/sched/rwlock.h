@@ -214,10 +214,10 @@ rwlock_tryupgrade(struct rwlock *__restrict self) {
 FORCELOCAL bool KCALL rwlock_timedread(struct rwlock *__restrict self, jtime_t abs_timeout);
 FORCELOCAL bool KCALL rwlock_timedwrite(struct rwlock *__restrict self, jtime_t abs_timeout);
 #ifdef __INTELLISENSE__
-FUNDEF void KCALL rwlock_read(struct rwlock *__restrict self);
-FUNDEF void KCALL rwlock_write(struct rwlock *__restrict self);
-FUNDEF void KCALL rwlock_readf(struct rwlock *__restrict self, iomode_t flags);
-FUNDEF void KCALL rwlock_writef(struct rwlock *__restrict self, iomode_t flags);
+void KCALL rwlock_read(struct rwlock *__restrict self);
+void KCALL rwlock_write(struct rwlock *__restrict self);
+void KCALL rwlock_readf(struct rwlock *__restrict self, iomode_t flags);
+void KCALL rwlock_writef(struct rwlock *__restrict self, iomode_t flags);
 #else
 #define rwlock_read(self)       (void)rwlock_timedread(self,JTIME_INFINITE)
 #define rwlock_write(self)      (void)rwlock_timedwrite(self,JTIME_INFINITE)

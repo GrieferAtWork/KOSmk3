@@ -134,7 +134,7 @@ tty_dowrite_display(struct tty *__restrict EXCEPT_VAR self,
                     size_t bufsize, iomode_t flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
- rwlock_read(&self->t_lock);
+ rwlock_readf(&self->t_lock,flags);
  TRY {
   result = tty_dowrite_display_impl(self,buf,bufsize,flags);
  } FINALLY {

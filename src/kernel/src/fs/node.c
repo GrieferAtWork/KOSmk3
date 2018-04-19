@@ -160,11 +160,7 @@ inode_read(struct inode *__restrict EXCEPT_VAR self,
            pos_t pos, iomode_t flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
- if (!rwlock_tryread(&self->i_lock)) {
-  if (flags & IO_NONBLOCK)
-      return 0;
-  rwlock_read(&self->i_lock);
- }
+ rwlock_readf(&self->i_lock,flags);
  TRY {
   if unlikely(INODE_ISCLOSED(self))
    result = 0; /* INode was closed. */
@@ -196,11 +192,7 @@ inode_write(struct inode *__restrict EXCEPT_VAR self,
             CHECKED USER void const *buf,
             size_t bufsize, pos_t pos, iomode_t flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
- if (!rwlock_trywrite(&self->i_lock)) {
-  if (flags & IO_NONBLOCK)
-      return 0;
-  rwlock_write(&self->i_lock);
- }
+ rwlock_writef(&self->i_lock,flags);
  TRY {
   if unlikely(INODE_ISCLOSED(self))
    result = 0; /* INode was closed. */
@@ -700,25 +692,24 @@ continue_reading:
   error_rethrow();
  }
 
-#ifndef NDEBUG
- /* `rwlock_write()' will have thrown an error if it didn't
-  *  manage to upgrade the associated R/W-lock atomically.
-  *  That error will be propagated until the point where
-  *  the caller originally acquired the first read-lock
-  *  to the node, which will be released, then re-acquired,
-  *  before we try this whole thing again.
-  *  In other words: If we get here, we should be able to
-  *                  assume that the `rwlock_write()' above
-  *                  didn't temporarily grant other threads
-  *                  write-access to the `d_dirend' field. */
- assert(self->d_dirend == entry_start_position);
- assert(!result ||
-       (result->de_pos >= entry_start_position &&
-        result->de_pos <  last_directory_position));
-#endif
-
  TRY {
   struct directory_entry **presult;
+#ifndef NDEBUG
+  /* `rwlock_write()' will have thrown an error if it didn't
+   *  manage to upgrade the associated R/W-lock atomically.
+   *  That error will be propagated until the point where
+   *  the caller originally acquired the first read-lock
+   *  to the node, which will be released, then re-acquired,
+   *  before we try this whole thing again.
+   *  In other words: If we get here, we should be able to
+   *                  assume that the `rwlock_write()' above
+   *                  didn't temporarily grant other threads
+   *                  write-access to the `d_dirend' field. */
+  assert(self->d_dirend == entry_start_position);
+  assert(!result ||
+        (result->de_pos >= entry_start_position &&
+         result->de_pos <  last_directory_position));
+#endif
   if (result) {
    /* assert(result->de_type != DT_WHT); // Actually, this is allowed... */
    /* Set the partially-loaded flag and the directory

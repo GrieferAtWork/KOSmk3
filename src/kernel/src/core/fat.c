@@ -501,7 +501,7 @@ create_cluster:
      * Check if we're supposed to create more. */
     if (!(mode & FAT_GETCLUSTER_MODE_FCREATE)) break;
     if (!has_write_lock) {
-     rwlock_write(&node->i_lock);
+     rwlock_writef(&node->i_lock,flags);
      has_write_lock = true;
     }
     mutex_getf(&fat->f_fat_lock,flags);
@@ -539,7 +539,7 @@ create_cluster:
    next_index = Fat_GetFatIndirection(node->i_super,next_index,flags);
    assert(data->i_clusterc <= data->i_clustera);
    if (!has_write_lock) {
-    rwlock_write(&node->i_lock);
+    rwlock_writef(&node->i_lock,flags);
     has_write_lock = true;
    }
    if (data->i_clusterc == data->i_clustera) {

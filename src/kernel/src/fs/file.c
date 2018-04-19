@@ -519,7 +519,7 @@ file_read(struct file *__restrict EXCEPT_VAR self,
           size_t bufsize, iomode_t flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
- rwlock_read(&self->f_node->i_lock);
+ rwlock_readf(&self->f_node->i_lock,flags);
  TRY {
   result = SAFECALL_KCALL_4(self->f_ops->f_read,self,buf,bufsize,flags);
  } FINALLY {
@@ -534,7 +534,7 @@ file_write(struct file *__restrict EXCEPT_VAR self,
            USER CHECKED void const *buf,
            size_t bufsize, iomode_t flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
- rwlock_write(&self->f_node->i_lock);
+ rwlock_writef(&self->f_node->i_lock,flags);
  TRY {
   if (flags & IO_APPEND) {
    /* Make sure that the size-attribute has been loaded. */
@@ -555,7 +555,7 @@ file_readdir(struct file *__restrict EXCEPT_VAR self,
              size_t bufsize, int mode, iomode_t flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
- rwlock_read(&self->f_node->i_lock);
+ rwlock_readf(&self->f_node->i_lock,flags);
  TRY {
   result = SAFECALL_KCALL_5(self->f_ops->f_readdir,self,buf,bufsize,mode,flags);
  } FINALLY {
@@ -570,7 +570,7 @@ file_ioctl(struct file *__restrict EXCEPT_VAR self,
            unsigned long cmd,
            USER UNCHECKED void *arg, iomode_t flags) {
  ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
- rwlock_write(&self->f_node->i_lock);
+ rwlock_writef(&self->f_node->i_lock,flags);
  TRY {
   result = SAFECALL_KCALL_4(self->f_ops->f_ioctl,self,cmd,arg,flags);
  } FINALLY {
@@ -580,14 +580,7 @@ file_ioctl(struct file *__restrict EXCEPT_VAR self,
 }
 PUBLIC unsigned int KCALL
 file_poll(struct file *__restrict EXCEPT_VAR self, unsigned int mode) {
- unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
- rwlock_write(&self->f_node->i_lock);
- TRY {
-  result = SAFECALL_KCALL_2(self->f_ops->f_poll,self,mode);
- } FINALLY {
-  rwlock_endwrite(&self->f_node->i_lock);
- }
- return result;
+ return SAFECALL_KCALL_2(self->f_ops->f_poll,self,mode);
 }
 
 

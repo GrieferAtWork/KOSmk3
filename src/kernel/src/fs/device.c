@@ -739,11 +739,7 @@ new_page(struct block_device *__restrict EXCEPT_VAR self, blkaddr_t addr,
  if unlikely(addr >= self->b_blockcount)
     error_throw(E_NO_DATA);
  if unlikely(!self->b_pagebuf.ps_mapu) {
-  if (!rwlock_trywrite(&self->b_pagebuf.ps_lock)) {
-   if (flags & O_NONBLOCK)
-       error_throw(E_WOULDBLOCK);
-   rwlock_write(&self->b_pagebuf.ps_lock);
-  }
+  rwlock_writef(&self->b_pagebuf.ps_lock,flags);
   if (!self->b_pagebuf.ps_mapv) {
    /* Allocate the initial hash-mask. */
    new_mask = 7;
@@ -789,11 +785,7 @@ find_dummy:
   return entry;
  }
  assert(result);
- if (!rwlock_trywrite(&self->b_pagebuf.ps_lock)) {
-  if (flags & O_NONBLOCK)
-      error_throw(E_WOULDBLOCK);
-  rwlock_write(&self->b_pagebuf.ps_lock);
- }
+ rwlock_writef(&self->b_pagebuf.ps_lock,flags);
  TRY {
   /* If our dummy slot was the end of a hash-chain, check
    * if we should rehash the page buffer, or potentially
@@ -959,7 +951,7 @@ block_device_read(struct block_device *__restrict EXCEPT_VAR self,
  assertf(self == self->b_master,
          "Recursive partitions must be resolved during creation");
 again:
- rwlock_read(&self->b_pagebuf.ps_lock);
+ rwlock_readf(&self->b_pagebuf.ps_lock,flags);
  TRY {
   for (;;) {
    blkaddr_t pageno = (blkaddr_t)(device_position / self->b_blocksize);
@@ -1001,7 +993,7 @@ block_device_write(struct block_device *__restrict EXCEPT_VAR self,
  if (self->b_device.d_flags & DEVICE_FREADONLY)
      throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
 again:
- rwlock_read(&self->b_pagebuf.ps_lock);
+ rwlock_readf(&self->b_pagebuf.ps_lock,flags);
  TRY {
   for (;;) {
    blkaddr_t pageno = (blkaddr_t)(device_position / self->b_blocksize);
