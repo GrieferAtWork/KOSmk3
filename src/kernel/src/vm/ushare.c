@@ -108,12 +108,13 @@ procinfo_readl(void *UNUSED(closure), uintptr_t addr) {
 
 PRIVATE void KCALL
 procinfo_writel(void *UNUSED(closure), uintptr_t addr, u32 value) {
+#define FIELD(x) case offsetof(struct ushare_procinfo,x):
  switch (addr) {
 
  {
   struct exception_info *info;
- case offsetof(struct ushare_procinfo,pi_exit):
- case offsetof(struct ushare_procinfo,pi_exit_group):
+ FIELD(pi_exit)
+ FIELD(pi_exit_group)
   info = error_info();
   memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
   info->e_error.e_code = E_EXIT_THREAD;
@@ -127,6 +128,7 @@ procinfo_writel(void *UNUSED(closure), uintptr_t addr, u32 value) {
 
  default: break;
  }
+#undef FIELD
  error_throw(E_NOT_IMPLEMENTED);
 }
 PRIVATE struct vio_ops ushare_procinfo_ops = {
@@ -178,7 +180,7 @@ struct utsname_pad _ushare_utsname ASMNAME("ushare_utsname") = {
         .release    = PP_STR(KOS_VERSION_MAJOR),
         .version    = PP_STR(KOS_VERSION_MINOR),
         .nodename   = "insert-hostname-here",
-        .domainname = KOS_VERSION_NAME "-net",
+        .domainname = "insert-domainname-here",
 #ifdef __i386__
         .machine    = "i386",
 #elif defined(__x86_64__)

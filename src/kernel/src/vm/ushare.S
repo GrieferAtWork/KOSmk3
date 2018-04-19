@@ -268,7 +268,7 @@ print "	/" "* etd_enocnt  *" "/ PUT32 "+#eno_string_offsets;
 print "	/" "* etd_enoent  *" "/ PUT32 4";
 print "	/" "* etd_sigtab  *" "/ PUT32",sigtab_offset;
 print "	/" "* etd_sigcnt  *" "/ PUT32 "+#sig_string_offsets;
-print "	/" "* etd_sigent  *" "/ PUT32 2";
+print "	/" "* etd_sigent  *" "/ PUT32 4";
 
 print;
 print "/" "* STRERROR_VECTOR *" "/";
@@ -306,7 +306,7 @@ PUBLIC_OBJECT(ushare_strerror)
 	/* etd_enoent  */ PUT32 4
 	/* etd_sigtab  */ PUT32 568
 	/* etd_sigcnt  */ PUT32 31
-	/* etd_sigent  */ PUT32 2
+	/* etd_sigent  */ PUT32 4
 
 /* STRERROR_VECTOR */
 	/* [  0].se_name */ PUT16 0

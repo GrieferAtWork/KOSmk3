@@ -129,31 +129,31 @@ CRT_RARE char const *LIBCCALL libc_strerrorname_s(errno_t errnum) {
  return (char const *)((uintptr_t)ushare+ushare->se_strtab+entry->se_name);
 }
 EXPORT(__KSYM(strsignal_s),libc_strsignal_s);
-CRT_RARE char const *LIBCCALL libc_strsignal_s(int signo) {
+CRT_RARE char const *LIBCCALL libc_strsignal_s(int signum) {
  struct ushare_strerror *ushare;
  struct ushare_strerror_signl *entry;
  ushare = get_ushare_strerror();
  if unlikely((uintptr_t)ushare == (uintptr_t)-1 ||
              ushare->se_version < USHARE_STRERROR_VER_KOSMK3)
     return NULL; /* No ushare segment, or unsupported version. */
- if unlikely((u32)signo >= ushare->se_sigent)
+ if unlikely((u32)signum >= ushare->se_sigcnt)
     return NULL; /* Invalid error number. */
  entry = (struct ushare_strerror_signl *)((uintptr_t)ushare+ushare->se_sigtab+
-                                          (uintptr_t)signo*ushare->se_sigent);
+                                          (uintptr_t)signum*ushare->se_sigent);
  return (char const *)((uintptr_t)ushare+ushare->se_strtab+entry->se_name);
 }
 EXPORT(__KSYM(strsignaltext_s),libc_strsignaltext_s);
-CRT_RARE char const *LIBCCALL libc_strsignaltext_s(int signo) {
+CRT_RARE char const *LIBCCALL libc_strsignaltext_s(int signum) {
  struct ushare_strerror *ushare;
  struct ushare_strerror_signl *entry;
  ushare = get_ushare_strerror();
  if unlikely((uintptr_t)ushare == (uintptr_t)-1 ||
              ushare->se_version < USHARE_STRERROR_VER_KOSMK3)
     return NULL; /* No ushare segment, or unsupported version. */
- if unlikely((u32)signo >= ushare->se_sigent)
-    return NULL; /* Invalid error number. */
+ if unlikely((u32)signum >= ushare->se_sigcnt)
+    return NULL; /* Invalid signal number. */
  entry = (struct ushare_strerror_signl *)((uintptr_t)ushare+ushare->se_sigtab+
-                                          (uintptr_t)signo*ushare->se_sigent);
+                                          (uintptr_t)signum*ushare->se_sigent);
  return (char const *)((uintptr_t)ushare+ushare->se_strtab+entry->se_text);
 }
 
