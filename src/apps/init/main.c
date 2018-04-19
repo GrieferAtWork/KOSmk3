@@ -99,63 +99,12 @@ struct ushare_procinfo *map_procinfo(void) {
  return (struct ushare_procinfo *)xmmap(&info);
 }
 
-__LIBC void LIBCCALL foobar(void);
-
-void foo(void) {
- TRY {
-  volatile s32 x = 42;
-  volatile s32 y = 0;
-  TRY {
-   x /= y;
-  } FINALLY {
-   syslog(LOG_DEBUG,"Inner finally\n");
-  }
-  TRY {
-   x /= y;
-  } FINALLY {
-   syslog(LOG_DEBUG,"Inner finally\n");
-  }
- } FINALLY {
-  syslog(LOG_DEBUG,"In finally\n");
-  error_rethrow();
- }
-}
-
 PRIVATE void
 my_handler(int signo, siginfo_t *info, ucontext_t *context) {
  syslog(LOG_DEBUG,"my_handler(%d)\n",signo);
  syslog(LOG_DEBUG,"info    = %p\n",info);
  syslog(LOG_DEBUG,"context = %p\n",context);
 }
-
-IMPDEF int public_value;
-IMPDEF void test(void);
-
-
-void print_dir(int fd) {
- for (;;) {
-  char buffer[2048]; size_t bufsize;
-  struct dirent *iter = (struct dirent *)buffer;
-  // Read as many entries as our buffer can fit
-  bufsize = xreaddir(fd,iter,sizeof(buffer),
-                     READDIR_MULTIPLE|READDIR_WANTEOF);
-  if (!bufsize) break; // End of directory
-  if (bufsize > sizeof(buffer)) {
-   syslog(LOG_DEBUG,"A directory entry is too larger for buffer\n");
-   break;
-  }
-  // Process entries that were read.
-  for (;;) {
-   if (READDIR_MULTIPLE_ISEOF(iter))
-       return;
-   syslog(LOG_DEBUG,"Entry: %q\n",iter->d_name);
-   iter = READDIR_MULTIPLE_GETNEXT(iter);
-   if (!READDIR_MULTIPLE_ISVALID(iter,buffer,bufsize))
-       break;
-  }
- }
-}
-
 
 void vm86_map_identity(void) {
  struct mmap_info info;
@@ -268,34 +217,38 @@ int main(int argc, char *argv[]) {
  syslog(LOG_DEBUG,"REALPATH_FDOSPATH|REALPATH_FDRIVEPATH = %q\n",xrealpath("bin",NULL,0,REALPATH_FDOSPATH|REALPATH_FDRIVEPATH));
 #endif
 
-
-
 //  foo();
 
-//  kernctl(KERNEL_CONTROL_DBG_DUMP_LEAKS);
-//  {
-//   struct ushare_procinfo *base;
-//   base = map_procinfo();
-//   syslog(LOG_DEBUG,"pi_tid              = %u\n",base->pi_tid);
-//   syslog(LOG_DEBUG,"pi_pid              = %u\n",base->pi_pid);
-//   syslog(LOG_DEBUG,"pi_ppid             = %u\n",base->pi_ppid);
-//   syslog(LOG_DEBUG,"pi_gpid             = %u\n",base->pi_gpid);
-//   syslog(LOG_DEBUG,"pi_sid              = %u\n",base->pi_sid);
-//   syslog(LOG_DEBUG,"pi_hz               = %u\n",base->pi_hz);
-//   syslog(LOG_DEBUG,"pi_time             = %u\n",base->pi_time);
-//   syslog(LOG_DEBUG,"pi_thread.t_start   = %u\n",base->pi_thread.t_start);
-//   syslog(LOG_DEBUG,"pi_thread.t_hswitch = %u\n",base->pi_thread.t_hswitch);
-//   syslog(LOG_DEBUG,"pi_thread.t_uswitch = %u\n",base->pi_thread.t_uswitch);
-//   syslog(LOG_DEBUG,"pi_thread.t_hyield  = %u\n",base->pi_thread.t_hyield);
-//   syslog(LOG_DEBUG,"pi_thread.t_uyield  = %u\n",base->pi_thread.t_uyield);
-//   syslog(LOG_DEBUG,"pi_thread.t_sleep   = %u\n",base->pi_thread.t_sleep);
-//   syslog(LOG_DEBUG,"pi_thread.t_xrpc    = %u\n",base->pi_thread.t_xrpc);
-//   syslog(LOG_DEBUG,"pi_thread.t_qrpc    = %u\n",base->pi_thread.t_qrpc);
-//  }
-//  kernctl(KERNEL_CONTROL_DBG_DUMP_LEAKS);
+ kernctl(KERNEL_CONTROL_DBG_DUMP_LEAKS);
+ {
+  struct ushare_procinfo *base;
+  base = map_procinfo();
+  syslog(LOG_DEBUG,"pi_tid              = %u\n",base->pi_tid);
+  syslog(LOG_DEBUG,"pi_pid              = %u\n",base->pi_pid);
+  syslog(LOG_DEBUG,"pi_ppid             = %u\n",base->pi_ppid);
+  syslog(LOG_DEBUG,"pi_gpid             = %u\n",base->pi_gpid);
+  syslog(LOG_DEBUG,"pi_sid              = %u\n",base->pi_sid);
+  syslog(LOG_DEBUG,"pi_hz               = %u\n",base->pi_hz);
+  syslog(LOG_DEBUG,"pi_time             = %u\n",base->pi_time);
+  syslog(LOG_DEBUG,"pi_thread.t_start   = %u\n",base->pi_thread.t_start);
+  syslog(LOG_DEBUG,"pi_thread.t_hswitch = %u\n",base->pi_thread.t_hswitch);
+  syslog(LOG_DEBUG,"pi_thread.t_uswitch = %u\n",base->pi_thread.t_uswitch);
+  syslog(LOG_DEBUG,"pi_thread.t_hyield  = %u\n",base->pi_thread.t_hyield);
+  syslog(LOG_DEBUG,"pi_thread.t_uyield  = %u\n",base->pi_thread.t_uyield);
+  syslog(LOG_DEBUG,"pi_thread.t_sleep   = %u\n",base->pi_thread.t_sleep);
+  syslog(LOG_DEBUG,"pi_thread.t_xrpc    = %u\n",base->pi_thread.t_xrpc);
+  syslog(LOG_DEBUG,"pi_thread.t_qrpc    = %u\n",base->pi_thread.t_qrpc);
+ }
+ kernctl(KERNEL_CONTROL_DBG_DUMP_LEAKS);
+
+#if 0
+ asm("movl $0x11223344, %%esi" : : : "esi");
+ asm("movl $0x55667788, %%edi" : : : "edi");
+ for (;;) Xfork();
+#endif
 
 
- kernctl(KERNEL_CONTROL_TRACE_SYSCALLS_ON);
+// kernctl(KERNEL_CONTROL_TRACE_SYSCALLS_ON);
  kernctl(KERNEL_CONTROL_DBG_DUMP_LEAKS);
 
  /* Create and mount the /dev filesystem. */
@@ -309,14 +262,6 @@ int main(int argc, char *argv[]) {
   /* */if (stat("/dev/ps2_mousea",&buf) == 0) Xsymlink("ps2_mousea","/dev/mouse");
   else if (stat("/dev/ps2_mouseb",&buf) == 0) Xsymlink("ps2_mouseb","/dev/mouse");
  }
-
- print_dir(Xopen("/dev",O_RDONLY|O_DIRECTORY|O_CLOEXEC));
-
-#if 0
- asm("movl $0x11223344, %%esi" : : : "esi");
- asm("movl $0x55667788, %%edi" : : : "edi");
- for (;;) Xfork();
-#endif
 
  Xexecl("/bin/terminal-vga","terminal-vga","/bin/busybox","sh","-i",(char *)NULL);
 }

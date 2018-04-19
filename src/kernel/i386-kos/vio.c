@@ -64,10 +64,10 @@ DECL_BEGIN
 #define CONTEXT_DIREG(x) ((x).c_gpregs.gp_edi)
 #define CONTEXT_SIREG(x) ((x).c_gpregs.gp_esi)
 #endif
-#define X86_GPREG(context,no)     ((uintptr_t *)&(context).c_gpregs)[7-(no)]
-#define X86_GPREG8(context,no)    ((u8 *)&(context).c_gpregs+32)[7-(no)]
-#define MODRM_REG(context,modrm)   X86_GPREG(*(context),(modrm)->mi_rm)
-#define MODRM_REG8(context,modrm)  X86_GPREG8(*(context),(modrm)->mi_rm)
+#define X86_GPREG(context,no)       ((uintptr_t *)&(context).c_gpregs)[7-(no)]
+#define X86_GPREG8(context,no)      ((u8 *)&(context).c_gpregs+32)[7-(no)]
+#define MODRM_REG(context,modrm)     X86_GPREG(*(context),(modrm)->mi_reg)
+#define MODRM_REG8(context,modrm)    X86_GPREG8(*(context),(modrm)->mi_reg)
 
 
 PRIVATE ATTR_NORETURN void KCALL vio_not_implemented(void) {

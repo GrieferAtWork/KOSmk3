@@ -113,16 +113,13 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
 //  if (!(context->c_iret.ir_cs & 3))
 //      __asm__("int3");
 #endif
-#ifdef CONFIG_DEBUG_MALLOC
- if (PERTASK_TEST(mall_leak_nocore))
-     goto skip_loadcore;
-#endif
-
-
  /* Re-enable interrupts if they were enabled before. */
  if (context->c_eflags&EFLAGS_IF)
      x86_interrupt_enable();
 
+#ifdef CONFIG_DEBUG_MALLOC
+ if (!PERTASK_TEST(mall_leak_nocore))
+#endif
  {
   bool EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(vm_ok);
   struct vm *EXCEPT_VAR effective_vm;
@@ -240,9 +237,6 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
   if (vm_ok)
       return;
  }
-#ifdef CONFIG_DEBUG_MALLOC
-skip_loadcore:
-#endif
 
 
 #if 1
