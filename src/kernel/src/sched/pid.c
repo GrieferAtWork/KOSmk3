@@ -66,6 +66,7 @@ thread_pid_get(struct thread_pid *__restrict self) {
     result = NULL;
     break;
    }
+   assert(!(state & TASK_STATE_FSLEEPING));
    /* Let whoever is in charge finish setting up the task. */
    task_yield();
   }

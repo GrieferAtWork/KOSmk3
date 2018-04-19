@@ -318,22 +318,7 @@ int main(int argc, char *argv[]) {
  for (;;) Xfork();
 #endif
 
-#if 1
- {
-  pid_t cpid = Xfork();
-  if (cpid == 0) {
-   kernctl(KERNEL_CONTROL_DBG_DUMP_LEAKS);
-#if 1
-   Xexecl("/bin/terminal-vga","terminal-vga","/bin/busybox","sh","-i",(char *)NULL);
-#else
-   Xexecl("/bin/busybox","sh","-i",(char *)NULL);
-#endif
-  }
- }
-#endif
- syslog(LOG_DEBUG,"cpid = %p\n",cpid);
- //execl("/bin/init",NULL);
- exit(0);
+ Xexecl("/bin/terminal-vga","terminal-vga","/bin/busybox","sh","-i",(char *)NULL);
 }
 
 #else

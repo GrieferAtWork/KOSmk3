@@ -251,7 +251,7 @@ INTERN NOIRQ void KCALL x86_scheduler_loadpending(void) {
  /* Transfer all pending task to the list of running tasks. */
  while (chain) {
   next = chain->t_sched.sched_slist.le_next;
-  if (chain->t_state & TASK_STATE_FSLEEPING) {
+  if (ATOMIC_FETCHOR(chain->t_state,TASK_STATE_FSTARTED) & TASK_STATE_FSLEEPING) {
    /* Start as sleeping (could be used to implement start-as-suspended). */
    x86_scheduler_addsleeper(chain);
   } else {
@@ -259,7 +259,6 @@ INTERN NOIRQ void KCALL x86_scheduler_loadpending(void) {
     *      _we_ can't be held responsible to clean up the reference, and
     *      neither can we send an RPC to have someone else do it for us.
     *   >> So what do we do then? */
-   ATOMIC_FETCHOR(chain->t_state,TASK_STATE_FSTARTED);
    RING_INSERT_BEFORE(me->c_running,chain,t_sched.sched_ring);
   }
   chain = next;
@@ -515,6 +514,7 @@ PUBLIC NOIRQ ATTR_HOTTEXT bool KCALL task_sleep(jtime_t abs_timeout) {
 
  /* Enter a sleeping-task state. */
  INCSTAT(ts_sleep);
+ assertf(caller->t_state & TASK_STATE_FSTARTED,"caller = %p",caller);
  caller->t_state  |= TASK_STATE_FSLEEPING;
  caller->t_timeout = abs_timeout;
  COMPILER_WRITE_BARRIER();
@@ -807,14 +807,13 @@ task_start(struct task *__restrict self) {
  {
   /* Simply add the task to the ring of running CPUs. */
   pflag_t was = PREEMPTION_PUSHOFF();
-  if (self->t_state & TASK_STATE_FSLEEPING) {
+  if (ATOMIC_FETCHOR(self->t_state,TASK_STATE_FSTARTED) & TASK_STATE_FSLEEPING) {
    LIST_INSERT(_boot_cpu.c_sleeping,self,t_sched.sched_list);
   } else {
    RING_INSERT_BEFORE(_boot_cpu.c_running,
                       self,t_sched.sched_ring);
   }
   /* Set the started-flag before re-enabling interrupts. */
-  ATOMIC_FETCHOR(self->t_state,TASK_STATE_FSTARTED);
   PREEMPTION_POP(was);
  }
 #endif

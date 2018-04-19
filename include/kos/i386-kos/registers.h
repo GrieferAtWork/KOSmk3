@@ -165,7 +165,7 @@ __SYSDECL_BEGIN
 #   define X86_REGISTER_FLOAT_ST7           7 /* %st(7) */
 
 /* Model-specific registers. */
-#define X86_REGISTER_MSR               0x0008
+#define X86_REGISTER_MSR               0x0010
 
 
 /* Misc. registers. */

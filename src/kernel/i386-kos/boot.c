@@ -180,6 +180,11 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
  memcpy(boot_task_start,kernel_pertask_start,(size_t)kernel_pertask_size);
  memcpy(boot_vm_start,kernel_pervm_start,(size_t)kernel_pervm_size);
 
+ /* Mark the boot task as having started (which we couldn't do
+  * until now because we still had to copy the pertask template
+  * into the boot task TLS segment). */
+ _boot_task.t_state |= TASK_STATE_FSTARTED;
+
  /* Load the initial (boot) GDT. (now that it's been copied) */
  {
   struct x86_idt_pointer gdt;
