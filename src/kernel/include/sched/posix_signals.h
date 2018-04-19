@@ -73,6 +73,11 @@ DATDEF ATTR_PERTASK REF struct sigblock *_this_sigblock;
  * @throw E_BADALLOC: Not enough available memory. */
 FUNDEF ATTR_RETNONNULL struct sigblock *KCALL sigblock_unique(void);
 
+/* A faster version of `sigblock_unique()' that doesn't lazily
+ * allocate the sigblock, rather returning NULL if no sigblock
+ * exists, or if it is shared with another thread. */
+FUNDEF struct sigblock *KCALL sigblock_unique_fast(void);
+
 
 struct sighand {
     /* Descriptor for how signals ought to be handled. */

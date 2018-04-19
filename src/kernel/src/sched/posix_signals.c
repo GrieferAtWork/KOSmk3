@@ -41,6 +41,14 @@
 
 DECL_BEGIN
 
+STATIC_ASSERT((uintptr_t)SIGNAL_ACTION_IGNORE == (uintptr_t)SIG_IGN);
+STATIC_ASSERT((uintptr_t)SIGNAL_ACTION_TERM   == (uintptr_t)SIG_TERM);
+STATIC_ASSERT((uintptr_t)SIGNAL_ACTION_EXIT   == (uintptr_t)SIG_EXIT);
+STATIC_ASSERT((uintptr_t)SIGNAL_ACTION_CONT   == (uintptr_t)SIG_CONT);
+STATIC_ASSERT((uintptr_t)SIGNAL_ACTION_STOP   == (uintptr_t)SIG_STOP);
+STATIC_ASSERT((uintptr_t)SIGNAL_ACTION_CORE   == (uintptr_t)SIG_CORE);
+
+
 /* [0..1][lock(PRIVATE(THIS_TASK))][ref(sb_share)]
  * The set of signals being blocked in the current thread.
  * When NULL, assume that no signals are being blocked. */
@@ -255,6 +263,13 @@ PUBLIC ATTR_RETNONNULL struct sigblock *KCALL sigblock_unique(void) {
   PERTASK_SET(_this_sigblock,new_result);
   result = new_result;
  }
+ return result;
+}
+
+PUBLIC struct sigblock *KCALL sigblock_unique_fast(void) {
+ struct sigblock *result = PERTASK_GET(_this_sigblock);
+ if (result && ATOMIC_READ(result->sb_share) > 1)
+     result = NULL;
  return result;
 }
 
@@ -610,6 +625,53 @@ suspend_thread(void *UNUSED(arg),
  task_suspend(JTIME_INFINITE);
 }
 
+PRIVATE void KCALL
+do_redirect_signal_action(struct cpu_hostcontext_user *__restrict context,
+                          unsigned int signo, siginfo_t const *__restrict info,
+                          struct sigaction const *__restrict action,
+                          unsigned int mode) {
+ struct sigblock *block;
+ /* Redirect user-space towards the signal
+  * handler before we update the blocking-mask,
+  * so it can save the old mask to-be restored
+  * by the sigreturn system call. */
+ arch_posix_signals_redirect_action(context,info,action,mode);
+
+
+ /* Resume user-space execution (for now) and have the signal
+  * handler returning re-throw an E_INTERRUPT exception if
+  * necessary. */
+ error_info()->e_error.e_code = E_USER_RESUME;
+
+ if ((block = sigblock_unique_fast()) == NULL) {
+  /* Optimization: If we're not going to modify the
+   *               sigblock, don't force-allocate it. */
+  if (!(action->sa_flags & SA_NODEFER) &&
+      !memxchr(&action->sa_mask,0,sizeof(sigset_t)))
+       return;
+
+  /* Get the currently active sigblock set. */
+  block = sigblock_unique();
+ }
+
+ {
+  byte_t *iter,*end,*dst;
+  /* Mask out all additional signals. */
+  end = (iter = (byte_t *)&action->sa_mask)+sizeof(sigset_t);
+  dst = (byte_t *)&block->sb_sigset;
+  for (; iter != end; ++iter) *dst |= *iter;
+ }
+
+ /* Also block the signal itself when `SA_NODEFER' isn't set. */
+ if (!(action->sa_flags & SA_NODEFER))
+      __sigaddset(&block->sb_sigset,signo);
+
+ /* ... Continue serving signals and RPC functions
+  *     until the calling thread will eventually
+  *     return to user-space. */
+}
+
+
 /* Handle (process) a signal. */
 PRIVATE void KCALL
 handle_signal(struct cpu_hostcontext_user *__restrict context,
@@ -617,7 +679,6 @@ handle_signal(struct cpu_hostcontext_user *__restrict context,
               unsigned int mode) {
  uintptr_t action_ptr; struct sighand *hand;
  struct sigaction *action,*action_copy;
- struct sigblock *block;
  unsigned int signo = (unsigned int)info->si_signo-1;
  assert(signo < _NSIG);
  hand = sighand_lock_read();
@@ -688,51 +749,59 @@ do_action_throw:
   atomic_rwlock_endread(&hand->sh_lock);
   goto do_default_action;
  }
+ /* Force default behavior for these signals. */
+ if (signo == SIGKILL) { atomic_rwlock_endread(&hand->sh_lock); goto do_action_kill; }
+ if (signo == SIGSTOP) { atomic_rwlock_endread(&hand->sh_lock); goto do_action_stop; }
+
+ /* Deal with one-time signal handlers. */
+ if (action->sa_flags & SA_RESETHAND) {
+  atomic_rwlock_endread(&hand->sh_lock);
+  /* Temporarily acquire a write lock, so
+   * we get a change to delete the handler. */
+  hand = sighand_lock_write();
+  COMPILER_READ_BARRIER();
+  action = hand->sh_hand[signo];
+  if unlikely(!action) {
+   atomic_rwlock_endwrite(&hand->sh_lock);
+   goto do_default_action;
+  }
+  if likely(action->sa_flags & SA_RESETHAND) {
+   hand->sh_hand[signo] = NULL; /* Inherit. */
+   atomic_rwlock_endwrite(&hand->sh_lock);
+   /* Now just serve the action described by the signal. */
+   action_ptr = (uintptr_t)action->sa_handler;
+   if (SIGNAL_ISACTION(action_ptr)) {
+    kfree(action);
+    goto special_action;
+   }
+   TRY {
+    /* Do the user-space signal redirection. */
+    do_redirect_signal_action(context,signo,info,
+                              action,mode);
+   } FINALLY {
+    kfree(action);
+   }
+   return;
+  }
+  atomic_rwlock_downgrade(&hand->sh_lock);
+ }
+
  /* Load the user-space instruction pointer of the signal handler,
   * which then doubles as identifier for special signal actions. */
  action_ptr = (uintptr_t)action->sa_handler;
  /* If the action pointer is a special action, do that action instead. */
  if (SIGNAL_ISACTION(action_ptr)) { atomic_rwlock_endread(&hand->sh_lock); goto special_action; }
- /* Force default behavior for these signals. */
- if (signo == SIGKILL) { atomic_rwlock_endread(&hand->sh_lock); goto do_action_kill; }
- if (signo == SIGSTOP) { atomic_rwlock_endread(&hand->sh_lock); goto do_action_stop; }
 
  /* Custom signal handler. -> Redirect the user-space
   * context to execute the user's signal handler. */
  action_copy = (struct sigaction *)alloca(sizeof(struct sigaction));
  memcpy(action_copy,action,sizeof(struct sigaction));
  atomic_rwlock_endread(&hand->sh_lock);
- action = action_copy;
-
- /* Redirect user-space towards the signal
-  * handler before we update the blocking-mask,
-  * so it can save the old mask to-be restored
-  * by the sigreturn system call. */
- arch_posix_signals_redirect_action(context,info,action,mode);
- /* Resume user-space execution (for now) and have the signal
-  * handler returning re-throw an E_INTERRUPT exception if
-  * necessary. */
- error_info()->e_error.e_code = E_USER_RESUME;
-
- /* Get the currently active sigblock set. */
- block = sigblock_unique();
-
- {
-  byte_t *iter,*end,*dst;
-  /* Mask out all additional signals. */
-  end = (iter = (byte_t *)&action->sa_mask)+sizeof(sigset_t);
-  dst = (byte_t *)&block->sb_sigset;
-  for (; iter != end; ++iter) *dst |= *iter;
- }
-
- /* Also block the signal itself when `SA_NODEFER' isn't set. */
- if (!(action->sa_flags & SA_NODEFER))
-      __sigaddset(&block->sb_sigset,signo);
-
- /* ... Continue serving signals and RPC functions
-  *     until the calling thread will eventually
-  *     return to user-space. */
+ /* Do the user-space signal redirection. */
+ do_redirect_signal_action(context,signo,info,
+                           action_copy,mode);
 }
+
 
 
 PRIVATE void KCALL

@@ -25,9 +25,10 @@
 #include <string.h>
 #endif /* !_STRING_H */
 
-#if defined(__CC__) && !defined(__KERNEL__)
+#ifdef __CC__
 __SYSDECL_BEGIN
 
+#ifndef __KERNEL__
 #ifdef __CRT_KOS
 /* Locale/position-enabled formatted string duplication. */
 __VREDIRECT_EXCEPT(__LIBC,__XATTR_RETNONNULL __ATTR_MALLOC __ATTR_LIBC_PRINTF(1,3) __PORT_KOSONLY __WUNUSED,char *,__ATTR_CDECL,strdupf_l,(char const *__restrict __format, __locale_t __locale, ...),vstrdupf_l,(__format,__locale),__locale)
@@ -65,6 +66,7 @@ __LIBC __PORT_KOSONLY __ATTR_RETNONNULL __NONNULL((1)) void *(__LIBCCALL memrevw
 __LIBC __PORT_KOSONLY __ATTR_RETNONNULL __NONNULL((1)) void *(__LIBCCALL memrevl)(void *__restrict __base, size_t __num_dwords);
 __LIBC __PORT_KOSONLY __ATTR_RETNONNULL __NONNULL((1)) void *(__LIBCCALL memrevq)(void *__restrict __base, size_t __num_qwords);
 #endif /* __CRT_KOS */
+#endif /* __KERNEL__ */
 
 
 #ifdef __ANY_COMPAT__
@@ -186,7 +188,7 @@ __LIBC __WUNUSED __ATTR_PURE __NONNULL((1)) __UINT64_TYPE__ *(__LIBCCALL rawmemr
 #endif /* !__ANY_COMPAT__ */
 
 __SYSDECL_END
-#endif /* __CC__ && !__KERNEL__ */
+#endif /* __CC__ */
 
 #ifdef _WCHAR_H
 #ifndef _PARTS_KOS3_WSTRING_H

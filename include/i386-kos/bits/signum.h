@@ -67,6 +67,10 @@ __SYSDECL_BEGIN
 #endif /* !__USE_DOS */
 
 #ifdef __USE_KOS
+#if __USE_KOS3 /* New symbolic signal modes added in KOSmk3 */
+#define SIG_TERM  ((__sighandler_t)3)  /* Terminate the receiving process (thread-group). */
+#define SIG_EXIT  ((__sighandler_t)4)  /* Terminate the receiving thread. */
+#endif /* __USE_KOS3 */
 #define SIG_CONT  ((__sighandler_t)8)  /* Continue execution. */
 #define SIG_STOP  ((__sighandler_t)9)  /* Suspend execution. */
 #define SIG_CORE  ((__sighandler_t)10) /* Create a coredump and terminate. */

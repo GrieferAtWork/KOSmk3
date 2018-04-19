@@ -81,8 +81,6 @@ DECL_BEGIN
 
 #if 1
 
-static volatile int x = 42;
-
 struct ushare_procinfo *map_procinfo(void) {
  struct mmap_info info;
  memset(&info,0,sizeof(info));
@@ -147,11 +145,6 @@ void test_vm86(void) {
 
 
 int main(int argc, char *argv[]) {
- //kernctl(KERNEL_CONTROL_DBG_DUMP_LEAKS);
- //syslog(LOG_DEBUG,"Hello dynamically linked world %d\n",x++);
- //syslog(LOG_DEBUG,"Hello dynamically linked world %d\n",x++);
- //syslog(LOG_DEBUG,"Hello dynamically linked world %d\n",x++);
- //syslog(LOG_DEBUG,"Hello dynamically linked world %d\n",x++);
  struct sigaction act;
  kernctl(KERNEL_CONTROL_TRACE_SYSCALLS_ON);
  kernctl(KERNEL_CONTROL_DBG_DUMP_LEAKS);
@@ -217,8 +210,6 @@ int main(int argc, char *argv[]) {
  syslog(LOG_DEBUG,"REALPATH_FDOSPATH|REALPATH_FDRIVEPATH = %q\n",xrealpath("bin",NULL,0,REALPATH_FDOSPATH|REALPATH_FDRIVEPATH));
 #endif
 
-//  foo();
-
  kernctl(KERNEL_CONTROL_DBG_DUMP_LEAKS);
  {
   struct ushare_procinfo *base;
@@ -263,7 +254,12 @@ int main(int argc, char *argv[]) {
   else if (stat("/dev/ps2_mouseb",&buf) == 0) Xsymlink("ps2_mouseb","/dev/mouse");
  }
 
- Xexecl("/bin/terminal-vga","terminal-vga","/bin/busybox","sh","-i",(char *)NULL);
+ Xexecl("/bin/terminal-vga",
+        "terminal-vga",
+        "/bin/busybox",
+        "sh",
+        "-i",
+       (char *)NULL);
 }
 
 #else
