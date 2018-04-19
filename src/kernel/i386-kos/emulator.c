@@ -26,12 +26,15 @@
 #include <kos/types.h>
 #include <hybrid/section.h>
 #include <hybrid/sync/atomic-rwlock.h>
+#include <kos/registers.h>
 #include <kernel/user.h>
 #include <kernel/interrupt.h>
 #include <kos/context.h>
+#include <kos/intrin.h>
 #include <asm/cpu-flags.h>
 #include <kernel/debug.h>
 #include <sched/task.h>
+#include <i386-kos/gdt.h>
 #include <except.h>
 #include <string.h>
 #include <stdbool.h>
@@ -44,8 +47,8 @@ INTERN byte_t *KCALL
 x86_decode_modrm(byte_t *__restrict text,
                  struct modrm_info *__restrict info) {
  u8 rmbyte = *text++;
- info->mi_reg    = X86_MODRM_GETRM(rmbyte);
- info->mi_rm     = X86_MODRM_GETREG(rmbyte);
+ info->mi_reg    = X86_MODRM_GETREG(rmbyte);
+ info->mi_rm     = X86_MODRM_GETRM(rmbyte);
  info->mi_type   = MODRM_REGISTER;
  if ((rmbyte&X86_MODRM_MOD_MASK) == (0x3 << X86_MODRM_MOD_SHIFT))
       goto done; /* Register operand. */
@@ -153,10 +156,72 @@ write_dword(struct cpu_anycontext *__restrict context,
      X86_GPREG(*(context),(modrm)->mi_rm)
 #define modrm_getreg8(context,modrm) \
      X86_GPREG8(*(context),(modrm)->mi_rm)
-PRIVATE register_t KCALL
-modrm_getmem(struct cpu_anycontext *__restrict context,
-             struct modrm_info *__restrict modrm) {
- register_t result;
+
+#ifdef __x86_64__
+#define fix_user_context(context) (void)0
+#else
+PRIVATE void FCALL
+fix_user_context(struct x86_anycontext *__restrict context) {
+ /* Copy the USER SP into the HOST SP pointer. */
+ if (X86_ANYCONTEXT32_ISUSER(*context))
+     context->c_host.c_esp = context->c_user.c_esp;
+}
+#endif
+
+INTDEF void FCALL
+error_rethrow_atuser(struct cpu_context *__restrict context);
+
+PRIVATE uintptr_t FCALL
+get_segment_base(struct cpu_anycontext *__restrict context, u16 segid) {
+ struct PACKED {
+   u16                 limit;
+   struct x86_segment *base;
+ } gdt;
+ struct x86_segment segment;
+ pflag_t was = PREEMPTION_PUSHOFF();
+ __sgdt(&gdt);
+ if (segid & 4) {
+  u16 ldt = __sldt() & ~7;
+  if unlikely(!ldt || ldt > (gdt.limit & ~7)) {
+   struct exception_info *info;
+   PREEMPTION_POP(was);
+   /* Deal with an invalid / disabled LDT by
+    * throwing an error indicating an invalid LDT. */
+   memset(info->e_error.e_pointers,0,
+          sizeof(info->e_error.e_pointers));
+   info->e_error.e_code = E_ILLEGAL_INSTRUCTION;
+   info->e_error.e_flag = ERR_FRESUMABLE|ERR_FRESUMENEXT;
+   info->e_error.e_illegal_instruction.ii_type = (ERROR_ILLEGAL_INSTRUCTION_UNDEFINED|
+                                                  ERROR_ILLEGAL_INSTRUCTION_FREGISTER|
+                                                  ERROR_ILLEGAL_INSTRUCTION_FVALUE);
+   info->e_error.e_illegal_instruction.ii_register_type   = X86_REGISTER_MISC;
+   info->e_error.e_illegal_instruction.ii_register_number = X86_REGISTER_MISC_LDT;
+   info->e_error.e_illegal_instruction.ii_value           = ldt;
+   fix_user_context(context);
+   memcpy(&info->e_context,&context->c_host,sizeof(struct cpu_context));
+   error_rethrow_atuser((struct cpu_context *)context);
+   error_throw(E_USER_RESUME);
+  }
+  segment   = gdt.base[ldt/8];
+  gdt.base  = (struct x86_segment *)X86_SEGMENT_GTBASE(segment);
+  gdt.limit = X86_SEGMENT_GTSIZE(segment);
+ }
+ segid &= ~7;
+ if (!segid || segid > (gdt.limit & ~7))
+     goto fail;
+ segment = gdt.base[segid/8];
+ PREEMPTION_POP(was);
+ return X86_SEGMENT_GTBASE(segment);
+fail:
+ PREEMPTION_POP(was);
+ return 0;
+}
+
+INTERN uintptr_t KCALL
+x86_modrm_getmem(struct cpu_anycontext *__restrict context,
+                 struct modrm_info *__restrict modrm,
+                 u16 flags) {
+ uintptr_t result;
  if (modrm->mi_type == MODRM_REGISTER)
      return X86_GPREG(*context,modrm->mi_reg);
  result = modrm->mi_offset;
@@ -164,8 +229,49 @@ modrm_getmem(struct cpu_anycontext *__restrict context,
      result += X86_GPREG(*context,modrm->mi_reg);
  if (modrm->mi_index != 0xff)
      result += X86_GPREG(*context,modrm->mi_index) << modrm->mi_shift;
+ switch (flags & F_SEGMASK) {
+#ifdef CONFIG_X86_SEGMENTATION
+ case F_SEGDS: result += get_segment_base(context,context->c_segments.sg_ds); break;
+ case F_SEGES: result += get_segment_base(context,context->c_segments.sg_es); break;
+ case F_SEGFS: result += get_segment_base(context,context->c_segments.sg_fs); break;
+ case F_SEGGS: result += get_segment_base(context,context->c_segments.sg_gs); break;
+#else
+#ifdef __ASM_TASK_SEGMENT_ISFS /* If we're using %fs, user-space is using %gs */
+ case F_SEGGS: result += (uintptr_t)THIS_TASK->t_userseg; break;
+#else /* If we're using %gs, user-space is using %fs */
+ case F_SEGFS: result += (uintptr_t)THIS_TASK->t_userseg; break;
+#endif
+#endif
+ case F_SEGCS: result += get_segment_base(context,context->c_iret.ir_cs); break;
+ case F_SEGSS: result += get_segment_base(context,context->c_iret.ir_ss); break;
+
+ default: break;
+ }
  return result;
 }
+
+INTERN u8 KCALL
+x86_modrm_getb(struct cpu_anycontext *__restrict context,
+               struct modrm_info *__restrict modrm, u16 flags) {
+ if (modrm->mi_type == MODRM_REGISTER)
+     return modrm_getreg8(context,modrm);
+ return *(u8 *)x86_modrm_getmem(context,modrm,flags);
+}
+INTERN u16 KCALL
+x86_modrm_getw(struct cpu_anycontext *__restrict context,
+               struct modrm_info *__restrict modrm, u16 flags) {
+ if (modrm->mi_type == MODRM_REGISTER)
+     return (u16)modrm_getreg(context,modrm);
+ return *(u16 *)x86_modrm_getmem(context,modrm,flags);
+}
+INTERN u32 KCALL
+x86_modrm_getl(struct cpu_anycontext *__restrict context,
+               struct modrm_info *__restrict modrm, u16 flags) {
+ if (modrm->mi_type == MODRM_REGISTER)
+     return (u32)modrm_getreg(context,modrm);
+ return *(u32 *)x86_modrm_getmem(context,modrm,flags);
+}
+
 
 /* Compare operands and return EFLAGS. */
 PRIVATE register_t KCALL x86_cmpb(u8 a, u8 b);
@@ -210,18 +316,6 @@ INTERN bool KCALL
 x86_emulate_instruction(struct cpu_anycontext *__restrict context) {
  struct modrm_info modrm;
  u32 instruction; byte_t *text;
-#define F_OP16    0x0001 /* The 0x66 prefix is being used. */
-#define F_AD16    0x0002 /* The 0x67 prefix is being used. */
-#define F_LOCK    0x0004 /* The `lock' prefix is being used. */
-#define F_REPNE   0x0010 /* The `repne' prefix is being used. */
-#define F_REP     0x0020 /* The `rep' prefix is being used. */
-#define F_SEGMASK 0xf000 /* Mask for segment overrides. */
-#define F_SEGES   0x1000 /* ES override. */
-#define F_SEGCS   0x2000 /* CS override. */
-#define F_SEGSS   0x3000 /* SS override. */
-#define F_SEGDS   0x4000 /* DS override. */
-#define F_SEGFS   0x5000 /* FS override. */
-#define F_SEGGS   0x6000 /* GS override. */
  u16 flags = 0;
  text = (byte_t *)CONTEXT_IP(*context);
 next_byte:
@@ -250,7 +344,7 @@ extend_instruction:
  case 0x0fb0:
   /* cmpxchg r/m8,r8 */
   text = x86_decode_modrm(text,&modrm);
-  addr = modrm_getmem(context,&modrm);
+  addr = x86_modrm_getmem(context,&modrm,flags);
   /* We ignore the LOCK-prefix and always
    * acquire a lock to our emulated BUS. */
   BUS_ACQUIRE();
@@ -271,7 +365,7 @@ extend_instruction:
   /* cmpxchg r/m16,r16 */
   /* cmpxchg r/m32,r32 */
   text = x86_decode_modrm(text,&modrm);
-  addr = modrm_getmem(context,&modrm);
+  addr = x86_modrm_getmem(context,&modrm,flags);
   /* We ignore the LOCK-prefix and always
    * acquire a lock to our emulated BUS. */
   BUS_ACQUIRE();
@@ -307,7 +401,7 @@ extend_instruction:
  case 0x0fc0:
   /* xadd r/m8, r8 */
   text = x86_decode_modrm(text,&modrm);
-  addr = modrm_getmem(context,&modrm);
+  addr = x86_modrm_getmem(context,&modrm,flags);
   BUS_ACQUIRE();
   value = read_byte(context,addr);
   write_byte(context,addr,(u8)(value+modrm_getreg8(context,&modrm)));
@@ -327,7 +421,7 @@ extend_instruction:
   /* xadd r/m16, r16 */
   /* xadd r/m32, r32 */
   text = x86_decode_modrm(text,&modrm);
-  addr = modrm_getmem(context,&modrm);
+  addr = x86_modrm_getmem(context,&modrm,flags);
   BUS_ACQUIRE();
   if (flags & F_OP16) {
    u16 value = read_word(context,addr);
@@ -354,7 +448,7 @@ extend_instruction:
    uintptr_t addr;
    if (modrm.mi_type != MODRM_MEMORY)
        goto fail;
-   addr = modrm_getmem(context,&modrm);
+   addr = x86_modrm_getmem(context,&modrm,flags);
    /* We ignore the LOCK-prefix and always
     * acquire a lock to our emulated BUS. */
    BUS_ACQUIRE();

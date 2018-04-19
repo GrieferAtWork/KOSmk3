@@ -34,12 +34,19 @@ INTDEF byte_t x86_boot_stack_top[];
 PUBLIC ATTR_PERCPU struct x86_tss x86_cputss = {
 #ifdef __x86_64__
     .t_rsp0       = (uintptr_t)x86_boot_stack_top,
-    .t_iomap_base = sizeof(struct x86_tss),
 #else
     .t_esp0       = (uintptr_t)x86_boot_stack_top,
     .t_ss0        = X86_KERNEL_DS,
-    .t_iomap_base = sizeof(struct x86_tss),
 #endif
+    .t_eflags     = 0,
+    .t_es         = X86_KERNEL_DS,
+    .t_cs         = X86_KERNEL_CS,
+    .t_ss         = X86_KERNEL_DS,
+    .t_ds         = X86_KERNEL_DS,
+    .t_fs         = X86_SEG_FS,
+    .t_gs         = X86_SEG_GS,
+    .t_ldtr       = X86_SEG(X86_SEG_KERNEL_LDT),
+    .t_iomap_base = sizeof(struct x86_tss)
 };
 
 #ifndef __x86_64__
@@ -51,11 +58,7 @@ byte_t x86_bootcpu_df_stack[CONFIG_X86_DFSTACK_SIZE];
 
 PUBLIC ATTR_PERCPU struct x86_tss x86_cputssdf = {
     .t_esp0       = (uintptr_t)COMPILER_ENDOF(x86_bootcpu_df_stack),
-    .t_esp1       = (uintptr_t)COMPILER_ENDOF(x86_bootcpu_df_stack),
-    .t_esp2       = (uintptr_t)COMPILER_ENDOF(x86_bootcpu_df_stack),
     .t_ss0        = X86_KERNEL_DS,
-    .t_ss1        = X86_KERNEL_DS,
-    .t_ss2        = X86_KERNEL_DS,
     .t_eflags     = 0,
     .t_cr3        = (u32)(uintptr_t)&pagedir_kernel_phys,
     .t_eip        = (u32)(uintptr_t)&x86_double_fault_handler,

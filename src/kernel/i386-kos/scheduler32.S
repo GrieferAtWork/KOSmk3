@@ -137,10 +137,14 @@ SYMEND(x86_pic_acknowledge)
 	addl    $1, jiffies
 	adcl    $0, jiffies + 4
 
+#ifdef CONFIG_VM86
+	testl   $EFLAGS_VM, X86_CONTEXT32_OFFSETOF_EFLAGS(%esp)
+	jnz     3f
+#endif
 	testl   $3, X86_CONTEXT32_OFFSETOF_IRET+X86_IRREGS32_OFFSETOF_CS(%esp)
 	jz      1f
 	/* Use this chance to track user-space preemption statistics. */
-	INCSTAT(ts_uswitch)
+3:	INCSTAT(ts_uswitch)
 	/* Serve RPC functions if we were preempted while in user-space. */
 	movl   %esp, %ecx /* `struct cpu_hostcontext_user *__restrict context' */
 	movl    $(TASK_USERCTX_FWITHINUSERCODE), %edx

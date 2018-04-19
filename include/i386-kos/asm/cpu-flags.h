@@ -91,15 +91,16 @@
 #define DR7_S3             0xc0000000 /* [bit(30..31)] size of DR3 breakpoint . */
 
 #ifdef __x86_64__
-#define IA32_FS_BASE         0xc0000100
-#define IA32_GS_BASE         0xc0000101
-#define IA32_KERNEL_GS_BASE  0xc0000102
+#define IA32_FS_BASE            0xc0000100
+#define IA32_GS_BASE            0xc0000101
+#define IA32_KERNEL_GS_BASE     0xc0000102
 #endif
-#define IA32_MISC_ENABLE     0x000001a0
+#define IA32_TIME_STAMP_COUNTER 0x00000010
+#define IA32_MISC_ENABLE        0x000001a0
 
-#define SYSENTER_CS_MSR      0x174
-#define SYSENTER_ESP_MSR     0x175
-#define SYSENTER_EIP_MSR     0x176
+#define SYSENTER_CS_MSR         0x174
+#define SYSENTER_ESP_MSR        0x175
+#define SYSENTER_EIP_MSR        0x176
 
 
 /* (Derived from linux) MISC_ENABLE bits: architectural */
@@ -115,7 +116,7 @@
 #define IA32_MISC_ENABLE_XD_DISABLE          (__UINT64_C(1) << 34)
 
 /* (Derived from linux) MISC_ENABLE bits: model-specific, meaning may vary from core to core */
-#define IA32_MISC_ENABLE_X87_COMPAT                                                                      (1ULL << 2)
+#define IA32_MISC_ENABLE_X87_COMPAT          (__UINT64_C(1) << 2)
 #define IA32_MISC_ENABLE_TM1                 (__UINT64_C(1) << 3)
 #define IA32_MISC_ENABLE_SPLIT_LOCK_DISABLE  (__UINT64_C(1) << 4)
 #define IA32_MISC_ENABLE_L3CACHE_DISABLE     (__UINT64_C(1) << 6)

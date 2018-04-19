@@ -635,30 +635,6 @@ do_throw_error:
  error_rethrow_atuser((struct cpu_context *)context);
 }
 
-INTERN NOIRQ void FCALL
-x86_handle_illegal_instruction(struct x86_anycontext *__restrict context) {
- struct exception_info *info;
- /* Re-enable interrupts if they were enabled before. */
- if (context->c_eflags&EFLAGS_IF)
-     x86_interrupt_enable();
- /* Emulate some instructions that may not be supported natively. */
- if (x86_emulate_instruction(context))
-     return;
- /* Construct and emit a illegal-instruction exception. */
- info                 = error_info();
- info->e_error.e_code = E_ILLEGAL_INSTRUCTION;
- info->e_error.e_flag = ERR_FRESUMABLE|ERR_FRESUMENEXT;
- memset(&info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
- /* Copy the CPU context at the time of the exception. */
- fix_user_context(context);
- memcpy(&info->e_context,&context->c_host,
-         sizeof(struct cpu_context));
- /* Throw the error. */
- error_rethrow_atuser((struct cpu_context *)context);
-}
-
-
-
 
 
 /* The default, fallback interrupt handler. */
@@ -708,52 +684,6 @@ x86_interrupt_handler(struct cpu_anycontext *__restrict context,
  memcpy(&info->e_context,&context->c_host,sizeof(struct cpu_context));
  error_rethrow_atuser((struct cpu_context *)context);
 }
-
-
-#ifdef CONFIG_VM86
-INTDEF bool FCALL
-vm86_gpf(struct cpu_context_vm86 *__restrict context,
-         register_t error_code);
-#endif
-
-
-INTERN void FCALL
-x86_handle_gpf(struct cpu_anycontext *__restrict context,
-               register_t errcode) {
- struct exception_info *info;
- info = error_info();
-#ifdef CONFIG_VM86
- if (context->c_eflags & EFLAGS_VM) {
-  /* Deal with GPF instruction emulation in vm86 mode. */
-  if (vm86_gpf((struct cpu_context_vm86 *)context,errcode))
-      return;
-  goto e_privileged_instruction;
- }
-#endif
- if (context->c_iret.ir_cs & 3) {
-#ifdef CONFIG_VM86
-e_privileged_instruction:
-#endif
-  /* Throw a privileged-instruction error. */
-  info->e_error.e_code = E_PRIVILEGED_INSTRUCTION;
-  info->e_error.e_flag = ERR_FRESUMABLE|ERR_FRESUMENEXT;
-  memset(&info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
- } else {
-  /* In kernel space, this one's a wee bit more complicated... */
-  info->e_error.e_code = E_UNHANDLED_INTERRUPT;
-  info->e_error.e_flag = ERR_FRESUMABLE;
-  memset(&info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
-  info->e_error.e_unhandled_interrupt.ui_intcode = X86_E_SYSTEM_GP & 0xff;
-  info->e_error.e_unhandled_interrupt.ui_errcode = errcode;
- }
-
- /* Copy the CPU context at the time of the exception. */
- fix_user_context(context);
- memcpy(&info->e_context,&context->c_host,sizeof(struct cpu_context));
- error_rethrow_atuser((struct cpu_context *)context);
-}
-
-
 
 DECL_END
 

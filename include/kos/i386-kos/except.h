@@ -62,7 +62,11 @@ __SYSDECL_BEGIN
 
 
 /* CPU-specific exceptions. */
-#define E_INVALID_SEGMENT 0xfec0 /* [ERRNO(EINVAL)] Attempted to start a thread or return from a signal handler with an invalid segment register. */
+#define E_INVALID_SEGMENT 0xfec0 /* [ERRNO(EINVAL)] Attempted to start a thread or return
+                                  * from a signal handler with an invalid segment register.
+                                  * Also thrown if a NULL segment has been assigned to one
+                                  * of the segment registers before that register was then
+                                  * attempted to be used for something. */
 
 
 #if defined(__PIC__) || defined(__PIE__)
@@ -316,11 +320,10 @@ __SYSDECL_BEGIN
 #define E_BREAKPOINT             X86_E_SYSTEM_BP /* [ERRNO(EINVAL)] Breakpoint. */
 #define E_DIVIDE_BY_ZERO         X86_E_SYSTEM_DE /* [ERRNO(EINVAL)] Divide by zero. */
 #define E_OVERFLOW               X86_E_SYSTEM_OF /* [ERRNO(EOVERFLOW)] Overflow. */
-#define E_ILLEGAL_INSTRUCTION    X86_E_SYSTEM_UD /* [ERRNO(EPERM)] Illegal instruction / operand / addressing mode or trap encountered. */
+#define E_ILLEGAL_INSTRUCTION    X86_E_SYSTEM_UD /* [ERRNO(EPERM)] Illegal/privileged/restricted  instruction/register/operand/addressing mode or trap encountered. */
 #define E_STACK_OVERFLOW         X86_E_SYSTEM_DF /* [ERRNO(EFAULT)] Stack overflow.
                                                   * Thrown in kernel space when: #PF->#DF with ESP/RSP below stack_base.
                                                   * Thrown in user space when:   #PF ontop of a guard page with no remaining funds. */
-#define E_PRIVILEGED_INSTRUCTION X86_E_SYSTEM_GP /* [ERRNO(EPERM)] Privileged instruction / register encountered. */
 #define E_INDEX_ERROR            X86_E_SYSTEM_BR /* [ERRNO(ERANGE)] The BOUND instruction was executed with an out-of-bounds index. */
 #define E_INVALID_ALIGNMENT      X86_E_SYSTEM_AC /* [ERRNO(EFAULT)] The alignment of an operand was not valid. */
 
@@ -333,7 +336,6 @@ __SYSDECL_BEGIN
                                          * page-directory bit (Should never be set unless there's a bug in KOS). */
 #define X86_SEGFAULT_FEXEC       0x0010 /* Set if the fault happened when trying to fetch instructions. */
 #define ERROR_SEGFAULT_ISMAPPED(x) ((x)&X86_SEGFAULT_FPRESENT)
-
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_segfault {
     __UINTPTR_TYPE__     sf_reason;    /* Set of `X86_SEGFAULT_F*'. */
@@ -346,16 +348,50 @@ struct __ATTR_PACKED exception_data_system {
 };
 #endif /* __CC__ */
 
-#define INVALID_SEGMENT_REGISTER_DS 0
-#define INVALID_SEGMENT_REGISTER_ES 1
-#define INVALID_SEGMENT_REGISTER_FS 2
-#define INVALID_SEGMENT_REGISTER_GS 3
-#define INVALID_SEGMENT_REGISTER_SS 4
-#define INVALID_SEGMENT_REGISTER_CS 5
+/* Illegal instruction */
+#define ERROR_ILLEGAL_INSTRUCTION_UNDEFINED    0x0000 /* The instruction/operand/flag is undefined. */
+#define ERROR_ILLEGAL_INSTRUCTION_PRIVILEGED   0x0001 /* The instruction/operand/flag is privileged and not available to the caller. */
+#define ERROR_ILLEGAL_INSTRUCTION_RESTRICTED   0x0002 /* Execution of the instruction has been restricted for the caller. */
+#define ERROR_ILLEGAL_INSTRUCTION_FINSTRUCTION 0x0000 /* The error was caused by the instruction itself being unknown/privileged or restricted. */
+#define ERROR_ILLEGAL_INSTRUCTION_FADDRESS     0x0010 /* The error was caused by the addressing mode used/specified (e.g.: Memory access with an invalid segment).
+                                                       * NOTE: This flag is set when attempting to clone() a thread using invalid segment registers on X86. */
+#define ERROR_ILLEGAL_INSTRUCTION_FTRAP        0x0020 /* (Unused in X86) The error was caused by a trap. */
+#define ERROR_ILLEGAL_INSTRUCTION_FOPERAND     0x0100 /* The error was caused by one of the instruction's operands. */
+#define ERROR_ILLEGAL_INSTRUCTION_FREGISTER    0x0200 /* The error was thrown when attempting to modify a privileged/missing or restricted register. */
+#define ERROR_ILLEGAL_INSTRUCTION_FVALUE       0x0800 /* The error was caused due to the value, or a flag contained in an operand. (Set alongside `ERROR_ILLEGAL_INSTRUCTION_FOPERAND')
+                                                       * NOTE: When used alongside `ERROR_ILLEGAL_INSTRUCTION_FREGISTER', this flag indicates a write operation. */
+#ifdef __CC__
+struct __ATTR_PACKED exception_data_illegal_instruction {
+    __UINTPTR_TYPE__     ii_errcode;         /* Interrupt-specific error code. */
+    __UINTPTR_TYPE__     ii_type;            /* The type of illegal operation (One of `ERROR_ILLEGAL_INSTRUCTION_*',
+                                              * optionally or'd with a set of `ERROR_ILLEGAL_INSTRUCTION_F*'). */
+    __UINTPTR_TYPE__     ii_register_type;   /* [valid_if(ERROR_ILLEGAL_INSTRUCTION_FREGISTER)]
+                                              *  The register to which an access was attempted (On X86, one of `X86_REGISTER_*').
+                                              *  NOTE: Register indices can be found in <kos/registers.h> */
+    __UINTPTR_TYPE__     ii_register_number; /* [valid_if(ERROR_ILLEGAL_INSTRUCTION_FREGISTER)]
+                                              * The number of the register in question (On X86, one of `X86_REGISTER_[ii_register]*'). */
+    __UINT64_TYPE__      ii_value;           /* [valid_if(ERROR_ILLEGAL_INSTRUCTION_FVALUE)]
+                                              * The value of the illegal operand / value attempted
+                                              * to write to illegal/privileged/restricted register. */
+};
+#endif /* __CC__ */
+
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_invalid_segment {
-    __UINT16_TYPE__      is_register;  /* The segment register attempted to load with the invalid segment (One of `INVALID_SEGMENT_REGISTER_*') */
-    __UINT16_TYPE__      is_segment;   /* The invalid segment index, including privilege bits (RPL) and the LDT bit. */
+    /* NOTE: This structure has binary compatibility with
+     *      `exception_data_illegal_instruction', meaning
+     *       that `E_INVALID_SEGMENT' errors can be handled
+     *       the same way as `E_ILLEGAL_INSTRUCTION' errors. */
+    __UINTPTR_TYPE__   __is_errcode;       /* Interrupt-specific error code. */
+    __UINTPTR_TYPE__   __is_type;          /* [== ERROR_ILLEGAL_INSTRUCTION_UNDEFINED|
+                                            *     ERROR_ILLEGAL_INSTRUCTION_FVALUE|
+                                            *     ERROR_ILLEGAL_INSTRUCTION_FREGISTER] */
+    __UINTPTR_TYPE__   __is_register_type; /* [== X86_REGISTER_SEGMENT] */
+    __UINTPTR_TYPE__     is_register;      /* The segment register attempted to load with the invalid segment (One of `X86_REGISTER_SEGMENT_*') */
+    union __ATTR_PACKED {
+        __UINT64_TYPE__  is_segment;       /* The invalid segment index, including privilege bits (RPL) and the LDT bit. */
+        __UINT16_TYPE__  is_segment16;     /* The invalid segment index, including privilege bits (RPL) and the LDT bit. */
+    };
 };
 #endif /* __CC__ */
 

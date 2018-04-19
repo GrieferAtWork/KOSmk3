@@ -16,41 +16,16 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#include <hybrid/compiler.h>
-#include <kos/types.h>
-#include <hybrid/asm.h>
-#include <asm/cfi.h>
-#include <i386-kos/vm86.h>
-#include <kos/thread.h>
-#include <sched/task.h>
+#ifndef _KOS_REGISTERS_H
+#define _KOS_REGISTERS_H 1
 
-#ifdef CONFIG_VM86
-.section .text
-PUBLIC_ENTRY(x86_enter_vm86)
-	cli /* Disable interrupts to prevent a race condition */
-	orw    $(TASK_FVM86), %taskseg:TASK_OFFSETOF_FLAGS
-	movl   %ecx,  %esp /* Load the VM86 context. */
-	popal
-#ifdef CONFIG_X86_SEGMENTATION
-	addl   $(X86_SEGMENTS32_SIZE), %esp
-#endif /* CONFIG_X86_SEGMENTATION */
-	iret /* Load the VM86 IRET tail. */
-SYMEND(x86_enter_vm86)
+#include <__stdinc.h>
+#include <hybrid/host.h>
 
+#if defined(__i386__) || defined(__x86_64__)
+#include "i386-kos/registers.h"
+#else
+#error "Unsupported arch"
+#endif
 
-PUBLIC_ENTRY(x86_leave_vm86)
-	cli /* Disable interrupts to prevent a race condition */
-	andw   $(~TASK_FVM86), %taskseg:TASK_OFFSETOF_FLAGS
-.global cpu_setcontext
-	jmp    cpu_setcontext
-SYMEND(x86_leave_vm86)
-
-#endif /* CONFIG_VM86 */
-
-
-
-
-
-
-
-
+#endif /* !_KOS_REGISTERS_H */

@@ -211,7 +211,7 @@ int main(int argc, char *argv[]) {
  act.sa_flags     = SA_SIGINFO;
  Xsigaction(SIGCHLD,&act,NULL);
 
- test_vm86();
+ /*test_vm86();*/
 
  assert(strcmp("foo","foo") == 0);
  assert(strcmp("foo","bar") != 0);

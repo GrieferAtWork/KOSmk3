@@ -1340,12 +1340,26 @@ serve_rpc:
     sinfo.si_signo = 1+SIGINT;
     break;
 
-   case E_PRIVILEGED_INSTRUCTION:
-    sinfo.si_code  = ILL_PRVOPC;
-    goto do_sigill;
    case E_ILLEGAL_INSTRUCTION:
-    sinfo.si_code  = ILL_ILLOPC;
- do_sigill:
+    if (info.e_error.e_illegal_instruction.ii_type &
+        ERROR_ILLEGAL_INSTRUCTION_FADDRESS)
+     sinfo.si_code = ILL_ILLADR;
+    else if (info.e_error.e_illegal_instruction.ii_type &
+             ERROR_ILLEGAL_INSTRUCTION_FTRAP)
+     sinfo.si_code = ILL_ILLADR;
+    else if (info.e_error.e_illegal_instruction.ii_type &
+            (ERROR_ILLEGAL_INSTRUCTION_RESTRICTED|
+             ERROR_ILLEGAL_INSTRUCTION_PRIVILEGED))
+     sinfo.si_code = (info.e_error.e_illegal_instruction.ii_type &
+                      ERROR_ILLEGAL_INSTRUCTION_FREGISTER)
+                    ? ILL_PRVREG : ILL_PRVOPC;
+    else {
+     sinfo.si_code = (info.e_error.e_illegal_instruction.ii_type&
+                     (ERROR_ILLEGAL_INSTRUCTION_FOPERAND|
+                      ERROR_ILLEGAL_INSTRUCTION_FVALUE|
+                      ERROR_ILLEGAL_INSTRUCTION_FREGISTER)
+                      ? ILL_ILLOPC : ILL_ILLOPN);
+    }
     sinfo.si_signo = 1+SIGILL;
  do_addrip:
     sinfo.si_addr  = (void *)CPU_CONTEXT_IP(*context);

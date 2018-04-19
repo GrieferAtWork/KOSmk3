@@ -74,8 +74,16 @@ libc_exception_errno(struct exception_info *__restrict info) {
  case E_INDEX_ERROR:            result = ERANGE; break;
  case E_BREAKPOINT:             result = EINVAL; break; /* Definitely questionable... */
  case E_DIVIDE_BY_ZERO:         result = EINVAL; break; /* Mostly questionable... */
- case E_ILLEGAL_INSTRUCTION:    result = EPERM; break;  /* A bit questionable... */
- case E_PRIVILEGED_INSTRUCTION: result = EACCES; break; /* Somewhat questionable... */
+ case E_ILLEGAL_INSTRUCTION:
+  result = (info->e_error.e_illegal_instruction.ii_type &
+           (ERROR_ILLEGAL_INSTRUCTION_FADDRESS|
+            ERROR_ILLEGAL_INSTRUCTION_FTRAP))
+           ? EFAULT :
+          (info->e_error.e_illegal_instruction.ii_type &
+           (ERROR_ILLEGAL_INSTRUCTION_PRIVILEGED|
+            ERROR_ILLEGAL_INSTRUCTION_RESTRICTED))
+           ? EACCES : EPERM; /* A bit questionable... */
+  break;
  case E_FILESYSTEM_ERROR:
   switch (info->e_error.e_filesystem_error.fs_errcode) {
   case ERROR_FS_FILE_NOT_FOUND:

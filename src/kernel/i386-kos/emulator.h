@@ -63,6 +63,30 @@ x86_decode_modrm(byte_t *__restrict text,
                  struct modrm_info *__restrict info);
 
 
+/* @param: flags: Set of `F_*' (see below) */
+INTDEF uintptr_t KCALL
+x86_modrm_getmem(struct cpu_anycontext *__restrict context,
+                 struct modrm_info *__restrict modrm,
+                 u16 flags);
+
+INTDEF u8  KCALL x86_modrm_getb(struct cpu_anycontext *__restrict context, struct modrm_info *__restrict modrm, u16 flags);
+INTDEF u16 KCALL x86_modrm_getw(struct cpu_anycontext *__restrict context, struct modrm_info *__restrict modrm, u16 flags);
+INTDEF u32 KCALL x86_modrm_getl(struct cpu_anycontext *__restrict context, struct modrm_info *__restrict modrm, u16 flags);
+
+
+#define F_OP16    0x0001 /* The 0x66 prefix is being used. */
+#define F_AD16    0x0002 /* The 0x67 prefix is being used. */
+#define F_LOCK    0x0004 /* The `lock' prefix is being used. */
+#define F_REPNE   0x0010 /* The `repne' prefix is being used. */
+#define F_REP     0x0020 /* The `rep' prefix is being used. */
+#define F_SEGMASK 0xf000 /* Mask for segment overrides. */
+#define F_SEGDS   0x0000 /* DS override. */
+#define F_SEGES   0x1000 /* ES override. */
+#define F_SEGCS   0x2000 /* CS override. */
+#define F_SEGSS   0x3000 /* SS override. */
+#define F_SEGFS   0x4000 /* FS override. */
+#define F_SEGGS   0x5000 /* GS override. */
+
 /* Called by the #UD interrupt to emulate instruction not supported natively.
  * When `true' is returned, the instruction has been emulated and registers were updated. */
 INTDEF bool KCALL

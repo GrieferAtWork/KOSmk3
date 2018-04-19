@@ -60,8 +60,8 @@ __FORCELOCAL __UINT32_TYPE__ (__stmxcsr)(void) { __UINT32_TYPE__ __result; __asm
 __FORCELOCAL void (__lfence)(void) { __asm__("lfence"); }
 __FORCELOCAL void (__sfence)(void) { __asm__("sfence"); }
 __FORCELOCAL void (__mfence)(void) { __asm__("mfence"); }
-__FORCELOCAL void (__lgdt)(void *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__("lgdt %0" : : "m" (*(__T *)__p)); }
-__FORCELOCAL void (__lidt)(void *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__("lidt %0" : : "m" (*(__T *)__p)); }
+__FORCELOCAL void (__lgdt)(void const *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__("lgdt %0" : : "m" (*(__T const *)__p)); }
+__FORCELOCAL void (__lidt)(void const *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__("lidt %0" : : "m" (*(__T const *)__p)); }
 __FORCELOCAL void (__sgdt)(void *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__("sgdt %0" : "=m" (*(__T *)__p)); }
 __FORCELOCAL void (__sidt)(void *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__("sidt %0" : "=m" (*(__T *)__p)); }
 __FORCELOCAL void (__lldt)(__UINT16_TYPE__ __x) { __asm__("lldt %0" : : "g" (__x)); }

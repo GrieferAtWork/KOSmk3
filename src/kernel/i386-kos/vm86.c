@@ -29,6 +29,8 @@
 #include <sys/io.h>
 #include <stdbool.h>
 
+#include "emulator.h"
+
 #ifndef CONFIG_NO_VM86
 DECL_BEGIN
 
@@ -93,18 +95,8 @@ PRIVATE void FCALL vm86_outl(u16 port, u32 value) {
 INTERN bool FCALL
 vm86_gpf(struct cpu_context_vm86 *__restrict context,
          register_t error_code) {
-#define F_OP32    0x0001 /* The 0x66 prefix is being used. */
-#define F_AD32    0x0002 /* The 0x67 prefix is being used. */
-#define F_LOCK    0x0004 /* The `lock' prefix is being used. */
-#define F_REPNE   0x0010 /* The `repne' prefix is being used. */
-#define F_REP     0x0020 /* The `rep' prefix is being used. */
-#define F_SEGMASK 0xf000 /* Mask for segment overrides. */
-#define F_SEGDS   0x0000 /* DS override. */
-#define F_SEGES   0x1000 /* ES override. */
-#define F_SEGCS   0x2000 /* CS override. */
-#define F_SEGSS   0x3000 /* SS override. */
-#define F_SEGFS   0x4000 /* FS override. */
-#define F_SEGGS   0x5000 /* GS override. */
+#define F_OP32    F_OP16 /* The 0x66 prefix is being used. */
+#define F_AD32    F_AD16 /* The 0x67 prefix is being used. */
  u16 flags = 0; byte_t *text; u32 opcode;
  text = (byte_t *)VM86_SEGMENT_ADDRESS(context->c_iret.ir_cs,
                                        context->c_eip);

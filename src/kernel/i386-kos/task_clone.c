@@ -41,6 +41,7 @@
 #include <bits/sched.h>
 #include <kos/context.h>
 #include <kos/intrin.h>
+#include <kos/registers.h>
 #include <asm/cpu-flags.h>
 #include <i386-kos/gdt.h>
 #include <i386-kos/scheduler.h>
@@ -84,9 +85,6 @@ clone_entry(struct cpu_hostcontext_user *__restrict user_context, u32 flags) {
  if (!(flags & CLONE_CHILD_CLEARTID))
        PERTASK_SET(_this_tid_address,NULL);
  COMPILER_WRITE_BARRIER();
-
- debug_printf("user_context->c_gpregs.gp_esp   = %p\n",user_context->c_gpregs.gp_esp);
- debug_printf("user_context->c_iret.ir_useresp = %p\n",user_context->c_iret.ir_useresp);
 
  /* Finally, switch to user-space. */
  cpu_setcontext((struct cpu_context *)user_context);
@@ -170,9 +168,6 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
    vm_context->c_esp           = vm_context->c_gpregs.gp_esp;
    vm_context->c_gpregs.gp_esp = (uintptr_t)new_task->t_stackend-24;
 
-   debug_printf("vm_context->c_esp           = %p\n",vm_context->c_esp);
-   debug_printf("vm_context->c_gpregs.gp_esp = %p\n",vm_context->c_gpregs.gp_esp);
-
    vm_context->c_iret.ir_eflags |= EFLAGS_IF|EFLAGS_VM;
    vm_context->c_iret.ir_eflags &= ~EFLAGS_ID;
    if (vm_context->c_iret.ir_eflags &
@@ -249,11 +244,11 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
    if (!user_context->c_iret.ir_ss)
         user_context->c_iret.ir_ss = X86_USER_DS;
    if (!__verw(user_context->c_iret.ir_ss))
-        throw_invalid_segment(user_context->c_iret.ir_ss,INVALID_SEGMENT_REGISTER_SS);
+        throw_invalid_segment(user_context->c_iret.ir_ss,X86_REGISTER_SEGMENT_SS);
    /* Ensure ring #3 (This is _highly_ important. Without this,
     * user-space would be executed as kernel-code; autsch...) */
    if (!(user_context->c_iret.ir_cs & 3) || !__verr(user_context->c_iret.ir_cs))
-        throw_invalid_segment(user_context->c_iret.ir_cs,INVALID_SEGMENT_REGISTER_CS);
+        throw_invalid_segment(user_context->c_iret.ir_cs,X86_REGISTER_SEGMENT_CS);
 #ifdef CONFIG_X86_SEGMENTATION
    /* Segment registers set to ZERO are set to their default values. */
    if (!user_context->c_segments.sg_gs)
@@ -266,13 +261,13 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
         user_context->c_segments.sg_ds = X86_USER_DS;
    /* Verify user-space segment indices. */
    if (!__verw(user_context->c_segments.sg_ds))
-        throw_invalid_segment(user_context->c_segments.sg_ds,INVALID_SEGMENT_REGISTER_DS);
+        throw_invalid_segment(user_context->c_segments.sg_ds,X86_REGISTER_SEGMENT_DS);
    if (!__verw(user_context->c_segments.sg_es))
-        throw_invalid_segment(user_context->c_segments.sg_es,INVALID_SEGMENT_REGISTER_ES);
+        throw_invalid_segment(user_context->c_segments.sg_es,X86_REGISTER_SEGMENT_ES);
    if (!__verw(user_context->c_segments.sg_fs))
-        throw_invalid_segment(user_context->c_segments.sg_fs,INVALID_SEGMENT_REGISTER_FS);
+        throw_invalid_segment(user_context->c_segments.sg_fs,X86_REGISTER_SEGMENT_FS);
    if (!__verw(user_context->c_segments.sg_gs))
-        throw_invalid_segment(user_context->c_segments.sg_gs,INVALID_SEGMENT_REGISTER_GS);
+        throw_invalid_segment(user_context->c_segments.sg_gs,X86_REGISTER_SEGMENT_GS);
 #endif /* CONFIG_X86_SEGMENTATION */
    /* Place the stack-pointer given from user-space in its proper slot. */
    user_context->c_iret.ir_useresp = user_context->c_gpregs.gp_esp;

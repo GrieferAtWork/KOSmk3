@@ -49,7 +49,6 @@
     <None Include="..\..\src\kernel\i386-kos\smp32.S" />
     <None Include="..\..\src\kernel\i386-kos\syscall32.S" />
     <None Include="..\..\src\kernel\i386-kos\ushare32.S" />
-    <None Include="..\..\src\kernel\i386-kos\vm86_32.S" />
     <None Include="..\..\src\kernel\src\vm\ushare.S" />
   </ItemGroup>
   <ItemGroup>
@@ -73,6 +72,7 @@
     <ClCompile Include="..\..\src\kernel\i386-kos\fpu.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\gdt.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\hw_except.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\illegal_instruction.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\init.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\interrupt.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\ipi.c" />

@@ -21,6 +21,7 @@
 #include <asm/cfi.h>
 #include <kernel/interrupt.h>
 #include <i386-kos/gdt.h>
+#include <i386-kos/vm86.h>
 #include <kos/except.h>
 
 
@@ -66,7 +67,7 @@ INTERN_ENTRY(irq_\id)
 .endif
 
 	/* Only clobbers EAX and ECX, so EDX above is still OK. */
-#ifdef CONFIG_X86_LOADSEGMENTS_ONLY_USER
+#if defined(CONFIG_X86_LOADSEGMENTS_ONLY_USER) && !defined(CONFIG_VM86)
 	testl   $3, X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_EFLAGS(%esp)
 	jz      1f
 	call    x86_load_segments

@@ -68,9 +68,6 @@
     <None Include="..\..\src\kernel\i386-kos\safecall32.S">
       <Filter>kernel\i386-kos</Filter>
     </None>
-    <None Include="..\..\src\kernel\i386-kos\vm86_32.S">
-      <Filter>kernel\i386-kos</Filter>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="kernel">
@@ -154,9 +151,6 @@
       <Filter>kernel\src\kernel</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\kernel\i386-kos\paging.c">
-      <Filter>kernel\i386-kos</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\kernel\i386-kos\gdt.c">
       <Filter>kernel\i386-kos</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\kernel\i386-kos\tss.c">
@@ -464,6 +458,12 @@
     </ClCompile>
     <ClCompile Include="..\..\src\kernel\src\sched\suspend.c">
       <Filter>kernel\src\sched</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\illegal_instruction.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\gdt.c">
+      <Filter>kernel\i386-kos</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

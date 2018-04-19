@@ -510,6 +510,9 @@ struct exception_data {
 #ifdef __exception_data_system_defined
         struct exception_data_system              e_system;              /* Common header for system exceptions. */
 #endif
+#ifdef E_ILLEGAL_INSTRUCTION
+        struct exception_data_illegal_instruction e_illegal_instruction; /* E_ILLEGAL_INSTRUCTION. */
+#endif
 #ifdef E_INVALID_SEGMENT
         struct exception_data_invalid_segment     e_invalid_segment;     /* E_INVALID_SEGMENT. */
 #endif

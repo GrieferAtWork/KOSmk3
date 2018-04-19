@@ -24,6 +24,7 @@
 #include <i386-kos/interrupt.h>
 #include <i386-kos/gdt.h>
 #include <i386-kos/memory.h>
+#include <i386-kos/vm86.h>
 #include <kos/thread.h>
 #include <kos/context.h>
 #include <sched/task.h>
@@ -499,7 +500,7 @@ INTERN_ENTRY(irq_common)
 	subl    $8, %esp
 	.cfi_adjust_cfa_offset 8
 
-#ifdef CONFIG_X86_LOADSEGMENTS_ONLY_USER
+#if defined(CONFIG_X86_LOADSEGMENTS_ONLY_USER) && !defined(CONFIG_VM86)
 	/* Only load segment registers if the interrupt came from user-space. */
 	testl   $3, 8+X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_EFLAGS(%esp)
 	jz      1f
@@ -595,6 +596,11 @@ INTERN_ENTRY(x86_interrupt_except_syscall)
 	orw   $(ERR_FSYSCALL), %taskseg:TASK_SEGMENT_OFFSETOF_XCURRENT+EXCEPTION_INFO_OFFSETOF_FLAG
 #endif /* !CONFIG_X86_SEGMENTATION */
 INTERN_ENTRY(x86_interrupt_except)
+
+#ifdef CONFIG_VM86
+	testl $EFLAGS_VM, %ss:X86_IRREGS_HOST32_OFFSETOF_EFLAGS(%esp)
+	jnz   .interrupt_except_user
+#endif
 
 	/* First off: Check where the interrupt wants to go. */
 	testl $3, %ss:X86_IRREGS_HOST32_OFFSETOF_CS(%esp)

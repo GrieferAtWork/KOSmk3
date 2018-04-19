@@ -32,6 +32,7 @@
 #include <kernel/syscall.h>
 #include <kos/context.h>
 #include <kos/intrin.h>
+#include <kos/registers.h>
 #include <sched/task.h>
 #include <sched/posix_signals.h>
 #include <sched/task.h>
@@ -116,19 +117,19 @@ x86_sigreturn_impl(void *UNUSED(arg),
  /* Verify user-space segment indices. */
  TRY {
   if (context->c_segments.sg_ds && !__verw(context->c_segments.sg_ds))
-      throw_invalid_segment(context->c_segments.sg_ds,INVALID_SEGMENT_REGISTER_DS);
+      throw_invalid_segment(context->c_segments.sg_ds,X86_REGISTER_SEGMENT_DS);
   if (context->c_segments.sg_es && !__verw(context->c_segments.sg_es))
-      throw_invalid_segment(context->c_segments.sg_es,INVALID_SEGMENT_REGISTER_ES);
+      throw_invalid_segment(context->c_segments.sg_es,X86_REGISTER_SEGMENT_ES);
   if (context->c_segments.sg_fs && !__verw(context->c_segments.sg_fs))
-      throw_invalid_segment(context->c_segments.sg_fs,INVALID_SEGMENT_REGISTER_FS);
+      throw_invalid_segment(context->c_segments.sg_fs,X86_REGISTER_SEGMENT_FS);
   if (context->c_segments.sg_gs && !__verw(context->c_segments.sg_gs))
-      throw_invalid_segment(context->c_segments.sg_gs,INVALID_SEGMENT_REGISTER_GS);
+      throw_invalid_segment(context->c_segments.sg_gs,X86_REGISTER_SEGMENT_GS);
   if (context->c_iret.ir_ss && !__verw(context->c_iret.ir_ss))
-      throw_invalid_segment(context->c_iret.ir_ss,INVALID_SEGMENT_REGISTER_SS);
+      throw_invalid_segment(context->c_iret.ir_ss,X86_REGISTER_SEGMENT_SS);
   /* Ensure ring #3 (This is _highly_ important. Without this,
    * user-space would be executed as kernel-code; autsch...) */
   if (!(context->c_iret.ir_cs&3) || !__verr(context->c_iret.ir_cs))
-      throw_invalid_segment(context->c_iret.ir_cs,INVALID_SEGMENT_REGISTER_CS);
+      throw_invalid_segment(context->c_iret.ir_cs,X86_REGISTER_SEGMENT_CS);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Must fix register values, as otherwise userspace wouldn't be able to handle the exception. */
   if (context->c_segments.sg_ds && !__verw(context->c_segments.sg_ds))

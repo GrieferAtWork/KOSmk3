@@ -31,14 +31,16 @@
 #include <sched/userstack.h>
 #else
 #include "../libs/libc/libc.h"
-#include "../libs/libc/format.h"
 #include "../libs/libc/rtl.h"
 #include "../libs/libc/sched.h"
 #include "../libs/libc/system.h"
 #include "../libs/libc/stdio.h"
+#include "../libs/libc/format.h"
 #endif
 
+#include <kos/registers.h>
 #include <hybrid/compiler.h>
+#include <hybrid/section.h>
 #include <hybrid/host.h>
 #include <except.h>
 #include <errno.h>
@@ -52,10 +54,147 @@ DECL_BEGIN
 
 
 #ifdef __KERNEL__
+INTDEF size_t (ATTR_CDECL libc_sprintf)(char *__restrict buf, char const *__restrict format, ...);
 #define GETCPUID()   THIS_CPU->cpu_id
 #else
 #define GETCPUID()   libc_sched_getcpu()
 #endif
+
+
+#if defined(__i386__) || defined(__x86_64__)
+PRIVATE ATTR_RARERODATA char const x86_gpnames[4] = { 'a', 'c', 'd', 'b' };
+PRIVATE ATTR_RARERODATA char const x86_gpnames2[4][2] = {
+    { 's', 'p' }, { 'b', 'p' },
+    { 's', 'i' }, { 'd', 'i' }
+};
+PRIVATE ATTR_RARERODATA char const x86_spnames[6] = {
+#ifndef __x86_64__
+    [X86_REGISTER_SEGMENT_ES] = 'e',
+    [X86_REGISTER_SEGMENT_SS] = 's',
+    [X86_REGISTER_SEGMENT_DS] = 'd',
+#endif
+    [X86_REGISTER_SEGMENT_CS] = 'c',
+    [X86_REGISTER_SEGMENT_FS] = 'f',
+    [X86_REGISTER_SEGMENT_GS] = 'g'
+};
+#endif
+
+#define REGISTER_NAME_BUFSIZE  16
+PRIVATE char const *FCALL
+register_name(char buf[REGISTER_NAME_BUFSIZE], uintptr_t type, uintptr_t number) {
+ libc_memset(buf,0,REGISTER_NAME_BUFSIZE*sizeof(char));
+ buf[0] = '%';
+ switch (type) {
+#if (defined(__i386__) || defined(__x86_64__)) && 1
+
+ case X86_REGISTER_GENERAL_PURPOSE:
+#ifdef __x86_64__
+  if ((number & 0xfff) >= 0x8) {
+   libc_sprintf(buf+1,"r%Iu",number);
+   break;
+  }
+#endif
+#ifdef __x86_64__
+  if ((number & 0xc000) == 0xc000)
+#else
+  if ((number & 0xc000) == 0x8000)
+#endif
+  {
+   buf[1] = x86_gpnames[number & 3];
+   buf[2] = number & 4 ? 'h' : 'l';
+  } else {
+   char *iter = buf+1;
+#ifdef __x86_64__
+   if (number & 0x4000) *iter++ = 'e';
+   else if (!(number & 0x8000)) *iter++ = 'r';
+#else
+   if (!(number & 0x4000)) *iter++ = 'e';
+#endif
+   if (number & 4) {
+    iter[0] = x86_gpnames2[number & 3][0];
+    iter[1] = x86_gpnames2[number & 3][1];
+   } else {
+    iter[0] = x86_gpnames[number & 3];
+    iter[1] = 'x';
+   }
+  }
+  break;
+
+ case X86_REGISTER_SEGMENT:
+  if (number > 5) {
+   libc_sprintf(buf+1,"s%Iu",number);
+  } else {
+   buf[1] = x86_spnames[number];
+   buf[2] = 's';
+  }
+  break;
+
+ case X86_REGISTER_CONTROL:
+  libc_sprintf(buf+1,"cr%Iu",number);
+  break;
+
+ case X86_REGISTER_MMX:
+  libc_sprintf(buf+1,"mm%Iu",number);
+  break;
+  
+ case X86_REGISTER_XMM:
+  libc_sprintf(buf+1,"xmm%Iu",number);
+  break;
+  
+ case X86_REGISTER_DEBUG:
+  libc_sprintf(buf+1,"db%Iu",number);
+  break;
+  
+ case X86_REGISTER_FLOAT:
+  libc_sprintf(buf+1,"st(%Iu)",number);
+  break;
+  
+ case X86_REGISTER_MSR:
+  libc_sprintf(buf+1,"msr(0x%Ix)",number);
+  break;
+  
+ {
+  char const *name;
+  char *iter;
+ case X86_REGISTER_MISC:
+  switch (number) {
+#ifdef __x86_64__
+  case X86_REGISTER_MISC_RFLAGS:
+   name = "rflags";
+   break;
+#endif
+  case X86_REGISTER_MISC_EFLAGS:
+   name = "eflags";
+   break;
+  case X86_REGISTER_MISC_FLAGS:
+   name = "flags";
+   break;
+  case X86_REGISTER_MISC_TR:
+   name = "tr";
+   break;
+  case X86_REGISTER_MISC_LDT:
+   name = "ldt";
+   break;
+  case X86_REGISTER_MISC_GDT:
+   name = "gdt";
+   break;
+  case X86_REGISTER_MISC_IDT:
+   name = "idt";
+   break;
+  default: libc_sprintf(buf+1,"misc(0x%Ix)",number); goto done;
+  }
+  iter = buf+1;
+  while (*name) *iter++ = *name++;
+ } break;
+#endif /* __i386__ || __x86_64__ */
+
+ default:
+  libc_sprintf(buf+1,"[%Iu:0x%Ix]",type,number);
+  break;
+ }
+done:
+ return buf;
+}
 
 
 #ifdef __KERNEL__
@@ -108,6 +247,7 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
  }
  /* Print exception-specific information. */
  switch (code) {
+
  case E_NONCONTINUABLE:
   PRINTF("\tAttempted to continue a non-continuable exception\n"
          "\t\tOriginal code:  %I16u (%I16x)\n"
@@ -120,6 +260,7 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
          INFO->e_error.e_noncont.nc_origip-((INFO->e_error.e_noncont.nc_origflag&ERR_FRESUMENEXT) ? 0 : 1),
          INFO->e_error.e_noncont.nc_origip);
   break;
+
  case E_BADALLOC:
   if (INFO->e_error.e_badalloc.ba_resource == ERROR_BADALLOC_VIRTMEMORY) {
    PRINTF("\tFailed locate space for %Iu (%#Ix) bytes of virtual memory\n",
@@ -133,6 +274,7 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
                 INFO->e_error.e_badalloc.ba_resource);
   }
   break;
+
  case E_STACK_OVERFLOW:
  case E_SEGFAULT:
   PRINTF(
@@ -154,9 +296,11 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
 #endif
          INFO->e_error.e_segfault.sf_vaddr);
   break;
+
  case E_INVALID_ALIGNMENT:
    PRINTF("\tThe alignment of an operand was not valid\n");
    break;
+
  case E_DIVIDE_BY_ZERO:
   switch (INFO->e_error.e_divide_by_zero.dz_type) {
   case ERROR_DIVIDE_BY_ZERO_INT:
@@ -172,20 +316,49 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
    break;
   }
   break;
+
  case E_OVERFLOW:
   PRINTF("\tArithmetic overflow\n");
   break;
+
  case E_ILLEGAL_INSTRUCTION:
-  PRINTF("\tIllegal instruction\n");
+  PRINTF("\t%s %s\n",
+        (INFO->e_error.e_illegal_instruction.ii_type & ERROR_ILLEGAL_INSTRUCTION_RESTRICTED) ? "Restricted" :
+        (INFO->e_error.e_illegal_instruction.ii_type & ERROR_ILLEGAL_INSTRUCTION_PRIVILEGED) ? "Privileged" : "Illegal or undefined",
+        (INFO->e_error.e_illegal_instruction.ii_type & ERROR_ILLEGAL_INSTRUCTION_FADDRESS) ? "addressing mode" :
+        (INFO->e_error.e_illegal_instruction.ii_type & ERROR_ILLEGAL_INSTRUCTION_FTRAP) ? "trap" :
+        (INFO->e_error.e_illegal_instruction.ii_type & ERROR_ILLEGAL_INSTRUCTION_FVALUE) ? (
+        (INFO->e_error.e_illegal_instruction.ii_type & ERROR_ILLEGAL_INSTRUCTION_FREGISTER) ? "register value" :
+        (INFO->e_error.e_illegal_instruction.ii_type & ERROR_ILLEGAL_INSTRUCTION_FOPERAND) ? "operand value" : "value") :
+        (INFO->e_error.e_illegal_instruction.ii_type & ERROR_ILLEGAL_INSTRUCTION_FOPERAND) ? "operand" :
+        (INFO->e_error.e_illegal_instruction.ii_type & ERROR_ILLEGAL_INSTRUCTION_FREGISTER) ? "register" : "instruction");
+  if (INFO->e_error.e_illegal_instruction.ii_type & ERROR_ILLEGAL_INSTRUCTION_FREGISTER) {
+   char buf[REGISTER_NAME_BUFSIZE];
+   PRINTF("\tFaulting register: %s\n",
+          register_name(buf,
+                        INFO->e_error.e_illegal_instruction.ii_register_type,
+                        INFO->e_error.e_illegal_instruction.ii_register_number));
+  }
+  if (INFO->e_error.e_illegal_instruction.ii_type & ERROR_ILLEGAL_INSTRUCTION_FVALUE) {
+   PRINTF("\tFaulting value:    %I64x\n",
+          INFO->e_error.e_illegal_instruction.ii_value);
+  }
   break;
+
+#ifdef E_INVALID_SEGMENT
+ case E_INVALID_SEGMENT:
+  PRINTF("\tAttempted assign invalid index 0x%.4I16X to segment register %%%cs\n",
+        (u16)INFO->e_error.e_invalid_segment.is_segment16,
+        (int)x86_spnames[INFO->e_error.e_invalid_segment.is_register]);
+  break;
+#endif /* E_INVALID_SEGMENT */
+
  case E_NOT_IMPLEMENTED:
   PRINTF("\tFeature or function has not been implemented\n");
   break;
+
  case E_IOERROR:
   PRINTF("\tHardware error, or miss-behaving/miss-configured device\n");
-  break;
- case E_PRIVILEGED_INSTRUCTION:
-  PRINTF("\tPrivileged instruction\n");
   break;
  case E_UNHANDLED_INTERRUPT:
   PRINTF("\tUnhandled interrupt %#x (errcode %#x)\n",
@@ -280,23 +453,6 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
  case E_INTERRUPT:
   PRINTF("\tThe calling thread was interrupted\n");
   break;
-
-#ifdef E_INVALID_SEGMENT
- case E_INVALID_SEGMENT: {
-  PRIVATE char const segment_names[] = {
-      [INVALID_SEGMENT_REGISTER_DS] = 'd',
-      [INVALID_SEGMENT_REGISTER_ES] = 'e',
-      [INVALID_SEGMENT_REGISTER_FS] = 'f',
-      [INVALID_SEGMENT_REGISTER_GS] = 'g',
-      [INVALID_SEGMENT_REGISTER_SS] = 's',
-      [INVALID_SEGMENT_REGISTER_CS] = 'c',
-  };
-  PRINTF("\tAttempted to start a thread or return from a signal handler "
-           "with an invalid segment index 0x%.4I16X for register %%%cs\n",
-         INFO->e_error.e_invalid_segment.is_segment,
-         segment_names[INFO->e_error.e_invalid_segment.is_register]);
- } break;
-#endif /* E_INVALID_SEGMENT */
 
 #ifdef __KERNEL__
  case E_DRIVER_CLOSED:
