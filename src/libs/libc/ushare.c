@@ -136,7 +136,7 @@ CRT_RARE char const *LIBCCALL libc_strsignal_s(int signum) {
  if unlikely((uintptr_t)ushare == (uintptr_t)-1 ||
              ushare->se_version < USHARE_STRERROR_VER_KOSMK3)
     return NULL; /* No ushare segment, or unsupported version. */
- if unlikely((u32)signum >= ushare->se_sigcnt)
+ if unlikely(!signum-- || (u32)signum >= ushare->se_sigcnt)
     return NULL; /* Invalid error number. */
  entry = (struct ushare_strerror_signl *)((uintptr_t)ushare+ushare->se_sigtab+
                                           (uintptr_t)signum*ushare->se_sigent);
@@ -150,7 +150,7 @@ CRT_RARE char const *LIBCCALL libc_strsignaltext_s(int signum) {
  if unlikely((uintptr_t)ushare == (uintptr_t)-1 ||
              ushare->se_version < USHARE_STRERROR_VER_KOSMK3)
     return NULL; /* No ushare segment, or unsupported version. */
- if unlikely((u32)signum >= ushare->se_sigcnt)
+ if unlikely(!signum-- || (u32)signum >= ushare->se_sigcnt)
     return NULL; /* Invalid signal number. */
  entry = (struct ushare_strerror_signl *)((uintptr_t)ushare+ushare->se_sigtab+
                                           (uintptr_t)signum*ushare->se_sigent);

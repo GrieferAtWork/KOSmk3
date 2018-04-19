@@ -677,7 +677,7 @@ do_action_kill:
    reason = error_info();
    reason->e_error.e_code = E_EXIT_PROCESS;
 do_action_throw:
-   reason->e_error.e_flag          = ERR_FNORMAL;
+   reason->e_error.e_flag = ERR_FNORMAL;
    memset(reason->e_error.e_pointers,0,sizeof(reason->e_error.e_pointers));
    reason->e_error.e_exit.e_status = __W_EXITCODE(0,signo+1);
    error_throw_current();
