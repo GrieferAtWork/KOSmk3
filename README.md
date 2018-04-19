@@ -57,6 +57,7 @@ Chaos|KOS - You probably got here through the definition of chaoticity (<i>which
      - Terminate/suspend/resume support for <code>SIGKILL</code>, <code>SIGSTOP</code>, <code>SIGCONT</code>
      - Signal-based exception handling (<code>SIGSEGV</code>, etc.)
      - Greatly improved conformance to POSIX behavior.
+     - Fully functioning, bash-compatbile job control using <code>SIGTTIN</code> and <code>SIGTTOU</code>
    - <code>open()</code>/<code>read()</code>/<code>write()</code>/<code>lseek()</code>
    - <code>fcntl()</code>/<code>ioctl()</code>/<code>openpty()</code>
    - <code>mount()</code>/<code>umount()</code>

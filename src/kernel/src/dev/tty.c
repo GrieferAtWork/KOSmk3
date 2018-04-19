@@ -417,7 +417,7 @@ tty_write_input(struct tty *__restrict EXCEPT_VAR self,
  size_t COMPILER_IGNORE_UNINITIALIZED(result),temp,temp2;
  tcflag_t iflags,lflags;
 again:
- rwlock_read(&self->t_lock);
+ rwlock_readf(&self->t_lock,flags);
  TRY {
   iflags = ATOMIC_READ(self->t_ios.c_iflag);
   lflags = ATOMIC_READ(self->t_ios.c_lflag);
@@ -518,15 +518,10 @@ done:
  return result;
 }
 
-
-/* Read TTY input data, format it, then save it in the given `buf'.
- * NOTE: This function is used to implement the
- *       character-device `f_read' operator for TTYs.
- * @return: * : The actual number of bytes read. */
-PUBLIC size_t KCALL
-tty_read_input(struct tty *__restrict self,
-               USER CHECKED void *buf,
-               size_t bufsize, iomode_t flags) {
+PRIVATE size_t KCALL
+tty_doread_input(struct tty *__restrict self,
+                 USER CHECKED void *buf,
+                 size_t bufsize, iomode_t flags) {
  size_t temp,result = 0;
  while (result < bufsize) {
   if (result >= ATOMIC_READ(self->t_ios.c_cc[VMIN])) {
@@ -550,6 +545,42 @@ tty_read_input(struct tty *__restrict self,
  return result;
 }
 
+
+/* Read TTY input data, format it, then save it in the given `buf'.
+ * NOTE: This function is used to implement the
+ *       character-device `f_read' operator for TTYs.
+ * @return: * : The actual number of bytes read. */
+PUBLIC size_t KCALL
+tty_read_input(struct tty *__restrict self,
+               USER CHECKED void *buf,
+               size_t bufsize, iomode_t flags) {
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+again:
+ rwlock_readf(&self->t_lock,flags);
+ TRY {
+  /* Same deal as in `tty_write_display()':
+   *  -> Assert that the calling process is
+   *     part of the foregroup process group. */
+  if (self->t_fproc &&
+      thread_pid_weak(self->t_fproc) !=
+      get_this_processgroup_weak()) {
+   siginfo_t info;
+   /* Calling thread isn't part of the foreground process group. */
+   memset(&info,0,sizeof(siginfo_t));
+   /* Posix says we should sent a `SIGTTIN' to the ensure process group. - So we do that. */
+   info.si_signo = SIGTTIN+1;
+   signal_raise_pgroup(THIS_TASK,&info);
+   result = 0; /* XXX: Shouldn't get here? */
+  } else {
+   result = tty_doread_input(self,buf,bufsize,flags);
+  }
+ } FINALLY {
+  if (rwlock_endread(&self->t_lock))
+      goto again;
+ }
+ return result;
+}
+
 /* Write the given data to the TTY display adapter after
  * formating it according to the active TTY rules.
  * This function is called when a process using the TTY attempts to write data to it.
@@ -561,7 +592,7 @@ tty_write_display(struct tty *__restrict EXCEPT_VAR self,
                   size_t bufsize, iomode_t flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
- rwlock_read(&self->t_lock);
+ rwlock_readf(&self->t_lock,flags);
  TRY {
   if (self->t_fproc &&
       thread_pid_weak(self->t_fproc) !=
@@ -672,7 +703,7 @@ again_get:
   COMPILER_BARRIER();
   if (!self->t_ops->t_set_display_size)
        break;
-  rwlock_write(&self->t_lock);
+  rwlock_writef(&self->t_lock,flags);
   TRY {
    /* Apply the new window size. */
    (*self->t_ops->t_set_display_size)(self,&new_size);
@@ -703,7 +734,7 @@ again_get:
   pid_t COMPILER_IGNORE_UNINITIALIZED(respid);
   validate_writable(arg,sizeof(pid_t));
 again_gpgrp:
-  rwlock_read(&self->t_lock);
+  rwlock_readf(&self->t_lock,flags);
   TRY {
    if (!self->t_fproc)
        error_throw(E_PROCESS_EXITED);
@@ -740,7 +771,7 @@ again_gpgrp:
    new_task = new_group;
    new_pid = FORTASK(new_task,_this_pid);
    if (!new_pid) error_throw(E_PROCESS_EXITED);
-   rwlock_write(&self->t_lock);
+   rwlock_writef(&self->t_lock,flags);
    thread_pid_incref(new_pid);
    old_pid = self->t_fproc;
    self->t_fproc = new_pid;
