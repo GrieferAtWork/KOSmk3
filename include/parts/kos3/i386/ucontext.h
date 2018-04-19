@@ -157,18 +157,18 @@ typedef struct _libc_fpstate fpregset_t[1];
 
 typedef struct __ATTR_PACKED mcontext {
     union __ATTR_PACKED {
-        gregset_t               gregs;     /* GLibC API compatibility... */
-        gregset_t               m_gregs;   /* General purpose register array. */
-        struct x86_usercontext  m_context; /* The user-space CPU context */
+        gregset_t              gregs;     /* GLibC API compatibility... */
+        gregset_t              m_gregs;   /* General purpose register array. */
+        struct x86_usercontext m_context; /* The user-space CPU context */
     };
     union __ATTR_PACKED {
-        fpregset_t              fpregs;    /* GLibC API compatibility... */
-        struct fpu_context      m_fpu;     /* FPU Context. */
+        fpregset_t             fpregs;    /* GLibC API compatibility... */
+        struct fpu_context     m_fpu;     /* FPU Context. */
     };
-    __UINTPTR_TYPE__            m_flags;   /* Set of `__MCONTEXT_F*' */
+    __UINTPTR_TYPE__           m_flags;   /* Set of `__MCONTEXT_F*' */
     union __ATTR_PACKED {
-        __ULONGPTR_TYPE__       cr2;       /* GLibC API compatibility... */
-        __ULONGPTR_TYPE__       m_cr2;     /* The fault address of SIGSEGV. */
+        __ULONGPTR_TYPE__      cr2;       /* GLibC API compatibility... */
+        __ULONGPTR_TYPE__      m_cr2;     /* The fault address of SIGSEGV. */
     };
 } mcontext_t;
 

@@ -39,9 +39,14 @@
 #endif
 
 #include <hybrid/compiler.h>
+#include <hybrid/host.h>
 #include <except.h>
 #include <errno.h>
 #include <syslog.h>
+
+#if defined(__i386__) || defined(__x86_64__)
+#include <asm/cpu-flags.h>
+#endif
 
 DECL_BEGIN
 
@@ -375,7 +380,42 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
 #undef GETREG
 #endif /* !CONFIG_X86_SEGMENTATION */
 #endif /* !__KERNEL__ */
-
+ PRINTF("EFLAGS %p",INFO->e_context.c_eflags);
+ {
+  struct eflag {
+      uintptr_t e_mask;
+      char      e_name[sizeof(uintptr_t)];
+  };
+  PRIVATE struct eflag const eflags[] = {
+      { EFLAGS_CF,  "CF" },
+      { EFLAGS_PF,  "PF" },
+      { EFLAGS_AF,  "AF" },
+      { EFLAGS_ZF,  "ZF" },
+      { EFLAGS_SF,  "SF" },
+      { EFLAGS_TF,  "TF" },
+      { EFLAGS_IF,  "IF" },
+      { EFLAGS_DF,  "DF" },
+      { EFLAGS_OF,  "OF" },
+      { EFLAGS_NT,  "NT" },
+      { EFLAGS_RF,  "RF" },
+      { EFLAGS_VM,  "VM" },
+      { EFLAGS_AC,  "AC" },
+      { EFLAGS_VIF, "VIF" },
+      { EFLAGS_VIP, "VIP" },
+      { EFLAGS_ID,  "ID" },
+  };
+  if (INFO->e_context.c_eflags) {
+   unsigned int i;
+   bool first = true;
+   PRINTF(" (");
+   for (i = 0; i < COMPILER_LENOF(eflags); ++i) {
+    if (!(INFO->e_context.c_eflags & eflags[i].e_mask)) continue;
+    PRINTF("%s%s",first ? (first = false,"") : ",",eflags[i].e_name);
+   }
+   PRINTF(")");
+  }
+  PRINTF(" (IOPL %d)\n",EFLAGS_GTIOPL(INFO->e_context.c_eflags));
+ }
 #else
  /* XXX: Other architectures */
 #endif

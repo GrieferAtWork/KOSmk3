@@ -57,7 +57,8 @@ PUBLIC bool KCALL task_suspend(jtime_t abs_timeout) {
  }
  /* Enable recursive RPC handling, allowing other RPC functions to be called from here.
   * If we didn't do this, we'd be stuck because other threads would be unable
-  * to continue this one if they couldn't schedule new RPC callbacks. */
+  * to continue this one if they couldn't schedule new RPC callbacks.
+  * s.a.: The `task_serve()' below. */
  old_flags = ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_FRPCRECURSION);
  TRY {
   COMPILER_BARRIER();
@@ -87,8 +88,7 @@ PUBLIC bool KCALL task_suspend(jtime_t abs_timeout) {
    * This can happen when a posix_signal raises an E_INTERRUPT
    * exception a the thread that has been suspended. */
   state = ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FSUSPENDED);
-  if ((state & TASK_STATE_FSUSPENDED) &&
-       error_code() == E_INTERRUPT) {
+  if ((state & TASK_STATE_FSUSPENDED) && error_code() == E_INTERRUPT) {
    /* Re-schedule the suspension request to resume once we're back to user-space. */
    task_queue_rpc_user(THIS_TASK,&task_suspend_userspace,
                       (void *)(uintptr_t)abs_timeout,

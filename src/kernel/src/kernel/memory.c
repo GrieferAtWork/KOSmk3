@@ -41,6 +41,7 @@
 
 DECL_BEGIN
 
+#undef CONFIG_LOG_PAGE_ALLOCATIONS
 //#define CONFIG_LOG_PAGE_ALLOCATIONS 1
 
 
@@ -83,6 +84,7 @@ mzone_free(struct mzone *__restrict zone,
            pageptr_t zone_realtive_page,
            size_t num_pages) {
  uintptr_t *iter;
+ assert(zone->mz_max != 0);
  assert(num_pages != 0);
  assertf(zone_realtive_page+num_pages <=
         ((zone->mz_max+1)-zone->mz_min),
@@ -101,6 +103,8 @@ mzone_free(struct mzone *__restrict zone,
         (zone_realtive_page/DATAWORD_BITS);
  for (; num_pages; ++iter) {
   uintptr_t word_offset,free_pages,free_mask;
+  assert((uintptr_t)iter <
+         (uintptr_t)zone->mz_fpages+(((zone->mz_max-zone->mz_min)+1+7)/8+2*sizeof(void *)));
   word_offset = (uintptr_t)zone_realtive_page & (DATAWORD_BITS-1);
   /* Generate the free mask. */
   free_pages = MIN(DATAWORD_BITS - word_offset,num_pages);
@@ -133,6 +137,7 @@ mzone_malloc_at(struct mzone *__restrict zone,
                 size_t num_pages) {
  uintptr_t *iter;
  size_t missing_pages; pageptr_t base;
+ assert(zone->mz_max != 0);
  assert(num_pages != 0);
  assert(zone_realtive_page+num_pages <=
        ((zone->mz_max+1)-zone->mz_min));
@@ -145,6 +150,8 @@ mzone_malloc_at(struct mzone *__restrict zone,
  base          = zone_realtive_page;
  for (; missing_pages; ++iter) {
   uintptr_t word_offset,alloc_pages,origword,alloc_mask;
+  assert((uintptr_t)iter <
+         (uintptr_t)zone->mz_fpages+(((zone->mz_max-zone->mz_min)+1+7)/8+2*sizeof(void *)));
   word_offset = (uintptr_t)base & (DATAWORD_BITS-1);
   /* Generate the allocation mask. */
   alloc_pages = MIN(DATAWORD_BITS - word_offset,missing_pages);
@@ -197,9 +204,22 @@ again:
  do {
   uintptr_t *iter,*end;
   struct mzone *zone = mzones[zone_id];
+  assertf(zone->mz_max != 0,
+         "zone_id = %d, zone = %p\n"
+         "mz_min  = %p\n"
+         "mz_max  = %p\n"
+         "mz_used = %p\n"
+         "mz_free = %p\n",
+          zone_id,zone,
+         (uintptr_t)zone->mz_min,
+         (uintptr_t)zone->mz_max,
+         (uintptr_t)zone->mz_used,
+         (uintptr_t)zone->mz_free);
   if (ATOMIC_READ(zone->mz_free) < min_pages) {
-   debug_printf("ZONE %u/%u IS TOO SMALL (%Iu < %Iu; used %Iu)\n",
-                zone_id,max_zone,zone->mz_free,min_pages,zone->mz_used);
+   debug_printf("ZONE %u/%u IS TOO SMALL (%Iu < %Iu; used %Iu; min = %Iu, max = %Iu)\n",
+                zone_id,max_zone,zone->mz_free,min_pages,zone->mz_used,
+                min_pages,max_pages);
+   /*asm("int3");*/
    goto next_zone;
   }
   iter = (uintptr_t *)zone->mz_fpages;
@@ -210,6 +230,8 @@ again:
    size_t alloc_offset,alloc_size;
    uintptr_t dataword,alloc_mask;
    uintptr_t origword;
+   assert((uintptr_t)iter <
+          (uintptr_t)zone->mz_fpages+(((zone->mz_max-zone->mz_min)+1+7)/8+2*sizeof(void *)));
 retry_dataword:
    origword = ATOMIC_READ(*iter);
    if (!origword) continue;
@@ -320,8 +342,8 @@ scan_alloc_offset:
    debug_printf("PAGE_MALLOC() -> %p...%p (from %p...%p; mz_free = %Iu, mz_used = %Iu)\n",
                (uintptr_t)alloc_base*PAGESIZE,
               ((uintptr_t)alloc_base+*res_pages)*PAGESIZE-1,
-                zone->mz_min*PAGESIZE,
-               ((zone->mz_max+1)*PAGESIZE)-1,
+               (uintptr_t)zone->mz_min*PAGESIZE,
+             (((uintptr_t)zone->mz_max+1)*PAGESIZE)-1,
                 zone->mz_free,zone->mz_used);
 #endif
    return alloc_base;
@@ -366,6 +388,7 @@ page_free(pageptr_t base, size_t num_pages) {
  while (num_pages && i--) {
   pageptr_t zone_start,zone_end;
   struct mzone *zone = mzones[i];
+  assertf(zone->mz_max != 0,"i = %d",i);
   zone_start = zone->mz_min;
   if (zone_start >= base+num_pages &&
      (base+num_pages) != 0) continue;
@@ -379,9 +402,14 @@ page_free(pageptr_t base, size_t num_pages) {
           "zone->mz_min = %p\n"
           "zone->mz_max = %p\n"
           "zone_start   = %p\n"
-          "zone_end     = %p\n",
-         (u64)(zone->mz_max+1)*PAGESIZE,((u64)zone_end*PAGESIZE)-1,
-          i,zone->mz_min,zone->mz_max,zone_start,zone_end);
+          "zone_end     = %p\n"
+          "base         = %.16I64X\n"
+          "num_pages    = %Iu\n"
+          ,
+         (u64)(zone->mz_max+1)*PAGESIZE,((u64)zone_end*PAGESIZE)-1,i,
+         (uintptr_t)zone->mz_min,(uintptr_t)zone->mz_max,
+         (uintptr_t)zone_start,(uintptr_t)zone_end,
+         (u64)base,num_pages);
   assertf(zone_end > zone_start,
           "zone_start = %p\n"
           "zone_end   = %p\n"

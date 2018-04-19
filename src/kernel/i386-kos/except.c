@@ -50,7 +50,6 @@ libc_error_rethrow_at(struct cpu_context *__restrict context,
  /* Safe the original stack-pointer. */
  uintptr_t sp;
  memcpy(&unwind,context,sizeof(struct cpu_context));
- assert(unwind.c_iret.ir_cs != 0);
 
  sp = CPU_CONTEXT_SP(unwind);
 #if 0
@@ -59,7 +58,6 @@ libc_error_rethrow_at(struct cpu_context *__restrict context,
 #endif
  for (;;) {
   uintptr_t ip = CPU_CONTEXT_IP(unwind);
-  assert(unwind.c_iret.ir_cs != 0);
   if (ip < KERNEL_BASE && !(THIS_TASK->t_flags & TASK_FKERNELJOB))
       goto no_handler; /* Exception must be propagated to userspace. */
 
@@ -117,18 +115,15 @@ libc_error_rethrow_at(struct cpu_context *__restrict context,
                 unwind.c_segments.sg_fs,
                 unwind.c_segments.sg_gs);
 #endif
-   assert(unwind.c_iret.ir_cs != 0);
    cpu_setcontext(&unwind);
    /* Never get here... */
   }
   /* Continue unwinding the stack. */
-  assert(unwind.c_iret.ir_cs != 0);
   if (!eh_return(&info,&unwind,EH_FDONT_UNWIND_SIGFRAME)) {
 cannot_unwind:
    debug_printf("Failed to unwind frame at %p\n",ip);
    goto no_handler;
   }
-  assert(unwind.c_iret.ir_cs != 0);
 #if 0
   debug_printf("%[vinfo:%f(%l,%c) : %n :] Unwind %p -> %p (ebp %p; fs: %p)\n",
                ip,ip,unwind.c_eip,unwind.c_gpregs.gp_ebp,unwind.c_segments.sg_fs);
@@ -220,14 +215,12 @@ DEFINE_SYSCALL3(xunwind,
                 USER UNCHECKED struct x86_usercontext *,context,
                 u16,exception_code,int,ip_is_after_faulting) {
  /* TODO: This system call is incorrectly being used for unwinding.
-  *       Rename this one to `xrethrow' and refactor add a new one
-  *       called `xunwind' that only unwinds a single stack frame. */
+  *       Rename this one to `xunwind_except' and refactor add a new
+  *       one called `xunwind' that only unwinds a single stack frame. */
  struct cpu_hostcontext_user unwind;
  validate_writable(context,sizeof(struct x86_usercontext));
 #ifdef CONFIG_X86_SEGMENTATION
  memcpy(&unwind.c_gpregs,context,sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
- unwind.c_iret.ir_cs = context->c_cs;
- unwind.c_iret.ir_ss = context->c_ss;
  if (!unwind.c_iret.ir_cs) unwind.c_iret.ir_cs = X86_USER_CS;
  if (!unwind.c_iret.ir_ss) unwind.c_iret.ir_ss = X86_USER_DS;
  if (!unwind.c_segments.sg_ds) unwind.c_segments.sg_ds = X86_USER_DS;
@@ -236,22 +229,22 @@ DEFINE_SYSCALL3(xunwind,
  if (!unwind.c_segments.sg_gs) unwind.c_segments.sg_gs = X86_SEG_GS;
 #else
  memcpy(&unwind.c_gpregs,context,sizeof(struct x86_gpregs));
- unwind.c_iret.ir_cs = X86_USER_CS;
- unwind.c_iret.ir_ss = X86_USER_DS;
 #endif
- unwind.c_iret.ir_eip     = context->c_eip;
- unwind.c_iret.ir_eflags  = context->c_eflags;
+ unwind.c_iret.ir_cs     = context->c_cs;
+ unwind.c_iret.ir_ss     = context->c_ss;
+ unwind.c_iret.ir_eip    = context->c_eip;
+ unwind.c_iret.ir_eflags = context->c_eflags;
  if (!libc_error_rethrow_at_user(&unwind,exception_code,ip_is_after_faulting))
       return -EPERM; /* No handler found. */
  COMPILER_BARRIER();
  /* Copy the new context back to user-space. */
 #ifdef CONFIG_X86_SEGMENTATION
  memcpy(context,&unwind.c_gpregs,sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
- context->c_cs = unwind.c_iret.ir_cs;
- context->c_ss = unwind.c_iret.ir_ss;
 #else
  memcpy(&unwind.c_gpregs,context,sizeof(struct x86_gpregs));
 #endif
+ context->c_cs     = unwind.c_iret.ir_cs;
+ context->c_ss     = unwind.c_iret.ir_ss;
  context->c_eip    = unwind.c_iret.ir_eip;
  context->c_eflags = unwind.c_iret.ir_eflags;
  return 0;

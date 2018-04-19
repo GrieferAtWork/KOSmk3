@@ -34,6 +34,7 @@
 #include <sched/userthread.h>
 #include <kernel/memory.h>
 #include <kernel/interrupt.h>
+#include <kernel/vm.h>
 #include <kernel/user.h>
 #include <except.h>
 #include <string.h>
@@ -84,13 +85,15 @@ clone_entry(struct cpu_hostcontext_user *__restrict user_context, u32 flags) {
        PERTASK_SET(_this_tid_address,NULL);
  COMPILER_WRITE_BARRIER();
 
+ debug_printf("user_context->c_gpregs.gp_esp   = %p\n",user_context->c_gpregs.gp_esp);
+ debug_printf("user_context->c_iret.ir_useresp = %p\n",user_context->c_iret.ir_useresp);
+
  /* Finally, switch to user-space. */
  cpu_setcontext((struct cpu_context *)user_context);
 }
 
 INTDEF void KCALL task_vm_clone(struct task *__restrict new_thread, u32 flags);
 
-#ifdef CONFIG_X86_SEGMENTATION
 INTERN ATTR_NORETURN void KCALL
 throw_invalid_segment(u16 segment_index, u16 segment_register) {
  struct exception_info *info;
@@ -104,7 +107,6 @@ throw_invalid_segment(u16 segment_index, u16 segment_register) {
  error_throw_current();
  __builtin_unreachable();
 }
-#endif
 
 INTERN pid_t KCALL
 x86_clone_impl(USER CHECKED struct x86_usercontext *context,
@@ -126,100 +128,170 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
   struct cpu_hostcontext_user *user_context;
   task_alloc_stack(new_task,CONFIG_KERNELSTACK_SIZE/PAGESIZE);
 
-  /* Setup a context for the thread.
-   * NOTE: The go-to user-space context _MUST_ be located at the base of the stack.
-   *       This is required for signal handlers and user-space redirection to work
-   *       properly during thread initialization. */
-  user_context = (struct cpu_hostcontext_user *)new_task->t_stackend-1;
-  host_context = (struct cpu_context *)user_context-1;
-  new_task->t_context = (struct cpu_anycontext *)host_context;
-  memset(host_context,0,
-         sizeof(struct cpu_context)+
-         sizeof(struct cpu_hostcontext_user));
-  /* Setup the initial register state. */
-  host_context->c_gpregs.gp_ecx  = (uintptr_t)user_context;
-  host_context->c_gpregs.gp_edx  = (uintptr_t)flags;
-  host_context->c_iret.ir_cs     = X86_KERNEL_CS;
-  host_context->c_iret.ir_eflags = EFLAGS_IF;
-  host_context->c_iret.ir_eip    = (uintptr_t)&clone_entry;
+#ifdef CONFIG_VM86
+  if (context->c_eflags & EFLAGS_VM) {
+   struct cpu_context_vm86 *vm_context;
+   /* Construct a new vm86 thread. */
+   new_task->t_flags |= TASK_FVM86;
+   vm_context   = (struct cpu_context_vm86 *)new_task->t_stackend-1;
+   user_context = (struct cpu_hostcontext_user *)vm_context;
+   host_context = (struct cpu_context *)user_context-1;
+   new_task->t_context = (struct cpu_anycontext *)host_context;
+   memset(host_context,0,
+          sizeof(struct cpu_context)+
+          sizeof(struct cpu_context_vm86));
+   /* Setup the initial register state. */
+   host_context->c_gpregs.gp_ecx  = (uintptr_t)vm_context;
+   host_context->c_gpregs.gp_edx  = (uintptr_t)flags;
+   host_context->c_iret.ir_cs     = X86_KERNEL_CS;
+   host_context->c_iret.ir_eflags = EFLAGS_IF;
+   host_context->c_iret.ir_eip    = (uintptr_t)&clone_entry;
 #ifdef CONFIG_X86_SEGMENTATION
-  host_context->c_segments.sg_gs = X86_SEG_GS;
-  host_context->c_segments.sg_fs = X86_SEG_FS;
-  host_context->c_segments.sg_es = X86_KERNEL_DS;
-  host_context->c_segments.sg_ds = X86_KERNEL_DS;
+   host_context->c_segments.sg_gs = X86_SEG_GS;
+   host_context->c_segments.sg_fs = X86_SEG_FS;
+   host_context->c_segments.sg_es = X86_KERNEL_DS;
+   host_context->c_segments.sg_ds = X86_KERNEL_DS;
 #endif /* CONFIG_X86_SEGMENTATION */
 
-  /* Copy the user-space CPU context. */
+   /* Copy the user-space CPU context. */
 #ifdef CONFIG_X86_SEGMENTATION
-  memcpy(&user_context->c_gpregs,&context->c_gpregs,
-         sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
-  user_context->c_iret.ir_cs = context->c_cs;
-  user_context->c_iret.ir_ss = context->c_ss;
+   memcpy(&vm_context->c_gpregs,&context->c_gpregs,
+          sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
 #else
-  memcpy(&user_context->c_gpregs,&context->c_gpregs,
-         sizeof(struct x86_gpregs));
+   memcpy(&vm_context->c_gpregs,&context->c_gpregs,
+          sizeof(struct x86_gpregs));
 #endif
-  user_context->c_eip    = context->c_eip;
-  user_context->c_eflags = context->c_eflags;
-  COMPILER_READ_BARRIER();
+   vm_context->c_iret.ir_cs = context->c_cs;
+   vm_context->c_iret.ir_ss = context->c_ss;
+   vm_context->c_eip        = context->c_eip;
+   vm_context->c_eflags     = context->c_eflags;
+   COMPILER_READ_BARRIER();
 
-  /* Force some registers to proper values (don't want user-space to run in ring #0). */
-  user_context->c_iret.ir_eflags |= EFLAGS_IF;
-  user_context->c_iret.ir_eflags &= ~(EFLAGS_TF|EFLAGS_IOPL(3)|
-                                      EFLAGS_NT|EFLAGS_RF|EFLAGS_VM|
-                                      EFLAGS_AC|EFLAGS_VIF|EFLAGS_VIP|
-                                      EFLAGS_ID);
+   vm_context->c_esp           = vm_context->c_gpregs.gp_esp;
+   vm_context->c_gpregs.gp_esp = (uintptr_t)new_task->t_stackend-24;
+
+   debug_printf("vm_context->c_esp           = %p\n",vm_context->c_esp);
+   debug_printf("vm_context->c_gpregs.gp_esp = %p\n",vm_context->c_gpregs.gp_esp);
+
+   vm_context->c_iret.ir_eflags |= EFLAGS_IF|EFLAGS_VM;
+   vm_context->c_iret.ir_eflags &= ~EFLAGS_ID;
+   if (vm_context->c_iret.ir_eflags &
+      (EFLAGS_TF|EFLAGS_IOPL(3)|EFLAGS_NT|
+       EFLAGS_RF|EFLAGS_AC|EFLAGS_VIF|
+       EFLAGS_VIP))
+       error_throw(E_INVALID_ARGUMENT);
+
 #ifdef CONFIG_X86_SEGMENTATION
-  /* Segment registers set to ZERO are set to their default values. */
-  if (!user_context->c_iret.ir_cs)
-       user_context->c_iret.ir_cs = X86_USER_CS;
-  if (!user_context->c_segments.sg_gs)
-       user_context->c_segments.sg_gs = X86_SEG_GS;
-  if (!user_context->c_segments.sg_fs)
-       user_context->c_segments.sg_fs = X86_SEG_FS;
-  if (!user_context->c_segments.sg_es)
-       user_context->c_segments.sg_es = X86_USER_DS;
-  if (!user_context->c_segments.sg_ds)
-       user_context->c_segments.sg_ds = X86_USER_DS;
-  if (!user_context->c_iret.ir_ss)
-       user_context->c_iret.ir_ss = X86_USER_DS;
-  /* Verify user-space segment indices. */
-  if (!__verw(user_context->c_segments.sg_ds))
-       throw_invalid_segment(user_context->c_segments.sg_ds,INVALID_SEGMENT_REGISTER_DS);
-  if (!__verw(user_context->c_segments.sg_es))
-       throw_invalid_segment(user_context->c_segments.sg_es,INVALID_SEGMENT_REGISTER_ES);
-  if (!__verw(user_context->c_segments.sg_fs))
-       throw_invalid_segment(user_context->c_segments.sg_fs,INVALID_SEGMENT_REGISTER_FS);
-  if (!__verw(user_context->c_segments.sg_gs))
-       throw_invalid_segment(user_context->c_segments.sg_gs,INVALID_SEGMENT_REGISTER_GS);
-  if (!__verw(user_context->c_iret.ir_ss))
-       throw_invalid_segment(user_context->c_iret.ir_ss,INVALID_SEGMENT_REGISTER_SS);
-  /* Ensure ring #3 (This is _highly_ important. Without this,
-   * user-space would be executed as kernel-code; autsch...) */
-  if (!(user_context->c_iret.ir_cs & 3) || !__verr(user_context->c_iret.ir_cs))
-       throw_invalid_segment(user_context->c_iret.ir_cs,INVALID_SEGMENT_REGISTER_CS);
+   vm_context->c_iret.ir_es     = vm_context->c_segments.sg_es;
+   vm_context->c_iret.ir_ds     = vm_context->c_segments.sg_ds;
+   vm_context->c_iret.ir_fs     = vm_context->c_segments.sg_fs;
+   vm_context->c_iret.ir_gs     = vm_context->c_segments.sg_gs;
+   vm_context->c_segments.sg_gs = X86_SEG_GS;
+   vm_context->c_segments.sg_fs = X86_SEG_FS;
+   vm_context->c_segments.sg_es = X86_USER_DS;
+   vm_context->c_segments.sg_ds = X86_USER_DS;
 #else /* CONFIG_X86_SEGMENTATION */
-  user_context->c_iret.ir_ss = X86_USER_DS;
-  user_context->c_iret.ir_cs = X86_USER_CS;
+   vm_context->c_iret.ir_es = context->c_segments.sg_es;
+   vm_context->c_iret.ir_ds = context->c_segments.sg_ds;
+   vm_context->c_iret.ir_fs = context->c_segments.sg_fs;
+   vm_context->c_iret.ir_gs = context->c_segments.sg_gs;
 #endif /* CONFIG_X86_SEGMENTATION */
-  assert(user_context->c_iret.ir_cs != 0);
+  } else
+#endif /* CONFIG_VM86 */
+  {
+   /* Setup a context for the thread.
+    * NOTE: The go-to user-space context _MUST_ be located at the base of the stack.
+    *       This is required for signal handlers and user-space redirection to work
+    *       properly during thread initialization. */
+   user_context = (struct cpu_hostcontext_user *)new_task->t_stackend-1;
+   host_context = (struct cpu_context *)user_context-1;
+   new_task->t_context = (struct cpu_anycontext *)host_context;
+   memset(host_context,0,
+          sizeof(struct cpu_context)+
+          sizeof(struct cpu_hostcontext_user));
+   /* Setup the initial register state. */
+   host_context->c_gpregs.gp_ecx  = (uintptr_t)user_context;
+   host_context->c_gpregs.gp_edx  = (uintptr_t)flags;
+   host_context->c_iret.ir_cs     = X86_KERNEL_CS;
+   host_context->c_iret.ir_eflags = EFLAGS_IF;
+   host_context->c_iret.ir_eip    = (uintptr_t)&clone_entry;
+#ifdef CONFIG_X86_SEGMENTATION
+   host_context->c_segments.sg_gs = X86_SEG_GS;
+   host_context->c_segments.sg_fs = X86_SEG_FS;
+   host_context->c_segments.sg_es = X86_KERNEL_DS;
+   host_context->c_segments.sg_ds = X86_KERNEL_DS;
+#endif /* CONFIG_X86_SEGMENTATION */
 
-  /* Place the stack-pointer given from user-space in its proper slot. */
-  user_context->c_iret.ir_useresp = user_context->c_gpregs.gp_esp;
-
-  /* Set the kernel stack as ESP to-be used when execution is
-   * redirected to `x86_redirect_preemption()' during thread
-   * initialization.
-   * (The stack adjustment here mirrors the expectations of `x86_redirect_preemption()')
-   * Without this, we'd end up using the user-space stack, which
-   * not only would cause _a_ _lot_ of problems, but also probably
-   * just end up in a #DF caused by the user-space stack now being
-   * allocated yet (when #PF can't be called) */
-#ifdef __x86_64__
-  user_context->c_gpregs.gp_rsp = (uintptr_t)new_task->t_stackend;
+   /* Copy the user-space CPU context. */
+#ifdef CONFIG_X86_SEGMENTATION
+   memcpy(&user_context->c_gpregs,&context->c_gpregs,
+          sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
 #else
-  user_context->c_gpregs.gp_esp = (uintptr_t)new_task->t_stackend-8;
+   memcpy(&user_context->c_gpregs,&context->c_gpregs,
+          sizeof(struct x86_gpregs));
 #endif
+   user_context->c_iret.ir_cs = context->c_cs;
+   user_context->c_iret.ir_ss = context->c_ss;
+   user_context->c_eip        = context->c_eip;
+   user_context->c_eflags     = context->c_eflags;
+   COMPILER_READ_BARRIER();
+
+   /* Force some registers to proper values (don't want user-space to run in ring #0). */
+   user_context->c_iret.ir_eflags |= EFLAGS_IF;
+   user_context->c_iret.ir_eflags &= ~EFLAGS_ID;
+   if (user_context->c_iret.ir_eflags &
+      (EFLAGS_TF|EFLAGS_IOPL(3)|
+       EFLAGS_NT|EFLAGS_RF|EFLAGS_VM|
+       EFLAGS_AC|EFLAGS_VIF|EFLAGS_VIP))
+       error_throw(E_INVALID_ARGUMENT);
+   if (!user_context->c_iret.ir_cs)
+        user_context->c_iret.ir_cs = X86_USER_CS;
+   if (!user_context->c_iret.ir_ss)
+        user_context->c_iret.ir_ss = X86_USER_DS;
+   if (!__verw(user_context->c_iret.ir_ss))
+        throw_invalid_segment(user_context->c_iret.ir_ss,INVALID_SEGMENT_REGISTER_SS);
+   /* Ensure ring #3 (This is _highly_ important. Without this,
+    * user-space would be executed as kernel-code; autsch...) */
+   if (!(user_context->c_iret.ir_cs & 3) || !__verr(user_context->c_iret.ir_cs))
+        throw_invalid_segment(user_context->c_iret.ir_cs,INVALID_SEGMENT_REGISTER_CS);
+#ifdef CONFIG_X86_SEGMENTATION
+   /* Segment registers set to ZERO are set to their default values. */
+   if (!user_context->c_segments.sg_gs)
+        user_context->c_segments.sg_gs = X86_SEG_GS;
+   if (!user_context->c_segments.sg_fs)
+        user_context->c_segments.sg_fs = X86_SEG_FS;
+   if (!user_context->c_segments.sg_es)
+        user_context->c_segments.sg_es = X86_USER_DS;
+   if (!user_context->c_segments.sg_ds)
+        user_context->c_segments.sg_ds = X86_USER_DS;
+   /* Verify user-space segment indices. */
+   if (!__verw(user_context->c_segments.sg_ds))
+        throw_invalid_segment(user_context->c_segments.sg_ds,INVALID_SEGMENT_REGISTER_DS);
+   if (!__verw(user_context->c_segments.sg_es))
+        throw_invalid_segment(user_context->c_segments.sg_es,INVALID_SEGMENT_REGISTER_ES);
+   if (!__verw(user_context->c_segments.sg_fs))
+        throw_invalid_segment(user_context->c_segments.sg_fs,INVALID_SEGMENT_REGISTER_FS);
+   if (!__verw(user_context->c_segments.sg_gs))
+        throw_invalid_segment(user_context->c_segments.sg_gs,INVALID_SEGMENT_REGISTER_GS);
+#endif /* CONFIG_X86_SEGMENTATION */
+   /* Place the stack-pointer given from user-space in its proper slot. */
+   user_context->c_iret.ir_useresp = user_context->c_gpregs.gp_esp;
+
+   /* Set the kernel stack as ESP to-be used when execution is
+    * redirected to `x86_redirect_preemption()' during thread
+    * initialization.
+    * (The stack adjustment here mirrors the expectations of `x86_redirect_preemption()')
+    * Without this, we'd end up using the user-space stack, which
+    * not only would cause _a_ _lot_ of problems, but also probably
+    * just end up in a #DF caused by the user-space stack now being
+    * allocated yet (when #PF can't be called) */
+#ifdef __x86_64__
+   user_context->c_gpregs.gp_rsp = (uintptr_t)new_task->t_stackend;
+#else
+   user_context->c_gpregs.gp_esp = (uintptr_t)new_task->t_stackend-8;
+#endif
+  }
+
   COMPILER_WRITE_BARRIER();
 
   /* Set the user-space TLS pointer (this will get overwritten
@@ -267,6 +339,7 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
   new_task->t_cpu = THIS_CPU;
 #endif
 
+
   /* Start the new thread. */
   task_start(new_task);
 
@@ -311,10 +384,8 @@ task_fork_impl(void *UNUSED(arg),
  interrupt_getipsp((uintptr_t *)&user_state.c_eip,
                    (uintptr_t *)&user_state.c_esp);
  user_state.c_eflags = context->c_eflags;
-#ifdef CONFIG_X86_SEGMENTATION
  user_state.c_cs     = context->c_iret.ir_cs;
  user_state.c_ss     = context->c_iret.ir_ss;
-#endif
  /* Return ZERO(0) in the child process. */
  user_state.c_gpregs.gp_eax = 0;
 

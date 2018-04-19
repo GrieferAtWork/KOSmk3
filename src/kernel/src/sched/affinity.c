@@ -51,6 +51,18 @@ task_setaffinity(struct task *__restrict UNUSED(thread),
 INTERN ATTR_PERTASK kernel_cpuset_t _this_affinity = KERNEL_CPUSET_INIT_FULL;
 INTERN ATTR_PERTASK DEFINE_ATOMIC_RWLOCK(_this_affinity_lock);
 
+DEFINE_PERTASK_CLONE(thread_affinity_clone);
+PRIVATE ATTR_USED void KCALL
+thread_affinity_clone(struct task *__restrict new_thread,
+                      u32 UNUSED(flags)) {
+ /* Copy the affinity of the calling thread into the new thread. */
+ atomic_rwlock_read(&PERTASK(_this_affinity_lock));
+ memcpy(&FORTASK(new_thread,_this_affinity),
+        &PERTASK(_this_affinity),
+         sizeof(kernel_cpuset_t));
+ atomic_rwlock_endread(&PERTASK(_this_affinity_lock));
+}
+
 PUBLIC void KCALL
 task_getaffinity(struct task *__restrict thread,
                  kernel_cpuset_t affinity) {

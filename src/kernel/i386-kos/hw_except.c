@@ -27,6 +27,7 @@
 #include <kernel/malloc.h>
 #include <kernel/vm.h>
 #include <i386-kos/interrupt.h>
+#include <i386-kos/vm86.h>
 #include <kos/i386-kos/context.h>
 #include <kos/i386-kos/except.h>
 #include <asm/cpu-flags.h>
@@ -102,11 +103,13 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
  /* Extract the fault address before re-enabling interrupts. */
  __asm__("movl %%cr2, %0" : "=r" (fault_address) : : "memory");
  assert(!PREEMPTION_ENABLED());
-#if 0
+#if 1
+ if (context->c_eflags & EFLAGS_VM) {
  debug_printf("#PF at %p (from %p; errcode %x; esp %p%s)\n",
               fault_address,context->c_eip,errcode,
               X86_ANYCONTEXT32_ESP(*context),
               PERTASK_TEST(mall_leak_nocore) ? "; SKIP_LOADCORE" : "");
+ }
 //  if (!(context->c_iret.ir_cs & 3))
 //      __asm__("int3");
 #endif
@@ -707,6 +710,11 @@ x86_interrupt_handler(struct cpu_anycontext *__restrict context,
 }
 
 
+#ifdef CONFIG_VM86
+INTDEF bool FCALL
+vm86_gpf(struct cpu_context_vm86 *__restrict context,
+         register_t error_code);
+#endif
 
 
 INTERN void FCALL
@@ -714,7 +722,18 @@ x86_handle_gpf(struct cpu_anycontext *__restrict context,
                register_t errcode) {
  struct exception_info *info;
  info = error_info();
+#ifdef CONFIG_VM86
+ if (context->c_eflags & EFLAGS_VM) {
+  /* Deal with GPF instruction emulation in vm86 mode. */
+  if (vm86_gpf((struct cpu_context_vm86 *)context,errcode))
+      return;
+  goto e_privileged_instruction;
+ }
+#endif
  if (context->c_iret.ir_cs & 3) {
+#ifdef CONFIG_VM86
+e_privileged_instruction:
+#endif
   /* Throw a privileged-instruction error. */
   info->e_error.e_code = E_PRIVILEGED_INSTRUCTION;
   info->e_error.e_flag = ERR_FRESUMABLE|ERR_FRESUMENEXT;

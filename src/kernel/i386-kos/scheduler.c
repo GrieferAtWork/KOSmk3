@@ -756,16 +756,19 @@ task_start(struct task *__restrict self) {
 
 #ifndef NDEBUG
  /* Do some validation on where the thread will start. */
- { struct x86_irregs_user *iret = (struct x86_irregs_user *)self->t_stackend-1;
-   assertf(iret->ir_cs == X86_KERNEL_CS ||
-          (iret->ir_cs == X86_USER_CS &&
-         !(self->t_flags&TASK_FKERNELJOB)),
-          "iret->ir_cs = %p:%p",&iret->ir_cs,iret->ir_cs);
-#if 0 /* Can't be asserted. - If user-space doesn't follow this, it'll just get a GPF after launch. */
-   assert((iret->ir_cs == X86_USER_CS) ? (iret->ir_eip < KERNEL_BASE) :
-         ((iret->ir_eip >= KERNEL_BASE) || (self->t_vm == &vm_kernel)));
+#ifdef CONFIG_VM86
+ if (!(self->t_flags & TASK_FVM86))
 #endif
+ {
+  struct x86_irregs_user *iret = (struct x86_irregs_user *)self->t_stackend-1;
+  assertf(iret->ir_cs == X86_KERNEL_CS ||
+        !(self->t_flags & TASK_FKERNELJOB),
+         "iret->ir_cs = %p:%p",&iret->ir_cs,iret->ir_cs);
  }
+#if 0 /* Can't be asserted. - If user-space doesn't follow this, it'll just get a GPF after launch. */
+ assert((iret->ir_cs == X86_USER_CS) ? (iret->ir_eip < KERNEL_BASE) :
+       ((iret->ir_eip >= KERNEL_BASE) || (self->t_vm == &vm_kernel)));
+#endif
 #endif
 
  /* Add the task to the chain of tasks using the associated VM. */

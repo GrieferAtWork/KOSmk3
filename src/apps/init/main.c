@@ -74,6 +74,7 @@
 #include <sys/wait.h>
 #include <kos/thread.h>
 #include <kos/environ.h>
+#include <asm/cpu-flags.h>
 
 DECL_BEGIN
 
@@ -156,6 +157,46 @@ void print_dir(int fd) {
 }
 
 
+void vm86_map_identity(void) {
+ struct mmap_info info;
+ memset(&info,0,sizeof(info));
+ info.mi_addr            = 0;
+ info.mi_prot            = PROT_READ|PROT_WRITE|PROT_EXEC;
+ info.mi_flags           = MAP_PRIVATE|MAP_FIXED;
+ info.mi_xflag           = XMAP_USHARE;
+ info.mi_size            = USHARE_X86_VM86BIOS_FSIZE;
+ info.mi_align           = PAGESIZE;
+ info.mi_gap             = 0;
+ info.mi_tag             = NULL;
+ info.mi_ushare.mu_name  = USHARE_X86_VM86BIOS_FNAME;
+ info.mi_ushare.mu_start = 0;
+ Xxmmap(&info);
+}
+
+void test_vm86(void) {
+ struct cpu_context context; pid_t child;
+ byte_t *text;
+ memset(&context,0,sizeof(context));
+
+ /* Map the identity page for the X86 bios. */
+ vm86_map_identity();
+
+ text    = (byte_t *)0x10000;
+ text[0] = 0xcd;
+ text[1] = 0x15;
+ text[2] = 0xcc;
+
+ context.c_eflags        = EFLAGS_VM;
+ context.c_cs            = ((uintptr_t)text & ~0xffff)/16;
+ context.c_eip           = (uintptr_t)text & 0xffff;
+ context.c_gpregs.gp_eax = 0xe801;
+ context.c_gpregs.gp_esp = 0x7c00;
+
+ child = Xxclone(&context,CLONE_VM|CLONE_THREAD,NULL,NULL,NULL);
+ while (waitpid(child,NULL,WEXITED) < 0 && errno == EINTR);
+}
+
+
 int main(int argc, char *argv[]) {
  //kernctl(KERNEL_CONTROL_DBG_DUMP_LEAKS);
  //syslog(LOG_DEBUG,"Hello dynamically linked world %d\n",x++);
@@ -169,6 +210,8 @@ int main(int argc, char *argv[]) {
  act.sa_sigaction = &my_handler;
  act.sa_flags     = SA_SIGINFO;
  Xsigaction(SIGCHLD,&act,NULL);
+
+ test_vm86();
 
  assert(strcmp("foo","foo") == 0);
  assert(strcmp("foo","bar") != 0);

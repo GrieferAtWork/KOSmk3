@@ -34,7 +34,7 @@ DECL_BEGIN
 #ifndef CONFIG_NO_VM86
 #define CONFIG_VM86 1
 #ifdef __CC__
-struct x86_irregs_vm86 {
+struct __ATTR_PACKED x86_irregs_vm86 {
     u32 ir_eip;
     u32 ir_cs;
     u32 ir_eflags;       /* Has the `EFLAGS_VM' flag set. */
@@ -46,7 +46,7 @@ struct x86_irregs_vm86 {
     u16 ir_gs,__ir_pad3;
 };
 
-struct cpu_context_vm86 {
+struct __ATTR_PACKED cpu_context_vm86 {
     struct x86_gpregs32              c_gpregs;   /* General purpose registers */
 #ifdef CONFIG_X86_SEGMENTATION
     struct x86_segments32            c_segments; /* Segment registers (ignored, but must be valid) */
@@ -55,33 +55,88 @@ struct cpu_context_vm86 {
         struct x86_irregs_vm86       c_iret;     /* IRet registers */
         struct __ATTR_PACKED {
              __ULONG32_TYPE__        c_eip;      /* Instruction pointer */
-             __ULONG32_TYPE__        __c_pad;    /* ... */
+             __ULONG32_TYPE__      __c_pad;      /* ... */
              __ULONG32_TYPE__        c_eflags;   /* Flags register */
              __ULONG32_TYPE__        c_esp;      /* Stack pointer */
         };
     };
 };
 
+struct vm_region;
 
-/* Enter VM86 mode and start executing the given CPU context.
- * This function never returns, and the caller is responsible
- * to unwind the stack before executing this function.
- * -> This function doesn't unwind the caller's stack.
- * NOTE: There are however a few error conditions for which
- *       this function does actually return by throwing an
- *       exception (such as `E_BADALLOC' if it failed to
- *       allocate the initial VM context for the calling
- *       thread) */
-FUNDEF ATTR_NORETURN void FCALL
-x86_enter_vm86(struct cpu_context_vm86 *__restrict context);
+/* A VM region describing a identity mapping of the first 1Mb */
+DATDEF struct vm_region vm86_identity_1mb;
+#define VM86_IDENTITY_1MB_SIZE   ((1 * 1024 * 1024)/PAGESIZE)
 
-/* Same as `x86_vm86_enter()', but used to leave VM86 mode
- * and continue execution with the given context. */
-FUNDEF ATTR_NORETURN void FCALL
-x86_leave_vm86(struct cpu_anycontext *__restrict context);
+/* NOTE: The higher 16 bits of `offset' are ignored. */
+LOCAL u8 FCALL vm86_peekb(u16 segment, u32 offset);
+LOCAL u16 FCALL vm86_peekw(u16 segment, u32 offset);
+LOCAL u32 FCALL vm86_peekl(u16 segment, u32 offset);
+LOCAL void FCALL vm86_pokeb(u16 segment, u32 offset, u8 value);
+LOCAL void FCALL vm86_pokew(u16 segment, u32 offset, u16 value);
+LOCAL void FCALL vm86_pokel(u16 segment, u32 offset, u32 value);
+LOCAL void FCALL vm86_pushb(struct cpu_context_vm86 *__restrict ctx, u8 value);
+LOCAL void FCALL vm86_pushw(struct cpu_context_vm86 *__restrict ctx, u16 value);
+LOCAL void FCALL vm86_pushl(struct cpu_context_vm86 *__restrict ctx, u32 value);
+LOCAL u8 FCALL vm86_popb(struct cpu_context_vm86 *__restrict ctx);
+LOCAL u16 FCALL vm86_popw(struct cpu_context_vm86 *__restrict ctx);
+LOCAL u32 FCALL vm86_popl(struct cpu_context_vm86 *__restrict ctx);
+
+
+#define VM86_SEGMENT_ADDRESS(segment,offset) ((uintptr_t)((segment) * 16 + ((offset) & 0xffff)))
+
+#ifndef __INTELLISENSE__
+LOCAL u8 FCALL vm86_peekb(u16 segment, u32 offset) {
+ return *(u8 *)VM86_SEGMENT_ADDRESS(segment,offset);
+}
+LOCAL u16 FCALL vm86_peekw(u16 segment, u32 offset) {
+ return *(u16 *)VM86_SEGMENT_ADDRESS(segment,offset);
+}
+LOCAL u32 FCALL vm86_peekl(u16 segment, u32 offset) {
+ return *(u32 *)VM86_SEGMENT_ADDRESS(segment,offset);
+}
+LOCAL void FCALL vm86_pokeb(u16 segment, u32 offset, u8 value) {
+ *(u8 *)VM86_SEGMENT_ADDRESS(segment,offset) = value;
+}
+LOCAL void FCALL vm86_pokew(u16 segment, u32 offset, u16 value) {
+ *(u16 *)VM86_SEGMENT_ADDRESS(segment,offset) = value;
+}
+LOCAL void FCALL vm86_pokel(u16 segment, u32 offset, u32 value) {
+ *(u32 *)VM86_SEGMENT_ADDRESS(segment,offset) = value;
+}
+LOCAL void FCALL vm86_pushb(struct cpu_context_vm86 *__restrict ctx, u8 value) {
+ ctx->c_esp -= 1;
+ *(u8 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp) = value;
+}
+LOCAL void FCALL vm86_pushw(struct cpu_context_vm86 *__restrict ctx, u16 value) {
+ ctx->c_esp -= 2;
+ *(u16 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp) = value;
+}
+LOCAL void FCALL vm86_pushl(struct cpu_context_vm86 *__restrict ctx, u32 value) {
+ ctx->c_esp -= 4;
+ *(u32 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp) = value;
+}
+LOCAL u8 FCALL vm86_popb(struct cpu_context_vm86 *__restrict ctx) {
+ u8 result;
+ result = *(u8 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp);
+ ctx->c_esp += 1;
+ return result;
+}
+LOCAL u16 FCALL vm86_popw(struct cpu_context_vm86 *__restrict ctx) {
+ u16 result;
+ result = *(u16 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp);
+ ctx->c_esp += 2;
+ return result;
+}
+LOCAL u32 FCALL vm86_popl(struct cpu_context_vm86 *__restrict ctx) {
+ u32 result;
+ result = *(u32 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp);
+ ctx->c_esp += 4;
+ return result;
+}
+#endif /* __INTELLISENSE__ */
 
 #endif /* __CC__ */
-
 
 #endif /* !CONFIG_NO_VM86 */
 

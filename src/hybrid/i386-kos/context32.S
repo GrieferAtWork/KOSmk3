@@ -20,7 +20,12 @@
 #include <hybrid/asm.h>
 #include <kos/context.h>
 #include <asm/cfi.h>
+#include <asm/cpu-flags.h>
 #include "../hybrid.h"
+
+#ifdef __KERNEL__
+#include <i386-kos/vm86.h>
+#endif
 
 #ifndef __KERNEL__
 PUBLIC_ENTRY(cpu_getcontext)
@@ -199,6 +204,12 @@ INTERN_ENTRY(cpu_setcontext_pop)
 PUBLIC_ENTRY(cpu_setcontext)
 INTERN_ENTRY(libc_cpu_setcontext)
 	/* ECX: struct cpu_context const *__restrict new_context */
+
+#ifdef CONFIG_VM86
+	testl  $EFLAGS_VM, X86_CONTEXT_OFFSETOF_EFLAGS(%ecx)
+	jnz    .cpu_setcontext_vm86
+#endif
+
 #ifdef CONFIG_X86_SEGMENTATION
 #define REGSPACE 12
 #else
@@ -236,6 +247,7 @@ INTERN_ENTRY(libc_cpu_setcontext)
 
 #ifndef CONFIG_X86_SEGMENTATION
 	/* Load the new stack. */
+	cli
 	movl   %eax, %esp
 
 	/* Load remaining registers. */
@@ -259,6 +271,7 @@ INTERN_ENTRY(libc_cpu_setcontext)
 	movl   %edx, 0(%eax)
 
 	/* Load the new stack. */
+	cli
 	movl   %eax, %esp
 
 	/* Load remaining registers. */
@@ -276,6 +289,54 @@ SYMEND(cpu_setcontext_pop)
 #endif
 SYMEND(libc_cpu_xchcontext)
 SYMEND(cpu_xchcontext)
+
+
+#ifdef CONFIG_VM86
+.section .text
+.cpu_setcontext_vm86:
+	/* Load a `struct cpu_context_vm86' currently stored in `ECX' */
+	movl   X86_GPREGS32_OFFSETOF_ESP(%ecx), %eax
+	subl   $40, %eax /* 4+sizeof(struct x86_irregs_vm86) */
+#ifdef CONFIG_X86_SEGMENTATION
+#define VM86_OFFSETOF_IRET  (X86_GPREGS_SIZE+X86_SEGMENTS_SIZE)
+#else
+#define VM86_OFFSETOF_IRET   X86_GPREGS_SIZE
+#endif
+
+	movl   VM86_OFFSETOF_IRET+ 0(%ecx), %edx
+	movl   %edx,  4(%eax) /* EIP */
+	movl   VM86_OFFSETOF_IRET+ 4(%ecx), %edx
+	movl   %edx,  8(%eax) /* CS */
+	movl   VM86_OFFSETOF_IRET+ 8(%ecx), %edx
+	movl   %edx, 12(%eax) /* EFLAGS */
+	movl   VM86_OFFSETOF_IRET+12(%ecx), %edx
+	movl   %edx, 16(%eax) /* ESP */
+	movl   VM86_OFFSETOF_IRET+16(%ecx), %edx
+	movl   %edx, 20(%eax) /* SS */
+	movl   VM86_OFFSETOF_IRET+20(%ecx), %edx
+	movl   %edx, 24(%eax) /* ES */
+	movl   VM86_OFFSETOF_IRET+24(%ecx), %edx
+	movl   %edx, 28(%eax) /* DS */
+	movl   VM86_OFFSETOF_IRET+28(%ecx), %edx
+	movl   %edx, 32(%eax) /* FS */
+	movl   VM86_OFFSETOF_IRET+32(%ecx), %edx
+	movl   %edx, 36(%eax) /* GS */
+
+	/* Load general-purpose registers. */
+	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDI(%ecx), %edi
+	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ESI(%ecx), %esi
+	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EBP(%ecx), %ebp
+	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EBX(%ecx), %ebx
+	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDX(%ecx), %edx
+	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ECX(%ecx), %ecx
+
+	/* Enter VM86 mode. */
+	cli
+	movl   %eax, %esp
+	popl   %eax /* Restore the last register. */
+	iret        /* Do the iret */
+#endif
+
 #endif /* __KERNEL__ */
 
 

@@ -27,6 +27,7 @@
 #include <kernel/vm.h>
 #include <except.h>
 #include <unwind/eh_frame.h>
+#include <i386-kos/vm86.h>
 
 DECL_BEGIN
 
@@ -93,6 +94,12 @@ KCALL arch_ushare_lookup(u32 name) {
  case USHARE_X86_SYSCALL_FNAME:
   vm_region_incref(&x86_syscall_region);
   return &x86_syscall_region;
+
+#ifdef CONFIG_VM86
+ case USHARE_X86_VM86BIOS_FNAME:
+  vm_region_incref(&vm86_identity_1mb);
+  return &vm86_identity_1mb;
+#endif /* CONFIG_VM86 */
 
  default: break;
  }

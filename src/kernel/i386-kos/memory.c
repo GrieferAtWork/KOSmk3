@@ -259,6 +259,10 @@ INTERN ATTR_FREETEXT void KCALL x86_mem_construct_zones(void) {
   struct mzone *zone; size_t zone_size;
   if (specs[i].ms_max == specs[i].ms_min)
       break; /* Stop when there are no more zones. */
+#if 0
+  debug_printf("ZONE %u %.16I64X...%.16I64X\n",
+               i,(u64)specs[i].ms_min,(u64)specs[i].ms_max);
+#endif
   zone_size = (offsetof(struct mzone,mz_fpages)+
               ((specs[i].ms_max-specs[i].ms_min)+1+7)/8+2*sizeof(void *));
   zone = (struct mzone *)mzone_heap_malloc(zone_size);

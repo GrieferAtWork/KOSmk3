@@ -148,7 +148,7 @@ KCALL smp_allocate_processor(void) {
  idle_bootstrap->t_vm            = &vm_kernel;
  LIST_INSERT(vm_kernel.vm_tasks,idle_bootstrap,t_vmtasks);
  vm_incref(&vm_kernel);
- bootstrap_state           = ((struct cpu_context *)idle_bootstrap->t_stackend) - 1;
+ bootstrap_state           = ((struct cpu_context *)idle_bootstrap->t_stackend)-1;
  idle_bootstrap->t_context = (struct cpu_anycontext *)bootstrap_state;
 
  /* Setup environment components of the new thread. */
@@ -177,8 +177,6 @@ KCALL smp_allocate_processor(void) {
    X86_SEGMENT_STBASE(*tls_segment,(uintptr_t)tss);
    /* And finally, setup the ESP0 pointer in the TSS for the bootstrap task. */
    tss->t_esp0 = (u32)idle_bootstrap->t_stackend;
-   tss->t_esp1 = (u32)idle_bootstrap->t_stackend;
-   tss->t_esp2 = (u32)idle_bootstrap->t_stackend;
 
 #ifndef __x86_64__
    /* Also setup the TSS used for handling #DF exceptions. */

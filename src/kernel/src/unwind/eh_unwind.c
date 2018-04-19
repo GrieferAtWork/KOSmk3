@@ -36,6 +36,7 @@
 #include <asm/cpu-flags.h>
 #include <i386-kos/unwind.h>
 #include <i386-kos/gdt.h>
+#include <i386-kos/vm86.h>
 #else
 #error "Unsupported architecture"
 #endif
@@ -661,14 +662,29 @@ eh_return(struct fde_info *__restrict info,
 #ifdef __x86_64__
 #error TODO
 #elif defined(__i386__)
-  struct x86_irregs_user32 *iret;
   if (ctx->c_eip == (uintptr_t)&x86_redirect_preemption) {
    struct x86_irregs_user *saved = &PERTASK(iret_saved);
    ctx->c_iret.ir_eip    = saved->ir_eip;
    ctx->c_iret.ir_cs     = saved->ir_cs;
    ctx->c_iret.ir_eflags = saved->ir_eflags;
    ctx->c_esp            = saved->ir_useresp;
+#ifdef CONFIG_VM86
+  } else if (ctx->c_eflags & EFLAGS_VM) {
+   struct x86_irregs_vm86 *iret;
+   iret = (struct x86_irregs_vm86 *)((struct x86_irregs_host32 *)ctx->c_esp-1);
+   ctx->c_iret.ir_cs = iret->ir_cs;
+   ctx->c_esp        = iret->ir_esp;
+   assertf(ctx->c_eip == iret->ir_eip,"Forgot to restore EIP at %p",info->fi_pcbegin);
+   assertf(ctx->c_eflags == iret->ir_eflags,"Forgot to restore EFLAGS at %p",info->fi_pcbegin);
+#ifdef CONFIG_X86_SEGMENTATION
+   ctx->c_segments.sg_gs = iret->ir_gs;
+   ctx->c_segments.sg_fs = iret->ir_fs;
+   ctx->c_segments.sg_es = iret->ir_es;
+   ctx->c_segments.sg_ds = iret->ir_ds;
+#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* CONFIG_VM86 */
   } else {
+   struct x86_irregs_user32 *iret;
    iret = (struct x86_irregs_user32 *)((struct x86_irregs_host32 *)ctx->c_esp-1);
    assertf(ctx->c_eip == iret->ir_eip,"Forgot to restore EIP at %p",info->fi_pcbegin);
    assertf(ctx->c_eflags == iret->ir_eflags,"Forgot to restore EFLAGS at %p",info->fi_pcbegin);

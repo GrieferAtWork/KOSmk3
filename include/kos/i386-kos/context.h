@@ -140,7 +140,6 @@ struct __ATTR_PACKED x86_gpregs32 {
 
 
 
-#ifdef CONFIG_X86_SEGMENTATION
 #if defined(__x86_64__) || !defined(__KERNEL__)
 #define X86_SEGMENTS64_OFFSETOF_GSBASE  0
 #define X86_SEGMENTS64_OFFSETOF_FSBASE  8
@@ -183,7 +182,6 @@ struct __ATTR_PACKED x86_segments32 {
     __UINT32_TYPE__              __X86_CONTEXT_SYMBOL(sg_ds); /* D (destination) segment register */
 };
 #endif /* __CC__ */
-#endif /* CONFIG_X86_SEGMENTATION */
 
 
 
@@ -406,9 +404,9 @@ struct __ATTR_PACKED x86_irregs_user32 {
 struct __ATTR_PACKED x86_context64 {
     /* CPU Context: host --> host  (As seen in kernel exception handling / during task peemption) */
     struct x86_gpregs64          __X86_CONTEXT_SYMBOL(c_gpregs);         /* General purpose registers */
-#ifdef CONFIG_X86_SEGMENTATION
+#if defined(CONFIG_X86_SEGMENTATION) || !defined(__KERNEL__)
     struct x86_segments64        __X86_CONTEXT_SYMBOL(c_segments);       /* Segment registers */
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* CONFIG_X86_SEGMENTATION || !__KERNEL__ */
     union __ATTR_PACKED {
         struct x86_irregs64      __X86_CONTEXT_SYMBOL(c_iret);           /* IRet registers */
         struct __ATTR_PACKED {
@@ -468,15 +466,15 @@ struct __ATTR_PACKED x86_context32
              __ULONG32_TYPE__    __X86_CONTEXT_SYMBOL(c_esp);            /* Stack pointer */
         };
     };
-#ifdef CONFIG_X86_SEGMENTATION
-    struct x86_segments32        __X86_CONTEXT_SYMBOL(c_segments);       /* Segment registers */
-#endif /* CONFIG_X86_SEGMENTATION */
+    struct x86_segments32        __X86_CONTEXT_SYMBOL(c_segments);       /* Segment registers
+                                                                          * NOTE: Unless the kernel was built with `CONFIG_X86_SEGMENTATION',
+                                                                          *       these registers are ignored unless constructing a vm86 thread.
+                                                                          * NOTE: Registers specified as ZERO(0) will default to their standard
+                                                                          *       values described by the `X86_USER_DS' / `X86_USER_TLS' constants. */
     __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(c_eip);            /* Instruction pointer */
     __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(c_eflags);         /* Flags register */
-#ifdef CONFIG_X86_SEGMENTATION
-    __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(c_cs);             /* Code segment */
-    __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(c_ss);             /* Stack segment */
-#endif /* CONFIG_X86_SEGMENTATION */
+    __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(c_cs);             /* Code segment (When specified as ZERO(0), default to `X86_USER_CS') */
+    __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(c_ss);             /* Stack segment (When specified as ZERO(0), default to `X86_USER_DS') */
 };
 #endif /* __CC__ */
 
@@ -588,9 +586,16 @@ struct __ATTR_PACKED x86_anycontext32 {
         };
     };
 };
+
+#if !defined(__x86_64__) && !defined(CONFIG_NO_VM86)
+#define X86_ANYCONTEXT32_ISUSER(x)  (((x).c_iret.ir_cs&3) || ((x).c_iret.ir_eflags&0x20000))
+#define X86_ANYCONTEXT32_ISHOST(x)   (!X86_ANYCONTEXT32_ISUSER(x))
+#define X86_ANYCONTEXT32_ESP(x)     (*(X86_ANYCONTEXT32_ISUSER(x) ? &(x).c_useresp : &(x).c_hostesp))
+#else
 #define X86_ANYCONTEXT32_ISUSER(x)   ((x).c_iret.ir_cs&3)
 #define X86_ANYCONTEXT32_ISHOST(x) (!((x).c_iret.ir_cs&3))
 #define X86_ANYCONTEXT32_ESP(x)     (*(X86_ANYCONTEXT32_ISUSER(x) ? &(x).c_useresp : &(x).c_hostesp))
+#endif
 
 #endif /* __CC__ */
 #endif /* __KERNEL__ */

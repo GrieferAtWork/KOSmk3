@@ -433,7 +433,7 @@ INTERN struct vm_node *KCALL this_vm_getnode(vm_vpage_t page) {
 PUBLIC struct vm_node *KCALL vm_getnode(vm_vpage_t page) {
  struct vm *effective_vm;
  effective_vm = page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
- assert(vm_holding(effective_vm));
+ assert(vm_holding(effective_vm) || !PREEMPTION_ENABLED());
  return vm_node_tree_locate(effective_vm->vm_map,page);
 }
 FUNDEF struct vm_node *KCALL
@@ -2744,6 +2744,8 @@ vm_mapat(vm_vpage_t page_index,
      /* Drop all nodes that were unmapped. */
      while (nodes) {
       struct vm_node *next = nodes->vn_byaddr.le_next;
+      assert(nodes->vn_node.a_vmin >= node->vn_node.a_vmin);
+      assert(nodes->vn_node.a_vmax <= node->vn_node.a_vmax);
       if (nodes->vn_notify) {
        INVOKE_NOTIFY_V(nodes->vn_notify,
                        nodes->vn_closure,

@@ -29,6 +29,19 @@ DECL_BEGIN
 struct task;
 
 /* Suspend the calling thread.
+ * NOTE: If an RPC callback throws an exception while the related
+ *       thread is suspended, the thread is automatically resumed.
+ *       An exception to this is the `E_INTERRUPT' exception, which
+ *       when thrown will unwind the kernel-stack up until user-space,
+ *       at which point the thread will resume suspension, with
+ *       propagation of the E_INTERRUPT being delayed until the an
+ *       RPC function throws a non-E_INTERRUPT error, or until
+ *      `task_resume()' is called, at which point the E_INTERRUPT,
+ *       or whatever is the latest exception at that point, will be
+ *       propagated to user-space.
+ * NOTE: As should already be apparent by the fact that this function
+ *       must be called by the thread that wants to be suspended, this
+ *       function and `task_resume()' are _NOT_ recursive.
  * @return: true:  Some other thread called `task_resume()'
  *                 to resume the calling thread.
  * @return: true:  The calling thread is already suspended
