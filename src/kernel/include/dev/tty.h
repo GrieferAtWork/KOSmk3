@@ -48,6 +48,12 @@ struct tty_ops {
     size_t (KCALL *t_write_display)(struct tty *__restrict self,
                                     USER CHECKED void const *buf, size_t bufsize,
                                     iomode_t flags);
+    /* [0..1][locked(READ(self->t_lock))]
+     * Return the number of currently unwritten/non-transmitted
+     * characters stuck on their way to the display.
+     * When not implemented, the caller should assume that the buffer
+     * is always empty (the same as though ZERO(0) was returned) */
+    size_t (KCALL *t_display_pending)(struct tty *__restrict self);
     /* [0..1]
      *  If existing, connect to a signal used by the TTY display to
      *  throttle / buffer outgoing data, as written by `t_write_display',
@@ -90,6 +96,10 @@ struct tty {
     struct termios          t_ios;    /* [lock(t_lock)] termios data. */
     REF struct thread_pid  *t_cproc;  /* [lock(t_lock)][0..1] Controlling process group. */
     REF struct thread_pid  *t_fproc;  /* [lock(t_lock)][0..1] Foreground process group. */
+#define TTY_FNORMAL         0x0000    /* Normal TTY flags. */
+#define TTY_FEXCL           0x0001    /* [weak] TTY is operating in exclusive mode (open() by a process
+                                       *        without CAP_SYS_ADMIN fails with `ERROR_FS_OBJECT_IS_BUSY'). */
+    WEAK u16                t_flags;  /* TTY flags (Set of `TTY_F*'). */
 };
 
 

@@ -45,6 +45,10 @@ PtySlave_WriteDisplay(struct ptyslave *__restrict self,
                       size_t bufsize, iomode_t flags) {
  return ringbuffer_write(&self->ps_display,buf,bufsize,flags);
 }
+PRIVATE size_t KCALL
+PtySlave_DisplayPending(struct ptyslave *__restrict self) {
+ return ringbuffer_maxread(&self->ps_display);
+}
 PRIVATE bool KCALL
 PtySlave_PollDisplay(struct ptyslave *__restrict self) {
  return ringbuffer_poll_nonfull(&self->ps_display);
@@ -61,6 +65,7 @@ PtySlave_DiscardDisplay(struct ptyslave *__restrict self) {
 PRIVATE struct tty_ops ptyslave_ops = {
     .t_fini            = (void(KCALL *)(struct tty *__restrict))&PtySlave_Fini,
     .t_write_display   = (size_t(KCALL *)(struct tty *__restrict,USER CHECKED void const *,size_t,iomode_t))&PtySlave_WriteDisplay,
+    .t_display_pending = (size_t(KCALL *)(struct tty *__restrict))&PtySlave_DisplayPending,
     .t_poll_display    = (bool(KCALL *)(struct tty *__restrict))&PtySlave_PollDisplay,
     .t_sync_display    = (void(KCALL *)(struct tty *__restrict))&PtySlave_SyncDisplay,
     .t_discard_display = (void(KCALL *)(struct tty *__restrict))&PtySlave_DiscardDisplay,
