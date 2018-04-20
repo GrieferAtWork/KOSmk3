@@ -40,6 +40,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <stdio.h>
 
 DECL_BEGIN
 
@@ -101,6 +102,41 @@ throw_fs_error(u16 fs_error_code) {
  error_throw_current();
  __builtin_unreachable();
 }
+
+
+PUBLIC void KCALL
+device_vsetnamef(struct device *__restrict dev,
+                 char const *__restrict format,
+                 va_list args) {
+ size_t reqlen;
+ reqlen = vsnprintf(dev->d_namebuf,
+                    DEVICE_MAXNAME,
+                    format,args);
+ if (reqlen < DEVICE_MAXNAME)
+  dev->d_name = dev->d_namebuf;
+ else {
+  /* Dynamically allocate the name buffer. */
+  dev->d_name = (char *)kmalloc((reqlen+1)*sizeof(char),GFP_SHARED);
+  vsprintf(dev->d_name,format,args);
+ }
+}
+
+PUBLIC void ATTR_CDECL
+device_setnamef(struct device *__restrict dev,
+                char const *__restrict format, ...) {
+ va_list args;
+ va_start(args,format);
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+ device_vsetnamef(dev,format,args);
+#else
+ TRY {
+  device_vsetnamef(dev,format,args);
+ } FINALLY {
+  va_end(args);
+ }
+#endif
+}
+
 
 
 /* Destroy a previously allocated device. */
@@ -831,7 +867,7 @@ find_dummy:
        /* This page goes away (If it was changed, write it to disk). */
        if (entry->bp_flags & BLOCK_PAGE_FCHANGED) {
         assert(entry->bp_addr < self->b_blockcount);
-        if (flags & O_NONBLOCK)
+        if (flags & IO_NONBLOCK)
             error_throw(E_WOULDBLOCK);
         (*self->b_io.io_write)(self,entry->bp_data,1,entry->bp_addr);
        }
@@ -908,7 +944,7 @@ load_result:
     result->bp_flags = BLOCK_PAGE_FCHANGED;
    } else {
     /* Load the page from disk. */
-    if (flags & O_NONBLOCK)
+    if (flags & IO_NONBLOCK)
         error_throw(E_WOULDBLOCK);
     (*self->b_io.io_read)(self,buf.hp_ptr,1,addr);
     result->bp_flags = BLOCK_PAGE_FNORMAL;
@@ -953,6 +989,8 @@ block_device_read(struct block_device *__restrict EXCEPT_VAR self,
 again:
  rwlock_readf(&self->b_pagebuf.ps_lock,flags);
  TRY {
+  if (self->b_device.d_flags & (DEVICE_FCLOSED))
+      throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
   for (;;) {
    blkaddr_t pageno = (blkaddr_t)(device_position / self->b_blocksize);
    blksize_t pageof = (blksize_t)(device_position % self->b_blocksize);
@@ -990,11 +1028,11 @@ block_device_write(struct block_device *__restrict EXCEPT_VAR self,
  self = self->b_master;
  assertf(self == self->b_master,
          "Recursive partitions must be resolved during creation");
- if (self->b_device.d_flags & DEVICE_FREADONLY)
-     throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
 again:
  rwlock_readf(&self->b_pagebuf.ps_lock,flags);
  TRY {
+  if (self->b_device.d_flags & (DEVICE_FREADONLY|DEVICE_FCLOSED))
+      throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
   for (;;) {
    blkaddr_t pageno = (blkaddr_t)(device_position / self->b_blocksize);
    blksize_t pageof = (blksize_t)(device_position % self->b_blocksize);
@@ -1071,7 +1109,8 @@ PUBLIC REF struct block_device *KCALL
 block_device_partition(struct block_device *__restrict self,
                        pos_t partition_offset,
                        blkcnt_t partition_size,
-                       minor_t partition_number) {
+                       minor_t partition_number,
+                       u8 const partition_guid[16]) {
  REF struct block_device *EXCEPT_VAR result;
  pos_t part_end;
  /* Validate partition bounds. */
@@ -1083,7 +1122,7 @@ block_device_partition(struct block_device *__restrict self,
   bad_partition_bounds(self,partition_offset,partition_size);
   part_end = self->b_blockcount*self->b_blocksize;
   if (partition_offset >= part_end)
-      return NULL; /* Partition is fully out-ob-bounds */
+      error_throw(E_INVALID_ARGUMENT); /* Partition is fully out-ob-bounds */
   part_end   -= partition_offset;
   block_count = FLOORDIV(part_end,self->b_blocksize);
   if (partition_size > block_count)
@@ -1092,11 +1131,12 @@ block_device_partition(struct block_device *__restrict self,
  /* Adjust for the offset of another sub-partition. */
  partition_offset += self->b_partstart;
  self              = self->b_master;
+ assert(self->b_master == self);
  /* Create a sub-partition. */
  if (!partition_size)
-      return NULL; /* Empty partition. */
+     error_throw(E_INVALID_ARGUMENT); /* Empty partition. */
  if (partition_number >= self->b_partmaxcnt)
-      return NULL; /* Bad partition number. */
+     error_throw(E_INVALID_ARGUMENT); /* Bad partition number. */
  assert(CEILDIV(partition_offset,self->b_blocksize)+
         partition_size <= self->b_blockcount);
  result = (REF struct block_device *)device_alloc(DEVICE_TYPE_FBLOCKDEV,
@@ -1110,6 +1150,10 @@ block_device_partition(struct block_device *__restrict self,
  result->b_device.d_devno += partition_number+1;
  block_device_incref(self);
  TRY {
+  /* Set the name of the part in the format of `hda1', `hda2', ... */
+  device_setnamef(&result->b_device,"%s%u",
+                  self->b_device.d_name,
+                 (unsigned int)partition_number+1);
   /* Register the device globally. */
   if (!register_device(&result->b_device)) {
    /* Device already exists... */
@@ -1125,8 +1169,14 @@ block_device_partition(struct block_device *__restrict self,
  if (!DEVICE_ISREGISTERED(&self->b_device)) {
   atomic_rwlock_endwrite(&self->b_partlock);
   /* The master isn't registered (don't add new partitions) */
-  block_device_decref(result);
-  return NULL;
+  TRY {
+   unregister_device(&result->b_device);
+  } FINALLY {
+   block_device_decref(result);
+  }
+  error_throwf(E_NO_DEVICE,
+               ERROR_NO_DEVICE_FBLOCKDEV,
+               self->b_device.d_devno);
  }
  LIST_INSERT(self->b_partitions,result,
              b_partition.p_partitions);

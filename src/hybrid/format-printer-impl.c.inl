@@ -29,6 +29,7 @@
 #include <except.h>
 #include <stdbool.h>
 #include <unicode.h>
+#include <kos/kdev_t.h>
 #ifndef __KERNEL__
 #include "../libs/libc/libc.h"
 #include "../libs/libc/format.h"
@@ -353,6 +354,7 @@ struct va_cont { va_list args; };
 
 #define FOREACH_XFORMAT(callback) \
                    callback(UNIQUE(xformat_hex_name),UNIQUE(xformat_hex)) \
+                   callback(UNIQUE(xformat_dev_name),UNIQUE(xformat_dev)) \
                    callback(UNIQUE(xformat_vinfo_name),UNIQUE(xformat_vinfo)) \
     KERNEL_XFORMAT(callback(UNIQUE(xformat_path_name),UNIQUE(xformat_path))) \
       USER_XFORMAT(callback(UNIQUE(xformat_errno_name),UNIQUE(xformat_errno))) \
@@ -378,6 +380,29 @@ UNIQUE(xformat_hex)(PFORMATPRINTER printer, void *closure,
  return LIBC_FORMAT_HEXDUMP(printer,closure,p,precision,0,
                             FORMAT_HEXDUMP_FLAG_ADDRESS);
 #endif
+}
+
+PRIVATE format_T_char const UNIQUE(xformat_dev_name)[] = { 'd', 'e', 'v' };
+PRIVATE format_T_char const UNIQUE(dev_format)[] = {
+    '%','.','2','x',':','%','.','2','x',0
+};
+PRIVATE ssize_t LIBCCALL
+UNIQUE(xformat_dev)(PFORMATPRINTER printer, void *closure,
+                    format_T_char const *UNUSED(arg), unsigned int UNUSED(length),
+                    unsigned int UNUSED(flags), size_t UNUSED(precision),
+#ifdef FORMAT_OPTION_LOCALE
+                    locale_t locale,
+#endif
+                    struct va_cont *args) {
+ dev_t dev = va_arg(args->args,dev_t);
+ return LIBC_FORMAT_PRINTF(printer,
+                           closure,
+                           UNIQUE(dev_format),
+#ifdef FORMAT_OPTION_LOCALE
+                           locale,
+#endif
+                           MAJOR(dev),
+                           MINOR(dev));
 }
 
 #ifdef __KERNEL__

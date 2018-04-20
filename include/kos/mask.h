@@ -48,6 +48,7 @@ __LOCAL __BOOL (__LIBCCALL mask_inc_overflowq)(__UINT64_TYPE__ __x, __UINT64_TYP
 
 /* Return the smallest value greater than, or equal to `X' that is fully masked by `MASK'.
  * @assume(PRE(X >= MASK))
+ * @assume(POST(RETURN >= X))
  * @assume(POST((RETURN & ~MASK) == 0)) */
 __LOCAL __UINT8_TYPE__ (__LIBCCALL mask_minb)(__UINT8_TYPE__ __x, __UINT8_TYPE__ __mask);
 __LOCAL __UINT16_TYPE__ (__LIBCCALL mask_minw)(__UINT16_TYPE__ __x, __UINT16_TYPE__ __mask);

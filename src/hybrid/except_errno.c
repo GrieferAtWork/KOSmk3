@@ -108,6 +108,7 @@ libc_exception_errno(struct exception_info *__restrict info) {
   case ERROR_FS_NEGATIVE_SEEK:         result = ESPIPE; break;
   case ERROR_FS_FILE_TOO_LARGE:        result = EFBIG; break;
   case ERROR_FS_TOO_MANY_HARD_LINKS:   result = EMLINK; break;
+  case ERROR_FS_OBJECT_IS_BUSY:        result = EBUSY; break;
   case ERROR_FS_CORRUPTED_FILESYSTEM:  result = EIO; break; /* ??? Questionable? */
   default: break;
   }

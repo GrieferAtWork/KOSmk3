@@ -465,6 +465,9 @@
     <ClCompile Include="..\..\src\kernel\i386-kos\gdt.c">
       <Filter>kernel\i386-kos</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\autopart.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">
@@ -763,6 +766,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\kernel\include\sched\suspend.h">
       <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\src\fs\autopart.h">
+      <Filter>kernel\src\fs</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -541,6 +541,8 @@ use_lba28:
 
   /* Register the device. */
   register_device(&self->a_device.b_device);
+  /* Automatically construct partitions. */
+  block_device_autopart(&self->a_device);
 
  } FINALLY {
   device_decref(&self->a_device.b_device);
@@ -605,6 +607,7 @@ AtaPI_ReadDataFromSector(u16 bus, u8 drive, u32 lba, void *buffer) {
 PRIVATE ATTR_FREETEXT void KCALL
 Ata_RegisterAtaPiDevice(u16 bus, u8 drive) {
  debug_printf("[ATA] Found ATAPI device on %.4I16x:%.2I8x\n",bus,drive);
+ /* TODO */
 }
 
 

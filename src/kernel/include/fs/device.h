@@ -27,6 +27,7 @@
 #include <fs/driver.h>
 #include <fs/iomode.h>
 #include <fs/handle.h>
+#include <stdarg.h>
 
 DECL_BEGIN
 
@@ -47,6 +48,9 @@ struct stat64;
                                       * Write operations are not forwarded to operators
                                       * and dismissed immediately by throwing an
                                       * `ERROR_FS_READONLY_FILESYSTEM' error. */
+#define DEVICE_FCLOSED        0x4000 /* [lock(WRITE_ONCE && block_pages::ps_lock)]
+                                      * Disable I/O for block devices (set
+                                      * for old partitions during autopart) */
 #define DEVICE_FDYNDEVICE     0x8000 /* [const] The device number of this device has been
                                       *         allocated dynamically, and must be freed
                                       *         when the device is destroyed.
@@ -98,6 +102,11 @@ FUNDEF ATTR_NOTHROW void KCALL device_destroy(struct device *__restrict self);
 /* Increment/decrement the reference counter of the given device `x' */
 #define device_incref(x)  ATOMIC_FETCHINC((x)->d_refcnt)
 #define device_decref(x) (ATOMIC_DECFETCH((x)->d_refcnt) || (device_destroy(x),0))
+
+/* Set the name of a device. (The filename that will appear under `/dev') */
+FUNDEF void ATTR_CDECL device_setnamef(struct device *__restrict dev, char const *__restrict format, ...);
+FUNDEF void KCALL device_vsetnamef(struct device *__restrict dev, char const *__restrict format, va_list args);
+
 
 /* Lookup the device associated with a given type and device-number.
  * @throw: E_NO_DEVICE: The named device doesn't exist. */
@@ -339,7 +348,7 @@ DATDEF struct block_device null_device;
  * @throw: E_SEGFAULT: The given user-buffer is faulty.
  * @throw: E_NO_DATA:  The given block range is overflowing, or out-of-bounds.
  * @return: * :        The actual number of read/written bytes.
- *                     NOTE: Guarantied equal to `num_bytes' when `O_NONBLOCK' isn't passed. */
+ *                     NOTE: Guarantied equal to `num_bytes' when `IO_NONBLOCK' isn't passed. */
 FUNDEF size_t KCALL
 block_device_read(struct block_device *__restrict self,
                   CHECKED USER void *buf, size_t num_bytes,
@@ -354,6 +363,17 @@ FUNDEF void KCALL
 block_device_sync(struct block_device *__restrict self);
 
 
+/* Automatically repartition the block device,
+ * reloading the base+size of all partitions.
+ * This function will create `self->b_partmaxcnt'
+ * partitions for the given block-device, which
+ * must be a drive master (this is asserted)
+ * Drivers should call this function _AFTER_ having
+ * registered the block device using `register_device()' */
+FUNDEF void KCALL
+block_device_autopart(struct block_device *__restrict self);
+
+
 /* Construct a new sub-partition of the given block-device.
  * NOTE: When `self' is another partition itself, the new partition
  *       will still be constructed in the master device, however
@@ -361,21 +381,22 @@ block_device_sync(struct block_device *__restrict self);
  *       the partition that it is derived from.
  * NOTE: When the given partition range is beyond the valid bounds of
  *       the partition, a warning is logged and the bounds are truncated.
- * @param: self:             The drive master / partition to sub-partition.
- * @param: partition_offset: The offset of the partition (in bytes).
- * @param: partition_size:   The size of the partition (in blocks).
- * @param: partition_number: The partition number of this device
- *                          (minor device ID offset from the drive master; < `b_partmaxcnt').
- * @return: * :              The new partition describing the given range.
- * @return: NULL:            The device `self' isn't registered, or has been deleted (`DEVICE_ISREGISTERED()' returns false)
- * @return: NULL:            The given `partition_number' is `>= b_partmaxcnt'
- * @return: NULL:            The effective device ID of the partition was already in use.
- * @return: NULL:            After truncation, the partition size (`partition_size') equates to ZERO(0). */
+ * @param: self:               The drive master / partition to sub-partition.
+ * @param: partition_offset:   The offset of the partition (in bytes).
+ * @param: partition_size:     The size of the partition (in blocks).
+ * @param: partition_number:   The partition number of this device
+ *                            (minor device ID offset from the drive master; < `b_partmaxcnt').
+ * @return: * :                The new partition describing the given range.
+ * @return: NULL:              The effective device ID of the partition was already in use.
+ * @throw: E_NO_DEVICE:        The device `self' isn't registered, or has been deleted (`DEVICE_ISREGISTERED()' returns false)
+ * @throw: E_INVALID_ARGUMENT: The given `partition_number' is `>= b_partmaxcnt'
+ * @throw: E_INVALID_ARGUMENT: After truncation, the partition size (`partition_size') equates to ZERO(0). */
 FUNDEF REF struct block_device *KCALL
 block_device_partition(struct block_device *__restrict self,
                        pos_t partition_offset,
                        blkcnt_t partition_size,
-                       minor_t partition_number);
+                       minor_t partition_number,
+                       u8 const partition_guid[16]);
 
 
 
@@ -425,14 +446,14 @@ struct character_device_ops {
 
 
         /* [0..1] Read data from the device.
-         * @param: flags: Read mode flags (Usually used for `O_NONBLOCK')
+         * @param: flags: Read mode flags (Usually used for `IO_NONBLOCK')
          * @throw: E_NOT_IMPLEMENTED: Same as not implementing this operator. */
         size_t (KCALL *f_read)(struct character_device *__restrict self,
                                USER CHECKED void *buf, size_t bufsize,
                                iomode_t flags);
 
         /* [0..1] Write data to the device.
-         * @param: flags: Write mode flags (Usually used for `O_NONBLOCK')
+         * @param: flags: Write mode flags (Usually used for `IO_NONBLOCK')
          * @throw: E_NOT_IMPLEMENTED: Same as not implementing this operator. */
         size_t (KCALL *f_write)(struct character_device *__restrict self,
                                 USER CHECKED void const *buf, size_t bufsize,

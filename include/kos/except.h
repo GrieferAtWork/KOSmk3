@@ -418,6 +418,7 @@ struct __ATTR_PACKED exception_data_buffer_too_small {
 #define ERROR_FS_FILE_TOO_LARGE        0x0016 /* [ERRNO(EFBIG)]        A file or device is too large to be representable in the associated operation. */
 #define ERROR_FS_TOO_MANY_HARD_LINKS   0x0017 /* [ERRNO(EMLINK)]       Cannot create another new hardlink. The hard link counter has already reached
                                                *                       its limit (Highly unlikely, considering a common limit of at least 2^16). */
+#define ERROR_FS_OBJECT_IS_BUSY        0x0018 /* [ERRNO(EBUSY)]        The named filesystem component cannot be operated upon before some sort of persistent lock is removed. */
 #define ERROR_FS_CORRUPTED_FILESYSTEM  0xffff /* [ERRNO(EIO)]          Corrupted, miss-configured, or otherwise not compatible filesystem. */
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_filesystem_error {

@@ -107,6 +107,7 @@
     <ClCompile Include="..\..\src\kernel\src\dev\pty.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\tty.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\wall.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\autopart.c" />
     <ClCompile Include="..\..\src\kernel\src\fs\canonbuffer.c" />
     <ClCompile Include="..\..\src\kernel\src\fs\device.c" />
     <ClCompile Include="..\..\src\kernel\src\fs\driver.c" />
@@ -264,6 +265,7 @@
     <ClInclude Include="..\..\src\kernel\src\core\ata.h" />
     <ClInclude Include="..\..\src\kernel\src\core\fat.h" />
     <ClInclude Include="..\..\src\kernel\src\dev\ps2-keymaps.h" />
+    <ClInclude Include="..\..\src\kernel\src\fs\autopart.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{86D226C5-EF62-4562-AC06-E6A753DFA7CF}</ProjectGuid>
