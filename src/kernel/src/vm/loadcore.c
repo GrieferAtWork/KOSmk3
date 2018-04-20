@@ -58,15 +58,16 @@ vm_region_load_core(struct vm_node *__restrict node,
                     vm_raddr_t starting_page,    /* Page positions in the region, where loading starts */
                     size_t num_pages,            /* Number of pages to load. */
                     unsigned int mode) {
- struct vm_part **ppart,*part;
+ struct vm_part **ppart;
+ struct vm_part *EXCEPT_VAR part;
  bool result = false;
  assert(starting_page+num_pages >  starting_page);
  assert(starting_page+num_pages <= region->vr_size);
  for (ppart = &region->vr_parts;
      (part  = *ppart) != NULL;
       ppart = &part->vp_chain.le_next) {
-  u16 part_prot; vm_vpage_t part_page;
-  vm_raddr_t part_end_page; size_t load_pages;
+  u16 part_prot; vm_vpage_t EXCEPT_VAR part_page;
+  vm_raddr_t part_end_page; size_t EXCEPT_VAR load_pages;
   assert(part->vp_chain.le_next != part);
   /* Skip parts with an unknown state, or that are already in-core. */
   if (part->vp_state == VM_PART_INCORE ||
@@ -115,6 +116,11 @@ vm_region_load_core(struct vm_node *__restrict node,
 #endif
 #endif
 
+  if (part->vp_state == VM_PART_INSWAP) {
+   /* TODO: Load swap memory. */
+   continue;
+  }
+
   /* Allocate physical memory for the current part (`part')
    * XXX: Use scatter for this? */
   assert(part_end_page > part->vp_start);
@@ -124,151 +130,176 @@ vm_region_load_core(struct vm_node *__restrict node,
   part->vp_phys.py_iscatter[0].ps_addr = page_malloc(load_pages,MZONE_ANY);
   /* With the part now allocated, mark it as in-core. */
   part->vp_state = VM_PART_INCORE;
-  
-  part_prot = PAGEDIR_MAP_FUSER;
+  TRY {
+   part_prot = PAGEDIR_MAP_FUSER;
 #if PROT_EXEC == PAGEDIR_MAP_FEXEC && \
-   PROT_READ == PAGEDIR_MAP_FREAD && \
-   PROT_WRITE == PAGEDIR_MAP_FWRITE
-  part_prot |= node->vn_prot & (PROT_EXEC|PROT_READ|PROT_WRITE);
+    PROT_READ == PAGEDIR_MAP_FREAD && \
+    PROT_WRITE == PAGEDIR_MAP_FWRITE
+   part_prot |= node->vn_prot & (PROT_EXEC|PROT_READ|PROT_WRITE);
 #else
-  if (node->vn_prot & PROT_EXEC)
-      part_prot |= PAGEDIR_MAP_FEXEC;
-  if (node->vn_prot & PROT_READ)
-      part_prot |= PAGEDIR_MAP_FREAD;
-  if (node->vn_prot & PROT_WRITE)
-      part_prot |= PAGEDIR_MAP_FWRITE;
+   if (node->vn_prot & PROT_EXEC)
+       part_prot |= PAGEDIR_MAP_FEXEC;
+   if (node->vn_prot & PROT_READ)
+       part_prot |= PAGEDIR_MAP_FREAD;
+   if (node->vn_prot & PROT_WRITE)
+       part_prot |= PAGEDIR_MAP_FWRITE;
 #endif
-  if (node->vn_prot & PROT_NOUSER)
-      part_prot &= ~PAGEDIR_MAP_FUSER;
-  if (region->vr_flags&VM_REGION_FMONITOR) {
-   /* Set the changed-flag if the access mode requires write-permissions. */
-   if ((mode & VM_LOADCORE_WRITE) &&
-       (part->vp_refcnt <= 1 || region->vr_type == VM_REGION_PHYSICAL))
-       part->vp_flags |= VM_PART_FCHANGED;
-   else {
-    if (!(part->vp_flags&VM_PART_FCHANGED))
+   if (node->vn_prot & PROT_NOUSER)
+       part_prot &= ~PAGEDIR_MAP_FUSER;
+   if (region->vr_flags&VM_REGION_FMONITOR) {
+    /* Set the changed-flag if the access mode requires write-permissions. */
+    if ((mode & VM_LOADCORE_WRITE) &&
+        (part->vp_refcnt <= 1 || region->vr_type == VM_REGION_PHYSICAL))
+        part->vp_flags |= VM_PART_FCHANGED;
+    else {
+     if (!(part->vp_flags&VM_PART_FCHANGED))
+           part_prot &= ~PAGEDIR_MAP_FWRITE;
+    }
+   }
+   /* Take away write access to allow for COW semantics. */
+   if ((!(node->vn_prot&PROT_SHARED) ||
+         (region->vr_flags & VM_REGION_FCANTSHARE)) &&
+          part->vp_refcnt > 1 &&
+          region->vr_type != VM_REGION_PHYSICAL)
           part_prot &= ~PAGEDIR_MAP_FWRITE;
-   }
-  }
-  /* Take away write access to allow for COW semantics. */
-  if ((!(node->vn_prot&PROT_SHARED) ||
-        (region->vr_flags & VM_REGION_FCANTSHARE)) &&
-         part->vp_refcnt > 1 &&
-         region->vr_type != VM_REGION_PHYSICAL)
-         part_prot &= ~PAGEDIR_MAP_FWRITE;
-  if (region->vr_init == VM_REGION_INIT_FNORMAL) {
-   /* Special case: Without any custom initialization, we
-    *               don't need to do 2-step data mapping. */
-   part_page = region_base_page + part->vp_start;
-   pagedir_map(part_page,load_pages,
-               part->vp_phys.py_iscatter[0].ps_addr,
-               part_prot);
-  } else {
-   VIRT byte_t *part_vaddr; size_t part_vsize;
-   /* Map the part into virtual memory.
-    * If the part is used for user-space, don't enable user-access,
-    * as we haven't initialized the memory and can't have the user
-    * gaining access to potentially security-crucial data. */
-   part_page = region_base_page + part->vp_start;
-   /* TODO: When the mapping is meant to appear in user-space,
-    *       the we must use `task_temppage()' to temporarily
-    *       map all pages in kernel-space.
-    *       If we mapped them in user-space (as we currently do),
-    *       then another user-space thread would be able to watch
-    *       as we initialize data and even get a chance to read
-    *       data before it has been initialized.
-    *       However, when the mapping goes into kernel-space, we
-    *       actually _have_ to map the page directly, as use of
-    *       `task_temppage()' could otherwise cause a potential
-    *       infinite loop when that function causes another #PF.
-    * NOTE: The lack of `PAGEDIR_MAP_FUSER' is undone by the fact
-    *       that lazy page directory bindings will consider it a
-    *       race condition and set the flag upon first access...
-    *      (Maybe somehow prevent it from doing that for the case
-    *       of user-space failing to access a PROT_NOUSER page,
-    *       even when the node doesn't have PROT_NOUSER set?) */
-   pagedir_map(part_page,load_pages,
-               part->vp_phys.py_iscatter[0].ps_addr,
-               PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE);
-
-   part_vaddr = (VIRT byte_t *)VM_PAGE2ADDR(part_page);
-   part_vsize = load_pages * PAGESIZE;
-
-   /* Initialize the page. */
-   switch (region->vr_init) {
-
-   case VM_REGION_INIT_FFILLER:
-    memsetl(part_vaddr,region->vr_setup.s_filler,part_vsize / 4);
-    break;
-
-   {
-    u32 *dst;
-    size_t count;
-   case VM_REGION_INIT_FRANDOM:
-    /* Fill with pseudo-random data. */
-    dst   = (u32 *)part_vaddr;
-    count = part_vsize / 4;
-    do *dst++ = rand();
-    while (--count);
-   } break;
-
-   {
-    uintptr_t part_start;
-    size_t init_size;
-   case VM_REGION_INIT_FFILE:
-   case VM_REGION_INIT_FFILE_RO:
-    part_start = part->vp_start * PAGESIZE;
-    if (region->vr_setup.s_file.f_begin > part_start) {
-     /* Initialize data before the file mapping. */
-     init_size = region->vr_setup.s_file.f_begin-part_start;
-     if (init_size > part_vsize)
-         init_size = part_vsize;
-     memset(part_vaddr,region->vr_setup.s_file.f_filler,init_size);
-     part_vsize -= init_size;
-     if (!part_vsize) break;
-     part_vaddr += init_size;
-     part_start += init_size;
-    }
-    init_size = (region->vr_setup.s_file.f_begin +
-                 region->vr_setup.s_file.f_size);
-    if (init_size > part_start) {
-     pos_t file_pos;
-     file_pos  = region->vr_setup.s_file.f_start;
-     file_pos += part_start - region->vr_setup.s_file.f_begin; /* Add the offset into the load-region. */
-     init_size -= part_start;
-     if (init_size > part_vsize)
-         init_size = part_vsize;
-     /* Read file data */
-     init_size = inode_kread(region->vr_setup.s_file.f_node,
-                             part_vaddr,init_size,file_pos,
-                             IO_RDONLY);
-     assert(init_size <= part_vsize);
-     part_vsize -= init_size;
-     if (!part_vsize) break;
-     part_vaddr += init_size;
-    }
-    /* Initialize remaining data past the file mapping. */
-    memset(part_vaddr,region->vr_setup.s_file.f_filler,part_vsize);
-   } break;
-
-   case VM_REGION_INIT_FUSER:
-    /* Invoke the custom user-callback. */
-    (*region->vr_setup.s_user.u_func)(region->vr_setup.s_user.u_closure,
-                                      VM_REGION_USERCOMMAND_LOAD,
-                                      region->vr_setup.s_user.u_delta + part->vp_start,
-                                      part_vaddr,part_vsize);
-    break;
-
-   default:
-    break;
-   }
-   /* Now that it's been initialized, map the memory for real */
-   if (part_prot != (PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE)) {
+   if (region->vr_init == VM_REGION_INIT_FNORMAL) {
+    /* Special case: Without any custom initialization, we
+     *               don't need to do 2-step data mapping. */
+    part_page = region_base_page + part->vp_start;
     pagedir_map(part_page,load_pages,
                 part->vp_phys.py_iscatter[0].ps_addr,
                 part_prot);
-    pagedir_sync(part_page,load_pages);
+   } else {
+    VIRT byte_t *part_vaddr; size_t part_vsize;
+    /* Map the part into virtual memory.
+     * If the part is used for user-space, don't enable user-access,
+     * as we haven't initialized the memory and can't have the user
+     * gaining access to potentially security-crucial data. */
+    part_page = region_base_page + part->vp_start;
+    /* TODO: When the mapping is meant to appear in user-space,
+     *       the we must use `task_temppage()' to temporarily
+     *       map all pages in kernel-space.
+     *       If we mapped them in user-space (as we currently do),
+     *       then another user-space thread would be able to watch
+     *       as we initialize data and even get a chance to read
+     *       data before it has been initialized.
+     *       However, when the mapping goes into kernel-space, we
+     *       actually _have_ to map the page directly, as use of
+     *       `task_temppage()' could otherwise cause a potential
+     *       infinite loop when that function causes another #PF.
+     * NOTE: The lack of `PAGEDIR_MAP_FUSER' is undone by the fact
+     *       that lazy page directory bindings will consider it a
+     *       race condition and set the flag upon first access...
+     *      (Maybe somehow prevent it from doing that for the case
+     *       of user-space failing to access a PROT_NOUSER page,
+     *       even when the node doesn't have PROT_NOUSER set?) */
+    pagedir_map(part_page,load_pages,
+                part->vp_phys.py_iscatter[0].ps_addr,
+                PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE);
+    TRY {
+     part_vaddr = (VIRT byte_t *)VM_PAGE2ADDR(part_page);
+     part_vsize = load_pages * PAGESIZE;
+
+     /* Initialize the page. */
+     switch (region->vr_init) {
+
+     case VM_REGION_INIT_FFILLER:
+      memsetl(part_vaddr,region->vr_setup.s_filler,part_vsize / 4);
+      break;
+
+     {
+      u32 *dst;
+      size_t count;
+     case VM_REGION_INIT_FRANDOM:
+      /* Fill with pseudo-random data. */
+      dst   = (u32 *)part_vaddr;
+      count = part_vsize / 4;
+      do *dst++ = rand();
+      while (--count);
+     } break;
+
+     {
+      uintptr_t part_start;
+      size_t init_size;
+     case VM_REGION_INIT_FFILE:
+     case VM_REGION_INIT_FFILE_RO:
+      part_start = part->vp_start * PAGESIZE;
+      if (region->vr_setup.s_file.f_begin > part_start) {
+       /* Initialize data before the file mapping. */
+       init_size = region->vr_setup.s_file.f_begin-part_start;
+       if (init_size > part_vsize)
+           init_size = part_vsize;
+       memset(part_vaddr,region->vr_setup.s_file.f_filler,init_size);
+       part_vsize -= init_size;
+       if (!part_vsize) break;
+       part_vaddr += init_size;
+       part_start += init_size;
+      }
+      init_size = (region->vr_setup.s_file.f_begin +
+                   region->vr_setup.s_file.f_size);
+      if (init_size > part_start) {
+       pos_t file_pos;
+       file_pos  = region->vr_setup.s_file.f_start;
+       file_pos += part_start - region->vr_setup.s_file.f_begin; /* Add the offset into the load-region. */
+       init_size -= part_start;
+       if (init_size > part_vsize)
+           init_size = part_vsize;
+       /* Read file data */
+       init_size = inode_kread(region->vr_setup.s_file.f_node,
+                               part_vaddr,init_size,file_pos,
+                               IO_RDONLY);
+       assert(init_size <= part_vsize);
+       part_vsize -= init_size;
+       if (!part_vsize) break;
+       part_vaddr += init_size;
+      }
+      /* Initialize remaining data past the file mapping. */
+      memset(part_vaddr,region->vr_setup.s_file.f_filler,part_vsize);
+     } break;
+
+     case VM_REGION_INIT_FUSER:
+      /* Invoke the custom user-callback. */
+      (*region->vr_setup.s_user.u_func)(region->vr_setup.s_user.u_closure,
+                                        VM_REGION_USERCOMMAND_LOAD,
+                                        region->vr_setup.s_user.u_delta + part->vp_start,
+                                        part_vaddr,part_vsize);
+      break;
+
+     default:
+      break;
+     }
+     /* Now that it's been initialized, map the memory for real */
+     if (part_prot != (PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE)) {
+      pagedir_map(part_page,load_pages,
+                  part->vp_phys.py_iscatter[0].ps_addr,
+                  part_prot);
+      pagedir_sync(part_page,load_pages);
+     }
+    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+     /* Make sure to unmap memory once again if something went wrong.
+      * Otherwise, we might end up with dangling memory cluttering the
+      * VM and breaking consistency. */
+     pagedir_map(part_page,load_pages,0,
+                 PAGEDIR_MAP_FUNMAP);
+     pagedir_sync(part_page,load_pages);
+     error_rethrow();
+    }
    }
+  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+   /* Since something went wrong, deallocate the physical memory
+    * that we previously allocated for the part, and mark the part
+    * as missing. */
+   size_t scatter = part->vp_phys.py_num_scatter;
+   assert(part->vp_state == VM_PART_INCORE);
+   /* Free scattered physical memory. */
+   while (scatter--) {
+    page_free(part->vp_phys.py_iscatter[scatter].ps_addr,
+              part->vp_phys.py_iscatter[scatter].ps_size);
+   }
+   /* Mark the state as missing. */
+   part->vp_state = VM_PART_MISSING;
+   COMPILER_BARRIER();
+   error_rethrow();
   }
 
   /* Try to re-merge the VM parts that we split before. */
@@ -280,6 +311,7 @@ vm_region_load_core(struct vm_node *__restrict node,
    if (new_prev != old_prev) part = new_prev;
   }
   part = vm_region_mergenext(region,part);
+  /* Indicate that we managed to load something */
   result = true;
  }
  return result;
