@@ -159,18 +159,30 @@ x86_sigreturn_impl(void *UNUSED(arg),
  debug_printf("SIGRETURN:%d\n",frame_mode);
 #endif
 
- /* Determine how to return to user-space. */
- switch (frame_mode) {
- case TASK_USERCTX_FWITHINUSERCODE:
- case TASK_USERCTX_FAFTERSYSCALL:
+ /* Determine how to return to user-space / resume execution. */
+ switch (TASK_USERCTX_TYPE(frame_mode)) {
+ case TASK_USERCTX_TYPE_WITHINUSERCODE:
   error_info()->e_error.e_code = E_USER_RESUME;
   break;
- case TASK_USERCTX_FAFTERINTERRUPT:
+ case TASK_USERCTX_TYPE_INTR_INTERRUPT:
   error_throw(E_INTERRUPT);
   break;
- default:
+ case TASK_USERCTX_TYPE_INTR_SYSCALL:
+  /* Restart an interrupted system call by executing it now. */
+#ifndef CONFIG_NO_X86_SYSENTER
+  if (frame_mode & X86_SYSCALL_TYPE_FSYSENTER) {
+   /* TODO */
+  } else
+#endif /* !CONFIG_NO_X86_SYSENTER */
+  if (frame_mode & X86_SYSCALL_TYPE_FPF) {
+   /* TODO */
+  } else {
+   /* TODO */
+  }
   break;
+ default: break;
  }
+
 }
 
 DEFINE_SYSCALL0(sigreturn) {
@@ -236,7 +248,6 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
    memcpy(&frame->sf_sigmask,&block->sb_sigset,sizeof(sigset_t));
   }
  }
- frame->sf_mode = mode;
 
  /* Construct the return CPU context. */
 #ifdef CONFIG_X86_SEGMENTATION
@@ -271,15 +282,24 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
  }
 #endif
  frame->sf_signo = info->si_signo;
+ frame->sf_mode = mode;
 
  /* Redirect the frame's sig-return pointer to direct it at the `sys_sigreturn' system call.
   * Being able to do this right here is the main reason why #PF-syscalls were introduced. */
- if ((mode == TASK_USERCTX_FAFTERINTERRUPT) &&
-     (error_info()->e_error.e_flag & ERR_FSYSCALL_EXC)) {
+ if (TASK_USERCTX_TYPE(mode) == TASK_USERCTX_TYPE_INTR_SYSCALL) {
+  syscall_ulong_t sysno = context->c_gpregs.gp_eax;
+  if (mode & X86_SYSCALL_TYPE_FPF) {
+   /* Deal with #PF system calls. */
+   sysno = (uintptr_t)context->c_eip-PERTASK_GET(x86_sysbase);
+   sysno = X86_DECODE_PFSYSCALL(sysno);
+  }
+  if (!(sysno & 0x80000000))
+        goto sigreturn_noexcept;
   /* Set the exceptions-enabled bit in the system call vector number. */
   frame->sf_sigreturn = (void *)(PERTASK_GET(x86_sysbase)+
                                  X86_ENCODE_PFSYSCALL(SYS_sigreturn|0x80000000));
  } else {
+sigreturn_noexcept:
   frame->sf_sigreturn = (void *)(PERTASK_GET(x86_sysbase)+
                                  X86_ENCODE_PFSYSCALL(SYS_sigreturn));
  }
@@ -287,6 +307,9 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
  /* With the signal frame now generated, update context registers to execute the signal action. */
  context->c_esp = (uintptr_t)frame;
  context->c_eip = (uintptr_t)action->sa_handler;
+
+ /* Resume user-space by executing the signal handler. */
+ error_info()->e_error.e_code = E_USER_RESUME;
 }
 
 

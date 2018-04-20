@@ -290,7 +290,7 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
    boot_seed <<= (32/COMPILER_LENOF(cmos_registers));
    boot_seed  ^= entropy[i];
   }
-  boot_seed = 0x8c8b4498;
+  /*boot_seed = 0x8c8b4498;*/
 
   /* Set the boot seed for our pseudo-random number generator. */
   srand(boot_seed);

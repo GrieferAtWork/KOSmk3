@@ -234,7 +234,6 @@ FUNDEF void KCALL signal_chmask(USER CHECKED sigset_t const *mask,
 #define SIGNAL_CHMASK_FUNBLOCK   1 /* Unblock signals. */
 #define SIGNAL_CHMASK_FSETMASK   2 /* Set the set of blocked signals. */
 
-
 /* Change the action for the given `signo'.
  * @throw: E_SEGFAULT: The user-buffers are faulty. */
 FUNDEF void KCALL

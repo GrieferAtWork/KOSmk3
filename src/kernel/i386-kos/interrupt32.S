@@ -24,6 +24,7 @@
 #include <i386-kos/interrupt.h>
 #include <i386-kos/gdt.h>
 #include <i386-kos/memory.h>
+#include <i386-kos/syscall.h>
 #include <i386-kos/vm86.h>
 #include <kos/thread.h>
 #include <kos/context.h>
@@ -40,20 +41,24 @@
 #undef CONFIG_LOAD_SEGMENTS_IFCHANGED
 #define CONFIG_LOAD_SEGMENTS_IFCHANGED 1
 
+
+#ifdef CONFIG_LOAD_SEGMENTS_IFCHANGED
+.macro restore_segment reg, value, clobber=%ax
+	movw    \reg, \clobber
+	cmpw    \value, \clobber
+	je      1f
+	movw    \value, \clobber
+	movw    \clobber, \reg
+1:
+.endm
+#endif
+
 /* Load kernel segment registers.
  * Usually called at the start of an interrupt.
- * CLOBBER: %ax, %cx */
+ * CLOBBER: %ax */
 INTERN_ENTRY(x86_load_segments)
 	.cfi_startproc
 #ifdef CONFIG_LOAD_SEGMENTS_IFCHANGED
-.macro restore_segment reg, value
-	movw    \reg, %ax
-	cmpw    \value, %ax
-	je      1f
-	movw    \value, %ax
-	movw    %ax, \reg
-1:
-.endm
 	restore_segment %ds, $(X86_KERNEL_DS)
 	restore_segment %es, $(X86_KERNEL_DS)
 	/* NOTE: FS is always cleared by the CPU when switching to user-space
@@ -78,6 +83,38 @@ INTERN_ENTRY(x86_load_segments)
 	ret
 	.cfi_endproc
 SYMEND(x86_load_segments)
+
+
+/* Load kernel segment registers.
+ * Usually called at the start of an interrupt.
+ * CLOBBER: %cx */
+INTERN_ENTRY(x86_load_segments_ecx)
+	.cfi_startproc
+#ifdef CONFIG_LOAD_SEGMENTS_IFCHANGED
+	restore_segment %ds, $(X86_KERNEL_DS), %cx
+	restore_segment %es, $(X86_KERNEL_DS), %cx
+	/* NOTE: FS is always cleared by the CPU when switching to user-space
+	 *       because it is loaded with a privilege level #0 descriptor. */
+	movw    $(X86_SEG_FS), %cx
+	movw    %cx, %fs
+#ifndef CONFIG_X86_LOADSEGMENTS_IGNORE_USERTLS
+	restore_segment %gs, $(X86_SEG_GS), %cx
+#endif /* !CONFIG_X86_LOADSEGMENTS_IGNORE_USERTLS */
+#else /* CONFIG_LOAD_SEGMENTS_IFCHANGED */
+	movw    $(X86_KERNEL_DS), %cx
+	movw    %cx, %ds
+	movw    %cx, %es
+	movw    %cx, %ss
+	movw    $(X86_SEG_FS), %cx
+	movw    %cx, %fs
+#ifndef CONFIG_X86_LOADSEGMENTS_IGNORE_USERTLS
+	movw    $(X86_SEG_GS), %cx
+	movw    %cx, %gs
+#endif /* !CONFIG_X86_LOADSEGMENTS_IGNORE_USERTLS */
+#endif /* !CONFIG_LOAD_SEGMENTS_IFCHANGED */
+	ret
+	.cfi_endproc
+SYMEND(x86_load_segments_ecx)
 
 
 .section .text
@@ -553,8 +590,18 @@ SYMEND(irq_common)
 
 
 
+.section .rodata.interrupt_except
+INTERN_ENTRY(x86_interrupt_mode_select)
+	/* X86_INTERRUPT_GUARD_FINTERRUPT >> 8 */ .word  TASK_USERCTX_TYPE_INTR_INTERRUPT
+#ifndef CONFIG_NO_X86_SYSENTER
+	/* X86_INTERRUPT_GUARD_FSYSENTER  >> 8 */ .word  TASK_USERCTX_TYPE_INTR_SYSCALL|X86_SYSCALL_TYPE_FSYSENTER
+#endif /* !CONFIG_NO_X86_SYSENTER */
+	/* X86_INTERRUPT_GUARD_FSYSCALL   >> 8 */ .word  TASK_USERCTX_TYPE_INTR_SYSCALL|X86_SYSCALL_TYPE_FINT80
+SYMEND(x86_interrupt_mode_select)
+
+
 .section .text.interrupt_except
-INTERN_ENTRY(x86_interrupt_except_syscall_except)
+INTERN_ENTRY(x86_interrupt_except)
 	.cfi_startproc simple
 	.cfi_signal_frame
 	/* At this point, the stack-pointer is pointed at the start
@@ -567,35 +614,6 @@ INTERN_ENTRY(x86_interrupt_except_syscall_except)
 	.cfi_def_cfa %esp,     X86_IRREGS_HOST32_SIZE
 	.cfi_offset %eflags, (-X86_IRREGS_HOST32_SIZE) + X86_IRREGS_HOST32_OFFSETOF_EFLAGS
 	.cfi_offset %eip,    (-X86_IRREGS_HOST32_SIZE) + X86_IRREGS_HOST32_OFFSETOF_EIP
-#ifdef CONFIG_X86_SEGMENTATION
-	.cfi_remember_state
-	pushl_cfi_r %taskseg
-	pushl_cfi_r %eax
-	movw  $(X86_HOST_TLS), %ax
-	movw  %ax, %taskseg
-	orw   $(ERR_FSYSCALL_EXC), %taskseg:TASK_SEGMENT_OFFSETOF_XCURRENT+EXCEPTION_INFO_OFFSETOF_FLAG
-	popl_cfi_r  %eax
-	popl_cfi_r  %taskseg
-	.cfi_restore_state
-#else /* CONFIG_X86_SEGMENTATION */
-	/* `%taskseg' is still loaded for the kernel,
-	 * since we've never actually went to user-space. */
-	orw   $(ERR_FSYSCALL_EXC), %taskseg:TASK_SEGMENT_OFFSETOF_XCURRENT+EXCEPTION_INFO_OFFSETOF_FLAG
-#endif /* !CONFIG_X86_SEGMENTATION */
-	jmp   x86_interrupt_except
-INTERN_ENTRY(x86_interrupt_except_syscall)
-#ifdef CONFIG_X86_SEGMENTATION
-	pushl_cfi_r %taskseg
-	pushl_cfi_r %eax
-	movw  $(X86_HOST_TLS), %ax
-	movw  %ax, %taskseg
-	orw   $(ERR_FSYSCALL), %taskseg:TASK_SEGMENT_OFFSETOF_XCURRENT+EXCEPTION_INFO_OFFSETOF_FLAG
-	popl_cfi_r  %eax
-	popl_cfi_r  %taskseg
-#else /* CONFIG_X86_SEGMENTATION */
-	orw   $(ERR_FSYSCALL), %taskseg:TASK_SEGMENT_OFFSETOF_XCURRENT+EXCEPTION_INFO_OFFSETOF_FLAG
-#endif /* !CONFIG_X86_SEGMENTATION */
-INTERN_ENTRY(x86_interrupt_except)
 
 #ifdef CONFIG_VM86
 	testl $EFLAGS_VM, %ss:X86_IRREGS_HOST32_OFFSETOF_EFLAGS(%esp)
@@ -610,6 +628,7 @@ INTERN_ENTRY(x86_interrupt_except)
 	cmpl  $(x86_redirect_preemption), %ss:X86_IRREGS_HOST32_OFFSETOF_EIP(%esp)
 	je    .interrupt_except_redirect
 
+.interrupt_except_host:
 	/* Interrupt originates from kernel-space (continue unwinding). */
 
 	/* We must rewind the stack to reclaim all the stack-space
@@ -735,7 +754,7 @@ INTERN_ENTRY(x86_interrupt_except)
 	movw    %ax,      %ss:(+2 + (-CONFIG_KERNELSTACK_SIZE) + X86_IRREGS_USER32_SIZE)(%esp)
 	movw    $(X86_HOST_TLS), %ax
 	movw    %ax, %taskseg
-	movw    %ss:(+4 + (-CONFIG_KERNELSTACK_SIZE) + X86_IRREGS_USER32_SIZE)(%esp), %ax
+	movw    %ss:(+2 + (-CONFIG_KERNELSTACK_SIZE) + X86_IRREGS_USER32_SIZE)(%esp), %ax
 #endif /* CONFIG_X86_SEGMENTATION */
 	/* Load the stack address below the exception location. */
 	movl    %taskseg:TASK_SEGMENT_OFFSETOF_XCURRENT+ \
@@ -772,14 +791,116 @@ INTERN_ENTRY(x86_interrupt_except)
 	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_CS(%esp)
 	movl    ((-X86_IRREGS_USER32_SIZE)+X86_IRREGS_USER32_OFFSETOF_EIP)(%edx), %eax
 	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EIP(%esp)
+#else /* !NDEBUG */
+#ifdef CONFIG_X86_SEGMENTATION
+	pushl_cfi_r %ds
+	pushl_cfi_r %es
+	pushl_cfi_r %fs
+	pushl_cfi_r %gs
+#endif /* CONFIG_X86_SEGMENTATION */
+	/* Save general-purpose registers. */
+	pushal_cfi_r
+	call    x86_load_segments
+#endif /* NDEBUG */
 
-	movl    %esp, %ecx                    /* context */
-	sti                                   /* Re-enable interrupts. */
-	call    task_propagate_user_exception /* Propgate the exception to user-space. */
+	sti                 /* Re-enable interrupts. */
+	movl    %esp, %ecx  /* context */
+	xorl    %edx, %edx
+	xchgb   %dl, %taskseg:TASK_OFFSETOF_SEGMENT+ \
+	                      TASK_SEGMENT_OFFSETOF_XCURRENT+ \
+	                      EXCEPTION_INFO_OFFSETOF_FLAG+1
+	movzwl  x86_interrupt_mode_select(,%edx,2), %edx /* mode */
 
+#if 1
+	/* Check if a system call should be restarted after an E_INTERRUPT. */
+	testw   $(TASK_USERCTX_TYPE_INTR_SYSCALL), %dx
+	jz      9f
+	cmpw    $(E_INTERRUPT), %taskseg:TASK_OFFSETOF_SEGMENT+ \
+	                                 TASK_SEGMENT_OFFSETOF_XCURRENT+ \
+	                                 EXCEPTION_INFO_OFFSETOF_CODE
+	jne     9f
+	pushl_cfi %edx /* saved */
+	pushl_cfi X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX(%ecx) /* sysno */
+	call    task_restart_syscall
+//	addl    $4, %esp
+	.cfi_adjust_cfa_offset -4
+	popl_cfi %edx
+	testl   %eax, %eax
+	jz      8f
+	/* Restart the system call. */
+
+#ifndef NDEBUG
+	/* Must deallocate exception continue information before restarting the system call.
+	 * In debug-mode, we usually keep this information around to ensure that tracebacks
+	 * remain valid for as long as possible, however when restarting the system call,
+	 * we must make sure that the kernel stack is reset to its original state, while
+	 * also being careful to deal with redirected preemption. */
+	movl    %taskseg:TASK_OFFSETOF_STACKEND, %edi
+	subl    $(X86_HOSTCONTEXT_USER32_SIZE), %edi
+	cli     /* Disable interrupts to ensure a consistent redirection state */
+	cmpl    $x86_redirect_preemption, \
+	        X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+ \
+	        X86_IRREGS_USER32_OFFSETOF_EIP(%edi) /* Check if user-space got redirected */
+	jne     1f
+	/* Copy the IRET tail of the context into iret_saved */
+	movl    X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EIP(%esp), %eax
+	movl    %eax, %taskseg:iret_saved+X86_IRREGS_USER32_OFFSETOF_EIP
+	movl    X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_CS(%esp), %eax
+	movl    %eax, %taskseg:iret_saved+X86_IRREGS_USER32_OFFSETOF_CS
+	movl    X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EFLAGS(%esp), %eax
+	movl    %eax, %taskseg:iret_saved+X86_IRREGS_USER32_OFFSETOF_EFLAGS
+	movl    X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_USERESP(%esp), %eax
+	movl    %eax, %taskseg:iret_saved+X86_IRREGS_USER32_OFFSETOF_USERESP
+	movl    X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_SS(%esp), %eax
+	movl    %eax, %taskseg:iret_saved+X86_IRREGS_USER32_OFFSETOF_SS
+	/* Copy the IRET tail that was redirected into the context */
+	movl    X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EIP(%edi), %eax
+	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EIP(%esp)
+	movl    X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_CS(%edi), %eax
+	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_CS(%esp)
+	movl    X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EFLAGS(%edi), %eax
+	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EFLAGS(%esp)
+	movl    X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_USERESP(%edi), %eax
+	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_USERESP(%esp)
+	movl    X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_SS(%edi), %eax
+	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_SS(%esp)
+1:
+	/* Copy general-purpose and segment registers. */
+	movl    %esp, %esi
+	movl    $((X86_HOSTCONTEXT_USER32_SIZE - X86_IRREGS_USER32_SIZE) / 4), %ecx
+	rep;    movsl
+	/* Load the CPU context now generated at the base of the stack into ESP */
+	leal    -(X86_HOSTCONTEXT_USER32_SIZE - X86_IRREGS_USER32_SIZE)(%edi), %esp
+	sti /* Re-enable interrupts */
+#endif
+
+#ifndef CONFIG_NO_X86_SYSENTER
+	testw   $(X86_SYSCALL_TYPE_FSYSENTER), %dx
+	jz      1f
+	.cfi_remember_state
+	popal_cfi_r
+	DEFINE_INTERN(sysenter_after_segments)
+	jmp     sysenter_after_segments
+	.cfi_restore_state
+1:
+#endif /* !CONFIG_NO_X86_SYSENTER */
+	.cfi_remember_state
+	popal_cfi_r
+	DEFINE_INTERN(irq_80_after_segments)
+	jmp     irq_80_after_segments
+	.cfi_restore_state
+
+8:	movl    %esp, %ecx /* context */
+9:
+#endif
+
+	/* Propgate the exception to user-space. */
+	call    task_propagate_user_exception
+
+#ifndef NDEBUG
 	movl    %taskseg:TASK_OFFSETOF_STACKEND, %edx
 	cli     /* Disable interrupts to ensure a consistent redirection state */
-	cmpl    $x86_redirect_preemption, -20(%edx) /* Check if user-space got redirected */
+	cmpl    $x86_redirect_preemption, ((-X86_IRREGS_USER32_SIZE)+X86_IRREGS_USER32_OFFSETOF_EIP)(%edx) /* Check if user-space got redirected */
 	jne     1f
 	/* Copy the IRET tail of the context into iret_saved */
 	movl    X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EIP(%esp), %eax
@@ -813,20 +934,6 @@ INTERN_ENTRY(x86_interrupt_except)
 #endif /* CONFIG_X86_SEGMENTATION */
 	iret
 #else /* !NDEBUG */
-#ifdef CONFIG_X86_SEGMENTATION
-	pushl_cfi_r %ds
-	pushl_cfi_r %es
-	pushl_cfi_r %fs
-	pushl_cfi_r %gs
-#endif /* CONFIG_X86_SEGMENTATION */
-	/* Save general-purpose registers. */
-	pushal_cfi_r
-	call    x86_load_segments
-	movl    %esp, %ecx
-	/* Re-enable interrupts. */
-	sti
-	/* Propgate the exception to user-space. */
-	call    task_propagate_user_exception
 	/* Load general-purpose registers. */
 	popal_cfi_r
 #ifdef CONFIG_X86_SEGMENTATION
@@ -840,6 +947,4 @@ INTERN_ENTRY(x86_interrupt_except)
 #endif /* NDEBUG */
 	.cfi_endproc
 SYMEND(x86_interrupt_except)
-SYMEND(x86_interrupt_except_syscall)
-SYMEND(x86_interrupt_except_syscall_except)
 

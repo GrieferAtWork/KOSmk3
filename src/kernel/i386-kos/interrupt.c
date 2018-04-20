@@ -40,26 +40,10 @@ DECL_BEGIN
 
 
 INTDEF void ASMCALL x86_interrupt_except(void);
-INTDEF void ASMCALL x86_interrupt_except_syscall(void);
-INTDEF void ASMCALL x86_interrupt_except_syscall_except(void);
 
 /* Define the X86 interrupt exception guard. */
 PUBLIC struct except_desc const x86_interrupt_guard = {
     .ed_handler = (void *)&x86_interrupt_except,
-    .ed_type    = EXCEPT_DESC_TYPE_BYPASS,
-    .ed_flags   = (EXCEPT_DESC_FDEALLOC_CONTINUE|
-                   EXCEPT_DESC_FDISABLE_PREEMPTION),
-    .ed_safe    = X86_IRREGS_HOST32_SIZE
-};
-PUBLIC struct except_desc const x86_syscall_guard = {
-    .ed_handler = (void *)&x86_interrupt_except_syscall,
-    .ed_type    = EXCEPT_DESC_TYPE_BYPASS,
-    .ed_flags   = (EXCEPT_DESC_FDEALLOC_CONTINUE|
-                   EXCEPT_DESC_FDISABLE_PREEMPTION),
-    .ed_safe    = X86_IRREGS_HOST32_SIZE
-};
-PUBLIC struct except_desc const x86_syscall_except_guard = {
-    .ed_handler = (void *)&x86_interrupt_except_syscall_except,
     .ed_type    = EXCEPT_DESC_TYPE_BYPASS,
     .ed_flags   = (EXCEPT_DESC_FDEALLOC_CONTINUE|
                    EXCEPT_DESC_FDISABLE_PREEMPTION),

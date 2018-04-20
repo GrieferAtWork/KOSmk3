@@ -263,10 +263,8 @@ typedef __UINT16_TYPE__ except_t;
                                                   *      mechanism, such as `sigtimedwait()'; the behavior here mirrors what is
                                                   *      also done by linux, as described on this page:
                                                   *     `http://man7.org/linux/man-pages/man7/signal.7.html')
-                                                  *  #3: Only restart the system call if the interrupt was caused by a posix_signal
-                                                  *      who's handler has the `SA_RESTART' flag set.
-                                                  *      If the `E_INTERRUPT' was caused by something other than a
-                                                  *      posix_signal, the error is always propagated into user-space. */
+                                                  *  #3: Restart the system call if the interrupt wasn't caused by a posix_signal,
+                                                  *      or if it was caused by a posix_signal with the `SA_RESTART' flag set. */
 
 /* RTL / Special exception codes. */
 #define E_EXIT_THREAD            0xfe00          /* The thread is supposed to terminate. */
@@ -280,6 +278,7 @@ typedef __UINT16_TYPE__ except_t;
 /* Kernel-specific exception codes. */
 #define E_DRIVER_CLOSED          0x0800          /* Attempted to register a new global hook using a closed driver. */
 #define E_USER_RESUME            0xf800          /* Resume execution in user-space (weakened form of `E_INTERRUPT') */
+#define E_RESTART_SYSCALL        0xf801          /* Restart the current system call. */
 #define E_RETRY_RWLOCK           0xf810          /* The thread should re-attempt to acquire an R/W-lock. */
 #endif
 
@@ -297,25 +296,12 @@ typedef __UINT16_TYPE__ except_t;
 /* Error flags. */
 #define ERR_FNORMAL      0x0000 /* Normal exception context flags. */
 #define ERR_FRESUMABLE   0x0001 /* Execution can be continued after the error. */
-#define ERR_FRESUMEFUNC  0x4000 /* Special handling must be done to continue from this exception.
+#define ERR_FRESUMEFUNC  0x0002 /* Special handling must be done to continue from this exception.
                                  * This flag is set when an error is thrown using
                                  * `error_throw_current()', or `error_throw_resumable()'. */
-#define ERR_FRESUMENEXT  0x8000 /* The saved instruction pointer is directed at the start of the faulting instruction. */
-#ifdef __KERNEL__
-#define ERR_FSYSCALL     0x0800 /* Set when an exception causes the stack to be unwound
-                                 * through a system call interrupt entry point.
-                                 * When set, this flag allows the exception to be propagated
-                                 * to user-space by converting it into a negative `errno' code
-                                 * that is stored in `EAX', rather than requiring the user-space
-                                 * application to implement exception handling, or signals,
-                                 * or have the affected thread be terminated without warning. */
-#define ERR_FSYSCALL_EXC 0x0400 /* Same as `ERR_FSYSCALL', but if invocation of a posix signal handler
-                                 * is required prior to returning to the system call call-site, an
-                                 * `E_INTERRUPT' exception is thrown at the user-space call-site,
-                                 * rather than `-EINTR' being returned.
-                                 * This flag is set when an exception is propagated through
-                                 * an exception-enabled system call interrupt entry point. */
-#endif
+#define ERR_FRESUMENEXT  0x0004 /* The saved instruction pointer is directed at the start of the faulting instruction. */
+#define ERR_FUSERMASK    0xff00 /* Mask of user-defined error flags. */
+
 
 
 #ifdef __CC__
@@ -614,10 +600,12 @@ struct except_desc {
                                                 *        When no other mask-related flags are set, `eh_mask' is
                                                 *        the exception code exclusively caught by the handler.
                                                 *        Otherwise, all exceptions can be caught. */
-#define EXCEPTION_HANDLER_FFINALLY     0x0002  /* FLAG: This is a finally-handler. */
+#define EXCEPTION_HANDLER_FUSERFLAGS   0x0002  /* FLAG:  Before jumping to the handler, do the following:
+                                                * >> error_info()->e_error.e_flag |= HANDLER->eh_mask & ERR_FUSERMASK. */
+#define EXCEPTION_HANDLER_FFINALLY     0x0004  /* FLAG:  This is a finally-handler. */
 #define EXCEPTION_HANDLER_FRELATIVE    0x4000  /* Handler pointers are relative to the associated application's load address */
-#define EXCEPTION_HANDLER_FDESCRIPTOR  0x8000  /* FLAG: The handling of this exception is done using an exception descriptor. */
-#define EXCEPTION_HANDLER_FMASK        0xc003  /* Mask of known flags. */
+#define EXCEPTION_HANDLER_FDESCRIPTOR  0x8000  /* FLAG:  The handling of this exception is done using an exception descriptor. */
+#define EXCEPTION_HANDLER_FMASK        0xc007  /* Mask of known flags. */
 
 #ifdef __CC__
 struct __ATTR_PACKED except_handler {

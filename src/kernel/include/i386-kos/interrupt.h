@@ -96,6 +96,16 @@ struct PACKED x86_idtentry {
 
 
 
+/* Flags for `error_info()->e_error.e_flag' */
+#define X86_INTERRUPT_GUARD_FINTERRUPT  0x0000
+#ifndef CONFIG_NO_X86_SYSENTER
+#define X86_INTERRUPT_GUARD_FSYSENTER   0x0100
+#define X86_INTERRUPT_GUARD_FSYSCALL    0x0200
+#else /* !CONFIG_NO_X86_SYSENTER */
+#define X86_INTERRUPT_GUARD_FSYSCALL    0x0100
+#endif /* CONFIG_NO_X86_SYSENTER */
+
+
 #ifdef __CC__
 /* A special exception descriptor that should be used to
  * implementing exception unwinding at interrupt entry point.
@@ -107,12 +117,6 @@ struct PACKED x86_idtentry {
  * Use the below macro `X86_DEFINE_INTERRUPT_GUARD()'
  * to define an interrupt exception guard. */
 DATDEF struct except_desc const x86_interrupt_guard;
-/* Very similar to `x86_interrupt_guard', but this
- * guard will set the `ERR_FSYSCALL' flag before
- * moving on to do the same as `x86_interrupt_guard' */
-DATDEF struct except_desc const x86_syscall_guard;
-/* Same as `x86_syscall_guard', but will also set the `ERR_FSYSCALL_EXC' flag. */
-DATDEF struct except_desc const x86_syscall_except_guard;
 #endif
 
 /* Define an exception guard for a custom interrupt handler:
@@ -130,15 +134,31 @@ DATDEF struct except_desc const x86_syscall_except_guard;
  * >>     .cfi_endproc
  * >> myint_end:
  */
+
+#if X86_INTERRUPT_GUARD_FINTERRUPT == 0
 #define X86_DEFINE_INTERRUPT_GUARD(begin,end) \
       __X86_DEFINE_EXCEPT_HANDLER(begin,end,x86_interrupt_guard, \
-                                  EXCEPTION_HANDLER_FDESCRIPTOR,0)
+                                  EXCEPTION_HANDLER_FDESCRIPTOR| \
+                                  EXCEPTION_HANDLER_FUSERFLAGS, \
+                                  X86_INTERRUPT_GUARD_FINTERRUPT)
+#else
+#define X86_DEFINE_INTERRUPT_GUARD(begin,end) \
+      __X86_DEFINE_EXCEPT_HANDLER(begin,end,x86_interrupt_guard, \
+                                  EXCEPTION_HANDLER_FDESCRIPTOR, \
+                                  X86_INTERRUPT_GUARD_FINTERRUPT)
+#endif
+#ifndef CONFIG_NO_X86_SYSENTER
+#define X86_DEFINE_SYSENTER_GUARD(begin,end) \
+      __X86_DEFINE_EXCEPT_HANDLER(begin,end,x86_interrupt_guard, \
+                                  EXCEPTION_HANDLER_FDESCRIPTOR| \
+                                  EXCEPTION_HANDLER_FUSERFLAGS, \
+                                  X86_INTERRUPT_GUARD_FSYSENTER)
+#endif /* !CONFIG_NO_X86_SYSENTER */
 #define X86_DEFINE_SYSCALL_GUARD(begin,end) \
-      __X86_DEFINE_EXCEPT_HANDLER(begin,end,x86_syscall_guard, \
-                                  EXCEPTION_HANDLER_FDESCRIPTOR,0)
-#define X86_DEFINE_SYSCALL_EXCEPT_GUARD(begin,end) \
-      __X86_DEFINE_EXCEPT_HANDLER(begin,end,x86_syscall_except_guard, \
-                                  EXCEPTION_HANDLER_FDESCRIPTOR,0)
+      __X86_DEFINE_EXCEPT_HANDLER(begin,end,x86_interrupt_guard, \
+                                  EXCEPTION_HANDLER_FDESCRIPTOR| \
+                                  EXCEPTION_HANDLER_FUSERFLAGS, \
+                                  X86_INTERRUPT_GUARD_FSYSCALL)
 
 
 #ifdef __CC__
@@ -185,12 +205,14 @@ FORCELOCAL void x86_interrupt_pop(pflag_t flag) {
 #ifdef CONFIG_BUILDING_KERNEL_CORE
 /* Load kernel segment registers.
  * Usually called at the start of an interrupt.
- * CLOBBER: %eax, %ecx
+ * CLOBBER: %eax
  * NOTE: This function is called early on during any kind
  *       of interrupt transition originating from user-space, or any
  *       transition period when `CONFIG_X86_LOADSEGMENTS_ONLY_USER'
  *       isn't defined. */
 INTDEF void ASMCALL x86_load_segments(void);
+/* Same as `x86_load_segments()', but clobber ECX, rather than EAX */
+INTDEF void ASMCALL x86_load_segments_ecx(void);
 #endif /* CONFIG_BUILDING_KERNEL_CORE */
 #endif /* __CC__ */
 

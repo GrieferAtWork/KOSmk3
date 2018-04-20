@@ -44,6 +44,7 @@
 #include <sched/pid.h>
 
 #include "emulator.h"
+#include "posix_signals.h"
 #include <sched/userstack.h>
 
 DECL_BEGIN
@@ -90,7 +91,8 @@ INTERN void FCALL
 error_rethrow_atuser(struct cpu_context *__restrict context) {
  if (!(context->c_iret.ir_cs & 3))
        __error_rethrow_at(context,!(error_info()->e_error.e_flag & ERR_FRESUMENEXT));
- task_propagate_user_exception((struct cpu_hostcontext_user *)context);
+ task_propagate_user_exception((struct cpu_hostcontext_user *)context,
+                                TASK_USERCTX_TYPE_INTR_INTERRUPT);
 }
 
 
@@ -275,11 +277,32 @@ again:
      * involves jumping to a specific address offset from a random, per-thread
      * constant (to improve security by not using static addresses that would
      * allow for return-to-libc; or rather return-to-kernel; attacks). */
+restart_syscall:
     context->c_eip = context->c_gpregs.gp_eax; /* #PF uses EAX as return address. */
     context->c_gpregs.gp_eax = sysno; /* #PF encodes the sysno in EIP. */
     COMPILER_BARRIER();
     /* Execute the system calls. */
-    x86_syscall_exec80();
+    TRY {
+     x86_syscall_exec80();
+    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+     /* Set the FSYSCALL flag so that exceptions are propagated accordingly. */
+     error_info()->e_error.e_flag |= X86_INTERRUPT_GUARD_FSYSCALL;
+     if (error_code() == E_INTERRUPT) {
+      /* Restore the original user-space CPU context. */
+      context->c_gpregs.gp_eax = context->c_eip;
+      context->c_eip           = (uintptr_t)fault_address;
+      COMPILER_WRITE_BARRIER();
+      /* Deal with system call restarts. */
+      if (!task_restart_syscall(context,
+                                TASK_USERCTX_TYPE_WITHINUSERCODE|
+                                X86_SYSCALL_TYPE_FPF,
+                                sysno))
+           error_rethrow();
+      COMPILER_BARRIER();
+      goto restart_syscall;
+     }
+     error_rethrow();
+    }
     return;
    }
   }

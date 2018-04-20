@@ -35,6 +35,15 @@
 
 DECL_BEGIN
 
+PUBLIC bool KCALL
+should_restart_syscall(syscall_ulong_t sysno,
+                       unsigned int context) {
+ debug_printf("should_restart_syscall(%p,%x)\n",sysno,context);
+ /* TODO */
+ return true;
+}
+
+
 
 #ifndef CONFIG_NO_X86_SYSENTER
 PRIVATE void KCALL

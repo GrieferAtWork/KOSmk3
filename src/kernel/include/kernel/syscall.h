@@ -25,6 +25,7 @@
 
 #if defined(__i386__) || defined(__x86_64__)
 #include <i386-kos/syscall.h>
+#include <stdbool.h>
 #endif
 
 DECL_BEGIN
@@ -37,6 +38,22 @@ FUNDEF void KCALL enable_syscall_tracing(void);
 FUNDEF void KCALL disable_syscall_tracing(void);
 
 FUNDEF ATTR_NOTHROW void KCALL syscall_trace(struct syscall_trace_regs *__restrict regs);
+
+
+/* Return `true' if a system call `sysno' should be restarted.
+ * @param: sysno:   The system call vector number of the system call
+ *                  This number should include the Xsys-bit, as originally
+ *                  specified by user-space.
+ * @param: context: Set of `SHOULD_RESTART_SYSCALL_F*' describing the
+ *                  reason that lead to the system call being interrupted. */
+FUNDEF bool KCALL should_restart_syscall(syscall_ulong_t sysno,
+                                         unsigned int context);
+#define SHOULD_RESTART_SYSCALL_FNORMAL       0x0000 /* The system call was interrupted by an unhandled `E_INTERRUPT'
+                                                     * exception about to be propagated back into user-space. */
+#define SHOULD_RESTART_SYSCALL_FPOSIX_SIGNAL 0x0001 /* The system call was interrupted by a posix_signal. */
+#define SHOULD_RESTART_SYSCALL_FSA_RESTART   0x0002 /* For use with `SHOULD_RESTART_SYSCALL_FPOSIX_SIGNAL':
+                                                     * The signal that caused the system call to be
+                                                     * interrupted also had the `SA_RESTART' flag set. */
 
 #endif
 

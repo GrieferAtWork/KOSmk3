@@ -30,10 +30,10 @@ struct exception_handler_info {
     CHECKED void        *ehi_entry;  /* Handler entry point (either `eh_entry' or `ed_handler'). */
 #if __SIZEOF_POINTER__ == 8
     u32                  ehi_flag;   /* Handler flags (Set of `EXCEPTION_HANDLER_F*') */
-    u32                __ehi_pad;    /* ... */
+    u32                  ehi_mask;   /* Handler mask */
 #else
     u16                  ehi_flag;   /* Handler flags (Set of `EXCEPTION_HANDLER_F*') */
-    u16                __ehi_pad;    /* ... */
+    u16                  ehi_mask;   /* Handler mask */
 #endif
     struct { /* Exception descriptor-specific information. */
         __UINT16_TYPE__  ed_type;    /* The type of descriptor (One of `EXCEPT_DESC_TYPE_*'). */

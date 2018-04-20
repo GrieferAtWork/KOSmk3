@@ -33,8 +33,7 @@ struct sigaction;
 
 /* Redirect the given user-space context to call a signal
  * handler `action' before actually returning to user-space.
- * @param: mode: One of `TASK_USERCTX_F*'
- */
+ * @param: mode: One of `TASK_USERCTX_F*' */
 FUNDEF void KCALL
 arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict context,
                                    siginfo_t const *__restrict info,

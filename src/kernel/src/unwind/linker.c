@@ -187,6 +187,7 @@ find_exception(struct except_handler *__restrict iter,
      break; /* Invalid range end */
   /* All right! we found the handler we're looking for! */
   result->ehi_flag = hand_flags;
+  result->ehi_mask = iter->eh_mask;
   if (hand_flags & EXCEPTION_HANDLER_FDESCRIPTOR) {
    uintptr_t entry;
    struct except_desc *descr; u16 descr_type,descr_flag;

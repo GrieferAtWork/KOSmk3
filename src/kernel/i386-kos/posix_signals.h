@@ -22,10 +22,10 @@
 #include <hybrid/compiler.h>
 #include <kos/types.h>
 #include <sys/ucontext.h>
+#include <i386-kos/syscall.h>
 #include <signal.h>
 
 DECL_BEGIN
-
 
 struct PACKED signal_frame {
     /* Regular signal frame (without `SA_SIGINFO') */
@@ -33,7 +33,8 @@ struct PACKED signal_frame {
     intptr_t                       sf_signo;     /* Signal number argument. */
     void                          *sf_pad[2];    /* Padding... (for sf_infop and sf_contextp, and required for
                                                   * binary compatibility when unwinding `signal_frame_ex') */
-    uintptr_t                      sf_mode;      /* The signal handler return mode (One of `TASK_USERCTX_F*'). */
+    uintptr_t                      sf_mode;      /* The signal handler return mode (One of `TASK_USERCTX_F*',
+                                                  * or one of `X86_SYSCALL_TYPE_F*'). */
     mcontext_t                     sf_return;    /* Return context. */
     sigset_t                       sf_sigmask;   /* Return signal mask. */
 };
@@ -46,7 +47,8 @@ struct PACKED signal_frame_ex {
             intptr_t               sf_signo;     /* Signal number argument. */
             siginfo_t             *sf_infop;     /* [== &sf_info] Signal info argument. */
             ucontext_t            *sf_contextp;  /* [== &sf_return] Signal context argument. */
-            uintptr_t              sf_mode;      /* The signal handler return mode (One of `TASK_USERCTX_F*'). */
+            uintptr_t              sf_mode;      /* The signal handler return mode (One of `TASK_USERCTX_F*',
+                                                  * or one of `X86_SYSCALL_TYPE_F*'). */
             ucontext_t             sf_return;    /* Signal return context. */
             siginfo_t              sf_info;      /* Signal information. */
         };

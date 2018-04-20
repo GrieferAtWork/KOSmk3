@@ -30,11 +30,21 @@
 
 DECL_BEGIN
 
+
+/* Arch-specific flags to go alongside `TASK_USERCTX_F*'. */
+#define X86_SYSCALL_TYPE_FINT80    0x0000 /* Restart a system call using a register state used by `int $0x80' */
+#ifndef CONFIG_NO_X86_SYSENTER
+#define X86_SYSCALL_TYPE_FSYSENTER 0x0100 /* Restart a system call using a register state used by `sysenter' */
+#endif /* !CONFIG_NO_X86_SYSENTER */
+#define X86_SYSCALL_TYPE_FPF       0x0200 /* Restart a system call using a register state used by #PF-based system calls. */
+
+
 #ifndef CONFIG_NO_X86_SYSENTER
 /* KOS's sysenter ABI (for i386+):
  *   
  * CLOBBER:
- *   - %ecx, %edx (Only for 32-bit return values)
+ *   - %ecx
+ *   - %edx (Only for 32-bit return values)
  * ARGUMENTS:
  *   - SYSCALLNO:      %eax
  *   - ARG0:           %ebx
@@ -205,13 +215,13 @@ DATDEF u8 const x86_xsyscall_argc[];
 #ifdef __CC__
 struct PACKED syscall_trace_regs {
     struct PACKED {
-        u32                  a_sysno;      /* System call number (including special flags). */
         u32                  a_arg0;       /* Arg #0 */
         u32                  a_arg1;       /* Arg #1 */
         u32                  a_arg2;       /* Arg #2 */
         u32                  a_arg3;       /* Arg #3 */
         u32                  a_arg4;       /* Arg #4 */
         u32                  a_arg5;       /* Arg #5 */
+        u32                  a_sysno;      /* System call number (including special flags). */
     }                        str_args;     /* System call arguments. */
 #ifdef CONFIG_X86_SEGMENTATION
     struct x86_segments32    str_segments; /* User-space segment registers. */

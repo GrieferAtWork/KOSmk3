@@ -637,7 +637,6 @@ do_redirect_signal_action(struct cpu_hostcontext_user *__restrict context,
   * by the sigreturn system call. */
  arch_posix_signals_redirect_action(context,info,action,mode);
 
-
  /* Resume user-space execution (for now) and have the signal
   * handler returning re-throw an E_INTERRUPT exception if
   * necessary. */
@@ -804,10 +803,10 @@ do_action_throw:
 
 
 
-PRIVATE void KCALL
-signal_rpc(void *UNUSED(arg),
-           struct cpu_hostcontext_user *__restrict context,
-           unsigned int mode) {
+INTERN void KCALL
+posix_signal_rpc(void *UNUSED(arg),
+                 struct cpu_hostcontext_user *__restrict context,
+                 unsigned int mode) {
  /* Check for signal handlers that are not being blocked
   * and invoke their associated actions, suspending or resuming
   * execution, terminating the process, or simply executing
@@ -882,10 +881,10 @@ signal_rpc_leader(void *arg,
                   struct cpu_hostcontext_user *__restrict context,
                   unsigned int mode) {
  /* Try to handle the RPC in the leader. */
- signal_rpc(arg,context,mode);
+ posix_signal_rpc(arg,context,mode);
  if (get_this_process() == THIS_TASK) {
   /* Send the RPC request to all members of this thread-group. */
-  taskgroup_queue_rpc_user(&signal_rpc,
+  taskgroup_queue_rpc_user(&posix_signal_rpc,
                             NULL,
                             TASK_RPC_NORMAL|
                             TASK_RPC_USER|
@@ -1023,7 +1022,7 @@ signal_raise_thread(struct task *__restrict thread,
   {
    /* Queue a user-RPC function call for the given thread. */
    result = task_queue_rpc_user(thread,
-                               &signal_rpc,
+                               &posix_signal_rpc,
                                 NULL,
                                 TASK_RPC_NORMAL|
                                 TASK_RPC_SINGLE|
@@ -1078,7 +1077,7 @@ PRIVATE void KCALL signal_test(void) {
       !__sigismember(&block->sb_sigset,iter->sq_info.si_signo-1)) {
     mutex_put(pending_lock);
     /* Return to userspace immediately to check for signals. */
-    task_queue_rpc_user(THIS_TASK,&signal_rpc,NULL,TASK_RPC_USER);
+    task_queue_rpc_user(THIS_TASK,&posix_signal_rpc,NULL,TASK_RPC_USER);
     __builtin_unreachable();
    }
   }

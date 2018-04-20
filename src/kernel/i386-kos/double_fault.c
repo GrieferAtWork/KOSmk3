@@ -200,6 +200,8 @@ INTERN void FCALL c_x86_double_fault_handler(void) {
    is_first = false;
    /* Search for a suitable exception handler (in reverse order!). */
    if (linker_findexcept_consafe(ip,error_code(),&hand)) {
+    if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS)
+        info->e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK;
     if (hand.ehi_flag & EXCEPTION_HANDLER_FDESCRIPTOR) {
      /* Unwind the stack to the caller-site. */
      if (!eh_return(&fde,&context,EH_FDONT_UNWIND_SIGFRAME))

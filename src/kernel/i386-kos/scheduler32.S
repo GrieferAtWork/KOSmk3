@@ -147,7 +147,7 @@ SYMEND(x86_pic_acknowledge)
 3:	INCSTAT(ts_uswitch)
 	/* Serve RPC functions if we were preempted while in user-space. */
 	movl   %esp, %ecx /* `struct cpu_hostcontext_user *__restrict context' */
-	movl    $(TASK_USERCTX_FWITHINUSERCODE), %edx
+	movl    $(TASK_USERCTX_TYPE_WITHINUSERCODE), %edx
 	call    task_serve_before_user
 #ifdef CONFIG_NO_TASKSTAT
 1:
@@ -527,7 +527,6 @@ INTERN_ENTRY(x86_redirect_preemption)
 	movl   %fs:iret_saved + 4*4, %eax    /* SS (should be X86_USER_DS) */
 	movl   %eax, IRET_OFFSET + 4*4(%esp)
 
-
 	/* The original (and possibly modified) user-space IRET tail
 	 * has now been restored. As far as anyone is concered, at this
 	 * point, it was never overwritten to begin with and we can
@@ -540,7 +539,7 @@ INTERN_ENTRY(x86_redirect_preemption)
 	sti
 
 	movl   %esp, %ecx /* `struct cpu_hostcontext_user *__restrict context' */
-	movl   $(TASK_USERCTX_FAFTERSYSCALL), %edx
+	movl   $(TASK_USERCTX_TYPE_WITHINUSERCODE), %edx
 	call   task_serve_before_user
 
 	/* Restore user-space registers. */

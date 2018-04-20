@@ -141,6 +141,8 @@ name:; \
 	popl_cfi_r  X86_SYSCALL_REG3; \
 	popl_cfi_r  X86_SYSCALL_REG4; \
 	popl_cfi_r  X86_SYSCALL_REG5; \
+	addl  $4, %esp; /* ORIG_EAX */ \
+	.cfi_adjust_cfa_offset -4; \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %gs); \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %fs); \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %es); \
@@ -158,6 +160,8 @@ name##_return64:; \
 	popl_cfi_r  X86_SYSCALL_REG3; \
 	popl_cfi_r  X86_SYSCALL_REG4; \
 	popl_cfi_r  X86_SYSCALL_REG5; \
+	addl  $4, %esp; /* ORIG_EAX */ \
+	.cfi_adjust_cfa_offset -4; \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %gs); \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %fs); \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %es); \
@@ -174,6 +178,8 @@ name:; \
 	popl_cfi_r  X86_SYSCALL_REG3; \
 	popl_cfi_r  X86_SYSCALL_REG4; \
 	popl_cfi_r  X86_SYSCALL_REG5; \
+	addl  $4, %esp; /* ORIG_EAX */ \
+	.cfi_adjust_cfa_offset -4; \
 name##_segments:; \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %gs); \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %fs); \
@@ -214,6 +220,8 @@ name##64:; \
 	popl_cfi_r  X86_SYSCALL_REG3; \
 	popl_cfi_r  X86_SYSCALL_REG4; \
 	popl_cfi_r  X86_SYSCALL_REG5; \
+	addl  $4, %esp; /* ORIG_EAX */ \
+	.cfi_adjust_cfa_offset -4; \
 	/*jmp         name##_segments;*/ \
 	/* Must use `iret', because we mustn't clobber EDX for 64-bit return values. */ \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %gs); \
@@ -223,7 +231,6 @@ name##64:; \
 	iret; \
 	.cfi_restore_state
 #endif /* !CONFIG_NO_X86_SYSENTER */
-
 
 
 #ifndef CONFIG_NO_X86_SYSENTER
@@ -257,6 +264,9 @@ INTERN_ENTRY(sysenter_kernel_entry)
 	pushl_cfi_r  %fs
 	pushl_cfi_r  %gs
 #endif
+INTERN_ENTRY(sysenter_after_segments)
+
+	pushl_cfi_r %eax /* ORIG_EAX */
 
 	/* Push system call registers. */
 	pushl_cfi_r X86_SYSCALL_REG5
@@ -267,10 +277,8 @@ INTERN_ENTRY(sysenter_kernel_entry)
 	pushl_cfi_r X86_SYSCALL_REG0
 
 	/* Load segments. */
-	pushl_cfi_r %eax
-	call    x86_load_segments
+	call    x86_load_segments_ecx
 .sysenter_after_tracing:
-	popl_cfi_r %eax
 
 	/* Do the system call */
 	cmpl    $(__NR_syscall_max), %eax
@@ -322,10 +330,8 @@ INTERN_ENTRY(sysenter_kernel_entry)
 	pushl_cfi $.sysenter_return /* Return address... */
 	jmp     x86_bad_syscall
 	.cfi_adjust_cfa_offset -4
-.sysenter_kernel_entry_end = .
+SYMEND(sysenter_after_segments)
 SYMEND(sysenter_kernel_entry)
-/* Define a syscall guard that will translate exceptions into errno values. */
-X86_DEFINE_SYSCALL_GUARD(sysenter_kernel_entry,.sysenter_kernel_entry_end)
 
 .sysenter_with_exceptions:
 	cmpl    $(__NR_syscall_max + 0x80000000), %eax
@@ -389,10 +395,9 @@ X86_DEFINE_SYSCALL_GUARD(sysenter_kernel_entry,.sysenter_kernel_entry_end)
 /*	.cfi_adjust_cfa_offset -8 */
 #endif
 	.cfi_endproc
-.sysenter_with_exceptions_end = .
 SYMEND(.sysenter_with_exceptions)
-/* Define a regular interrupt handler when syscall exceptions should be enabled. */
-X86_DEFINE_SYSCALL_EXCEPT_GUARD(.sysenter_with_exceptions,.sysenter_with_exceptions_end)
+.sysenter_kernel_entry_end = .
+X86_DEFINE_SYSCALL_GUARD(sysenter_kernel_entry,.sysenter_kernel_entry_end)
 #endif /* !CONFIG_NO_X86_SYSENTER */
 
 
@@ -417,6 +422,9 @@ INTERN_ENTRY(irq_80)
 	pushl_cfi_r  %fs
 	pushl_cfi_r  %gs
 #endif
+INTERN_ENTRY(irq_80_after_segments)
+	pushl_cfi_r %eax /* ORIG_EAX */
+
 	pushl_cfi_r X86_SYSCALL_REG5
 	pushl_cfi_r X86_SYSCALL_REG4
 	pushl_cfi_r X86_SYSCALL_REG3
@@ -424,10 +432,8 @@ INTERN_ENTRY(irq_80)
 	pushl_cfi_r X86_SYSCALL_REG1
 	pushl_cfi_r X86_SYSCALL_REG0
 
-	pushl_cfi_r %eax
-	call    x86_load_segments
+	call    x86_load_segments_ecx
 .irq_80_after_tracing:
-	popl_cfi_r %eax
 
 	cmpl    $(__NR_syscall_max), %eax
 	ja      .irq_80_extended_syscall
@@ -453,10 +459,7 @@ INTERN_ENTRY(irq_80)
 	pushl_cfi $.irq_80_return /* Return address... */
 	jmp     x86_bad_syscall
 	.cfi_adjust_cfa_offset -4
-.irq_80_end = .
 SYMEND(irq_80)
-/* Define a syscall guard that will translate exceptions into errno values. */
-X86_DEFINE_SYSCALL_GUARD(irq_80,.irq_80_end)
 
 .irq_80_with_exceptions:
 	cmpl    $(__NR_syscall_max + 0x80000000), %eax
@@ -485,10 +488,10 @@ X86_DEFINE_SYSCALL_GUARD(irq_80,.irq_80_end)
 /*	.cfi_adjust_cfa_offset -4 */
 #endif
 	.cfi_endproc
-.irq_80_with_exceptions_end = .
+.irq_80_end = .
 SYMEND(.irq_80_with_exceptions)
-/* Define a regular interrupt handler when syscall exceptions should be enabled. */
-X86_DEFINE_SYSCALL_EXCEPT_GUARD(.irq_80_with_exceptions,.irq_80_with_exceptions_end)
+/* Define a syscall guard that will translate exceptions into errno values. */
+X86_DEFINE_SYSCALL_GUARD(irq_80,.irq_80_end)
 
 
 
@@ -514,6 +517,7 @@ INTERN_ENTRY(irq_80_trace)
 	pushl_cfi_r  %fs
 	pushl_cfi_r  %gs
 #endif
+	pushl_cfi_r %eax /* ORIG_EAX */
 
 	pushl_cfi_r X86_SYSCALL_REG5
 	pushl_cfi_r X86_SYSCALL_REG4
@@ -522,11 +526,11 @@ INTERN_ENTRY(irq_80_trace)
 	pushl_cfi_r X86_SYSCALL_REG1
 	pushl_cfi_r X86_SYSCALL_REG0
 
-	pushl_cfi_r %eax
-	call    x86_load_segments
-	pushl_cfi %esp /* regs */
+	call    x86_load_segments_ecx
+	pushl_cfi %esp
 	call    syscall_trace
 	.cfi_adjust_cfa_offset -4
+	movl    24(%esp), %eax /* Reload EAX */
 
 	jmp     .irq_80_after_tracing
 	.cfi_endproc
@@ -563,6 +567,7 @@ INTERN_ENTRY(sysenter_kernel_entry_trace)
 	pushl_cfi_r  %fs
 	pushl_cfi_r  %gs
 #endif
+	pushl_cfi_r %eax /* ORIG_EAX */
 
 	/* Push system call registers. */
 	pushl_cfi_r X86_SYSCALL_REG5
@@ -573,25 +578,23 @@ INTERN_ENTRY(sysenter_kernel_entry_trace)
 	pushl_cfi_r X86_SYSCALL_REG0
 
 	/* Load segments. */
-	pushl_cfi_r %eax
-	call    x86_load_segments
+	call    x86_load_segments_ecx
 
 	cmpl    $(KERNEL_BASE), %ebp
 	jae     1f
 
 	/* Load additional arguments. */
-	movl    (%esp), %eax
 	andl    $~0x80000000, %eax
 	cmpl    $(__NR_syscall_max), %eax
 	ja      2f
 	cmpb    $5, x86_syscall_argc(,%eax,1)
 	jb      1f
 	movl    0(%ebp), %ecx /* ARG#4 (CAUTION: SEGFAULT) */
-	movl    %ecx, 20(%esp)
+	movl    %ecx, 16(%esp)
 	cmpb    $6, x86_syscall_argc(,%eax,1)
 	jb      1f
 	movl    4(%ebp), %ecx /* ARG#5 (CAUTION: SEGFAULT) */
-	movl    %ecx, 24(%esp)
+	movl    %ecx, 20(%esp)
 	jmp     1f
 2:	cmpl    $(__NR_xsyscall_min), %eax
 	jb      1f
@@ -600,15 +603,16 @@ INTERN_ENTRY(sysenter_kernel_entry_trace)
 	cmpb    $5, (x86_xsyscall_argc - __NR_xsyscall_min)(,%eax,1)
 	jb      1f
 	movl    0(%ebp), %ecx /* ARG#4 (CAUTION: SEGFAULT) */
-	movl    %ecx, 20(%esp)
+	movl    %ecx, 16(%esp)
 	cmpb    $6, (x86_xsyscall_argc - __NR_xsyscall_min)(,%eax,1)
 	jb      1f
 	movl    4(%ebp), %ecx /* ARG#5 (CAUTION: SEGFAULT) */
-	movl    %ecx, 24(%esp)
+	movl    %ecx, 20(%esp)
 
 1:	pushl_cfi %esp /* regs */
 	call    syscall_trace
 	.cfi_adjust_cfa_offset -4
+	movl    24(%esp), %eax /* Reload EAX */
 
 	jmp     .sysenter_after_tracing
 	.cfi_endproc
@@ -703,13 +707,13 @@ PUBLIC_ENTRY(x86_syscall_exec80_trace)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FS)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GS)(%ecx)
 #endif
+	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EBP)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDI)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ESI)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDX)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ECX)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EBX)(%ecx)
-	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX)(%ecx)
 	pushl_cfi %esp /* regs */
 	call  syscall_trace
 	.cfi_adjust_cfa_offset -4 /* STDCALL... (callee-argument-cleanup) */
@@ -731,7 +735,7 @@ PUBLIC_ENTRY(x86_syscall_exec80_ntrace)
 	cmpl  $(SYS_sigreturn), %eax
 	jne   1f
 	leal  (-X86_HOSTCONTEXT_USER32_SIZE)(%ecx), %eax
-	pushl_cfi $(TASK_USERCTX_FAFTERINTERRUPT) /* mode */
+	pushl_cfi $(TASK_USERCTX_TYPE_INTR_INTERRUPT) /* mode */
 	pushl_cfi %eax /* context */
 	pushl_cfi $0   /* arg (unused) */
 	call  x86_sigreturn_impl
@@ -777,21 +781,6 @@ PUBLIC_ENTRY(x86_syscall_exec80_ntrace)
 	pushl_cfi $.exec80_return
 	jmpl  *(x86_xsyscall_router - (__NR_xsyscall_min*4) & 0xffffffff)(,%eax,4)
 	.cfi_adjust_cfa_offset -4
-.x86_syscall_exec80_guard_end = .
-__X86_DEFINE_EXCEPT_HANDLER(
-	x86_syscall_exec80_ntrace,
-	.x86_syscall_exec80_guard_end,
-	.x86_syscall_exec80_descr,
-	EXCEPTION_HANDLER_FDESCRIPTOR,
-	0)
-.pushsection .rodata
-.x86_syscall_exec80_descr:
-	.long .x86_syscall_exec80_except /* ed_handler */
-	.word EXCEPT_DESC_TYPE_BYPASS    /* ed_type */
-	.word EXCEPT_DESC_FNORMAL        /* ed_flags */
-	.word 4                          /* ed_safe (+4: EIP) */
-	.word 0                          /* ed_pad */
-.popsection
 .exec80_with_exceptions:
 	/* System call w/ exceptions. */
 	cmpl    $(__NR_syscall_max + 0x80000000), %eax
@@ -831,30 +820,8 @@ __X86_DEFINE_EXCEPT_HANDLER(
 	movl  %eax, ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX)(%ecx)
 	movl  %edx, ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDX)(%ecx)
 	ret
-	.cfi_adjust_cfa_offset 24
-.x86_syscall_exec80_except:
-	orw   $(ERR_FSYSCALL), %taskseg:TASK_SEGMENT_OFFSETOF_XCURRENT+EXCEPTION_INFO_OFFSETOF_FLAG
-	jmp   error_rethrow /* Return address is already in 0(ESP), so we can use a jmp here. */
-.exec80_with_exceptions_hand:
-	orw   $(ERR_FSYSCALL_EXC), %taskseg:TASK_SEGMENT_OFFSETOF_XCURRENT+EXCEPTION_INFO_OFFSETOF_FLAG
-	jmp   error_rethrow /* Return address is already in 0(ESP), so we can use a jmp here. */
+//	.cfi_adjust_cfa_offset 24
 	.cfi_endproc
-.exec80_with_exceptions_end = .
-__X86_DEFINE_EXCEPT_HANDLER(
-	.exec80_with_exceptions,
-	.exec80_with_exceptions_end,
-	.exec80_with_exceptions_descr,
-	EXCEPTION_HANDLER_FDESCRIPTOR,
-	0)
-.pushsection .rodata
-.exec80_with_exceptions_descr:
-	.long .exec80_with_exceptions_hand /* ed_handler */
-	.word EXCEPT_DESC_TYPE_BYPASS      /* ed_type */
-	.word EXCEPT_DESC_FNORMAL          /* ed_flags */
-	.word 4                            /* ed_safe (+4: EIP) */
-	.word 0                            /* ed_pad */
-.popsection
-
 SYMEND(x86_syscall_exec80_ntrace)
 
 

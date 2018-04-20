@@ -951,6 +951,11 @@ DEFINE_SYSCALL3(read,int,fd,USER UNCHECKED void *,buf,size_t,bufsize) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  struct handle EXCEPT_VAR hnd = handle_get(fd);
  TRY {
+#if 1 /* TODO: Remove me. (Here to debug system call restarting) */
+  if (rand() & 1)
+      error_throw(E_INTERRUPT);
+#endif
+
   /* Check for read permissions. */
   if ((hnd.h_flag & IO_ACCMODE) == IO_WRONLY)
        throw_fs_error(ERROR_FS_ACCESS_ERROR);

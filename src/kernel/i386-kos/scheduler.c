@@ -41,6 +41,7 @@
 #include <kernel/paging.h>
 #include <kernel/vm.h>
 #include <kernel/user.h>
+#include <kernel/syscall.h>
 #include <fs/linker.h>
 #include <sched/signal.h>
 #include <sched/task.h>
@@ -413,7 +414,7 @@ do_serve:
    * in user-space, about to trigger the interrupt that
    * was interrupted in order to serve RPC functions. */
   task_serve_before_user(&context->c_user,
-                          TASK_USERCTX_FWITHINUSERCODE);
+                          TASK_USERCTX_TYPE_WITHINUSERCODE);
  } CATCH (E_INTERRUPT) {
   /* Deal with recursive restart attempts. */
   goto again;
@@ -424,6 +425,65 @@ rethrow_p:
 rethrow:
  error_rethrow();
 }
+
+/* Same as `task_restart_interrupt()', but meant to be called from a
+ * `CATCH(E_INTERRUPT)' block surrounding a system call invocation.
+ * When these functions return normally, the system call should be restarted.
+ * When it shouldn't, these functions rethrow the dangling `E_INTERRUPT'. */
+PUBLIC bool FCALL
+task_restart_syscall(struct cpu_anycontext *__restrict context,
+                     unsigned int mode, syscall_ulong_t sysno) {
+again:
+ assertf(error_code() == E_INTERRUPT,
+         "Only call this function from a CATCH(E_INTERRUPT) block");
+ assertf(PREEMPTION_ENABLED(),
+         "Preemption must be enabled during execution of a system call");
+ /* Check if the context returns to user-space. */
+ assertf(X86_ANYCONTEXT32_ISUSER(*context) ||
+         context->c_eip != (uintptr_t)&x86_redirect_preemption,
+         "Only user-space must be allowed to execute system calls");
+ assertf(!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB),
+         "How did a kernel job manage to redirect its preemption? "
+         "Also from what should that preemption have been redirected?");
+ assert((mode & TASK_USERCTX_TYPE_FMASK) == TASK_USERCTX_TYPE_INTR_SYSCALL);
+ if (context->c_eip == (uintptr_t)&x86_redirect_preemption) {
+  /* Ok. So we got here as the result of a preemption redirection (`task_wake_for_rpc()'),
+   * meaning that at some point the calling interrupt must have been waiting for some
+   * kind of lock, before it got interrupted when some other thread scheduled an RPC.
+   * Our job now is to restore the saved IRET tail and act as though we weren't waiting
+   * at all, instead opting to handle the RPC function the same way we would if
+   * preemption was never redirected. */
+  assertf(&context->c_iret == REAL_IRET(),
+          "Only the directed CPU context could point at `x86_redirect_preemption'. "
+          "This means that the given context must be the real IRET tail");
+  /* Restore the saved IRET tail. */
+  memcpy(&context->c_iret,&PERTASK(iret_saved),
+          sizeof(struct x86_irregs_user));
+ }
+ TRY {
+#if 0
+  error_printf("TASK_RESTART_SYSCALL()\n");
+#endif
+  /* Since the system call will be restarted once RPC
+   * functions have been served, semantically speaking,
+   * the user-space CPU context is the same as if the
+   * RPC was being served while the thread was still
+   * in user-space, about to trigger the system call that
+   * was interrupted in order to serve RPC functions. */
+  task_serve_before_user(&context->c_user,mode);
+ } CATCH (E_INTERRUPT) {
+  /* Deal with recursive restart attempts. */
+  goto again;
+ }
+ /* If none of the RPC functions overwrote the E_INTERRUPT exception,
+  * or if the system call shouldn't be restarted, don't restart the
+  * system call. Otherwise, do. */
+ if (error_code() != E_INTERRUPT)
+     return false;
+ return should_restart_syscall(sysno,SHOULD_RESTART_SYSCALL_FNORMAL);
+}
+
+
 
 
 
@@ -1210,16 +1270,14 @@ INTDEF ATTR_NORETURN void FCALL
 x86_default_error_unhandled_exception(bool is_standalone);
 
 PUBLIC void FCALL
-task_propagate_user_exception(struct cpu_hostcontext_user *__restrict context) {
+task_propagate_user_exception(struct cpu_hostcontext_user *__restrict context,
+                              unsigned int mode) {
  struct exception_info *EXCEPT_VAR error = error_info();
- struct exception_info EXCEPT_VAR info; u16 flags;
+ struct exception_info EXCEPT_VAR info;
  bool is_standalone = false;
- /* Always use flags of the original exception for context determination. */
- flags = error->e_error.e_flag;
 copy_error:
  /* Save exception information if something goes wrong during cleanup. */
  memcpy((void *)&info,error,sizeof(struct exception_info));
-
 serve_rpc:
 
  /* Disconnect arbitrary task signal connections that may still be active. */
@@ -1228,7 +1286,8 @@ serve_rpc:
  /* Serve RPC functions scheduled for
   * execution before returning to user-space. */
  TRY {
-  task_serve_before_user(context,TASK_USERCTX_FAFTERINTERRUPT);
+  task_serve_before_user(context,mode);
+  COMPILER_BARRIER();
   /* RPC callbacks are allowed to change the error code to USER_RESUME
    * as an indicator that the purpose of the original exception was to
    * return to user-space. (E_INTERRUPT --> E_USER_RESUME after RPC
@@ -1237,7 +1296,7 @@ serve_rpc:
      !ERRORCODE_ISHIGHPRIORITY(info.e_error.e_code))
       info.e_error.e_code = E_USER_RESUME;
 
-  COMPILER_READ_BARRIER();
+  COMPILER_BARRIER();
   switch (info.e_error.e_code) {
 
   case E_USER_RESUME:
@@ -1261,7 +1320,12 @@ serve_rpc:
 #endif
 
 #if 1
-  if (flags & ERR_FSYSCALL) {
+  assertf(!(mode & X86_SYSCALL_TYPE_FPF),
+          "Exception propagation cannot be done for #PF system calls. "
+          "The caller should convert the register state to `int $0x80' "
+          "prior to exception propagation");
+  if (TASK_USERCTX_TYPE(mode) == TASK_USERCTX_TYPE_INTR_SYSCALL &&
+    !(context->c_gpregs.gp_eax & 0x80000000)) {
    /* Translate the exception into an errno. */
 #if 0
    error_printf("Translate to errno\n");
@@ -1285,7 +1349,7 @@ serve_rpc:
    unwind.c_iret.ir_eip    = context->c_iret.ir_eip;
    unwind.c_iret.ir_cs     = context->c_iret.ir_cs;
    unwind.c_iret.ir_eflags = context->c_iret.ir_eflags;
-   if (flags & ERR_FRESUMENEXT) ++unwind.c_iret.ir_eip;
+   if (info.e_error.e_flag & ERR_FRESUMENEXT) ++unwind.c_iret.ir_eip;
    TRY {
     /* Unwind the stack and search for user-space exception handlers. */
     while (unwind.c_iret.ir_eip < KERNEL_BASE) {
@@ -1295,6 +1359,8 @@ serve_rpc:
           goto cannot_unwind;
      if (linker_findexcept(unwind.c_iret.ir_eip-1,info.e_error.e_code,&hand)) {
       /* Found a user-space exception handler! */
+      if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS)
+          info.e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK;
       if (hand.ehi_flag & EXCEPTION_HANDLER_FDESCRIPTOR) {
        /* Unwind the stack to the caller-site. */
        if (!eh_return(&fde,&unwind,EH_FRESTRICT_USERSPACE|EH_FDONT_UNWIND_SIGFRAME))
@@ -1478,7 +1544,7 @@ serve_rpc:
     arch_posix_signals_redirect_action(context,
                                       &sinfo,
                                        action_copy,
-                                       TASK_USERCTX_FAFTERINTERRUPT);
+                                       mode);
    }
    {
     /* Get the currently active sigblock set. */
@@ -1564,7 +1630,6 @@ serve_rpc:
 #endif
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   COMPILER_BARRIER();
-  error->e_error.e_flag |= info.e_error.e_flag & (ERR_FSYSCALL|ERR_FSYSCALL_EXC);
   /* Re-prioritize secondary exceptions. */
   if (ERRORCODE_ISHIGHPRIORITY(error->e_error.e_code)) {
    if (!ERRORCODE_ISHIGHPRIORITY(info.e_error.e_code) ||

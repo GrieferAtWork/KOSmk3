@@ -1032,7 +1032,8 @@ FUNDEF ATTR_NORETURN void KCALL task_exit(void);
  * the new user-context.
  * NOTE: This function is called in the scheduling-context of the faulting thread. */
 FUNDEF void FCALL
-task_propagate_user_exception(struct cpu_hostcontext_user *__restrict context);
+task_propagate_user_exception(struct cpu_hostcontext_user *__restrict context,
+                              unsigned int mode);
 
 
 
@@ -1065,25 +1066,27 @@ FUNDEF bool KCALL task_unshare_sighand(void);  /* CLONE_SIGHAND */
 FUNDEF bool KCALL task_unshare_vm(void);       /* CLONE_FS */
 #endif /* __CC__ */
 
-/* Serve RPC functions with `context' referring to the CPU
- * state as it was after user-space got forcefully preempted. */
-#define TASK_USERCTX_FWITHINUSERCODE 0x0000
 
-/* Serve RPC functions with `context' referring to the CPU
- * state following a successfully completed system call.
- * (meaning that the context's return register values
- *  must be preserved the same way they have to be
- *  for `TASK_USERCTX_FWITHINUSERCODE') */
-#define TASK_USERCTX_FAFTERSYSCALL   0x0001
+/* Mask for the arch-independent portion of `TASK_USERCTX_*'
+ * Other bits are arch-specific and are usually used to identify
+ * for format of registers.
+ * On X86, that is one of `X86_SYSCALL_TYPE_F*' */
+#define TASK_USERCTX_FMASK               0x00ff
 
-/* Serve RPC functions with `context' referring to the
- * CPU state following an interrupt system call.
- * Unless the RPC callback changes `error_info()->e_error.e_code'
- * to `E_USER_RESUME', user-space execution will continue by
- * having the accompanying system call return `-EINTR', or by
- * throwing an `E_INTERRUPT' exception, depending on the
- * `ERR_FSYSCALL_EXC' flag. */
-#define TASK_USERCTX_FAFTERINTERRUPT 0x0002
+#define TASK_USERCTX_FLAG_FMASK          0x00f0 /* Mask for context flags. */
+#define TASK_USERCTX_TYPE(x) ((x) & TASK_USERCTX_TYPE_FMASK)
+#define TASK_USERCTX_TYPE_FMASK          0x000f /* Mask for the basic context type. (One of `TASK_USERCTX_TYPE_*') */
+#define TASK_USERCTX_TYPE_WITHINUSERCODE 0x0000 /* Serve RPC functions with `context' referring to the CPU
+                                                 * state as it was after user-space got forcefully preempted. */
+#define TASK_USERCTX_TYPE_INTR_INTERRUPT 0x0001 /* Serve RPC functions with `context' referring to the
+                                                 * CPU state following an interrupted interrupt.
+                                                 * NOTE: An RPC may override `error_info()->e_error.e_code = E_USER_RESUME' to
+                                                 *       continue execution in user-space normally. */
+#define TASK_USERCTX_TYPE_INTR_SYSCALL   0x0002 /* Same as `TASK_USERCTX_TYPE_INTR_INTERRUPT', but the RPC
+                                                 * is being served following an interrupted system call.
+                                                 * NOTE: An RPC may override `error_info()->e_error.e_code = E_USER_RESUME' to
+                                                 *       continue execution in user-space normally. */
+
 
 #ifdef CONFIG_BUILDING_KERNEL_CORE
 #ifdef __CC__
@@ -1095,7 +1098,8 @@ FUNDEF bool KCALL task_unshare_vm(void);       /* CLONE_FS */
  *       have been registered that should be executed prior to jumping
  *       back to user-space.
  * @param: context: The user-space CPU context as it will be restored during the switch.
- * @param: mode:    One of `TASK_USERCTX_F*' (see above) */
+ * @param: mode:    One of `TASK_USERCTX_F*' (see above)
+ *            NOTE: May be or'd with arch-specific flags. */
 INTDEF void FCALL
 task_serve_before_user(struct cpu_hostcontext_user *__restrict context,
                        unsigned int mode);
@@ -1129,6 +1133,14 @@ task_serve_before_user(struct cpu_hostcontext_user *__restrict context,
  *       from user-space, preemption must be turned back on before this function
  *       should be called. */
 FUNDEF void FCALL task_restart_interrupt(struct cpu_anycontext *__restrict context);
+/* Same as `task_restart_interrupt()', but meant to be called from a
+ * `CATCH(E_INTERRUPT)' block surrounding a system call invocation.
+ * When these functions return `true', the system call should be restarted.
+ * Otherwise, `false' is returned and the caller should rethrow the dangling `E_INTERRUPT'.
+ * @param: mode: `TASK_USERCTX_TYPE_INTR_SYSCALL', optionally or'd with arch-
+ *                dependent context flags (e.g.: on X86, `X86_SYSCALL_TYPE_F*') */
+FUNDEF bool FCALL task_restart_syscall(struct cpu_anycontext *__restrict context,
+                                       unsigned int mode, syscall_ulong_t sysno);
 #endif /* __CC__ */
 
 

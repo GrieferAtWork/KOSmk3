@@ -72,6 +72,8 @@ libc_error_rethrow_at(struct cpu_context *__restrict context,
   is_first = false;
   /* Search for a suitable exception handler (in reverse order!). */
   if (linker_findexcept_consafe(ip,error_code(),&hand)) {
+    if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS)
+        error_info()->e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK;
    if (hand.ehi_flag & EXCEPTION_HANDLER_FDESCRIPTOR) {
     /* Unwind the stack to the caller-site. */
     if (!eh_return(&info,&unwind,EH_FDONT_UNWIND_SIGFRAME))
@@ -157,6 +159,10 @@ libc_error_rethrow_at_user(struct cpu_hostcontext_user *__restrict context,
   is_first = false;
   /* Search for a suitable exception handler (in reverse order!). */
   if (linker_findexcept(ip,exception_code,&hand)) {
+   if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS) {
+    /* TODO */
+    /*info->e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK*/
+   }
    if (hand.ehi_flag & EXCEPTION_HANDLER_FDESCRIPTOR) {
     /* Unwind the stack to the caller-site. */
     if (!eh_return(&info,(struct cpu_context *)context,
