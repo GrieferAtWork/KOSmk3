@@ -62,6 +62,7 @@ libc_core_assertion_failure(char const *expr, DEBUGINFO,
 
 INTERN uintptr_t __stack_chk_guard = 0x1246Ab1f;
 INTERN ATTR_NORETURN void __stack_chk_fail_local(void) {
+ libc_syslog(LOG_EMERG,"__stack_chk_fail_local()\n");
  asm("int3");
  for (;;) {}
 }

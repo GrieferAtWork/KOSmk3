@@ -24,6 +24,7 @@
 #include <hybrid/xch.h>
 #include <asm/param.h>
 #include <i386-kos/interrupt.h>
+#include <i386-kos/vm86.h>
 #include <kernel/sections.h>
 
 DECL_BEGIN
@@ -85,6 +86,7 @@ FUNDEF NOIRQ ATTR_RETNONNULL struct x86_irregs_user *KCALL x86_interrupt_getiret
 
 
 /* Arch-independent interrupt-return information. */
+FORCELOCAL bool KCALL interrupt_returns_to_user(void);
 FORCELOCAL USER uintptr_t KCALL interrupt_getip(void);
 FORCELOCAL USER uintptr_t KCALL interrupt_getsp(void);
 FORCELOCAL USER uintptr_t KCALL interrupt_setip(uintptr_t newip);
@@ -93,6 +95,19 @@ FORCELOCAL void KCALL interrupt_getipsp(uintptr_t *__restrict pip, uintptr_t *__
 FORCELOCAL void KCALL interrupt_setipsp(uintptr_t newip, uintptr_t newsp);
 
 
+FORCELOCAL bool KCALL interrupt_returns_to_user(void) {
+ bool result;
+ struct x86_irregs_user *iret;
+ pflag_t was = PREEMPTION_PUSHOFF();
+ iret = x86_interrupt_getiret();
+#ifdef CONFIG_VM86
+ result = (iret->ir_cs & 3) || (iret->ir_eflags & 0x20000);
+#else
+ result = (iret->ir_cs & 3) != 0;
+#endif
+ PREEMPTION_POP(was);
+ return result;
+}
 FORCELOCAL USER uintptr_t KCALL interrupt_getip(void) {
  USER uintptr_t result;
  pflag_t was = PREEMPTION_PUSHOFF();

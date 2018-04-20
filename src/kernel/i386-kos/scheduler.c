@@ -372,6 +372,61 @@ x86_redirect_preempted_userspace(struct task *__restrict thread) {
 }
 
 
+PUBLIC void FCALL
+task_restart_interrupt(struct cpu_anycontext *__restrict context) {
+again:
+ assertf(error_code() == E_INTERRUPT,
+         "Only call this function from a CATCH(E_INTERRUPT) block");
+ if unlikely(!PREEMPTION_ENABLED())
+    goto rethrow; /* Caller can't originate from user-space if they neglected to re-enable interrupts. */
+ /* Check if the context returns to user-space. */
+ if (X86_ANYCONTEXT32_ISUSER(*context))
+     goto do_serve;
+ /* Even if it doesn't, there's still the whole thing about `x86_redirect_preemption' */
+ if (context->c_eip != (uintptr_t)&x86_redirect_preemption)
+     goto rethrow_p;
+ assertf(!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB),
+         "How did a kernel job manage to redirect its preemption? "
+         "Also from what should that preemption have been redirected?");
+ /* Ok. So we got here as the result of a preemption redirection (`task_wake_for_rpc()'),
+  * meaning that at some point the calling interrupt must have been waiting for some
+  * kind of lock, before it got interrupted when some other thread scheduled an RPC.
+  * Our job now is to restore the saved IRET tail and act as though we weren't waiting
+  * at all, instead opting to handle the RPC function the same way we would if
+  * preemption was never redirected. */
+ assertf(&context->c_iret == REAL_IRET(),
+         "Only the directed CPU context could point at `x86_redirect_preemption'. "
+         "This means that the given context must be the real IRET tail");
+ /* Restore the saved IRET tail. */
+ memcpy(&context->c_iret,&PERTASK(iret_saved),
+         sizeof(struct x86_irregs_user));
+do_serve:
+ PREEMPTION_ENABLE();
+ TRY {
+#if 0
+  error_printf("TASK_RESTART_INTERRUPT()\n");
+#endif
+  /* Since the interrupt will be restarted once RPC
+   * functions have been served, semantically speaking,
+   * the user-space CPU context is the same as if the
+   * RPC was being served while the thread was still
+   * in user-space, about to trigger the interrupt that
+   * was interrupted in order to serve RPC functions. */
+  task_serve_before_user(&context->c_user,
+                          TASK_USERCTX_FWITHINUSERCODE);
+ } CATCH (E_INTERRUPT) {
+  /* Deal with recursive restart attempts. */
+  goto again;
+ }
+ return;
+rethrow_p:
+ PREEMPTION_ENABLE();
+rethrow:
+ error_rethrow();
+}
+
+
+
 PRIVATE ASYNCSAFE ATTR_NOTHROW bool KCALL
 task_wake_ex(struct task *__restrict thread,
              unsigned int mode) {

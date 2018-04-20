@@ -1103,6 +1103,34 @@ task_serve_before_user(struct cpu_hostcontext_user *__restrict context,
 #endif /* CONFIG_BUILDING_KERNEL_CORE */
 
 
+#ifdef __CC__
+/* Should be called from a CATCH(E_INTERRUPT) block within a
+ * restartable interrupt to attempt to restart the system call.
+ * If the given `context' isn't the final one that will be used to eventually
+ * return to user-space, the previously thrown `E_INTERRUPT' will be re-thrown.
+ * If these functions return normally, the caller should restart the current
+ * system call / interrupt.
+ * These functions will call `task_serve_before_user()' when `context' is
+ * the associated (original) user-space CPU context to which to return.
+ * NOTE: This function should only be called from interrupt handlers, such as
+ *       the PAGEFAULT -> loadcore() handler in order to be restartable when
+ *       some other thread schedules an RPC function with the `TASK_RPC_USER'
+ *       flag set while that other thread is busy loading data into the core.
+ * NOTE: This function also properly deals with redirected preemption, which
+ *       should remind you that you can't just look at `context->CS & 3' to
+ *       see if that context returns to user-space.
+ *       _ALWAYS_ call this function when you're restartable interrupt
+ *       handler catches an `E_INTERRUPT' exception!
+ *       This function will then do the rest.
+ * NOTE: This function must only be called from interrupt handlers that don't
+ *       require async-safety (such as the #PF handler on X86). Additionally,
+ *       the caller is responsible to re-enable preemption if the interrupt
+ *       source had them enabled before, meaning that if the interrupt originated
+ *       from user-space, preemption must be turned back on before this function
+ *       should be called. */
+FUNDEF void FCALL task_restart_interrupt(struct cpu_anycontext *__restrict context);
+#endif /* __CC__ */
+
 
 #ifdef __CC__
 /* The current jiffies-time. */

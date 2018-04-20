@@ -96,14 +96,14 @@ error_rethrow_atuser(struct cpu_context *__restrict context) {
 
 /* Hardware exception handling. */
 INTERN void FCALL
-x86_handle_pagefault(struct cpu_anycontext *__restrict context,
+x86_handle_pagefault(struct cpu_anycontext *__restrict EXCEPT_VAR context,
                      register_t errcode) {
  struct exception_info *info;
- void *fault_address;
+ void *EXCEPT_VAR fault_address;
  /* Extract the fault address before re-enabling interrupts. */
  __asm__("movl %%cr2, %0" : "=r" (fault_address) : : "memory");
  assert(!PREEMPTION_ENABLED());
-#if 1
+#if 0
  if (context->c_eflags & EFLAGS_VM) {
  debug_printf("#PF at %p (from %p; errcode %x; esp %p%s)\n",
               fault_address,context->c_eip,errcode,
@@ -114,128 +114,135 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
 //      __asm__("int3");
 #endif
  /* Re-enable interrupts if they were enabled before. */
- if (context->c_eflags&EFLAGS_IF)
+ if (context->c_eflags & EFLAGS_IF)
      x86_interrupt_enable();
 
+again:
 #ifdef CONFIG_DEBUG_MALLOC
  if (!PERTASK_TEST(mall_leak_nocore))
 #endif
  {
-  bool EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(vm_ok);
-  struct vm *EXCEPT_VAR effective_vm;
-  struct task_connections old_connections;
-  vm_vpage_t fault_page = VM_ADDR2PAGE((uintptr_t)fault_address);
-  effective_vm = fault_page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
-
-  /* Preserve the set of active task connections while faulting. */
-  task_push_connections(&old_connections);
-  COMPILER_BARRIER();
   TRY {
-#ifndef CONFIG_NO_VIO
-   bool EXCEPT_VAR has_vm_lock = true;
-#endif
-   vm_acquire(effective_vm);
+   bool EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(vm_ok);
+   struct vm *EXCEPT_VAR effective_vm;
+   struct task_connections old_connections;
+   vm_vpage_t fault_page = VM_ADDR2PAGE((uintptr_t)fault_address);
+   effective_vm = fault_page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
+
+   /* Preserve the set of active task connections while faulting. */
+   task_push_connections(&old_connections);
+   COMPILER_BARRIER();
    TRY {
-    struct vm_node *node;
-    /* Ensure that X86 SEGFAULT flags match our VM LOADCORE mode flags. */
-    STATIC_ASSERT(X86_SEGFAULT_FWRITE == VM_LOADCORE_WRITE);
-    STATIC_ASSERT(X86_SEGFAULT_FUSER  == VM_LOADCORE_USER);
-    vm_ok = vm_loadcore(fault_page,1,errcode & (VM_LOADCORE_WRITE|VM_LOADCORE_USER));
-    if (!vm_ok && (node = vm_getnode(fault_page)) != NULL) {
-     /* Due to race conditions, the access might still be supposed to be OK. */
-     if ((errcode & X86_SEGFAULT_FUSER) &&
-         (node->vn_prot & PROT_NOUSER)); /* User-space access, but access isn't given to the user. */
-     else if ((errcode & X86_SEGFAULT_FWRITE) &&
-             !(node->vn_prot & PROT_WRITE)); /* Write-access isn't allowed */
-     else if ((errcode & X86_SEGFAULT_FEXEC) &&
-             !(node->vn_prot & PROT_EXEC)); /* Code execution isn't allowed */
-     else if (errcode & X86_SEGFAULT_FRESWRITE); /* May happen for custom mappings: Reserved paging bit was set */
 #ifndef CONFIG_NO_VIO
-     else if (node->vn_region->vr_type == VM_REGION_VIO &&
-             (uintptr_t)fault_address != CONTEXT_IP(*context)) {
-      REF struct vm_region *EXCEPT_VAR vio_region;
-      uintptr_t vio_addr;
-      vio_addr   = node->vn_start*PAGESIZE+
-                 ((uintptr_t)fault_address-
-                  (uintptr_t)VM_NODE_MINADDR(node));
-      vio_region = node->vn_region;
-      vm_region_incref(vio_region);
-      TRY {
-       vm_release(effective_vm);
-       has_vm_lock = false;
-       /* Perform a VIO memory access. */
+    bool EXCEPT_VAR has_vm_lock = true;
+#endif
+    vm_acquire(effective_vm);
+    TRY {
+     struct vm_node *node;
+     /* Ensure that X86 SEGFAULT flags match our VM LOADCORE mode flags. */
+     STATIC_ASSERT(X86_SEGFAULT_FWRITE == VM_LOADCORE_WRITE);
+     STATIC_ASSERT(X86_SEGFAULT_FUSER  == VM_LOADCORE_USER);
+     vm_ok = vm_loadcore(fault_page,1,errcode & (VM_LOADCORE_WRITE|VM_LOADCORE_USER));
+     if (!vm_ok && (node = vm_getnode(fault_page)) != NULL) {
+      /* Due to race conditions, the access might still be supposed to be OK. */
+      if ((errcode & X86_SEGFAULT_FUSER) &&
+          (node->vn_prot & PROT_NOUSER)); /* User-space access, but access isn't given to the user. */
+      else if ((errcode & X86_SEGFAULT_FWRITE) &&
+              !(node->vn_prot & PROT_WRITE)); /* Write-access isn't allowed */
+      else if ((errcode & X86_SEGFAULT_FEXEC) &&
+              !(node->vn_prot & PROT_EXEC)); /* Code execution isn't allowed */
+      else if (errcode & X86_SEGFAULT_FRESWRITE); /* May happen for custom mappings: Reserved paging bit was set */
+#ifndef CONFIG_NO_VIO
+      else if (node->vn_region->vr_type == VM_REGION_VIO &&
+              (uintptr_t)fault_address != CONTEXT_IP(*context)) {
+       REF struct vm_region *EXCEPT_VAR vio_region;
+       uintptr_t vio_addr;
+       vio_addr   = node->vn_start*PAGESIZE+
+                  ((uintptr_t)fault_address-
+                   (uintptr_t)VM_NODE_MINADDR(node));
+       vio_region = node->vn_region;
+       vm_region_incref(vio_region);
        TRY {
-        if (context->c_iret.ir_cs & 3) {
-         context->c_hostesp = context->c_useresp;
-         vm_ok = x86_handle_vio(context,vio_region,vio_addr,fault_address);
-         context->c_useresp = context->c_hostesp;
-        } else {
-         vm_ok = x86_handle_vio(context,vio_region,vio_addr,fault_address);
+        vm_release(effective_vm);
+        has_vm_lock = false;
+        /* Perform a VIO memory access. */
+        TRY {
+         if (context->c_iret.ir_cs & 3) {
+          context->c_hostesp = context->c_useresp;
+          vm_ok = x86_handle_vio(context,vio_region,vio_addr,fault_address);
+          context->c_useresp = context->c_hostesp;
+         } else {
+          vm_ok = x86_handle_vio(context,vio_region,vio_addr,fault_address);
+         }
+        } CATCH (E_NOT_IMPLEMENTED) {
+         vm_ok = false;
         }
-       } CATCH (E_NOT_IMPLEMENTED) {
-        vm_ok = false;
+       } FINALLY {
+        vm_region_decref(vio_region);
        }
-      } FINALLY {
-       vm_region_decref(vio_region);
       }
-     }
 #endif
-     else if (node->vn_region->vr_type == VM_REGION_RESERVED) {
-      /* The region is reserved and we must ask the
-       * page directory itself if access is allowed.
-       * This may still be a sporadic fault if an invtlb hasn't
-       * reached use yet, or if the page is being updated lazily. */
-      unsigned int vec2 = X86_PDIR_VEC2INDEX_VPAGE(fault_page);
-      unsigned int vec1 = X86_PDIR_VEC1INDEX_VPAGE(fault_page);
-      u32 data = X86_PDIR_E2_IDENTITY[vec2].p_flag;
-      if (!(data & X86_PAGE_FPRESENT)) {
-      } else {
-       if (!(data & X86_PAGE_F4MIB))
-             data = X86_PDIR_E1_IDENTITY[vec2][vec1].p_flag;
-       if (!(data & X86_PAGE_FPRESENT)); /* Not mapped */
-       else if ((errcode & X86_SEGFAULT_FUSER) &&
-               !(data & X86_PAGE_FUSER)); /* Not accessible to user-space. */
-       else if ((errcode & X86_SEGFAULT_FWRITE) &&
-               !(data & X86_PAGE_FWRITE)); /* Not writable. */
+      else if (node->vn_region->vr_type == VM_REGION_RESERVED) {
+       /* The region is reserved and we must ask the
+        * page directory itself if access is allowed.
+        * This may still be a sporadic fault if an invtlb hasn't
+        * reached use yet, or if the page is being updated lazily. */
+       unsigned int vec2 = X86_PDIR_VEC2INDEX_VPAGE(fault_page);
+       unsigned int vec1 = X86_PDIR_VEC1INDEX_VPAGE(fault_page);
+       u32 data = X86_PDIR_E2_IDENTITY[vec2].p_flag;
+       if (!(data & X86_PAGE_FPRESENT)) {
+       } else {
+        if (!(data & X86_PAGE_F4MIB))
+              data = X86_PDIR_E1_IDENTITY[vec2][vec1].p_flag;
+        if (!(data & X86_PAGE_FPRESENT)); /* Not mapped */
+        else if ((errcode & X86_SEGFAULT_FUSER) &&
+                !(data & X86_PAGE_FUSER)); /* Not accessible to user-space. */
+        else if ((errcode & X86_SEGFAULT_FWRITE) &&
+                !(data & X86_PAGE_FWRITE)); /* Not writable. */
 #if 0 /* Already checked above... */
-       else if (errcode & X86_SEGFAULT_FRESWRITE); /* Reserved write. */
+        else if (errcode & X86_SEGFAULT_FRESWRITE); /* Reserved write. */
 #endif
-       else {
-        /* Synchronize (invalidate) the affected page. */
-        debug_printf("VM memory access race condition at %p\n",fault_address);
-        pagedir_sync(fault_page,1);
-        vm_ok = true;
+        else {
+         /* Synchronize (invalidate) the affected page. */
+         debug_printf("VM memory access race condition at %p\n",fault_address);
+         pagedir_sync(fault_page,1);
+         vm_ok = true;
+        }
        }
-      }
-     } else {
-      /* Manually force a remap with the updated permissions. */
-      vm_map_node(node);
-      /* The access should be OK now... */
-      if (pagedir_ismapped(fault_page)) {
-       vm_ok = !(errcode & X86_SEGFAULT_FWRITE) ||
-                 pagedir_iswritable(fault_page);
-       if (vm_ok) {
-        /* Synchronize the freshly remapped node (in case something else was mapped there before) */
-        pagedir_sync(VM_NODE_BEGIN(node),VM_NODE_SIZE(node));
-        debug_printf("VM memory access race condition at %p (errcode %p)\n",
-                     fault_address,errcode);
+      } else {
+       /* Manually force a remap with the updated permissions. */
+       vm_map_node(node);
+       /* The access should be OK now... */
+       if (pagedir_ismapped(fault_page)) {
+        vm_ok = !(errcode & X86_SEGFAULT_FWRITE) ||
+                  pagedir_iswritable(fault_page);
+        if (vm_ok) {
+         /* Synchronize the freshly remapped node (in case something else was mapped there before) */
+         pagedir_sync(VM_NODE_BEGIN(node),VM_NODE_SIZE(node));
+         debug_printf("VM memory access race condition at %p (errcode %p)\n",
+                      fault_address,errcode);
+        }
        }
       }
      }
+    } FINALLY {
+#ifndef CONFIG_NO_VIO
+     if (has_vm_lock)
+#endif
+         vm_release(effective_vm);
     }
    } FINALLY {
-#ifndef CONFIG_NO_VIO
-    if (has_vm_lock)
-#endif
-        vm_release(effective_vm);
+    /* Restore task connections. */
+    task_pop_connections(&old_connections);
    }
-  } FINALLY {
-   /* Restore task connections. */
-   task_pop_connections(&old_connections);
+   /* If the VM says the error is OK, return without throwing a SEGFAULT. */
+   if (vm_ok)
+       return;
+  } CATCH (E_INTERRUPT) {
+   /* Deal with interrupt restarts. */
+   task_restart_interrupt(context);
+   goto again;
   }
-  /* If the VM says the error is OK, return without throwing a SEGFAULT. */
-  if (vm_ok)
-      return;
  }
 
 
