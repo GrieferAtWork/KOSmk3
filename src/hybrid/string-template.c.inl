@@ -689,8 +689,33 @@ libc_wildstrX(casecmp)(T_char *pattern, T_char *string) {
 EXPORT_SYMBOLwild(casecmp);
 
 CRT_STRING int LIBCCALL
-libc_strX(verscmp)(T_char *s1, T_char *s2) {
- assertf(0,"TODO");
+libc_strX(verscmp)(T_char *a, T_char *b) {
+ T_char ca,cb,*a_start = a;
+ do {
+  if ((ca = *a) != (cb = *b)) {
+   unsigned int vala,valb;
+   /* Unwind common digits. */
+   while (a != a_start) {
+    if (a[-1] < '0' || a[-1] > '9') break;
+    cb = ca = *--a,--b;
+   }
+   /* Check if both strings have digit sequences in the same places. */
+   if ((ca < '0' || ca > '9') &&
+       (cb < '0' || cb > '9'))
+       return (int)((T_schar)ca - (T_schar)cb);
+   /* Deal with leading zeros. */
+   if (ca == '0') return -1;
+   if (cb == '0') return 1;
+   /* Compare digits. */
+   vala = ca - '0';
+   valb = cb - '0';
+   for (;;) { ca = *a++; if (ca < '0' || ca > '9') break; vala *= 10; vala += ca-'0'; }
+   for (;;) { cb = *b++; if (cb < '0' || cb > '9') break; valb *= 10; valb += cb-'0'; }
+   return (int)vala - (int)valb;
+  }
+  ++a,++b;
+ } while (ca);
+ return 0;
 }
 EXPORT_SYMBOL(verscmp);
 

@@ -171,6 +171,17 @@ int main(int argc, char *argv[]) {
  assert(strncmp("foo","foobar",5) != 0);
  assert(strncmp("foo","foobar",6) != 0);
  assert(strncmp("foo","foobar",7) != 0);
+ assert(strverscmp("foo","foo") == 0);
+ assert(strverscmp("foo1","foo1") == 0);
+ assert(strverscmp("foo9","foo9") == 0);
+ assert(strverscmp("foo000","foo00") < 0);
+ assert(strverscmp("foo00","foo01") < 0);
+ assert(strverscmp("foo01","foo010") < 0);
+ assert(strverscmp("foo010","foo09") < 0);
+ assert(strverscmp("foo09","foo0") < 0);
+ assert(strverscmp("foo0","foo1") < 0);
+ assert(strverscmp("foo1","foo9") < 0);
+ assert(strverscmp("foo9","foo10") < 0);
 
  pid_t cpid;
  if ((cpid = Xfork()) == 0) {

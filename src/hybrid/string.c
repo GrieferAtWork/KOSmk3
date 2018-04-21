@@ -840,21 +840,6 @@ EXPORT_STRONG(__rawmemchr,libc_rawmemchr);
 EXPORT_STRONG(__mempcpy,libc_mempcpy);
 EXPORT_STRONG(__bzero,libc_bzero);
 
-/*TODO:
-    _wcslwr_s
-    _wcslwr_s_l
-    _wcsnset_s
-    _wcsset_s
-    _wcsupr_s
-    _wcsupr_s_l
-    _strlwr_s
-    _strlwr_s_l
-    _strnset_s
-    _strset_s
-    _strupr_s
-    _strupr_s_l
-*/
-
 
 #endif /* !CONFIG_LIBC_LIMITED_API */
 
