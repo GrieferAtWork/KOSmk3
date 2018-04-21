@@ -672,11 +672,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "dos", "dos", "{A57D71ED-86D
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kos2", "kos2", "{AB26CC51-101D-40E4-B118-3157E1B85FBA}"
 	ProjectSection(SolutionItems) = preProject
-		..\include\parts\kos2\amalloc.h = ..\include\parts\kos2\amalloc.h
 		..\include\parts\kos2\assert.h = ..\include\parts\kos2\assert.h
 		..\include\parts\kos2\inttypes.h = ..\include\parts\kos2\inttypes.h
 		..\include\parts\kos2\malldefs.h = ..\include\parts\kos2\malldefs.h
 		..\include\parts\kos2\malloc.h = ..\include\parts\kos2\malloc.h
+		..\include\parts\kos2\malloca.h = ..\include\parts\kos2\malloca.h
 		..\include\parts\kos2\pformatprinter.h = ..\include\parts\kos2\pformatprinter.h
 		..\include\parts\kos2\process.h = ..\include\parts\kos2\process.h
 		..\include\parts\kos2\stdlib.h = ..\include\parts\kos2\stdlib.h

@@ -108,10 +108,10 @@ __ssize_t (__LIBCCALL format_vprintf)(pformatprinter __printer, void *__closure,
 #else /* __DOS_COMPAT__ */
  __reqlen = (__size_t)__libc_vsnprintf(__NULLPTR,0,__format,__args);
 #endif /* !__DOS_COMPAT__ */
- __amalloc_nofail(__buffer,(__reqlen+1)*sizeof(char));
+ __malloca_nofail(__buffer,(__reqlen+1)*sizeof(char));
  __libc_vsprintf(__buffer,__format,__args);
  __result = (*__printer)(__buffer,__reqlen,__closure);
- __afree(__buffer);
+ __freea(__buffer);
  return __result;
 }
 #else /* !__USE_KOS_PRINTF */

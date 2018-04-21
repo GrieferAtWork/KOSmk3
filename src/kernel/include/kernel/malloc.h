@@ -438,7 +438,15 @@ FUNDEF void KCALL mall_print_traceback(void *ptr);
 #   define ATTR_MALL_UNTRACKED  ATTR_SECTION(".bss")
 #endif
 
-
 DECL_END
+
+#ifdef __USE_KOS
+#ifdef _ALLOCA_H
+#include <parts/kos2/malloca.h>
+#define malloca(s) __malloca(s)
+#define calloca(s) __calloca(s)
+#define freea(p)   __freea(p)
+#endif
+#endif /* __USE_KOS */
 
 #endif /* !GUARD_KERNEL_INCLUDE_KERNEL_MALLOC_H */

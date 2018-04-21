@@ -30,11 +30,18 @@
 #endif
 
 #ifdef __USE_KOS
-#if defined(_MALLOC_H) || defined(_STDLIB_H)
-#include "parts/kos2/amalloc.h"
-#define amalloc(s) __amalloc(s)
-#define acalloc(s) __acalloc(s)
-#define afree(p)   __afree(p)
+#if defined(_MALLOC_H) || defined(_STDLIB_H) || \
+   (defined(__KERNEL__) && __KOS_VERSION__ >= 300 && \
+    defined(GUARD_KERNEL_INCLUDE_KERNEL_MALLOC_H))
+#include "parts/kos2/malloca.h"
+#define malloca(s) __malloca(s)
+#define calloca(s) __calloca(s)
+#define freea(p)   __freea(p)
+#ifndef __USE_KOS_DEPRECATED
+#define amalloc(s) __malloca(s)
+#define acalloc(s) __calloca(s)
+#define afree(p)   __freea(p)
+#endif /* !__USE_KOS_DEPRECATED */
 #endif
 #endif /* __USE_KOS */
 

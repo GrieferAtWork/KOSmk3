@@ -666,29 +666,29 @@ __NAMESPACE_INT_END
   (__NAMESPACE_INT_SYM __strndupa_init(__ALLOCA((__libc_strnlen((s),(n))+1)*sizeof(char)),(s),(n)))
 #endif /* __NO_XBLOCK */
 #ifdef __USE_KOS
-#include "parts/kos2/amalloc.h"
+#include "parts/kos2/malloca.h"
 #ifndef __NO_XBLOCK
-#define strdupma(s)	\
+#define mstrdupa(s)	\
  __XBLOCK({ \
    char const *const __old = (s); \
    size_t const __len = __libc_strlen(__old)+1; \
-   char *const __new = (char *)__amalloc(__len); \
+   char *const __new = (char *)__malloca(__len); \
    __XRETURN __new ? (char *)__NAMESPACE_STD_SYM memcpy(__new,__old,__len) : (char *)0; \
  })
-#define strndupma(s,n) \
+#define mstrndupa(s,n) \
  __XBLOCK({ \
    char const *const __old = (s); \
    size_t const __len = __hybrid_strnlen(__old,(n)); \
-   char *const __new = (char *)__amalloc(__len+1); \
+   char *const __new = (char *)__malloca(__len+1); \
    __XRETURN __new ? (__new[__len] = '\0',(char *)__NAMESPACE_STD_SYM memcpy(__new,__old,__len)) : (char *)0; \
  })
 #else /* !__NO_XBLOCK */
 __NAMESPACE_INT_BEGIN
-__LOCAL char *(__LIBCCALL __strdupma_init)(void *__buf, char const *__restrict __src) {
+__LOCAL char *(__LIBCCALL __mstrdupa_init)(void *__buf, char const *__restrict __src) {
     if (__buf) __NAMESPACE_STD_SYM strcpy((char *)__buf,__src);
     return (char *)__buf;
 }
-__LOCAL char *(__LIBCCALL __strndupma_init)(void *__buf, char const *__restrict __src, size_t __n) {
+__LOCAL char *(__LIBCCALL __mstrndupa_init)(void *__buf, char const *__restrict __src, size_t __n) {
     if (__buf) {
         __n = __libc_strnlen(__src,__n);
         __NAMESPACE_STD_SYM memcpy(__buf,__src,__n*sizeof(char));
@@ -697,11 +697,15 @@ __LOCAL char *(__LIBCCALL __strndupma_init)(void *__buf, char const *__restrict 
     return (char *)__buf;
 }
 __NAMESPACE_INT_END
-#define strdupma(s) \
-  (__NAMESPACE_INT_SYM __strdupma_init(__amalloc((__libc_strlen(s)+1)*sizeof(char)),(s)))
-#define strndupma(s,n) \
-  (__NAMESPACE_INT_SYM __strndupma_init(__amalloc((__libc_strnlen((s),(n))+1)*sizeof(char)),(s),(n)))
+#define mstrdupa(s) \
+  (__NAMESPACE_INT_SYM __mstrdupa_init(__malloca((__libc_strlen(s)+1)*sizeof(char)),(s)))
+#define mstrndupa(s,n) \
+  (__NAMESPACE_INT_SYM __mstrndupa_init(__malloca((__libc_strnlen((s),(n))+1)*sizeof(char)),(s),(n)))
 #endif /* __NO_XBLOCK */
+#ifdef __USE_KOS_DEPRECATED
+#define strdupma(s,n)  mstrdupa(s,n)
+#define strndupma(s,n) mstrndupa(s,n)
+#endif
 #endif /* __USE_KOS */
 #endif /* __USE_GNU */
 

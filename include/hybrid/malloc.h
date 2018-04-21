@@ -20,6 +20,18 @@
 #define __GUARD_HYBRID_MALLOC_H 1
 
 #include <__stdinc.h>
+
+#if defined(__KERNEL__) && __KOS_VERSION__ >= 300
+#ifndef GUARD_KERNEL_INCLUDE_KERNEL_MALLOC_H
+#include <kernel/malloc.h>
+#endif /* !GUARD_KERNEL_INCLUDE_KERNEL_MALLOC_H */
+#define __hybrid_malloc(n_bytes)                   kmalloc(n_bytes,GFP_SHARED)
+#define __hybrid_calloc(count,n_bytes)             kmalloc((count)*(n_bytes),GFP_SHARED|GFP_CALLOC)
+#define __hybrid_free(mallptr)                     kfree(mallptr)
+#define __hybrid_realloc(mallptr,n_bytes)          krealloc(mallptr,n_bytes,GFP_SHARED)
+#define __hybrid_realloc_in_place(mallptr,n_bytes) krealloc(mallptr,n_bytes,GFP_SHARED|GFP_NOMOVE)
+#else
+
 #include "typecore.h"
 #include <bits/types.h>
 #include <features.h>
@@ -95,5 +107,6 @@ __REDIRECT_VOID(__LIBC,,__LIBCCALL,__libc_free_d,(void *__restrict __mallptr, __
 
 __SYSDECL_END
 #endif /* __CC__ */
+#endif
 
 #endif /* !__GUARD_HYBRID_MALLOC_H */

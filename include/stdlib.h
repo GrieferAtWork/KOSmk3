@@ -697,10 +697,15 @@ __SYSDECL_END
 
 #ifdef __USE_KOS
 #ifdef _ALLOCA_H
-#include "parts/kos2/amalloc.h"
-#define amalloc(s) __amalloc(s)
-#define acalloc(s) __acalloc(s)
-#define afree(p)   __afree(p)
+#include "parts/kos2/malloca.h"
+#define malloca(s) __malloca(s)
+#define calloca(s) __calloca(s)
+#define freea(p)   __freea(p)
+#ifndef __USE_KOS_DEPRECATED
+#define amalloc(s) __malloca(s)
+#define acalloc(s) __calloca(s)
+#define afree(p)   __freea(p)
+#endif /* !__USE_KOS_DEPRECATED */
 #endif
 #ifndef _PARTS_KOS2_STDLIB_H
 #include "parts/kos2/stdlib.h"
