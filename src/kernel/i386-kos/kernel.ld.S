@@ -144,6 +144,10 @@
 .hidden kernel_rwnf_size_raw
 .hidden kernel_rwnf_size
 .hidden kernel_free_start
+.hidden kernel_coredriver_param_start
+.hidden kernel_coredriver_param_end
+.hidden kernel_coredriver_param_size
+.hidden kernel_coredriver_param_count
 .hidden kernel_coredriver_init_start
 .hidden kernel_coredriver_init_end
 .hidden kernel_free_end_raw

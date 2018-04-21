@@ -346,11 +346,19 @@ SECTIONS {
 		*(.text.free)
 		*(.rodata.free)
 		*(.rodata.str.free)
+
+		IP_ALIGN(__SIZEOF_POINTER__);
+		PROVIDE_HIDDEN(kernel_coredriver_param_start = ABSOLUTE(.));
+		*(.rodata.core_driver.param)
+		PROVIDE_HIDDEN(kernel_coredriver_param_end = ABSOLUTE(.));
+
+		IP_ALIGN(__SIZEOF_POINTER__);
 		PROVIDE_HIDDEN(kernel_coredriver_init_start = ABSOLUTE(.));
-		*(.rodata.core_driver.preinit.free)
-		*(.rodata.core_driver.init.free)
-		*(.rodata.core_driver.postinit.free)
+		*(.rodata.core_driver.preinit)
+		*(.rodata.core_driver.init)
+		*(.rodata.core_driver.postinit)
 		PROVIDE_HIDDEN(kernel_coredriver_init_end = ABSOLUTE(.));
+
 		*(.data.free)
 		*(.bss.free)
 	}
@@ -427,6 +435,10 @@ SECTIONS {
 	PROVIDE_HIDDEN(kernel_free_minpage   = ABSOLUTE(kernel_free_start / PAGESIZE));
 	PROVIDE_HIDDEN(kernel_free_maxpage   = ABSOLUTE((kernel_free_end / PAGESIZE)-1));
 	PROVIDE_HIDDEN(kernel_free_num_pages = ABSOLUTE((kernel_free_maxpage - kernel_free_minpage)+1));
+
+	PROVIDE_HIDDEN(kernel_coredriver_param_size = ABSOLUTE(kernel_coredriver_param_end - kernel_coredriver_param_start));
+	PROVIDE_HIDDEN(kernel_coredriver_param_count = ABSOLUTE(kernel_coredriver_param_size / (4*__SIZEOF_POINTER__)));
+
 
 	/DISCARD/ : {
 		*(.rel*)

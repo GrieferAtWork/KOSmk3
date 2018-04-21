@@ -68,7 +68,8 @@ __SYSDECL_BEGIN
 #ifdef __ASSEMBLER__
 #define __SAFECALL_SAFED_ESP     esi
 #define __SAFECALL_TARGET_EIP    edi
-#ifdef CONFIG_BUILDING_KERNEL_CORE
+#if defined(CONFIG_BUILDING_KERNEL_CORE) || \
+  (!defined(__PIC__) && !defined(__PIE__))
 #define __SAFECALL_MISSMATCH     x86_stdcall_missmatch
 #else /* CONFIG_BUILDING_KERNEL_CORE */
 #define __SAFECALL_MISSMATCH     x86_stdcall_missmatch@PLT
@@ -77,7 +78,8 @@ __SYSDECL_BEGIN
 #define __SAFECALL_SAFED_ESP    "esi"
 #define __SAFECALL_TARGET_EIP   "edi"
 #define __SAFECALL_TARGET_EIP_C "D"
-#ifdef CONFIG_BUILDING_KERNEL_CORE
+#if defined(CONFIG_BUILDING_KERNEL_CORE) || \
+  (!defined(__PIC__) && !defined(__PIE__))
 #define __SAFECALL_MISSMATCH    "x86_stdcall_missmatch"
 #else /* CONFIG_BUILDING_KERNEL_CORE */
 #define __SAFECALL_MISSMATCH    "x86_stdcall_missmatch@PLT"

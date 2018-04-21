@@ -22,6 +22,7 @@
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
+#include <kos/safecall.h>
 #include <hybrid/minmax.h>
 #include <hybrid/host.h>
 #include <hybrid/align.h>
@@ -1073,15 +1074,15 @@ Elf_EnumInitializers(struct application *__restrict app,
  if (mod->e_dyn.di_init_array_siz) {
   module_callback_t *begin = (module_callback_t *)(loadaddr + mod->e_dyn.di_init_array);
   module_callback_t *iter  = (module_callback_t *)((uintptr_t)begin + mod->e_dyn.di_init_array_siz);
-  while (iter-- > begin) (*func)(*iter,arg);
+  while (iter-- > begin) SAFECALL_KCALL_VOID_2(*func,*iter,arg);
  }
  if (mod->e_dyn.di_preinit_array_siz) {
   module_callback_t *begin = (module_callback_t *)(loadaddr + mod->e_dyn.di_preinit_array);
   module_callback_t *iter  = (module_callback_t *)((uintptr_t)begin + mod->e_dyn.di_preinit_array_siz);
-  while (iter-- > begin) (*func)(*iter,arg);
+  while (iter-- > begin) SAFECALL_KCALL_VOID_2(*func,*iter,arg);
  }
  if (mod->e_dyn.di_init != 0)
-    (*func)((module_callback_t)(loadaddr + mod->e_dyn.di_init),arg);
+     SAFECALL_KCALL_VOID_2(*func,(module_callback_t)(loadaddr + mod->e_dyn.di_init),arg);
 }
 PRIVATE void KCALL
 Elf_EnumFinalizers(struct application *__restrict app,
@@ -1089,11 +1090,11 @@ Elf_EnumFinalizers(struct application *__restrict app,
  uintptr_t loadaddr = app->a_loadaddr;
  ElfModule *mod = app->a_module->m_data;
  if (mod->e_dyn.di_fini != 0)
-     (*func)((module_callback_t)(loadaddr + mod->e_dyn.di_fini),arg);
+     SAFECALL_KCALL_VOID_2(*func,(module_callback_t)(loadaddr + mod->e_dyn.di_fini),arg);
  if (mod->e_dyn.di_fini_array_siz) {
   module_callback_t *iter = (module_callback_t *)(loadaddr + mod->e_dyn.di_fini_array);
   module_callback_t *end  = (module_callback_t *)((uintptr_t)iter + mod->e_dyn.di_fini_array_siz);
-  for (; iter < end; ++iter) (*func)(*iter,arg);
+  for (; iter < end; ++iter) SAFECALL_KCALL_VOID_2(*func,*iter,arg);
  }
 }
 

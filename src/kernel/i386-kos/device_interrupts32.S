@@ -55,7 +55,7 @@ INTERN_ENTRY(X86_IRQ_ATA0)
 	.cfi_adjust_cfa_offset -4
 
 	/* IMPORTANT: Must read from the status port to clear the interrupt flag of the drive!
-	 *            The OSDEV wiki doesn't tell this to you, but if you don't, you won't be
+	 *            The OSDEV wiki doesn't mention this, but if you don't, you won't be
 	 *            getting any additional interrupts.
 	 * However, StackOverflow comes to the rescue:
 	 *  https://stackoverflow.com/questions/7487312/what-is-the-proper-way-to-acknowledge-an-ata-ide-interrupt
@@ -101,7 +101,6 @@ INTERN_ENTRY(X86_IRQ_ATA1)
 SYMEND(X86_IRQ_ATA1)
 	.cfi_endproc
 
-#if 1
 #ifdef CONFIG_HAVE_DEV_PS2
 	.cfi_startproc simple
 	.cfi_signal_frame
@@ -164,7 +163,6 @@ INTERN_ENTRY(X86_IRQ_PS2M)
 SYMEND(X86_IRQ_PS2M)
 	.cfi_endproc
 #endif /* CONFIG_HAVE_DEV_PS2 */
-#endif
 
 .guard_end = .
 X86_DEFINE_INTERRUPT_GUARD(.guard_begin,.guard_end)

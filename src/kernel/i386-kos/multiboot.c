@@ -22,11 +22,14 @@
 #include <hybrid/compiler.h>
 #include <kos/types.h>
 #include <hybrid/section.h>
+#include <fs/driver.h>
 #include <kernel/debug.h>
 #include <kernel/memory.h>
 #include <kernel/sections.h>
 #include <proprietary/multiboot.h>
 #include <proprietary/multiboot2.h>
+#include <string.h>
+#include <except.h>
 
 DECL_BEGIN
 
@@ -41,6 +44,18 @@ INTERN ATTR_FREERODATA u8 const memtype_bios_matrix[6] = {
 
 INTERN ATTR_FREETEXT void KCALL
 x86_load_mb1info(PHYS mb_info_t *__restrict info) {
+ /* Save the kernel commandline pointer (will be loaded later) */
+ kernel_driver.d_cmdline = (char *)info->cmdline;
+ if (kernel_driver.d_cmdline) {
+  if (!kernel_driver.d_cmdline[0])
+       kernel_driver.d_cmdline = NULL;
+  else {
+   mem_install((uintptr_t)kernel_driver.d_cmdline,
+                strlen(kernel_driver.d_cmdline),
+                MEMTYPE_PRESERVE);
+  }
+ }
+
  if (info->flags&MB_INFO_MEM_MAP) {
   mb_memory_map_t *iter,*end;
   mem_install(info->mmap_addr,info->mmap_length,MEMTYPE_PRESERVE);
@@ -56,6 +71,7 @@ x86_load_mb1info(PHYS mb_info_t *__restrict info) {
 
 INTERN ATTR_FREETEXT void KCALL
 x86_load_mb2info(PHYS u8 *__restrict info) {
+ /* TODO */
 }
 
 

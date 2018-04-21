@@ -28,14 +28,25 @@ DECL_BEGIN
 #define KERNEL_BIN_FILENAME_HASH 42 /* TODO */
 
 
+#ifdef __ASSEMBLER__
 #ifdef CONFIG_BUILDING_KERNEL_CORE
+#define __DRIVER_PARAM_SECTION_NAME   .rodata.core_driver.param
 #else
+#define __DRIVER_PARAM_SECTION_NAME   .rodata.driver.param
 #endif
+#else
+#ifdef CONFIG_BUILDING_KERNEL_CORE
+#define __DRIVER_PARAM_SECTION_NAME  ".rodata.core_driver.param"
+#else
+#define __DRIVER_PARAM_SECTION_NAME  ".rodata.driver.param"
+#endif
+#endif
+
 
 #ifdef __ASSEMBLER__
 #ifdef __x86_64__
 #define DEFINE_DRIVER_PARAM_EX(name,type,handler) \
-    .pushsection .rodata.driver.param; \
+    .pushsection __DRIVER_PARAM_SECTION_NAME; \
     .section .discard; \
        991: .string name; \
        991 = . - 991b; \
@@ -56,7 +67,7 @@ DECL_BEGIN
     .popsection
 #else
 #define DEFINE_DRIVER_PARAM_EX(name,type,handler) \
-    .pushsection .rodata.driver.param; \
+    .pushsection __DRIVER_PARAM_SECTION_NAME; \
     .section .discard; \
        991: .string name; \
        991 = . - 991b; \
@@ -79,45 +90,45 @@ DECL_BEGIN
 #else /* __ASSEMBLER__ */
 #ifdef __x86_64__
 #define DEFINE_DRIVER_PARAM_EX(name,type,handler) \
- __asm__(".pushsection .rodata.driver.param\n" \
-         ".section .discard\n" \
-         "   991: .string " #name "\n" \
-         "   991 = . - 991b\n" \
-         ".previous\n" \
-         "   .byte " PP_PRIVATE_STR(type) "\n" \
-         ".if 991b <= 23\n" \
-         "   991: .string " #name "\n" \
-         "   .space 23 - (. - 991b)\n" \
-         ".else\n" \
-         "   .quad 0\n" \
-         "   .section .rodata.str\n" \
-         "      991: .string " #name "\n" \
-         "   .previous\n" \
-         "   .reloc .,R_386_RELATIVE,991b; .quad 0\n" \
-         "   .quad 0\n" \
-         ".endif\n" \
-         "   .quad " PP_PRIVATE_STR(handler) "\n" \
+ __asm__(".pushsection " __DRIVER_PARAM_SECTION_NAME "\n\t" \
+         ".section .discard\n\t" \
+         "\t991: .string " #name "\n\t" \
+         "\t991 = . - 991b\n\t" \
+         ".previous\n\t" \
+         "\t.byte " PP_PRIVATE_STR(type) "\n\t" \
+         ".if 991b <= 23\n\t" \
+         "\t991: .string " #name "\n\t" \
+         "\t.space 23 - (. - 991b)\n\t" \
+         ".else\n\t" \
+         "\t.quad 0\n\t" \
+         "\t.section .rodata.str\n\t" \
+         "\t\t991: .string " #name "\n\t" \
+         "\t.previous\n\t" \
+         "\t.reloc .,R_386_RELATIVE,991b; .quad 0\n\t" \
+         "\t.quad 0\n\t" \
+         ".endif\n\t" \
+         "\t.quad " PP_PRIVATE_STR(handler) "\n\t" \
          ".popsection")
 #else
 #define DEFINE_DRIVER_PARAM_EX(name,type,handler) \
- __asm__(".pushsection .rodata.driver.param\n" \
-         ".section .discard\n" \
-         "   991: .string " #name "\n" \
-         "   991 = . - 991b\n" \
-         ".previous\n" \
-         "   .byte " PP_PRIVATE_STR(type) "\n" \
-         ".if 991b <= 11\n" \
-         "   991: .string " #name "\n" \
-         "   .space 11 - (. - 991b)\n" \
-         ".else\n" \
-         "   .long 0\n" \
-         "   .section .rodata.str\n" \
-         "      991: .string " #name "\n" \
-         "   .previous\n" \
-         "   .reloc .,R_386_RELATIVE,991b; .long 0\n" \
-         "   .long 0\n" \
-         ".endif\n" \
-         "   .long " PP_PRIVATE_STR(handler) "\n" \
+ __asm__(".pushsection " __DRIVER_PARAM_SECTION_NAME "\n\t" \
+         ".section .discard\n\t" \
+         "\t991: .string " #name "\n\t" \
+         "\t991 = . - 991b\n\t" \
+         ".previous\n\t" \
+         "\t.byte " PP_PRIVATE_STR(type) "\n\t" \
+         ".if 991b <= 11\n\t" \
+         "\t991: .string " #name "\n\t" \
+         "\t.space 11 - (. - 991b)\n\t" \
+         ".else\n\t" \
+         "\t.long 0\n" \
+         "\t.section .rodata.str\n\t" \
+         "\t\t991: .string " #name "\n\t" \
+         "\t.previous\n\t" \
+         "\t.reloc .,R_386_RELATIVE,991b; .long 0\n\t" \
+         "\t.long 0\n\t" \
+         ".endif\n\t" \
+         "\t.long " PP_PRIVATE_STR(handler) "\n\t" \
          ".popsection")
 #endif
 #endif /* !__ASSEMBLER__ */

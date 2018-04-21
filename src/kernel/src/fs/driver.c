@@ -32,10 +32,15 @@
 #include <kernel/sections.h>
 #include <unwind/debug_line.h>
 #include <elf.h>
+#include <ctype.h>
 #include <string.h>
 #include <except.h>
+#include <alloca.h>
 
 DECL_BEGIN
+
+STATIC_ASSERT(sizeof(struct driver_param) == 4*sizeof(void *));
+
 
 INTDEF void ASMCALL _start(void);
 INTDEF struct except_handler kernel_except_start[];
@@ -221,6 +226,154 @@ PUBLIC struct driver kernel_driver = {
     .d_spec = &kernel_driver_specs
 };
 
+/* Sanitize the given commandline:
+ *    - Split at spaces (by replacing with \0)
+ *    - Correctly interpret '...' and "..." pairs
+ *    - Correctly interpret \ being used to escape the next character
+ *    - Remove empty arguments (merge consecutive \0 characters at the end)
+ * NOTE: The caller must ensure that `cmdline ...+= strlen(cmdline)+2' are writable.
+ * Following this, arguments can be enumerated using:
+ * >> for (; *cmdline; cmdline = strend(cmdline)+1) {
+ * >>     debug_printf("arg = %q\n",cmdline);
+ * >> }
+ */
+PRIVATE void KCALL format_commandline(char *cmdline) {
+ char in_quote = 0;
+ char *end = strend(cmdline);
+continue_parsing:
+ for (; cmdline < end; ++cmdline) {
+  char ch = *cmdline;
+  if (ch == '\\') {
+   /* Escape the next character. */
+   /* Delete the backslash that was used for escaping. */
+   memmove(cmdline,cmdline+1,
+          (--end-cmdline)*sizeof(char));
+   ++cmdline;
+   goto continue_parsing;
+  }
+  if (ch == in_quote) {
+   /* End quotation. */
+   in_quote = 0;
+delete_char:
+   memmove(cmdline,cmdline+1,
+          (--end-cmdline)*sizeof(char));
+   goto continue_parsing;
+  }
+  if (ch == '\"' || ch == '\'') {
+   /* Start quotation */
+   in_quote = ch;
+   goto delete_char;
+  }
+  if (!in_quote && isspace(ch)) {
+   /* End of argument. */
+   *cmdline++ = '\0';
+   /* Delete consecutive spaces. */
+   while (cmdline != end && isspace(*cmdline)) {
+    memmove(cmdline,cmdline+1,
+           (--end-cmdline)*sizeof(char));
+   }
+   goto continue_parsing;
+  }
+ }
+ /* Add trailing NUL-characters.
+  * NOTE: We add to as a marker to terminate the strend()-iterator */
+ cmdline[0] = '\0';
+ cmdline[1] = '\0';
+}
+
+
+
+INTERN ATTR_FREETEXT void KCALL
+kernel_relocate_commandline(void) {
+ size_t cmdline_length;
+ if (!kernel_driver.d_cmdline)
+      return; /* Nothing to do here. */
+ cmdline_length = strlen(kernel_driver.d_cmdline);
+ /* Duplicate the kernel commandline into GFP_SHARED memory. */
+ kernel_driver.d_cmdline = (char *)memcpy(kmalloc((cmdline_length+2)*sizeof(char),
+                                                   GFP_SHARED),
+                                          kernel_driver.d_cmdline,
+                                         (cmdline_length+1)*sizeof(char));
+ kernel_driver.d_cmdline[cmdline_length+2] = 0;
+}
+
+PRIVATE unsigned int KCALL
+serve_driver_params(struct driver_param *__restrict params,
+                    size_t num_params, uintptr_t load_addr,
+                    unsigned int argc, char **argv);
+
+
+INTDEF struct driver_param kernel_coredriver_param_start[];
+INTDEF uintptr_t kernel_coredriver_param_count[];
+
+INTERN ATTR_FREETEXT void KCALL
+kernel_eval_commandline(void) {
+ unsigned int argc; char **argv,*cmdline;
+ if (!kernel_driver.d_cmdline)
+      return; /* Nothing to do here. */
+ debug_printf("[BOOT] Kernel command line: %q\n",kernel_driver.d_cmdline);
+ /* Format the kernel commandline. */
+ format_commandline(kernel_driver.d_cmdline);
+ cmdline = kernel_driver.d_cmdline;
+ for (argc = 0; *cmdline; cmdline = strend(cmdline)+1) ++argc;
+ argv = (char **)malloca(argc*sizeof(char *));
+ cmdline = kernel_driver.d_cmdline;
+ for (argc = 0; *cmdline; cmdline = strend(cmdline)+1)
+      argv[argc++] = cmdline;
+ /* Serve kernel commandline parameters. */
+ serve_driver_params(kernel_coredriver_param_start,
+                    (size_t)kernel_coredriver_param_count,0,
+                     argc,argv);
+ freea(argv);
+}
+
+
+
+
+
+
+
+PRIVATE unsigned int KCALL
+serve_driver_params(struct driver_param *__restrict params,
+                    size_t num_params, uintptr_t load_addr,
+                    unsigned int argc, char **argv) {
+ unsigned int i = 0;
+next_arg:
+ for (; i < argc; ++i) {
+  char *arg = argv[i];
+  struct driver_param *iter = params;
+  struct driver_param *end = params+num_params;
+  if (arg[0] == '-') ++arg;
+  if (arg[0] == '-') ++arg;
+  for (; iter < end; ++iter) {
+   char *name = DRIVER_PARAM_NAME(load_addr,iter);
+   size_t namelen = strlen(name);
+   if (memcmp(arg,name,namelen*sizeof(char)) != 0) continue;
+   switch (iter->dp_type) {
+
+   case DRIVER_PARAM_TYPE_OPTION:
+    /* Invoke a parameter option callback. */
+    if (arg[namelen] != '=') continue;
+    SAFECALL_KCALL_VOID_1(*DRIVER_PARAM_HAND(load_addr,iter),
+                           arg+namelen+1);
+    break;
+
+   case DRIVER_PARAM_TYPE_FLAG:
+    /* Invoke a parameter flag callback. */
+    SAFECALL_KCALL_VOID_0(*DRIVER_PARAM_FLAGHAND(load_addr,iter));
+    break;
+
+   default: continue;
+   }
+   /* Delete this argument. */
+   memmove(&argv[i],&argv[i+1],
+          (--argc-i)*sizeof(char *));
+   goto next_arg;
+  }
+ }
+ return argc;
+}
+
 
 PRIVATE void KCALL
 driver_unbind_globals(struct driver *__restrict self) {
@@ -255,7 +408,7 @@ done:;
 PRIVATE void KCALL
 exec_callback(module_callback_t func,
               void *UNUSED(arg)) {
- (*func)();
+ SAFECALL_KCALL_VOID_0(*func);
 }
 
 
@@ -303,7 +456,7 @@ again:
    image_rva_t *vec;
    /* Copy the driver commandline. */
    if (module_commandline_length) {
-    result->d_cmdline = (char *)kmalloc((module_commandline_length+1)*
+    result->d_cmdline = (char *)kmalloc((module_commandline_length+2)*
                                          sizeof(char),GFP_SHARED);
     COMPILER_READ_BARRIER();
     /* Copy the commandline from user-space (CAUTION: SEGFAULT) */
@@ -321,7 +474,7 @@ again:
                 APPLICATION_MAPMIN(&result->d_app),
                 APPLICATION_MAPMAX(&result->d_app),
                 result->d_cmdline ? result->d_cmdline : "");
-
+   /* Format the commandline to split it into individual arguments. */
    *pwas_newly_loaded = true;
    sym = application_dlsym(&result->d_app,
                            "__$$OS$driver_specs");
@@ -332,6 +485,8 @@ again:
       error_throw(E_INVALID_ARGUMENT);
    load_addr = result->d_app.a_loadaddr;
    TRY {
+    char **EXCEPT_VAR argv = NULL;
+    unsigned int argc;
     /* Verify driver spec pointers (prevent system crashes due to corrupt drivers).
      * NOTE: These are split into individual calls to `error_throw()', so that a
      *       traceback can quickly reveil which of these checks got triggered. */
@@ -362,9 +517,20 @@ again:
 
     /* Call ELF constructors. */
     if (mod->m_type->m_enuminit)
-      (*mod->m_type->m_enuminit)(&result->d_app,&exec_callback,NULL);
+        SAFECALL_KCALL_VOID_3(mod->m_type->m_enuminit,&result->d_app,&exec_callback,NULL);
     TRY {
-     /* TODO: Call parameter handlers. */
+     /* Evaluate the module commandline. */
+     char *cmdline = result->d_cmdline;
+     format_commandline(result->d_cmdline);
+     for (argc = 1; *cmdline; cmdline = strend(cmdline)+1) ++argc;
+     argv = (char **)malloca(argc*sizeof(char *));
+     cmdline = result->d_cmdline;
+     for (argc = 0; *cmdline; cmdline = strend(cmdline)+1)
+          argv[argc++] = cmdline;
+     /* Serve driver parameters. */
+     argc = serve_driver_params((struct driver_param *)(load_addr + spec->ds_parm),
+                                 spec->ds_parm_sz,load_addr,argc,argv);
+     argv[argc] = NULL; /* Add a trailing NULL-argument */
 
 #if 0
      debug_printf("spec->ds_free    = %p\n",spec->ds_free);
@@ -380,10 +546,11 @@ again:
 
      vec = (image_rva_t *)(load_addr + spec->ds_init);
      for (i = 0; i < spec->ds_init_sz; ++i)
-         (*(driver_init_t)(load_addr + vec[i]))();
+         SAFECALL_KCALL_VOID_0(*(driver_init_t)(load_addr + vec[i]));
      if (spec->ds_main != 0) {
-      /* TODO: Pass the remaining arguments. */
-      (*(driver_main_t)(load_addr + spec->ds_main))(0,NULL);
+      /* Pass the remaining arguments to the driver main() function. */
+      SAFECALL_KCALL_VOID_2(*(driver_main_t)(load_addr + spec->ds_main),
+                            argc,argv);
      }
      /* Unmap the driver's .free if it exists. */
      if (spec->ds_free_sz != 0) {
@@ -392,12 +559,12 @@ again:
                VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT|VM_UNMAP_SYNC,&result->d_app);
      }
     } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+     if (argv) freea(argv);
      size_t i;
      driver_unbind_globals(result);
      vec = (image_rva_t *)(load_addr + spec->ds_fini);
      i = spec->ds_fini_sz;
-     debug_printf("i = %Iu\n",i);
-     while (i--) (*(driver_fini_t)(load_addr + vec[i]))();
+     while (i--) SAFECALL_KCALL_VOID_0(*(driver_fini_t)(load_addr + vec[i]));
      error_rethrow();
     }
    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
@@ -405,7 +572,7 @@ again:
     if (!(ATOMIC_FETCHOR(result->d_app.a_flags,APPLICATION_FDIDFINI) & APPLICATION_FDIDFINI)) {
      /* Call ELF destructors. */
      if (mod->m_type->m_enumfini)
-       (*mod->m_type->m_enumfini)(&result->d_app,&exec_callback,NULL);
+         SAFECALL_KCALL_VOID_3(*mod->m_type->m_enumfini,&result->d_app,&exec_callback,NULL);
     }
     error_rethrow();
    }

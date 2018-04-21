@@ -265,7 +265,10 @@ int main(int argc, char *argv[]) {
  }
 
  /* Just for testing: Load a kernel driver. */
- kernctl(KERNEL_CONTROL_INSMOD,"/mod/procfs.mod","a b c");
+ kernctl(KERNEL_CONTROL_INSMOD,
+         "/mod/procfs.mod",
+         "a 'b c'  \\'d "    /* --a--   --b c--   --'d-- */
+         );
 
  Xexecl("/bin/terminal-vga",
         "terminal-vga",

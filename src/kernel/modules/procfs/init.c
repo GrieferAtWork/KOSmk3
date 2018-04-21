@@ -31,8 +31,12 @@ void KCALL my_driver_foo(void) {
  debug_printf("my_driver_foo()\n");
 }
 
-void KCALL module_main(int argc, char *argv[]) {
+INTERN void KCALL module_main(int argc, char *argv[]) {
+ int i;
  debug_printf("module_main(%d,%p)\n",argc,argv);
+ for (i = 0; i < argc; ++i)
+     debug_printf("\targv[%d] = %q\n",i,argv[i]);
+ 
 }
 
 

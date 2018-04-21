@@ -141,9 +141,6 @@ INTDEF void KCALL x86_smp_initialize(void);
 INTDEF void KCALL x86_boot_secondary_cpus(void);
 #endif
 
-
-
-
 #ifndef CONFIG_NO_FPU
 INTDEF INITCALL void KCALL x86_fpu_initialize(void);
 #endif /* !CONFIG_NO_FPU */
@@ -162,6 +159,9 @@ INTERN ATTR_NORETURN INITCALL void KCALL x86_switch_to_userspace(void);
 INTDEF INITCALL void KCALL x86_config_pagedir_invlpg_unsupported(void);
 INTERN bool x86_config_enable_pse = true;
 
+
+INTDEF INITCALL void KCALL kernel_relocate_commandline(void);
+INTDEF INITCALL void KCALL kernel_eval_commandline(void);
 
 INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
  /* Load the kernel binary into the addr2line cache of `magic.dee' */
@@ -262,9 +262,6 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
  /* Construct memory zones. */
  x86_mem_construct_zones();
  
- /* Unpreserve previously reserved memory. */
- mem_unpreserve();
-
  /* Since we're about to use randomization, we somehow
   * need to generate just a tiny bit of entropy first.
   * So we're just going to read the CMOS RTC state and
@@ -349,8 +346,13 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
  /* Relocate memory used for `mem_info_v' into GFP_SHARED memory. */
  x86_mem_relocate_info();
 
+ /* Relocate the bootloader kernel commandline into GFP_SHARED memory. */
+ kernel_relocate_commandline();
+
  /* TODO: Load drivers passed by the bootloader. */
- /* TODO: Relocate the bootloader kernel commandline into GFP_SHARED memory. */
+
+ /* Unpreserve previously reserved memory. */
+ mem_unpreserve();
 
  /* Unmap all virtual memory that isn't mapped by a VM node. */
  x86_delete_virtual_memory_identity();
@@ -361,6 +363,9 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
  vm_acquire(&vm_kernel);
  vm_apps_append(&vm_kernel,&kernel_driver.d_app);
  vm_release(&vm_kernel);
+
+ /* Evaluate the kernel commandline. */
+ kernel_eval_commandline();
 
  /* Initialize core drivers. */
  x86_coredriver_initialize();

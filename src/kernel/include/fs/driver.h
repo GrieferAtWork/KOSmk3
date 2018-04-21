@@ -74,6 +74,8 @@ struct PACKED driver_param {
        ((param)->dp_zero ? (param)->dp_name_inline : (char *)((loadaddr)+(param)->dp_name_ptr))
 #define DRIVER_PARAM_HAND(loadaddr,param) \
        ((driver_param_handler_t)((loadaddr)+(param)->dp_hand))
+#define DRIVER_PARAM_FLAGHAND(loadaddr,param) \
+       ((driver_flag_handler_t)((loadaddr)+(param)->dp_hand))
 
 
 struct PACKED driver_specs {
@@ -187,9 +189,9 @@ FUNDEF REF struct driver *KCALL kernel_getmod(struct module *__restrict mod);
 #ifdef CONFIG_BUILDING_KERNEL_CORE
 /* Define an initializer function to-be called during core driver initialization.
  * >> INTERN ATTR_FREETEXT void KCALL my_core_driver_init(void); */
-#define DEFINE_DRIVER_PREINIT(func)       DEFINE_ABS_CALLBACK(".rodata.core_driver.preinit.free",func)
-#define DEFINE_DRIVER_INIT(func)          DEFINE_ABS_CALLBACK(".rodata.core_driver.init.free",func)
-#define DEFINE_DRIVER_POSTINIT(func)      DEFINE_ABS_CALLBACK(".rodata.core_driver.postinit.free",func)
+#define DEFINE_DRIVER_PREINIT(func)       DEFINE_ABS_CALLBACK(".rodata.core_driver.preinit",func)
+#define DEFINE_DRIVER_INIT(func)          DEFINE_ABS_CALLBACK(".rodata.core_driver.init",func)
+#define DEFINE_DRIVER_POSTINIT(func)      DEFINE_ABS_CALLBACK(".rodata.core_driver.postinit",func)
 #else
 #define DEFINE_DRIVER_PREINIT(func)       DEFINE_REL_CALLBACK(".rodata.driver.preinit",func)
 #define DEFINE_DRIVER_INIT(func)          DEFINE_REL_CALLBACK(".rodata.driver.init",func)
@@ -236,7 +238,7 @@ FUNDEF REF struct driver *KCALL kernel_getmod(struct module *__restrict mod);
         DEFINE_DRIVER_PARAM_EX(paramname,DRIVER_PARAM_TYPE_FLAG,__DRIVER_BOOL_SYMNAME); \
         PRIVATE ATTR_FREETEXT ATTR_USED void KCALL __DRIVER_BOOL_SYMNAME(void) { varname = true; }
 #define PRIVER_BOOL(varname,paramname) \
-        INTERN bool varname = false; DEFINE_DRIVER_BOOL2(varname,paramname)
+        INTERN bool varname = false; DEFINE_DRIVER_BOOL(varname,paramname)
 
 /* Enable a set of flags `flagmask' in `flagset'
  * when `paramname' is passed on the commandline.

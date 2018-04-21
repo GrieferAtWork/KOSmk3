@@ -317,7 +317,7 @@ again:
 PUBLIC ATTR_NOTHROW void KCALL
 module_destroy(struct module *__restrict self) {
  if (self->m_type && self->m_type->m_fini)
-    (*self->m_type->m_fini)(self);
+     SAFECALL_KCALL_VOID_1(*self->m_type->m_fini,self);
  if (self->m_fsloc) {
   /* Clear the filesystem cache entry for this module. */
   atomic_rwlock_write(&self->m_fsloc->re_module.m_lock);
@@ -364,7 +364,7 @@ module_load(struct module *__restrict mod) {
  memset(&mod->m_entry,0xcc,sizeof(image_rva_t));
 #endif
  TRY {
-  result = (*mod->m_type->m_loadmodule)(mod);
+  result = SAFECALL_KCALL_1(*mod->m_type->m_loadmodule,mod);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   except_t code = error_code();
   /* Check for errors that indicate a corrupt module. */
@@ -626,7 +626,7 @@ application_destroy(struct application *__restrict self) {
 
 PRIVATE void KCALL app_doload(struct module_patcher *__restrict self) {
  TRY {
-  (*self->mp_app->a_module->m_type->m_loadapp)(self);
+  SAFECALL_KCALL_VOID_1(*self->mp_app->a_module->m_type->m_loadapp,self);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   except_t code = error_code();
   /* TODO: Re-enable `E_SEGFAULT' */
@@ -642,7 +642,7 @@ PRIVATE void KCALL app_doload(struct module_patcher *__restrict self) {
 }
 PRIVATE void KCALL app_dopatch(struct module_patcher *__restrict self) {
  TRY {
-  (*self->mp_app->a_module->m_type->m_patchapp)(self);
+  SAFECALL_KCALL_VOID_1(*self->mp_app->a_module->m_type->m_patchapp,self);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   except_t code = error_code();
   /* TODO: Re-enable `E_SEGFAULT' */
@@ -1215,7 +1215,7 @@ application_enuminit(struct application *__restrict app,
                         module_enumerator_t func, void *arg);
  callback = app->a_module->m_type->m_enuminit;
  if (callback && (ATOMIC_FETCHOR(app->a_flags,APPLICATION_FDIDINIT)&APPLICATION_FDIDINIT))
-   (*callback)(app,func,arg);
+     SAFECALL_KCALL_VOID_3(*callback,app,func,arg);
 }
 PUBLIC void KCALL
 application_enumfini(struct application *__restrict app,
@@ -1232,7 +1232,7 @@ application_enumfini(struct application *__restrict app,
   if (old_flags & APPLICATION_FDIDFINI)
       return; /* Already finalized. */
  } while (!ATOMIC_CMPXCH_WEAK(app->a_flags,old_flags,old_flags|APPLICATION_FDIDFINI));
- (*callback)(app,func,arg);
+ SAFECALL_KCALL_VOID_3(*callback,app,func,arg);
 }
 
 PUBLIC void KCALL
