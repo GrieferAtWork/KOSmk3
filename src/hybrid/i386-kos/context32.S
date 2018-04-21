@@ -218,40 +218,34 @@ INTERN_ENTRY(libc_cpu_setcontext)
 
 	/* Copy the IRET tail into the target stack. */
 	movl   X86_CONTEXT_OFFSETOF_ESP(%ecx), %eax
-	subl   $12 + REGSPACE, %eax
+	subl   $12, %eax
 	testl  $3, X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_CS(%ecx)
 	jz     1f
-	/* Must copy additional data if it's actually a user-context. */
-#if 1
-	subl   $(8 + 12 + REGSPACE), %esp
+	/* Jump to user-space. */
+	subl   $20, %esp
 	movl   %esp, %eax /* Use the real stack as temporary buffer. */
-#else
-	subl   $8, %eax
-#endif
-	movl   X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_SS(%ecx), %edx
-	movl   %edx, REGSPACE+16(%eax)
-	movl   X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_USERESP(%ecx), %edx
-	movl   %edx, REGSPACE+12(%eax)
-1:	movl   X86_CONTEXT_OFFSETOF_EFLAGS(%ecx), %edx
-	movl   %edx, REGSPACE+8(%eax)
-	movl   X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_CS(%ecx), %edx
-	movl   %edx, REGSPACE+4(%eax)
-	movl   X86_CONTEXT_OFFSETOF_EIP(%ecx), %edx
-	movl   %edx, REGSPACE+0(%eax)
+	movl   X86_CONTEXT_OFFSETOF_IRET+16(%ecx), %edx
+	movl   %edx, 16(%eax)
+	movl   X86_CONTEXT_OFFSETOF_IRET+12(%ecx), %edx
+	movl   %edx, 12(%eax)
+1:	movl   X86_CONTEXT_OFFSETOF_IRET+8(%ecx), %edx
+	movl   %edx, 8(%eax)
+	movl   X86_CONTEXT_OFFSETOF_IRET+4(%ecx), %edx
+	movl   %edx, 4(%eax)
+	movl   X86_CONTEXT_OFFSETOF_IRET+0(%ecx), %edx
+	movl   %edx, 0(%eax)
 
 	/* Load general-purpose registers. */
 	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EBX(%ecx), %ebx
 	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EBP(%ecx), %ebp
 	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDI(%ecx), %edi
 	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ESI(%ecx), %esi
-
+	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDX(%ecx), %edx
 #ifndef CONFIG_X86_SEGMENTATION
 	/* Load the new stack. */
 	cli
 	movl   %eax, %esp
-
 	/* Load remaining registers. */
-	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDX(%ecx), %edx
 	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX(%ecx), %eax
 	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ECX(%ecx), %ecx
 #else /* !CONFIG_X86_SEGMENTATION */
@@ -262,24 +256,13 @@ INTERN_ENTRY(libc_cpu_setcontext)
 	movw   X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FS(%ecx), %fs
 	movw   X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_ES(%ecx), %es
 	movw   X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_DS(%ecx), %ds
-	/* Copy remaining registers onto the target stack.
-	 * Can only be done now in case the given CPU state
-	 * overlapped with the target stack. */
-	movl   %ss:X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX(%ecx), %edx
-	movl   %edx, 4(%eax)
-	movl   %ss:X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ECX(%ecx), %edx
-	movl   %edx, 0(%eax)
-
 	/* Load the new stack. */
 	cli
 	movl   %eax, %esp
-
-	/* Load remaining registers. */
-	popl   %ecx
-	popl   %eax
-	popl   %edx
+	/* Load the remaining registers. */
+	movl   %ss:X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX(%ecx), %eax
+	movl   %ss:X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ECX(%ecx), %ecx
 #endif /* CONFIG_X86_SEGMENTATION */
-
 	/* Execute the IRET */
 	iret
 SYMEND(libc_cpu_setcontext)
