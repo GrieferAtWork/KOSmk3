@@ -1254,12 +1254,14 @@ dw_eval_expression(eh_instr_t *__restrict text, uintptr_t cfa,
     stack[i] = (stack[i] != temp) ? 1 : 0;
    } break;
 
+   case DW_OP_lit0 ... DW_OP_lit31:
+    stack[++i] = opcode - DW_OP_lit0;
+    break;
+
 #if UNWIND_NUM_REGISTERS >= 32
-   case DW_OP_lit0  ... DW_OP_lit31:  stack[++i] = opcode - DW_OP_lit0; break;
    case DW_OP_reg0  ... DW_OP_reg31:  stack[++i] = UNWIND_GET_REGISTER(context,opcode - DW_OP_reg0); break;
    case DW_OP_breg0 ... DW_OP_breg31: stack[++i] = UNWIND_GET_REGISTER(context,opcode - DW_OP_breg0)+decode_sleb128((byte_t **)&text); break;
 #else
-   case DW_OP_lit0  ... DW_OP_lit0+UNWIND_NUM_REGISTERS-1:  stack[++i] = opcode - DW_OP_lit0; break;
    case DW_OP_reg0  ... DW_OP_reg0+UNWIND_NUM_REGISTERS-1:  stack[++i] = UNWIND_GET_REGISTER(context,opcode - DW_OP_reg0); break;
    case DW_OP_breg0 ... DW_OP_breg0+UNWIND_NUM_REGISTERS-1: stack[++i] = UNWIND_GET_REGISTER(context,opcode - DW_OP_breg0)+decode_sleb128((byte_t **)&text); break;
 #endif

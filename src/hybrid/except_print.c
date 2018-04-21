@@ -39,6 +39,7 @@
 #endif
 
 #include <kos/registers.h>
+#include <kos/handle.h>
 #include <hybrid/compiler.h>
 #include <hybrid/section.h>
 #include <hybrid/host.h>
@@ -194,6 +195,77 @@ register_name(char buf[REGISTER_NAME_BUFSIZE], uintptr_t type, uintptr_t number)
  }
 done:
  return buf;
+}
+
+
+#define HANDLE_TYPE_NAME_BUFSIZE  16
+PRIVATE ATTR_RARERODATA char const handle_type_names[][7] = {
+    [HANDLE_TYPE_FDEVICE] = "device",
+    [HANDLE_TYPE_FINODE]  = "inode",
+    [HANDLE_TYPE_FFILE]   = "file",
+    [HANDLE_TYPE_FPATH]   = "path",
+    [HANDLE_TYPE_FFS]     = "fs",
+    [HANDLE_TYPE_FMODULE] = "module",
+    [HANDLE_TYPE_FTHREAD] = "thread",
+    [HANDLE_TYPE_FVM]     = "vm",
+    [HANDLE_TYPE_FPIPE]   = "pipe",
+};
+PRIVATE ATTR_RARESTR char const
+unknown_handle_type_format[] = "[%.4I16X]";
+
+PRIVATE char const *FCALL
+handle_type_name(char buf[HANDLE_TYPE_NAME_BUFSIZE], u16 type) {
+ char const *result = buf;
+ switch (type) {
+
+ case HANDLE_TYPE_FSUPERBLOCK:
+  return RARESTR("superblock");
+ case HANDLE_TYPE_FDIRECTORY_ENTRY:
+  return RARESTR("directory_entry");
+ case HANDLE_TYPE_FAPPLICATION:
+  return RARESTR("application");
+ case HANDLE_TYPE_FVM_REGION:
+  return RARESTR("vm_region");
+ case HANDLE_TYPE_FPIPEREADER:
+  return RARESTR("pipereader");
+ case HANDLE_TYPE_FPIPEWRITER:
+  return RARESTR("pipewriter");
+
+ default:
+  if (type < COMPILER_LENOF(handle_type_names) &&
+      handle_type_names[type][0])
+      return handle_type_names[type];
+  libc_sprintf(buf,unknown_handle_type_format,type);
+  break;
+ }
+ return result;
+}
+
+#define HANDLE_KIND_NAME_BUFSIZE  16
+PRIVATE ATTR_RARERODATA char const handle_kind_names[][6] = {
+    [HANDLE_KIND_FANY]   = "any",
+    [HANDLE_KIND_FTTY]   = "tty",
+    [HANDLE_KIND_FBLOCK] = "block",
+    [HANDLE_KIND_FCHAR]  = "char",
+    [HANDLE_KIND_FMOUSE] = "mouse",
+};
+PRIVATE char const *FCALL
+handle_kind_name(char buf[HANDLE_KIND_NAME_BUFSIZE], u16 type) {
+ char const *result = buf;
+ switch (type) {
+ case HANDLE_KIND_FKEYBOARD:
+  return RARESTR("keyboard");
+ case HANDLE_KIND_FFATFS:
+  return RARESTR("fatfs");
+
+ default:
+  if (type < COMPILER_LENOF(handle_kind_names) &&
+      handle_kind_names[type][0])
+      return handle_kind_names[type];
+  libc_sprintf(buf,unknown_handle_type_format,type);
+  break;
+ }
+ return result;
 }
 
 
@@ -376,42 +448,95 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
          INFO->e_error.e_unknown_systemcall.us_args[5]);
   break;
  case E_INVALID_HANDLE:
-  /* TODO: Include new information in error messages. */
-  PRINTF("\tInvalid handle number %d\n",
-         INFO->e_error.e_invalid_handle.h_handle);
+  switch (INFO->e_error.e_invalid_handle.h_reason) {
+
+  {
+   char buf1[HANDLE_TYPE_NAME_BUFSIZE];
+   char buf2[HANDLE_TYPE_NAME_BUFSIZE];
+  case ERROR_INVALID_HANDLE_FWRONGTYPE:
+   PRINTF("\tInvalid handle %d type (is %s, but needed %s)\n",
+          INFO->e_error.e_invalid_handle.h_handle,
+          handle_type_name(buf1,INFO->e_error.e_invalid_handle.h_istype),
+          handle_type_name(buf2,INFO->e_error.e_invalid_handle.h_rqtype));
+  } break;
+
+  {
+   char buf1[HANDLE_TYPE_NAME_BUFSIZE];
+   char buf2[HANDLE_KIND_NAME_BUFSIZE];
+  case ERROR_INVALID_HANDLE_FWRONGKIND:
+   PRINTF("\tHandle %d (type %s) is of a wrong kind (need %s)\n",
+          INFO->e_error.e_invalid_handle.h_handle,
+          handle_type_name(buf1,INFO->e_error.e_invalid_handle.h_istype),
+          handle_kind_name(buf2,INFO->e_error.e_invalid_handle.h_rqkind));
+  } break;
+  default:
+   switch (INFO->e_error.e_invalid_handle.h_illhnd) {
+   case ERROR_INVALID_HANDLE_ILLHND_FNOSYM:
+    PRINTF("\tSymbolic handle number %d doesn't exist\n",
+           INFO->e_error.e_invalid_handle.h_handle);
+    break;
+   case ERROR_INVALID_HANDLE_ILLHND_FRMSYM:
+    PRINTF("\tSymbolic handle number %d is unbound\n",
+           INFO->e_error.e_invalid_handle.h_handle);
+    break;
+   case ERROR_INVALID_HANDLE_ILLHND_FROSYM:
+    PRINTF("\tSymbolic handle number %d is read-only\n",
+           INFO->e_error.e_invalid_handle.h_handle);
+    break;
+   case ERROR_INVALID_HANDLE_ILLHND_FBOUND:
+    PRINTF("\tInvalid handle number %d exceeds ID limit\n",
+           INFO->e_error.e_invalid_handle.h_handle);
+    break;
+   default:
+    PRINTF("\tInvalid handle number %d\n",
+           INFO->e_error.e_invalid_handle.h_handle);
+    break;
+   }
+   break;
+  }
   break;
+
  case E_NO_DATA:
   PRINTF("\tIndexed or named object or data block does not exist\n");
   break;
+
  case E_NOT_EXECUTABLE:
   PRINTF("\tThe named file was not recognized as a valid executable\n");
   break;
+
  case E_WOULDBLOCK:
   PRINTF("\tA blocking call was attempted when non-blocking behavior was requested\n");
   break;
+
  case E_INDEX_ERROR:
   PRINTF("\tIndex %I64u is out-of-bounds of %I64u...%I64u\n",
          INFO->e_error.e_index_error.b_index,
          INFO->e_error.e_index_error.b_boundmin,
          INFO->e_error.e_index_error.b_boundmax);
   break;
+
  case E_BREAKPOINT:
   PRINTF("\tBreakpoint\n");
   break;
+
  case E_INVALID_ARGUMENT:
   PRINTF("\tInvalid argument\n");
   break;
+
  case E_TOO_MANY_HANDLES:
   PRINTF("\tToo many open handles\n");
   break;
+
  case E_PROCESS_EXITED:
   PRINTF("\tProcess has exited\n");
   break;
+
  case E_NO_DEVICE:
   PRINTF("\tThe %s-device %[dev] doesn't exist\n",
          INFO->e_error.e_no_device.d_type == ERROR_NO_DEVICE_FBLOCKDEV ? "block" : "character",
          INFO->e_error.e_no_device.d_devno);
   break;
+
  case E_FILESYSTEM_ERROR:
   PRINTF("\tFilesystem error %u\n",
          INFO->e_error.e_filesystem_error.fs_errcode);

@@ -260,7 +260,7 @@ again:
   * have to dereference the stack to try and get the proper return address.
   * Though because of how low-level all of this is, we have no guaranty that
   * memory at the call-site will actually be mapped, or that this really is
-  * we ended up in a situation where the faulting address matching the return-ip.
+  * we ended up in a situation where the faulting address matches the return-ip.
   * For that reason, a number of additional checks are done to work out if
   * it was code like that above which caused the problem. */
  if ((void *)CONTEXT_IP(*context) == fault_address &&
@@ -316,7 +316,7 @@ restart_syscall:
    * execute non-existent code. */
   errcode |= X86_SEGFAULT_FEXEC;
 
-  /* NOTE: This try-block failing won't cause an infinite recursion
+  /* NOTE: This try-block failing won't cause an infinite recursion,
    *       as any fault that could happen here wouldn't match the
    *       criteria of `CONTEXT_IP == fault_address' that is checked
    *       above. */
@@ -344,7 +344,6 @@ restart_syscall:
  /* Copy the CPU context at the time of the exception. */
  fix_user_context(context);
  memcpy(&info->e_context,&context->c_host,sizeof(struct cpu_context));
- //error_printf("#PF\n");
  /* Throw the error. */
  error_rethrow_atuser((struct cpu_context *)context);
 }
@@ -613,7 +612,7 @@ x86_handle_bound(struct x86_anycontext *__restrict context) {
  info->e_error.e_flag = ERR_FRESUMABLE|ERR_FRESUMENEXT;
  memset(&info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
  
- /* Try to retrieve information in the index that was out-of-bounds. */
+ /* Try to retrieve information on the index that was out-of-bounds. */
  TRY {
   u8 *ptext = (u8 *)CONTEXT_IP(*context);
   struct modrm_info modrm; bool is16 = false;
@@ -627,8 +626,8 @@ x86_handle_bound(struct x86_anycontext *__restrict context) {
 
   /* Determine the effective address of the bounds structure. */
   bounds_struct = modrm.mi_offset;
-  if (modrm.mi_reg != 0xff)
-      bounds_struct += X86_GPREG(*context,modrm.mi_reg);
+  if (modrm.mi_rm != 0xff)
+      bounds_struct += X86_GPREG(*context,modrm.mi_rm);
   if (modrm.mi_index != 0xff)
       bounds_struct += X86_GPREG(*context,modrm.mi_index) << modrm.mi_shift;
 
@@ -648,7 +647,7 @@ x86_handle_bound(struct x86_anycontext *__restrict context) {
    info->e_error.e_index_error.b_boundmin = low;
    info->e_error.e_index_error.b_boundmax = high;
   }
-  info->e_error.e_index_error.b_index = X86_GPREG(*context,modrm.mi_rm);
+  info->e_error.e_index_error.b_index = X86_GPREG(*context,modrm.mi_reg);
  } CATCH (E_SEGFAULT) {
   goto do_throw_error;
  }
