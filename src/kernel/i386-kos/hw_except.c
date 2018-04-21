@@ -294,7 +294,7 @@ restart_syscall:
       COMPILER_WRITE_BARRIER();
       /* Deal with system call restarts. */
       if (!task_restart_syscall(&context->c_user,
-                                TASK_USERCTX_TYPE_WITHINUSERCODE|
+                                TASK_USERCTX_TYPE_INTR_SYSCALL|
                                 X86_SYSCALL_TYPE_FPF,
                                 sysno)) {
        context->c_eip = context->c_gpregs.gp_eax;
@@ -357,7 +357,7 @@ x86_handle_divide_by_zero(struct x86_anycontext *__restrict context) {
      x86_interrupt_enable();
  arg = 0,type = ERROR_DIVIDE_BY_ZERO_INT;
  TRY {
-  /* TODO: Decode source instructions (differentiate between `div' and `idiv'). */
+  /* Decode source instructions (differentiate between `div' and `idiv'). */
   byte_t *text = (byte_t *)context->c_eip;
   byte_t opcode = *text++;
   struct modrm_info modrm;
