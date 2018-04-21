@@ -392,16 +392,11 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
 
 
 typedef void (KCALL *coreinit_t)(void);
-INTDEF coreinit_t kernel_coredriver_preinit_start[];
-INTDEF coreinit_t kernel_coredriver_preinit_end[];
 INTDEF coreinit_t kernel_coredriver_init_start[];
 INTDEF coreinit_t kernel_coredriver_init_end[];
 
 PRIVATE ATTR_FREETEXT void KCALL x86_coredriver_initialize(void) {
  coreinit_t *iter;
- for (iter = kernel_coredriver_preinit_start;
-      iter < kernel_coredriver_preinit_end; ++iter)
-      (**iter)();
  for (iter = kernel_coredriver_init_start;
       iter < kernel_coredriver_init_end; ++iter)
       (**iter)();

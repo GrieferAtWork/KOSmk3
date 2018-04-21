@@ -806,7 +806,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kernctl", "apps\kernctl.vcx
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "modules", "modules", "{0FCFED54-A8E5-4F4B-9F91-01AD614D377C}"
 	ProjectSection(SolutionItems) = preProject
-		..\src\kernel\modules\module.c = ..\src\kernel\modules\module.c
+		..\src\kernel\modules\.sources = ..\src\kernel\modules\.sources
+		..\src\kernel\modules\module.S = ..\src\kernel\modules\module.S
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "procfs", "kernel\modules\procfs.vcxproj", "{A5247753-BB3E-4AE7-BFFD-7FC2CD655A7C}"

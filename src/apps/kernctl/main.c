@@ -44,6 +44,8 @@ PRIVATE struct ctl const ctls[] = {
     { "hval",   KERNEL_CONTROL_DBG_HEAP_VALIDATE },
     { "ton",    KERNEL_CONTROL_TRACE_SYSCALLS_ON },
     { "toff",   KERNEL_CONTROL_TRACE_SYSCALLS_OFF },
+    { "insmod", KERNEL_CONTROL_INSMOD },
+    { "delmod", KERNEL_CONTROL_DELMOD },
 };
 
 
@@ -67,13 +69,27 @@ int main(int argc, char *argv[]) {
   return 0;
  }
  for (i = 0; i < COMPILER_LENOF(ctls); ++i) {
+  u32 id;
   if (strcmp(ctls[i].name,cmd) != 0) continue;
-  Xkernctl(ctls[i].cmd);
-  return 0;
+  id = ctls[i].cmd;
+  switch (id) {
+
+  case KERNEL_CONTROL_INSMOD:
+  case KERNEL_CONTROL_DELMOD:
+   if (argc < 3) goto more_args;
+   /* NOTE: The 3rd argument to `KERNEL_CONTROL_INSMOD' is optional. */
+   return Xkernctl(id,argv[2],argv[3]);
+
+  default:
+   return Xkernctl(id);
+  }
  }
  fprintf(stderr,"Unknown command %q\n",cmd);
  fprintf(stderr,"Type `%s --help' for a list of known commands\n",
          program_invocation_short_name);
+ return 1;
+more_args:
+ fprintf(stderr,"Command %q requires additional arguments\n",cmd);
  return 1;
 }
 

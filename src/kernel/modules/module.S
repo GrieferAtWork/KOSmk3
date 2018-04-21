@@ -54,13 +54,15 @@
 .section .rodata.driver_specs
 .global SPECS
 SPECS:
-	EMIT_PTR(DRIVER_SPECS_VERSION)   /* ds_version */
-	EMIT_RELPTR(module_init_start)   /* ds_init */
-	EMIT_RELPTR(module_init_count)   /* ds_init_sz */
-	EMIT_RELPTR(module_fini_start)   /* ds_fini */
-	EMIT_RELPTR(module_fini_count)   /* ds_fini_sz */
-	EMIT_RELPTR(module_parm_start)   /* ds_parm */
-	EMIT_RELPTR(module_parm_count)   /* ds_parm_sz */
-	EMIT_RELPTR(module_main)         /* ds_main */
+	EMIT_PTR(DRIVER_SPECS_VERSION)     /* ds_version */
+	EMIT_RELPTR(module_free_minpage)   /* ds_free */
+	EMIT_RELPTR(module_free_num_pages) /* ds_free_sz */
+	EMIT_RELPTR(module_init_start)     /* ds_init */
+	EMIT_RELPTR(module_init_count)     /* ds_init_sz */
+	EMIT_RELPTR(module_fini_start)     /* ds_fini */
+	EMIT_RELPTR(module_fini_count)     /* ds_fini_sz */
+	EMIT_RELPTR(module_parm_start)     /* ds_parm */
+	EMIT_RELPTR(module_parm_count)     /* ds_parm_sz */
+	EMIT_RELPTR(module_main)           /* ds_main */
 .size SPECS, . - SPECS
 

@@ -18,8 +18,11 @@
  */
 #ifndef GUARD_KERNEL_SRC_FS_DRIVER_C
 #define GUARD_KERNEL_SRC_FS_DRIVER_C 1
+#define _KOS_SOURCE 1
 
 #include <hybrid/compiler.h>
+#include <hybrid/align.h>
+#include <kernel/malloc.h>
 #include <kos/types.h>
 #include <fs/linker.h>
 #include <fs/driver.h>
@@ -31,13 +34,6 @@
 #include <elf.h>
 #include <string.h>
 #include <except.h>
-
-#if defined(__i386__) || defined(__x86_64__)
-#include <i386-kos/driver.h>
-#else
-#error "Unsupported architecture"
-#endif
-
 
 DECL_BEGIN
 
@@ -194,6 +190,17 @@ PUBLIC struct module kernel_module = {
 };
 
 
+PRIVATE struct driver_specs const kernel_driver_specs = {
+    .ds_version = DRIVER_SPECS_VERSION,
+    .ds_init    = 0, /* XXX: Pointer to core driver initializers here? */
+    .ds_init_sz = 0,
+    .ds_fini    = 0,
+    .ds_fini_sz = 0,
+    .ds_parm    = 0, /* XXX: Implement param support within the kernel itself? */
+    .ds_parm_sz = 0,
+    .ds_main    = 0
+};
+
 DEFINE_INTERN_ALIAS(this_driver,kernel_driver);
 PUBLIC struct driver kernel_driver = {
     .d_app = {
@@ -211,6 +218,7 @@ PUBLIC struct driver kernel_driver = {
         .a_type     = APPLICATION_TYPE_FDRIVER,
         .a_flags    = APPLICATION_FDIDINIT|APPLICATION_FTRUSTED,
     },
+    .d_spec = &kernel_driver_specs
 };
 
 
@@ -244,17 +252,24 @@ done:;
  return result;
 }
 
+PRIVATE void KCALL
+exec_callback(module_callback_t func,
+              void *UNUSED(arg)) {
+ (*func)();
+}
+
 
 PUBLIC ATTR_RETNONNULL REF struct driver *
 KCALL kernel_insmod(struct module *__restrict mod,
                     bool *pwas_newly_loaded,
-                    USER CHECKED char const *module_commandline) {
+                    USER CHECKED char const *module_commandline,
+                    size_t module_commandline_length) {
  REF struct driver *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  vm_acquire_read(&vm_kernel);
  TRY {
   struct module_patcher EXCEPT_VAR patcher;
-  /* Now load the module in the current VM (as a dependency of the root application). */
+  /* Load drivers as though they were dependencies of the kernel itself. */
   patcher.mp_root     = (struct module_patcher *)&patcher;
   patcher.mp_prev     = NULL;
   patcher.mp_app      = &kernel_driver.d_app;
@@ -277,17 +292,37 @@ again:
   if (vm_release_read(&vm_kernel))
       goto again;
  }
- *pwas_newly_loaded = false;
- if (!(ATOMIC_FETCHOR(result->d_app.a_flags,APPLICATION_FDIDINIT) & APPLICATION_FDIDINIT)) {
+ if (ATOMIC_FETCHOR(result->d_app.a_flags,APPLICATION_FDIDINIT) &
+                                          APPLICATION_FDIDINIT) {
+  *pwas_newly_loaded = false;
+ } else {
   TRY {
    struct module_symbol sym;
    struct driver_specs *EXCEPT_VAR spec;
    uintptr_t load_addr; size_t i;
    image_rva_t *vec;
-   *pwas_newly_loaded = true;
-   debug_printf("Driver loaded at %p...%p\n",
+   /* Copy the driver commandline. */
+   if (module_commandline_length) {
+    result->d_cmdline = (char *)kmalloc((module_commandline_length+1)*
+                                         sizeof(char),GFP_SHARED);
+    COMPILER_READ_BARRIER();
+    /* Copy the commandline from user-space (CAUTION: SEGFAULT) */
+    memcpy(result->d_cmdline,module_commandline,
+           module_commandline_length*sizeof(char));
+    COMPILER_READ_BARRIER();
+    /* Ensure NUL-termination (don't rely on user-space
+     * actually being NUL-terminated, which may no longer
+     * be the case since user_strlen(), since user-space
+     * may have modified the commandline from another thread). */
+    result->d_cmdline[module_commandline_length] = '\0';
+   }
+   debug_printf("[MOD] Driver `%[path]' loaded at %p...%p (%q)\n",
+                mod->m_path,
                 APPLICATION_MAPMIN(&result->d_app),
-                APPLICATION_MAPMAX(&result->d_app));
+                APPLICATION_MAPMAX(&result->d_app),
+                result->d_cmdline ? result->d_cmdline : "");
+
+   *pwas_newly_loaded = true;
    sym = application_dlsym(&result->d_app,
                            "__$$OS$driver_specs");
    if unlikely(sym.ms_type == MODULE_SYMBOL_INVALID)
@@ -297,10 +332,43 @@ again:
       error_throw(E_INVALID_ARGUMENT);
    load_addr = result->d_app.a_loadaddr;
    TRY {
-    /* TODO: Call ELF constructors. */
+    /* Verify driver spec pointers (prevent system crashes due to corrupt drivers).
+     * NOTE: These are split into individual calls to `error_throw()', so that a
+     *       traceback can quickly reveil which of these checks got triggered. */
+    if ((spec->ds_free_sz &&
+        (spec->ds_free < FLOORDIV(mod->m_imagemin,PAGESIZE) ||
+         spec->ds_free+spec->ds_free_sz < spec->ds_free ||
+         spec->ds_free+spec->ds_free_sz > CEILDIV(mod->m_imageend,PAGESIZE))))
+         error_throw(E_INVALID_ARGUMENT);
+    if ((spec->ds_init_sz &&
+        (spec->ds_init < mod->m_imagemin ||
+         spec->ds_init+spec->ds_init_sz*sizeof(image_rva_t) < spec->ds_init ||
+         spec->ds_init+spec->ds_init_sz*sizeof(image_rva_t) > mod->m_imageend)))
+         error_throw(E_INVALID_ARGUMENT);
+    if ((spec->ds_fini_sz &&
+        (spec->ds_fini < mod->m_imagemin ||
+         spec->ds_fini+spec->ds_fini_sz*sizeof(image_rva_t) < spec->ds_fini ||
+         spec->ds_fini+spec->ds_fini_sz*sizeof(image_rva_t) > mod->m_imageend)))
+         error_throw(E_INVALID_ARGUMENT);
+    if ((spec->ds_parm_sz &&
+        (spec->ds_parm < mod->m_imagemin ||
+         spec->ds_parm+spec->ds_parm_sz*sizeof(image_rva_t) < spec->ds_parm ||
+         spec->ds_parm+spec->ds_parm_sz*sizeof(image_rva_t) > mod->m_imageend)))
+         error_throw(E_INVALID_ARGUMENT);
+    if ((spec->ds_main &&
+        (spec->ds_main < mod->m_imagemin ||
+         spec->ds_main > mod->m_imageend)))
+         error_throw(E_INVALID_ARGUMENT);
+
+    /* Call ELF constructors. */
+    if (mod->m_type->m_enuminit)
+      (*mod->m_type->m_enuminit)(&result->d_app,&exec_callback,NULL);
     TRY {
      /* TODO: Call parameter handlers. */
-     vec = (image_rva_t *)(load_addr + spec->ds_init);
+
+#if 0
+     debug_printf("spec->ds_free    = %p\n",spec->ds_free);
+     debug_printf("spec->ds_free_sz = %p\n",spec->ds_free_sz);
      debug_printf("spec->ds_init    = %p\n",spec->ds_init);
      debug_printf("spec->ds_init_sz = %p\n",spec->ds_init_sz);
      debug_printf("spec->ds_fini    = %p\n",spec->ds_fini);
@@ -308,14 +376,24 @@ again:
      debug_printf("spec->ds_parm    = %p\n",spec->ds_parm);
      debug_printf("spec->ds_parm_sz = %p\n",spec->ds_parm_sz);
      debug_printf("spec->ds_main    = %p\n",spec->ds_main);
+#endif
+
+     vec = (image_rva_t *)(load_addr + spec->ds_init);
      for (i = 0; i < spec->ds_init_sz; ++i)
          (*(driver_init_t)(load_addr + vec[i]))();
      if (spec->ds_main != 0) {
       /* TODO: Pass the remaining arguments. */
       (*(driver_main_t)(load_addr + spec->ds_main))(0,NULL);
      }
+     /* Unmap the driver's .free if it exists. */
+     if (spec->ds_free_sz != 0) {
+      /* Make sure that the .free segment is properly aligned. */
+      vm_unmap(VM_ADDR2PAGE(load_addr)+spec->ds_free,spec->ds_free_sz,
+               VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT|VM_UNMAP_SYNC,&result->d_app);
+     }
     } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
      size_t i;
+     driver_unbind_globals(result);
      vec = (image_rva_t *)(load_addr + spec->ds_fini);
      i = spec->ds_fini_sz;
      debug_printf("i = %Iu\n",i);
@@ -323,7 +401,12 @@ again:
      error_rethrow();
     }
    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-    /* TODO: Call ELF destructors. */
+    driver_unbind_globals(result);
+    if (!(ATOMIC_FETCHOR(result->d_app.a_flags,APPLICATION_FDIDFINI) & APPLICATION_FDIDFINI)) {
+     /* Call ELF destructors. */
+     if (mod->m_type->m_enumfini)
+       (*mod->m_type->m_enumfini)(&result->d_app,&exec_callback,NULL);
+    }
     error_rethrow();
    }
 
@@ -342,6 +425,7 @@ again:
 
 PUBLIC void KCALL
 kernel_delmod(struct driver *__restrict app) {
+ driver_unbind_globals(app);
  /* TODO */
  error_throw(E_NOT_IMPLEMENTED);
 }

@@ -26,11 +26,14 @@
 
 DECL_BEGIN
 
+DEFINE_DRIVER_INIT(my_driver_foo);
+void KCALL my_driver_foo(void) {
+ debug_printf("my_driver_foo()\n");
+}
 
 void KCALL module_main(int argc, char *argv[]) {
  debug_printf("module_main(%d,%p)\n",argc,argv);
 }
-
 
 
 DECL_END

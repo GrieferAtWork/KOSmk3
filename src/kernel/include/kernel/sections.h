@@ -22,12 +22,19 @@
 #include <hybrid/compiler.h>
 #include <kos/types.h>
 
+#if defined(__i386__) || defined(__x86_64__)
+#include <i386-kos/sections.h>
+#else
+#error "Unsupported architecture"
+#endif
+
 DECL_BEGIN
 
-/* Section addresses within the kernel core. */
-#ifdef CONFIG_BUILDING_KERNEL_CORE
-
 #ifdef __CC__
+
+#ifdef CONFIG_BUILDING_KERNEL_CORE
+/* Section addresses within the kernel core. */
+
 /* .text:
  *    - .text.hot
  *    - .text
@@ -199,36 +206,12 @@ INTDEF byte_t kernel_end_raw[];       /* Unaligned kernel end address */
 INTDEF byte_t kernel_size_raw[];      /* Unaligned kernel size (in bytes) */
 INTDEF byte_t kernel_end[];           /* Page-aligned kernel end address */
 INTDEF byte_t kernel_size[];          /* Page-aligned kernel size (in bytes) */
-
-#ifdef CONFIG_NO_SMP
-#define TEMPLATE_PERCPU(x)     x    /* Without SMP, there is no template. There is only the boot CPU. */
-#else
-#define TEMPLATE_PERCPU(x)  (*(__typeof__(&(x)))((uintptr_t)kernel_percpu_start+(uintptr_t)&(x)))
-#endif
-#define TEMPLATE_PERTASK(x) (*(__typeof__(&(x)))((uintptr_t)kernel_pertask_start+(uintptr_t)&(x)))
-#define TEMPLATE_PERVM(x)   (*(__typeof__(&(x)))((uintptr_t)kernel_pervm_start+(uintptr_t)&(x)))
+#endif /* CONFIG_BUILDING_KERNEL_CORE */
 
 #define ATTR_PERCPU    ATTR_SECTION(".data.percpu")  /* Per-cpu template data. */
 #define ATTR_PERVM     ATTR_SECTION(".data.pervm")   /* Per-virtual-memory template data. */
 #define ATTR_PERTASK   ATTR_SECTION(".data.pertask") /* Per-task template data. */
 #endif /* __CC__ */
-
-#if __SIZEOF_POINTER__ == 8
-#define DEFINE_CALLBACK(sect,func) \
-    __asm__(".pushsection " sect "\n" \
-            "    .qword " PP_STR(func) "\n" \
-            ".popsection")
-#else
-#define DEFINE_CALLBACK(sect,func) \
-    __asm__(".pushsection " sect "\n" \
-            "    .long " PP_STR(func) "\n" \
-            ".popsection")
-#endif
-
-
-#endif /* CONFIG_BUILDING_KERNEL_CORE */
-
-
 
 DECL_END
 

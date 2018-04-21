@@ -34,13 +34,23 @@
 
 DECL_BEGIN
 
+PRIVATE void KCALL
+push_function(module_callback_t func,
+              void ***__restrict pesp) {
+ /* pushl %eip */
+ *--(*pesp) = (void *)func;
+}
+
+
 PUBLIC void KCALL
 application_loaduserinit(struct application *__restrict app,
                          struct cpu_hostcontext_user *__restrict context) {
  void **esp = (void **)context->c_esp;
  validate_writable(esp-1,sizeof(*esp));
  *--esp = (void *)context->c_eip;     /* pushl %eip */
- esp = application_enuminit(app,esp); /* pushl init... */
+ application_enuminit(app,            /* pushl init... */
+                     (module_enumerator_t)&push_function,
+                      &esp);
  context->c_eip = (uintptr_t)*esp++;  /* popl  %eip */
  context->c_esp = (uintptr_t)esp;
 }
@@ -50,7 +60,9 @@ application_loaduserfini(struct application *__restrict app,
  void **esp = (void **)context->c_esp;
  validate_writable(esp-1,sizeof(*esp));
  *--esp = (void *)context->c_eip;     /* pushl %eip */
- esp = application_enumfini(app,esp); /* pushl fini... */
+ application_enumfini(app,            /* pushl fini... */
+                     (module_enumerator_t)&push_function,
+                      &esp);
  context->c_eip = (uintptr_t)*esp++;  /* popl  %eip */
  context->c_esp = (uintptr_t)esp;
 }

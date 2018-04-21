@@ -20,7 +20,6 @@
 
 BEGIN
 	DEFINE("__KERNEL__")
-	DEFINE("CONFIG_BUILDING_KERNEL_CORE")
 	INCLUDE("include")
 	INCLUDE("include/i386-kos")
 
@@ -42,6 +41,7 @@ BEGIN
 	C_FLAGS("-mpreferred-stack-boundary=2")
 
 	BEGIN PROJECT("kernel")
+		DEFINE("CONFIG_BUILDING_KERNEL_CORE")
 
 		//SET_COMPILER("${CXX}")
 		/* This flag disabled alignment that
@@ -179,9 +179,6 @@ BEGIN
 				old_data = "";
 			}
 			if (data != old_data) {
-				print "CHANGED";
-				print repr data;
-				print repr old_data;
 				local outfd = file.open(symfile,"w");
 				outfd.write(data);
 				outfd.close();

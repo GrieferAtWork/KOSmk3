@@ -346,11 +346,10 @@ SECTIONS {
 		*(.text.free)
 		*(.rodata.free)
 		*(.rodata.str.free)
-		PROVIDE_HIDDEN(kernel_coredriver_preinit_start = ABSOLUTE(.));
-		*(.rodata.core_driver.preinit.free)
-		PROVIDE_HIDDEN(kernel_coredriver_preinit_end = ABSOLUTE(.));
 		PROVIDE_HIDDEN(kernel_coredriver_init_start = ABSOLUTE(.));
+		*(.rodata.core_driver.preinit.free)
 		*(.rodata.core_driver.init.free)
+		*(.rodata.core_driver.postinit.free)
 		PROVIDE_HIDDEN(kernel_coredriver_init_end = ABSOLUTE(.));
 		*(.data.free)
 		*(.bss.free)

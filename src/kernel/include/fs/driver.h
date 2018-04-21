@@ -20,21 +20,37 @@
 #define GUARD_KERNEL_INCLUDE_FS_DRIVER_H 1
 
 #include <hybrid/compiler.h>
+#include <hybrid/section.h>
 #include <kos/types.h>
 #include <kernel/sections.h>
 #include <fs/linker.h>
 
+#if defined(__i386__) || defined(__x86_64__)
+#include <i386-kos/driver.h>
+#else
+#error "Unsupported architecture"
+#endif
+
+
 DECL_BEGIN
 
-#define DRIVER_PARAM_TYPE_OPTION  0x00 /* `[-[-]]dp_name=dp_hand:arg' */
-#define DRIVER_PARAM_TYPE_FLAG    0x01 /* `[-[-]]dp_name' (dp_hand:arg=NULL) */
+#define DRIVER_PARAM_TYPE_OPTION  0x00 /* `[-[-]]dp_name=dp_hand:arg' (invoked as `driver_param_handler_t') */
+#define DRIVER_PARAM_TYPE_FLAG    0x01 /* `[-[-]]dp_name' (invoked as `driver_flag_handler_t') */
 #define DRIVER_PARAM_TYPE_MASK    0x07 /* Mask for the parameter type (other bits are served for flags) */
 
 #define DRIVER_SPECS_VERSION  0x0000 /* The current driver specs version. */
 
+
+#if __SIZEOF_POINTER__ == 4
+#define DRIVER_PARAM_SHORTNAME_MAXLEN 11
+#else
+#define DRIVER_PARAM_SHORTNAME_MAXLEN 23
+#endif
+
 #ifdef __CC__
 typedef void (KCALL *driver_init_t)(void);
 typedef void (KCALL *driver_fini_t)(void);
+typedef void (KCALL *driver_flag_handler_t)(void);
 typedef void (KCALL *driver_param_handler_t)(char *arg);
 typedef void (KCALL *driver_main_t)(int argc, char **argv);
 struct PACKED driver_param {
@@ -46,6 +62,7 @@ struct PACKED driver_param {
             char      __dp_pad[sizeof(void *)-(sizeof(u8)+sizeof(char))];
             image_rva_t dp_name_ptr; /* [valid_if(dp_zero == 0)]
                                       * Image-relative pointer to the parameter name. */
+            image_rva_t dp_unused;   /* Currently unused. */
         };
         char            dp_name_inline[((sizeof(void *)*3)-sizeof(u8))/sizeof(char)];
                                      /* [valid_if(dp_zero != 0)]
@@ -76,6 +93,7 @@ struct PACKED driver_specs {
      *             #4: If defined, execute `ds_main' with the remaining driver
      *                 arguments. When not defined, warn about any driver
      *                 arguments that were left unused.
+     *             #5: Unmap the `ds_free...+=ds_free_sz' segment. (if non-empty)
      *         } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
      *             #2.1: Execute all functions from `ds_fini' in reverse order
      *                   NOTE: Yes, all fini functions are executed when a single
@@ -94,6 +112,8 @@ struct PACKED driver_specs {
      *     #1: Execute all functions from `ds_fini' in reverse order
      *     #2: Execute functions enumeratable by `application_enumfini()' */
     uintptr_t      ds_version; /* [== DRIVER_SPECS_VERSION] Driver specifications version. */
+    image_rva_t    ds_free;    /* Starting page number of the driver's .free section. */
+    size_t         ds_free_sz; /* Size of the driver's .free section (in pages) */
     image_rva_t    ds_init;    /* Pointer to an array of `image_rva_t' with `ds_init_sz' elements.
                                 * Called after ELF module constructors; may be located in `.free' memory. */
     size_t         ds_init_sz; /* Number of driver initializers. */
@@ -114,9 +134,10 @@ struct PACKED driver_specs {
 };
 
 struct driver {
-    struct application   d_app;  /* The underlying application. */
-    struct driver_specs *d_spec; /* [1..1][const] Driver specifications (`dlsym("__$$OS$driver_specs")') */
-    /* TODO ... */
+    struct application         d_app;     /* The underlying application. */
+    struct driver_specs const *d_spec;    /* [1..1][const] Driver specifications (`dlsym("__$$OS$driver_specs")') */
+    char                      *d_cmdline; /* [0..1][lock(WRITE_ONCE && creator)][owned] Driver commandline.
+                                           * Set once during driver initialization and never changed. */
 };
 
 /* Increment/decrement the reference counter of the given driver `x' */
@@ -134,10 +155,16 @@ INTDEF struct driver this_driver;
 
 
 
-/* Load `mod' as a driver into the kernel. */
+/* Load `mod' as a driver into the kernel.
+ * NOTE: The caller is responsible to ensure that `module_commandline_length'
+ *       isn't too large, although the only real limit is available memory.
+ *       However, since this function is usually called using `kernctl()'
+ *      (a user-space facility), the caller should still validate that
+ *       the commandline isn't too long (because the kernel has to copy it) */
 FUNDEF ATTR_RETNONNULL REF struct driver *
 KCALL kernel_insmod(struct module *__restrict mod, bool *pwas_newly_loaded,
-                    USER CHECKED char const *module_commandline);
+                    USER CHECKED char const *module_commandline,
+                    size_t module_commandline_length);
 
 
 /* Delete the given module:
@@ -160,15 +187,83 @@ FUNDEF REF struct driver *KCALL kernel_getmod(struct module *__restrict mod);
 #ifdef CONFIG_BUILDING_KERNEL_CORE
 /* Define an initializer function to-be called during core driver initialization.
  * >> INTERN ATTR_FREETEXT void KCALL my_core_driver_init(void); */
-#define DEFINE_CORE_DRIVER_PREINIT(func) DEFINE_CALLBACK(".rodata.core_driver.preinit.free",func)
-#define DEFINE_CORE_DRIVER_INIT(func)    DEFINE_CALLBACK(".rodata.core_driver.init.free",func)
-#define DEFINE_DRIVER_PREINIT(func)      DEFINE_CORE_DRIVER_PREINIT(func)
-#define DEFINE_DRIVER_INIT(func)         DEFINE_CORE_DRIVER_INIT(func)
+#define DEFINE_DRIVER_PREINIT(func)       DEFINE_ABS_CALLBACK(".rodata.core_driver.preinit.free",func)
+#define DEFINE_DRIVER_INIT(func)          DEFINE_ABS_CALLBACK(".rodata.core_driver.init.free",func)
+#define DEFINE_DRIVER_POSTINIT(func)      DEFINE_ABS_CALLBACK(".rodata.core_driver.postinit.free",func)
 #else
-#define DEFINE_DRIVER_PREINIT(func) /* TODO */
-#define DEFINE_DRIVER_INIT(func)    /* TODO */
-#define DEFINE_DRIVER_FINI(func)    /* TODO */
+#define DEFINE_DRIVER_PREINIT(func)       DEFINE_REL_CALLBACK(".rodata.driver.preinit",func)
+#define DEFINE_DRIVER_INIT(func)          DEFINE_REL_CALLBACK(".rodata.driver.init",func)
+#define DEFINE_DRIVER_POSTINIT(func)      DEFINE_REL_CALLBACK(".rodata.driver.postinit",func)
+#define DEFINE_DRIVER_PREFINI(func)       DEFINE_REL_CALLBACK(".rodata.driver.prefini",func)
+#define DEFINE_DRIVER_FINI(func)          DEFINE_REL_CALLBACK(".rodata.driver.fini",func)
+#define DEFINE_DRIVER_POSTFINI(func)      DEFINE_REL_CALLBACK(".rodata.driver.postfini",func)
 #endif
+
+
+/* Symbol name generator. */
+#define __DRIVER_BOOL_SYMNAME  __PP_STR(__driver_bool_,__LINE__)
+#define __DRIVER_PARAM_SYMNAME __PP_STR(__driver_param_,__LINE__)
+#define __DRIVER_FLAG_SYMNAME  __PP_STR(__driver_flag_,__LINE__)
+
+
+/* Define a driver parameter handler:
+ * >> DEFINE_DRIVER_PARAM("foo",foo_handler); // "foo=xxx"
+ * >> PRIVATE ATTR_FREETEXT ATTR_USED void KCALL foo_handler(char *arg) {
+ * >>     debug_printf("driver initializer with foo=%s\n",arg);
+ * >> }
+ * >> DEFINE_DRIVER_FLAG("bar",bar_handler); // "bar"
+ * >> PRIVATE ATTR_FREETEXT ATTR_USED void KCALL bar_handler(void) {
+ * >>     debug_printf("driver initializer with bar\n");
+ * >> }
+ */
+#define DEFINE_DRIVER_PARAM_FUNC(name,handler) \
+        DEFINE_DRIVER_PARAM_EX(name,DRIVER_PARAM_TYPE_OPTION,handler)
+#define DEFINE_DRIVER_FLAG_FUNC(name,handler) \
+        DEFINE_DRIVER_PARAM_EX(name,DRIVER_PARAM_TYPE_FLAG,handler)
+
+
+/* Define a boolean driver flag that is set to `true'
+ * when the appropriate commandline option is passed.
+ * >> PRIVER_BOOL(operate_in_alternate_mode,"altmode");
+ * >> void foobar() {
+ * >>     if (!operate_in_alternate_mode) {
+ * >>        // A
+ * >>     } else {
+ * >>        // B
+ * >>     }
+ * >> } */
+#define DEFINE_DRIVER_BOOL(varname,paramname) \
+        DEFINE_DRIVER_PARAM_EX(paramname,DRIVER_PARAM_TYPE_FLAG,__DRIVER_BOOL_SYMNAME); \
+        PRIVATE ATTR_FREETEXT ATTR_USED void KCALL __DRIVER_BOOL_SYMNAME(void) { varname = true; }
+#define PRIVER_BOOL(varname,paramname) \
+        INTERN bool varname = false; DEFINE_DRIVER_BOOL2(varname,paramname)
+
+/* Enable a set of flags `flagmask' in `flagset'
+ * when `paramname' is passed on the commandline.
+ * >> INTERN u32 my_driver_flags = 0;
+ * >> PRIVER_FLAG(my_driver_flags,"fa",0x0001);
+ * >> PRIVER_FLAG(my_driver_flags,"fb",0x0002);
+ * >> PRIVER_FLAG(my_driver_flags,"fc",0x0004);
+ * >> PRIVER_FLAG(my_driver_flags,"fd",0x0008); */
+#define PRIVER_FLAG(flagset,paramname,flagmask) \
+        DEFINE_DRIVER_PARAM_EX(paramname,DRIVER_PARAM_TYPE_FLAG,__DRIVER_BOOL_SYMNAME); \
+        PRIVATE ATTR_FREETEXT ATTR_USED void KCALL __DRIVER_BOOL_SYMNAME(void) { flagset |= flagmask; }
+
+
+/* Define a driver parameter:
+ * >> DRIVER_PARAM_FUNC("foo",arg) {
+ * >>     debug_printf("driver initializer with foo=%s\n",arg);
+ * >> }
+ * >> DRIVER_FLAG_FUNC("bar") {
+ * >>     debug_printf("driver initializer with bar\n");
+ * >> } */
+#define DRIVER_PARAM_FUNC(name,arg_name) \
+        DEFINE_DRIVER_PARAM_FUNC(name,__DRIVER_PARAM_SYMNAME); \
+        PRIVATE ATTR_FREETEXT ATTR_USED void KCALL \
+        __DRIVER_PARAM_SYMNAME(char const *__restrict arg_name)
+#define DRIVER_FLAG_FUNC(name) \
+        DEFINE_DRIVER_FLAG_FUNC(name,__DRIVER_FLAG_SYMNAME); \
+        PRIVATE ATTR_FREETEXT ATTR_USED void KCALL __DRIVER_FLAG_SYMNAME(void)
 
 
 

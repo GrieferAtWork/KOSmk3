@@ -68,6 +68,9 @@
     <None Include="..\..\src\kernel\i386-kos\safecall32.S">
       <Filter>kernel\i386-kos</Filter>
     </None>
+    <None Include="..\..\src\kernel\i386-kos\kernel.ld.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="kernel">
@@ -769,6 +772,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\kernel\src\fs\autopart.h">
       <Filter>kernel\src\fs</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\sections.h">
+      <Filter>kernel\include\i386-kos</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -182,6 +182,7 @@ SECTIONS {
 
 	/* Free data (to-be released once the module is up & running) */
 	PROVIDE_HIDDEN(module_free_start = .);
+	IP_ALIGN(PAGESIZE);
 	SECTION(.free) {
 		*(.text.free)
 		*(.rodata.free)
@@ -214,6 +215,7 @@ SECTIONS {
 	PROVIDE_HIDDEN(module_size_raw = ABSOLUTE(module_end_raw - module_start));
 	PROVIDE_HIDDEN(module_size = ABSOLUTE(module_end - module_start));
 
+
 	/* Pre-calculate page numbers and sizes of module segments. */
 	PROVIDE_HIDDEN(module_rx_minpage     = ABSOLUTE(module_rx_start / PAGESIZE));
 	PROVIDE_HIDDEN(module_rx_maxpage     = ABSOLUTE((module_rx_end / PAGESIZE)-1));
@@ -237,11 +239,11 @@ SECTIONS {
 	PROVIDE_HIDDEN(module_free_maxpage   = ABSOLUTE((module_free_end / PAGESIZE)-1));
 	PROVIDE_HIDDEN(module_free_num_pages = ABSOLUTE((module_free_maxpage - module_free_minpage)+1));
 
-	PROVIDE_HIDDEN(module_init_size = ABSOLUTE(ABSOLUTE(module_init_end) - ABSOLUTE(module_init_start)));
+	PROVIDE_HIDDEN(module_init_size  = ABSOLUTE(ABSOLUTE(module_init_end) - ABSOLUTE(module_init_start)));
 	PROVIDE_HIDDEN(module_init_count = ABSOLUTE(module_init_size / __SIZEOF_POINTER__));
-	PROVIDE_HIDDEN(module_parm_size = ABSOLUTE(ABSOLUTE(module_parm_end) - ABSOLUTE(module_parm_start)));
+	PROVIDE_HIDDEN(module_parm_size  = ABSOLUTE(ABSOLUTE(module_parm_end) - ABSOLUTE(module_parm_start)));
 	PROVIDE_HIDDEN(module_parm_count = ABSOLUTE(module_parm_size / __SIZEOF_POINTER__));
-	PROVIDE_HIDDEN(module_fini_size = ABSOLUTE(ABSOLUTE(module_fini_end) - ABSOLUTE(module_fini_start)));
+	PROVIDE_HIDDEN(module_fini_size  = ABSOLUTE(ABSOLUTE(module_fini_end) - ABSOLUTE(module_fini_start)));
 	PROVIDE_HIDDEN(module_fini_count = ABSOLUTE(module_fini_size / __SIZEOF_POINTER__));
 
 	/DISCARD/ : {

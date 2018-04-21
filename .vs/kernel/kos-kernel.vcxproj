@@ -42,6 +42,7 @@
     <None Include="..\..\src\kernel\i386-kos\hw_except32.S" />
     <None Include="..\..\src\kernel\i386-kos\interrupt32.S" />
     <None Include="..\..\src\kernel\i386-kos\kernel.ld" />
+    <None Include="..\..\src\kernel\i386-kos\kernel.ld.S" />
     <None Include="..\..\src\kernel\i386-kos\paging32.c.inl" />
     <None Include="..\..\src\kernel\i386-kos\paging32.S" />
     <None Include="..\..\src\kernel\i386-kos\safecall32.S" />
@@ -216,6 +217,7 @@
     <ClInclude Include="..\..\src\kernel\include\i386-kos\pit.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\posix_signals.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\scheduler.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\sections.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\smp.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\syscall.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\tss.h" />

@@ -64,18 +64,19 @@ kernel_control(syscall_ulong_t command, syscall_ulong_t arg0,
   break;
 
  case KERNEL_CONTROL_INSMOD:
-  validate_readable_opt((char *)arg1,1);
  case KERNEL_CONTROL_DELMOD:
  {
   struct regular_node *node;
   struct path *modpath;
   REF struct module *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(mod);
   REF struct driver *EXCEPT_VAR driver;
+  /* Use the first argument to lookup a filesystem path. */
   modpath = fs_path(NULL,(char *)arg0,user_strlen((char *)arg0),
                    (struct inode **)&node,FS_MODE_FNORMAL);
   TRY {
    if (!INODE_ISREG(&node->re_node))
         error_throw(E_NOT_EXECUTABLE);
+   /* Open a module under that path. */
    mod = module_open(node,modpath);
   } FINALLY {
    path_decref(modpath);
@@ -84,13 +85,22 @@ kernel_control(syscall_ulong_t command, syscall_ulong_t arg0,
   TRY {
    if (command == KERNEL_CONTROL_INSMOD) {
     bool was_newly_loaded;
+    size_t commandline_length;
+    commandline_length = user_strlen((char *)arg1);
+    /* Fail if the user-provided commandline is too long. */
+    if unlikely(commandline_length >= 0x4000)
+       error_throw(E_INVALID_ARGUMENT);
     /* Load a new driver. */
-    driver = kernel_insmod(mod,&was_newly_loaded,(char *)arg1);
+    driver = kernel_insmod(mod,&was_newly_loaded,
+                          (char *)arg1,
+                           commandline_length);
     driver_decref(driver);
     COMPILER_BARRIER();
+    /* Fail if the driver had already been loaded. */
     if unlikely(!was_newly_loaded)
        error_throw(E_INVALID_ARGUMENT);
    } else {
+    /* Lookup a driver instance of the given module. */
     driver = kernel_getmod(mod);
     if unlikely(!driver)
        error_throw(E_INVALID_ARGUMENT);

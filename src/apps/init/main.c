@@ -249,7 +249,6 @@ int main(int argc, char *argv[]) {
  for (;;) Xfork();
 #endif
 
-
 // kernctl(KERNEL_CONTROL_TRACE_SYSCALLS_ON);
  kernctl(KERNEL_CONTROL_DBG_DUMP_LEAKS);
 
@@ -265,9 +264,8 @@ int main(int argc, char *argv[]) {
   else if (stat("/dev/ps2_mouseb",&buf) == 0) Xsymlink("ps2_mouseb","/dev/mouse");
  }
 
-
- Xkernctl(KERNEL_CONTROL_INSMOD,"/mod/procfs.mod","a b c");
-
+ /* Just for testing: Load a kernel driver. */
+ kernctl(KERNEL_CONTROL_INSMOD,"/mod/procfs.mod","a b c");
 
  Xexecl("/bin/terminal-vga",
         "terminal-vga",

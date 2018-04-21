@@ -1065,38 +1065,36 @@ fail:
 
 
 /* ELF Initialization / Finalization enumerators. */
-PRIVATE VIRT void **KCALL
+PRIVATE void KCALL
 Elf_EnumInitializers(struct application *__restrict app,
-                     VIRT USER CHECKED void **__restrict vector) {
+                     module_enumerator_t func, void *arg) {
  uintptr_t loadaddr = app->a_loadaddr;
  ElfModule *mod = app->a_module->m_data;
  if (mod->e_dyn.di_init_array_siz) {
-  void **begin = (void **)(loadaddr + mod->e_dyn.di_init_array);
-  void **iter  = (void **)((uintptr_t)begin + mod->e_dyn.di_init_array_siz);
-  while (iter-- > begin) MODULE_ENUM_PUSH(vector,*iter);
+  module_callback_t *begin = (module_callback_t *)(loadaddr + mod->e_dyn.di_init_array);
+  module_callback_t *iter  = (module_callback_t *)((uintptr_t)begin + mod->e_dyn.di_init_array_siz);
+  while (iter-- > begin) (*func)(*iter,arg);
  }
  if (mod->e_dyn.di_preinit_array_siz) {
-  void **begin = (void **)(loadaddr + mod->e_dyn.di_preinit_array);
-  void **iter  = (void **)((uintptr_t)begin + mod->e_dyn.di_preinit_array_siz);
-  while (iter-- > begin) MODULE_ENUM_PUSH(vector,*iter);
+  module_callback_t *begin = (module_callback_t *)(loadaddr + mod->e_dyn.di_preinit_array);
+  module_callback_t *iter  = (module_callback_t *)((uintptr_t)begin + mod->e_dyn.di_preinit_array_siz);
+  while (iter-- > begin) (*func)(*iter,arg);
  }
  if (mod->e_dyn.di_init != 0)
-     MODULE_ENUM_PUSH(vector,(void *)(loadaddr + mod->e_dyn.di_init));
- return vector;
+    (*func)((module_callback_t)(loadaddr + mod->e_dyn.di_init),arg);
 }
-PRIVATE VIRT void **KCALL
+PRIVATE void KCALL
 Elf_EnumFinalizers(struct application *__restrict app,
-                   VIRT USER CHECKED void **__restrict vector) {
+                   module_enumerator_t func, void *arg) {
  uintptr_t loadaddr = app->a_loadaddr;
  ElfModule *mod = app->a_module->m_data;
  if (mod->e_dyn.di_fini != 0)
-     MODULE_ENUM_PUSH(vector,(void *)(loadaddr + mod->e_dyn.di_fini));
+     (*func)((module_callback_t)(loadaddr + mod->e_dyn.di_fini),arg);
  if (mod->e_dyn.di_fini_array_siz) {
-  void **iter = (void **)(loadaddr + mod->e_dyn.di_fini_array);
-  void **end  = (void **)((uintptr_t)iter + mod->e_dyn.di_fini_array_siz);
-  for (; iter < end; ++iter) MODULE_ENUM_PUSH(vector,*iter);
+  module_callback_t *iter = (module_callback_t *)(loadaddr + mod->e_dyn.di_fini_array);
+  module_callback_t *end  = (module_callback_t *)((uintptr_t)iter + mod->e_dyn.di_fini_array_siz);
+  for (; iter < end; ++iter) (*func)(*iter,arg);
  }
- return vector;
 }
 
 PRIVATE struct module_section KCALL

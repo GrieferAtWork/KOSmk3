@@ -608,9 +608,13 @@ PUBLIC ATTR_NOTHROW void KCALL
 application_destroy(struct application *__restrict self) {
  size_t i;
  assert(!self->a_mapcnt);
- if (self->a_module) {
-     module_decref(self->a_module);
+ if (self->a_type & APPLICATION_TYPE_FDRIVER) {
+  struct driver *me = (struct driver *)self;
+  /* Free the dynamically allocated driver commandline (if defined) */
+  kfree(me->d_cmdline);
  }
+ if (self->a_module)
+     module_decref(self->a_module);
  for (i = 0; i < self->a_requirec; ++i)
      application_weak_decref(self->a_requirev[i]);
  kfree(self->a_requirev);
@@ -1204,33 +1208,31 @@ application_dlsect(struct application *__restrict self,
  return (*pfun)(self,name);
 }
 
-PUBLIC VIRT void **KCALL
+PUBLIC void KCALL
 application_enuminit(struct application *__restrict app,
-                     VIRT USER CHECKED void **__restrict vector) {
- VIRT void **(KCALL *callback)(struct application *__restrict app,
-                               VIRT USER CHECKED void **__restrict vector);;
+                     module_enumerator_t func, void *arg) {
+ void (KCALL *callback)(struct application *__restrict app,
+                        module_enumerator_t func, void *arg);
  callback = app->a_module->m_type->m_enuminit;
- if (!callback || (ATOMIC_FETCHOR(app->a_flags,APPLICATION_FDIDINIT)&APPLICATION_FDIDINIT))
-      return vector;
- return (*callback)(app,vector);
+ if (callback && (ATOMIC_FETCHOR(app->a_flags,APPLICATION_FDIDINIT)&APPLICATION_FDIDINIT))
+   (*callback)(app,func,arg);
 }
-PUBLIC VIRT void **KCALL
+PUBLIC void KCALL
 application_enumfini(struct application *__restrict app,
-                     VIRT USER CHECKED void **__restrict vector) {
- VIRT void **(KCALL *callback)(struct application *__restrict app,
-                               VIRT USER CHECKED void **__restrict vector);;
+                     module_enumerator_t func, void *arg) {
+ void (KCALL *callback)(struct application *__restrict app,
+                        module_enumerator_t func, void *arg);
  u16 old_flags;
  callback = app->a_module->m_type->m_enumfini;
- if (!callback) return vector;
+ if (!callback) return;
  do {
   old_flags = ATOMIC_READ(app->a_flags);
   if (!(old_flags & APPLICATION_FDIDINIT))
-      return vector; /* Never initialized. */
+      return; /* Never initialized. */
   if (old_flags & APPLICATION_FDIDFINI)
-      return vector; /* Already finalized. */
- }
- while (!ATOMIC_CMPXCH_WEAK(app->a_flags,old_flags,old_flags|APPLICATION_FDIDFINI));
- return (*callback)(app,vector);
+      return; /* Already finalized. */
+ } while (!ATOMIC_CMPXCH_WEAK(app->a_flags,old_flags,old_flags|APPLICATION_FDIDFINI));
+ (*callback)(app,func,arg);
 }
 
 PUBLIC void KCALL

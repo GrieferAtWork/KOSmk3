@@ -48,7 +48,7 @@ __SYSDECL_BEGIN
 #define KERNEL_CONTROL_TRACE_SYSCALLS_OFF 0x88000002 /* () Turn system call tracing off */
 
 /* Module loading API */
-#define KERNEL_CONTROL_INSMOD             0x66000001 /* (char const *path, char const *commandline) -- Load a driver module */
+#define KERNEL_CONTROL_INSMOD             0x66000001 /* (char const *path, char const *commandline) -- Load a driver module (NOTE: `commandline' may be `NULL') */
 #define KERNEL_CONTROL_DELMOD             0x66000002 /* (char const *path) -- Unload a driver module */
 
 

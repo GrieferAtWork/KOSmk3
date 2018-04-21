@@ -139,6 +139,9 @@ FUNDEF u32 KCALL patcher_symhash(USER CHECKED char const *__restrict name);
 
 
 #ifdef __CC__
+typedef void (*module_callback_t)(void);
+typedef void (KCALL *module_enumerator_t)(module_callback_t func, void *arg);
+
 struct module_type {
     LIST_NODE(struct module_type)   m_types;  /* [lock(module_types.mt_lock)] Chain of registered module types. */
     u16                             m_magsz;  /* Amount of magic bits that should be detected before the module is loaded.
@@ -201,29 +204,13 @@ struct module_type {
      * @throw: E_INDEX_ERROR:    Same as `E_NOT_EXECUTABLE' */
     void (KCALL *m_patchapp)(struct module_patcher *__restrict self);
 
-    /* [0..1] Enumerate module initializer functions (in order of execution, first --> last),
-     *        by pushing their absolute addresses into the given `vector' using the
-     *       `MODULE_ENUM_PUSH' macro provided above.
-     *        Once does, the new end address of `vector' is returned.
-     *     >> MODULE_ENUM_PUSH(vector,get_init_a());
-     *     >> MODULE_ENUM_PUSH(vector,get_init_b());
-     *     >> MODULE_ENUM_PUSH(vector,get_init_c());
-     *     >> return vector;
-     *  HINT: When invoked for user-space the given `vector' points to the user-space
-     *        stack of the thread that requested the dlopen()/dlclose(), meaning that
-     *        any overflows will automatically be dealt with, using an E_SEGFAULT.
-     *  NOTE: Functions should be pushed in order of execute-last to execute-first. */
-    VIRT void **(KCALL *m_enuminit)(struct application *__restrict app,
-                                    VIRT USER CHECKED void **__restrict vector);
+    /* [0..1] Enumerate module initializer functions (in order of execution, first --> last). */
+    void (KCALL *m_enuminit)(struct application *__restrict app,
+                             module_enumerator_t func, void *arg);
 
     /* [0..1] Same as `m_enuminit', but used to enumerate module finalizers. */
-    VIRT void **(KCALL *m_enumfini)(struct application *__restrict app,
-                                    VIRT USER CHECKED void **__restrict vector);
-#ifdef CONFIG_STACK_GROWS_UPWARDS
-#define MODULE_ENUM_PUSH(vector,addr) (void)(*(vector)++ = (addr))
-#else
-#define MODULE_ENUM_PUSH(vector,addr) (void)(*--(vector) = (addr))
-#endif
+    void (KCALL *m_enumfini)(struct application *__restrict app,
+                             module_enumerator_t func, void *arg);
     /* [1..1] Return the symbol mapping to `name'.
      * @return: MODULE_SYMBOL_INVALID: The given symbol `name' could not be found. */
     struct module_symbol (KCALL *m_symbol)(struct application *__restrict app,
@@ -427,8 +414,8 @@ application_dlsect(struct application *__restrict self,
 /* Enumerate initializers/finalizers and set the associated `APPLICATION_FDID*' flag.
  * If the flag has already been set, or if the application doesn't
  * implement initializers/finalizers, return immediately. */
-FUNDEF VIRT void **KCALL application_enuminit(struct application *__restrict app, VIRT USER CHECKED void **__restrict vector);
-FUNDEF VIRT void **KCALL application_enumfini(struct application *__restrict app, VIRT USER CHECKED void **__restrict vector);
+FUNDEF void KCALL application_enuminit(struct application *__restrict app, module_enumerator_t func, void *arg);
+FUNDEF void KCALL application_enumfini(struct application *__restrict app, module_enumerator_t func, void *arg);
 
 /* Load application initializers/finalizers for
  * execution by the given user-space CPU context. */
