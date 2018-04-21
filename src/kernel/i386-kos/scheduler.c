@@ -431,7 +431,7 @@ rethrow:
  * When these functions return normally, the system call should be restarted.
  * When it shouldn't, these functions rethrow the dangling `E_INTERRUPT'. */
 PUBLIC bool FCALL
-task_restart_syscall(struct cpu_anycontext *__restrict context,
+task_restart_syscall(struct cpu_hostcontext_user *__restrict context,
                      unsigned int mode, syscall_ulong_t sysno) {
 again:
  assertf(error_code() == E_INTERRUPT,
@@ -470,7 +470,7 @@ again:
    * RPC was being served while the thread was still
    * in user-space, about to trigger the system call that
    * was interrupted in order to serve RPC functions. */
-  task_serve_before_user(&context->c_user,mode);
+  task_serve_before_user(context,mode);
  } CATCH (E_INTERRUPT) {
   /* Deal with recursive restart attempts. */
   goto again;

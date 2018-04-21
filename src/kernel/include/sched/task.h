@@ -1139,7 +1139,8 @@ FUNDEF void FCALL task_restart_interrupt(struct cpu_anycontext *__restrict conte
  * Otherwise, `false' is returned and the caller should rethrow the dangling `E_INTERRUPT'.
  * @param: mode: `TASK_USERCTX_TYPE_INTR_SYSCALL', optionally or'd with arch-
  *                dependent context flags (e.g.: on X86, `X86_SYSCALL_TYPE_F*') */
-FUNDEF bool FCALL task_restart_syscall(struct cpu_anycontext *__restrict context,
+struct cpu_hostcontext_user;
+FUNDEF bool FCALL task_restart_syscall(struct cpu_hostcontext_user *__restrict context,
                                        unsigned int mode, syscall_ulong_t sysno);
 #endif /* __CC__ */
 

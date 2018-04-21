@@ -293,11 +293,14 @@ restart_syscall:
       context->c_eip           = (uintptr_t)fault_address;
       COMPILER_WRITE_BARRIER();
       /* Deal with system call restarts. */
-      if (!task_restart_syscall(context,
+      if (!task_restart_syscall(&context->c_user,
                                 TASK_USERCTX_TYPE_WITHINUSERCODE|
                                 X86_SYSCALL_TYPE_FPF,
-                                sysno))
-           error_rethrow();
+                                sysno)) {
+       context->c_eip = context->c_gpregs.gp_eax;
+       context->c_gpregs.gp_eax = sysno;
+       error_rethrow();
+      }
       COMPILER_BARRIER();
       goto restart_syscall;
      }

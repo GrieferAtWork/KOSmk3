@@ -167,23 +167,97 @@ x86_sigreturn_impl(void *UNUSED(arg),
  case TASK_USERCTX_TYPE_INTR_INTERRUPT:
   error_throw(E_INTERRUPT);
   break;
+
+ {
+  syscall_ulong_t EXCEPT_VAR sysno;
+  syscall_ulong_t EXCEPT_VAR orig_eax;
+  syscall_ulong_t EXCEPT_VAR orig_eip;
+#ifndef CONFIG_NO_X86_SYSENTER
+  syscall_ulong_t EXCEPT_VAR orig_ebp;
+  syscall_ulong_t EXCEPT_VAR orig_edi;
+  syscall_ulong_t EXCEPT_VAR orig_esp;
+#endif
  case TASK_USERCTX_TYPE_INTR_SYSCALL:
   /* Restart an interrupted system call by executing it now. */
+  orig_eax = context->c_gpregs.gp_eax;
+  orig_eip = context->c_eip;
 #ifndef CONFIG_NO_X86_SYSENTER
-  if (frame_mode & X86_SYSCALL_TYPE_FSYSENTER) {
-   /* TODO */
-  } else
+  orig_ebp = context->c_gpregs.gp_ebp;
+  orig_edi = context->c_gpregs.gp_edi;
+  orig_esp = context->c_iret.ir_useresp;
+#endif
+restart_sigframe_syscall:
+  TRY {
+   /* Convert the user-space register context to become `int $0x80'-compatible */
+#ifndef CONFIG_NO_X86_SYSENTER
+   if (frame_mode & X86_SYSCALL_TYPE_FSYSENTER) {
+    syscall_ulong_t masked_sysno; u8 argc = 6;
+    sysno                      = context->c_gpregs.gp_eax;
+    masked_sysno               = sysno & ~0x80000000;
+    context->c_eip             = orig_edi; /* CLEANUP: return.%eip = %edi */
+    context->c_iret.ir_useresp = orig_ebp; /* CLEANUP: return.%esp = %ebp */
+    /* Figure out how many arguments this syscall takes. */
+    if (masked_sysno <= __NR_syscall_max)
+     argc = x86_syscall_argc[masked_sysno];
+    else if (masked_sysno >= __NR_xsyscall_min &&
+             masked_sysno <= __NR_xsyscall_max) {
+     argc = x86_xsyscall_argc[masked_sysno-__NR_xsyscall_min];
+    }
+    /* Load additional arguments from user-space. */
+    if (argc >= 4)
+        context->c_gpregs.gp_edi = *((u32 *)(orig_ebp + 0));
+    if (argc >= 5)
+        context->c_gpregs.gp_ebp = *((u32 *)(orig_ebp + 4));
+    COMPILER_READ_BARRIER();
+   } else
 #endif /* !CONFIG_NO_X86_SYSENTER */
-  if (frame_mode & X86_SYSCALL_TYPE_FPF) {
-   /* TODO */
-  } else {
-   /* TODO */
+   if (frame_mode & X86_SYSCALL_TYPE_FPF) {
+    sysno = context->c_eip - PERTASK_GET(x86_sysbase);
+    sysno = X86_DECODE_PFSYSCALL(sysno);
+    context->c_eip = context->c_gpregs.gp_eax; /* #PF uses EAX as return address. */
+    context->c_gpregs.gp_eax = sysno; /* #PF encodes the sysno in EIP. */
+   } else {
+    sysno = context->c_gpregs.gp_eax;
+   }
+#if 0
+   debug_printf("\n\n"
+                "Restart system call after signal (%p)\n"
+                "\n\n",
+                sysno);
+#endif
+   /* Actually execute the system call (using the `int $0x80'-compatible register set). */
+   x86_syscall_exec80();
+  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+   /* Set the FSYSCALL flag so that exceptions are propagated accordingly. */
+   error_info()->e_error.e_flag |= X86_INTERRUPT_GUARD_FSYSCALL;
+   if (error_code() == E_INTERRUPT) {
+    /* Restore the original user-space CPU context. */
+    context->c_gpregs.gp_eax = orig_eax;
+    context->c_eip           = orig_eip;
+#ifndef CONFIG_NO_X86_SYSENTER
+    context->c_gpregs.gp_ebp = orig_ebp;
+    context->c_gpregs.gp_edi = orig_edi;
+    context->c_iret.ir_useresp = orig_esp;
+#endif
+    COMPILER_WRITE_BARRIER();
+    /* Deal with system call restarts. */
+    if (!task_restart_syscall(context,
+                              TASK_USERCTX_TYPE_WITHINUSERCODE|
+                              X86_SYSCALL_TYPE_FPF,
+                              sysno))
+         error_rethrow(); /* XXX: Fix up registers? */
+    COMPILER_BARRIER();
+    goto restart_sigframe_syscall;
+   }
+   error_rethrow();
   }
-  break;
+ } break;
+
  default: break;
  }
-
 }
+
+
 
 DEFINE_SYSCALL0(sigreturn) {
  /* Use an RPC callback to gain access to the user-space register state. */
@@ -282,7 +356,6 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
  }
 #endif
  frame->sf_signo = info->si_signo;
- frame->sf_mode = mode;
 
  /* Redirect the frame's sig-return pointer to direct it at the `sys_sigreturn' system call.
   * Being able to do this right here is the main reason why #PF-syscalls were introduced. */
@@ -293,16 +366,31 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
    sysno = (uintptr_t)context->c_eip-PERTASK_GET(x86_sysbase);
    sysno = X86_DECODE_PFSYSCALL(sysno);
   }
+  if (should_restart_syscall(sysno,
+                            (action->sa_flags&SA_RESTART)
+                          ? (SHOULD_RESTART_SYSCALL_FPOSIX_SIGNAL|
+                             SHOULD_RESTART_SYSCALL_FSA_RESTART)
+                          : (SHOULD_RESTART_SYSCALL_FPOSIX_SIGNAL))) {
+   /* Setup the signal frame to restart the system
+    * call once `sys_sigreturn()' is executed. */
+   frame->sf_mode = mode;
+  } else {
+   /* Throw E_INTERRUPT, or return `-EINTR' from the system call that got interrupted. */
+   frame->sf_mode = TASK_USERCTX_TYPE_INTR_INTERRUPT;
+  }
   if (!(sysno & 0x80000000))
         goto sigreturn_noexcept;
   /* Set the exceptions-enabled bit in the system call vector number. */
   frame->sf_sigreturn = (void *)(PERTASK_GET(x86_sysbase)+
                                  X86_ENCODE_PFSYSCALL(SYS_sigreturn|0x80000000));
  } else {
+  /* Resume execution in user-space normally. */
+  frame->sf_mode = TASK_USERCTX_TYPE_WITHINUSERCODE;
 sigreturn_noexcept:
   frame->sf_sigreturn = (void *)(PERTASK_GET(x86_sysbase)+
                                  X86_ENCODE_PFSYSCALL(SYS_sigreturn));
  }
+
 
  /* With the signal frame now generated, update context registers to execute the signal action. */
  context->c_esp = (uintptr_t)frame;

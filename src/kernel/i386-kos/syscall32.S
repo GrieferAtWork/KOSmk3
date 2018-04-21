@@ -156,7 +156,7 @@ name##_return64:; \
 	popl_cfi_r  X86_SYSCALL_REG1; \
 	addl        $4, %esp; \
 	.cfi_adjust_cfa_offset -4; \
-	.cfi_undefined %edx; /* Don't override the high 32 bits of the return value. */ \
+	.cfi_same_value %edx; /* Don't override the high 32 bits of the return value. */ \
 	popl_cfi_r  X86_SYSCALL_REG3; \
 	popl_cfi_r  X86_SYSCALL_REG4; \
 	popl_cfi_r  X86_SYSCALL_REG5; \
@@ -216,7 +216,7 @@ name##64:; \
 	popl_cfi_r  X86_SYSCALL_REG1; \
 	addl        $4, %esp; \
 	.cfi_adjust_cfa_offset -4; \
-	.cfi_undefined %edx; /* Don't override the high 32 bits of the return value. */ \
+	.cfi_same_value %edx; /* Don't override the high 32 bits of the return value. */ \
 	popl_cfi_r  X86_SYSCALL_REG3; \
 	popl_cfi_r  X86_SYSCALL_REG4; \
 	popl_cfi_r  X86_SYSCALL_REG5; \
@@ -259,13 +259,12 @@ INTERN_ENTRY(sysenter_kernel_entry)
 	sti
 
 #ifdef CONFIG_X86_SEGMENTATION
-	pushl_cfi_r  %ds
-	pushl_cfi_r  %es
-	pushl_cfi_r  %fs
-	pushl_cfi_r  %gs
+	pushl_cfi_r %ds
+	pushl_cfi_r %es
+	pushl_cfi_r %fs
+	pushl_cfi_r %gs
 #endif
 INTERN_ENTRY(sysenter_after_segments)
-
 	pushl_cfi_r %eax /* ORIG_EAX */
 
 	/* Push system call registers. */
@@ -692,8 +691,8 @@ SYMEND(x86_syscall_exec80_fixup)
 SYMEND(x86_syscall_exec80)
 
 .section .text
-	.cfi_startproc
 PUBLIC_ENTRY(x86_syscall_exec80_trace)
+	.cfi_startproc
 	movl  %taskseg:TASK_OFFSETOF_STACKEND, %ecx
 	/* Generate a `struct syscall_trace_regs' to-be passed to `syscall_trace()' */
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_SS)(%ecx)

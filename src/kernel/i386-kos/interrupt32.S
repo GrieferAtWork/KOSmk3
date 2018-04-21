@@ -614,19 +614,18 @@ INTERN_ENTRY(x86_interrupt_except)
 	.cfi_def_cfa %esp,     X86_IRREGS_HOST32_SIZE
 	.cfi_offset %eflags, (-X86_IRREGS_HOST32_SIZE) + X86_IRREGS_HOST32_OFFSETOF_EFLAGS
 	.cfi_offset %eip,    (-X86_IRREGS_HOST32_SIZE) + X86_IRREGS_HOST32_OFFSETOF_EIP
-
 #ifdef CONFIG_VM86
-	testl $EFLAGS_VM, %ss:X86_IRREGS_HOST32_OFFSETOF_EFLAGS(%esp)
-	jnz   .interrupt_except_user
+	testl   $EFLAGS_VM, %ss:X86_IRREGS_HOST32_OFFSETOF_EFLAGS(%esp)
+	jnz     .interrupt_except_user
 #endif
 
 	/* First off: Check where the interrupt wants to go. */
-	testl $3, %ss:X86_IRREGS_HOST32_OFFSETOF_CS(%esp)
-	jnz   .interrupt_except_user
+	testl   $3, %ss:X86_IRREGS_HOST32_OFFSETOF_CS(%esp)
+	jnz     .interrupt_except_user
 
 	/* Deal with the special case of exception propagation after user-space got redirected. */
-	cmpl  $(x86_redirect_preemption), %ss:X86_IRREGS_HOST32_OFFSETOF_EIP(%esp)
-	je    .interrupt_except_redirect
+	cmpl    $(x86_redirect_preemption), %ss:X86_IRREGS_HOST32_OFFSETOF_EIP(%esp)
+	je      .interrupt_except_redirect
 
 .interrupt_except_host:
 	/* Interrupt originates from kernel-space (continue unwinding). */
@@ -644,9 +643,9 @@ INTERN_ENTRY(x86_interrupt_except)
 	 * know that our stack-pointer is thread-local and therefor inaccessible
 	 * by other threads, but obviously restore the proper pointer further below.
 	 */
-	xchgl %taskseg:TASK_SEGMENT_OFFSETOF_XCURRENT+ \
-	               EXCEPTION_INFO_OFFSETOF_CONTEXT+ \
-	               X86_CONTEXT32_OFFSETOF_ESP, %esp
+	xchgl   %taskseg:TASK_SEGMENT_OFFSETOF_XCURRENT+ \
+	                 EXCEPTION_INFO_OFFSETOF_CONTEXT+ \
+	                 X86_CONTEXT32_OFFSETOF_ESP, %esp
 	.cfi_undefined %eflags
 	.cfi_undefined %eip
 	.cfi_def_cfa_offset 0
@@ -685,21 +684,21 @@ INTERN_ENTRY(x86_interrupt_except)
 	/* Copy IRET tail information from the original stack-pointer (now located in ESI) */
 	leal    X86_CONTEXT32_OFFSETOF_IRET(%esp), %edi
 	movl    $(X86_IRREGS_HOST32_SIZE/4), %ecx
-	movsl /* EIP */
+	movsl   /* EIP */
 	.cfi_def_cfa_offset X86_CONTEXT32_SIZE
 	.cfi_offset %eip, (-X86_CONTEXT32_SIZE)+(X86_CONTEXT32_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_EIP)
-	movsl /* CS */
-	movsl /* EFLAGS */
+	movsl   /* CS */
+	movsl   /* EFLAGS */
 	.cfi_offset %eflags, (-X86_CONTEXT32_SIZE)+(X86_CONTEXT32_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_EFLAGS)
 
 	/* Re-enable interrupts if they are where the interrupt would have lead. */
-	testl $(EFLAGS_IF), X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_EFLAGS(%esp)
-	jz    1f
+	testl   $(EFLAGS_IF), X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_EFLAGS(%esp)
+	jz      1f
 	sti
 1:
 
-	movl  %esp, %ecx
-	call  __error_rethrow_at
+	movl    %esp, %ecx
+	call    __error_rethrow_at
 	.cfi_endproc
 
 	.cfi_startproc simple
@@ -717,29 +716,30 @@ INTERN_ENTRY(x86_interrupt_except)
 	 *        that were requested for execution by the redirection.
 	 */
 #ifdef CONFIG_X86_SEGMENTATION
-	movw  %taskseg, %ss:(+0 + (-CONFIG_KERNELSTACK_SIZE) + X86_IRREGS_USER32_SIZE)(%esp)
+	movw    %taskseg, %ss:(+0 + (-CONFIG_KERNELSTACK_SIZE) + X86_IRREGS_USER32_SIZE)(%esp)
 #endif /* CONFIG_X86_SEGMENTATION */
-	movl  %eax, %ss:0(%esp) /* Preserve EAX */
-	movw  $(X86_HOST_TLS), %ax
-	movw  %ax, %taskseg
+	movl    %eax, %ss:0(%esp) /* Preserve EAX */
+	movw    $(X86_HOST_TLS), %ax
+	movw    %ax, %taskseg
 	/* Now copy the saved IRET tail into the current one. */
-	movl  %taskseg:iret_saved + 4, %eax
-	movl  %eax, %ss:4(%esp)
-	movl  %taskseg:iret_saved + 8, %eax
-	movl  %eax, %ss:8(%esp)
-	movl  %taskseg:iret_saved + 16, %eax
-	movl  %eax, %ss:16(%esp)
-	movl  %taskseg:iret_saved + 20, %eax
-	movl  %eax, %ss:20(%esp)
-	movl  %taskseg:iret_saved + 0, %eax
-	xchgl %ss:0(%esp), %eax /* Restore EAX */
+	movl    %taskseg:iret_saved + 4, %eax
+	movl    %eax, %ss:4(%esp)
+	movl    %taskseg:iret_saved + 8, %eax
+	movl    %eax, %ss:8(%esp)
+	movl    %taskseg:iret_saved + 16, %eax
+	movl    %eax, %ss:16(%esp)
+	movl    %taskseg:iret_saved + 20, %eax
+	movl    %eax, %ss:20(%esp)
+	movl    %taskseg:iret_saved + 0, %eax
+	xchgl   %ss:0(%esp), %eax /* Restore EAX */
 #ifdef CONFIG_X86_SEGMENTATION
 	/* Restore the user-space version of the %fs register. */
-	movw  %ss:(+0 + (-CONFIG_KERNELSTACK_SIZE) + X86_IRREGS_USER32_SIZE)(%esp), %taskseg
+	movw    %ss:(+0 + (-CONFIG_KERNELSTACK_SIZE) + X86_IRREGS_USER32_SIZE)(%esp), %taskseg
 #endif /* CONFIG_X86_SEGMENTATION */
 	/* Fallthrough to propagate the exception to user-space. */
 
 .interrupt_except_user:
+
 	/* Interrupt originates from user-space.
 	 * In this case, we don't want to preserve stack information
 	 * about where exactly in kernel-space the interrupt happened. */
@@ -821,7 +821,7 @@ INTERN_ENTRY(x86_interrupt_except)
 	jne     9f
 	pushl_cfi %edx /* saved */
 	pushl_cfi X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX(%ecx) /* sysno */
-	call    task_restart_syscall
+	call    task_restart_syscall /* XXX: Exceptions thrown by this function? */
 //	addl    $4, %esp
 	.cfi_adjust_cfa_offset -4
 	popl_cfi %edx

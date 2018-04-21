@@ -144,7 +144,7 @@ DECL_BEGIN
 #define __SYSCALL_ASSERT_NAME(name) /* Nothing */
 #endif
 
-#define DEFINE_SYSCALLn(name,argc,argv) \
+#define __X64_DEFINE_SYSCALLn(name,argc,argv) \
 __asm__(".hidden argc_sys_" #name "\n" \
         ".global argc_sys_" #name "\n" \
         ".set argc_sys_" #name ", " #argc "\n"); \
@@ -158,10 +158,10 @@ INTERN syscall_ulong_t ATTR_CDECL sys_##name(__SYSCALL_LONG(argc,argv)) \
 LOCAL syscall_ulong_t ATTR_CDECL SYSC_##name(__SYSCALL_DECL(argc,argv))
 
 #ifdef __x86_64__
-#define DEFINE_SYSCALLn64(name,argc,argv) \
-        DEFINE_SYSCALLn(name,argc,argv)
+#define __X64_DEFINE_SYSCALLn64(name,argc,argv) \
+        __X64_DEFINE_SYSCALLn(name,argc,argv)
 #else
-#define DEFINE_SYSCALLn64(name,argc,argv) \
+#define __X64_DEFINE_SYSCALLn64(name,argc,argv) \
 __asm__(".hidden argc_sys_" #name "\n" \
         ".global argc_sys_" #name "\n" \
         ".set argc_sys_" #name ", " #argc "\n" \
@@ -187,20 +187,41 @@ LOCAL u64 ATTR_CDECL SYSC_##name(__SYSCALL_DECL(argc,argv))
 #define CONFIG_WIDE_64BIT_SYSCALL 1
 #endif
 
-#define DEFINE_SYSCALL0(name)        DEFINE_SYSCALLn(name,0,())
-#define DEFINE_SYSCALL1(name,...)    DEFINE_SYSCALLn(name,1,(__VA_ARGS__))
-#define DEFINE_SYSCALL2(name,...)    DEFINE_SYSCALLn(name,2,(__VA_ARGS__))
-#define DEFINE_SYSCALL3(name,...)    DEFINE_SYSCALLn(name,3,(__VA_ARGS__))
-#define DEFINE_SYSCALL4(name,...)    DEFINE_SYSCALLn(name,4,(__VA_ARGS__))
-#define DEFINE_SYSCALL5(name,...)    DEFINE_SYSCALLn(name,5,(__VA_ARGS__))
-#define DEFINE_SYSCALL6(name,...)    DEFINE_SYSCALLn(name,6,(__VA_ARGS__))
-#define DEFINE_SYSCALL0_64(name)     DEFINE_SYSCALLn64(name,0,())
-#define DEFINE_SYSCALL1_64(name,...) DEFINE_SYSCALLn64(name,1,(__VA_ARGS__))
-#define DEFINE_SYSCALL2_64(name,...) DEFINE_SYSCALLn64(name,2,(__VA_ARGS__))
-#define DEFINE_SYSCALL3_64(name,...) DEFINE_SYSCALLn64(name,3,(__VA_ARGS__))
-#define DEFINE_SYSCALL4_64(name,...) DEFINE_SYSCALLn64(name,4,(__VA_ARGS__))
-#define DEFINE_SYSCALL5_64(name,...) DEFINE_SYSCALLn64(name,5,(__VA_ARGS__))
-#define DEFINE_SYSCALL6_64(name,...) DEFINE_SYSCALLn64(name,6,(__VA_ARGS__))
+
+#define X86_SYSCALL_RESTART_FAUTO  0x00
+#define X86_SYSCALL_RESTART_FDONT  0x01
+#define X86_SYSCALL_RESTART_FMUST  0x02
+#define __X64_DEFINE_SYSCALL_RESTART(name,mode) \
+__asm__(".hidden restart_sys_" #name "\n" \
+        ".global restart_sys_" #name "\n" \
+        ".set restart_sys_" #name ", " PP_PRIVATE_STR(mode))
+
+
+#define DEFINE_SYSCALL0(name)        __X64_DEFINE_SYSCALLn(name,0,())
+#define DEFINE_SYSCALL1(name,...)    __X64_DEFINE_SYSCALLn(name,1,(__VA_ARGS__))
+#define DEFINE_SYSCALL2(name,...)    __X64_DEFINE_SYSCALLn(name,2,(__VA_ARGS__))
+#define DEFINE_SYSCALL3(name,...)    __X64_DEFINE_SYSCALLn(name,3,(__VA_ARGS__))
+#define DEFINE_SYSCALL4(name,...)    __X64_DEFINE_SYSCALLn(name,4,(__VA_ARGS__))
+#define DEFINE_SYSCALL5(name,...)    __X64_DEFINE_SYSCALLn(name,5,(__VA_ARGS__))
+#define DEFINE_SYSCALL6(name,...)    __X64_DEFINE_SYSCALLn(name,6,(__VA_ARGS__))
+#define DEFINE_SYSCALL0_64(name)     __X64_DEFINE_SYSCALLn64(name,0,())
+#define DEFINE_SYSCALL1_64(name,...) __X64_DEFINE_SYSCALLn64(name,1,(__VA_ARGS__))
+#define DEFINE_SYSCALL2_64(name,...) __X64_DEFINE_SYSCALLn64(name,2,(__VA_ARGS__))
+#define DEFINE_SYSCALL3_64(name,...) __X64_DEFINE_SYSCALLn64(name,3,(__VA_ARGS__))
+#define DEFINE_SYSCALL4_64(name,...) __X64_DEFINE_SYSCALLn64(name,4,(__VA_ARGS__))
+#define DEFINE_SYSCALL5_64(name,...) __X64_DEFINE_SYSCALLn64(name,5,(__VA_ARGS__))
+#define DEFINE_SYSCALL6_64(name,...) __X64_DEFINE_SYSCALLn64(name,6,(__VA_ARGS__))
+
+
+/* Define the restart-after-interrupt behavior for a system call `name':
+ * DEFINE_SYSCALL_AUTORESTART:
+ *    - Always restart after a 
+ */
+#define DEFINE_SYSCALL_AUTORESTART(name) __X64_DEFINE_SYSCALL_RESTART(name,X86_SYSCALL_RESTART_FAUTO)
+#define DEFINE_SYSCALL_DONTRESTART(name) __X64_DEFINE_SYSCALL_RESTART(name,X86_SYSCALL_RESTART_FDONT)
+#define DEFINE_SYSCALL_MUSTRESTART(name) __X64_DEFINE_SYSCALL_RESTART(name,X86_SYSCALL_RESTART_FMUST)
+
+
 
 #ifdef __CC__
 DATDEF void *const x86_syscall_router[];
@@ -235,7 +256,7 @@ struct PACKED syscall_trace_regs {
  * that is located at the base of the calling thread's
  * kernel stack (iow.: Where the correct IRET tail is stored)
  * This function is used to implement the syscall-through-#PF
- * mechanism.
+ * mechanism, as well as system-call-restarts within `sigreturn'.
  * Upon success, the same register state is updated to contain
  * the new register values, however note that some system calls
  * will throw an `E_INTERRUPT' exception to return to user-space
