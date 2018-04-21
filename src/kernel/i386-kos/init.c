@@ -161,7 +161,7 @@ void KCALL x86_switch_to_userspace(void) {
  FORTASK(&_boot_task,x86_sysbase) = X86_SYSBASE_RAND();
 
  /* All right! Now create and load /bin/init as an application. */
- init_app = application_alloc();
+ init_app = application_alloc(APPLICATION_TYPE_FUSERAPP);
  init_app->a_module = init_mod; /* Inherit reference. */
 
  /* Load the /bin/init application. */

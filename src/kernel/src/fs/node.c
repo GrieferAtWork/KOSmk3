@@ -2361,6 +2361,7 @@ again:
   atomic_rwlock_read(&fs_filesystem_types.ft_typelock);
   type = fs_filesystem_types.ft_types;
   for (; type; type = type->st_chain.le_next) {
+   REF struct driver *d;
    /* Device-less superblocks must be loaded explicitly. */
    if (type->st_flags & (SUPERBLOCK_TYPE_FNODEV|
                          SUPERBLOCK_TYPE_FSINGLE))
@@ -2372,15 +2373,18 @@ again:
     * NOTE: Filesystem types registered by some driver are automatically
     *       deleted when the driver application's reference counter hits
     *       ZERO. */
-   if (!driver_tryincref(type->st_driver)) continue;
+   d = type->st_driver;
+   COMPILER_READ_BARRIER();
+   if (d->d_app.a_flags & APPLICATION_FCLOSING) continue;
+   if (!driver_tryincref(d)) continue;
    atomic_rwlock_endread(&fs_filesystem_types.ft_typelock);
    /* Try this type. */
    TRY {
     result = superblock_open(device,type,args);
-    driver_decref(type->st_driver);
+    driver_decref(d);
     return result;
    } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
-    driver_decref(type->st_driver);
+    driver_decref(d);
     /* Propagate anything that isn't a corrupt-filesystem error. */
     if (error_code()                                != E_FILESYSTEM_ERROR ||
         error_info()->e_error.e_filesystem_error.fs_errcode != ERROR_FS_CORRUPTED_FILESYSTEM)
@@ -2403,7 +2407,8 @@ again:
  /* Get a reference to the driver implementing this type.
   * NOTE: This shouldn't be able to fail, unless the
   *       type has been allocated dynamically? */
- if unlikely(!driver_tryincref(type->st_driver)) {
+ if unlikely((type->st_driver->d_app.a_flags & APPLICATION_FCLOSING) ||
+             !driver_tryincref(type->st_driver)) {
   superblock_destroy(result);
   throw_fs_error(ERROR_FS_CORRUPTED_FILESYSTEM);
  }
@@ -2609,6 +2614,7 @@ lookup_filesystem_type(USER CHECKED char const *name) {
  result = fs_filesystem_types.ft_types;
  for (; result; result = result->st_chain.le_next) {
   if (strcmp(result->st_name,kernel_name) != 0) continue;
+  if (result->st_driver->d_app.a_flags & APPLICATION_FCLOSING) continue;
   if (!driver_tryincref(result->st_driver)) continue;
   break;
  }

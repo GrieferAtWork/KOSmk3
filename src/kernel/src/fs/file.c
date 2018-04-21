@@ -138,7 +138,7 @@ StandardFile_Seek(struct file *__restrict self,
 }
 
 
-PUBLIC size_t KCALL
+INTERN size_t KCALL
 StandardFile_ReadDir(struct file *__restrict self,
                      USER CHECKED struct dirent *buf,
                      size_t bufsize, int mode, iomode_t flags) {

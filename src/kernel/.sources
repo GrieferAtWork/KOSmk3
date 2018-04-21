@@ -70,6 +70,7 @@ BEGIN
 		SOURCE("../hybrid/*.c")
 		SOURCE("i386-kos/*.c")
 		SOURCE("i386-kos/*32.S")
+		SOURCE("i386-kos/kernel.ld.S")
 		SOURCE("src/kernel/*.c")
 		SOURCE("src/unwind/*.c")
 		SOURCE("src/sched/*.c")
@@ -80,7 +81,127 @@ BEGIN
 		SOURCE("src/vm/*.S")
 		SOURCE("src/dev/*.c")
 		SOURCE("src/fs/*.c")
+		SOURCE("src/fs/*.S")
+
+		POSTLINK_BEGIN
+			/* Rebuild the kernel symbol table. */
+			function Elf_SymbolHash(name) {
+				/* Kernel symbol name hashing function (Standard ELF hashing). */
+				local h = (uint32_t)0,g;
+				for (local c: name) {
+					h = (h << 4) + c.ord();
+					g = h & 0xf0000000;
+					if (g) h ^= g >> 24;
+					h &= ~g;
+				}
+				return h;
+			}
+			local p = process(expand_options("${READELF}"),[
+				"-s","-W",expand_options("${KERNEL_BINARY}")
+			]);
+			local r,w = pipe.new()...;
+			p.stdout = w;
+			p.start();
+			w.close();
+			local symbols = dict();
+			for (local l: r) {
+				local bind,vis,name,size;
+				try {
+					none,none,size,none,bind,vis,none,name =
+						l.scanf(" %[0-9]: %[0-9a-fA-F] %[0-9] %[^ ] %[^ ] %[^ ] %[^ ] %[^]")...;
+				} catch (e...) {
+					continue;
+				}
+				if (vis != "DEFAULT") continue;
+				if (bind != "GLOBAL" && bind != "WEAK") continue;
+				if (name.startswith("kernel_") &&
+				   (name.endswith("_start") ||
+				    name.endswith("_end") ||
+				    name.endswith("_size")))
+					print "WARNING: Potentially unwanted export:",repr name;
+				symbols[name.strip()] = (int)size.strip();
+			}
+			r.close();
+			p.join();
+			/* Generate the hash-vector */
+			local hash_mask = 1;
+			while (hash_mask <= #symbols) {
+				hash_mask = (hash_mask << 1) | 1;
+			}
+			if ((hash_mask - #symbols) < 64)
+				hash_mask = (hash_mask << 1) | 1;
+			local hash_vector = [none] * (hash_mask + 1);
+			for (local name: symbols.keys().sorted()) {
+				local hash = Elf_SymbolHash(name);
+				local perturb,j;
+				perturb = j = hash & hash_mask;
+				for (;;) {
+					local index = j & hash_mask;
+					if (hash_vector[index] is none) {
+						hash_vector[index] = pack(name,symbols[name],hash);
+						break;
+					}
+					j = ((j << 2) + j + perturb + 1);
+					perturb = perturb >> 5;
+				}
+			}
+			local fp = file.writer();
+			print fp: ".section .rodata.kernel_symtab";
+			print fp: "INTERN_ENTRY(kernel_symbol_table)";
+			print fp: "	PTR 0x%x" % hash_mask;
+			print fp: "	/* Symbol table */";
+			for (local i,data: util.enumerate(hash_vector)) {
+				if (data is none) {
+					print fp: "	PTR 0";
+					print fp: "	PTR 0";
+					print fp: "	PTR 0";
+					print fp: "	PTR 0";
+				} else {
+					print fp: "	PTR .Lname"+i;
+					print fp: "	PTR",data[0];
+					print fp: "	PTR 0x%x" % data[1];
+					print fp: "	PTR 0x%x" % data[2];
+				}
+			}
+			print fp: "SYMEND(kernel_symbol_table)";
+			print fp: ".section .rodata.kernel_strtab";
+			for (local i,data: util.enumerate(hash_vector)) {
+				if (data is none) continue;
+				print fp: ".Lname"+i+":";
+				print fp: "	.string",repr data[0];
+			}
+			local data = fp.pack();
+			local old_data;
+			local symfile = "src/kernel/src/fs/kernel-symbols.h";
+			try {
+				old_data = file.open(symfile,"r").read();
+			} catch (...) {
+				old_data = "";
+			}
+			if (data != old_data) {
+				print "CHANGED";
+				print repr data;
+				print repr old_data;
+				local outfd = file.open(symfile,"w");
+				outfd.write(data);
+				outfd.close();
+				//set_file_changed(symfile);
+				return true;
+			}
+		POSTLINK_END
 	END
+
+#include "modules/.sources"
+
 END
+
+
+
+
+
+
+
+
+
 
 

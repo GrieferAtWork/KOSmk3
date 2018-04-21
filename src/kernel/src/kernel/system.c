@@ -62,6 +62,7 @@ find_modified_address(byte_t *ptr, u32 pattern, size_t num_bytes);
 
 
 /* System calls used to implement user-space debug heaps. */
+DEFINE_SYSCALL_MUSTRESTART(xreset_debug_data);
 DEFINE_SYSCALL3(xreset_debug_data,
                 USER UNCHECKED void *,ptr,
                 u32,pattern,size_t,num_bytes) {
@@ -70,6 +71,7 @@ DEFINE_SYSCALL3(xreset_debug_data,
  return (syscall_ulong_t)ptr;
 }
 
+DEFINE_SYSCALL_MUSTRESTART(xfind_modified_address);
 DEFINE_SYSCALL3(xfind_modified_address,
                 USER UNCHECKED void *,ptr,
                 u32,pattern,size_t,num_bytes) {

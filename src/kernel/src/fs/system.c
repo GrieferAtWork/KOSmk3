@@ -1312,7 +1312,7 @@ exec_user(struct exec_args *__restrict args,
  kfree(args);
  TRY {
   /* Construct a new application. */
-  app = application_alloc();
+  app = application_alloc(APPLICATION_TYPE_FUSERAPP);
   app->a_module = mod; /* Inherit reference. */
  } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
   module_decref(mod);
@@ -1742,7 +1742,7 @@ again:
    root_app = vm_apps_primary(THIS_VM);
    if unlikely(!root_app) {
     /* No root application? This seems fishy, but ok... */
-    result_app = application_alloc();
+    result_app = application_alloc(APPLICATION_TYPE_FUSERAPP);
     TRY {
      module_incref(mod);
      result_app->a_module = mod;

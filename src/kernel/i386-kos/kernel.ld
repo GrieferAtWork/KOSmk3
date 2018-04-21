@@ -56,13 +56,13 @@ SECTIONS {
 	/* Boot header */
 	SECTION(.multiboot) {
 		KEEP(*(.multiboot))
-		PROVIDE_HIDDEN(kernel_multiboot2_begin = ABSOLUTE(.));
+		PROVIDE_HIDDEN(kernel_multiboot2_start = ABSOLUTE(.));
 		KEEP(*(.multiboot2))
-		PROVIDE_HIDDEN(kernel_multiboot2_tag_begin = ABSOLUTE(.));
+		PROVIDE_HIDDEN(kernel_multiboot2_tag_start = ABSOLUTE(.));
 		KEEP(*(.multiboot2.tag))
 		KEEP(*(.multiboot2.tag.end))
 		PROVIDE_HIDDEN(kernel_multiboot2_end = ABSOLUTE(.));
-		PROVIDE_HIDDEN(kernel_multiboot2_size = ABSOLUTE(kernel_multiboot2_end - kernel_multiboot2_begin));
+		PROVIDE_HIDDEN(kernel_multiboot2_size = ABSOLUTE(kernel_multiboot2_end - kernel_multiboot2_start));
 #if __SIZEOF_POINTER__ >= 8
 		PROVIDE_HIDDEN(kernel_multiboot2_hdrlen_chksum =
 		              (ABSOLUTE(kernel_multiboot2_size) |
@@ -111,6 +111,8 @@ SECTIONS {
 		*(.rodata)
 		*(.rodata.str*)
 		*(.rodata.rare)
+		*(.rodata.kernel_symtab)
+		*(.rodata.kernel_strtab)
 
 		IP_ALIGN(__SIZEOF_POINTER__);
 		PROVIDE_HIDDEN(pertask_init_start = ABSOLUTE(.));
@@ -225,6 +227,8 @@ SECTIONS {
 		*(.xdata.cold)
 		PROVIDE_HIDDEN(kernel_rwx_end_raw = ABSOLUTE(.));
 		IP_ALIGN(PAGESIZE);
+		PROVIDE_HIDDEN(kernel_rwx_end = ABSOLUTE(.));
+		PROVIDE_HIDDEN(kernel_rwnx_start = ABSOLUTE(.));
 
 #ifndef CONFIG_NO_DEBUG_MALLOC
 		PROVIDE_HIDDEN(mall_tracked_start = ABSOLUTE(.));
@@ -274,9 +278,10 @@ SECTIONS {
 	PROVIDE_HIDDEN(x86_ushare_sysenter_pageno = ABSOLUTE((x86_ushare_sysenter - KERNEL_BASE) / PAGESIZE));
 	PROVIDE_HIDDEN(ushare_strerror_pageno = ABSOLUTE((ushare_strerror - KERNEL_BASE) / PAGESIZE));
 	PROVIDE_HIDDEN(ushare_utsname_pageno = ABSOLUTE((ushare_utsname - KERNEL_BASE) / PAGESIZE));
-	PROVIDE_HIDDEN(kernel_rwx_end = ABSOLUTE(.));
 	PROVIDE_HIDDEN(kernel_rwx_size_raw = ABSOLUTE(kernel_rwx_end_raw - kernel_rwx_start));
 	PROVIDE_HIDDEN(kernel_rwx_size = ABSOLUTE(kernel_rwx_end - kernel_rwx_start));
+	PROVIDE_HIDDEN(kernel_rwnx_end = ABSOLUTE(.));
+	PROVIDE_HIDDEN(kernel_rwnx_size = ABSOLUTE(kernel_rwnx_end - kernel_rwnx_start));
 
 	PROVIDE_HIDDEN(kernel_bss_start = ABSOLUTE(.));
 	SECTION(.bss) {

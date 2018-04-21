@@ -417,6 +417,7 @@ again:
   if (magsz < type->m_magsz) continue;
   if (memcmp(type->m_magic,magic,type->m_magsz) != 0) continue;
   /* Got the proper type! (At least I think we do...) */
+  if (type->m_driver->d_app.a_flags & APPLICATION_FCLOSING) continue; /* Stale driver. */
   if (!driver_tryincref(type->m_driver)) continue; /* Stale driver. */
   atomic_rwlock_endread(&module_types.mt_lock);
   TRY {
@@ -581,13 +582,18 @@ application_notify(void *closure, unsigned int code,
 }
 
 PUBLIC ATTR_MALLOC ATTR_RETNONNULL REF
-struct application *KCALL application_alloc(void) {
+struct application *KCALL application_alloc(u16 type) {
  REF struct application *result;
- result = (REF struct application *)kmalloc(sizeof(struct application),
+ assert(type == APPLICATION_TYPE_FUSERAPP ||
+        type == APPLICATION_TYPE_FDRIVER);
+ result = (REF struct application *)kmalloc(type & APPLICATION_TYPE_FDRIVER
+                                            ? sizeof(struct driver)
+                                            : sizeof(struct application),
                                             GFP_SHARED|GFP_CALLOC);
  /* Setup reference counters. */
  result->a_refcnt  = 1;
  result->a_weakcnt = 1;
+ result->a_type    = type;
  return result;
 }
 
@@ -678,7 +684,7 @@ application_load(struct module_patcher *__restrict self) {
   if (app_min > app_end || app_end > VM_VPAGE_MAX+1)
       goto noexec;
   /* Validate associated address ranges. */
-  if (app->a_flags & APPLICATION_TYPE_FDRIVER) {
+  if (app->a_type & APPLICATION_TYPE_FDRIVER) {
    assert(vm_holding(&vm_kernel));
    if (app_min < X86_KERNEL_BASE_PAGE)
        goto noexec;
@@ -700,7 +706,7 @@ application_load(struct module_patcher *__restrict self) {
   app_hint = FLOORDIV(mod->m_fixedbase+mod->m_imagemin,PAGESIZE);
 
   /* Find a suitable location for the load address. */
-  if (app->a_flags & APPLICATION_TYPE_FDRIVER) {
+  if (app->a_type & APPLICATION_TYPE_FDRIVER) {
    if (!(mod->m_flags & MODULE_FBASEHINT) ||
         (app_hint < X86_KERNEL_BASE_PAGE) ||
         (app_hint+req_pages < app_hint) ||
@@ -723,7 +729,7 @@ application_load(struct module_patcher *__restrict self) {
 #if VM_USERLIB_MODE == VM_KERNELDRIVER_MODE
                         VM_KERNELDRIVER_MODE
 #else
-                       (app->a_flags & APPLICATION_TYPE_FDRIVER)
+                       (app->a_type & APPLICATION_TYPE_FDRIVER)
                         ? VM_KERNELDRIVER_MODE
                         : VM_USERLIB_MODE
 #endif
@@ -878,7 +884,7 @@ not_cached:
  /* Create a new dependency for `mod'. */
  {
   struct module_patcher EXCEPT_VAR patcher;
-  result              = application_alloc();
+  result              = application_alloc(self->mp_apptype);
   result->a_module    = mod;
   module_incref(mod);
   patcher.mp_root     = self->mp_root;

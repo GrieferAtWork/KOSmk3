@@ -671,6 +671,8 @@ function start_process(proj,proc,sync,after_done) {
 				}
 			}
 			local error = proc.join();
+			/* Perform post-link steps. */
+			after_done(proj);
 			/* remove may fail sporadically in an SMP environment... (sorry about that) */
 			while (!running_processes.remove(proc));
 			if (error != 0) {
@@ -678,8 +680,6 @@ function start_process(proj,proc,sync,after_done) {
 				print "Process failed:",repr proc.cmd;
 				sys.exit(error);
 			}
-			/* Perform post-link steps. */
-			after_done(proj);
 		} catch (e...) {
 			if (sync) throw;
 			print "Process failed:",e;
@@ -1084,13 +1084,17 @@ class Project
 #endif
 				if (linker is string) {
 					run_cmd(this,linker,link_args,[](proj) {
-						for (local f: proj.m_postlink)
-							f(proj);
+						for (local f: proj.m_postlink) {
+							if (f(proj))
+								proj.m_compiled = false;
+						}
 					});
 				} else {
 					linker(this,link_args);
-					for (local f: this.m_postlink)
-						f(this);
+					for (local f: this.m_postlink) {
+						if (f(this))
+							this.m_compiled = false;
+					}
 				}
 			}
 		}
@@ -1122,10 +1126,24 @@ try {
 }
 
 /* Compile all projects */
-for (local name,proj: project_map) {
-	proj.compile();
+for (;;) {
+	local changed = false;
+	for (local none,proj: project_map) {
+		if (proj.compile())
+			changed = true;
+	}
+	sync_all_processes();
+	/* Do a second pass to deal with postlink modifications. */
+	for (local none,proj: project_map) proj.m_changed = false;
+	for (local none,proj: project_map) {
+		if (proj.compile())
+			changed = true;
+	}
+	sync_all_processes();
+	if (!changed) break;
+	for (local none,proj: project_map)
+		proj.m_changed = false;
 }
-sync_all_processes();
 } catch (e...) {
 	print repr __builtin_last_traceback();
 	print repr e;

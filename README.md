@@ -45,6 +45,7 @@ Chaos|KOS - You probably got here through the definition of chaoticity (<i>which
    - New malloc functions such as <code>memalign_offset()</code>
  - syscall
    - Highly linux-compatible using <code>int $0x80</code> and same ids/registers
+   - Support for system call restarting (<code>SA_RESTART</code>)
    - Support for the x86 <code>sysenter</code> instruction
    - Support for system calls using page faults
      - It's quite useful and allows signal handlers to <i>return</i> by executing the <code>sigreturn</code> system calls without the need of any trampoline code

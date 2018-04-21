@@ -395,8 +395,7 @@ struct application {
                                                    *       stored in the module image. */
     struct bound_ptr                  a_bounds;   /* [const] Bounds of this application:
                                                    *  { a_loadaddr + a_module->m_imagemin,
-                                                   *    a_loadaddr + a_module->m_imageend-1 }
-                                                   */
+                                                   *    a_loadaddr + a_module->m_imageend-1 } */
     REF struct module                *a_module;   /* [const][1..1] The loaded module. */
     size_t                            a_requirec; /* [lock(WRITE_ONCE)] Amount of required dependencies. */
     WEAK REF struct application     **a_requirev; /* [1..1][0..a_requirec][owned][lock(WRITE_ONCE)]
@@ -451,11 +450,11 @@ application_notify(void *closure, unsigned int code,
  * The caller must then initialize the following members:
  *   - a_module
  *   - a_loadaddr
- *   - a_type (Pre-initialized to `APPLICATION_TYPE_FUSERAPP')
+ *   - a_type (Pre-initialized to `type')
  *   - a_flags (Pre-initialized to `APPLICATION_FNORMAL')
  * @throw: E_BADALLOC: Not enough available memory. */
 FUNDEF ATTR_MALLOC ATTR_RETNONNULL
-REF struct application *KCALL application_alloc(void);
+REF struct application *KCALL application_alloc(u16 type);
 
 /* Wrapper around `application_load' and `application_patch'.
  * @param: flags: Set of `DL_OPEN_F*' */

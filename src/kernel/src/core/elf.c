@@ -505,6 +505,9 @@ Elf_NewApplication(struct module_patcher *__restrict self) {
  USER CHECKED uintptr_t image_min,image_end;
  unsigned int EXCEPT_VAR i;
  struct vm_region **EXCEPT_VAR vector;
+ vm_prot_t force_prot = 0;
+ if (self->mp_apptype & APPLICATION_TYPE_FDRIVER)
+     force_prot |= PROT_NOUSER;
  image_min = APPLICATION_MAPMIN(app);
  image_end = APPLICATION_MAPEND(app);
  assert(IS_ALIGNED(loadpage,PAGESIZE));
@@ -524,13 +527,13 @@ Elf_NewApplication(struct module_patcher *__restrict self) {
     assert(vector[i]);
     /* Map application segments. */
     vm_mapat(loadpage + VM_ADDR2PAGE(mod->e_phdr[i].p_vaddr),
-             vector[i]->vr_size,0,vector[i],
+             vector[i]->vr_size,0,vector[i],force_prot|(
 #if PF_X == PROT_EXEC && PF_W == PROT_WRITE && PF_R == PROT_READ
-             mod->e_phdr[i].p_flags & (PF_X|PF_W|PF_R),
+             mod->e_phdr[i].p_flags & (PF_X|PF_W|PF_R)),
 #else
            ((mod->e_phdr[i].p_flags&PF_X) ? PROT_EXEC : 0)|
            ((mod->e_phdr[i].p_flags&PF_W) ? PROT_WRITE : 0)|
-           ((mod->e_phdr[i].p_flags&PF_R) ? PROT_READ : 0),
+           ((mod->e_phdr[i].p_flags&PF_R) ? PROT_READ : 0)),
 #endif
             &application_notify,app);
     break;
@@ -545,13 +548,13 @@ Elf_NewApplication(struct module_patcher *__restrict self) {
      if (mod->e_phdr[i].p_type != PT_LOAD) continue;
      /* Map application segments. */
      vm_mapat(loadpage + VM_ADDR2PAGE(mod->e_phdr[i].p_vaddr),
-              vector[i]->vr_size,0,vector[i],
+              vector[i]->vr_size,0,vector[i],force_prot|(
 #if PF_X == PROT_EXEC && PF_W == PROT_WRITE && PF_R == PROT_READ
-              mod->e_phdr[i].p_flags & (PF_X|PF_W|PF_R),
+              mod->e_phdr[i].p_flags & (PF_X|PF_W|PF_R)),
 #else
             ((mod->e_phdr[i].p_flags&PF_X) ? PROT_EXEC : 0)|
             ((mod->e_phdr[i].p_flags&PF_W) ? PROT_WRITE : 0)|
-            ((mod->e_phdr[i].p_flags&PF_R) ? PROT_READ : 0),
+            ((mod->e_phdr[i].p_flags&PF_R) ? PROT_READ : 0)),
 #endif
              &application_notify,app);
     }
@@ -664,7 +667,7 @@ Elf_PatchApplication(struct module_patcher *__restrict self) {
   Elf_Word ent = mod->e_dyn.di_reloc[relocation_group].ri_relent;
   Elf_Rel *iter = (Elf_Rel *)(loadaddr + mod->e_dyn.di_reloc[relocation_group].ri_rel);
   Elf_Rel *end = (Elf_Rel *)((uintptr_t)iter + mod->e_dyn.di_reloc[relocation_group].ri_relsiz);
-  assert(ent);
+  assert(iter >= end || ent);
   for (; iter < end; *(uintptr_t *)&iter += ent) {
    bool extern_sym = false;
    Elf_Sym *sym; Elf_RelValue value;
