@@ -1628,6 +1628,9 @@ serve_rpc:
    }
   }
 #endif
+
+  /* TODO: posix-signal default actions (e.g. SIGSEGV -> SIG_CORE) */
+
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   COMPILER_BARRIER();
   /* Re-prioritize secondary exceptions. */

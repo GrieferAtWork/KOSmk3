@@ -32,14 +32,36 @@
 #include <alloca.h>
 #include <string.h>
 #include <kos/intrin.h>
+#include <asm/syscallno.ci>
 
 DECL_BEGIN
 
 PUBLIC bool KCALL
 should_restart_syscall(syscall_ulong_t sysno,
                        unsigned int context) {
+ u8 mode;
  debug_printf("should_restart_syscall(%p,%x)\n",sysno,context);
- /* TODO */
+ if (sysno <= __NR_syscall_max)
+  mode = x86_syscall_restart[sysno];
+ else if (sysno >= __NR_xsyscall_min && sysno <= __NR_xsyscall_max)
+  mode = x86_xsyscall_restart[sysno-__NR_xsyscall_min];
+ else {
+  mode = X86_SYSCALL_RESTART_FAUTO;
+ }
+ switch (mode) {
+
+ case X86_SYSCALL_RESTART_FAUTO:
+  return (context & (SHOULD_RESTART_SYSCALL_FPOSIX_SIGNAL|
+                     SHOULD_RESTART_SYSCALL_FSA_RESTART)) ==
+                    (SHOULD_RESTART_SYSCALL_FPOSIX_SIGNAL|
+                     SHOULD_RESTART_SYSCALL_FSA_RESTART);
+  break;
+
+ case X86_SYSCALL_RESTART_FDONT:
+  return false;
+
+ default: break;
+ }
  return true;
 }
 

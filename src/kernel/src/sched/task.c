@@ -426,6 +426,7 @@ again_newvm:
  vm_decref(old_vm); /* The reference inherited from `t_vm' */
 }
 
+DEFINE_SYSCALL_DONTRESTART(sched_yield);
 DEFINE_SYSCALL0(sched_yield) {
  return task_tryyield() ? 0 : -EAGAIN;
 }

@@ -103,20 +103,57 @@ SYMEND(x86_xsyscall_argc)
 
 
 
+.macro define_syscall_restart id, sym
+	.if \id < .last_sysno
+		.error "Unordered system call: `\sym' and its predecessor"
+	.endif
+	.rept \id - .last_sysno
+		.byte X86_SYSCALL_RESTART_FAUTO
+	.endr
+	.byte restart_\sym
+	.last_sysno = \id + 1
+.endm
+
+.section .rodata
+PUBLIC_OBJECT(x86_syscall_restart)
+.last_sysno = __NR_syscall_min
+#define __SYSCALL(id,sym)     define_syscall_restart id, sym;
+#define __SYSCALL_ASM(id,sym) __SYSCALL(id,sym)
+#include <asm/syscallno.ci>
+	.rept (__NR_syscall_max+1) - .last_sysno
+		.byte X86_SYSCALL_RESTART_FAUTO
+	.endr
+SYMEND(x86_syscall_restart)
+
+.section .rodata
+PUBLIC_OBJECT(x86_xsyscall_restart)
+.last_sysno = __NR_xsyscall_min
+#define __XSYSCALL(id,sym)     define_syscall_restart id, sym;
+#define __XSYSCALL_ASM(id,sym) __XSYSCALL(id,sym)
+#include <asm/syscallno.ci>
+	.rept (__NR_xsyscall_max+1) - .last_sysno
+		.byte X86_SYSCALL_RESTART_FAUTO
+	.endr
+SYMEND(x86_xsyscall_restart)
+
+
+
 /* Weakly redirect all unimplemented system calls. */
 #ifdef CONFIG_NO_X86_SYSENTER
 #define __SYSCALL(id,sym) \
-	.hidden sym; \
-	.global sym; \
-	.weak sym; \
-	sym = x86_bad_syscall;
+	.hidden sym, restart_##sym; \
+	.global sym, restart_##sym; \
+	.weak sym, restart_##sym; \
+	sym = x86_bad_syscall; \
+	restart_##sym = X86_SYSCALL_RESTART_FAUTO;
 #else
 #define __SYSCALL(id,sym) \
-	.hidden sym, argc_##sym; \
-	.global sym, argc_##sym; \
-	.weak sym, argc_##sym; \
+	.hidden sym, argc_##sym, restart_##sym; \
+	.global sym, argc_##sym, restart_##sym; \
+	.weak sym, argc_##sym, restart_##sym; \
 	sym = x86_bad_syscall; \
-	argc_##sym = 6;
+	argc_##sym = 6; \
+	restart_##sym = X86_SYSCALL_RESTART_FAUTO;
 #endif
 #define __SYSCALL_ASM(id,sym)  __SYSCALL(id,sym)
 #define __XSYSCALL(id,sym)     __SYSCALL(id,sym)

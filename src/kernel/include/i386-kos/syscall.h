@@ -215,7 +215,13 @@ __asm__(".hidden restart_sys_" #name "\n" \
 
 /* Define the restart-after-interrupt behavior for a system call `name':
  * DEFINE_SYSCALL_AUTORESTART:
- *    - Always restart after a 
+ *    - Always restart after an `E_INTERRUPT'
+ *    - Restart from sigreturn() if the signal handler had the `SA_RESTART' flag set
+ * DEFINE_SYSCALL_DONTRESTART:
+ *    - Never restart. - Always propagate `E_INTERRUPT'
+ * DEFINE_SYSCALL_MUSTRESTART:
+ *    - Always restart, even from `sigreturn()' when the
+ *      handler didn't have the `SA_RESTART' flag set
  */
 #define DEFINE_SYSCALL_AUTORESTART(name) __X64_DEFINE_SYSCALL_RESTART(name,X86_SYSCALL_RESTART_FAUTO)
 #define DEFINE_SYSCALL_DONTRESTART(name) __X64_DEFINE_SYSCALL_RESTART(name,X86_SYSCALL_RESTART_FDONT)
@@ -226,6 +232,8 @@ __asm__(".hidden restart_sys_" #name "\n" \
 #ifdef __CC__
 DATDEF void *const x86_syscall_router[];
 DATDEF void *const x86_xsyscall_router[];
+DATDEF u8 const x86_syscall_restart[];
+DATDEF u8 const x86_xsyscall_restart[];
 #ifndef CONFIG_NO_X86_SYSENTER
 DATDEF u8 const x86_syscall_argc[];
 DATDEF u8 const x86_xsyscall_argc[];

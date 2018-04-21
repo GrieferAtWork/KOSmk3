@@ -590,12 +590,15 @@ thread_pid_view(struct thread_pid *__restrict self,
 
 
 /* Define PID-query related system calls. */
+DEFINE_SYSCALL_MUSTRESTART(gettid);
 DEFINE_SYSCALL0(gettid) {
  return posix_gettid();
 }
+DEFINE_SYSCALL_MUSTRESTART(getpid);
 DEFINE_SYSCALL0(getpid) {
  return posix_getpid();
 }
+DEFINE_SYSCALL_MUSTRESTART(getppid);
 DEFINE_SYSCALL0(getppid) {
  return posix_getppid();
 }

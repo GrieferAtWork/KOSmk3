@@ -115,9 +115,7 @@ INTDEF void ASMCALL x86_smp_task0_entry(void);
 INTERN void KCALL x86_cpu_idle_exception(void) {
  /* Called when an exception is propagated
   * to the root frame of an IDLE thread. */
- struct exception_info *info = error_info();
- debug_printf("Exception occurred in IDLE thread\n");
- (void)info; /* TODO: Log info? */
+ error_printf("Unhandled exception in IDLE thread\n");
 }
 
 INTDEF void FCALL

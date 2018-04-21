@@ -709,6 +709,8 @@ DEFINE_SYSCALL3(dup3,fd_t,oldfd,fd_t,newfd,oflag_t,flags) {
  handle_dupinto(oldfd,newfd,(iomode_t)flags);
  return newfd;
 }
+
+DEFINE_SYSCALL_MUSTRESTART(close);
 DEFINE_SYSCALL1(close,fd_t,fd) {
  return handle_close(fd) ? 0 : -EBADF;
 }
@@ -1186,6 +1188,8 @@ DEFINE_SYSCALL1(fsync,int,fd) {
 DEFINE_SYSCALL1(fdatasync,int,fd) {
  return do_fsync(fd,true);
 }
+
+DEFINE_SYSCALL_MUSTRESTART(xgetdrives);
 DEFINE_SYSCALL0(xgetdrives) {
  /* Return a bit-set of all mounted DOS drives. */
  u32 result = 0; unsigned int i;
@@ -1208,6 +1212,7 @@ PRIVATE void KCALL set_exit_reason(int exitcode) {
  reason->e_error.e_exit.e_status = __W_EXITCODE(exitcode,0);
 }
 
+DEFINE_SYSCALL_MUSTRESTART(exit);
 DEFINE_SYSCALL1(exit,int,exitcode) {
  set_exit_reason(exitcode);
  error_info()->e_error.e_code = E_EXIT_THREAD;
@@ -1215,6 +1220,7 @@ DEFINE_SYSCALL1(exit,int,exitcode) {
  __builtin_unreachable();
 }
 
+DEFINE_SYSCALL_MUSTRESTART(exit_group);
 DEFINE_SYSCALL1(exit_group,int,exitcode) {
  set_exit_reason(exitcode);
  error_info()->e_error.e_code = E_EXIT_PROCESS;
@@ -1480,11 +1486,13 @@ DEFINE_SYSCALL3(execve,
  return SYSC_execveat(AT_FDCWD,filename,argv,envp,0);
 }
 
+DEFINE_SYSCALL_MUSTRESTART(umask);
 DEFINE_SYSCALL1(umask,mode_t,mask) {
  /* Simply exchange the UMASK of the calling thread. */
  return ATOMIC_XCH(THIS_FS->fs_umask,mask & S_IRWXUGO);
 }
 
+DEFINE_SYSCALL_DONTRESTART(ppoll);
 DEFINE_SYSCALL5(ppoll,
                 USER UNCHECKED struct pollfd *EXCEPT_VAR,ufds,size_t,nfds,
                 USER UNCHECKED struct timespec const *,tsp,
@@ -1559,6 +1567,7 @@ struct pselect6_sig {
     size_t                   setsz;
 };
 
+DEFINE_SYSCALL_DONTRESTART(pselect6);
 DEFINE_SYSCALL6(pselect6,size_t,n,
                 USER UNCHECKED fd_set *,inp,
                 USER UNCHECKED fd_set *,outp,
@@ -1789,6 +1798,7 @@ again:
 }
 
 
+DEFINE_SYSCALL_MUSTRESTART(xdlclose);
 DEFINE_SYSCALL1(xdlclose,void *,handle) {
  struct application *EXCEPT_VAR app;
  app = vm_getapp(handle);
@@ -1989,6 +1999,7 @@ DEFINE_SYSCALL5(mount,
  return 0;
 }
 
+DEFINE_SYSCALL_MUSTRESTART(umount2);
 DEFINE_SYSCALL2(umount2,
                 USER UNCHECKED char const *,name,
                 int,flags) {

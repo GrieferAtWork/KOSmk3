@@ -681,6 +681,7 @@ PUBLIC ATTR_NOTHROW bool KCALL task_set_session(void) {
 
 
 /* Define system calls for process group / session control. */
+DEFINE_SYSCALL_MUSTRESTART(setpgid);
 DEFINE_SYSCALL2(setpgid,pid_t,pid,pid_t,pgid) {
  REF struct task *EXCEPT_VAR thread;
  REF struct task *leader;
@@ -707,6 +708,7 @@ DEFINE_SYSCALL2(setpgid,pid_t,pid,pid_t,pgid) {
  }
  return 0;
 }
+DEFINE_SYSCALL_MUSTRESTART(getpgid);
 DEFINE_SYSCALL1(getpgid,pid_t,pid) {
  pid_t result;
  REF struct task *leader,*temp;
@@ -723,6 +725,7 @@ DEFINE_SYSCALL1(getpgid,pid_t,pid) {
  task_decref(leader);
  return result;
 }
+DEFINE_SYSCALL_MUSTRESTART(getsid);
 DEFINE_SYSCALL1(getsid,pid_t,pid) {
  pid_t result;
  REF struct task *leader,*temp;
@@ -741,6 +744,7 @@ DEFINE_SYSCALL1(getsid,pid_t,pid) {
  task_decref(leader);
  return result;
 }
+DEFINE_SYSCALL_MUSTRESTART(setsid);
 DEFINE_SYSCALL0(setsid) {
  if (!task_set_session())
       return -EPERM;
@@ -966,6 +970,7 @@ child_died:
  goto again;
 }
 
+DEFINE_SYSCALL_DONTRESTART(waitid);
 DEFINE_SYSCALL5(waitid,int,which,pid_t,upid,
                 USER UNCHECKED siginfo_t *,infop,int,options,
                 USER UNCHECKED struct rusage *,ru) {
@@ -976,6 +981,8 @@ DEFINE_SYSCALL5(waitid,int,which,pid_t,upid,
  validate_writable_opt(ru,sizeof(struct rusage));
  return posix_waitfor(which,upid,NULL,infop,options,ru);
 }
+
+DEFINE_SYSCALL_DONTRESTART(wait4);
 DEFINE_SYSCALL4(wait4,pid_t,upid,
                 USER UNCHECKED int *,wstatus,int,options,
                 USER UNCHECKED struct rusage *,ru) {

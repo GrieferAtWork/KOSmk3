@@ -723,6 +723,7 @@ DEFINE_SYSCALL6(mmap,VIRT void *,addr,size_t,len,int,prot,
  return (syscall_ulong_t)do_xmmap(&info);
 }
 
+DEFINE_SYSCALL_MUSTRESTART(xmunmap);
 DEFINE_SYSCALL4(xmunmap,VIRT void *,addr,size_t,len,int,flags,void *,tag) {
  size_t result,num_pages; vm_vpage_t starting_page;
  /* Validate known flag bits. */
@@ -747,6 +748,7 @@ DEFINE_SYSCALL4(xmunmap,VIRT void *,addr,size_t,len,int,flags,void *,tag) {
  return result;
 }
 
+DEFINE_SYSCALL_MUSTRESTART(munmap);
 DEFINE_SYSCALL2(munmap,VIRT void *,addr,size_t,len) {
  size_t num_pages; vm_vpage_t starting_page;
  /* Align to full pages. */
