@@ -966,7 +966,7 @@ superblock_rehash_and_unlock(struct superblock *__restrict self) {
   while (iter) {
    next = iter->i_nodes.le_next;
    /* Transfer the node into the new map. */
-   pbucket = &new_map[INO_HASH(iter->i_attr.a_ino)];
+   pbucket = &new_map[INO_HASH(iter->i_attr.a_ino) & new_mask];
    LIST_INSERT(*pbucket,iter,i_nodes);
    iter = next;
   }
