@@ -221,6 +221,7 @@ int main(int argc, char *argv[]) {
  syslog(LOG_DEBUG,"REALPATH_FDOSPATH|REALPATH_FDRIVEPATH = %q\n",xrealpath("bin",NULL,0,REALPATH_FDOSPATH|REALPATH_FDRIVEPATH));
 #endif
 
+#if 0
  kernctl(KERNEL_CONTROL_DBG_DUMP_LEAKS);
  {
   struct ushare_procinfo *base;
@@ -241,6 +242,7 @@ int main(int argc, char *argv[]) {
   syslog(LOG_DEBUG,"pi_thread.t_xrpc    = %u\n",base->pi_thread.t_xrpc);
   syslog(LOG_DEBUG,"pi_thread.t_qrpc    = %u\n",base->pi_thread.t_qrpc);
  }
+#endif
  kernctl(KERNEL_CONTROL_DBG_DUMP_LEAKS);
 
 #if 0
@@ -265,11 +267,12 @@ int main(int argc, char *argv[]) {
  }
 
  /* Just for testing: Load a kernel driver. */
- kernctl(KERNEL_CONTROL_INSMOD,
-         "/mod/procfs.mod",
-         "a 'b c'  \\'d "    /* --a--   --b c--   --'d-- */
-         );
+ if (kernctl(KERNEL_CONTROL_INSMOD,"/mod/procfs.mod","a 'b c'  \\'d ") >= 0) {
+  mkdir("/proc",0755);
+  mount("procfs","/proc","procfs",0,NULL);
+ }
 
+ kernctl(KERNEL_CONTROL_TRACE_SYSCALLS_OFF);
  Xexecl("/bin/terminal-vga",
         "terminal-vga",
         "/bin/busybox",

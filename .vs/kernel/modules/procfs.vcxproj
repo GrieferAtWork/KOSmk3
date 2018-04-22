@@ -19,7 +19,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\src\kernel\modules\procfs\init.c" />
+    <ClInclude Include="..\..\..\src\kernel\modules\procfs\inode.h" />
+    <ClInclude Include="..\..\..\src\kernel\modules\procfs\stringprinter.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\src\kernel\modules\procfs\inode.c" />
+    <ClCompile Include="..\..\..\src\kernel\modules\procfs\inode_types.c" />
+    <ClCompile Include="..\..\..\src\kernel\modules\procfs\root.c" />
+    <ClCompile Include="..\..\..\src\kernel\modules\procfs\stringprinter.c" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{A5247753-BB3E-4AE7-BFFD-7FC2CD655A7C}</ProjectGuid>

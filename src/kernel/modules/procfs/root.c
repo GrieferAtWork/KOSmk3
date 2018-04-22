@@ -16,30 +16,37 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef GUARD_KERNEL_MODULES_PROCFS_INIT_C
-#define GUARD_KERNEL_MODULES_PROCFS_INIT_C 1
+#ifndef GUARD_KERNEL_MODULES_PROCFS_ROOT_C
+#define GUARD_KERNEL_MODULES_PROCFS_ROOT_C 1
+#define _KOS_SOURCE 1
 
 #include <hybrid/compiler.h>
 #include <fs/node.h>
-#include <fs/driver.h>
-#include <kernel/debug.h>
+#include <fs/path.h>
+#include <string.h>
+
+#include "inode.h"
 
 DECL_BEGIN
 
-DEFINE_DRIVER_INIT(my_driver_foo);
-void KCALL my_driver_foo(void) {
- debug_printf("my_driver_foo()\n");
+PRIVATE void KCALL
+Root_Enum(struct directory_node *__restrict UNUSED(node),
+          directory_enum_callback_t callback, void *arg) {
+ (*callback)("cmdline",    DT_REG,PROCFS_INODE_CMDLINE,    arg);
+ (*callback)("self",       DT_LNK,PROCFS_INODE_SELF,       arg);
+ (*callback)("thread-self",DT_LNK,PROCFS_INODE_THREAD_SELF,arg);
 }
 
-INTERN void KCALL module_main(int argc, char *argv[]) {
- int i;
- debug_printf("module_main(%d,%p)\n",argc,argv);
- for (i = 0; i < argc; ++i)
-     debug_printf("\targv[%d] = %q\n",i,argv[i]);
- 
-}
 
+INTERN struct inode_operations Iprocfs_root_dir = {
+    /* /proc */
+    .io_directory = {
+        .d_oneshot = {
+            .o_enum = &Root_Enum,
+        }
+    }
+};
 
 DECL_END
 
-#endif /* !GUARD_KERNEL_MODULES_PROCFS_INIT_C */
+#endif /* !GUARD_KERNEL_MODULES_PROCFS_ROOT_C */
