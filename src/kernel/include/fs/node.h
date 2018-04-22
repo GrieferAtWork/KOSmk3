@@ -86,7 +86,7 @@ struct superblock_data;
 
 /* The callback invoked by directory enumerators. */
 typedef void (KCALL *directory_enum_callback_t)(char const *__restrict name,
-                                                unsigned char type,
+                                                u16 namelen, unsigned char type,
                                                 ino_t ino, void *arg);
 
 struct vm_region;
@@ -256,10 +256,11 @@ struct inode_operations {
                  * accommodate dynamically allocated directory entries.
                  * When implemented, this operator is used during
                  * path traversion instead of using `d_readdir' for that.
+                 * @return: NULL: No file with the given name exists.
                  * @param: mode: Set of `FS_MODE_F*' (Most notably `FS_MODE_FDOSPATH')
                  * @throw: E_SEGFAULT: Failed to access the given `name'.
                  * @throw: E_FILESYSTEM_ERROR.ERROR_FS_ACCESS_ERROR:   [...]
-                 * @throw: E_FILESYSTEM_ERROR.ERROR_FS_FILE_NOT_FOUND: [...] */
+                 * @throw: E_FILESYSTEM_ERROR.ERROR_FS_FILE_NOT_FOUND: [...] (Same as returning NULL) */
                 REF struct directory_entry *(KCALL *o_lookup)(struct directory_node *__restrict self,
                                                               CHECKED USER char const *__restrict name,
                                                               u16 namelen, uintptr_t hash, unsigned int mode);
@@ -572,6 +573,59 @@ struct regular_node {
 };
 
 
+#ifdef __INTELLISENSE__
+#define __DEFINE_DIRECTORY_ENTRY_EX(symbol_name,name,...) \
+struct { \
+    ref_t de_refcnt; \
+    struct directory_entry *de_next; \
+    LIST_NODE(struct directory_entry) de_bypos; \
+    struct PACKED { \
+        pos_t de_start; \
+        unsigned char de_data[16]; \
+    } de_fsdata; \
+    pos_t de_pos; \
+    union PACKED { \
+        REF struct inode *de_virtual; \
+        ino_t de_ino; \
+    }; \
+    uintptr_t de_hash; \
+    u16 de_namelen; \
+    unsigned char de_type; \
+    char de_name[COMPILER_LENOF(name)]; \
+} symbol_name = { 0 }
+#else
+#define __DEFINE_DIRECTORY_ENTRY_EX(symbol_name,name,...) \
+struct { \
+    ref_t de_refcnt; \
+    struct directory_entry *de_next; \
+    LIST_NODE(struct directory_entry) de_bypos; \
+    struct PACKED { \
+        pos_t de_start; \
+        unsigned char de_data[16]; \
+    } de_fsdata; \
+    pos_t de_pos; \
+    union PACKED { \
+        REF struct inode *de_virtual; \
+        ino_t de_ino; \
+    }; \
+    uintptr_t de_hash; \
+    u16 de_namelen; \
+    unsigned char de_type; \
+    char de_name[COMPILER_LENOF(name)]; \
+} symbol_name = { \
+    .de_refcnt = 0x3fffffff, \
+     __VA_ARGS__ \
+    .de_namelen = COMPILER_STRLEN(name), \
+    .de_name = name \
+}
+#endif
+
+#define DEFINE_DIRECTORY_ENTRY(symbol_name,name,hash,type,ino) \
+      __DEFINE_DIRECTORY_ENTRY_EX(symbol_name,name,.de_hash = hash,.de_type = type,.de_ino = ino,)
+#define DEFINE_DIRECTORY_ENTRY_V(symbol_name,name,hash,type,virtual) \
+      __DEFINE_DIRECTORY_ENTRY_EX(symbol_name,name,.de_hash = hash,.de_type = type,.de_virtual = virtual,)
+
+
 struct directory_entry {
     /* XXX: This structure must be kept in sync with `/src/kernel/src/fs/driver.c' */
     ATOMIC_DATA ref_t                 de_refcnt;  /* Reference counter for this data structure. */
@@ -630,6 +684,7 @@ FUNDEF ATTR_NOTHROW void KCALL directory_entry_destroy(struct directory_entry *_
 FUNDEF WUNUSED uintptr_t KCALL
 directory_entry_hash(CHECKED USER char const *__restrict name,
                      u16 namelen);
+
 
 
 #define DIRECTORY_DEFAULT_MASK  7

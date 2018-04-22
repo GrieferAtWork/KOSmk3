@@ -620,16 +620,16 @@ struct oneshot_generator_data {
 };
 
 PRIVATE void KCALL
-oneshot_enum_callback(char const *__restrict name,
+oneshot_enum_callback(char const *__restrict name, u16 namelen,
                       unsigned char type, ino_t ino,
                       struct oneshot_generator_data *__restrict data) {
- size_t size_avail,req_size; u16 name_len = (u16)strlen(name);
+ size_t size_avail,req_size;
  struct oneshot_directory_buffer *buf = data->current_buffer;
  struct dirent *new_entry;
  assert(data->current_ent >= buf->odb_buf);
  assert(data->current_ent <= buf->odb_end);
  size_avail = (uintptr_t)buf->odb_end-(uintptr_t)data->current_ent;
- req_size   = offsetof(struct dirent,d_name)+(name_len+1)*sizeof(char);
+ req_size   = offsetof(struct dirent,d_name)+(namelen+1)*sizeof(char);
  if unlikely(size_avail < req_size) {
   if unlikely(size_avail >= 256) {
    /* Free unused memory. */
@@ -663,9 +663,10 @@ oneshot_enum_callback(char const *__restrict name,
  data->current_ent = (struct dirent *)((uintptr_t)new_entry+req_size);
  /* Write the new directory entry. */
  new_entry->d_ino    = ino;
- new_entry->d_namlen = name_len;
+ new_entry->d_namlen = namelen;
  new_entry->d_type   = type;
- memcpy(new_entry->d_name,name,(name_len+1)*sizeof(char));
+ memcpy(new_entry->d_name,name,namelen*sizeof(char));
+ new_entry->d_name[namelen] = '\0';
 }
 
 

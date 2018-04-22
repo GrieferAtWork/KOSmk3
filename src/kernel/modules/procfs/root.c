@@ -29,12 +29,92 @@
 
 DECL_BEGIN
 
+
+/*[[[deemon STATIC_DIRECTORY("PRIVATE","root_directory",{
+    "cmdline"     : [ "DT_REG", "PROCFS_INODE_CMDLINE" ],
+    "self"        : [ "DT_LNK", "PROCFS_INODE_SELF" ],
+    "thread-self" : [ "DT_LNK", "PROCFS_INODE_THREAD_SELF" ],
+});]]]*/
+#if __SIZEOF_POINTER__ == 4
+PRIVATE DEFINE_DIRECTORY_ENTRY(root_directory_2,"thread-self",0x26320082ul,DT_LNK,PROCFS_INODE_THREAD_SELF);
+PRIVATE DEFINE_DIRECTORY_ENTRY(root_directory_3,"self",0x99cf910bul,DT_LNK,PROCFS_INODE_SELF);
+PRIVATE DEFINE_DIRECTORY_ENTRY(root_directory_4,"cmdline",0xcfed46e4ul,DT_REG,PROCFS_INODE_CMDLINE);
+PRIVATE struct directory_entry *const root_directory[] = {
+    NULL,
+    NULL,
+    (struct directory_entry *)&root_directory_2,
+    (struct directory_entry *)&root_directory_3,
+    (struct directory_entry *)&root_directory_4,
+    NULL,
+    NULL,
+    NULL,
+};
+#else
+PRIVATE DEFINE_DIRECTORY_ENTRY(root_directory_0,"self",0x666c6573ull,DT_LNK,PROCFS_INODE_SELF);
+PRIVATE DEFINE_DIRECTORY_ENTRY(root_directory_1,"thread-self",0xc98876c916c1879ull,DT_LNK,PROCFS_INODE_THREAD_SELF);
+PRIVATE DEFINE_DIRECTORY_ENTRY(root_directory_3,"cmdline",0x656e696c646d63ull,DT_REG,PROCFS_INODE_CMDLINE);
+PRIVATE struct directory_entry *const root_directory[] = {
+    (struct directory_entry *)&root_directory_0,
+    (struct directory_entry *)&root_directory_1,
+    NULL,
+    (struct directory_entry *)&root_directory_3,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+};
+#endif
+//[[[end]]]
+
+
+
+
+PRIVATE REF struct directory_entry *KCALL
+Root_Lookup(struct directory_node *__restrict self,
+            CHECKED USER char const *__restrict name,
+            u16 namelen, uintptr_t hash, unsigned int mode) {
+ struct directory_entry *result;
+ u32 perturb,i;
+ perturb = i = hash & (COMPILER_LENOF(root_directory)-1);
+ for (;; i = ((i << 2) + i + perturb + 1),perturb >>= 5) {
+  result = root_directory[i & (COMPILER_LENOF(root_directory)-1)];
+  if (!result) break;
+  if (result->de_hash != hash) continue;
+  if (result->de_namelen != namelen) continue;
+  if (memcmp(result->de_name,name,namelen*sizeof(char)) != 0) continue;
+found_it:
+  /* Found it! */
+  directory_entry_incref(result);
+  return result;
+ }
+ /* TODO: Check for PID names. */
+
+ if (mode & FS_MODE_FDOSPATH) {
+  /* Do another (case-insensitive) search. */
+  for (i = 0; i < COMPILER_LENOF(root_directory); ++i) {
+   if ((result = root_directory[i]) == NULL) continue;
+   if (result->de_namelen != namelen) continue;
+   if (memcasecmp(result->de_name,name,namelen*sizeof(char)) != 0) continue;
+   goto found_it;
+  }
+ }
+ return NULL;
+}
+
+
 PRIVATE void KCALL
 Root_Enum(struct directory_node *__restrict UNUSED(node),
           directory_enum_callback_t callback, void *arg) {
- (*callback)("cmdline",    DT_REG,PROCFS_INODE_CMDLINE,    arg);
- (*callback)("self",       DT_LNK,PROCFS_INODE_SELF,       arg);
- (*callback)("thread-self",DT_LNK,PROCFS_INODE_THREAD_SELF,arg);
+ unsigned int i;
+ for (i = 0; i < COMPILER_LENOF(root_directory); ++i) {
+  if (!root_directory[i]) continue;
+  (*callback)(root_directory[i]->de_name,
+              root_directory[i]->de_namelen,
+              root_directory[i]->de_type,
+              root_directory[i]->de_ino,
+              arg);
+ }
+ /* TODO: Enumerate PIDs of running processes. */
 }
 
 
@@ -42,7 +122,8 @@ INTERN struct inode_operations Iprocfs_root_dir = {
     /* /proc */
     .io_directory = {
         .d_oneshot = {
-            .o_enum = &Root_Enum,
+            .o_lookup = &Root_Lookup,
+            .o_enum   = &Root_Enum,
         }
     }
 };

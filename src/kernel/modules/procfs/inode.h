@@ -24,6 +24,104 @@
 
 DECL_BEGIN
 
+#ifdef __DEEMON__
+#define DNAME_HASH32(x) \
+({ local hash = uint32(0); \
+   local temp = (uint32 *)(char *)x; \
+   for (local i = 0; i < #(x) / 4; ++i) { hash += temp[i]; hash *= 9; } \
+   local temp = x[#(x) - #(x) % 4 : #(x)]; \
+   switch (#(temp)) { \
+   case 3:  hash += (uint32)temp[2].ord() << 16; \
+   case 2:  hash += (uint32)temp[1].ord() << 8; \
+   case 1:  hash += (uint32)temp[0].ord(); \
+   default: break; \
+   } \
+   hash; \
+})
+#define DNAME_HASH64(x) \
+({ local hash = uint64(0); \
+   local temp = (uint64 *)(char *)x; \
+   for (local i = 0; i < #(x) / 8; ++i) { hash += temp[i]; hash *= 9; } \
+   local temp = x[#(x) - #(x) % 8 : #(x)]; \
+   switch (#(temp)) { \
+   case 7:  hash += (uint64)temp[6].ord() << 48; \
+   case 6:  hash += (uint64)temp[5].ord() << 40; \
+   case 5:  hash += (uint64)temp[4].ord() << 32; \
+   case 4:  hash += (uint64)temp[3].ord() << 24; \
+   case 3:  hash += (uint64)temp[2].ord() << 16; \
+   case 2:  hash += (uint64)temp[1].ord() << 8; \
+   case 1:  hash += (uint64)temp[0].ord(); \
+   default: break; \
+   } \
+   hash; \
+})
+#define STATIC_DIRECTORY(visibility,dirname,dents...) \
+({  local entries = dict dents; \
+    local hash_mask = 1; \
+    while (hash_mask <= #entries) \
+           hash_mask = (hash_mask << 1) | 1; \
+    local hash_vector32 = [none] * (hash_mask + 1); \
+    local hash_vector64 = [none] * (hash_mask + 1); \
+    for (local name,args: entries) { \
+        local perturb,i; \
+        local hash32 = DNAME_HASH32(name); \
+        local hash64 = DNAME_HASH64(name); \
+        perturb = i = hash32 & hash_mask; \
+        for (;;) { \
+            local index = i & hash_mask; \
+            if (hash_vector32[index] !is none) { \
+                i = ((i << 2) + i + perturb + 1); \
+                perturb = perturb >> 5; \
+            } else { \
+                hash_vector32[index] = pack(name,hash32,args...); \
+                break; \
+            } \
+        } \
+        perturb = i = hash64 & hash_mask; \
+        for (;;) { \
+            local index = i & hash_mask; \
+            if (hash_vector64[index] !is none) { \
+                i = ((i << 2) + i + perturb + 1); \
+                perturb = perturb >> 5; \
+            } else { \
+                hash_vector64[index] = pack(name,hash64,args...); \
+                break; \
+            } \
+        } \
+    } \
+    function print_hash_items(vector,hash_suffix) { \
+        for (local i,data: __builtin_object(0x01F1)(vector)) { \
+            if (data is none) continue; \
+            local name,hash,tp,ino = data...; \
+            print visibility,"DEFINE_DIRECTORY_ENTRY("+dirname+"_"+i+","+repr(name)+","+("0x%I64x" % hash)+hash_suffix+","+tp+","+ino+");"; \
+        } \
+    } \
+    function print_hash_vector(vector) { \
+        for (local i,data: __builtin_object(0x01F1)(vector)) { \
+            if (data is none) { \
+                print "    NULL,"; \
+            } else { \
+                print "    (struct directory_entry *)&"+dirname+"_"+i+","; \
+            } \
+        } \
+    } \
+    print "#if __SIZEOF_POINTER__ == 4"; \
+    print_hash_items(hash_vector32,"ul"); \
+    print visibility,"struct directory_entry *const "+dirname+"[] = {"; \
+    print_hash_vector(hash_vector32); \
+    print "};"; \
+    print "#else"; \
+    print_hash_items(hash_vector64,"ull"); \
+    print visibility,"struct directory_entry *const "+dirname+"[] = {"; \
+    print_hash_vector(hash_vector64); \
+    print "};"; \
+    print "#endif"; \
+})
+
+#endif /* __DEEMON__ */
+
+
+
 /*
  *  PROCFS INode numbers:
  *  xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx 00000000 xxxxxxxx xxxxxxxx xxxxxxxx
