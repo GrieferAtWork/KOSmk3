@@ -796,6 +796,8 @@ directory_getentry(struct directory_node *__restrict self,
  REF struct directory_entry *result;
  assert(rwlock_reading(&self->d_node.i_lock));
  assert(self->d_mask != 0);
+ if (self->d_node.i_ops->io_directory.d_oneshot.o_lookup)
+     return (*self->d_node.i_ops->io_directory.d_oneshot.o_lookup)(self,name,namelen,hash,FS_MODE_FNORMAL);
  if unlikely(!self->d_size) goto read_directory;
  inode_access(&self->d_node,R_OK|X_OK);
  result = self->d_map[hash & self->d_mask];
@@ -828,6 +830,8 @@ directory_getcaseentry(struct directory_node *__restrict self,
  REF struct directory_entry *result;
  assert(rwlock_reading(&self->d_node.i_lock));
  assert(self->d_mask != 0);
+ if (self->d_node.i_ops->io_directory.d_oneshot.o_lookup)
+     return (*self->d_node.i_ops->io_directory.d_oneshot.o_lookup)(self,name,namelen,hash,FS_MODE_FDOSPATH);
  if unlikely(!self->d_size) goto read_directory;
  inode_access(&self->d_node,R_OK|X_OK);
  result = self->d_map[hash & self->d_mask];

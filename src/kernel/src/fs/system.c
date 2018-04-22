@@ -1921,13 +1921,16 @@ DEFINE_SYSCALL5(mount,
  p = fs_path(NULL,dir_name,user_strlen(dir_name),
              NULL,FS_DEFAULT_ATMODE);
  TRY {
+  REF struct superblock *EXCEPT_VAR block = NULL;
   if (flags & MS_BIND) {
    /* Create a virtual, secondary binding of another, existing mounting point. */
    dev_path = fs_path(NULL,dev_name,user_strlen(dev_name),
-                      (struct inode **)&dev_node,FS_DEFAULT_ATMODE);
+                     (struct inode **)&dev_node,FS_DEFAULT_ATMODE);
+   /* XXX: Isn't there a race condition if `dev_node' is the root node
+    *      of some superblock, if that superblock is currently being
+    *      destroyed? */
    path_decref(dev_path);
   } else {
-   REF struct superblock *COMPILER_IGNORE_UNINITIALIZED(block);
    if (!type) {
     REF struct block_device *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(inode_device);
     /* Automatically determine how to mount some superblock. */
@@ -1985,13 +1988,15 @@ DEFINE_SYSCALL5(mount,
    /* Mount the root node of the newly created superblock. */
    dev_node = &block->s_root->d_node;
    inode_incref(dev_node);
-   superblock_decref(block);
   }
   TRY {
    /* Mount the device node. */
    path_mount(p,dev_node);
   } FINALLY {
    inode_decref(dev_node);
+   /* decref() the superbock afterwards! */
+   if (block)
+       superblock_decref(block);
   }
  } FINALLY {
   path_decref(p);

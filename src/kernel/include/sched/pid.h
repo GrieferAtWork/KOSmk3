@@ -176,6 +176,11 @@ FUNDEF ATTR_RETNONNULL REF struct thread_pid *KCALL pid_lookup(pid_t pid);
  * If that fails, throw an `E_PROCESS_EXITED' instead. */
 FUNDEF ATTR_RETNONNULL REF struct task *KCALL pid_lookup_task(pid_t pid);
 
+/* Same as `pid_lookup()', but lookup within the
+ * given PID namespace, rather than the current. */
+FUNDEF ATTR_RETNONNULL REF struct thread_pid *
+KCALL pidns_lookup(struct pidns *__restrict self, pid_t pid);
+
 /* The kernel's own PID namespace.
  * This is the root namespace that is used by
  * /bin/init (and usually most other processes, too)

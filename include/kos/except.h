@@ -225,7 +225,7 @@ typedef __UINT16_TYPE__ except_t;
 #define E_INVALID_ARGUMENT       0x0002          /* [ERRNO(EINVAL)] Invalid argument. */
 #define E_NOT_IMPLEMENTED        0x0003          /* [ERRNO(ENOSYS)] Unimplemented function. */
 #define E_INVALID_HANDLE         0x0004          /* [ERRNO(EBADF)] Bad file descriptor. */
-#define E_TOO_MANY_HANDLES       0x0014          /* [ERRNO(EMFILE)] Too many open handles. */
+#define E_TOO_MANY_HANDLES       0x0014          /* [ERRNO(EMFILE)] Too many open handles. (TODO: Make this a resource type for E_BADALLOC) */
 #define E_WOULDBLOCK             0x0005          /* [ERRNO(EWOULDBLOCK)] A blocking call was attempted when non-blocking behavior was requested. */
 #define E_NO_DATA                0x0006          /* [ERRNO(ENODATA)] No data is available. */
 #define E_PROCESS_EXITED         0x0016          /* [ERRNO(ESRCH)] The task controller for the specified process has already been deallocated.

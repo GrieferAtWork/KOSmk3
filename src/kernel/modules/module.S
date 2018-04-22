@@ -66,3 +66,15 @@ SPECS:
 	EMIT_RELPTR(module_main)           /* ds_main */
 .size SPECS, . - SPECS
 
+DEFINE_PUBLIC(__stack_chk_fail)
+DEFINE_PUBLIC(__stack_chk_guard)
+
+.section .data
+INTERN_ENTRY(__stack_chk_fail_local)
+	jmp  __stack_chk_guard
+SYMEND(__stack_chk_fail_local)
+
+
+
+
+

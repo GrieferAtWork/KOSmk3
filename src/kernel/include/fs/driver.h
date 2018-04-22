@@ -139,7 +139,11 @@ struct driver {
     struct application         d_app;     /* The underlying application. */
     struct driver_specs const *d_spec;    /* [1..1][const] Driver specifications (`dlsym("__$$OS$driver_specs")') */
     char                      *d_cmdline; /* [0..1][lock(WRITE_ONCE && creator)][owned] Driver commandline.
-                                           * Set once during driver initialization and never changed. */
+                                           * Set once during driver initialization and never changed.
+                                           * NOTE: This string is split into arguments by NUL-characters,
+                                           *       followed by 2 trailing NUL characters. */
+    size_t                     d_cmdsize; /* [lock(WRITE_ONCE && creator)] The total length of the
+                                           * cmdline (including one of the 2 trailing NUL characters). */
 };
 
 /* Increment/decrement the reference counter of the given driver `x' */

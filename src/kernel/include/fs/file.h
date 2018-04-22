@@ -129,10 +129,6 @@ FUNDEF ATTR_NOTHROW void KCALL file_destroy(struct file *__restrict self);
 #define file_incref(x)  ATOMIC_FETCHINC((x)->f_refcnt)
 #define file_decref(x) (ATOMIC_DECFETCH((x)->f_refcnt) || (file_destroy(x),0))
 
-
-/* Default file operations implementing read/write operations using `f_pread' and `f_pwrite' */
-DATDEF struct file_operations default_file_operations;
-
 /* Allocate a new, NULL-initialized file with one reference. */
 FUNDEF ATTR_RETNONNULL ATTR_MALLOC REF struct file *KCALL file_alloc(void);
 
@@ -168,6 +164,40 @@ FUNDEF size_t KCALL file_write(struct file *__restrict self, USER CHECKED void c
 FUNDEF size_t KCALL file_readdir(struct file *__restrict self, USER CHECKED struct dirent *buf, size_t bufsize, int mode, iomode_t flags);
 FUNDEF ssize_t KCALL file_ioctl(struct file *__restrict self, unsigned long cmd, USER UNCHECKED void *arg, iomode_t flags);
 FUNDEF unsigned int KCALL file_poll(struct file *__restrict self, unsigned int mode);
+
+
+
+
+struct oneshot_directory_buffer;
+/* A special kind of file stream that is intended to be used
+ * for enumerating directories that contain data which could
+ * randomly change at any time, independent of the filesystem.
+ * e.g. /proc
+ * Inode making use of this type of file should not implement the `d_readdir'
+ * operator, but implement implement `d_oneshot.o_lookup' and `d_oneshot.o_enum'
+ * instead, as well as have the `INODE_FDONTCACHE' flag set.
+ *  - This type of directory stream is designed to collect _all_
+ *    entries that will ever show up _once_ during the first call
+ *    to `readdir()' */
+struct oneshot_directory_file {
+    struct file                      odf_file; /* The underlying file */
+    struct oneshot_directory_buffer *odf_buf;  /* [0..1][lock(odf_file.f_node->i_lock && WRITE_ONCE)][owned]
+                                                * Directory contents buffer. */
+    struct oneshot_directory_buffer *odf_cur;  /* [0..1][lock(odf_file.f_node->i_lock && odf_file.f_directory.d_curlck)]
+                                                * The current buffer block. */
+    struct dirent                   *odf_ent;  /* [0..1][lock(odf_file.f_node->i_lock && odf_file.f_directory.d_curlck)]
+                                                * The current directory entry. */
+};
+
+/* Open a one-shot directory for reading.
+ * NOTE: A one-shot directory is one that implements the `d_oneshot.o_enum' operator.
+ * This function is automatically called by `file_creat()' when
+ * opening a directory implementing said operator. */
+FUNDEF ATTR_RETNONNULL REF struct oneshot_directory_file *KCALL
+oneshort_directory_open(struct directory_node *__restrict node,
+                        struct path *__restrict p);
+
+
 
 
 DECL_END

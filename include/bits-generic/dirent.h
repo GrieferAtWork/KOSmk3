@@ -57,7 +57,11 @@ union {
 #if defined(__DIRENT_TEXTSIZE)
     char               d_name[__DIRENT_TEXTSIZE];
 #elif defined(__KERNEL__)
+#if 1
+    char               d_name[1];
+#else
     __empty_arr(char,  d_name);  /* Allocated as required. */
+#endif
 #else
     char               d_name[256];
 #endif

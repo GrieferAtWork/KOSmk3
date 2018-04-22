@@ -24,6 +24,7 @@
 #include <hybrid/compiler.h>
 #include <kos/types.h>
 #include <hybrid/timespec.h>
+#include <hybrid/minmax.h>
 #include <kernel/malloc.h>
 #include <kernel/sections.h>
 #include <kernel/debug.h>
@@ -63,7 +64,7 @@ file_destroy(struct file *__restrict self) {
  kfree(self);
 }
 
-PRIVATE void KCALL
+PRIVATE ATTR_NOTHROW void KCALL
 StandardFile_Fini(struct file *__restrict self) {
  if (self->f_directory.d_curent)
      directory_entry_decref(self->f_directory.d_curent);
@@ -372,7 +373,7 @@ read_entry_pos_0:
 
 /* Default file operations implementing read/write
  * operations using `f_pread' and `f_pwrite' */
-PUBLIC struct file_operations default_file_operations = {
+PRIVATE struct file_operations default_file_operations = {
     .f_fini    = &StandardFile_Fini,
     .f_read    = &StandardFile_Read,
     .f_write   = &StandardFile_Write,
@@ -451,18 +452,24 @@ file_open(struct inode *__restrict EXCEPT_VAR node,
 
  /* Open the file manually. */
  result.h_mode = HANDLE_MODE(HANDLE_TYPE_FFILE,IO_FROM_O(flags));
- result.h_object.o_file = (REF struct file *)kmalloc(sizeof(struct file),GFP_SHARED);
- /* Initialize fields. */
- result.h_object.o_file->f_refcnt = 1;
- result.h_object.o_file->f_node   = node;
- result.h_object.o_file->f_path   = p;
- result.h_object.o_file->f_ops    = &default_file_operations;
- result.h_object.o_file->f_pos    = 0;
- atomic_rwlock_init(&result.h_object.o_file->f_directory.d_curlck);
- result.h_object.o_file->f_directory.d_curidx = 0;
- result.h_object.o_file->f_directory.d_curent = NULL;
- inode_incref(node);
- path_incref(p);
+ if (INODE_ISDIR(node) &&
+     node->i_ops->io_directory.d_oneshot.o_enum) {
+  /* Open a one-shot directory. */
+  result.h_object.o_file = (REF struct file *)oneshort_directory_open((struct directory_node *)node,p);
+ } else {
+  result.h_object.o_file = (REF struct file *)kmalloc(sizeof(struct file),GFP_SHARED);
+  /* Initialize fields. */
+  result.h_object.o_file->f_refcnt = 1;
+  result.h_object.o_file->f_node   = node;
+  result.h_object.o_file->f_path   = p;
+  result.h_object.o_file->f_ops    = &default_file_operations;
+  result.h_object.o_file->f_pos    = 0;
+  atomic_rwlock_init(&result.h_object.o_file->f_directory.d_curlck);
+  result.h_object.o_file->f_directory.d_curidx = 0;
+  result.h_object.o_file->f_directory.d_curent = NULL;
+  inode_incref(node);
+  path_incref(p);
+ }
 done:
  return result;
 }
@@ -582,6 +589,364 @@ PUBLIC unsigned int KCALL
 file_poll(struct file *__restrict EXCEPT_VAR self, unsigned int mode) {
  return SAFECALL_KCALL_2(self->f_ops->f_poll,self,mode);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+#define ONESHOT_NEXT_ENTRY(p) \
+ ((struct dirent *)(((uintptr_t)((p)->d_name+((p)->d_namlen+1))+ \
+                     (sizeof(ino_t)-1)) & ~(sizeof(ino_t)-1)))
+
+struct oneshot_directory_buffer {
+    struct oneshot_directory_buffer *odb_next;   /* [0..1][const][owned] Next buffer. */
+    struct dirent                   *odb_end;    /* [1..1][const] Pointer past the end of the last buffer. */
+    struct dirent                    odb_buf[1];
+};
+#define ONESHOT_INITIAL_BUFFER_SIZE  768
+
+
+struct oneshot_generator_data {
+    struct oneshot_directory_buffer **previous_buffer;
+    struct oneshot_directory_buffer  *current_buffer;
+    struct dirent                    *current_ent;
+};
+
+PRIVATE void KCALL
+oneshot_enum_callback(char const *__restrict name,
+                      unsigned char type, ino_t ino,
+                      struct oneshot_generator_data *__restrict data) {
+ size_t size_avail,req_size; u16 name_len = (u16)strlen(name);
+ struct oneshot_directory_buffer *buf = data->current_buffer;
+ struct dirent *new_entry;
+ assert(data->current_ent >= buf->odb_buf);
+ assert(data->current_ent <= buf->odb_end);
+ size_avail = (uintptr_t)buf->odb_end-(uintptr_t)data->current_ent;
+ req_size   = offsetof(struct dirent,d_name)+(name_len+1)*sizeof(char);
+ if unlikely(size_avail < req_size) {
+  if unlikely(size_avail >= 256) {
+   /* Free unused memory. */
+   TRY {
+    *data->previous_buffer = (struct oneshot_directory_buffer *)krealloc(buf,
+                                                                        (uintptr_t)data->current_ent-
+                                                                        (uintptr_t)buf->odb_buf,
+                                                                         GFP_SHARED);
+   } CATCH (E_BADALLOC) {
+   }
+  }
+  data->previous_buffer = &buf->odb_next;
+  /* Allocate another buffer. */
+  size_avail = (offsetof(struct oneshot_directory_buffer,odb_buf)+
+                ONESHOT_INITIAL_BUFFER_SIZE);
+  if unlikely(size_avail < req_size+offsetof(struct oneshot_directory_buffer,odb_buf))
+              size_avail = req_size+offsetof(struct oneshot_directory_buffer,odb_buf);
+  buf->odb_next = (struct oneshot_directory_buffer *)kmalloc(size_avail,
+                                                             GFP_SHARED);
+  data->current_buffer = buf = buf->odb_next;
+  /* Initialize the new buffer. */
+  buf->odb_end = (struct dirent *)((uintptr_t)buf+size_avail);
+  buf->odb_next = NULL;
+  /* Use the new buffer's starting point as the new current entry. */
+  data->current_ent = buf->odb_buf;
+ }
+ /* Figure out where new data will go. */
+ new_entry = data->current_ent;
+ req_size += sizeof(ino_t)-1;
+ req_size &= ~(sizeof(ino_t)-1);
+ data->current_ent = (struct dirent *)((uintptr_t)new_entry+req_size);
+ /* Write the new directory entry. */
+ new_entry->d_ino    = ino;
+ new_entry->d_namlen = name_len;
+ new_entry->d_type   = type;
+ memcpy(new_entry->d_name,name,(name_len+1)*sizeof(char));
+}
+
+
+PRIVATE void KCALL
+oneshot_freeentries(struct oneshot_directory_buffer *__restrict buf) {
+ struct oneshot_directory_buffer *next;
+ do {
+  next = buf->odb_next;
+  kfree(buf);
+  buf = next;
+ } while (buf);
+}
+
+
+PRIVATE ATTR_RETNONNULL struct oneshot_directory_buffer *KCALL
+oneshot_getentries(struct directory_node *__restrict node) {
+ struct oneshot_directory_buffer *result;
+ assert(node->d_node.i_ops->io_directory.d_oneshot.o_enum);
+ result = (struct oneshot_directory_buffer *)kmalloc(offsetof(struct oneshot_directory_buffer,odb_buf)+
+                                                     ONESHOT_INITIAL_BUFFER_SIZE,
+                                                     GFP_SHARED);
+ result->odb_next = NULL;
+ result->odb_end  = (struct dirent *)((uintptr_t)result->odb_buf+ONESHOT_INITIAL_BUFFER_SIZE);
+ TRY {
+  struct oneshot_generator_data data;
+  data.previous_buffer = &result;
+  data.current_buffer  = result;
+  data.current_ent     = result->odb_buf;
+  (*node->d_node.i_ops->io_directory.d_oneshot.o_enum)(node,
+                                                      (directory_enum_callback_t)&oneshot_enum_callback,
+                                                      &data);
+  if (data.current_ent < data.current_buffer->odb_end) {
+   size_t unused_size;
+   assert(data.current_buffer == *data.previous_buffer);
+   unused_size = ((uintptr_t)data.current_buffer->odb_end-
+                  (uintptr_t)data.current_ent);
+   /* Set the final buffer end. */
+   data.current_buffer->odb_end = data.current_ent;
+   if (unused_size >= 256) {
+    /* Free unused memory. */
+    TRY {
+     *data.previous_buffer = (struct oneshot_directory_buffer *)krealloc(data.current_buffer,
+                                                                        (uintptr_t)data.current_ent-
+                                                                        (uintptr_t)data.current_buffer->odb_buf,
+                                                                         GFP_SHARED);
+    } CATCH (E_BADALLOC) {
+    }
+   }
+  }
+ } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+  oneshot_freeentries(result);
+  error_rethrow();
+ }
+ return result;
+}
+
+
+
+INTERN size_t KCALL
+OneShotDirectory_ReadDir(struct oneshot_directory_file *__restrict self,
+                         USER CHECKED struct dirent *buf,
+                         size_t bufsize, int mode, iomode_t flags) {
+ struct oneshot_directory_buffer *old_buffer,*buffer;
+ struct dirent *old_entry,*entry;
+ size_t result; pos_t dirpos,req_index,entry_pos;
+ assert(INODE_ISDIR(self->odf_file.f_node));
+again:
+ for (;;) {
+  dirpos = ATOMIC_READ(self->odf_file.f_pos);
+  if (dirpos < 2) {
+   if (mode & READDIR_SKIPREL) {
+    /* Skip special entries. */
+    ATOMIC_CMPXCH_WEAK(self->odf_file.f_pos,dirpos,2);
+    continue;
+   }
+   /* Emit special entries. */
+   COMPILER_BARRIER();
+   req_index = dirpos+1;
+   result = (offsetof(struct dirent,d_name)+
+             2*sizeof(char)); /* 2: `.\0' */
+   if (dirpos == 1) ++result; /* The second `.' of `..' */
+   if (bufsize >= offsetof(struct dirent,d_name)) {
+    u16 namelen; char name[3] = {'.',0,0};
+    namelen = 1;
+    if (dirpos == 1) ++namelen,name[1] = '.';
+    /* Fill in basic members of the user-buffer.
+     * CAUTION: E_SEGFAULT */
+    if (dirpos == 0) {
+     buf->d_ino = self->odf_file.f_node->i_attr.a_ino; /* Self */
+    } else {
+     ino_t parent_node;
+     struct path *parent = self->odf_file.f_path->p_parent;
+     if (!parent || self->odf_file.f_path == THIS_FS->fs_root) {
+      /* No parent, or parent is hidden from view.
+       * >> Skip the parent directory. */
+      assert(dirpos    == 1);
+      assert(req_index == 2);
+      ATOMIC_CMPXCH(self->odf_file.f_pos,dirpos,req_index);
+      goto again;
+     }
+     /*  Load the INode number of the parent directory. */
+     atomic_rwlock_read(&parent->p_lock);
+     parent_node = parent->p_node->i_attr.a_ino;
+     atomic_rwlock_endread(&parent->p_lock);
+     /* Barrier to prevent the dangerous
+      * write that follows from being moved. */
+     COMPILER_BARRIER();
+     buf->d_ino = parent_node;
+    }
+    /* Save other fields. */
+    buf->d_namlen = namelen;
+    buf->d_type   = DT_DIR;
+    bufsize      -= offsetof(struct dirent,d_name);
+    if (bufsize >= (size_t)(namelen+1))
+     bufsize = (size_t)(namelen+1);
+    else if ((mode & READDIR_MODEMASK) == READDIR_DEFAULT) {
+     req_index = dirpos;
+    }
+    /* Copy the name to user-space.
+     * CAUTION: E_SEGFAULT */
+    memcpy(buf->d_name,name,bufsize*sizeof(char));
+    COMPILER_WRITE_BARRIER();
+    if ((mode & READDIR_MODEMASK) == READDIR_PEEK)
+        req_index = dirpos;
+    COMPILER_WRITE_BARRIER();
+   } else {
+    if ((mode & READDIR_MODEMASK) != READDIR_CONTINUE)
+        req_index = dirpos;
+   }
+   if (!ATOMIC_CMPXCH_WEAK(self->odf_file.f_pos,dirpos,dirpos+1))
+        continue;
+   break;
+  }
+  req_index = dirpos-2;
+
+  /* Lazily load the oneshot buffer. */
+  if unlikely(!self->odf_buf) {
+   struct oneshot_directory_buffer *new_buffer;
+   buffer = oneshot_getentries((struct directory_node *)self->odf_file.f_node);
+   COMPILER_READ_BARRIER();
+   new_buffer = ATOMIC_CMPXCH_VAL(self->odf_buf,NULL,buffer);
+   /* Another thread allocated the buffer in the
+    * mean time (WRITE_ONCE; keep existing buffer) */
+   if unlikely(new_buffer != NULL)
+      oneshot_freeentries(buffer);
+  }
+
+  /* Read the current directory stream state. */
+  atomic_rwlock_read(&self->odf_file.f_directory.d_curlck);
+  entry_pos  = self->odf_file.f_directory.d_curidx;
+  old_buffer = self->odf_cur;
+  old_entry  = self->odf_ent;
+  atomic_rwlock_endread(&self->odf_file.f_directory.d_curlck);
+  buffer = old_buffer;
+  entry  = old_entry;
+  assert((buffer == NULL) == (entry == NULL));
+  if (!buffer) {
+read_entry_pos_0:
+   assert(entry_pos == 0);
+   buffer = self->odf_buf;
+   entry  = buffer->odb_buf;
+  }
+
+  /* Load the effective directory entry. */
+  for (;;) {
+   assert(entry);
+   assert(buffer->odb_end > buffer->odb_buf);
+   assert(entry >= buffer->odb_buf);
+   assert((uintptr_t)entry <= (uintptr_t)buffer->odb_end+sizeof(ino_t));
+   if unlikely(entry >= buffer->odb_end) {
+    buffer = buffer->odb_next;
+    if unlikely(!buffer) return 0; /* End of directory */
+    entry = buffer->odb_buf;
+    assert(entry < buffer->odb_end);
+   }
+   if (req_index == entry_pos)
+       break;
+   if (req_index > entry_pos) {
+    /* Advance forward. */
+    entry = ONESHOT_NEXT_ENTRY(entry);
+    ++entry_pos;
+    continue;
+   }
+   /* Restart at the beginning. */
+   assert(req_index < entry_pos);
+   entry_pos = 0;
+   goto read_entry_pos_0;
+  }
+
+  /* Exchange the current entry. */
+  atomic_rwlock_write(&self->odf_file.f_directory.d_curlck);
+  if unlikely(self->odf_cur != old_buffer ||
+              self->odf_ent != old_entry) {
+   /* Something changed (try again) */
+   atomic_rwlock_endwrite(&self->odf_file.f_directory.d_curlck);
+   goto again;
+  }
+  /* Override the current position. */
+  self->odf_file.f_directory.d_curidx = req_index;
+  self->odf_cur                       = buffer;
+  self->odf_ent                       = entry;
+  atomic_rwlock_endwrite(&self->odf_file.f_directory.d_curlck);
+
+  /* Emit the directory entry `entry' */
+  COMPILER_BARRIER();
+  req_index = dirpos+1;
+  result = (offsetof(struct dirent,d_name)+
+           (entry->d_namlen+1)*sizeof(char));
+  if (bufsize >= result) {
+   memcpy(buf,entry,result);
+   if ((mode & READDIR_MODEMASK) == READDIR_PEEK)
+       req_index = dirpos;
+  } else {
+   memcpy(buf,entry,bufsize);
+   if ((mode & READDIR_MODEMASK) != READDIR_CONTINUE)
+       req_index = dirpos;
+  }
+  /* Save the new stream position.
+   * NOTE: This would be allowed to be a weak access.
+   *       However, after so much work, let's put some
+   *       effort into confirming that we've copied data. */
+  if (!ATOMIC_CMPXCH(self->odf_file.f_pos,dirpos,req_index))
+       continue;
+
+  break;
+ }
+ return result;
+
+}
+
+
+PRIVATE ATTR_NOTHROW void KCALL
+OneShotDirectory_Fini(struct oneshot_directory_file *__restrict self) {
+ if (self->odf_buf)
+     oneshot_freeentries(self->odf_buf);
+}
+
+PRIVATE struct file_operations oneshot_file_operations = {
+    .f_fini    = (void(KCALL *)(struct file *__restrict))&OneShotDirectory_Fini,
+    .f_read    = &StandardFile_Read,
+    .f_write   = &StandardFile_Write,
+    .f_seek    = &StandardFile_Seek,
+    .f_readdir = (size_t(KCALL *)(struct file *__restrict,USER CHECKED struct dirent *,
+                                  size_t,int,iomode_t))&OneShotDirectory_ReadDir,
+    .f_ioctl   = &StandardFile_Ioctl,
+    .f_poll    = &StandardFile_Poll,
+};
+
+
+FUNDEF ATTR_RETNONNULL REF struct oneshot_directory_file *KCALL
+oneshort_directory_open(struct directory_node *__restrict node,
+                        struct path *__restrict p) {
+ REF struct oneshot_directory_file *result;
+ result = (REF struct oneshot_directory_file *)kmalloc(sizeof(struct oneshot_directory_file),
+                                                       GFP_SHARED);
+ /* Initialize fields. */
+ result->odf_buf           = NULL;
+ result->odf_cur           = NULL;
+ result->odf_ent           = NULL;
+ result->odf_file.f_refcnt = 1;
+ result->odf_file.f_node   = &node->d_node;
+ result->odf_file.f_path   = p;
+ result->odf_file.f_ops    = &oneshot_file_operations;
+ result->odf_file.f_pos    = 0;
+ atomic_rwlock_init(&result->odf_file.f_directory.d_curlck);
+ result->odf_file.f_directory.d_curidx = 0;
+ /*result->odf_file.f_directory.d_curent = NULL;*/ /* Unused */
+ inode_incref((struct inode *)node);
+ path_incref(p);
+ return result;
+}
+
+
+
+
+
+
+
+
+
+
 
 
 

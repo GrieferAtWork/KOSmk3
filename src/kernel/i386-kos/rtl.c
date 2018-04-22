@@ -277,8 +277,8 @@ core_assertion_failure(char const *expr, DEBUGINFO,
  for (;;) __asm__("hlt");
 }
 
-INTERN uintptr_t __stack_chk_guard = 0x1246Ab1f;
-INTERN ATTR_NORETURN void __stack_chk_fail(void) {
+PUBLIC uintptr_t __stack_chk_guard = 0x1246Ab1f;
+PUBLIC ATTR_NORETURN void __stack_chk_fail(void) {
  error_throw(E_STACK_OVERFLOW);
 }
 

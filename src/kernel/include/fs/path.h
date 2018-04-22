@@ -180,7 +180,7 @@ FUNDEF bool KCALL path_umount(struct path *__restrict self);
  * @throw: E_INVALID_ARGUMENT: The given `type' is invalid. */
 FUNDEF ssize_t KCALL
 path_print(struct path *__restrict self, pformatprinter printer,
-           void *closure, unsigned int flags);
+           void *closure, unsigned int type);
 
 /* Using `path_print()', fill in the given user-space buffer before
  * appending a NUL-character and returning the number of required

@@ -401,6 +401,31 @@ again:
  goto again;
 }
 
+PUBLIC ATTR_RETNONNULL REF struct thread_pid *
+KCALL pidns_lookup(struct pidns *__restrict self, pid_t pid) {
+ REF struct thread_pid *result; size_t i,perturb;
+again:
+ atomic_rwlock_read(&self->pn_lock);
+ if likely(self->pn_list) {
+  perturb = i = (size_t)pid & self->pn_mask;
+  for (;; i = ((i << 2) + i + perturb + 1),perturb >>= 5) {
+   result = self->pn_list[i & self->pn_mask];
+   if (!result) break;
+   if (result == PIDNS_DUMMY) continue;
+   if (result->tp_pids[self->pn_indirection] != pid) continue;
+   /* Found it! */
+   thread_pid_incref(result);
+   atomic_rwlock_endread(&self->pn_lock);
+   return result;
+  }
+ }
+ atomic_rwlock_endread(&self->pn_lock);
+ /* Doesn't exist... */
+ error_throw_resumable(E_PROCESS_EXITED);
+ goto again;
+}
+
+
 PUBLIC ATTR_RETNONNULL
 REF struct task *KCALL pid_lookup_task(pid_t pid) {
  REF struct task *result;

@@ -48,7 +48,6 @@
 DECL_BEGIN
 
 DEFINE_INTERN_ALIAS(__stack_chk_fail,__stack_chk_fail_local);
-
 INTERN ATTR_NORETURN void LIBCCALL
 libc_core_assertion_failure(char const *expr, DEBUGINFO,
                             char const *format, va_list args) {

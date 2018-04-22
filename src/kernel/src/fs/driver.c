@@ -89,7 +89,9 @@ kernel_symbol(struct application *__restrict UNUSED(app),
   result.ms_type = MODULE_SYMBOL_NORMAL;
   result.ms_base = entry->kse_base;
   result.ms_size = entry->kse_size;
+#if 0
   debug_printf("KERNEL_SYMBOL(%q) -> %p\n",name,result.ms_base);
+#endif
   return result;
  }
  result.ms_type = MODULE_SYMBOL_INVALID;
@@ -317,6 +319,7 @@ kernel_eval_commandline(void) {
  format_commandline(kernel_driver.d_cmdline);
  cmdline = kernel_driver.d_cmdline;
  for (argc = 0; *cmdline; cmdline = strend(cmdline)+1) ++argc;
+ kernel_driver.d_cmdsize = (size_t)(cmdline-kernel_driver.d_cmdline);
  argv = (char **)malloca(argc*sizeof(char *));
  cmdline = kernel_driver.d_cmdline;
  for (argc = 0; *cmdline; cmdline = strend(cmdline)+1)
@@ -528,6 +531,7 @@ again:
      char *cmdline = result->d_cmdline;
      format_commandline(result->d_cmdline);
      for (argc = 1; *cmdline; cmdline = strend(cmdline)+1) ++argc;
+     result->d_cmdsize = (size_t)(cmdline-result->d_cmdline);
      argv = (char **)malloca(argc*sizeof(char *));
      cmdline = result->d_cmdline;
      for (argc = 0; *cmdline; cmdline = strend(cmdline)+1)

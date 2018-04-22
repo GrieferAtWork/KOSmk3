@@ -83,6 +83,12 @@ struct superblock_data;
 
 #define INODE_ISCLOSED(x) (!(x)->i_nlink || ((x)->i_flags&INODE_FCLOSED))
 
+
+/* The callback invoked by directory enumerators. */
+typedef void (KCALL *directory_enum_callback_t)(char const *__restrict name,
+                                                unsigned char type,
+                                                ino_t ino, void *arg);
+
 struct vm_region;
 struct inode_operations {
     /* [0..1] Called during `inode_destroy'. */
@@ -240,15 +246,32 @@ struct inode_operations {
                                                            pos_t *__restrict pentry_pos,
                                                            iomode_t flags);
 
-            /* [0..1][locked(READ(self->i_lock))]
-             * Optional operator that can be implemented to
-             * accommodate dynamically allocated directory entries.
-             * When implemented, this operator is used for 
-             * @param: mode: Set of `FS_MODE_F*' (Most notably `FS_MODE_FDOSPATH')
-             */
-            REF struct directory_entry *(KCALL *d_lookup)(struct directory_node *__restrict self,
-                                                          CHECKED USER char const *__restrict name,
-                                                          u16 namelen, uintptr_t hash, unsigned int mode);
+            /* One-shot directory enumeration operators.
+             * These can be provided as an alternative when `d_readdir'
+             * isn't implemented, and are best suited for dynamic
+             * directories such as `/proc'. */
+            struct PACKED {
+                /* [0..1][locked(READ(self->i_lock))]
+                 * Optional operator that can be implemented to
+                 * accommodate dynamically allocated directory entries.
+                 * When implemented, this operator is used during
+                 * path traversion instead of using `d_readdir' for that.
+                 * @param: mode: Set of `FS_MODE_F*' (Most notably `FS_MODE_FDOSPATH')
+                 * @throw: E_SEGFAULT: Failed to access the given `name'.
+                 * @throw: E_FILESYSTEM_ERROR.ERROR_FS_ACCESS_ERROR:   [...]
+                 * @throw: E_FILESYSTEM_ERROR.ERROR_FS_FILE_NOT_FOUND: [...] */
+                REF struct directory_entry *(KCALL *o_lookup)(struct directory_node *__restrict self,
+                                                              CHECKED USER char const *__restrict name,
+                                                              u16 namelen, uintptr_t hash, unsigned int mode);
+                /* [0..1][locked(READ(self->i_lock))]
+                 * Enumerate all entries of a dynamic directory `node':
+                 * >> (*callback)("foo",DT_REG,42,arg);
+                 * >> (*callback)("bar",DT_REG,43,arg);
+                 * >> (*callback)("baz",DT_REG,44,arg); */
+                void (KCALL *o_enum)(struct directory_node *__restrict node,
+                                     directory_enum_callback_t callback,
+                                     void *arg);
+            }                      d_oneshot;
 
             /* [0..1]
              * [locked(WRITE(target_directory->i_lock))]
