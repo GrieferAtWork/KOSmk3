@@ -89,6 +89,7 @@ kernel_symbol(struct application *__restrict UNUSED(app),
   result.ms_type = MODULE_SYMBOL_NORMAL;
   result.ms_base = entry->kse_base;
   result.ms_size = entry->kse_size;
+  debug_printf("KERNEL_SYMBOL(%q) -> %p\n",name,result.ms_base);
   return result;
  }
  result.ms_type = MODULE_SYMBOL_INVALID;
@@ -412,6 +413,10 @@ exec_callback(module_callback_t func,
 }
 
 
+PRIVATE char const *module_runpath = "/mod";
+DEFINE_DRIVER_STRING(module_runpath,"module-runpath");
+
+
 PUBLIC ATTR_RETNONNULL REF struct driver *
 KCALL kernel_insmod(struct module *__restrict mod,
                     bool *pwas_newly_loaded,
@@ -429,7 +434,7 @@ again:
   patcher.mp_requirec = 0;
   patcher.mp_requirea = 0;
   patcher.mp_requirev = NULL;
-  patcher.mp_runpath  = "/mod";
+  patcher.mp_runpath  = module_runpath;
   patcher.mp_altpath  = NULL;
   patcher.mp_flags    = DL_OPEN_FNORMAL|DL_OPEN_FGLOBAL;
   patcher.mp_apptype  = APPLICATION_TYPE_FDRIVER;

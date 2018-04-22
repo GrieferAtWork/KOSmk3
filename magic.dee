@@ -123,6 +123,10 @@ function fix_path(rel_prefix,filename) {
 	while (argv) {
 		local arg = argv.pop(0);
 		switch (arg) {
+		case "--":
+			kernel_args = argv;
+			argv = [];
+			break;
 		case "--no-auto-target":
 			do_auto_target = false;
 			break;

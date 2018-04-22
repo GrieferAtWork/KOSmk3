@@ -58,7 +58,7 @@ struct PACKED driver_param {
     u8                  dp_type;     /* Parameter type (One of `DRIVER_PARAM_TYPE_F*') */
     union PACKED {
         struct PACKED {
-            char        dp_zero;
+            char        dp_zero;     /* When ZERO, a name pointer is used. */
             char      __dp_pad[sizeof(void *)-(sizeof(u8)+sizeof(char))];
             image_rva_t dp_name_ptr; /* [valid_if(dp_zero == 0)]
                                       * Image-relative pointer to the parameter name. */
@@ -152,7 +152,12 @@ DATDEF struct module kernel_module;
 DATDEF struct driver kernel_driver;
 
 /* Private to every driver module: The driver's own driver descriptor. */
+#ifdef CONFIG_BUILDING_KERNEL_CORE
 INTDEF struct driver this_driver;
+#else
+/* Public visibility, because provided by the kernel. */
+DATDEF struct driver this_driver;
+#endif
 
 
 
@@ -203,9 +208,10 @@ FUNDEF REF struct driver *KCALL kernel_getmod(struct module *__restrict mod);
 
 
 /* Symbol name generator. */
-#define __DRIVER_BOOL_SYMNAME  __PP_STR(__driver_bool_,__LINE__)
-#define __DRIVER_PARAM_SYMNAME __PP_STR(__driver_param_,__LINE__)
-#define __DRIVER_FLAG_SYMNAME  __PP_STR(__driver_flag_,__LINE__)
+#define __DRIVER_BOOL_SYMNAME   __PP_CAT2(__driver_bool_,__LINE__)
+#define __DRIVER_STRING_SYMNAME __PP_CAT2(__driver_string_,__LINE__)
+#define __DRIVER_PARAM_SYMNAME  __PP_CAT2(__driver_param_,__LINE__)
+#define __DRIVER_FLAG_SYMNAME   __PP_CAT2(__driver_flag_,__LINE__)
 
 
 /* Define a driver parameter handler:
@@ -226,7 +232,8 @@ FUNDEF REF struct driver *KCALL kernel_getmod(struct module *__restrict mod);
 
 /* Define a boolean driver flag that is set to `true'
  * when the appropriate commandline option is passed.
- * >> PRIVER_BOOL(operate_in_alternate_mode,"altmode");
+ * >> INTERN bool operate_in_alternate_mode = false;
+ * >> DEFINE_DRIVER_BOOL(operate_in_alternate_mode,"altmode");
  * >> void foobar() {
  * >>     if (!operate_in_alternate_mode) {
  * >>        // A
@@ -237,19 +244,27 @@ FUNDEF REF struct driver *KCALL kernel_getmod(struct module *__restrict mod);
 #define DEFINE_DRIVER_BOOL(varname,paramname) \
         DEFINE_DRIVER_PARAM_EX(paramname,DRIVER_PARAM_TYPE_FLAG,__DRIVER_BOOL_SYMNAME); \
         PRIVATE ATTR_FREETEXT ATTR_USED void KCALL __DRIVER_BOOL_SYMNAME(void) { varname = true; }
-#define PRIVER_BOOL(varname,paramname) \
-        INTERN bool varname = false; DEFINE_DRIVER_BOOL(varname,paramname)
 
 /* Enable a set of flags `flagmask' in `flagset'
  * when `paramname' is passed on the commandline.
  * >> INTERN u32 my_driver_flags = 0;
- * >> PRIVER_FLAG(my_driver_flags,"fa",0x0001);
- * >> PRIVER_FLAG(my_driver_flags,"fb",0x0002);
- * >> PRIVER_FLAG(my_driver_flags,"fc",0x0004);
- * >> PRIVER_FLAG(my_driver_flags,"fd",0x0008); */
-#define PRIVER_FLAG(flagset,paramname,flagmask) \
-        DEFINE_DRIVER_PARAM_EX(paramname,DRIVER_PARAM_TYPE_FLAG,__DRIVER_BOOL_SYMNAME); \
-        PRIVATE ATTR_FREETEXT ATTR_USED void KCALL __DRIVER_BOOL_SYMNAME(void) { flagset |= flagmask; }
+ * >> DEFINE_DRIVER_FLAG(my_driver_flags,"fa",0x0001);
+ * >> DEFINE_DRIVER_FLAG(my_driver_flags,"fb",0x0002);
+ * >> DEFINE_DRIVER_FLAG(my_driver_flags,"fc",0x0004);
+ * >> DEFINE_DRIVER_FLAG(my_driver_flags,"fd",0x0008); */
+#define DEFINE_DRIVER_FLAG(flagset,paramname,flagmask) \
+        DEFINE_DRIVER_PARAM_EX(paramname,DRIVER_PARAM_TYPE_FLAG,__DRIVER_FLAG_SYMNAME); \
+        PRIVATE ATTR_FREETEXT ATTR_USED void KCALL __DRIVER_FLAG_SYMNAME(void) { flagset |= flagmask; }
+
+
+/* Enable a set of flags `flagmask' in `flagset'
+ * when `paramname' is passed on the commandline.
+ * >> INTERN char *my_driver_string = "foo";
+ * >> DEFINE_DRIVER_STRING(my_driver_string,"stringoption"); // stringoption=bar */
+#define DEFINE_DRIVER_STRING(varname,paramname) \
+        DEFINE_DRIVER_PARAM_FUNC(paramname,__DRIVER_STRING_SYMNAME); \
+        PRIVATE ATTR_FREETEXT ATTR_USED void KCALL \
+        __DRIVER_STRING_SYMNAME(char const *__restrict arg) { varname = arg; }
 
 
 /* Define a driver parameter:

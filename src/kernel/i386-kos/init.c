@@ -88,7 +88,8 @@ DATDEF struct meminfo *_mem_info_v ASMNAME("mem_info_v");
 DATDEF struct meminfo *_mem_info_last ASMNAME("mem_info_last");
 
 PRIVATE ATTR_FREERODATA char const default_init[] = "/bin/init";
-PRIVATE ATTR_FREEDATA char const *init_exe = default_init; /* XXX: cmdline */
+PRIVATE ATTR_FREEDATA char const *init_exe = default_init;
+DEFINE_DRIVER_STRING(init_exe,"init");
 
 /* Do the initial switch to user-space by launching `/bin/init' */
 INTERN ATTR_NORETURN ATTR_FREETEXT
