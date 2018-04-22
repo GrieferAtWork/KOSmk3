@@ -471,6 +471,9 @@
     <ClCompile Include="..\..\src\kernel\src\fs\autopart.c">
       <Filter>kernel\src\fs</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\sched\onexit.c">
+      <Filter>kernel\src\sched</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">
@@ -775,6 +778,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\kernel\include\i386-kos\sections.h">
       <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\sched\onexit.h">
+      <Filter>kernel\include\sched</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -34,6 +34,7 @@
 #include <sched/pid.h>
 #include <sched/group.h>
 #include <sched/posix_signals.h>
+#include <fs/node.h>
 #include <bits/siginfo.h>
 #include <bits/sched.h>
 #include <string.h>
@@ -369,6 +370,8 @@ thread_pid_destroy(struct thread_pid *__restrict self) {
  do pidns_delpid(iter,self);
  while ((iter = iter->pn_parent) != NULL);
  pidns_decref(self->tp_ns);
+ if (self->tp_procfsent)
+     directory_entry_decref(self->tp_procfsent);
  kfree(self);
 }
 

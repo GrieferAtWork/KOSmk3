@@ -39,6 +39,7 @@ struct pidns;
 /* Mask that is applied to truncate randomly generated PIDs. */
 #define PID_MASK  0x3fffffff
 
+struct directory_entry;
 struct thread_pid {
     ATOMIC_DATA ref_t                tp_refcnt;      /* Reference counter for this descriptor. */
     REF struct pidns                *tp_ns;          /* [1..1][const] The main PID namespace of this thread PID. */
@@ -56,6 +57,30 @@ struct thread_pid {
     REF LIST_NODE(struct thread_pid) tp_siblings;    /* [lock(FORTASK(FORTASK(task_get_parent(),_this_group)->tg_leader,_this_group).tg_process.h_cldlock)]
                                                       * [CHAIN(FORTASK(FORTASK(task_get_parent(),_this_group)->tg_leader,_this_group).tg_process.h_children)]
                                                       * [0..1] Chain of sibling processes spawned by the parent process of the calling thread. */
+    REF struct directory_entry      *tp_procfsent;   /* [0..1][lock(WRITE_ONCE)]
+                                                      * Only here for the procfs driver, and only used for optimization:
+                                                      *   - Since most of the time, only a single procfs filesystem will
+                                                      *     be mounted in the entire system, we can gain a significant
+                                                      *     performance boost if we don't have to use another hash-vector
+                                                      *     to query the PID directory entry of some process using a
+                                                      *     per-procfs superblock hash vector for mapping PIDs against
+                                                      *     directory entries.
+                                                      *   - This cache entry should be accessed using WRITE_ONCE rules,
+                                                      *     and when already assigned by a different filesystem, the calling
+                                                      *     filesystem should use a hash-vector that automatically deletes
+                                                      *     dead processes when it is determined that some exist.
+                                                      *   - procfs does the following to get the /proc/[PID] directory entry
+                                                      *     of some process:
+                                                      *     >> if (tp_procfsent) {
+                                                      *     >>     if (GET_PID_OF(tp_procfsent->de_ino) == expected_pid)
+                                                      *     >>         return tp_procfsent;
+                                                      *     >> } else {
+                                                      *     >>     result = lookup_per_procfs_;
+                                                      *     >> }
+                                                      *     >> new_dirent = allocate_directory_entry(...);
+                                                      *     >> if (ATOMIC_CMPXCH(tp_procfsent,NULL,new_dirent)) return new_dirent;
+                                                      *     >> 
+                                                      */
     pid_t                            tp_pids[1];     /* [const][tp_ns->pn_indirection+1]
                                                       *  Inline-vector of PIDs associated to this thread,
                                                       *  as seen from different PID namespaces.

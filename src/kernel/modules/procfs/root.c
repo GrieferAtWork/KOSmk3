@@ -88,7 +88,24 @@ found_it:
   return result;
  }
  /* TODO: Check for PID names. */
-
+ {
+  char ch = name[0];
+  if (ch >= '1' && ch <= '9') {
+   pid_t pid = name[0]-'0';
+   for (i = 1; i < namelen; ++i) {
+    ch = name[i];
+    COMPILER_READ_BARRIER();
+    if unlikely(ch < '0' || ch > '9') goto not_a_pid;
+    if unlikely(__builtin_mul_overflow(pid,10,&pid))
+       goto not_a_pid;
+    if unlikely(__builtin_add_overflow(pid,ch-'0',&pid))
+       goto not_a_pid;
+   }
+   /* TODO: Lookup the directory entry of the given PID.
+    *       (Use the `struct thread_pid::tp_procfsent' cache) */
+  }
+ }
+not_a_pid:
  if (mode & FS_MODE_FDOSPATH) {
   /* Do another (case-insensitive) search. */
   for (i = 0; i < COMPILER_LENOF(root_directory); ++i) {

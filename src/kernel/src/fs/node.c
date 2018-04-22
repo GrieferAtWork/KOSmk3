@@ -796,6 +796,7 @@ directory_getentry(struct directory_node *__restrict self,
  REF struct directory_entry *result;
  assert(rwlock_reading(&self->d_node.i_lock));
  assert(self->d_mask != 0);
+ inode_access(&self->d_node,R_OK|X_OK);
  if (self->d_node.i_ops->io_directory.d_oneshot.o_lookup) {
   TRY {
    return (*self->d_node.i_ops->io_directory.d_oneshot.o_lookup)(self,name,namelen,hash,FS_MODE_FNORMAL);
@@ -806,7 +807,6 @@ directory_getentry(struct directory_node *__restrict self,
   }
  }
  if unlikely(!self->d_size) goto read_directory;
- inode_access(&self->d_node,R_OK|X_OK);
  result = self->d_map[hash & self->d_mask];
  for (; result; result = result->de_next) {
   /* Check hash and name-length. */
@@ -837,6 +837,7 @@ directory_getcaseentry(struct directory_node *__restrict self,
  REF struct directory_entry *result;
  assert(rwlock_reading(&self->d_node.i_lock));
  assert(self->d_mask != 0);
+ inode_access(&self->d_node,R_OK|X_OK);
  if (self->d_node.i_ops->io_directory.d_oneshot.o_lookup) {
   TRY {
    return (*self->d_node.i_ops->io_directory.d_oneshot.o_lookup)(self,name,namelen,hash,FS_MODE_FDOSPATH);
@@ -847,7 +848,6 @@ directory_getcaseentry(struct directory_node *__restrict self,
   }
  }
  if unlikely(!self->d_size) goto read_directory;
- inode_access(&self->d_node,R_OK|X_OK);
  result = self->d_map[hash & self->d_mask];
  for (; result; result = result->de_next) {
   /* Check hash and name-length. */
@@ -2500,8 +2500,11 @@ superblock_opennode(struct superblock *__restrict self,
  atomic_rwlock_read(&self->s_nodes_lock);
  if unlikely(self->s_flags & SUPERBLOCK_FCLOSED) {
   atomic_rwlock_endread(&self->s_nodes_lock);
-  throw_fs_error(ERROR_FS_PATH_NOT_FOUND);
+  throw_fs_error(parent_directory_entry->de_type == DT_DIR
+               ? ERROR_FS_PATH_NOT_FOUND
+               : ERROR_FS_FILE_NOT_FOUND);
  }
+
  /* Search for an existing INode. */
  assert(self->s_nodesv);
  result = self->s_nodesv[ino_hash & self->s_nodesm];
@@ -2515,6 +2518,13 @@ superblock_opennode(struct superblock *__restrict self,
   }
  }
  atomic_rwlock_endread(&self->s_nodes_lock);
+
+ if (self->s_type->st_functions.f_lookupnode) {
+  result = (*self->s_type->st_functions.f_lookupnode)(self,
+                                                      parent_directory,
+                                                      parent_directory_entry);
+  if (result) return result;
+ }
 
  /* Node wasn't in cache. Allocate a new descriptor. */
  switch (parent_directory_entry->de_type) {

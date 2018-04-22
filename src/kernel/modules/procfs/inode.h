@@ -161,6 +161,19 @@ struct superblock_data {
     REF struct pidns  *pf_pidns; /* [1..1][const] The PID namespace within which `/proc' operates.
                                   *               While being mounted, this is set to the PID
                                   *               namespace of the calling thread. */
+    /* TODO: Cache mapping `pid_t' to `REF struct inode *' for /proc/[PID]/
+     *       Every N lookups, a cleanup pass is done that removes all entries
+     *       associated with processes that have exited, or become zombies.
+     * TODO: Cache mapping `pid_t' to `REF struct directory_entry *' for /proc/[PID]/
+     *       This cache is optional and makes use of `tp_procfsent'
+     * TODO: Couldn't we just add some kind of callback mechanism to
+     *      `struct thread_pid' or `struct task' that is invoked when the thread
+     *       becomes a zombie? Then we could use that to delete (FCLOSED) Inodes
+     *       of dying threads, as those threads die.
+     *       If we put it in `struct task', that mechanism could even be used for other
+     *       things: `bool task_queue_onexit(struct task *, void (KCALL *)(void *), void *)'.
+     *       (Returns `false' is the thread has already terminated and won't execute onexit() anymore)
+     */
 };
 
 
@@ -206,9 +219,10 @@ ProcFS_OpenRwText(/*inherit(kfree())*/void *data, size_t num_bytes);
 
 
 INTDEF struct inode_operations Iprocfs_path_link;        /* [l] ... (`node->i_fsdata' is a `REF struct path *'; this link expands to the string of that path) */
-INTDEF struct inode_operations Iprocfs_root_dir;         /* /proc */
+INTDEF struct inode_operations Iprocfs_root_dir;         /* /proc/ */
 INTDEF struct inode_operations Iprocfs_self_link;        /* /proc/self */
 INTDEF struct inode_operations Iprocfs_thread_self_link; /* /proc/thread-self */
+INTDEF struct inode_operations Iprocfs_p_root_dir;       /* /proc/[PID]/ */
 INTDEF struct inode_operations Iprocfs_p_fd_dir;         /* /proc/[PID]/fd/ */
 INTDEF struct inode_operations Iprocfs_p_fd_link;        /* /proc/[PID]/fd/xxx */
 INTDEF struct inode_operations Iprocfs_p_task_dir;       /* /proc/[PID]/task/ */

@@ -193,6 +193,7 @@ INTERN struct inode_operations Iprocfs_thread_self_link = {
 };
 
 
+INTERN struct inode_operations Iprocfs_p_root_dir = {};       /* /proc/[PID]/ */
 INTERN struct inode_operations Iprocfs_p_fd_dir = {};         /* /proc/[PID]/fd/ */
 INTERN struct inode_operations Iprocfs_p_fd_link = {};        /* /proc/[PID]/fd/xxx */
 INTERN struct inode_operations Iprocfs_p_task_dir = {};       /* /proc/[PID]/task/ */

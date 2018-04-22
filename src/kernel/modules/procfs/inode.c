@@ -209,7 +209,7 @@ ProcFS_OpenNode(struct inode *__restrict node,
  u32   obj = PROCFS_INODE_GTOBJ(ino);
  node->i_nlink  = 1;
  /* Set special INode flags. */
- node->i_flags |= (INODE_FATTRLOADED|INODE_FDONTCACHE);
+ node->i_flags |= (INODE_FATTRLOADED);
  TRY {
   switch (cls) {
 
@@ -219,28 +219,32 @@ ProcFS_OpenNode(struct inode *__restrict node,
 
     case PROCFS_INODE:
      node->i_ops = &Iprocfs_root_dir;
-     node->i_flags &= ~(INODE_FDONTCACHE);
      break;
 
     case PROCFS_INODE_CMDLINE:
      node->i_fsdata = ProcFS_OpenRoText(kernel_driver.d_cmdline,
                                         kernel_driver.d_cmdsize);
      node->i_ops    = &Iprocfs_text_ro;
-     node->i_flags &= ~(INODE_FDONTCACHE);
      break;
 
     case PROCFS_INODE_SELF:
-     node->i_ops = &Iprocfs_self_link;
+     node->i_ops    = &Iprocfs_self_link;
+     node->i_flags |= INODE_FDONTCACHE;
      break;
 
     case PROCFS_INODE_THREAD_SELF:
-     node->i_ops = &Iprocfs_self_link;
+     node->i_ops    = &Iprocfs_self_link;
+     node->i_flags |= INODE_FDONTCACHE;
      break;
 
     default: goto invalid_pid;
     }
    } else {
     switch (obj) {
+
+    case PROCFS_INODE_P:
+     node->i_ops = &Iprocfs_p_root_dir;
+     break;
 
     case PROCFS_INODE_P_CMDLINE:
      /* TODO: vm_read() */
@@ -271,6 +275,7 @@ ProcFS_OpenNode(struct inode *__restrict node,
      atomic_rwlock_endread(&thread_fs->fs_lock);
      fs_decref(thread_fs);
      node->i_ops = &Iprocfs_path_link;
+     node->i_flags |= INODE_FDONTCACHE;
     } break;
 
     case PROCFS_INODE_P_ENVIRON:

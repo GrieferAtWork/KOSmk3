@@ -1135,6 +1135,17 @@ struct superblock_type {
                                  struct directory_entry *__restrict parent_directory_entry);
 
         /* [0..1][const]
+         * An optional companion function to `f_opennode', which (if defined) is
+         * invoked first, allowing the filesystem to implement its own (custom)
+         * caching of special INodes (e.g. procfs's PID-INode cache that checks
+         * if processes already in cache are still alive)
+         * @return: NULL: Failed to find the node in-cache.
+         *                The caller should allocate a new node and invoke `f_opennode' */
+        REF struct inode *(KCALL *f_lookupnode)(struct superblock *__restrict self,
+                                                struct directory_node *__restrict parent_directory,
+                                                struct directory_entry *__restrict parent_directory_entry);
+
+        /* [0..1][const]
          *  Synchronize all unwritten data of this superblock.
          *  NOTE: This function is called when `superblock_sync()'
          *        finishes flushing the data of all changed INodes. */
