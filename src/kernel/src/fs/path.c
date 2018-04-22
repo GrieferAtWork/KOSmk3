@@ -513,16 +513,22 @@ again:
        rmax = rp->p_recent;
   }
   ravg = rmin + CEILDIV(rmax-rmin,2);
-  for (i = 0; i < v->v_recent.r_size; ++i) {
+  for (i = 0; i < v->v_recent.r_size;) {
    struct path *rp = v->v_recent.r_recent[i];
    if (rp->p_recent > ravg) {
     /* This page stays (Subtract a portion of the average use). */
     ATOMIC_FETCHSUB(rp->p_recent,CEILDIV(ravg,2));
+    ++i;
    } else {
     rp->p_recent               = 0;
     old_refs[old_refs_count++] = rp;
-    v->v_recent.r_recent[i]    = NULL;
+    /* Delete this recent-entry. */
     --v->v_recent.r_size;
+    memmove(&v->v_recent.r_recent[i],
+            &v->v_recent.r_recent[i+1],
+            (v->v_recent.r_size-i)*
+             sizeof(REF struct path *));
+    v->v_recent.r_recent[v->v_recent.r_size] = NULL;
    }
   }
   atomic_rwlock_endwrite(&v->v_recent.r_lock);
@@ -978,7 +984,8 @@ vfs_remove_recent(struct path *__restrict p) {
   --self->v_recent.r_size;
   memmove(&self->v_recent.r_recent[i],
           &self->v_recent.r_recent[i+1],
-         (self->v_recent.r_size-i)*sizeof(struct path *));
+          (self->v_recent.r_size-i)*
+           sizeof(REF struct path *));
  }
 done:
  atomic_rwlock_endwrite(&self->v_recent.r_lock);
