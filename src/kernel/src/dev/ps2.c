@@ -774,6 +774,8 @@ PRIVATE ATTR_USED ATTR_FREETEXT void KCALL ps2_initialize(void) {
    * and before the initial switch to user-space. */
   kernel_register_bootworker(worker);
  } FINALLY {
+  if (FINALLY_WILL_RETHROW)
+      task_failed(worker);
   task_decref(worker);
  }
  /* Yield once to kick-start the PS/2 detection function.

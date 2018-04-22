@@ -168,16 +168,16 @@ FUNDEF ATTR_NOTHROW ATTR_RETNONNULL REF struct task *KCALL task_get_session(stru
 /* Must be executed in the context of the leader of a
  * thread-group (THIS_GROUP.tg_leader == THIS_TASK).
  * This function will send RPC requests to all threads running
- * in the same process and terminate them with `exit_status',
- * Which should be constructed using the `__W_*' macros from `<bits/waitstatus.h>'
+ * in the same process and terminate them with `exit_status', which
+ * should be constructed using the `__W_*' macros from `<bits/waitstatus.h>'
  * Additionally, this function ensures that all threads have finished terminating
- * by waiting for that RPC to complete before returning itself.
+ * by waiting for each RPC to complete before returning itself.
  * The caller must ensure that they are the leader of a thread group.
  * If they are not, they must queue an RPC callback in the thread-group
  * leader, which can then invoke this function.
  * This function is called when a thread-group leader terminates
  * in order to propagate its exit status to all other threads, as
- * well as ensure that terminating a thread-group leader is the
+ * well as to ensure that terminating a thread-group leader is the
  * same as terminating a process.
  * Additionally, this function is called when executing `exec()'
  * in order to terminate all secondary thread that may have been

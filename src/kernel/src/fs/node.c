@@ -2297,7 +2297,7 @@ superblock_load(struct superblock *__restrict self,
  /* Invoke the open operator. */
  assert(self->s_type->st_open);
  TRY {
-  (*self->s_type->st_open)(self,args);
+  SAFECALL_KCALL_VOID_2(*self->s_type->st_open,self,args);
  } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
   except_t code = error_code();
   if (code == E_NO_DATA || code == E_INDEX_ERROR) {

@@ -1133,6 +1133,8 @@ Elf_GetSectionAddress(struct application *__restrict app,
  }
 not_found:
  result.ms_size = 0;
+ debug_printf("[ELF] Section %q could not be found in `%[path]'\n",
+              name,app->a_module->m_path);
  return result;
 }
 

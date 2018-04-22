@@ -416,13 +416,13 @@ __NAMESPACE_INT_END
 
 
 #if (defined(__USE_KOS) || defined(__KERNEL__))
-#if __KOS_VERSION__ < 300
+#if __KOS_VERSION__ < 300 || \
+  (!defined(__KERNEL__) && defined(__USE_KOS_DEPRECATED))
 #ifdef __KERNEL__
 #define ERELOAD         500 /* Resource must be reloaded (after a lock was temporarily lost). */
 #define ELOST           501 /* Resource was lost (During an attempt to acquire a resource, another was lost). */
 #define ENOREL          502 /* Invalid Relocation. */
 #endif
-
 #define __EMAX          502
 #else
 #define __EMAX          __EBASEMAX

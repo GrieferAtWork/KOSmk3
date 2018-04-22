@@ -223,8 +223,8 @@ struct inode_operations {
         struct PACKED {
 
             /* [0..1][locked(READ(self->i_lock))]
-             * NOTE: This function should not emit entries for `.' and `..', as those
-             *       will have automatically been created by the caller.
+             * NOTE: This function should not yield entries for `.' and `..', as
+             *       those will have automatically been created by the caller.
              * Read a new directory entry from the data stream of `self', starting at
              * data offset `*pentry_pos'. Upon success, return a reference to the newly
              * allocated directory entry and update `*pentry_pos' to point to the next

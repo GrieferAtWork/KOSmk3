@@ -498,7 +498,10 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
    for (;;) {
     debug_printf("%[vinfo:%f(%l,%c) : %n : %p] : ESP %p, EBP %p\n",
                 (uintptr_t)dup.c_eip-1,dup.c_esp,dup.c_gpregs.gp_ebp);
-    if (!linker_findfde(dup.c_eip-1,&unwind_info)) break;
+    if (!linker_findfde(dup.c_eip-1,&unwind_info)) {
+     debug_printf("Cannot unwind at %p (%p)\n",dup.c_eip-1,dup.c_eip);
+     break;
+    }
     if (!eh_return(&unwind_info,&dup,EH_FNORMAL)) {
 #if 1
      struct frame {
