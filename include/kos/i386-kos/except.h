@@ -214,55 +214,12 @@ __SYSDECL_BEGIN
 #endif
 
 
-#if 1
-#if 0
+/* Mark ESP as clobber, because as far as GCC is concerned,
+ * exception continue data is allocated the same way alloca
+ * allocates memory (aka. on the stack) */
 #define __EXCEPT_CLOBBER_REGS() \
- __XBLOCK({ __asm__ __volatile__("#%=" : : : "memory", "esp"); \
-            __asm__ __volatile__("#%=" : : : "memory", "esp"); \
-           (void)0; \
- })
-#elif 1
-/* I wish there was a way to get GCC to understand that I only
- * want to clobber registers it is currently using for variables.
- * -> All I'd need is for you to safe variables to EBP-offset stack slots...
- *    But alas, KOS's entire exception system is nothing but a big clutch
- *   (If only C++ had a `finally' statement and supported `x = { .foo = 42 }'
- *    initializers. Then I probably would have just went and done everything
- *    using it, rather than C.
- *    AND DONT TELL ME ABOUT RAII; Because you can't use that one in interlocked
- *    syntax, and it also has the problem of requiring you to use variables in
- *    order to get finally-blocks.
- *    Plus: with all those hidden calls it puts everything, debugging would
- *          be the worst. So no: I'm a C guy that's having an easier time
- *          hacking his C compiler to the point of it having $hit like this,
- *          just because I find C++ to be too distant from the actual hardware) */
-#define __EXCEPT_CLOBBER_REGS() \
- __XBLOCK({ __asm__ __volatile__("#%=" : : : "memory", "cc" \
-                                 , "esp", "eax", "ecx", "edx" \
-                                 , "ebx", "esi", "edi"); \
-           (void)0; \
- })
-#else
-#define __EXCEPT_CLOBBER_REGS() \
- __XBLOCK({ __asm__ __volatile__("" : : : "memory", "esp"); (void)0; })
-#endif
-#elif 1
-#define __EXCEPT_CLOBBER_REGS() (void)0
-#elif 1
-#define __EXCEPT_CLOBBER_REGS() \
- __XBLOCK({ extern volatile unsigned int __some_undefined_symbol; \
-            __asm__ __volatile__(".rept 0\n" : : : "memory"); \
-            __asm__ __volatile__("" : : "g" (__builtin_alloca(__some_undefined_symbol)) : "memory"); \
-            __asm__ __volatile__(".endr\n" : : : "memory"); \
-            (void)0; })
-#else
-#define __EXCEPT_CLOBBER_REGS() \
- __XBLOCK({ extern volatile unsigned int __some_undefined_symbol; \
-            __asm__ __volatile__(".pushsection .discard\n" : : : "memory"); \
-            __asm__ __volatile__("" : : "g" (__builtin_alloca(__some_undefined_symbol)) : "memory"); \
-            __asm__ __volatile__(".popsection\n" : : : "memory"); \
-            (void)0; })
-#endif
+        __XBLOCK({ __asm__ __volatile__("#%=" : : : "memory", "esp"); (void)0; })
+
 
 /* Defining `error_rethrow()' as inline assembly prevents GCC from optimizing
  * a regular call away by diverting a nearby jump to the call instruction
