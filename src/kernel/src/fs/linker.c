@@ -526,7 +526,6 @@ module_loadexcept(struct application *__restrict self) {
  TRY {
   /* Load special sections. */
   if (!mod->m_type->m_section) {
-bad_exception_data:
    mod->m_sect.m_eh_frame.ms_size = 0;
    mod->m_sect.m_except.ms_size   = 0;
   } else {
@@ -534,8 +533,10 @@ bad_exception_data:
    mod->m_sect.m_eh_frame = (*mod->m_type->m_section)(self,".eh_frame");
    mod->m_sect.m_except   = (*mod->m_type->m_section)(self,".except");
    /* Make sure that the sections have been allocated in memory. */
-   if (!(mod->m_sect.m_eh_frame.ms_flags & SHF_ALLOC)) goto bad_exception_data;
-   if (!(mod->m_sect.m_except.ms_flags & SHF_ALLOC)) goto bad_exception_data;
+   if (!(mod->m_sect.m_eh_frame.ms_flags & SHF_ALLOC))
+         mod->m_sect.m_eh_frame.ms_size = 0;
+   if (!(mod->m_sect.m_except.ms_flags & SHF_ALLOC))
+         mod->m_sect.m_except.ms_size = 0;
   }
  } FINALLY {
   if (FINALLY_WILL_RETHROW)
