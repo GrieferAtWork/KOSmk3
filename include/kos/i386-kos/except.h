@@ -304,7 +304,7 @@ __SYSDECL_BEGIN
 #define error_continue(retry) __XBLOCK({ __asm__ __volatile__("call error_continue#%=" : : "c" ((int)(retry)) : "memory"); __builtin_unreachable(); (void)0; })
 #define error_except(mode)    __XBLOCK({ __asm__ __volatile__("call error_except#%=" : : "c" ((int)(mode)) : "memory"); (void)0; })
 #define error_throw_current() __XBLOCK({ __BOOL __etc_res; __asm__ __volatile__("call error_throw_current#%=" : "=a" (__etc_res) : : "memory"); __XRETURN __etc_res; })
-#else
+#elif 0 /* Doesn't work. - PLT needs register setup... */
 #define error_rethrow()       __XBLOCK({ __asm__ __volatile__("call error_rethrow@PLT#%=" : : : "memory"); __builtin_unreachable(); (void)0; })
 #define error_throw(code)     __XBLOCK({ __asm__ __volatile__("call error_throw@PLT#%=" : : "c" ((__UINT16_TYPE__)(code)) : "memory"); __builtin_unreachable(); (void)0; })
 #define error_continue(retry) __XBLOCK({ __asm__ __volatile__("call error_continue@PLT#%=" : : "c" ((int)(retry)) : "memory"); __builtin_unreachable(); (void)0; })
