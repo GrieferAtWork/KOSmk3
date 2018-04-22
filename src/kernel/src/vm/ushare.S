@@ -260,7 +260,7 @@ local sigtab_offset = enotab_offset+4*#eno_string_offsets;
 local strtab_offset = sigtab_offset+4*#sig_string_offsets;
 
 print ".section .data.ushare.strerror";
-print "PUBLIC_OBJECT(ushare_strerror)";
+print "INTERN_OBJECT(ushare_strerror)";
 print "	/" "* etd_version *" "/ PUT32 USHARE_STRERROR_VER_KOSMK3";
 print "	/" "* etd_strtab  *" "/ PUT32",strtab_offset;
 print "	/" "* etd_enotab  *" "/ PUT32",enotab_offset;
@@ -298,7 +298,7 @@ print "SYMEND(ushare_strerror)";
 
 ]]]*/
 .section .data.ushare.strerror
-PUBLIC_OBJECT(ushare_strerror)
+INTERN_OBJECT(ushare_strerror)
 	/* etd_version */ PUT32 USHARE_STRERROR_VER_KOSMK3
 	/* etd_strtab  */ PUT32 692
 	/* etd_enotab  */ PUT32 32
