@@ -1,0 +1,102 @@
+/* Copyright (c) 2018 Griefer@Work                                            *
+ *                                                                            *
+ * This software is provided 'as-is', without any express or implied          *
+ * warranty. In no event will the authors be held liable for any damages      *
+ * arising from the use of this software.                                     *
+ *                                                                            *
+ * Permission is granted to anyone to use this software for any purpose,      *
+ * including commercial applications, and to alter it and redistribute it     *
+ * freely, subject to the following restrictions:                             *
+ *                                                                            *
+ * 1. The origin of this software must not be misrepresented; you must not    *
+ *    claim that you wrote the original software. If you use this software    *
+ *    in a product, an acknowledgement in the product documentation would be  *
+ *    appreciated but is not required.                                        *
+ * 2. Altered source versions must be plainly marked as such, and must not be *
+ *    misrepresented as being the original software.                          *
+ * 3. This notice may not be removed or altered from any source distribution. *
+ */
+#ifndef GUARD_KERNEL_SRC_SCHED_ONEXIT_C
+#define GUARD_KERNEL_SRC_SCHED_ONEXIT_C 1
+
+#include <hybrid/compiler.h>
+#include <kos/types.h>
+#include <sched/onexit.h>
+#include <kernel/sections.h>
+#include <hybrid/sync/atomic-rwptr.h>
+
+DECL_BEGIN
+
+struct onexit_entry {
+    task_onexit_t      oe_func;  /* [0..1] Function executed (NOTE: NULL is used as sentinel). */
+    void              *oe_arg;   /* [?..?] Argument passed to `oe_func' */
+    REF struct driver *oe_owner; /* [1..1] The owner of this entry. */
+};
+struct thread_onexit {
+    struct onexit_entry te_entries[1]; /* [1..kmalloc_usable_size(self)/sizeof(struct onexit_entry)]
+                                        *  Inline vector of on-exit callbacks. */
+};
+
+/* [TYPE(struct thread_onexit *)][0..1][lock(.)][owned] */
+INTERN ATTR_PERTASK DEFINE_ATOMIC_RWPTR(_this_onexit,NULL);
+
+
+
+/* Query a function to-be executed by `thread' during its cleanup phase.
+ * NOTES:
+ *   - If `thread' hasn't been started yet and construction is aborted
+ *     using `task_failed()', the given `callback' will be executed in
+ *     the context of the thread that called `task_failed' before said
+ *     function returns.
+ *     With that in mind, if this function returns `true', it is
+ *     guarantied that `callback' will be executed eventually.
+ *   - onexit() callbacks are executed in the same order they were added.
+ *   - onexit() callbacks are executed early on during the task cleanup
+ *     phase: After `TASK_STATE_FTERMINATING' was set, and after `task_serve()'
+ *     was called to serve any remaining RPC functions, yet prior to
+ *     any callbacks defined using `DEFINE_PERTASK_CLEANUP()'
+ *   - This function can be called multiple times with the same arguments,
+ *     to have the same callback be registered more than once.
+ * @return: false:    `thread' has already terminated, or is currently in
+ *                     the process to terminating.
+ *                     To prevent a race condition of new onexit() jobs
+ *                     be scheduled once the thread is ready, or has
+ *                     started executing already existing jobs, we simply
+ *                     disallow the addition of new jobs, just as is the
+ *                     case with `task_queue_rpc()'.
+ * @return: true:      Successfully queued the given `callback' for execution.
+ * @throw: E_BADALLOC: Failed to allocate sufficient memory for the internal
+ *                     on-exit control structures.
+ * @throw: E_DRIVER_CLOSED: The calling driver has been closed. */
+PUBLIC bool KCALL
+__os_task_queue_onexit(struct task *__restrict thread,
+                       task_onexit_t callback, void *arg,
+                       struct driver *__restrict owner) {
+ /* TODO */
+ return false;
+}
+
+/* Deque a previously queued onexit() callback.
+ * NOTE: Unlike `task_queue_onexit()', this function can actually be called
+ *       from another onexit() callback for the same thread, allowing that
+ *       callback to prevent the execution of callbacks still left to-be
+ *       executed. (onexit() callbacks are executed in the same order in
+ *       which they were queued originally)
+ * NOTE: If the given `callback-arg' pair been registered more than once,
+ *       the most recent registration will be deleted.
+ * @return: false: Either all instance of `callback(thread,arg)' have already
+ *                 been executed, or not a single one was ever queued to begin
+ *                 with.
+ * @return: true:  Successfully dequeued the most recent onexit-entry matching
+ *                 the given `callback' and `arg' parameters. */
+PUBLIC ATTR_NOTHROW bool KCALL
+__os_task_dequeue_onexit(struct task *__restrict thread,
+                         task_onexit_t callback, void *arg,
+                         struct driver *__restrict owner) {
+ /* TODO */
+ return false;
+}
+
+DECL_END
+
+#endif /* !GUARD_KERNEL_SRC_SCHED_ONEXIT_C */

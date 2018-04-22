@@ -131,6 +131,7 @@ SECTIONS {
 
 		IP_ALIGN(__SIZEOF_POINTER__);
 		PROVIDE_HIDDEN(pertask_cleanup_start = ABSOLUTE(.));
+		*(.rodata.pertask.cleanup.onexit)
 		*(.rodata.pertask.cleanup)
 		PROVIDE_HIDDEN(pertask_cleanup_end = ABSOLUTE(.));
 
