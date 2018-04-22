@@ -1124,13 +1124,28 @@ done:
  return result;
 }
 
+
+#define ELFNAME_THIS_DRIVER  "this_driver"
+#define ELFHASH_THIS_DRIVER  0x5c3fc52
+
 PUBLIC void *KCALL
 patcher_symaddr(struct module_patcher *__restrict self,
                 USER CHECKED char const *__restrict name,
                 u32 hash, bool search_current) {
  struct module_symbol result;
  result = impl_patcher_symaddr(self,name,hash,search_current);
- return result.ms_type != MODULE_SYMBOL_INVALID ? result.ms_base : NULL;
+ if (result.ms_type != MODULE_SYMBOL_INVALID)
+     return result.ms_base;
+ if (self->mp_apptype & APPLICATION_TYPE_FDRIVER) {
+  /* Special symbols provided for drivers. */
+  assertf(patcher_symhash(ELFNAME_THIS_DRIVER) == ELFHASH_THIS_DRIVER,
+          "`ELFHASH_THIS_DRIVER' should be 0x%x",
+          patcher_symhash(ELFNAME_THIS_DRIVER));
+  if (hash == ELFHASH_THIS_DRIVER &&
+      strcmp(name,ELFNAME_THIS_DRIVER) == 0)
+      return (struct driver *)self->mp_app;
+ }
+ return NULL;
 }
 
 PUBLIC u32 KCALL
