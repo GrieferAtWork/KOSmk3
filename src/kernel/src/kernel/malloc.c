@@ -310,6 +310,7 @@ PUBLIC ATTR_WEAK void KCALL mall_validate_padding(gfp_t UNUSED(heap_max)) { }
 PUBLIC ATTR_WEAK void KCALL mall_untrace(void *UNUSED(ptr)) { }
 PUBLIC ATTR_WEAK void KCALL mall_trace(void *UNUSED(base), size_t UNUSED(num_bytes)) { }
 DEFINE_PUBLIC_WEAK_ALIAS(mall_trace_leakless,mall_trace);
+DEFINE_PUBLIC_WEAK_ALIAS(mall_print_traceback,mall_untrace);
 
 
 

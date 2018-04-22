@@ -129,7 +129,20 @@ PRIVATE ATTR_NORETURN void KCALL throw_fs_error(u16 fs_error_code) {
  __builtin_unreachable();
 }
 
-
+#if 0
+PRIVATE void KCALL
+validate_handle_manager(struct handle_manager *__restrict self) {
+ unsigned int i;
+ for (i = 0; i < self->hm_alloc; ++i) {
+  assertf(self->hm_vector[i].h_type < HANDLE_TYPE_FCOUNT,
+          "%$[hex]\n",
+          self->hm_alloc*sizeof(struct handle),
+          self->hm_vector);
+ }
+}
+#else
+#define validate_handle_manager(self) (void)0
+#endif
 
 
 
@@ -140,6 +153,11 @@ handle_manager_destroy(struct handle_manager *__restrict self) {
  struct handle *vec = self->hm_vector;
  count = self->hm_alloc;
  for (i = 0; i < count; ++i) {
+  assertf(vec[i].h_type < HANDLE_TYPE_FCOUNT,
+          "h_mode = %p\n"
+          "h_ptr  = %p\n",
+          vec[i].h_mode,
+          vec[i].h_ptr);
   if (vec[i].h_type != HANDLE_TYPE_FNONE)
       handle_decref(vec[i]);
  }
@@ -194,6 +212,7 @@ REF struct handle_manager *KCALL handle_manager_clone(void) {
   result->hm_refcnt = 1;
   atomic_rwlock_init(&result->hm_lock);
   atomic_rwlock_read(&orig->hm_lock);
+  validate_handle_manager(orig);
   if unlikely(!orig->hm_count) {
    atomic_rwlock_endread(&orig->hm_lock);
    result->hm_limit  = orig->hm_limit;
@@ -245,9 +264,42 @@ REF struct handle_manager *KCALL handle_manager_clone(void) {
     handle_incref(vector[i]);
    }
   }
+  validate_handle_manager(orig);
   atomic_rwlock_endread(&orig->hm_lock);
 done:
   result->hm_flags = HANDLE_MANAGER_FNORMAL;
+  vector = result->hm_vector;
+  if (vector) {
+   size_t usable = kmalloc_usable_size(vector);
+   size_t used = result->hm_alloc*sizeof(struct handle);
+   assert(usable >= used);
+   /* ZERO out allocated, but unused trailing data.
+    * -> Because the heap is allowed to allocate more than
+    *    was actually expected, alongside the fact that we
+    *    don't pass `GFP_CALLOC' to the allocator above,
+    *    trailing memory may not actually be ZERO-initialized.
+    *    However, other handle manager functions assume that
+    *    they can reallocate the handle vector while passing
+    *    the `GFP_CALLOC' flag to ensure that ~newly~ allocated
+    *    memory is ZERO-initialized.
+    *    However, trailing memory does not count towards new
+    *    allocations, but rather belongs to existing allocations,
+    *    in other words: As far as the heap is concerned, it
+    *    will not ZERO out this trailing memory then, leading
+    *    to very strange SEGFAULT-exceptions that seem to point
+    *    back into the heap, however actually originate from
+    *    here.
+    * SOLLUTION: Just use `kmalloc_usable_size()' to ZERO out
+    *            any additional, pre-allocated, trailing memory. */
+   if unlikely(usable > used) {
+    usable -= used;
+    memset((byte_t *)vector+used,0,usable);
+#if 1 /* If it's already there, might as well use it... */
+    result->hm_alloc += usable/sizeof(struct handle);
+#endif
+   }
+  }
+  validate_handle_manager(result);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   kfree(result);
   error_rethrow();
@@ -294,6 +346,7 @@ PUBLIC void KCALL handle_manager_close_exec(void) {
    did_change = true;
    atomic_rwlock_write(&man->hm_lock);
   }
+  validate_handle_manager(man);
   atomic_rwlock_endwrite(&man->hm_lock);
 
  } while (did_change);
@@ -310,12 +363,14 @@ PUBLIC bool KCALL handle_close(fd_t fd) {
  if (fd < 0)
      return close_symbolic_handle(fd);
  atomic_rwlock_write(&man->hm_lock);
+ validate_handle_manager(man);
  if unlikely((unsigned int)fd >= man->hm_alloc) {
   atomic_rwlock_endwrite(&man->hm_lock);
   return false;
  }
  hnd = man->hm_vector[(unsigned int)fd];
  man->hm_vector[(unsigned int)fd].h_type = HANDLE_TYPE_FNONE;
+ validate_handle_manager(man);
  atomic_rwlock_endwrite(&man->hm_lock);
  /* NOTE: decref() is a noop for FNONE */
  handle_decref(hnd);
@@ -384,6 +439,7 @@ PUBLIC unsigned int KCALL handle_put(struct handle hnd) {
  struct handle_manager *EXCEPT_VAR man = THIS_HANDLE_MANAGER;
  assert(hnd.h_type != HANDLE_TYPE_FNONE);
  atomic_rwlock_write(&man->hm_lock);
+ validate_handle_manager(man);
  vector = man->hm_vector;
  if unlikely(man->hm_count == man->hm_alloc) {
   /* Must allocate more vector entries. */
@@ -415,6 +471,13 @@ PUBLIC unsigned int KCALL handle_put(struct handle hnd) {
     error_rethrow();
    }
   }
+  assertf(!memxchr(vector+man->hm_alloc,0,
+                  (new_alloc-man->hm_alloc)*
+                   sizeof(struct handle)),
+          "New vector memory isn't ZERO-initialized:\n"
+          "%$[hex]\n",
+          new_alloc*sizeof(struct handle),vector);
+
   /* Save the new vector. */
   man->hm_alloc  = new_alloc;
   man->hm_vector = vector;
@@ -436,6 +499,7 @@ PUBLIC unsigned int KCALL handle_put(struct handle hnd) {
 
  /* Track the number of allocated handles. */
  ++man->hm_count;
+ validate_handle_manager(man);
  atomic_rwlock_endwrite(&man->hm_lock);
  return result;
 }
@@ -446,6 +510,7 @@ handle_putat(struct handle hnd, unsigned int EXCEPT_VAR hint) {
  struct handle_manager *EXCEPT_VAR man = THIS_HANDLE_MANAGER;
  assert(hnd.h_type != HANDLE_TYPE_FNONE);
  atomic_rwlock_write(&man->hm_lock);
+ validate_handle_manager(man);
  vector = man->hm_vector;
  if unlikely(hint >= man->hm_alloc) {
   /* Must allocate more vector entries. */
@@ -479,16 +544,20 @@ handle_putat(struct handle hnd, unsigned int EXCEPT_VAR hint) {
     error_rethrow();
    }
   }
+  assertf(!memxchr(vector+man->hm_alloc,0,
+                  (new_alloc-man->hm_alloc)*
+                   sizeof(struct handle)),
+          "New vector memory isn't ZERO-initialized:\n"
+          "%$[hex]\n",
+          new_alloc*sizeof(struct handle),vector);
+
   /* Save the new vector. */
   man->hm_alloc  = new_alloc;
   man->hm_vector = vector;
  }
  /* Find a suitable location. */
  result = hint;
- /* NOTE: Since we're starting at ZERO(0), we know
-  *       that there must be at least one free slot
-  *       within the first `man->hm_count+1' entires.
-  * NOTE: POSIX requires us to always use the lowest free index. */
+ /* NOTE: POSIX requires us to always use the lowest free index. */
  for (; result < man->hm_alloc; ++result)
      if (vector[result].h_type == HANDLE_TYPE_FNONE)
          break;
@@ -500,6 +569,7 @@ handle_putat(struct handle hnd, unsigned int EXCEPT_VAR hint) {
 
  /* Track the number of allocated handles. */
  ++man->hm_count;
+ validate_handle_manager(man);
  atomic_rwlock_endwrite(&man->hm_lock);
  return result;
 }
@@ -613,6 +683,7 @@ handle_putinto(fd_t EXCEPT_VAR dfd, struct handle hnd) {
   }
  }
  atomic_rwlock_write(&man->hm_lock);
+ validate_handle_manager(man);
  vector = man->hm_vector;
  if unlikely((unsigned int)dfd >= man->hm_alloc) {
   /* Must allocate more vector entries. */
@@ -636,6 +707,7 @@ handle_putinto(fd_t EXCEPT_VAR dfd, struct handle hnd) {
 #endif
   TRY {
    assert(new_alloc > man->hm_alloc);
+   validate_handle_manager(man);
    vector = (struct handle *)krealloc(vector,new_alloc*
                                       sizeof(struct handle),
                                       GFP_SHARED|GFP_CALLOC);
@@ -652,6 +724,13 @@ handle_putinto(fd_t EXCEPT_VAR dfd, struct handle hnd) {
     error_rethrow();
    }
   }
+  assertf(!memxchr(vector+man->hm_alloc,0,
+                  (new_alloc-man->hm_alloc)*
+                   sizeof(struct handle)),
+          "New vector memory isn't ZERO-initialized:\n"
+          "%$[hex]\n",
+          new_alloc*sizeof(struct handle),vector);
+
   /* Save the new vector. */
   man->hm_alloc  = new_alloc;
   man->hm_vector = vector;
@@ -663,8 +742,9 @@ handle_putinto(fd_t EXCEPT_VAR dfd, struct handle hnd) {
  handle_incref(hnd);
 
  /* Track the number of allocated handles. */
- if (old_hnd.h_type != HANDLE_TYPE_FNONE)
+ if (old_hnd.h_type == HANDLE_TYPE_FNONE)
      ++man->hm_count;
+ validate_handle_manager(man);
  atomic_rwlock_endwrite(&man->hm_lock);
 
  /* Decref() the old handle. */

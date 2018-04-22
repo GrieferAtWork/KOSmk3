@@ -991,7 +991,7 @@ VIRT void *(KCALL mall_realloc)(VIRT void *ptr,
 #ifndef NDEBUG
 #if CONFIG_MALL_TAIL_SIZE != 0
 #ifdef CONFIG_DEBUG_HEAP
-     /* The new memory now counts as no-mans-land. */
+     /* The old tail now counts as freshly allocated memory. */
      memsetl((byte_t *)MALLNODE_END(node)-CONFIG_MALL_TAIL_SIZE,
               DEBUGHEAP_FRESH_MEMORY,CONFIG_MALL_TAIL_SIZE / 4);
 #endif /* CONFIG_DEBUG_HEAP */
@@ -1016,6 +1016,7 @@ VIRT void *(KCALL mall_realloc)(VIRT void *ptr,
     new_block = heap_alloc_untraced(&kernel_heaps[heap],
                                      new_size,
                                    (flags & ~__GFP_HEAPMASK) | heap);
+
     /* Transfer data to the new block. */
     memcpy(new_block.hp_ptr,
           (void *)MALLNODE_BEGIN(node),
