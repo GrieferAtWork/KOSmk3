@@ -92,17 +92,20 @@ directory_entry_destroy(struct directory_entry *__restrict self) {
 /* Destroy a previously allocated INode. */
 PUBLIC ATTR_NOTHROW void KCALL
 inode_destroy(struct inode *__restrict self) {
+ assert(self->i_refcnt == 0);
  /* NOTE: `i_ops' may be NULL for partially constructed nodes. */
  if (self->i_ops && self->i_ops->io_fini)
    (*self->i_ops->io_fini)(self);
  /* NOTE: `i_super' may be NULL for partially constructed nodes. */
  if (self->i_super) {
   /* Unlink from the superblock inodes list. */
-  if (self->i_nodes.le_pself) {
+  if (ATOMIC_READ(self->i_nodes.le_pself)) {
    atomic_rwlock_write(&self->i_super->s_nodes_lock);
-   LIST_REMOVE(self,i_nodes);
-   assert(self->i_super->s_nodesc);
-   --self->i_super->s_nodesc;
+   if (ATOMIC_READ(self->i_nodes.le_pself)) {
+    LIST_REMOVE(self,i_nodes);
+    assert(self->i_super->s_nodesc);
+    --self->i_super->s_nodesc;
+   }
    atomic_rwlock_endwrite(&self->i_super->s_nodes_lock);
   }
   /* Unlink from the changed inodes list. */
@@ -1008,7 +1011,8 @@ superblock_addnode(struct superblock *__restrict self,
  }
 
  /* Insert the new node into the hash-map. */
- inode_incref(node);
+ if (!(node->i_flags & INODE_FDONTCACHE))
+       inode_incref(node);
  LIST_INSERT(*pbucket,node,i_nodes);
  if (++self->s_nodesc >= (self->s_nodesm/3)*2) {
   superblock_rehash_and_unlock(self);
@@ -1984,10 +1988,23 @@ again:
     *       we can safely get rid of _all_ nodes.
     */
    if (!(flags&SUPERBLOCK_FCLOSED)) {
-    if (!ATOMIC_DECIFONE(node->i_refcnt)) continue;
+    if (node->i_flags & INODE_FDONTCACHE) {
+     if (ATOMIC_READ(node->i_refcnt) != 0)
+         continue;
+    } else {
+     if (!ATOMIC_DECIFONE(node->i_refcnt))
+          continue;
+    }
    }
    LIST_REMOVE(node,i_nodes);
    --self->s_nodesc;
+   /* Create a reference if the INode was weakyl cached. */
+   if ((node->i_flags & INODE_FDONTCACHE) &&
+       !inode_tryincref(node)) {
+    ATOMIC_WRITE(node->i_nodes.le_pself,NULL);
+    continue;
+   }
+
    atomic_rwlock_endwrite(&self->s_nodes_lock);
    /* Drop a reference to this node. */
    node->i_nodes.le_pself = NULL;
@@ -2473,9 +2490,8 @@ superblock_opennode(struct superblock *__restrict self,
  for (; result; result = result->i_nodes.le_next) {
   assert(result->i_super == self);
   if (result->i_attr.a_ino == parent_directory_entry->de_ino) {
+   if (!inode_tryincref(result)) continue;
    /* Found it! */
-   assert(result->i_refcnt != 0);
-   inode_incref(result);
    atomic_rwlock_endread(&self->s_nodes_lock);
    return result;
   }
@@ -2547,7 +2563,7 @@ superblock_opennode(struct superblock *__restrict self,
   assert(new_result->i_super == self);
   if unlikely(new_result->i_attr.a_ino == parent_directory_entry->de_ino) {
    /* Another thread was faster. */
-   inode_incref(new_result);
+   if (!inode_tryincref(new_result)) continue;
    atomic_rwlock_endwrite(&self->s_nodes_lock);
    /* Destroy the newly constructed node and return the existing one. */
    inode_decref(result);
@@ -2566,7 +2582,8 @@ superblock_opennode(struct superblock *__restrict self,
  /* Insert the new node into the hash-map. */
  LIST_INSERT(*pbucket,result,i_nodes);
  assert(result->i_refcnt == 1);
- inode_incref(result); /* The reference stored in the bucket chain. */
+ if (!(result->i_flags & INODE_FDONTCACHE))
+       inode_incref(result); /* The reference stored in the bucket chain. */
 
  if (++self->s_nodesc >= (self->s_nodesm/3)*2) {
   TRY {

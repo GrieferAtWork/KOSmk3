@@ -67,6 +67,8 @@ struct superblock_data;
 #define INODE_FCHANGED          0x0001     /* [lock(i_lock)] The node has changed and is part of the
                                             *                per-superblock chain of changed nodes. */
 #define INODE_FATTRLOADED       0x0002     /* [lock(WRITE_ONCE,i_lock)] INode attributes have been read from disk. */
+#define INODE_FDONTCACHE        0x1000     /* [const] Don't cache the node and keep it, and other caches referring
+                                            *         to it alive only as long as it is being used. */
 #define INODE_FPERSISTENT       0x2000     /* [const] This INode is persistent and must not be removed from caches.
                                             *         This flag is used by RAMFS filesystems that store persistent
                                             *         data in INodes that must therefor be kept in RAM (or swap...)
@@ -237,6 +239,16 @@ struct inode_operations {
             REF struct directory_entry *(KCALL *d_readdir)(struct directory_node *__restrict self,
                                                            pos_t *__restrict pentry_pos,
                                                            iomode_t flags);
+
+            /* [0..1][locked(READ(self->i_lock))]
+             * Optional operator that can be implemented to
+             * accommodate dynamically allocated directory entries.
+             * When implemented, this operator is used for 
+             * @param: mode: Set of `FS_MODE_F*' (Most notably `FS_MODE_FDOSPATH')
+             */
+            REF struct directory_entry *(KCALL *d_lookup)(struct directory_node *__restrict self,
+                                                          CHECKED USER char const *__restrict name,
+                                                          u16 namelen, uintptr_t hash, unsigned int mode);
 
             /* [0..1]
              * [locked(WRITE(target_directory->i_lock))]
@@ -627,8 +639,9 @@ struct symlink_node {
 FUNDEF ATTR_NOTHROW void KCALL inode_destroy(struct inode *__restrict self);
 
 /* Increment/decrement the reference counter of the given inode `x' */
-#define inode_incref(x)  ATOMIC_FETCHINC((x)->i_refcnt)
-#define inode_decref(x) (ATOMIC_DECFETCH((x)->i_refcnt) || (inode_destroy(x),0))
+#define inode_tryincref(x)  ATOMIC_INCIFNONZERO((x)->i_refcnt)
+#define inode_incref(x)     ATOMIC_FETCHINC((x)->i_refcnt)
+#define inode_decref(x)    (ATOMIC_DECFETCH((x)->i_refcnt) || (inode_destroy(x),0))
 
 
 
@@ -1083,7 +1096,8 @@ struct superblock {
     u16                          s_pad[(sizeof(void *)-2)/2]; /* ... */
     size_t                       s_nodesc;       /* [lock(s_nodes_lock)] Amount of hashed INodes. */
     size_t                       s_nodesm;       /* [lock(s_nodes_lock)] Hash-mask for the INodes mash-map. */
-    REF LIST_HEAD(struct inode) *s_nodesv;       /* [0..1][CHAIN(->i_nodes)][1..s_nodesm+1][owned][lock(s_nodes_lock)]
+    REF LIST_HEAD(struct inode) *s_nodesv;       /* [0..1][ref_if(!INODE_FDONTCACHE)][CHAIN(->i_nodes)]
+                                                  * [1..s_nodesm+1][owned][lock(s_nodes_lock)]
                                                   * Hash-map of cached INodes (use INode numbers as hash-index,
                                                   * and mask bits using `s_nodesm').
                                                   * NOTE: This cache is automatically cleared for loaded

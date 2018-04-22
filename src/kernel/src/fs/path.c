@@ -550,7 +550,7 @@ PRIVATE void KCALL vfs_recent(struct path *__restrict p) {
  u16 count;
  do if ((count = ATOMIC_READ(p->p_recent)) == (u16)-1) return;
  while (!ATOMIC_CMPXCH_WEAK(p->p_recent,count,count+1));
- if (count != 0) return;
+ if (count != 0 || (p->p_flags & PATH_FDONTCACHE)) return;
  /* Add to the recent-cache. */
  vfs_add_recent(p);
 }
@@ -639,6 +639,12 @@ again_getentry:
   result->p_node   = entry_node;  /* Inherit reference. */
   result->p_dirent = entry;       /* Inherit reference. */
   result->p_parent = self;        /* Inherit reference. */
+#if INODE_FDONTCACHE == PATH_FDONTCACHE
+  result->p_flags |= entry_node->i_flags & INODE_FDONTCACHE;
+#else
+  if (entry_node->i_flags & INODE_FDONTCACHE)
+      result->p_flags |= PATH_FDONTCACHE;
+#endif
   vfs_incref(self->p_vfs);
   result->p_vfs           = self->p_vfs;
   result->p_mount.m_rnode = entry_node;
