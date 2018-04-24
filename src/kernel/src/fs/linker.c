@@ -1230,7 +1230,7 @@ application_enuminit(struct application *__restrict app,
  void (KCALL *callback)(struct application *__restrict app,
                         module_enumerator_t func, void *arg);
  callback = app->a_module->m_type->m_enuminit;
- if (callback && (ATOMIC_FETCHOR(app->a_flags,APPLICATION_FDIDINIT)&APPLICATION_FDIDINIT))
+ if (!(ATOMIC_FETCHOR(app->a_flags,APPLICATION_FDIDINIT)&APPLICATION_FDIDINIT) && callback)
      SAFECALL_KCALL_VOID_3(*callback,app,func,arg);
 }
 PUBLIC void KCALL
@@ -1240,7 +1240,6 @@ application_enumfini(struct application *__restrict app,
                         module_enumerator_t func, void *arg);
  u16 old_flags;
  callback = app->a_module->m_type->m_enumfini;
- if (!callback) return;
  do {
   old_flags = ATOMIC_READ(app->a_flags);
   if (!(old_flags & APPLICATION_FDIDINIT))
@@ -1248,7 +1247,8 @@ application_enumfini(struct application *__restrict app,
   if (old_flags & APPLICATION_FDIDFINI)
       return; /* Already finalized. */
  } while (!ATOMIC_CMPXCH_WEAK(app->a_flags,old_flags,old_flags|APPLICATION_FDIDFINI));
- SAFECALL_KCALL_VOID_3(*callback,app,func,arg);
+ if (callback)
+     SAFECALL_KCALL_VOID_3(*callback,app,func,arg);
 }
 
 PUBLIC void KCALL
