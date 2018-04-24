@@ -86,7 +86,7 @@ kernel_control(syscall_ulong_t command, syscall_ulong_t arg0,
    if (command == KERNEL_CONTROL_INSMOD) {
     bool was_newly_loaded;
     size_t commandline_length;
-    commandline_length = user_strlen((char *)arg1);
+    commandline_length = arg1 ? user_strlen((char *)arg1) : 0;
     /* Fail if the user-provided commandline is too long. */
     if unlikely(commandline_length >= 0x4000)
        error_throw(E_INVALID_ARGUMENT);
