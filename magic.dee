@@ -915,6 +915,7 @@ class Source
 		} else {
 			compiler(this.m_proj,cc_flags);
 		}
+		set_file_changed(output);
 #ifdef CONFIG_PRINTCMD
 		__cond_end();
 #endif
@@ -1086,18 +1087,23 @@ class Project
 #ifndef CONFIG_PRINTCMD
 				SYNC_PRINT("["+this.m_name+"] Linking",repr output);
 #endif
+				set_file_changed(output);
 				if (linker is string) {
 					run_cmd(this,linker,link_args,[](proj) {
 						for (local f: proj.m_postlink) {
-							if (f(proj))
+							if (f(proj)) {
 								proj.m_compiled = false;
+								unset_file_changed(output);
+							}
 						}
 					});
 				} else {
 					linker(this,link_args);
 					for (local f: this.m_postlink) {
-						if (f(this))
+						if (f(this)) {
 							this.m_compiled = false;
+							unset_file_changed(output);
+						}
 					}
 				}
 			}

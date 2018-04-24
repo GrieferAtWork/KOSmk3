@@ -144,10 +144,10 @@ typedef void (KCALL *module_enumerator_t)(module_callback_t func, void *arg);
 
 struct module_type {
     LIST_NODE(struct module_type)   m_types;  /* [lock(module_types.mt_lock)] Chain of registered module types. */
+    u16                             m_flags;  /* Module type flags (Set of `MODULE_TYPE_F*') */
     u16                             m_magsz;  /* Amount of magic bits that should be detected before the module is loaded.
                                                * When ZERO(0), there is no magic and any file is considered applicable for
                                                * loading using this module type. */
-    u16                             m_flags;  /* Module type flags (Set of `MODULE_TYPE_F*') */
     byte_t                          m_magic[MODULE_MAX_MAGIC]; /* [m_magsz] Magic module indicators. */
     struct driver                  *m_driver;
 

@@ -272,13 +272,28 @@ int main(int argc, char *argv[]) {
   mount("procfs","/proc","procfs",0,NULL);
  }
 
+ Xkernctl(KERNEL_CONTROL_INSMOD,"/mod/pe.mod",NULL);
+
+ if (fork() == 0)
+     Xexecl("/bin/hybrid-demo.exe","hybrid-demo.exe",(char *)NULL);
+
  kernctl(KERNEL_CONTROL_TRACE_SYSCALLS_OFF);
- Xexecl("/bin/terminal-vga",
-        "terminal-vga",
-        "/bin/busybox",
-        "sh",
-        "-i",
-       (char *)NULL);
+ sched_yield();
+ sched_yield();
+ sched_yield();
+
+ for (;;) {
+  TRY {
+   Xexecl("/bin/terminal-vga",
+          "terminal-vga",
+          "/bin/busybox",
+          "sh",
+          "-i",
+         (char *)NULL);
+  } CATCH (E_INTERRUPT) {
+   syslog(LOG_DEBUG,"\n\nCATCH INTERRUPT\n\n\n");
+  }
+ }
 }
 
 #else

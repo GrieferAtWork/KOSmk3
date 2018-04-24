@@ -40,6 +40,14 @@ BEGIN MODULE("kernel.procfs")
 END
 
 
+BEGIN MODULE("kernel.pe")
+	SET_OUTPUT("/bin/pe.mod")
+	SET_DISKFILE("/mod/pe.mod")
+
+	SOURCE("pe/*.c")
+END
+
+
 
 
 
