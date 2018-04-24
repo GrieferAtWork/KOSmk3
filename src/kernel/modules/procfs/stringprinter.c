@@ -44,6 +44,7 @@ StringPrinter_Init(struct stringprinter *__restrict self,
 }
 INTERN ATTR_RETNONNULL ATTR_MALLOC char *KCALL
 StringPrinter_Pack(struct stringprinter *__restrict EXCEPT_VAR self) {
+ struct stringprinter *EXCEPT_VAR xself = self;
  char *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
  size_t EXCEPT_VAR result_size;
  assert(self->sp_bufpos >= self->sp_buffer);
@@ -53,13 +54,13 @@ StringPrinter_Pack(struct stringprinter *__restrict EXCEPT_VAR self) {
   TRY {
    result = (char *)krealloc(self->sp_buffer,(result_size+1)*sizeof(char),GFP_SHARED);
   } CATCH (E_BADALLOC) {
-   result = self->sp_buffer;
+   result = xself->sp_buffer;
   }
  } else {
   result = self->sp_buffer;
  }
  result[result_size] = 0;
- self->sp_buffer = NULL;
+ xself->sp_buffer = NULL;
  return result;
 }
 INTERN void KCALL

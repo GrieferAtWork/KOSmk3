@@ -621,9 +621,10 @@ HSYM(heap_free_overallocation)(STRUCT_HEAP *__restrict self,
 
 
 INTERN struct heapptr LIBCCALL
-HSYM(libc_heap_alloc_untraced)(STRUCT_HEAP *__restrict EXCEPT_VAR self,
-                               size_t num_bytes,
-                               gfp_t EXCEPT_VAR flags) {
+HSYM(libc_heap_alloc_untraced)(STRUCT_HEAP *__restrict self,
+                               size_t num_bytes, gfp_t flags) {
+ STRUCT_HEAP *EXCEPT_VAR xself = self;
+ gfp_t EXCEPT_VAR xflags = flags;
  struct heapptr EXCEPT_VAR result; STRUCT_MFREE **iter,**end;
  if unlikely(__builtin_add_overflow(num_bytes,LOCAL_HEAP_ALIGNMENT-1,&result.hp_siz))
     libc_heap_allocation_failed(num_bytes);
@@ -783,7 +784,7 @@ allocate_without_overalloc:
    /* Try again without overallocation. */
    page_bytes    = result.hp_siz + (PAGESIZE-1);
    page_bytes   &= ~(PAGESIZE-1);
-   result.hp_ptr = HSYM(core_page_alloc)(self,page_bytes,flags);
+   result.hp_ptr = HSYM(core_page_alloc)(xself,page_bytes,xflags);
   }
   /* Got it! */
   unused_size = page_bytes - result.hp_siz;
@@ -799,7 +800,7 @@ allocate_without_overalloc:
          libc_mempatl(unused_begin,DEBUGHEAP_NO_MANS_LAND,unused_size);
 #endif
    /* Release the unused memory. */
-   HSYM(heap_free_raw)(self,unused_begin,unused_size,flags);
+   HSYM(heap_free_raw)(xself,unused_begin,unused_size,xflags);
   }
  }
  assert(IS_ALIGNED((uintptr_t)result.hp_ptr,LOCAL_HEAP_ALIGNMENT));
@@ -949,9 +950,12 @@ again:
 }
 
 INTERN size_t LIBCCALL
-HSYM(libc_heap_allat_untraced)(STRUCT_HEAP *__restrict EXCEPT_VAR self,
-                               void *__restrict EXCEPT_VAR ptr,
-                               size_t num_bytes, gfp_t EXCEPT_VAR flags) {
+HSYM(libc_heap_allat_untraced)(STRUCT_HEAP *__restrict self,
+                               void *__restrict ptr,
+                               size_t num_bytes, gfp_t flags) {
+ STRUCT_HEAP *EXCEPT_VAR xself = self;
+ void *EXCEPT_VAR xptr = ptr;
+ gfp_t EXCEPT_VAR xflags = flags;
  size_t unused_size,alloc_size;
  size_t EXCEPT_VAR result = 0;
  if unlikely(__builtin_add_overflow(num_bytes,LOCAL_HEAP_ALIGNMENT-1,&alloc_size))
@@ -969,7 +973,7 @@ HSYM(libc_heap_allat_untraced)(STRUCT_HEAP *__restrict EXCEPT_VAR self,
                                    flags);
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
    if (result)
-       HSYM(libc_heap_free_untraced)(self,ptr,result,flags);
+       HSYM(libc_heap_free_untraced)(xself,xptr,result,xflags);
    error_rethrow();
   }
   if unlikely(!part) {
@@ -1177,12 +1181,14 @@ HSYM(libc_heap_align_untraced)(STRUCT_HEAP *__restrict self,
 
 
 INTERN struct heapptr LIBCCALL
-HSYM(libc_heap_realloc_untraced)(STRUCT_HEAP *__restrict EXCEPT_VAR self,
+HSYM(libc_heap_realloc_untraced)(STRUCT_HEAP *__restrict self,
                                  void *old_ptr,
                                  size_t old_bytes,
                                  size_t new_bytes,
-                                 gfp_t EXCEPT_VAR alloc_flags,
+                                 gfp_t alloc_flags,
                                  gfp_t free_flags) {
+ STRUCT_HEAP *EXCEPT_VAR xself = self;
+ gfp_t EXCEPT_VAR xalloc_flags = alloc_flags;
  struct heapptr EXCEPT_VAR result;
  size_t missing_bytes;
  assert(IS_ALIGNED((uintptr_t)old_ptr,LOCAL_HEAP_ALIGNMENT));
@@ -1221,8 +1227,8 @@ HSYM(libc_heap_realloc_untraced)(STRUCT_HEAP *__restrict EXCEPT_VAR self,
   /* The try block is here because of the possibility of a LOA failure. */
   libc_memcpy(result.hp_ptr,old_ptr,old_bytes);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  HSYM(libc_heap_free_untraced)(self,result.hp_ptr,result.hp_siz,
-                                alloc_flags & ~GFP_CALLOC);
+  HSYM(libc_heap_free_untraced)(xself,result.hp_ptr,result.hp_siz,
+                                xalloc_flags & ~GFP_CALLOC);
   error_rethrow();
  }
  /* Free the old data block. */

@@ -129,16 +129,17 @@ done:
  * This function is used for implementing keyboard ECHO, and called
  * internally by `tty_write_display()' after checks have been done. */
 PUBLIC size_t KCALL
-tty_dowrite_display(struct tty *__restrict EXCEPT_VAR self,
+tty_dowrite_display(struct tty *__restrict self,
                     USER CHECKED void const *buf,
                     size_t bufsize, iomode_t flags) {
+ struct tty *EXCEPT_VAR xself = self;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  rwlock_readf(&self->t_lock,flags);
  TRY {
   result = tty_dowrite_display_impl(self,buf,bufsize,flags);
  } FINALLY {
-  if (rwlock_endread(&self->t_lock))
+  if (rwlock_endread(&xself->t_lock))
       goto again;
  }
  return result;
@@ -251,10 +252,13 @@ tty_dump_canon(struct tty *__restrict self, iomode_t flags) {
 
 
 PRIVATE size_t KCALL
-tty_dowrite_input(struct tty *__restrict EXCEPT_VAR self,
+tty_dowrite_input(struct tty *__restrict self,
                   USER CHECKED void const *buf,
-                  size_t bufsize, iomode_t EXCEPT_VAR flags,
-                  tcflag_t EXCEPT_VAR lflags) {
+                  size_t bufsize, iomode_t flags,
+                  tcflag_t lflags) {
+ struct tty *EXCEPT_VAR xself = self;
+ iomode_t EXCEPT_VAR xflags = flags;
+ tcflag_t EXCEPT_VAR xlflags = lflags;
  size_t EXCEPT_VAR result;
  if (lflags & ICANON) {
   char *EXCEPT_VAR flush_start;
@@ -364,8 +368,8 @@ erase_char:
   } FINALLY {
    if (!FINALLY_WILL_RETHROW || error_code() == E_INTERRUPT) {
     /* Echo characters that were printed. */
-    if (lflags & ECHO)
-        tty_dowrite_echo(self,flush_start,(size_t)(iter-flush_start),flags,lflags);
+    if (xlflags & ECHO)
+        tty_dowrite_echo(xself,flush_start,(size_t)(iter-flush_start),xflags,xlflags);
    }
   }
   result = (size_t)(iter-(char *)buf);
@@ -396,9 +400,9 @@ erase_char:
    }
   } FINALLY {
    if (!FINALLY_WILL_RETHROW || error_code() == E_INTERRUPT) {
-    result += ringbuffer_write(&self->t_input,flush_start,iter-flush_start,flags);
-    if (lflags & ECHO)
-        tty_dowrite_echo(self,flush_start,iter-flush_start,flags,lflags);
+    result += ringbuffer_write(&xself->t_input,flush_start,iter-flush_start,xflags);
+    if (xlflags & ECHO)
+        tty_dowrite_echo(xself,flush_start,iter-flush_start,xflags,xlflags);
    }
   }
  } else {
@@ -411,9 +415,10 @@ erase_char:
 }
 
 PUBLIC size_t KCALL
-tty_write_input(struct tty *__restrict EXCEPT_VAR self,
+tty_write_input(struct tty *__restrict self,
                 USER CHECKED void const *buf,
                 size_t bufsize, iomode_t flags) {
+ struct tty *EXCEPT_VAR xself = self;
  size_t COMPILER_IGNORE_UNINITIALIZED(result),temp,temp2;
  tcflag_t iflags,lflags;
 again:
@@ -512,7 +517,7 @@ done:
      (!result || !(flags & IO_NONBLOCK)))
      (void)0; /* TODO: Ring bell. */
  } FINALLY {
-  if (rwlock_endread(&self->t_lock))
+  if (rwlock_endread(&xself->t_lock))
       goto again;
  }
  return result;
@@ -587,9 +592,10 @@ again:
  * if `TOSTOP' is set, a `SIGTTOU' is sent to the calling thread if its process isn't part of
  * the TTY's foreground process group, causing `E_INTERRUPT' to be thrown by this function. */
 PUBLIC size_t KCALL
-tty_write_display(struct tty *__restrict EXCEPT_VAR self,
+tty_write_display(struct tty *__restrict self,
                   USER CHECKED void const *buf,
                   size_t bufsize, iomode_t flags) {
+ struct tty *EXCEPT_VAR xself = self;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  rwlock_readf(&self->t_lock,flags);
@@ -609,7 +615,7 @@ again:
    result = tty_dowrite_display_impl(self,buf,bufsize,flags);
   }
  } FINALLY {
-  if (rwlock_endread(&self->t_lock))
+  if (rwlock_endread(&xself->t_lock))
       goto again;
  }
  return result;
@@ -629,9 +635,10 @@ tty_fini(struct character_device *__restrict self) {
 }
 
 PUBLIC ssize_t KCALL
-tty_ioctl(struct tty *__restrict EXCEPT_VAR self,
+tty_ioctl(struct tty *__restrict self,
           unsigned long cmd, USER UNCHECKED void *arg,
           iomode_t flags) {
+ struct tty *EXCEPT_VAR xself = self;
  ssize_t result = 0;
  switch (cmd) {
 
@@ -643,7 +650,7 @@ again_get:
   TRY {
    memcpy(arg,&self->t_ios,sizeof(struct termios));
   } FINALLY {
-   if (rwlock_endread(&self->t_lock))
+   if (rwlock_endread(&xself->t_lock))
        goto again_get;
   }
   break;
@@ -671,7 +678,7 @@ again_get:
     memcpy(&self->t_ios,&new_ios,sizeof(struct termios));
    }
   } FINALLY {
-   rwlock_endwrite(&self->t_lock);
+   rwlock_endwrite(&xself->t_lock);
   }
  } break;
 
@@ -686,7 +693,7 @@ again_get:
         self->t_ops->t_discard_display)
       (*self->t_ops->t_discard_display)(self);
   } FINALLY {
-   rwlock_endwrite(&self->t_lock);
+   rwlock_endwrite(&xself->t_lock);
   }
   break;
 
@@ -725,7 +732,7 @@ again_get:
     }
    }
   } FINALLY {
-   rwlock_endwrite(&self->t_lock);
+   rwlock_endwrite(&xself->t_lock);
   }
  } break;
 
@@ -749,7 +756,7 @@ again_gpgrp:
     respid = posix_gettid_viewpid(self->t_fproc);
    }
   } FINALLY {
-   if (rwlock_endread(&self->t_lock))
+   if (rwlock_endread(&xself->t_lock))
        goto again_gpgrp;
   }
   COMPILER_BARRIER();

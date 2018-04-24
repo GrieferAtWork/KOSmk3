@@ -38,7 +38,12 @@ typedef struct PACKED module_data {
         };
     };
     WORD                         pm_NumSections; /* The Number of sections. */
-    WORD                       __pm_Pad[(sizeof(void *)-sizeof(WORD))/sizeof(WORD)]; /* ... */
+#define PE_MODULE_FNORMAL        0x0000     /* Normal module flags. */
+#define PE_MODULE_FTEXTREL       0x0001     /* Module relocations also affect read-only sections. */
+    WORD                         pm_Flags;  /* PE Module flags (Set of `PE_MODULE_F*'). */
+#if __SIZEOF_POINTER__ > 4
+    BYTE                       __pm_pad[__SIZEOF_POINTER__-4]; /* ... */
+#endif
     REF struct vm_region       **pm_Regions;     /* [0..1][const][0..pm_NumSections][lock(WRITE_ONCE)][owned]
                                                   * Vector of lazily allocated VM regions mapping application data. */
     IMAGE_SECTION_HEADER         pm_Sections[1]; /* [pm_NumSections] Vector of program sections. */
@@ -48,6 +53,8 @@ typedef struct PACKED module_data {
 #define SHOULD_USE_IMAGE_SECTION_HEADER(x) \
       (((x)->VirtualAddress+(x)->Misc.VirtualSize) > (x)->VirtualAddress && \
       !((x)->Characteristics&(IMAGE_SCN_LNK_INFO|IMAGE_SCN_LNK_REMOVE)))
+
+INTDEF struct module_type Pe_ModuleType;
 
 
 DECL_END

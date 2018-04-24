@@ -319,8 +319,9 @@ PUBLIC ATTR_RETNONNULL REF struct keyboard *
 
 /* Enable/Disable scanning of keycodes. */
 PUBLIC void KCALL
-keyboard_enable_scanning(struct keyboard *__restrict EXCEPT_VAR self,
+keyboard_enable_scanning(struct keyboard *__restrict self,
                          iomode_t flags) {
+ struct keyboard *EXCEPT_VAR xself = self;
  mutex_getf(&self->k_lock,flags);
  TRY {
   if (self->k_mode & KEYBOARD_FDISABLED) {
@@ -330,12 +331,13 @@ keyboard_enable_scanning(struct keyboard *__restrict EXCEPT_VAR self,
    ATOMIC_FETCHAND(self->k_mode,~KEYBOARD_FDISABLED);
   }
  } FINALLY {
-  mutex_put(&self->k_lock);
+  mutex_put(&xself->k_lock);
  }
 }
 PUBLIC void KCALL
-keyboard_disable_scanning(struct keyboard *__restrict EXCEPT_VAR self,
+keyboard_disable_scanning(struct keyboard *__restrict self,
                           iomode_t flags) {
+ struct keyboard *EXCEPT_VAR xself = self;
  mutex_getf(&self->k_lock,flags);
  TRY {
   if (!(self->k_mode & KEYBOARD_FDISABLED)) {
@@ -345,7 +347,7 @@ keyboard_disable_scanning(struct keyboard *__restrict EXCEPT_VAR self,
    ATOMIC_FETCHOR(self->k_mode,KEYBOARD_FDISABLED);
   }
  } FINALLY {
-  mutex_put(&self->k_lock);
+  mutex_put(&xself->k_lock);
  }
 }
 
@@ -356,9 +358,10 @@ keyboard_disable_scanning(struct keyboard *__restrict EXCEPT_VAR self,
  * HINT: `keyboard_setmode(...,~0,KEYBOARD_FDISABLED)' is the same as calling `keyboard_disable_scanning()'
  * HINT: `keyboard_setmode(...,~KEYBOARD_FDISABLED,0)' is the same as calling `keyboard_enable_scanning()' */
 PUBLIC void KCALL
-keyboard_setmode(struct keyboard *__restrict EXCEPT_VAR self,
+keyboard_setmode(struct keyboard *__restrict self,
                  unsigned int mask, unsigned int mode,
                  iomode_t flags) {
+ struct keyboard *EXCEPT_VAR xself = self;
  mutex_getf(&self->k_lock,flags);
  TRY {
   u16 old_mode = self->k_mode;
@@ -392,17 +395,18 @@ keyboard_setmode(struct keyboard *__restrict EXCEPT_VAR self,
   }
   self->k_mode = new_mode;
  } FINALLY {
-  mutex_put(&self->k_lock);
+  mutex_put(&xself->k_lock);
  }
 }
 
 /* Set the state of keyboard LEDs.
  * The new led state is set to `(old_leds & mask) | leds' */
 PUBLIC void KCALL
-keyboard_setleds(struct keyboard *__restrict EXCEPT_VAR self,
+keyboard_setleds(struct keyboard *__restrict self,
                  keyboard_ledset_t mask,
                  keyboard_ledset_t leds,
                  iomode_t flags) {
+ struct keyboard *EXCEPT_VAR xself = self;
  keyboard_ledset_t new_leds;
  if (!self->k_ops->ko_setled)
       return; /* No-op. */
@@ -418,15 +422,16 @@ keyboard_setleds(struct keyboard *__restrict EXCEPT_VAR self,
    self->k_leds = new_leds;
   }
  } FINALLY {
-  mutex_put(&self->k_lock);
+  mutex_put(&xself->k_lock);
  }
 }
 
 
 /* Set the hardware-supported repeat capability of the keyboard. */
 PUBLIC void KCALL
-keyboard_setrepeat(struct keyboard *__restrict EXCEPT_VAR self,
+keyboard_setrepeat(struct keyboard *__restrict self,
                    struct kbdelay mode, iomode_t flags) {
+ struct keyboard *EXCEPT_VAR xself = self;
  if (!self->k_ops->ko_setdelay)
       return; /* No-op. */
  mutex_getf(&self->k_lock,flags);
@@ -440,7 +445,7 @@ keyboard_setrepeat(struct keyboard *__restrict EXCEPT_VAR self,
    self->k_delay = mode;
   }
  } FINALLY {
-  mutex_put(&self->k_lock);
+  mutex_put(&xself->k_lock);
  }
 }
 

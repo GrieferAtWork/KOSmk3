@@ -806,7 +806,8 @@ libc_xw32frealpathat2(fd_t dfd, char32_t const *path, int flags,
 EXPORT(__SYMw16(Xxwfrealpathat),libc_Xxw16frealpathat);
 CRT_WIDECHAR_EXCEPT ATTR_RETNONNULL char16_t *LIBCCALL
 libc_Xxw16frealpathat(fd_t dfd, char16_t const *path, int flags,
-                      char16_t *EXCEPT_VAR buf, size_t bufsize, unsigned int type) {
+                      char16_t *buf_, size_t bufsize, unsigned int type) {
+ char16_t *EXCEPT_VAR buf = buf_;
  size_t COMPILER_IGNORE_UNINITIALIZED(reqsize);
  bool EXCEPT_VAR is_libc_buffer = false;
  if (!buf && bufsize)
@@ -865,7 +866,8 @@ do_dynamic:
 EXPORT(__SYMw32(Xxwfrealpathat),libc_Xxw32frealpathat);
 CRT_WIDECHAR_EXCEPT ATTR_RETNONNULL char32_t *LIBCCALL
 libc_Xxw32frealpathat(fd_t dfd, char32_t const *path, int flags,
-                      char32_t *EXCEPT_VAR buf, size_t bufsize, unsigned int type) {
+                      char32_t *buf_, size_t bufsize, unsigned int type) {
+ char32_t *EXCEPT_VAR buf = buf_;
  size_t COMPILER_IGNORE_UNINITIALIZED(reqsize);
  bool EXCEPT_VAR is_libc_buffer = false;
  if (!buf && bufsize)

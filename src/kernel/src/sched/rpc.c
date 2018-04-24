@@ -206,22 +206,17 @@ again:
            PERTASK_GET(my_rpc.ri_cnt)*sizeof(struct rpc_slot));
   ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINTERRUPTING);
   TRY {
-   TRY {
-    /* Execute the RPC. */
-    INCSTAT(ts_xrpc);
-    if (slot.rs_flag & RPC_SLOT_FUSER) {
-     SAFECALL_KCALL_VOID_3((task_user_rpc_t)slot.rs_fun,slot.rs_arg,context,mode);
-    } else {
-     SAFECALL_KCALL_VOID_1(slot.rs_fun,slot.rs_arg);
-    }
-   } FINALLY {
-    /* Signal execution completion. */
-    if (slot.rs_done)
-        sig_broadcast(slot.rs_done);
+   /* Execute the RPC. */
+   INCSTAT(ts_xrpc);
+   if (slot.rs_flag & RPC_SLOT_FUSER) {
+    SAFECALL_KCALL_VOID_3((task_user_rpc_t)slot.rs_fun,slot.rs_arg,context,mode);
+   } else {
+    SAFECALL_KCALL_VOID_1(slot.rs_fun,slot.rs_arg);
    }
-  } CATCH (E_INTERRUPT) {
-   /* Handle interrupt errors meant for
-    * the thread to return to user-space. */
+  } FINALLY {
+   /* Signal execution completion. */
+   if (slot.rs_done)
+       sig_broadcast(slot.rs_done);
   }
   goto again;
  }

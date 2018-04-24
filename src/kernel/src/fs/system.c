@@ -81,7 +81,7 @@ DEFINE_SYSCALL0(sync) {
  return 0;
 }
 
-DEFINE_SYSCALL1(syncfs,int,fd) {
+DEFINE_SYSCALL1(syncfs,fd_t,fd) {
  REF struct superblock *EXCEPT_VAR block;
  block = handle_get_superblock_relaxed(fd);
  TRY {
@@ -187,7 +187,7 @@ DEFINE_SYSCALL2(getcwd,USER UNCHECKED char *,buf,size_t,bufsize) {
  return result;
 }
 
-DEFINE_SYSCALL2(fstat64,int,fd,
+DEFINE_SYSCALL2(fstat64,fd_t,fd,
                 USER UNCHECKED struct stat64 *,statbuf) {
  REF struct handle EXCEPT_VAR hnd;
  hnd = handle_get(fd);
@@ -266,11 +266,11 @@ DEFINE_SYSCALL4(utimensat,fd_t,dfd,USER UNCHECKED char const *,path,
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
 DEFINE_SYSCALL3(ftruncate,
-                int,fd,
+                fd_t,fd,
                 syscall_ulong_t,len_hi,
                 syscall_ulong_t,len_lo)
 #else
-DEFINE_SYSCALL2(ftruncate,int,fd,u64,length)
+DEFINE_SYSCALL2(ftruncate,fd_t,fd,u64,length)
 #endif
 {
  REF struct inode *EXCEPT_VAR node;
@@ -289,7 +289,7 @@ DEFINE_SYSCALL2(ftruncate,int,fd,u64,length)
  return 0;
 }
 
-DEFINE_SYSCALL2(fchmod,int,fd,mode_t,mode) {
+DEFINE_SYSCALL2(fchmod,fd_t,fd,mode_t,mode) {
  REF struct inode *EXCEPT_VAR node;
  if (mode & ~07777)
      error_throw(E_INVALID_ARGUMENT);
@@ -324,7 +324,7 @@ DEFINE_SYSCALL4(fchmodat,
  return 0;
 }
 
-DEFINE_SYSCALL3(fchown,int,fd,uid_t,owner,gid_t,group) {
+DEFINE_SYSCALL3(fchown,fd_t,fd,uid_t,owner,gid_t,group) {
  REF struct inode *EXCEPT_VAR node;
  node = handle_get_inode(fd);
  TRY {
@@ -406,8 +406,10 @@ translate_ioctl_error(int fd, unsigned long cmd, struct handle hnd) {
  info->e_error.e_invalid_handle.h_rqkind = expected_kind;
 }
 
-DEFINE_SYSCALL3(ioctl,int EXCEPT_VAR,fd,
-                unsigned long EXCEPT_VAR,cmd,void *,arg) {
+DEFINE_SYSCALL3(ioctl,fd_t,fd,
+                unsigned long,cmd,void *,arg) {
+ fd_t EXCEPT_VAR xfd = fd;
+ unsigned long EXCEPT_VAR xcmd = cmd;
  struct handle EXCEPT_VAR hnd;
  ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
  hnd = handle_get(fd);
@@ -416,11 +418,11 @@ DEFINE_SYSCALL3(ioctl,int EXCEPT_VAR,fd,
  } FINALLY {
   handle_decref(hnd);
   if (FINALLY_WILL_RETHROW)
-      translate_ioctl_error(fd,cmd,hnd);
+      translate_ioctl_error(xfd,xcmd,hnd);
  }
  return result;
 }
-DEFINE_SYSCALL4(xioctlf,int,fd,unsigned long,cmd,oflag_t,flags,void *,arg) {
+DEFINE_SYSCALL4(xioctlf,fd_t,fd,unsigned long,cmd,oflag_t,flags,void *,arg) {
  struct handle EXCEPT_VAR hnd;
  ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
  hnd = handle_get(fd);
@@ -431,7 +433,7 @@ DEFINE_SYSCALL4(xioctlf,int,fd,unsigned long,cmd,oflag_t,flags,void *,arg) {
  }
  return result;
 }
-DEFINE_SYSCALL3(fcntl,int,fd,unsigned int,cmd,void *,arg) {
+DEFINE_SYSCALL3(fcntl,fd_t,fd,unsigned int,cmd,void *,arg) {
  return handle_fcntl(fd,cmd,arg);
 }
 
@@ -802,7 +804,7 @@ DEFINE_SYSCALL4(openat,
 }
 
 DEFINE_SYSCALL4(xreaddir,
-                int,fd,USER UNCHECKED struct dirent *,buf,
+                fd_t,fd,USER UNCHECKED struct dirent *,buf,
                 size_t,bufsize,int,mode) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  struct handle EXCEPT_VAR hnd;
@@ -867,7 +869,7 @@ DEFINE_SYSCALL4(xreaddir,
 }
 
 DEFINE_SYSCALL5(xreaddirf,
-                int,fd,USER UNCHECKED struct dirent *,buf,
+                fd_t,fd,USER UNCHECKED struct dirent *,buf,
                 size_t,bufsize,int,mode,oflag_t,flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  struct handle EXCEPT_VAR hnd;
@@ -949,7 +951,7 @@ DEFINE_SYSCALL3(xfchdirat,fd_t,dfd,USER UNCHECKED char const *,reldir,int,flags)
  path_decref(old_path);
  return 0;
 }
-DEFINE_SYSCALL3(read,int,fd,USER UNCHECKED void *,buf,size_t,bufsize) {
+DEFINE_SYSCALL3(read,fd_t,fd,USER UNCHECKED void *,buf,size_t,bufsize) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  struct handle EXCEPT_VAR hnd = handle_get(fd);
  TRY {
@@ -962,7 +964,7 @@ DEFINE_SYSCALL3(read,int,fd,USER UNCHECKED void *,buf,size_t,bufsize) {
  }
  return result;
 }
-DEFINE_SYSCALL3(write,int,fd,USER UNCHECKED void const *,buf,size_t,bufsize) {
+DEFINE_SYSCALL3(write,fd_t,fd,USER UNCHECKED void const *,buf,size_t,bufsize) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  struct handle EXCEPT_VAR hnd = handle_get(fd);
  TRY {
@@ -976,7 +978,7 @@ DEFINE_SYSCALL3(write,int,fd,USER UNCHECKED void const *,buf,size_t,bufsize) {
  return result;
 }
 DEFINE_SYSCALL4(xreadf,
-                int,fd,USER UNCHECKED void *,buf,
+                fd_t,fd,USER UNCHECKED void *,buf,
                 size_t,bufsize,oflag_t,flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  struct handle EXCEPT_VAR hnd = handle_get(fd);
@@ -994,7 +996,7 @@ DEFINE_SYSCALL4(xreadf,
  return result;
 }
 DEFINE_SYSCALL4(xwritef,
-                int,fd,USER UNCHECKED void const *,buf,
+                fd_t,fd,USER UNCHECKED void const *,buf,
                 size_t,bufsize,oflag_t,flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  struct handle EXCEPT_VAR hnd = handle_get(fd);
@@ -1013,12 +1015,12 @@ DEFINE_SYSCALL4(xwritef,
 }
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
-DEFINE_SYSCALL4_64(lseek,int,fd,
+DEFINE_SYSCALL4_64(lseek,fd_t,fd,
                    syscall_slong_t,off_hi,
                    syscall_slong_t,off_lo,
                    int,whence)
 #else
-DEFINE_SYSCALL3_64(lseek,int,fd,s64,off,int,whence)
+DEFINE_SYSCALL3_64(lseek,fd_t,fd,s64,off,int,whence)
 #endif
 {
  pos_t COMPILER_IGNORE_UNINITIALIZED(result);
@@ -1039,12 +1041,12 @@ DEFINE_SYSCALL3_64(lseek,int,fd,s64,off,int,whence)
 }
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
-DEFINE_SYSCALL5(pread64,int,fd,
+DEFINE_SYSCALL5(pread64,fd_t,fd,
                 USER UNCHECKED void *,buf,size_t,bufsize,
                 syscall_ulong_t,pos_hi,
                 syscall_ulong_t,pos_lo)
 #else
-DEFINE_SYSCALL4(pread64,int,fd,
+DEFINE_SYSCALL4(pread64,fd_t,fd,
                 USER UNCHECKED void *,buf,size_t,bufsize,
                 pos_t,pos)
 #endif
@@ -1069,12 +1071,12 @@ DEFINE_SYSCALL4(pread64,int,fd,
 }
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
-DEFINE_SYSCALL5(pwrite64,int,fd,
+DEFINE_SYSCALL5(pwrite64,fd_t,fd,
                 USER UNCHECKED void const *,buf,size_t,bufsize,
                 syscall_ulong_t,pos_hi,
                 syscall_ulong_t,pos_lo)
 #else
-DEFINE_SYSCALL4(pwrite64,int,fd,
+DEFINE_SYSCALL4(pwrite64,fd_t,fd,
                 USER UNCHECKED void const *,buf,size_t,bufsize,
                 pos_t,pos)
 #endif
@@ -1100,13 +1102,13 @@ DEFINE_SYSCALL4(pwrite64,int,fd,
 
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
-DEFINE_SYSCALL6(xpreadf64,int,fd,
+DEFINE_SYSCALL6(xpreadf64,fd_t,fd,
                 USER UNCHECKED void *,buf,size_t,bufsize,
                 syscall_ulong_t,pos_hi,
                 syscall_ulong_t,pos_lo,
                 oflag_t,flags)
 #else
-DEFINE_SYSCALL5(xpreadf64,int,fd,
+DEFINE_SYSCALL5(xpreadf64,fd_t,fd,
                 USER UNCHECKED void *,buf,size_t,bufsize,
                 pos_t,pos,oflag_t,flags)
 #endif
@@ -1136,12 +1138,12 @@ DEFINE_SYSCALL5(xpreadf64,int,fd,
 }
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
-DEFINE_SYSCALL6(xpwritef64,int,fd,
+DEFINE_SYSCALL6(xpwritef64,fd_t,fd,
                 USER UNCHECKED void const *,buf,size_t,bufsize,
                 syscall_ulong_t,pos_hi,
                 syscall_ulong_t,pos_lo,oflag_t,flags)
 #else
-DEFINE_SYSCALL5(xpwritef64,int,fd,
+DEFINE_SYSCALL5(xpwritef64,fd_t,fd,
                 USER UNCHECKED void const *,buf,size_t,bufsize,
                 pos_t,pos,oflag_t,flags)
 #endif
@@ -1182,10 +1184,10 @@ do_fsync(fd_t fd, bool data_only) {
  return 0;
 }
 
-DEFINE_SYSCALL1(fsync,int,fd) {
+DEFINE_SYSCALL1(fsync,fd_t,fd) {
  return do_fsync(fd,false);
 }
-DEFINE_SYSCALL1(fdatasync,int,fd) {
+DEFINE_SYSCALL1(fdatasync,fd_t,fd) {
  return do_fsync(fd,true);
 }
 
@@ -1254,7 +1256,7 @@ DEFINE_SYSCALL1(chroot,USER UNCHECKED char const *,reldir) {
  path_decref(old_path);
  return 0;
 }
-DEFINE_SYSCALL1(fchdir,int,fd) {
+DEFINE_SYSCALL1(fchdir,fd_t,fd) {
  /* In kos, implemented using `dup2()' */
  REF struct path *new_path,*old_path;
  struct fs *my_fs = THIS_FS;
@@ -1301,6 +1303,7 @@ PRIVATE void KCALL
 exec_user(struct exec_args *__restrict args,
           struct cpu_hostcontext_user *__restrict context,
           unsigned int UNUSED(mode)) {
+ struct cpu_hostcontext_user *EXCEPT_VAR xcontext = context;
  REF struct application *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(app);
  REF struct module *EXCEPT_VAR mod;
  USER UNCHECKED char *USER UNCHECKED *argv;
@@ -1319,7 +1322,6 @@ exec_user(struct exec_args *__restrict args,
   error_rethrow();
  }
  TRY {
-  struct userstack *stack;
   REF struct vm_node *EXCEPT_VAR environ_node;
   struct process_environ *COMPILER_IGNORE_UNINITIALIZED(environ_address);
   /* Terminate all other threads running in the current process.
@@ -1345,35 +1347,49 @@ exec_user(struct exec_args *__restrict args,
    }
 
    /* Setup the application. */
-   application_loadroot(app,
-                        DL_OPEN_FGLOBAL,
-                        "/lib:/usr/lib" /* XXX: This should be taken from environ. */
-                        );
+retry_loadroot:
+   TRY {
+    application_loadroot(app,
+                         DL_OPEN_FGLOBAL,
+                         "/lib:/usr/lib" /* XXX: This should be taken from environ. */
+                         );
+   } CATCH (E_INTERRUPT) {
+    task_serve_before_user(xcontext,
+                           TASK_USERCTX_TYPE_WITHINUSERCODE);
+    goto retry_loadroot;
+   }
 
    /* Fix the protection of the environment
     * node to allow for user-space access. */
    environ_node->vn_prot = PROT_READ|PROT_WRITE;
 
    /* Map the new environment region. */
-   vm_acquire(THIS_VM);
+retry_loadenv:
    TRY {
-    vm_vpage_t environ_page;
-    environ_page = vm_getfree(VM_USERENV_HINT,
-                              VM_NODE_SIZE(environ_node),
-                              1,
-                              0,
-                              VM_USERENV_MODE);
-    /* Save the address of the new environment table. */
-    environ_address = (struct process_environ *)VM_PAGE2ADDR(environ_page);
-    PERVM(vm_environ) = environ_address;
-    /* Update the ranges of the environment node. */
-    environ_node->vn_node.a_vmax -= environ_node->vn_node.a_vmin;
-    environ_node->vn_node.a_vmin  = environ_page;
-    environ_node->vn_node.a_vmax += environ_page;
-    /* Insert + map the new node in user-space. */
-    vm_insert_and_activate_node(THIS_VM,environ_node);
-   } FINALLY {
-    vm_release(THIS_VM);
+    vm_acquire(THIS_VM);
+    TRY {
+     vm_vpage_t environ_page;
+     environ_page = vm_getfree(VM_USERENV_HINT,
+                               VM_NODE_SIZE(environ_node),
+                               1,
+                               0,
+                               VM_USERENV_MODE);
+     /* Save the address of the new environment table. */
+     environ_address = (struct process_environ *)VM_PAGE2ADDR(environ_page);
+     PERVM(vm_environ) = environ_address;
+     /* Update the ranges of the environment node. */
+     environ_node->vn_node.a_vmax -= environ_node->vn_node.a_vmin;
+     environ_node->vn_node.a_vmin  = environ_page;
+     environ_node->vn_node.a_vmax += environ_page;
+     /* Insert + map the new node in user-space. */
+     vm_insert_and_activate_node(THIS_VM,environ_node);
+    } FINALLY {
+     vm_release(THIS_VM);
+    }
+   } CATCH (E_INTERRUPT) {
+    task_serve_before_user(xcontext,
+                           TASK_USERCTX_TYPE_WITHINUSERCODE);
+    goto retry_loadenv;
    }
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
    vm_region_decref_range(environ_node->vn_region,
@@ -1384,26 +1400,41 @@ exec_user(struct exec_args *__restrict args,
    error_rethrow();
   }
 
-  /* Relocate the environment table to its proper address. */
-  environ_relocate(environ_address);
+retry_environ_relocate:
+  TRY {
+   /* Relocate the environment table to its proper address. */
+   environ_relocate(environ_address);
+  } CATCH (E_INTERRUPT) {
+   task_serve_before_user(xcontext,
+                          TASK_USERCTX_TYPE_WITHINUSERCODE);
+   goto retry_environ_relocate;
+  }
 
-  /* The new application has now been loaded.
-   * Allocate the user-space task segment and a new stack. */
-  task_alloc_userseg();
-  set_user_tls_register(PERTASK_GET(this_task.t_userseg));
-  stack = task_alloc_userstack();
+retry_final_setup:
+  TRY {
+   struct userstack *stack;
+   /* The new application has now been loaded.
+    * Allocate the user-space task segment and a new stack. */
+   task_alloc_userseg();
+   set_user_tls_register(PERTASK_GET(this_task.t_userseg));
+   stack = task_alloc_userstack();
 
-  /* Finally, update the user-space CPU context
-   * to enter at the new application's entry point. */
-  CPU_CONTEXT_IP(*context) = app->a_loadaddr + app->a_module->m_entry;
+   /* Finally, update the user-space CPU context
+    * to enter at the new application's entry point. */
+   CPU_CONTEXT_IP(*xcontext) = app->a_loadaddr + app->a_module->m_entry;
 #ifdef CONFIG_STACK_GROWS_UPWARDS
-  CPU_CONTEXT_SP(*context) = VM_PAGE2ADDR(stack->us_pagemin);
+   CPU_CONTEXT_SP(*xcontext) = VM_PAGE2ADDR(stack->us_pagemin);
 #else
-  CPU_CONTEXT_SP(*context) = VM_PAGE2ADDR(stack->us_pageend);
+   CPU_CONTEXT_SP(*xcontext) = VM_PAGE2ADDR(stack->us_pageend);
 #endif
-  /* Queue execution of library initializers
-   * for all currently loaded modules. */
-  vm_apps_initall(context);
+   /* Queue execution of library initializers
+    * for all currently loaded modules. */
+   vm_apps_initall(xcontext);
+  } CATCH (E_INTERRUPT) {
+   task_serve_before_user(xcontext,
+                          TASK_USERCTX_TYPE_WITHINUSERCODE);
+   goto retry_final_setup;
+  }
 
  } FINALLY {
   application_decref(app);
@@ -1494,10 +1525,13 @@ DEFINE_SYSCALL1(umask,mode_t,mask) {
 
 DEFINE_SYSCALL_DONTRESTART(ppoll);
 DEFINE_SYSCALL5(ppoll,
-                USER UNCHECKED struct pollfd *EXCEPT_VAR,ufds,size_t,nfds,
+                USER UNCHECKED struct pollfd *,ufds,size_t,nfds,
                 USER UNCHECKED struct timespec const *,tsp,
-                USER UNCHECKED sigset_t const *EXCEPT_VAR,sigmask,
-                size_t EXCEPT_VAR,sigsetsize) {
+                USER UNCHECKED sigset_t const *,sigmask,
+                size_t,sigsetsize) {
+ USER UNCHECKED struct pollfd *EXCEPT_VAR xufds = ufds;
+ USER UNCHECKED sigset_t const *EXCEPT_VAR xsigmask = sigmask;
+ size_t EXCEPT_VAR xsigsetsize = sigsetsize;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  size_t i,insize; sigset_t old_blocking;
  /* */if (!sigmask);
@@ -1540,7 +1574,7 @@ scan_again:
      handle_decref(hnd);
     }
    } CATCH (E_INVALID_HANDLE) {
-    ufds[i].revents = POLLERR;
+    xufds[i].revents = POLLERR;
    }
   }
   if (result) {
@@ -1556,8 +1590,8 @@ scan_again:
    /* NOTE: If the timeout expires, ZERO(0) is returned. */
   }
  } FINALLY {
-  if (sigmask)
-      signal_chmask(&old_blocking,NULL,sigsetsize,SIGNAL_CHMASK_FBLOCK);
+  if (xsigmask)
+      signal_chmask(&old_blocking,NULL,xsigsetsize,SIGNAL_CHMASK_FBLOCK);
  }
  return result;
 }
@@ -1573,7 +1607,8 @@ DEFINE_SYSCALL6(pselect6,size_t,n,
                 USER UNCHECKED fd_set *,outp,
                 USER UNCHECKED fd_set *,exp,
                 USER UNCHECKED struct timespec const *,tsp,
-                USER UNCHECKED struct pselect6_sig *EXCEPT_VAR,sig) {
+                USER UNCHECKED struct pselect6_sig *,sig) {
+ USER UNCHECKED struct pselect6_sig *EXCEPT_VAR xsig = sig;
  unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
  sigset_t old_blocking;
  validate_readable_opt(sig,sizeof(*sig));
@@ -1651,8 +1686,8 @@ scan_again:
    /* NOTE: If the timeout expires, ZERO(0) is returned. */
   }
  } FINALLY {
-  if (sig)
-      signal_chmask(&old_blocking,NULL,sig->setsz,SIGNAL_CHMASK_FBLOCK);
+  if (xsig)
+      signal_chmask(&old_blocking,NULL,xsig->setsz,SIGNAL_CHMASK_FBLOCK);
  }
  return result;
 }
@@ -1660,14 +1695,14 @@ scan_again:
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
 DEFINE_SYSCALL6(fallocate,
-                int,fd,int,mode,
+                fd_t,fd,int,mode,
                 syscall_ulong_t,off_hi,
                 syscall_ulong_t,off_lo,
                 syscall_ulong_t,len_hi,
                 syscall_ulong_t,len_lo)
 #else
 DEFINE_SYSCALL4(fallocate,
-                int,fd,int,mode,
+                fd_t,fd,int,mode,
                 syscall_ulong_t,off,
                 syscall_ulong_t,len)
 #endif

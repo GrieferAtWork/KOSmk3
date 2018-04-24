@@ -475,8 +475,9 @@ nomerge:
 
 
 PUBLIC void KCALL
-vm_region_incref_range(struct vm_region *__restrict EXCEPT_VAR self,
+vm_region_incref_range(struct vm_region *__restrict self,
                        vm_raddr_t first_page, size_t num_pages) {
+ struct vm_region *EXCEPT_VAR xself = self;
  vm_raddr_t incref_end;
  incref_end = first_page+num_pages;
  assert(incref_end <= self->vr_size);
@@ -526,12 +527,13 @@ vm_region_incref_range(struct vm_region *__restrict EXCEPT_VAR self,
   /* Try to merge the last part with its successor. */
   vm_region_mergenext(self,iter);
  } FINALLY {
-  mutex_put(&self->vr_lock);
+  mutex_put(&xself->vr_lock);
  }
 }
 PUBLIC void KCALL
-vm_region_decref_range(struct vm_region *__restrict EXCEPT_VAR self,
+vm_region_decref_range(struct vm_region *__restrict self,
                        vm_raddr_t first_page, size_t num_pages) {
+ struct vm_region *EXCEPT_VAR xself = self;
  vm_raddr_t decref_end;
  decref_end = first_page+num_pages;
  assert(decref_end <= self->vr_size);
@@ -574,7 +576,7 @@ vm_region_decref_range(struct vm_region *__restrict EXCEPT_VAR self,
  } FINALLY {
   if (FINALLY_WILL_RETHROW) {
    /* Indicate that parts of this region are being leaked. */
-   self->vr_flags |= VM_REGION_FLEAKINGPARTS;
+   xself->vr_flags |= VM_REGION_FLEAKINGPARTS;
    /* Don't propagate errors caused because of a bad allocation. */
    if (error_code() == E_BADALLOC)
        FINALLY_WILL_RETHROW = false;
@@ -586,8 +588,9 @@ vm_region_decref_range(struct vm_region *__restrict EXCEPT_VAR self,
 
 
 PUBLIC void KCALL
-vm_region_inclck_range(struct vm_region *__restrict EXCEPT_VAR self,
+vm_region_inclck_range(struct vm_region *__restrict self,
                        vm_raddr_t first_page, size_t num_pages) {
+ struct vm_region *EXCEPT_VAR xself = self;
  vm_raddr_t inclck_end;
  inclck_end = first_page+num_pages;
  assert(inclck_end <= self->vr_size);
@@ -639,12 +642,13 @@ vm_region_inclck_range(struct vm_region *__restrict EXCEPT_VAR self,
   /* Try to merge the last part with its successor. */
   vm_region_mergenext(self,iter);
  } FINALLY {
-  mutex_put(&self->vr_lock);
+  mutex_put(&xself->vr_lock);
  }
 }
 PUBLIC void KCALL
-vm_region_declck_range(struct vm_region *__restrict EXCEPT_VAR self,
+vm_region_declck_range(struct vm_region *__restrict self,
                        vm_raddr_t first_page, size_t num_pages) {
+ struct vm_region *EXCEPT_VAR xself = self;
  vm_raddr_t inclck_end;
  inclck_end = first_page+num_pages;
  assert(inclck_end <= self->vr_size);
@@ -696,7 +700,7 @@ vm_region_declck_range(struct vm_region *__restrict EXCEPT_VAR self,
   /* Try to merge the last part with its successor. */
   vm_region_mergenext(self,iter);
  } FINALLY {
-  mutex_put(&self->vr_lock);
+  mutex_put(&xself->vr_lock);
  }
 }
 

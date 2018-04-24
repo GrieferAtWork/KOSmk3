@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
  assert(strverscmp("foo0","foo1") < 0);
  assert(strverscmp("foo1","foo9") < 0);
  assert(strverscmp("foo9","foo10") < 0);
-
+#if 1
  pid_t cpid;
  if ((cpid = Xfork()) == 0) {
   kernctl(KERNEL_CONTROL_DBG_DUMP_LEAKS);
@@ -265,6 +265,7 @@ int main(int argc, char *argv[]) {
   /* */if (stat("/dev/ps2_mousea",&buf) == 0) Xsymlink("ps2_mousea","/dev/mouse");
   else if (stat("/dev/ps2_mouseb",&buf) == 0) Xsymlink("ps2_mouseb","/dev/mouse");
  }
+#endif
 
  /* Just for testing: Load a kernel driver. */
  if (kernctl(KERNEL_CONTROL_INSMOD,"/mod/procfs.mod","a 'b c'  \\'d ") >= 0) {
@@ -283,16 +284,14 @@ int main(int argc, char *argv[]) {
  sched_yield();
 
  for (;;) {
-  TRY {
-   Xexecl("/bin/terminal-vga",
-          "terminal-vga",
-          "/bin/busybox",
-          "sh",
-          "-i",
-         (char *)NULL);
-  } CATCH (E_INTERRUPT) {
-   syslog(LOG_DEBUG,"\n\nCATCH INTERRUPT\n\n\n");
-  }
+  TRY Xexecl("/bin/terminal-vga",
+             "terminal-vga",
+             "/bin/busybox",
+             "sh",
+             "-i",
+             (char *)NULL);
+  CATCH (E_INTERRUPT) { }
+  syslog(LOG_DEBUG,"\n\nCATCH INTERRUPT\n\n\n");
  }
 }
 
@@ -301,8 +300,8 @@ int main(int argc, char *argv[]) {
 static volatile int x = 42;
 
 _nsyscall4(int,SYS_openat,     sys_openat,fd_t,dfd,char const *,filename,oflag_t,flags,mode_t,mode);
-_nsyscall4(size_t,SYS_xreaddir,sys_xreaddir,int,fd,struct dirent *,buf,size_t,bufsize,int,mode);
-_nsyscall1(int,SYS_close,      sys_close,int,fd);
+_nsyscall4(size_t,SYS_xreaddir,sys_xreaddir,fd_t,fd,struct dirent *,buf,size_t,bufsize,int,mode);
+_nsyscall1(int,SYS_close,      sys_close,fd_t,fd);
 _nsyscall3(int,SYS_xsyslog,    sys_xsyslog,int,type,char const *,p,size_t,len);
 _nsyscall1(int,SYS_exit,       sys_exit,int,exitcode);
 _nsyscall0(pid_t,SYS_fork,     sys_fork);

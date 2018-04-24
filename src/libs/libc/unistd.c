@@ -1927,7 +1927,8 @@ libc_throw_buffer_too_small(size_t reqsize, size_t bufsize) {
 EXPORT(Xxfrealpathat,libc_Xxfrealpathat);
 CRT_EXCEPT ATTR_RETNONNULL char *LIBCCALL
 libc_Xxfrealpathat(fd_t fd, char const *path, int flags,
-                   char *EXCEPT_VAR buf, size_t bufsize, unsigned int type) {
+                   char *buf_, size_t bufsize, unsigned int type) {
+ char *EXCEPT_VAR buf = buf_;
  size_t COMPILER_IGNORE_UNINITIALIZED(reqsize);
  bool EXCEPT_VAR is_libc_buffer = false;
  if (!buf && bufsize)

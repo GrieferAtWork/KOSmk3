@@ -508,7 +508,8 @@ PUBLIC unsigned int KCALL handle_put(struct handle hnd) {
 }
 
 PUBLIC unsigned int KCALL
-handle_putat(struct handle hnd, unsigned int EXCEPT_VAR hint) {
+handle_putat(struct handle hnd, unsigned int hint) {
+ unsigned int EXCEPT_VAR xhint = hint;
  struct handle *EXCEPT_VAR vector; unsigned int result;
  struct handle_manager *EXCEPT_VAR man = THIS_HANDLE_MANAGER;
  assert(hnd.h_type != HANDLE_TYPE_FNONE);
@@ -540,7 +541,7 @@ handle_putat(struct handle hnd, unsigned int EXCEPT_VAR hint) {
                                       GFP_SHARED|GFP_CALLOC);
   } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
    /* Try once more time with a minimal increment. */
-   new_alloc = hint+1;
+   new_alloc = xhint+1;
    TRY {
     vector = (struct handle *)krealloc(vector,new_alloc*
                                        sizeof(struct handle),
@@ -586,7 +587,8 @@ handle_putat(struct handle hnd, unsigned int EXCEPT_VAR hint) {
 /* Place the given handle into the specified handler slot.
  * @throw: E_INVALID_HANDLE: The given `dfd' is too large. */
 PUBLIC void KCALL
-handle_putinto(fd_t EXCEPT_VAR dfd, struct handle hnd) {
+handle_putinto(fd_t dfd, struct handle hnd) {
+ fd_t EXCEPT_VAR xdfd = dfd;
  struct handle *EXCEPT_VAR vector;
  struct handle old_hnd;
  struct handle_manager *EXCEPT_VAR man = THIS_HANDLE_MANAGER;
@@ -719,7 +721,7 @@ handle_putinto(fd_t EXCEPT_VAR dfd, struct handle hnd) {
                                       GFP_SHARED|GFP_CALLOC);
   } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
    /* Try once more time with the minimal size. */
-   new_alloc = (unsigned int)dfd+1;
+   new_alloc = (unsigned int)xdfd+1;
    assert(new_alloc > man->hm_alloc);
    TRY {
     vector = (struct handle *)krealloc(vector,new_alloc*
@@ -743,8 +745,8 @@ handle_putinto(fd_t EXCEPT_VAR dfd, struct handle hnd) {
  }
 
  /* Save the given handle into the vector. */
- old_hnd = vector[(unsigned int)dfd];
- vector[(unsigned int)dfd] = hnd;
+ old_hnd = vector[(unsigned int)xdfd];
+ vector[(unsigned int)xdfd] = hnd;
  handle_incref(hnd);
 
  /* Track the number of allocated handles. */
@@ -760,7 +762,7 @@ handle_putinto(fd_t EXCEPT_VAR dfd, struct handle hnd) {
 
 
 PRIVATE REF struct handle KCALL
-get_symbolic_handle(fd_t EXCEPT_VAR fd) {
+get_symbolic_handle(fd_t fd) {
  REF struct handle result;
  /* Special, symbolic handles. */
  switch (fd) {

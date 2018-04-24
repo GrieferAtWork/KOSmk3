@@ -19,6 +19,7 @@
 #ifndef GUARD_KERNEL_I386_KOS_HW_EXCEPT_C
 #define GUARD_KERNEL_I386_KOS_HW_EXCEPT_C 1
 #define _KOS_SOURCE 1
+#define _NOSERVE_SOURCE 1
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
@@ -98,8 +99,9 @@ error_rethrow_atuser(struct cpu_context *__restrict context) {
 
 /* Hardware exception handling. */
 INTERN void FCALL
-x86_handle_pagefault(struct cpu_anycontext *__restrict EXCEPT_VAR context,
+x86_handle_pagefault(struct cpu_anycontext *__restrict context,
                      register_t errcode) {
+ struct cpu_anycontext *EXCEPT_VAR xcontext = context;
  struct exception_info *info;
  void *EXCEPT_VAR fault_address;
  /* Extract the fault address before re-enabling interrupts. */
@@ -156,7 +158,7 @@ again:
       else if (errcode & X86_SEGFAULT_FRESWRITE); /* May happen for custom mappings: Reserved paging bit was set */
 #ifndef CONFIG_NO_VIO
       else if (node->vn_region->vr_type == VM_REGION_VIO &&
-              (uintptr_t)fault_address != CONTEXT_IP(*context)) {
+              (uintptr_t)fault_address != CONTEXT_IP(*xcontext)) {
        REF struct vm_region *EXCEPT_VAR vio_region;
        uintptr_t vio_addr;
        vio_addr   = node->vn_start*PAGESIZE+
@@ -169,12 +171,12 @@ again:
         has_vm_lock = false;
         /* Perform a VIO memory access. */
         TRY {
-         if (context->c_iret.ir_cs & 3) {
-          context->c_hostesp = context->c_useresp;
-          vm_ok = x86_handle_vio(context,vio_region,vio_addr,fault_address);
-          context->c_useresp = context->c_hostesp;
+         if (xcontext->c_iret.ir_cs & 3) {
+          xcontext->c_hostesp = xcontext->c_useresp;
+          vm_ok = x86_handle_vio(xcontext,vio_region,vio_addr,fault_address);
+          xcontext->c_useresp = xcontext->c_hostesp;
          } else {
-          vm_ok = x86_handle_vio(context,vio_region,vio_addr,fault_address);
+          vm_ok = x86_handle_vio(xcontext,vio_region,vio_addr,fault_address);
          }
         } CATCH (E_NOT_IMPLEMENTED) {
          vm_ok = false;
@@ -242,7 +244,7 @@ again:
        return;
   } CATCH (E_INTERRUPT) {
    /* Deal with interrupt restarts. */
-   task_restart_interrupt(context);
+   task_restart_interrupt(xcontext);
    goto again;
   }
  }
@@ -263,11 +265,11 @@ again:
   * we ended up in a situation where the faulting address matches the return-ip.
   * For that reason, a number of additional checks are done to work out if
   * it was code like that above which caused the problem. */
- if ((void *)CONTEXT_IP(*context) == fault_address &&
+ if ((void *)CONTEXT_IP(*xcontext) == fault_address &&
     !(errcode & X86_SEGFAULT_FWRITE)) {
   uintptr_t return_ip;
   if ((errcode & X86_SEGFAULT_FUSER) &&
-      (context->c_iret.ir_cs & 3)) {
+      (xcontext->c_iret.ir_cs & 3)) {
    uintptr_t sysno = PERTASK_GET(x86_sysbase);
    if ((uintptr_t)fault_address >= sysno &&
        (uintptr_t)fault_address <  sysno+X86_ENCODE_PFSYSCALL_SIZE) {
@@ -278,8 +280,8 @@ again:
      * constant (to improve security by not using static addresses that would
      * allow for return-to-libc; or rather return-to-kernel; attacks). */
 restart_syscall:
-    context->c_eip = context->c_gpregs.gp_eax; /* #PF uses EAX as return address. */
-    context->c_gpregs.gp_eax = sysno; /* #PF encodes the sysno in EIP. */
+    xcontext->c_eip = xcontext->c_gpregs.gp_eax; /* #PF uses EAX as return address. */
+    xcontext->c_gpregs.gp_eax = sysno; /* #PF encodes the sysno in EIP. */
     COMPILER_BARRIER();
     /* Execute the system calls. */
     TRY {
@@ -291,23 +293,22 @@ restart_syscall:
 #if 1
       COMPILER_WRITE_BARRIER();
       /* Deal with system call restarts. */
-      if (!task_restart_syscall(&context->c_user,
-                                TASK_USERCTX_TYPE_INTR_SYSCALL|
-                                X86_SYSCALL_TYPE_FINT80,
-                                sysno))
-           error_rethrow();
+      task_restart_syscall(&xcontext->c_user,
+                            TASK_USERCTX_TYPE_INTR_SYSCALL|
+                            X86_SYSCALL_TYPE_FINT80,
+                            sysno);
 #else
-      /* Restore the original user-space CPU context. */
-      context->c_gpregs.gp_eax = context->c_eip;
-      context->c_eip           = (uintptr_t)fault_address;
+      /* Restore the original user-space CPU xcontext. */
+      xcontext->c_gpregs.gp_eax = xcontext->c_eip;
+      xcontext->c_eip           = (uintptr_t)fault_address;
       COMPILER_WRITE_BARRIER();
       /* Deal with system call restarts. */
-      if (!task_restart_syscall(&context->c_user,
-                                TASK_USERCTX_TYPE_INTR_SYSCALL|
-                                X86_SYSCALL_TYPE_FPF,
-                                sysno)) {
-       context->c_eip = context->c_gpregs.gp_eax;
-       context->c_gpregs.gp_eax = sysno;
+      if (!task_tryrestart_syscall(&xcontext->c_user,
+                                    TASK_USERCTX_TYPE_INTR_SYSCALL|
+                                    X86_SYSCALL_TYPE_FPF,
+                                    sysno)) {
+       xcontext->c_eip = xcontext->c_gpregs.gp_eax;
+       xcontext->c_gpregs.gp_eax = sysno;
        error_rethrow();
       }
 #endif
@@ -331,13 +332,13 @@ restart_syscall:
    *       criteria of `CONTEXT_IP == fault_address' that is checked
    *       above. */
   TRY {
-   uintptr_t **pesp = (uintptr_t **)&CONTEXT_SP(*context);
+   uintptr_t **pesp = (uintptr_t **)&CONTEXT_SP(*xcontext);
    return_ip = **pesp;
    /* Check if the supposed return-ip is mapped.
     * XXX: Maybe even check if it is executable? */
    if (pagedir_ismapped(VM_ADDR2PAGE(return_ip))) {
     ++*pesp; /* Consume the addressed pushed by `call' */
-    CONTEXT_IP(*context) = return_ip;
+    CONTEXT_IP(*xcontext) = return_ip;
    }
   } CATCH (E_SEGFAULT) {
   }
@@ -351,11 +352,11 @@ restart_syscall:
  memset(&info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
  info->e_error.e_segfault.sf_reason = errcode; /* The reason flags are defined to mirror the #PF error code. */
  info->e_error.e_segfault.sf_vaddr  = fault_address;
- /* Copy the CPU context at the time of the exception. */
- fix_user_context(context);
- memcpy(&info->e_context,&context->c_host,sizeof(struct cpu_context));
+ /* Copy the CPU xcontext at the time of the exception. */
+ fix_user_context(xcontext);
+ memcpy(&info->e_context,&xcontext->c_host,sizeof(struct cpu_context));
  /* Throw the error. */
- error_rethrow_atuser((struct cpu_context *)context);
+ error_rethrow_atuser((struct cpu_context *)xcontext);
 }
 
 
@@ -498,7 +499,9 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
   struct fde_info unwind_info;
   struct exception_info old_info;
   struct task_connections cons;
+  u16 EXCEPT_VAR old_state;
   task_push_connections(&cons);
+  old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
   memcpy(&old_info,error_info(),sizeof(struct exception_info));
   TRY {
    dup = context->c_host;
@@ -536,6 +539,8 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
    error_printf("Unwind failure\n");
   }
+  if (!(old_state & TASK_STATE_FDONTSERVE))
+        ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
   memcpy(error_info(),&old_info,sizeof(struct exception_info));
   task_pop_connections(&cons);
  }

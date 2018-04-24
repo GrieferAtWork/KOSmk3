@@ -24,11 +24,16 @@
 #include <hybrid/limits.h>
 #include <hybrid/align.h>
 #include <hybrid/host.h>
+#include <fs/path.h>
 #include <fs/driver.h>
 #include <fs/linker.h>
+#include <kernel/malloc.h>
 #include <kernel/debug.h>
+#include <kernel/user.h>
 #include <fs/node.h>
+#include <kos/bound.h>
 #include <sys/mman.h>
+#include <alloca.h>
 #include <except.h>
 #include <string.h>
 #include <assert.h>
@@ -162,6 +167,9 @@ Pe_LoadModule(struct module *__restrict mod) {
         pPeModule->pm_Dir[i].Size = 0;
    }
   }
+  /* Validate the size of the relocation section. */
+  if (pPeModule->pm_Reloc.Size < sizeof(IMAGE_BASE_RELOCATION))
+      pPeModule->pm_Reloc.Size = 0;
   /* Check if the module is has a fixed load address. */
   if (!pPeModule->pm_Reloc.Size &&
       (ntHeader.FileHeader.Characteristics & IMAGE_FILE_RELOCS_STRIPPED))
@@ -247,7 +255,7 @@ PeModule_AllocRegions(PE_MODULE *__restrict pPeModule,
 
 PRIVATE void KCALL
 Pe_LoadApp(struct module_patcher *__restrict self) {
- WORD i; REF struct vm_region **regions;
+ WORD i; REF struct vm_region **pRegions;
  struct application *pApp = self->mp_app;
  struct module *pModule = pApp->a_module;
  PE_MODULE *pPeModule = pModule->m_data;
@@ -258,13 +266,13 @@ Pe_LoadApp(struct module_patcher *__restrict self) {
  assert(IS_ALIGNED(pLoadPage,PAGESIZE));
  pLoadPage /= PAGESIZE;
 
- regions = PeModule_AllocRegions(pPeModule,pModule);
+ pRegions = PeModule_AllocRegions(pPeModule,pModule);
  i = 0;
  TRY {
   for (; i < pPeModule->pm_NumSections; ++i) {
    PIMAGE_SECTION_HEADER pSection;
    vm_prot_t sectionProt = forceProt;
-   if unlikely(!regions[i]) continue; /* Unused region */
+   if unlikely(!pRegions[i]) continue; /* Unused region */
    pSection = &pPeModule->pm_Sections[i];
    if (pSection->Characteristics & IMAGE_SCN_MEM_SHARED)
        sectionProt |= PROT_SHARED;
@@ -278,15 +286,15 @@ Pe_LoadApp(struct module_patcher *__restrict self) {
 
    /* Map application segments. */
    vm_mapat(pLoadPage + VM_ADDR2PAGE(pSection->VirtualAddress),
-            regions[i]->vr_size,0,regions[i],sectionProt,
+            pRegions[i]->vr_size,0,pRegions[i],sectionProt,
            &application_notify,pApp);
   }
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Unmap everything that had already been mapped. */
   while (i--) {
-   if (!regions[i]) continue;
+   if (!pRegions[i]) continue;
    vm_unmap(pLoadPage + VM_ADDR2PAGE(pPeModule->pm_Sections[i].VirtualAddress),
-            regions[i]->vr_size,VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT,pApp);
+            pRegions[i]->vr_size,VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT,pApp);
   }
   /* Make sure that unmapped memory is synced immediately.
    * NOTE: An unmap() race condition is prevented because the
@@ -301,9 +309,250 @@ Pe_LoadApp(struct module_patcher *__restrict self) {
 
 
 PRIVATE void KCALL
+make_writable(PE_MODULE *__restrict mod, uintptr_t loadaddr,
+              struct application *__restrict app) {
+ unsigned int i; REF struct vm_region **vector;
+ vector = mod->pm_Regions;
+ for (i = 0; i < mod->pm_NumSections; ++i) {
+  if (!vector[i]) continue;
+  if (mod->pm_Sections[i].Characteristics & IMAGE_SCN_MEM_WRITE) continue;
+  /* Add write permissions to this segment. */
+  vm_protect(VM_ADDR2PAGE(loadaddr+mod->pm_Sections[i].VirtualAddress),
+             vector[i]->vr_size,~0,PROT_WRITE,VM_PROTECT_TAG,app);
+ }
+}
+PRIVATE void KCALL
+make_readonly(PE_MODULE *__restrict mod, uintptr_t loadaddr,
+              struct application *__restrict app) {
+ unsigned int i; REF struct vm_region **vector;
+ vector = mod->pm_Regions;
+ for (i = 0; i < mod->pm_NumSections; ++i) {
+  if (!vector[i]) continue;
+  if (mod->pm_Sections[i].Characteristics & IMAGE_SCN_MEM_WRITE) continue;
+  /* Remove write permissions from this segment. */
+  vm_protect(VM_ADDR2PAGE(loadaddr+mod->pm_Sections[i].VirtualAddress),
+             vector[i]->vr_size,~PROT_WRITE,0,VM_PROTECT_TAG,app);
+ }
+}
+
+
+PRIVATE ATTR_NOINLINE LPVOID KCALL
+Pe_ImportSymbol(struct application *__restrict pApp,
+                PIMAGE_IMPORT_BY_NAME pEntry) {
+ struct module_symbol sym;
+ if (pApp->a_module->m_type == &Pe_ModuleType) {
+  /* TODO: Use `pEntry->Hint' */
+ } else if (memcmp(pEntry->Name,"KOS$",4) != 0) {
+  /* NOTE: Only do KOS/DOS indirect linking when
+   *       combining PE and non-PE (ELF) modules. */
+  size_t szSymbolLength;
+  LPSTR pDosSymbolName;
+  /* Prefer linking against DOS$ symbols. */
+  szSymbolLength = strnlen((char *)pEntry->Name,512);
+  pDosSymbolName = (LPSTR)malloca((5+szSymbolLength)*sizeof(CHAR));
+  pDosSymbolName[0] = 'D';
+  pDosSymbolName[1] = 'O';
+  pDosSymbolName[2] = 'S';
+  pDosSymbolName[3] = '$';
+  memcpy(pDosSymbolName+4,pEntry->Name,szSymbolLength*sizeof(CHAR));
+  pDosSymbolName[szSymbolLength+4] = '\0';
+  sym = application_dlsym(pApp,pDosSymbolName);
+  if (sym.ms_type != MODULE_SYMBOL_INVALID)
+      return sym.ms_base;
+ }
+ /* Symbol Do a regular symbol lookup. */
+ sym = application_dlsym(pApp,(char *)pEntry->Name);
+ if (sym.ms_type != MODULE_SYMBOL_INVALID)
+     return sym.ms_base;
+ /* Symbol wasn't found... */
+ debug_printf(COLDSTR("[PE] Failed to patch symbol %q in %q\n"),
+              pEntry->Name,pApp->a_module->m_path->p_dirent->de_name);
+ error_throw(E_NOT_EXECUTABLE);
+}
+
+
+PRIVATE void KCALL
 Pe_PatchApp(struct module_patcher *__restrict self) {
- /* TODO */
- debug_printf("TODO: Pe_PatchApp()\n");
+ struct application *EXCEPT_VAR pApp = self->mp_app;
+ struct module *EXCEPT_VAR pModule = pApp->a_module;
+ PE_MODULE *EXCEPT_VAR pPeModule = pModule->m_data;
+ uintptr_t EXCEPT_VAR pLoadAddr = pApp->a_loadaddr;
+ /* Deal with import tables. */
+ if (pPeModule->pm_Import.Size >= sizeof(IMAGE_IMPORT_DESCRIPTOR)) {
+  PIMAGE_IMPORT_DESCRIPTOR pImportIter;
+  PIMAGE_IMPORT_DESCRIPTOR pImportEnd;
+  pImportIter = (PIMAGE_IMPORT_DESCRIPTOR)(pLoadAddr +
+                                           pPeModule->pm_Import.VirtualAddress);
+  pImportEnd  = (PIMAGE_IMPORT_DESCRIPTOR)((uintptr_t)pImportIter+
+                                           pPeModule->pm_Import.Size);
+  /* Since this is a PE binary, make sure to
+   * ignore casing when loading dependencies. */
+  self->mp_flags |= DL_OPEN_FNOCASE;
+  for (; pImportIter < pImportEnd; ++pImportIter) {
+   LPSTR pImportFilename;
+   struct application *EXCEPT_VAR pDependency;
+   /* The import is terminated by a ZERO-entry.
+    * https://msdn.microsoft.com/en-us/library/ms809762.aspx */
+   if (!pImportIter->Characteristics &&
+       !pImportIter->TimeDateStamp &&
+       !pImportIter->ForwarderChain &&
+       !pImportIter->Name &&
+       !pImportIter->FirstThunk)
+        break;
+   pImportFilename = (LPSTR)(pLoadAddr+
+                             pImportIter->Name);
+   ASSERT_BOUNDS(pApp->a_bounds,(uintptr_t)pImportFilename);
+   TRY {
+    pDependency = patcher_require_string(self,pImportFilename,
+                                         user_strlen(pImportFilename));
+   } CATCH (E_FILESYSTEM_ERROR) {
+    if (error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_FILE_NOT_FOUND &&
+        memcasecmp(pImportFilename,"msvcr",5*sizeof(char)) == 0) {
+     /* Substitute msvcr* libraries with `libc.so'. */
+     pDependency = patcher_require_string(self,"libc.so",7);
+    } else {
+     error_rethrow();
+    }
+   }
+   {
+    /* Import module symbols. */
+    PIMAGE_THUNK_DATA pThunkIter;
+    PIMAGE_THUNK_DATA pThunk2Iter;
+    pThunkIter  = (IMAGE_THUNK_DATA *)(pLoadAddr+
+                                      (pImportIter->OriginalFirstThunk
+                                     ? pImportIter->OriginalFirstThunk
+                                     : pImportIter->FirstThunk));
+    pThunk2Iter = (IMAGE_THUNK_DATA *)(pLoadAddr+
+                                      (pImportIter->FirstThunk
+                                     ? pImportIter->FirstThunk
+                                     : pImportIter->OriginalFirstThunk));
+    for (;;) {
+     PIMAGE_IMPORT_BY_NAME pImportEntry;
+     LPVOID pImportAddress;
+     ASSERT_BOUNDS(pApp->a_bounds,(uintptr_t)pThunkIter);
+     if (!pThunkIter->u1.AddressOfData)
+          break; /* ZERO-Terminated. */
+     ASSERT_BOUNDS(pApp->a_bounds,(uintptr_t)pThunk2Iter);
+     pImportEntry = (PIMAGE_IMPORT_BY_NAME)(pLoadAddr+pThunkIter->u1.AddressOfData);
+     ASSERT_BOUNDS(pApp->a_bounds,(uintptr_t)pImportEntry);
+     /* Import the symbol. */
+     pImportAddress = Pe_ImportSymbol(pDependency,pImportEntry);
+     pThunkIter->u1.AddressOfData  = (uintptr_t)pImportAddress;
+     pThunk2Iter->u1.AddressOfData = (uintptr_t)pImportAddress;
+    }
+   }
+  }
+ }
+
+ /* Deal with relocations. */
+ if (pPeModule->pm_Reloc.Size != 0 &&
+     pLoadAddr != pModule->m_fixedbase) {
+  bool EXCEPT_VAR bChangedToWritable = false;
+  if (pPeModule->pm_Flags & PE_MODULE_FTEXTREL)
+      make_writable(pPeModule,pLoadAddr,pApp),
+      bChangedToWritable = true;
+  TRY {
+   IMAGE_BASE_RELOCATION *EXCEPT_VAR pBlockIter;
+   IMAGE_BASE_RELOCATION *EXCEPT_VAR pBlockEnd;
+   uintptr_t EXCEPT_VAR pRelocDelta;
+   pRelocDelta = pLoadAddr - pModule->m_fixedbase;
+   pBlockIter = (IMAGE_BASE_RELOCATION *)pPeModule->pm_Reloc.VirtualAddress;
+   pBlockEnd  = (IMAGE_BASE_RELOCATION *)((uintptr_t)pBlockIter+pPeModule->pm_Reloc.Size/
+                                           sizeof(IMAGE_BASE_RELOCATION));
+   while (pBlockIter < pBlockEnd) {
+    DWORD dwMaxBlockSize;
+    DWORD dwBlockSize = ATOMIC_READ(pBlockIter->SizeOfBlock);
+    WORD *pRelIter,*pRelEnd; uintptr_t pBlockBase;
+    if unlikely(!dwBlockSize) dwBlockSize = 1;
+    if unlikely(dwBlockSize < sizeof(IMAGE_BASE_RELOCATION)) {
+     *(uintptr_t *)&pBlockIter += dwBlockSize;
+     continue;
+    }
+    dwMaxBlockSize = (DWORD)((uintptr_t)pBlockEnd-(uintptr_t)pBlockIter);
+    if unlikely(dwBlockSize > dwMaxBlockSize)
+                dwBlockSize = dwMaxBlockSize;
+    pBlockBase = pLoadAddr + ATOMIC_READ(pBlockIter->VirtualAddress);
+#if PAGESIZE >= 0x1000
+    ASSERT_BOUNDS(pApp->a_bounds,pBlockBase);
+#endif
+    pRelIter = (WORD *)((uintptr_t)pBlockIter + sizeof(IMAGE_BASE_RELOCATION));
+    pRelEnd  = (WORD *)((uintptr_t)pRelIter + dwBlockSize);
+    for (; pRelIter < pRelEnd; ++pRelIter) {
+restart_rel_iter:
+     TRY {
+      /* Execute the relocations. */
+      WORD wKey = ATOMIC_READ(*pRelIter);
+      uintptr_t pRelAddr = pBlockBase + (wKey & 0xfff);
+      /* PE uses a 4-bit ID to differentiate between relocation types
+       * (meaning there can only ever be up to 16 of them) */
+      wKey >>= 12;
+#if PAGESIZE < 0x1000
+      ASSERT_BOUNDS(pApp->a_bounds,pRelAddr);
+#endif
+
+      switch (wKey) {
+      case IMAGE_REL_BASED_ABSOLUTE:
+       /* QUOTE:"The base relocation is skipped" */
+       break;
+
+#if __SIZEOF_POINTER__ > 4
+      case IMAGE_REL_BASED_HIGHLOW:
+       *(u32 *)pRelAddr += pRelocDelta & 0xffffffffull;
+       break;
+      case IMAGE_REL_BASED_HIGHADJ:
+       *(u32 *)pRelAddr += (pRelocDelta & 0xffffffff00000000ull) >> 32;
+       break;
+#else
+      case IMAGE_REL_BASED_HIGHLOW:
+      case IMAGE_REL_BASED_HIGHADJ:
+       *(u32 *)pRelAddr += pRelocDelta;
+       break;
+#endif
+
+      case IMAGE_REL_BASED_LOW:
+       *(u16 *)pRelAddr += pRelocDelta & 0xffff;
+       break;
+      case IMAGE_REL_BASED_HIGH:
+       *(u16 *)pRelAddr += (pRelocDelta & 0xffff0000) >> 16;
+       break;
+
+      case IMAGE_REL_BASED_DIR64:
+       *(u64 *)pRelAddr += (u64)pRelocDelta;
+       break;
+
+      case IMAGE_REL_BASED_IA64_IMM64: /* TODO? */
+      default:
+       debug_printf("[PE] Unsupported relocation %I8u against %p\n",
+                     wKey,pRelAddr);
+       break;
+      }
+     } CATCH (E_SEGFAULT) {
+      /* Check if the segfault was caused because of a write,
+       * and if it was, try to re-load read-only segments as
+       * writable. */
+      if (bChangedToWritable)
+          error_rethrow();
+#if defined(__i386__) || defined(__x86_64__)
+      if (!(error_info()->e_error.e_segfault.sf_reason & X86_SEGFAULT_FWRITE))
+            error_rethrow();
+#endif
+      COMPILER_BARRIER();
+      make_writable(pPeModule,pLoadAddr,pApp);
+      COMPILER_BARRIER();
+      bChangedToWritable = true;
+      goto restart_rel_iter;
+     }
+    }
+    *(uintptr_t *)&pBlockIter += dwBlockSize;
+   }
+  } FINALLY {
+   if (bChangedToWritable) {
+    make_readonly(pPeModule,pLoadAddr,pApp);
+    ATOMIC_FETCHOR(pPeModule->pm_Flags,
+                   PE_MODULE_FTEXTREL);
+   }
+  }
+ }
 }
 
 
@@ -359,7 +608,8 @@ Pe_GetSection(struct application *__restrict app,
 }
 
 
-PRIVATE struct module_type pe_type = {
+DEFINE_MODULE_TYPE(Pe_ModuleType);
+INTERN struct module_type Pe_ModuleType = {
     .m_flags      = MODULE_TYPE_FPAGEALIGNED,
     .m_magsz      = 2,
     .m_magic      = { 'M', 'Z' },
@@ -371,7 +621,6 @@ PRIVATE struct module_type pe_type = {
     .m_symbol     = &Pe_GetSymbol,
     .m_section    = &Pe_GetSection,
 };
-DEFINE_MODULE_TYPE(pe_type);
 
 DECL_END
 

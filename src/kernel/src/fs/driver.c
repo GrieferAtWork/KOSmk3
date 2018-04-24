@@ -421,10 +421,11 @@ DEFINE_DRIVER_STRING(module_runpath,"module-runpath");
 
 
 PUBLIC ATTR_RETNONNULL REF struct driver *
-KCALL kernel_insmod(struct module *__restrict EXCEPT_VAR mod,
+KCALL kernel_insmod(struct module *__restrict mod,
                     bool *pwas_newly_loaded,
                     USER CHECKED char const *module_commandline,
                     size_t module_commandline_length) {
+ struct module *EXCEPT_VAR xmod = mod;
  REF struct driver *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  vm_acquire_read(&vm_kernel);
@@ -584,12 +585,11 @@ again:
     driver_unbind_globals(result);
     if (!(ATOMIC_FETCHOR(result->d_app.a_flags,APPLICATION_FDIDFINI) & APPLICATION_FDIDFINI)) {
      /* Call ELF destructors. */
-     if (mod->m_type->m_enumfini)
-         SAFECALL_KCALL_VOID_3(*mod->m_type->m_enumfini,&result->d_app,&exec_callback,NULL);
+     if (xmod->m_type->m_enumfini)
+         SAFECALL_KCALL_VOID_3(*xmod->m_type->m_enumfini,&result->d_app,&exec_callback,NULL);
     }
     error_rethrow();
    }
-
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
    driver_unbind_globals(result);
    vm_unmap(VM_ADDR2PAGE(APPLICATION_MAPBEGIN(&result->d_app)),

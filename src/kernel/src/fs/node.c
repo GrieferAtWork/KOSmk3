@@ -158,21 +158,22 @@ inode_destroy(struct inode *__restrict self) {
 
 
 PUBLIC size_t KCALL
-inode_read(struct inode *__restrict EXCEPT_VAR self,
+inode_read(struct inode *__restrict self,
            CHECKED USER void *buf, size_t bufsize,
            pos_t pos, iomode_t flags) {
+ struct inode *EXCEPT_VAR xself = self;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
- rwlock_readf(&self->i_lock,flags);
+ rwlock_readf(&xself->i_lock,flags);
  TRY {
-  if unlikely(INODE_ISCLOSED(self))
+  if unlikely(INODE_ISCLOSED(xself))
    result = 0; /* INode was closed. */
-  else if likely(self->i_ops->io_file.f_pread)
-   result = (*self->i_ops->io_file.f_pread)(self,buf,bufsize,pos,flags);
-  else if (S_ISCHR(self->i_attr.a_mode)) {
+  else if likely(xself->i_ops->io_file.f_pread)
+   result = (*xself->i_ops->io_file.f_pread)(xself,buf,bufsize,pos,flags);
+  else if (S_ISCHR(xself->i_attr.a_mode)) {
    REF struct character_device *EXCEPT_VAR dev;
    result = 0; /* Try to read using the pread() operator of a pointed-to character device. */
-   if ((dev = try_lookup_character_device(self->i_attr.a_rdev)) != NULL) {
+   if ((dev = try_lookup_character_device(xself->i_attr.a_rdev)) != NULL) {
     TRY {
      /* Invoke the pread() operator of the character device (if it exists) */
      if (dev->c_ops->c_file.f_pread)
@@ -185,26 +186,27 @@ again:
    result = 0; /* No way of reading data */
   }
  } FINALLY {
-  if (rwlock_endread(&self->i_lock))
+  if (rwlock_endread(&xself->i_lock))
       goto again;
  }
  return result;
 }
 PUBLIC size_t KCALL
-inode_write(struct inode *__restrict EXCEPT_VAR self,
+inode_write(struct inode *__restrict self,
             CHECKED USER void const *buf,
             size_t bufsize, pos_t pos, iomode_t flags) {
+ struct inode *EXCEPT_VAR xself = self;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  rwlock_writef(&self->i_lock,flags);
  TRY {
-  if unlikely(INODE_ISCLOSED(self))
+  if unlikely(INODE_ISCLOSED(xself))
    result = 0; /* INode was closed. */
-  else if likely(self->i_ops->io_file.f_pwrite)
-   result = (*self->i_ops->io_file.f_pwrite)(self,buf,bufsize,pos,flags);
-  else if (S_ISCHR(self->i_attr.a_mode)) {
+  else if likely(xself->i_ops->io_file.f_pwrite)
+   result = (*xself->i_ops->io_file.f_pwrite)(xself,buf,bufsize,pos,flags);
+  else if (S_ISCHR(xself->i_attr.a_mode)) {
    REF struct character_device *EXCEPT_VAR dev;
    result = 0; /* Try to write using the pwrite() operator of a pointed-to character device. */
-   if ((dev = try_lookup_character_device(self->i_attr.a_rdev)) != NULL) {
+   if ((dev = try_lookup_character_device(xself->i_attr.a_rdev)) != NULL) {
     TRY {
      /* Invoke the pwrite() operator of the character device (if it exists) */
      if (dev->c_ops->c_file.f_pwrite)
@@ -217,7 +219,7 @@ inode_write(struct inode *__restrict EXCEPT_VAR self,
    result = 0; /* No way of writing data */
   }
  } FINALLY {
-  rwlock_endwrite(&self->i_lock);
+  rwlock_endwrite(&xself->i_lock);
  }
  return result;
 }
@@ -296,7 +298,8 @@ inode_changed(struct inode *__restrict self) {
 
 /* Ensure that attributes have been loaded for the given INode. */
 PUBLIC void KCALL
-inode_loadattr(struct inode *__restrict EXCEPT_VAR self) {
+inode_loadattr(struct inode *__restrict self) {
+ struct inode *EXCEPT_VAR xself = self;
  /* Check attribute have already been loaded. */
  if (!(self->i_flags&INODE_FATTRLOADED)) {
   assert(self->i_ops->io_loadattr);
@@ -312,8 +315,8 @@ inode_loadattr(struct inode *__restrict EXCEPT_VAR self) {
   } FINALLY {
    /* Set the attributes-loaded flag on success. */
    if (!FINALLY_WILL_RETHROW)
-        self->i_flags |= INODE_FATTRLOADED;
-   rwlock_endwrite(&self->i_lock);
+        xself->i_flags |= INODE_FATTRLOADED;
+   rwlock_endwrite(&xself->i_lock);
   }
  }
 }
@@ -328,6 +331,7 @@ inode_loadattr(struct inode *__restrict EXCEPT_VAR self) {
 PUBLIC void KCALL
 inode_truncate(struct inode *__restrict EXCEPT_VAR self,
                pos_t new_smaller_size) {
+ struct inode *EXCEPT_VAR xself = self;
  inode_access(self,W_OK);
  if (!self->i_ops->io_file.f_truncate)
       throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
@@ -341,7 +345,7 @@ inode_truncate(struct inode *__restrict EXCEPT_VAR self,
   /* Update the size attribute. */
   self->i_attr.a_size = new_smaller_size;
  } FINALLY {
-  rwlock_endwrite(&self->i_lock);
+  rwlock_endwrite(&xself->i_lock);
  }
 }
 
@@ -421,8 +425,9 @@ inode_pathconf(struct inode *__restrict self, int name) {
 }
 
 PUBLIC void KCALL
-inode_stat(struct inode *__restrict EXCEPT_VAR self,
+inode_stat(struct inode *__restrict self,
            USER CHECKED struct stat64 *result) {
+ struct inode *EXCEPT_VAR xself = self;
  struct block_device *superdev;
 again:
  rwlock_read(&self->i_lock);
@@ -450,7 +455,7 @@ again:
   result->st_ctim32.tv_nsec = result->st_ctim64.tv_nsec = self->i_attr.a_ctime.tv_nsec;
   COMPILER_WRITE_BARRIER();
  } FINALLY {
-  if (rwlock_endread(&self->i_lock))
+  if (rwlock_endread(&xself->i_lock))
       goto again;
  }
 }
@@ -467,10 +472,11 @@ inode_poll(struct inode *__restrict self,
 
 
 PUBLIC void KCALL
-inode_chtime(struct inode *__restrict EXCEPT_VAR self,
+inode_chtime(struct inode *__restrict self,
              struct timespec *new_atime,
              struct timespec *new_mtime,
              struct timespec *new_ctime) {
+ struct inode *EXCEPT_VAR xself = self;
  /* Check if attributes can be modified. */
  if unlikely(!self->i_ops->io_saveattr)
     throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
@@ -492,15 +498,16 @@ inode_chtime(struct inode *__restrict EXCEPT_VAR self,
   /* Mark the INode as having changed. */
   inode_changed(self);
  } FINALLY {
-  rwlock_endwrite(&self->i_lock);
+  rwlock_endwrite(&xself->i_lock);
  }
 }
 
 
 
 PUBLIC mode_t KCALL
-inode_chmod(struct inode *__restrict EXCEPT_VAR self,
+inode_chmod(struct inode *__restrict self,
             mode_t perm_mask, mode_t perm_flag) {
+ struct inode *EXCEPT_VAR xself = self;
  mode_t COMPILER_IGNORE_UNINITIALIZED(result),old_mode;
  if (!self->i_ops->io_saveattr)
       throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
@@ -525,14 +532,15 @@ inode_chmod(struct inode *__restrict EXCEPT_VAR self,
    }
   }
  } FINALLY {
-  rwlock_endwrite(&self->i_lock);
+  rwlock_endwrite(&xself->i_lock);
  }
  return result;
 }
 
 PUBLIC void KCALL
-inode_chown(struct inode *__restrict EXCEPT_VAR self,
+inode_chown(struct inode *__restrict self,
             uid_t owner, gid_t group) {
+ struct inode *EXCEPT_VAR xself = self;
  if (!self->i_ops->io_saveattr)
       throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
  rwlock_write(&self->i_lock);
@@ -558,7 +566,7 @@ inode_chown(struct inode *__restrict EXCEPT_VAR self,
    }
   }
  } FINALLY {
-  rwlock_endwrite(&self->i_lock);
+  rwlock_endwrite(&xself->i_lock);
  }
 }
 
@@ -595,7 +603,8 @@ inode_syncatttr(struct inode *__restrict self) {
  * @throw: E_IO_ERROR:              [...]
  * @throw: ERROR_FS_FILE_NOT_FOUND: [...] */
 PUBLIC void KCALL
-symlink_node_load(struct symlink_node *__restrict EXCEPT_VAR self) {
+symlink_node_load(struct symlink_node *__restrict self) {
+ struct symlink_node *EXCEPT_VAR xself = self;
  assert(INODE_ISLNK(&self->sl_node));
  /* Check if the symbolic link has already been loaded. */
  if (self->sl_text == NULL) {
@@ -609,7 +618,7 @@ symlink_node_load(struct symlink_node *__restrict EXCEPT_VAR self) {
     (*self->sl_node.i_ops->io_symlink.sl_readlink)(self);
    }
   } FINALLY {
-   rwlock_endwrite(&self->sl_node.i_lock);
+   rwlock_endwrite(&xself->sl_node.i_lock);
   }
  }
 }
@@ -650,9 +659,10 @@ directory_rehash(struct directory_node *__restrict self) {
  * once the entirety of the directory has been loaded.
  * NOTE: The caller must be holding a read-lock on the directory INode. */
 PUBLIC WUNUSED struct directory_entry *KCALL
-directory_readnext(struct directory_node *__restrict EXCEPT_VAR self,
+directory_readnext(struct directory_node *__restrict self,
                    iomode_t flags) {
- struct directory_entry *COMPILER_IGNORE_UNINITIALIZED(result);
+ struct directory_node *EXCEPT_VAR xself = self;
+ struct directory_entry *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
  pos_t last_directory_position;
 #ifndef NDEBUG
  pos_t entry_start_position;
@@ -772,7 +782,7 @@ continue_reading:
   /* Release the write-lock (the caller still has a read-lock,
    * so we don't have to return a reference, but can simply forward
    * the weakly referenced directory entry from the hash-map) */
-  rwlock_endwrite(&self->d_node.i_lock);
+  rwlock_endwrite(&xself->d_node.i_lock);
  }
  assert(rwlock_reading(&self->d_node.i_lock));
  return result;
@@ -897,9 +907,10 @@ read_directory:
 /* Same as `directory_getentry()', but automatically dereference
  * the directory entry to retrieve the associated INode. */
 PUBLIC WUNUSED REF struct inode *KCALL
-directory_getnode(struct directory_node *__restrict EXCEPT_VAR self,
+directory_getnode(struct directory_node *__restrict self,
                   CHECKED USER char const *__restrict name,
                   u16 namelen, uintptr_t hash) {
+ struct directory_node *EXCEPT_VAR xself = self;
  struct directory_entry *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(entry);
  REF struct inode *COMPILER_IGNORE_UNINITIALIZED(result);
 again:
@@ -909,7 +920,7 @@ again:
   /* Load a reference to the entry. */
   if (entry) directory_entry_incref(entry);
  } FINALLY {
-  if (rwlock_endread(&self->d_node.i_lock))
+  if (rwlock_endread(&xself->d_node.i_lock))
       goto again;
  }
  if (!entry) return NULL;
@@ -927,9 +938,10 @@ again:
  return result;
 }
 PUBLIC WUNUSED REF struct inode *KCALL
-directory_getcasenode(struct directory_node *__restrict EXCEPT_VAR self,
+directory_getcasenode(struct directory_node *__restrict self,
                       CHECKED USER char const *__restrict name,
                       u16 namelen, uintptr_t hash) {
+ struct directory_node *EXCEPT_VAR xself = self;
  struct directory_entry *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(entry);
  REF struct inode *COMPILER_IGNORE_UNINITIALIZED(result);
 again:
@@ -939,7 +951,7 @@ again:
   /* Load a reference to the entry. */
   if (entry) directory_entry_incref(entry);
  } FINALLY {
-  if (rwlock_endread(&self->d_node.i_lock))
+  if (rwlock_endread(&xself->d_node.i_lock))
       goto again;
  }
  if (!entry) return NULL;
@@ -1099,11 +1111,13 @@ directory_addentry(struct directory_node *__restrict self,
 
 
 PUBLIC WUNUSED ATTR_RETNONNULL REF struct inode *KCALL
-directory_creatfile(struct directory_node *__restrict EXCEPT_VAR self,
+directory_creatfile(struct directory_node *__restrict self,
                     CHECKED USER char const *__restrict name,
                     u16 namelen, oflag_t open_mode,
                     uid_t owner, gid_t group, mode_t mode,
-                    REF struct directory_entry **EXCEPT_VAR pentry) {
+                    REF struct directory_entry **pentry) {
+ struct directory_node *EXCEPT_VAR xself = self;
+ REF struct directory_entry **EXCEPT_VAR xpentry = pentry;
  REF struct regular_node *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
  REF struct directory_entry *EXCEPT_VAR result_dirent;
  assert(rwlock_reading(&self->d_node.i_lock));
@@ -1213,8 +1227,8 @@ directory_creatfile(struct directory_node *__restrict EXCEPT_VAR self,
     /* assert(result->de_type != DT_WHT); // Actually, this is allowed... */
     directory_addentry(self,(struct directory_entry **)&result_dirent);
    } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
-    if (pentry && *pentry)
-        directory_entry_decref(*pentry);
+    if (xpentry && *xpentry)
+        directory_entry_decref(*xpentry);
     /* DECREF() the newly generated INode on error.
      * NOTE: Also unset the dir-loaded flag and rewind the
      *       directory load address, because now there is
@@ -1229,7 +1243,7 @@ directory_creatfile(struct directory_node *__restrict EXCEPT_VAR self,
     error_rethrow();
    }
   } FINALLY {
-   rwlock_endwrite(&self->d_node.i_lock);
+   rwlock_endwrite(&xself->d_node.i_lock);
   }
  } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
   kfree(result_dirent);
@@ -1241,10 +1255,11 @@ directory_creatfile(struct directory_node *__restrict EXCEPT_VAR self,
 
 
 PUBLIC void KCALL
-directory_remove(struct directory_node *__restrict EXCEPT_VAR self,
+directory_remove(struct directory_node *__restrict self,
                  CHECKED USER char const *__restrict name,
                  u16 namelen, uintptr_t hash, unsigned int mode,
                  struct path *self_path) {
+ struct directory_node *EXCEPT_VAR xself = self;
  REF struct inode *EXCEPT_VAR node;
  struct directory_entry *COMPILER_IGNORE_UNINITIALIZED(entry);
  struct directory_entry **pentry;
@@ -1364,7 +1379,7 @@ directory_remove(struct directory_node *__restrict EXCEPT_VAR self,
   if (self_path)
       path_delchild(self_path,self,entry);
  } FINALLY {
-  rwlock_endwrite(&self->d_node.i_lock);
+  rwlock_endwrite(&xself->d_node.i_lock);
  }
  /* Drop a reference from the directory entry we've just removed. */
  directory_entry_decref(entry);
@@ -1378,6 +1393,8 @@ directory_rename(struct directory_node *__restrict EXCEPT_VAR source_directory,
                  struct directory_node *__restrict EXCEPT_VAR target_directory,
                  CHECKED USER char const *__restrict target_name,
                  u16 target_namelen) {
+ struct directory_node *EXCEPT_VAR xsource_directory = source_directory;
+ struct directory_node *EXCEPT_VAR xtarget_directory = target_directory;
  REF struct directory_entry *target_dirent;
  bool inherit_source_dirent_reference = false;
  /* Disallow renaming of mounting points.
@@ -1508,13 +1525,13 @@ directory_rename(struct directory_node *__restrict EXCEPT_VAR source_directory,
      inode_decref(source_node);
     }
    } FINALLY {
-    rwlock_endwrite(&source_directory->d_node.i_lock);
+    rwlock_endwrite(&xsource_directory->d_node.i_lock);
    }
    /* Add the new target directory entry to the target directory (if we haven't already). */
    if (target_dirent)
        directory_addentry(target_directory,&target_dirent);
   } FINALLY {
-   rwlock_endwrite(&target_directory->d_node.i_lock);
+   rwlock_endwrite(&xtarget_directory->d_node.i_lock);
   }
  } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
   if (inherit_source_dirent_reference)
@@ -1532,10 +1549,11 @@ directory_rename(struct directory_node *__restrict EXCEPT_VAR source_directory,
 }
 
 PUBLIC void KCALL
-directory_link(struct directory_node *__restrict EXCEPT_VAR target_directory,
+directory_link(struct directory_node *__restrict target_directory,
                CHECKED USER char const *__restrict target_name,
                u16 target_namelen, struct inode *__restrict EXCEPT_VAR link_target,
                bool ignore_casing) {
+ struct directory_node *EXCEPT_VAR xtarget_directory = target_directory;
  REF struct directory_entry *EXCEPT_VAR target_dirent;
  /* Check for cross-device links. */
  if unlikely(link_target->i_super != target_directory->d_node.i_super)
@@ -1602,7 +1620,7 @@ directory_link(struct directory_node *__restrict EXCEPT_VAR target_directory,
    /* Add the new target directory entry to the target directory. */
    directory_addentry(target_directory,(struct directory_entry **)&target_dirent);
   } FINALLY {
-   rwlock_endwrite(&target_directory->d_node.i_lock);
+   rwlock_endwrite(&xtarget_directory->d_node.i_lock);
   }
  } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
   kfree(target_dirent);
@@ -1614,10 +1632,11 @@ directory_link(struct directory_node *__restrict EXCEPT_VAR target_directory,
 }
 
 PUBLIC WUNUSED ATTR_RETNONNULL REF struct symlink_node *KCALL
-directory_symlink(struct directory_node *__restrict EXCEPT_VAR target_directory,
+directory_symlink(struct directory_node *__restrict target_directory,
                   CHECKED USER char const *__restrict target_name, u16 target_namelen,
                   CHECKED USER char const *__restrict link_text, size_t link_text_size,
                   uid_t owner, gid_t group, mode_t mode, bool ignore_casing) {
+ struct directory_node *EXCEPT_VAR xtarget_directory = target_directory;
  REF struct directory_entry *EXCEPT_VAR target_dirent;
  REF struct symlink_node *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(link_node);
  /* Check if the target directory even supports symbolic links. */
@@ -1703,7 +1722,7 @@ directory_symlink(struct directory_node *__restrict EXCEPT_VAR target_directory,
     superblock_addnode(target_directory->d_node.i_super,
                       (struct inode *)link_node);
    } FINALLY {
-    rwlock_endwrite(&target_directory->d_node.i_lock);
+    rwlock_endwrite(&xtarget_directory->d_node.i_lock);
    }
   } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
    inode_decref((struct inode *)link_node);
@@ -1721,10 +1740,11 @@ directory_symlink(struct directory_node *__restrict EXCEPT_VAR target_directory,
 
 
 PUBLIC WUNUSED ATTR_RETNONNULL REF struct inode *KCALL
-directory_mknod(struct directory_node *__restrict EXCEPT_VAR target_directory,
+directory_mknod(struct directory_node *__restrict target_directory,
                 CHECKED USER char const *__restrict target_name,
                 u16 target_namelen, mode_t mode, uid_t owner,
                 gid_t group, dev_t referenced_device, bool ignore_casing) {
+ struct directory_node *EXCEPT_VAR xtarget_directory = target_directory;
  REF struct directory_entry *EXCEPT_VAR target_dirent;
  REF struct inode *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(device_node);
  if (S_ISREG(mode)) {
@@ -1822,7 +1842,7 @@ directory_mknod(struct directory_node *__restrict EXCEPT_VAR target_directory,
     superblock_addnode(target_directory->d_node.i_super,
                       (struct inode *)device_node);
    } FINALLY {
-    rwlock_endwrite(&target_directory->d_node.i_lock);
+    rwlock_endwrite(&xtarget_directory->d_node.i_lock);
    }
   } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
    inode_decref((struct inode *)device_node);
@@ -1868,10 +1888,11 @@ KCALL directory_node_alloc(void) {
 
 
 PUBLIC REF struct directory_node *KCALL
-directory_mkdir(struct directory_node *__restrict EXCEPT_VAR target_directory,
+directory_mkdir(struct directory_node *__restrict target_directory,
                 CHECKED USER char const *__restrict target_name,
                 u16 target_namelen, mode_t mode, uid_t owner,
                 gid_t group, bool ignore_casing) {
+ struct directory_node *EXCEPT_VAR xtarget_directory = target_directory;
  REF struct directory_entry *EXCEPT_VAR target_dirent;
  REF struct directory_node *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(dir_node);
 
@@ -1953,7 +1974,7 @@ directory_mkdir(struct directory_node *__restrict EXCEPT_VAR target_directory,
     superblock_addnode(target_directory->d_node.i_super,
                       (struct inode *)dir_node);
    } FINALLY {
-    rwlock_endwrite(&target_directory->d_node.i_lock);
+    rwlock_endwrite(&xtarget_directory->d_node.i_lock);
    }
   } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
    inode_decref((struct inode *)dir_node);

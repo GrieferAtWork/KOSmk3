@@ -499,7 +499,50 @@ extern bool FINALLY_WILL_RETHROW;
  * >>     debug_printf("In finally %d\n",x);
  * >> }
  * NOTE: This modifier is not required for variables
- *       that are passed to functions as pointers. */
+ *       that are passed to functions as pointers.
+ * WARNING: GCC bug?
+ *     GCC seems to ignore `volatile' in function arguments and will load
+ *     such arguments into registers and access them that way regardless.
+ * ... This is _real_ baaaad. Especially considering that KOS relies on
+ *     the fact that volatile variables are immediately saved (to memory)
+ *     during every access, as well as remain allocated in a stack frame
+ *     for as long as they remain visible.
+ * I realize that this once again scrapes the definition of `volatile', and
+ * having read the logs of more an one bug report filed for GCC that was
+ * related to the interpretation of the C standard, or the request for a
+ * change to some semantic meaning, where the change would allow for more
+ * interesting and useful coding tricks, there'd probably be no point in
+ * even mentioning this... :(
+ * Because _NOT_ _A_ _SINGLE_ _TIME_ did one of those bugs get resolved,
+ * and _EVERY_ _ONE_ _OF_ _THEM_ ends with:
+ *   >> F$ck off. We own gcc, and if you don't like it: make your own compiler.
+ * As a workaround however, it seems as though you can simply do this:
+ * >> void foo(int x) {
+ * >>     int EXCEPT_VAR except_x = x;
+ * >>     printf("x = %d\n",x); // Can use the regular `x' here
+ * >>     TRY {
+ * >>         something_dangerous();
+ * >>     } FINALLY {
+ * >>         printf("x = %d\n",except_x); // Must use `except_x' here
+ * >>     }
+ * >> }
+ * Instead of this:
+ * >> void foo(int EXCEPT_VAR x) {
+ * >>     printf("x = %d\n",x);
+ * >>     TRY {
+ * >>         something_dangerous();
+ * >>     } FINALLY {
+ * >>         // GCC ignores `volatile' and may generate code that puts
+ * >>         // `x' into a register prior to the `TRY' above, meaning
+ * >>         // that this could (definitly incorrectly) be compiled as:
+ * >>         // >> pushl  %eax   // If `x' was loaded into EAX
+ * >>         // >> pushl  $.Lx_eq_percent_d
+ * >>         // >> call   printf
+ * >>         // >> addl   $8, %esp
+ * >>         printf("x = %d\n",x);
+ * >>     }
+ * >> }
+ */
 #ifdef __INTELLISENSE__
 #define EXCEPT_VAR  /* nothing */
 #else

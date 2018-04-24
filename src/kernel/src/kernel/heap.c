@@ -1300,9 +1300,12 @@ again:
 }
 
 PUBLIC size_t KCALL
-heap_allat_untraced(struct heap *__restrict EXCEPT_VAR self,
-                    VIRT void *__restrict EXCEPT_VAR ptr,
-                    size_t num_bytes, gfp_t EXCEPT_VAR flags) {
+heap_allat_untraced(struct heap *__restrict self,
+                    VIRT void *__restrict ptr,
+                    size_t num_bytes, gfp_t flags) {
+ struct heap *EXCEPT_VAR xself = self;
+ VIRT void *EXCEPT_VAR xptr = ptr;
+ gfp_t EXCEPT_VAR xflags = flags;
  size_t unused_size,alloc_size;
  size_t EXCEPT_VAR result = 0;
  if unlikely(__builtin_add_overflow(num_bytes,HEAP_ALIGNMENT-1,&alloc_size))
@@ -1320,7 +1323,7 @@ heap_allat_untraced(struct heap *__restrict EXCEPT_VAR self,
                              flags);
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
    if (result)
-       heap_free_untraced(self,ptr,result,flags);
+       heap_free_untraced(xself,xptr,result,xflags);
    error_rethrow();
   }
   if unlikely(!part) {
@@ -1533,11 +1536,12 @@ heap_align_untraced(struct heap *__restrict self,
 }
 
 PUBLIC struct heapptr KCALL
-heap_realloc_untraced(struct heap *__restrict EXCEPT_VAR self,
-             VIRT void *old_ptr, size_t old_bytes,
-             size_t new_bytes,
-             gfp_t EXCEPT_VAR alloc_flags,
-             gfp_t free_flags) {
+heap_realloc_untraced(struct heap *__restrict self,
+                      VIRT void *old_ptr, size_t old_bytes,
+                      size_t new_bytes, gfp_t alloc_flags,
+                      gfp_t free_flags) {
+ struct heap *EXCEPT_VAR xself = self;
+ gfp_t EXCEPT_VAR xalloc_flags = alloc_flags;
  struct heapptr EXCEPT_VAR result; size_t missing_bytes;
  assert(IS_ALIGNED(old_bytes,HEAP_ALIGNMENT));
  assert(!old_bytes || IS_ALIGNED((uintptr_t)old_ptr,HEAP_ALIGNMENT));
@@ -1574,8 +1578,8 @@ heap_realloc_untraced(struct heap *__restrict EXCEPT_VAR self,
   /* The try block is here because of the possibility of a LOA failure. */
   memcpy(result.hp_ptr,old_ptr,old_bytes);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  heap_free_untraced(self,result.hp_ptr,result.hp_siz,
-                     alloc_flags & ~GFP_CALLOC);
+  heap_free_untraced(xself,result.hp_ptr,result.hp_siz,
+                     xalloc_flags & ~GFP_CALLOC);
   error_rethrow();
  }
  /* Free the old data block. */
@@ -1584,12 +1588,13 @@ heap_realloc_untraced(struct heap *__restrict EXCEPT_VAR self,
  return result;
 }
 PUBLIC struct heapptr KCALL
-heap_realign_untraced(struct heap *__restrict EXCEPT_VAR self,
+heap_realign_untraced(struct heap *__restrict self,
                       VIRT void *old_ptr, size_t old_bytes,
                       size_t min_alignment, ptrdiff_t offset,
-                      size_t new_bytes,
-                      gfp_t EXCEPT_VAR alloc_flags,
+                      size_t new_bytes, gfp_t alloc_flags,
                       gfp_t free_flags) {
+ struct heap *EXCEPT_VAR xself = self;
+ gfp_t EXCEPT_VAR xalloc_flags = alloc_flags;
  struct heapptr EXCEPT_VAR result; size_t missing_bytes;
  assert(IS_ALIGNED(old_bytes,HEAP_ALIGNMENT));
  assert(!old_bytes || IS_ALIGNED((uintptr_t)old_ptr,HEAP_ALIGNMENT));
@@ -1626,8 +1631,8 @@ heap_realign_untraced(struct heap *__restrict EXCEPT_VAR self,
   /* The try block is here because of the possibility of a LOA failure. */
   memcpy(result.hp_ptr,old_ptr,old_bytes);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  heap_free_untraced(self,result.hp_ptr,result.hp_siz,
-                     alloc_flags & ~GFP_CALLOC);
+  heap_free_untraced(xself,result.hp_ptr,result.hp_siz,
+                     xalloc_flags & ~GFP_CALLOC);
   error_rethrow();
  }
  /* Free the old data block. */

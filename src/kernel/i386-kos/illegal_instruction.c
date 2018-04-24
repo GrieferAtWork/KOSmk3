@@ -87,8 +87,10 @@ x86_handle_illegal_instruction(struct x86_anycontext *__restrict context) {
 
 
 INTERN void FCALL
-x86_handle_gpf(struct cpu_anycontext *__restrict EXCEPT_VAR context,
-               register_t EXCEPT_VAR errcode) {
+x86_handle_gpf(struct cpu_anycontext *__restrict context,
+               register_t errcode) {
+ struct cpu_anycontext *EXCEPT_VAR xcontext = context;
+ register_t EXCEPT_VAR xerrcode = errcode;
  struct exception_info *EXCEPT_VAR info;
  u16 EXCEPT_VAR flags;
  u16 EXCEPT_VAR effective_segment_value = 0;
@@ -389,9 +391,9 @@ extend_instruction:
  }
 do_throw_error:
  /* Copy the CPU context at the time of the exception. */
- fix_user_context(context);
- memcpy(&info->e_context,&context->c_host,sizeof(struct cpu_context));
- error_rethrow_atuser((struct cpu_context *)context);
+ fix_user_context(xcontext);
+ memcpy(&info->e_context,&xcontext->c_host,sizeof(struct cpu_context));
+ error_rethrow_atuser((struct cpu_context *)xcontext);
  return;
 null_segment_error:
 #ifdef E_INVALID_SEGMENT
@@ -399,7 +401,7 @@ null_segment_error:
 #else
  info->e_error.e_code = E_ILLEGAL_INSTRUCTION;
 #endif
- info->e_error.e_illegal_instruction.ii_errcode = errcode;
+ info->e_error.e_illegal_instruction.ii_errcode = xerrcode;
  info->e_error.e_illegal_instruction.ii_type = (ERROR_ILLEGAL_INSTRUCTION_UNDEFINED|
                                                 ERROR_ILLEGAL_INSTRUCTION_FVALUE|
                                                 ERROR_ILLEGAL_INSTRUCTION_FREGISTER);
@@ -421,12 +423,12 @@ generic_failure:
  /* If the error originated from user-space, default to assuming it's
   * because of some privileged instruction not explicitly handled
   * above. (e.g.: `wbinvd') */
- if (context->c_iret.ir_cs & 3)
+ if (xcontext->c_iret.ir_cs & 3)
      goto e_privileged_instruction;
  /* In kernel space, this one's a wee bit more complicated... */
  info->e_error.e_code = E_UNHANDLED_INTERRUPT;
  info->e_error.e_unhandled_interrupt.ui_intcode = X86_E_SYSTEM_GP & 0xff;
- info->e_error.e_unhandled_interrupt.ui_errcode = errcode;
+ info->e_error.e_unhandled_interrupt.ui_errcode = xerrcode;
  goto do_throw_error;
 e_privileged_instruction:
  /* Throw a privileged-instruction error. */

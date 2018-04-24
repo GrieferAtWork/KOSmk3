@@ -192,8 +192,10 @@ KCALL pty_allocmaster(struct ptyslave *__restrict master) {
 
 
 PUBLIC void KCALL
-pty_register(struct ptymaster *__restrict EXCEPT_VAR master,
-             struct ptyslave *__restrict EXCEPT_VAR slave) {
+pty_register(struct ptymaster *__restrict master,
+             struct ptyslave *__restrict slave) {
+ struct ptymaster *EXCEPT_VAR xmaster = master;
+ struct ptyslave *EXCEPT_VAR xslave = slave;
  struct pty_devpair EXCEPT_VAR ids;
  /* Allocate a pair of device IDs. */
 again:
@@ -243,8 +245,8 @@ again:
    /* NOTE: If the error happened while registering `slave',
     *       then we can't remove its devfs node, because
     *       that operation may cause another error... */
-   unregister_device_nodevfs((struct device *)slave);
-   unregister_device_nodevfs((struct device *)master);
+   unregister_device_nodevfs((struct device *)xslave);
+   unregister_device_nodevfs((struct device *)xmaster);
    error_rethrow();
   }
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {

@@ -371,8 +371,9 @@ use_root:
 
 
 PRIVATE ATTR_RETNONNULL REF struct path *KCALL
-dosfs_path(struct path *EXCEPT_VAR cwd, USER CHECKED char const *path,
+dosfs_path(struct path *cwd_, USER CHECKED char const *path,
            size_t pathlen, REF struct inode **pnode, int flags) {
+ struct path *EXCEPT_VAR cwd = cwd_;
  struct fs *f = THIS_FS; u16 max_links;
  REF struct path *EXCEPT_VAR root;
  REF struct path *COMPILER_IGNORE_UNINITIALIZED(result);
@@ -538,8 +539,9 @@ got_result:
  * @throw: E_FILESYSTEM_ERROR.ERROR_FS_TOO_MANY_LINKS:       [...]
  * @throw: E_FILESYSTEM_ERROR.ERROR_FS_FILENAME_TOO_LONG:    [...] */
 PUBLIC ATTR_RETNONNULL REF struct path *KCALL
-fs_path(struct path *EXCEPT_VAR cwd, USER CHECKED char const *path,
+fs_path(struct path *cwd_, USER CHECKED char const *path,
         size_t pathlen, REF struct inode **pnode, int flags) {
+ struct path *EXCEPT_VAR cwd = cwd_;
  struct fs *f = THIS_FS; u16 max_links;
  REF struct path *EXCEPT_VAR root;
  REF struct path *COMPILER_IGNORE_UNINITIALIZED(result);

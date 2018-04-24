@@ -1074,7 +1074,8 @@ done:
 
 PUBLIC size_t KCALL
 vm_unmap(vm_vpage_t page, size_t num_pages,
-         unsigned int EXCEPT_VAR mode, void *tag) {
+         unsigned int mode, void *tag) {
+ unsigned int EXCEPT_VAR xmode = mode;
  size_t result = 0;
  struct vm *EXCEPT_VAR effective_vm;
  struct vm_node *EXCEPT_VAR nodes = NULL;
@@ -1137,7 +1138,7 @@ done_unlock:;
  } FINALLY {
   /* If the sync flag is set, automatically sync
    * unmapped memory before unlocking the VM. */
-  if (mode & VM_UNMAP_SYNC)
+  if (xmode & VM_UNMAP_SYNC)
       vm_sync(unmap_min,(unmap_max-unmap_min)+1);
   vm_release(effective_vm);
   /* Drop all nodes that were unmapped. */
@@ -1164,7 +1165,7 @@ done_unlock:;
    vm_node_free(nodes);
    nodes = next;
   }
-  if (mode & VM_UNMAP_NOEXCEPT)
+  if (xmode & VM_UNMAP_NOEXCEPT)
       task_nothrow_end();
  }
 done:
@@ -1244,8 +1245,9 @@ PUBLIC void KCALL vm_maps_delete(struct vm_maps self) {
  * @param: mode:       Set of `VM_EXTRACT_*'
  * @param: tag:        Tag used to select which mappings to extract. */
 PUBLIC struct vm_maps KCALL
-vm_extract(VIRT vm_vpage_t EXCEPT_VAR page_index, size_t num_pages,
+vm_extract(VIRT vm_vpage_t page_index, size_t num_pages,
            unsigned int mode, void *tag) {
+ VIRT vm_vpage_t EXCEPT_VAR xpage_index = page_index;
  STATIC_ASSERT(VM_UNMAP_TAG == VM_EXTRACT_TAG);
  struct vm_maps EXCEPT_VAR result;
  struct vm *EXCEPT_VAR effective_vm;
@@ -1319,8 +1321,8 @@ incomplete_unmap:
     /* Try to re-map all nodes that were already unmapped. */
     for (; temp != iter; temp = temp->vn_byaddr.le_next) {
      /* Restore the relative node position. */
-     temp->vn_node.a_vmin += page_index;
-     temp->vn_node.a_vmax += page_index;
+     temp->vn_node.a_vmin += xpage_index;
+     temp->vn_node.a_vmax += xpage_index;
      if (temp->vn_notify) {
       INVOKE_NOTIFY_V(temp->vn_notify,
                       temp->vn_closure,
@@ -1361,9 +1363,11 @@ done:
  * @param: mode: One of `VM_RESTORE_*'
  * @return: * :  The actual number of restored pages. */
 FUNDEF size_t KCALL
-vm_restore(VIRT vm_vpage_t EXCEPT_VAR page_index,
-           struct vm_maps EXCEPT_VAR maps,
+vm_restore(VIRT vm_vpage_t page_index,
+           struct vm_maps maps,
            unsigned int mode) {
+ VIRT vm_vpage_t EXCEPT_VAR xpage_index = page_index;
+ struct vm_maps EXCEPT_VAR xmaps = maps;
  struct vm *EXCEPT_VAR effective_vm;
  struct vm_node *EXCEPT_VAR iter;
  struct vm_node *next;
@@ -1415,7 +1419,7 @@ vm_restore(VIRT vm_vpage_t EXCEPT_VAR page_index,
      iter = iter->vn_byaddr.le_next;
     }
    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-    next = maps.v_maps;
+    next = xmaps.v_maps;
     while (next != iter) {
      if (next->vn_notify) {
       INVOKE_NOTIFY_V(next->vn_notify,
@@ -1449,10 +1453,10 @@ vm_restore(VIRT vm_vpage_t EXCEPT_VAR page_index,
   }
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Restore the original node relations. */
-  iter = maps.v_maps;
+  iter = xmaps.v_maps;
   for (; iter; iter = iter->vn_byaddr.le_next) {
-   iter->vn_node.a_vmin -= page_index;
-   iter->vn_node.a_vmax -= page_index;
+   iter->vn_node.a_vmin -= xpage_index;
+   iter->vn_node.a_vmax -= xpage_index;
   }
   error_rethrow();
  }
@@ -1817,9 +1821,11 @@ vm_region_mergenext(struct vm_region *__restrict region,
 
 
 PUBLIC ATTR_NOTHROW void KCALL
-vm_merge_before(struct vm *__restrict EXCEPT_VAR effective_vm,
+vm_merge_before(struct vm *__restrict effective_vm,
                 vm_vpage_t page_address) {
+ struct vm *EXCEPT_VAR xeffective_vm = effective_vm;
 #ifndef CONFIG_VM_MERGING
+ (void)xeffective_vm;
  (void)effective_vm;
  (void)page_address;
 #else /* !CONFIG_VM_MERGING */
@@ -2177,8 +2183,8 @@ dont_merge:
    }
   } FINALLY {
    /* Delete the is-merging flag. */
-   assert(FORVM(effective_vm,vm_is_merging));
-   FORVM(effective_vm,vm_is_merging) = false;
+   assert(FORVM(xeffective_vm,vm_is_merging));
+   FORVM(xeffective_vm,vm_is_merging) = false;
    if (FINALLY_WILL_RETHROW &&
        error_code() == E_BADALLOC)
        return; /* Ignore failure to allocate a combining region. */
@@ -2678,12 +2684,16 @@ vm_destroy(struct vm *__restrict self) {
 
 PUBLIC void KCALL
 vm_mapat(vm_vpage_t page_index,
-         size_t EXCEPT_VAR num_pages,
-         vm_raddr_t EXCEPT_VAR region_start,
-         struct vm_region *__restrict EXCEPT_VAR region,
+         size_t num_pages,
+         vm_raddr_t region_start,
+         struct vm_region *__restrict region,
          vm_prot_t prot,
-         vm_notify_t EXCEPT_VAR notify,
+         vm_notify_t notify,
          void *closure) {
+ size_t EXCEPT_VAR xnum_pages = num_pages;
+ vm_raddr_t EXCEPT_VAR xregion_start = region_start;
+ struct vm_region *EXCEPT_VAR xregion = region;
+ vm_notify_t EXCEPT_VAR xnotify = notify;
  struct vm_node *EXCEPT_VAR node;
  struct vm *EXCEPT_VAR effective_vm;
  if unlikely(!num_pages) return;
@@ -2771,13 +2781,13 @@ vm_mapat(vm_vpage_t page_index,
      vm_release(effective_vm);
     }
    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-    vm_region_decref_range(region,region_start,num_pages);
+    vm_region_decref_range(xregion,xregion_start,xnum_pages);
     error_rethrow();
    }
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-   vm_region_decref(region);
-   if (notify) {
-    INVOKE_NOTIFY_V(notify,
+   vm_region_decref(xregion);
+   if (xnotify) {
+    INVOKE_NOTIFY_V(xnotify,
                     node->vn_closure,
                     VM_NOTIFY_DECREF,
                     0,
@@ -2795,15 +2805,19 @@ vm_mapat(vm_vpage_t page_index,
 
 PUBLIC VIRT void *KCALL
 vm_map(vm_vpage_t hint,
-       size_t EXCEPT_VAR num_pages,
+       size_t num_pages,
        size_t min_alignment_in_pages,
        size_t min_gap_size,
        unsigned int getfree_mode,
-       vm_raddr_t EXCEPT_VAR region_start, 
-       struct vm_region *__restrict EXCEPT_VAR region,
+       vm_raddr_t region_start, 
+       struct vm_region *__restrict region,
        vm_prot_t prot,
-       vm_notify_t EXCEPT_VAR notify,
+       vm_notify_t notify,
        void *closure) {
+ size_t EXCEPT_VAR xnum_pages = num_pages;
+ vm_raddr_t EXCEPT_VAR xregion_start = region_start;
+ struct vm_region *EXCEPT_VAR xregion = region;
+ vm_notify_t EXCEPT_VAR xnotify = notify;
  struct vm_node *EXCEPT_VAR node;
  vm_vpage_t COMPILER_IGNORE_UNINITIALIZED(result);
  struct vm *EXCEPT_VAR effective_vm;
@@ -2850,13 +2864,13 @@ vm_map(vm_vpage_t hint,
      vm_merge_before(effective_vm,VM_NODE_BEGIN(node));
      vm_merge_before(effective_vm,VM_NODE_END(node));
     } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-     vm_region_decref_range(region,region_start,num_pages);
+     vm_region_decref_range(xregion,xregion_start,xnum_pages);
      error_rethrow();
     }
    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-    vm_region_decref(region);
-    if (notify) {
-     INVOKE_NOTIFY_V(notify,
+    vm_region_decref(xregion);
+    if (xnotify) {
+     INVOKE_NOTIFY_V(xnotify,
                      node->vn_closure,
                      VM_NOTIFY_DECREF,
                      0,
@@ -2981,8 +2995,9 @@ handle_vm_region_poll(struct vm_region *__restrict self, unsigned int mode) {
  return mutex_poll(&self->vr_lock) ? (mode & (POLLIN|POLLOUT)) : 0;
 }
 INTERN void KCALL
-handle_vm_state(struct vm *__restrict EXCEPT_VAR self,
+handle_vm_state(struct vm *__restrict self,
                 USER CHECKED struct stat64 *result) {
+ struct vm *EXCEPT_VAR xself = self;
  size_t total_pages = 0,num_nodes = 0;
  vm_acquire(self);
  TRY {
@@ -2992,7 +3007,7 @@ handle_vm_state(struct vm *__restrict EXCEPT_VAR self,
    ++num_nodes;
   }
  } FINALLY {
-  vm_release(self);
+  vm_release(xself);
  }
  memset(result,0,sizeof(struct stat64));
  result->st_size    = (pos_t)total_pages * PAGESIZE; /* Total mapped size. */
@@ -3000,8 +3015,9 @@ handle_vm_state(struct vm *__restrict EXCEPT_VAR self,
  result->st_blksize = PAGESIZE;                      /* Size of a single page. */
 }
 INTERN void KCALL
-handle_vm_region_stat(struct vm_region *__restrict EXCEPT_VAR self,
+handle_vm_region_stat(struct vm_region *__restrict self,
                       USER CHECKED struct stat64 *result) {
+ struct vm_region *EXCEPT_VAR xself = self;
  size_t num_parts = 0;
  mutex_get(&self->vr_lock);
  TRY {
@@ -3011,7 +3027,7 @@ handle_vm_region_stat(struct vm_region *__restrict EXCEPT_VAR self,
    ++num_parts;
   }
  } FINALLY {
-  mutex_put(&self->vr_lock);
+  mutex_put(&xself->vr_lock);
  }
  memset(result,0,sizeof(struct stat64));
  result->st_size    = (pos_t)self->vr_size * PAGESIZE; /* Total number of region pages. */

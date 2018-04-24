@@ -327,7 +327,8 @@ pidns_delpid(struct pidns *__restrict self,
 
 /* Allocate a new PID descriptor for the given thread. */
 PUBLIC ATTR_RETNONNULL ATTR_MALLOC REF struct thread_pid *
-KCALL pidns_newpid(struct pidns *__restrict EXCEPT_VAR self, pid_t fixed_pid) {
+KCALL pidns_newpid(struct pidns *__restrict self, pid_t fixed_pid) {
+ struct pidns *EXCEPT_VAR xself = self;
  REF struct thread_pid *EXCEPT_VAR result;
  struct pidns *EXCEPT_VAR ns;
  result = (REF struct thread_pid *)kmalloc(offsetof(struct thread_pid,tp_pids)+
@@ -348,9 +349,9 @@ KCALL pidns_newpid(struct pidns *__restrict EXCEPT_VAR self, pid_t fixed_pid) {
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Remove the PID descriptor from all namespace it was already added to. */
   error_printf("PIDNS_ADDPID() FAILED\n");
-  while (self != ns) {
-   pidns_delpid(self,result);
-   self = self->pn_parent;
+  while (xself != ns) {
+   pidns_delpid(xself,result);
+   xself = xself->pn_parent;
   }
   thread_pid_decref(result);
   error_rethrow();

@@ -562,7 +562,8 @@ use_map:
 }
 
 PUBLIC bool KCALL
-register_device(struct device *__restrict EXCEPT_VAR dev) {
+register_device(struct device *__restrict dev) {
+ struct device *EXCEPT_VAR xdev = dev;
  bool result;
  result = register_device_nodevfs(dev);
  if (result) {
@@ -570,7 +571,7 @@ register_device(struct device *__restrict EXCEPT_VAR dev) {
    /* Add the device to /dev on success. */
    device_add_to_devfs(dev);
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-   unregister_device_nodevfs(dev);
+   unregister_device_nodevfs(xdev);
    error_rethrow();
   }
  }
@@ -612,8 +613,9 @@ devno_free(u16 type,
 
 
 PUBLIC void KCALL
-register_dynamic_device_mask(struct device *__restrict EXCEPT_VAR dev,
+register_dynamic_device_mask(struct device *__restrict dev,
                              dev_t start, minor_t mask) {
+ struct device *EXCEPT_VAR xdev = dev;
  minor_t EXCEPT_VAR num_numbers = 1;
  if (dev->d_type == DEVICE_TYPE_FBLOCKDEV)
      num_numbers = ((struct block_device *)dev)->b_partmaxcnt;
@@ -628,8 +630,8 @@ again:
   }
   dev->d_flags |= DEVICE_FDYNDEVICE;
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  devno_free(dev->d_type,
-             dev->d_devno,
+  devno_free(xdev->d_type,
+             xdev->d_devno,
              num_numbers);
   error_rethrow();
  }
@@ -765,8 +767,9 @@ find_page(struct block_device *__restrict self,
  * Additionally, if the page already exists and `page_data'
  * is non-NULL, it's buffer is overwritten when `page_data'. */
 PRIVATE ATTR_RETNONNULL struct block_page *KCALL
-new_page(struct block_device *__restrict EXCEPT_VAR self, blkaddr_t addr,
+new_page(struct block_device *__restrict self, blkaddr_t addr,
          CHECKED USER void const *page_data, iomode_t flags) {
+ struct block_device *EXCEPT_VAR xself = self;
  struct block_page *EXCEPT_VAR result;
  struct block_page *entry; size_t new_mask;
  size_t i,perturb,hash = BLKADDR_HASH(addr);
@@ -893,7 +896,7 @@ do_rehash:
                                               GFP_NOSWAP|GFP_NOFS|GFP_CALLOC);
      } CATCH(E_BADALLOC) {
       /* If the buffer isn't completely full, then we can simply ignore a bad allocation. */
-      if (self->b_pagebuf.ps_mapc != self->b_pagebuf.ps_mapm)
+      if (xself->b_pagebuf.ps_mapc != xself->b_pagebuf.ps_mapm)
           goto increment_count;
       error_rethrow();
      }
@@ -962,7 +965,7 @@ load_result:
   result->bp_usage = 0;
   ++self->b_pagebuf.ps_mapu;
  } FINALLY {
-  rwlock_endwrite(&self->b_pagebuf.ps_lock);
+  rwlock_endwrite(&xself->b_pagebuf.ps_lock);
  }
  return result;
 }
@@ -974,9 +977,11 @@ load_result:
  * @throw E_SEGFAULT: The given user-buffer is faulty.
  * @throw E_NO_DATA:  The given block range is overflowing, or out-of-bounds. */
 PUBLIC size_t KCALL
-block_device_read(struct block_device *__restrict EXCEPT_VAR self,
-                  CHECKED USER void *buf, size_t EXCEPT_VAR num_bytes,
+block_device_read(struct block_device *__restrict self,
+                  CHECKED USER void *buf, size_t num_bytes,
                   pos_t device_position, iomode_t flags) {
+ struct block_device *EXCEPT_VAR xself = self;
+ size_t EXCEPT_VAR xnum_bytes = num_bytes;
  size_t EXCEPT_VAR result = num_bytes;
  if unlikely(!num_bytes) goto done;
  /* Add the indirection associated with a partition. */
@@ -1006,19 +1011,21 @@ again:
    *(uintptr_t *)&buf += max_read;
   }
  } FINALLY {
-  if (rwlock_endread(&self->b_pagebuf.ps_lock))
+  if (rwlock_endread(&xself->b_pagebuf.ps_lock))
       goto again;
   if (FINALLY_WILL_RETHROW && error_code() == E_WOULDBLOCK)
-      return result-num_bytes;
+      return result-xnum_bytes;
  }
 done:
  return result;
 }
 
 PUBLIC size_t KCALL
-block_device_write(struct block_device *__restrict EXCEPT_VAR self,
-                   CHECKED USER void const *buf, size_t EXCEPT_VAR num_bytes,
+block_device_write(struct block_device *__restrict self,
+                   CHECKED USER void const *buf, size_t num_bytes,
                    pos_t device_position, iomode_t flags) {
+ struct block_device *EXCEPT_VAR xself = self;
+ size_t EXCEPT_VAR xnum_bytes = num_bytes;
  size_t EXCEPT_VAR result = num_bytes;
  if unlikely(!num_bytes) goto done;
  /* Add the indirection associated with a partition. */
@@ -1065,17 +1072,18 @@ again:
    device_position    += max_write;
   }
  } FINALLY {
-  if (rwlock_endread(&self->b_pagebuf.ps_lock))
+  if (rwlock_endread(&xself->b_pagebuf.ps_lock))
       goto again;
   if (FINALLY_WILL_RETHROW && error_code() == E_WOULDBLOCK)
-      return result-num_bytes;
+      return result-xnum_bytes;
  }
 done:
  return result;
 }
 
 PUBLIC void KCALL
-block_device_sync(struct block_device *__restrict EXCEPT_VAR self) {
+block_device_sync(struct block_device *__restrict self) {
+ struct block_device *EXCEPT_VAR xself = self;
  rwlock_write(&self->b_pagebuf.ps_lock);
  TRY {
   if (self->b_pagebuf.ps_mapv) {
@@ -1093,7 +1101,7 @@ block_device_sync(struct block_device *__restrict EXCEPT_VAR self) {
    }
   }
  } FINALLY {
-  rwlock_endwrite(&self->b_pagebuf.ps_lock);
+  rwlock_endwrite(&xself->b_pagebuf.ps_lock);
  }
 }
 

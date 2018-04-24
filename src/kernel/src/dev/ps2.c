@@ -230,15 +230,16 @@ sub_ps2_callback(byte_t UNUSED(ps2_byte), void *UNUSED(arg)) {
 
 
 PRIVATE bool KCALL
-ps2_inputdata_delfunc(struct ps2_inputdata *__restrict EXCEPT_VAR self,
+ps2_inputdata_delfunc(struct ps2_inputdata *__restrict self,
                       ps2_callback_t func, void *arg) {
+ struct ps2_inputdata *EXCEPT_VAR xself = self;
  size_t old_count,i;
  struct ps2_callback *old_vector;
  struct ps2_callback *COMPILER_IGNORE_UNINITIALIZED(new_vector);
  struct ps2_callback last_buffer;
 again:
- old_count  = ATOMIC_READ(self->bv_bufc);
- old_vector = ATOMIC_READ(self->bv_bufv);
+ old_count  = ATOMIC_READ(xself->bv_bufc);
+ old_vector = ATOMIC_READ(xself->bv_bufv);
  if (old_vector == PS2_BUFFERVECTOR_LOCKED) { task_yield(); goto again; }
  if unlikely(!old_count) return false;
  /* Allocate a new buffer that is a copy of the old. */
@@ -247,17 +248,17 @@ again:
                                                GFP_SHARED);
  } CATCH (E_BADALLOC) {
   /* Replace the given `buffer' with `&stub_buffer' */
-  atomic_rwlock_write(&self->bv_lock);
-  if (ATOMIC_READ(self->bv_bufv) != old_vector ||
-      ATOMIC_READ(self->bv_bufc) != old_count) {
-   atomic_rwlock_endwrite(&self->bv_lock);
+  atomic_rwlock_write(&xself->bv_lock);
+  if (ATOMIC_READ(xself->bv_bufv) != old_vector ||
+      ATOMIC_READ(xself->bv_bufc) != old_count) {
+   atomic_rwlock_endwrite(&xself->bv_lock);
    goto again;
   }
   for (i = 0; i < old_count; ++i) {
    if (old_vector[i].c_arg != arg ||
       !ATOMIC_CMPXCH(old_vector[i].c_func,func,&sub_ps2_callback))
         continue;
-   atomic_rwlock_endwrite(&self->bv_lock);
+   atomic_rwlock_endwrite(&xself->bv_lock);
    /* Make sure that any currently ongoing boardcast operation has finished
     * before returning to the caller, thus ensuring that the interrupt driver
     * will only see valid word buffers while broadcasting.
@@ -265,17 +266,17 @@ again:
     * the interrupt driver would use a word buffer which the caller may have
     * already deallocated.
     * Note however, that it is highly unlikely that this check ever comes true... */
-   while unlikely(ATOMIC_READ(self->bv_bufv) == PS2_BUFFERVECTOR_LOCKED)
+   while unlikely(ATOMIC_READ(xself->bv_bufv) == PS2_BUFFERVECTOR_LOCKED)
        task_yield();
    return true;
   }
-  atomic_rwlock_endwrite(&self->bv_lock);
+  atomic_rwlock_endwrite(&xself->bv_lock);
   return false;
  }
  /* Copy the old buffer. */
- atomic_rwlock_read(&self->bv_lock);
- if (ATOMIC_READ(self->bv_bufv) != old_vector ||
-     ATOMIC_READ(self->bv_bufc) != old_count)
+ atomic_rwlock_read(&xself->bv_lock);
+ if (ATOMIC_READ(xself->bv_bufv) != old_vector ||
+     ATOMIC_READ(xself->bv_bufc) != old_count)
      goto buffer_changed;
  last_buffer = old_vector[old_count-1];
  memcpy(new_vector,old_vector,(old_count-1)*sizeof(struct ps2_callback));
@@ -292,30 +293,30 @@ again:
   }
  }
  /* The specified buffer wasn't found. */
- atomic_rwlock_endread(&self->bv_lock);
+ atomic_rwlock_endread(&xself->bv_lock);
  kfree(new_vector);
  return false;
 found_buffer:
  /* Upgrade our lock. */
- if (!atomic_rwlock_tryupgrade(&self->bv_lock)) {
+ if (!atomic_rwlock_tryupgrade(&xself->bv_lock)) {
 buffer_changed:
-  atomic_rwlock_endread(&self->bv_lock);
+  atomic_rwlock_endread(&xself->bv_lock);
   kfree(new_vector);
   task_yield();
   goto again;
  }
  /* Update the new vector size. */
- ATOMIC_WRITE(self->bv_bufc,old_count-1);
+ ATOMIC_WRITE(xself->bv_bufc,old_count-1);
  /* XXX: Minor race condition:
   *   The (now) last buffer may momentarily not receive
   *   keystrokes before the following atomic_cmpxch completes. */
- if (!ATOMIC_CMPXCH(self->bv_bufv,old_vector,new_vector)) {
-  ATOMIC_WRITE(self->bv_bufc,old_count);
-  atomic_rwlock_endwrite(&self->bv_lock);
+ if (!ATOMIC_CMPXCH(xself->bv_bufv,old_vector,new_vector)) {
+  ATOMIC_WRITE(xself->bv_bufc,old_count);
+  atomic_rwlock_endwrite(&xself->bv_lock);
   kfree(new_vector);
   goto again;
  }
- atomic_rwlock_endwrite(&self->bv_lock);
+ atomic_rwlock_endwrite(&xself->bv_lock);
  /* Delete the old buffer. */
  kfree(old_vector);
  /* Done! */

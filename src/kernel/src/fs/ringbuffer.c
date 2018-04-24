@@ -277,8 +277,9 @@ again:
  * @throw: E_INTERRUPT: [ringbuffer_read] The calling thread was interrupted.
  * @throw: E_SEGFAULT:  A faulty buffer was given. */
 PUBLIC size_t KCALL
-ringbuffer_read_atomic(struct ringbuffer *__restrict EXCEPT_VAR self,
+ringbuffer_read_atomic(struct ringbuffer *__restrict self,
                        USER CHECKED void *buf, size_t num_bytes) {
+ struct ringbuffer *EXCEPT_VAR xself = self;
  byte_t *bufend,*old_pointer,*new_pointer,*dst;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  bool COMPILER_IGNORE_UNINITIALIZED(was_full);
@@ -353,8 +354,8 @@ again:
 #endif
  } FINALLY {
   if (has_write_lock)
-       atomic_rwlock_endwrite(&self->r_lock);
-  else atomic_rwlock_endread(&self->r_lock);
+       atomic_rwlock_endwrite(&xself->r_lock);
+  else atomic_rwlock_endread(&xself->r_lock);
  }
  /* If the buffer was full, wake a writer after we read some data. */
  if (result) {
@@ -415,8 +416,9 @@ done:
  * @throw: E_INTERRUPT: [ringbuffer_write] The calling thread was interrupted.
  * @throw: E_SEGFAULT:  A faulty buffer was given. */
 PUBLIC size_t KCALL
-ringbuffer_write_atomic(struct ringbuffer *__restrict EXCEPT_VAR self,
+ringbuffer_write_atomic(struct ringbuffer *__restrict self,
                         USER CHECKED void const *buf, size_t num_bytes) {
+ struct ringbuffer *EXCEPT_VAR xself = self;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  bool COMPILER_IGNORE_UNINITIALIZED(was_empty);
  bool COMPILER_IGNORE_UNINITIALIZED(is_full);
@@ -479,7 +481,7 @@ again:
    }
   }
  } FINALLY {
-  atomic_rwlock_endwrite(&self->r_lock);
+  atomic_rwlock_endwrite(&xself->r_lock);
  }
  /* Wake readers now that the buffer is no longer empty. */
  if (result) {
@@ -570,7 +572,7 @@ increase_buffer:
    memcpy((byte_t *)new_buffer.hp_ptr+old_size_hi,
            self->r_base,old_size_lo);
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-   atomic_rwlock_endwrite(&self->r_lock);
+   atomic_rwlock_endwrite(&xself->r_lock);
    RING_FREE(new_buffer.hp_ptr,new_buffer.hp_siz);
    error_rethrow();
   }

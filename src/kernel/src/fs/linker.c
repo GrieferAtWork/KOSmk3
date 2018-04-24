@@ -82,7 +82,8 @@ INTERN void KCALL vm_apps_clone(struct vm *__restrict new_vm)     {
  * This is the application that should be listed as `/proc/self/exe',
  * as well as the one used during implicit handle casts. */
 PUBLIC REF struct application *KCALL
-vm_apps_primary(struct vm *__restrict EXCEPT_VAR effective_vm) {
+vm_apps_primary(struct vm *__restrict effective_vm) {
+ struct vm *EXCEPT_VAR xeffective_vm = effective_vm;
  REF struct application *COMPILER_IGNORE_UNINITIALIZED(result);
  struct vmapps *apps;
 again:
@@ -131,7 +132,7 @@ recheck_apps:
    atomic_rwlock_endread(&apps->va_lock);
   }
  } FINALLY {
-  if (vm_release_read(effective_vm))
+  if (vm_release_read(xeffective_vm))
       goto again;
  }
  return result;
@@ -830,8 +831,9 @@ patcher_getrequire(struct module_patcher *__restrict self,
 /* Add `mod' as a required dependency of `self', loading it as a new dependency.
  * NOTE: The caller must be holding a lock on the effective VM. */
 PUBLIC ATTR_RETNONNULL struct application *KCALL
-patcher_require(struct module_patcher *__restrict EXCEPT_VAR self,
+patcher_require(struct module_patcher *EXCEPT_VAR self,
                 struct module *__restrict mod) {
+ struct module_patcher *EXCEPT_VAR xself = self;
  struct module_patcher *iter;
  struct application *EXCEPT_VAR result;
  struct vm *effective_vm;
@@ -931,16 +933,16 @@ got_application:
                                                                  sizeof(WEAK REF struct application *),
                                                                  GFP_SHARED);
    } CATCH (E_BADALLOC) {
-    if (new_alloc == self->mp_requirec+1) error_rethrow();
-    new_alloc = self->mp_requirec+1;
-    self->mp_requirev = (WEAK REF struct application **)krealloc(self->mp_requirev,new_alloc*
-                                                                 sizeof(WEAK REF struct application *),
-                                                                 GFP_SHARED);
+    if (new_alloc == xself->mp_requirec+1) error_rethrow();
+    new_alloc = xself->mp_requirec+1;
+    xself->mp_requirev = (WEAK REF struct application **)krealloc(xself->mp_requirev,new_alloc*
+                                                                  sizeof(WEAK REF struct application *),
+                                                                  GFP_SHARED);
    }
-   self->mp_requirea = new_alloc;
+   xself->mp_requirea = new_alloc;
   }
   application_weak_incref(result);
-  self->mp_requirev[self->mp_requirec++] = result; /* Inherit reference. */
+  xself->mp_requirev[xself->mp_requirec++] = result; /* Inherit reference. */
  }
  return result;
 }
@@ -995,15 +997,18 @@ PUBLIC ATTR_RETNONNULL struct application *KCALL
 patcher_require_string(struct module_patcher *__restrict self,
                        USER CHECKED char const *__restrict name,
                        size_t name_length) {
+ struct module_patcher *EXCEPT_VAR xself = self;
+ USER CHECKED char const *EXCEPT_VAR xname = name;
+ size_t EXCEPT_VAR xname_length = name_length;
  struct application *COMPILER_IGNORE_UNINITIALIZED(result);
  struct module_patcher *EXCEPT_VAR iter;
  REF struct path *EXCEPT_VAR search_path;
  USER CHECKED char *EXCEPT_VAR p;
  USER CHECKED char *EXCEPT_VAR end;
  char EXCEPT_VAR ch;
- if unlikely(name_length > (u16)-1)
+ if unlikely(xname_length > (u16)-1)
     goto not_found;
- iter = self;
+ iter = xself;
  do {
   end = p = (char *)iter->mp_altpath;
   if (!p) continue;
@@ -1021,7 +1026,7 @@ next_part:
                        : FS_MODE_FDIRECTORY|FS_MODE_FIGNORE_TRAILING_SLASHES);
    /* Search for the module in this path. */
    TRY {
-    result = patcher_open_path(self,search_path,name,(u16)name_length);
+    result = patcher_open_path(xself,search_path,xname,(u16)xname_length);
    } FINALLY {
     path_decref(search_path);
    }
@@ -1037,7 +1042,7 @@ next_part:
   }
  } while ((iter = iter->mp_prev) != NULL);
 
- iter = self->mp_root;
+ iter = xself->mp_root;
  end = p = (char *)iter->mp_runpath;
  if (!p) goto not_found;
 next_rootpart:
@@ -1054,7 +1059,7 @@ next_rootpart:
                       : FS_MODE_FDIRECTORY|FS_MODE_FIGNORE_TRAILING_SLASHES);
   /* Search for the module in this path. */
   TRY {
-   result = patcher_open_path(self,search_path,name,(u16)name_length);
+   result = patcher_open_path(xself,search_path,xname,(u16)xname_length);
   } FINALLY {
    path_decref(search_path);
   }

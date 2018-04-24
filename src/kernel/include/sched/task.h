@@ -1137,13 +1137,18 @@ task_serve_before_user(struct cpu_hostcontext_user *__restrict context,
 FUNDEF void FCALL task_restart_interrupt(struct cpu_anycontext *__restrict context);
 /* Same as `task_restart_interrupt()', but meant to be called from a
  * `CATCH(E_INTERRUPT)' block surrounding a system call invocation.
- * When these functions return `true', the system call should be restarted.
- * Otherwise, `false' is returned and the caller should rethrow the dangling `E_INTERRUPT'.
  * @param: mode: `TASK_USERCTX_TYPE_INTR_SYSCALL', optionally or'd with arch-
  *                dependent context flags (e.g.: on X86, `X86_SYSCALL_TYPE_F*') */
 struct cpu_hostcontext_user;
-FUNDEF bool FCALL task_restart_syscall(struct cpu_hostcontext_user *__restrict context,
+FUNDEF void FCALL task_restart_syscall(struct cpu_hostcontext_user *__restrict context,
                                        unsigned int mode, syscall_ulong_t sysno);
+/* A try-variant of `task_restart_syscall()' that will automatically propagate
+ * exception to userspace, and return `false' is the caller should load the
+ * updated `context', or `true' if the caller should re-attempt execution
+ * of the current system call. */
+FUNDEF ATTR_NOTHROW bool FCALL
+task_tryrestart_syscall(struct cpu_hostcontext_user *__restrict context,
+                        unsigned int mode, syscall_ulong_t sysno);
 #endif /* __CC__ */
 
 

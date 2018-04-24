@@ -47,8 +47,9 @@ DECL_BEGIN
  * mapping already exists at the target address `page_index'. */
 PRIVATE void KCALL
 vm_user_mapnewat_fast(struct vm *__restrict myvm, vm_vpage_t page_index,
-                      struct vm_region *__restrict EXCEPT_VAR region,
+                      struct vm_region *__restrict region,
                       vm_prot_t prot, void *closure) {
+ struct vm_region *EXCEPT_VAR xregion = region;
  struct vm_node *EXCEPT_VAR node;
  node = (struct vm_node *)kmalloc(sizeof(struct vm_node),
                                   GFP_SHARED|GFP_LOCKED);
@@ -71,9 +72,9 @@ vm_user_mapnewat_fast(struct vm *__restrict myvm, vm_vpage_t page_index,
  TRY {
   vm_insert_and_activate_node(myvm,node);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  assert(region->vr_part0.vp_refcnt == 1); /* The reference held by the node. */
-  region->vr_part0.vp_refcnt = 0;
-  vm_region_decref(region);
+  assert(xregion->vr_part0.vp_refcnt == 1); /* The reference held by the node. */
+  xregion->vr_part0.vp_refcnt = 0;
+  vm_region_decref(xregion);
   kfree(node);
   error_rethrow();
  }
@@ -81,9 +82,11 @@ vm_user_mapnewat_fast(struct vm *__restrict myvm, vm_vpage_t page_index,
 
 PRIVATE void KCALL
 vm_user_mapnewat(struct vm *__restrict myvm, vm_vpage_t page_index,
-                 vm_raddr_t EXCEPT_VAR region_start, size_t EXCEPT_VAR num_pages,
-                 struct vm_region *__restrict EXCEPT_VAR region,
+                 vm_raddr_t EXCEPT_VAR region_start, size_t num_pages,
+                 struct vm_region *__restrict region,
                  vm_prot_t prot, void *closure) {
+ size_t EXCEPT_VAR xnum_pages = num_pages;
+ struct vm_region *EXCEPT_VAR xregion = region;
  struct vm_node *EXCEPT_VAR node;
  assert(num_pages != 0);
  assert(region_start+num_pages >= region_start);
@@ -110,8 +113,8 @@ vm_user_mapnewat(struct vm *__restrict myvm, vm_vpage_t page_index,
    vm_merge_before(myvm,VM_NODE_BEGIN(node));
    vm_merge_before(myvm,VM_NODE_END(node));
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-   vm_region_decref(region);
-   vm_region_decref_range(region,region_start,num_pages);
+   vm_region_decref(xregion);
+   vm_region_decref_range(xregion,region_start,xnum_pages);
    error_rethrow();
   }
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
@@ -703,7 +706,7 @@ DEFINE_SYSCALL2(xmmap,int,version,USER struct mmap_info const *,data){
 }
 
 DEFINE_SYSCALL6(mmap,VIRT void *,addr,size_t,len,int,prot,
-                int,flags,int,fd,syscall_ulong_t,off) {
+                int,flags,fd_t,fd,syscall_ulong_t,off) {
  /* linux-compatible system call. */
  struct mmap_info info;
  info.mi_prot          = (u32)prot;

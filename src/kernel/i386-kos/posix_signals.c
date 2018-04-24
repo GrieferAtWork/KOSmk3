@@ -57,8 +57,9 @@ throw_invalid_segment(u16 segment_index, u16 segment_register);
 
 INTERN void KCALL
 x86_sigreturn_impl(void *UNUSED(arg),
-                   struct cpu_hostcontext_user *__restrict EXCEPT_VAR context,
+                   struct cpu_hostcontext_user *__restrict context,
                    unsigned int UNUSED(mode)) {
+ struct cpu_hostcontext_user *EXCEPT_VAR xcontext = context;
  struct signal_frame *frame;
  unsigned int frame_mode;
  assertf(context->c_iret.ir_cs & 3,"sigreturn() invoked from kernel-space");
@@ -132,18 +133,18 @@ x86_sigreturn_impl(void *UNUSED(arg),
       throw_invalid_segment(context->c_iret.ir_cs,X86_REGISTER_SEGMENT_CS);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Must fix register values, as otherwise userspace wouldn't be able to handle the exception. */
-  if (context->c_segments.sg_ds && !__verw(context->c_segments.sg_ds))
-      context->c_segments.sg_ds = X86_USER_DS;
-  if (context->c_segments.sg_es && !__verw(context->c_segments.sg_es))
-      context->c_segments.sg_es = X86_USER_DS;
-  if (context->c_segments.sg_fs && !__verw(context->c_segments.sg_fs))
-      context->c_segments.sg_fs = X86_SEG_FS;
-  if (context->c_segments.sg_gs && !__verw(context->c_segments.sg_gs))
-      context->c_segments.sg_gs = X86_SEG_GS;
-  if (context->c_iret.ir_ss && !__verw(context->c_iret.ir_ss))
-      context->c_iret.ir_ss = X86_USER_DS;
-  if (!(context->c_iret.ir_cs&3) || !__verr(context->c_iret.ir_cs))
-      context->c_iret.ir_cs = X86_USER_CS;
+  if (xcontext->c_segments.sg_ds && !__verw(xcontext->c_segments.sg_ds))
+      xcontext->c_segments.sg_ds = X86_USER_DS;
+  if (xcontext->c_segments.sg_es && !__verw(xcontext->c_segments.sg_es))
+      xcontext->c_segments.sg_es = X86_USER_DS;
+  if (xcontext->c_segments.sg_fs && !__verw(xcontext->c_segments.sg_fs))
+      xcontext->c_segments.sg_fs = X86_SEG_FS;
+  if (xcontext->c_segments.sg_gs && !__verw(xcontext->c_segments.sg_gs))
+      xcontext->c_segments.sg_gs = X86_SEG_GS;
+  if (xcontext->c_iret.ir_ss && !__verw(xcontext->c_iret.ir_ss))
+      xcontext->c_iret.ir_ss = X86_USER_DS;
+  if (!(xcontext->c_iret.ir_cs&3) || !__verr(xcontext->c_iret.ir_cs))
+      xcontext->c_iret.ir_cs = X86_USER_CS;
   error_rethrow();
  }
 #endif
@@ -192,10 +193,10 @@ restart_sigframe_syscall:
 #ifndef CONFIG_NO_X86_SYSENTER
    if (frame_mode & X86_SYSCALL_TYPE_FSYSENTER) {
     syscall_ulong_t masked_sysno; u8 argc = 6;
-    sysno                      = context->c_gpregs.gp_eax;
+    sysno                      = xcontext->c_gpregs.gp_eax;
     masked_sysno               = sysno & ~0x80000000;
-    context->c_eip             = orig_edi; /* CLEANUP: return.%eip = %edi */
-    context->c_iret.ir_useresp = orig_ebp; /* CLEANUP: return.%esp = %ebp */
+    xcontext->c_eip             = orig_edi; /* CLEANUP: return.%eip = %edi */
+    xcontext->c_iret.ir_useresp = orig_ebp; /* CLEANUP: return.%esp = %ebp */
     /* Figure out how many arguments this syscall takes. */
     if (masked_sysno <= __NR_syscall_max)
      argc = x86_syscall_argc[masked_sysno];
@@ -205,19 +206,19 @@ restart_sigframe_syscall:
     }
     /* Load additional arguments from user-space. */
     if (argc >= 4)
-        context->c_gpregs.gp_edi = *((u32 *)(orig_ebp + 0));
+        xcontext->c_gpregs.gp_edi = *((u32 *)(orig_ebp + 0));
     if (argc >= 5)
-        context->c_gpregs.gp_ebp = *((u32 *)(orig_ebp + 4));
+        xcontext->c_gpregs.gp_ebp = *((u32 *)(orig_ebp + 4));
     COMPILER_READ_BARRIER();
    } else
 #endif /* !CONFIG_NO_X86_SYSENTER */
    if (frame_mode & X86_SYSCALL_TYPE_FPF) {
-    sysno = context->c_eip - PERTASK_GET(x86_sysbase);
+    sysno = xcontext->c_eip - PERTASK_GET(x86_sysbase);
     sysno = X86_DECODE_PFSYSCALL(sysno);
-    context->c_eip = context->c_gpregs.gp_eax; /* #PF uses EAX as return address. */
-    context->c_gpregs.gp_eax = sysno; /* #PF encodes the sysno in EIP. */
+    xcontext->c_eip = xcontext->c_gpregs.gp_eax; /* #PF uses EAX as return address. */
+    xcontext->c_gpregs.gp_eax = sysno; /* #PF encodes the sysno in EIP. */
    } else {
-    sysno = context->c_gpregs.gp_eax;
+    sysno = xcontext->c_gpregs.gp_eax;
    }
 #if 0
    debug_printf("\n\n"
@@ -231,21 +232,20 @@ restart_sigframe_syscall:
    /* Set the FSYSCALL flag so that exceptions are propagated accordingly. */
    error_info()->e_error.e_flag |= X86_INTERRUPT_GUARD_FSYSCALL;
    if (error_code() == E_INTERRUPT) {
-    /* Restore the original user-space CPU context. */
-    context->c_gpregs.gp_eax = orig_eax;
-    context->c_eip           = orig_eip;
+    /* Restore the original user-space CPU xcontext. */
+    xcontext->c_gpregs.gp_eax = orig_eax;
+    xcontext->c_eip           = orig_eip;
 #ifndef CONFIG_NO_X86_SYSENTER
-    context->c_gpregs.gp_ebp = orig_ebp;
-    context->c_gpregs.gp_edi = orig_edi;
-    context->c_iret.ir_useresp = orig_esp;
+    xcontext->c_gpregs.gp_ebp = orig_ebp;
+    xcontext->c_gpregs.gp_edi = orig_edi;
+    xcontext->c_iret.ir_useresp = orig_esp;
 #endif
     COMPILER_WRITE_BARRIER();
     /* Deal with system call restarts. */
-    if (!task_restart_syscall(context,
-                              TASK_USERCTX_TYPE_WITHINUSERCODE|
-                              X86_SYSCALL_TYPE_FPF,
-                              sysno))
-         error_rethrow(); /* XXX: Fix up registers? */
+    task_restart_syscall(xcontext,
+                         TASK_USERCTX_TYPE_WITHINUSERCODE|
+                         X86_SYSCALL_TYPE_FPF,
+                         sysno);
     COMPILER_BARRIER();
     goto restart_sigframe_syscall;
    }

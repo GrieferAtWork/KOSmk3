@@ -757,7 +757,8 @@ INTERN_ENTRY(x86_interrupt_except)
 	movw    %ss:(+2 + (-CONFIG_KERNELSTACK_SIZE) + X86_IRREGS_USER32_SIZE)(%esp), %ax
 #endif /* CONFIG_X86_SEGMENTATION */
 	/* Load the stack address below the exception location. */
-	movl    %taskseg:TASK_SEGMENT_OFFSETOF_XCURRENT+ \
+	movl    %taskseg:TASK_OFFSETOF_SEGMENT+ \
+	                 TASK_SEGMENT_OFFSETOF_XCURRENT+ \
 	                 EXCEPTION_INFO_OFFSETOF_CONTEXT+ \
 	                 X86_CONTEXT32_OFFSETOF_ESP, %esp
 	subl    $(X86_IRREGS_USER32_SIZE), %esp /* Reserve memory for a copy of the IRET tail. */
@@ -779,8 +780,7 @@ INTERN_ENTRY(x86_interrupt_except)
 	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FS(%esp)
 #endif
 
-
-	/* Copy the proper IRET Tail information (and the user-space %FS register). */
+	/* Copy the proper IRET Tail information. */
 	movl    ((-X86_IRREGS_USER32_SIZE)+X86_IRREGS_USER32_OFFSETOF_SS)(%edx), %eax
 	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_SS(%esp)
 	movl    ((-X86_IRREGS_USER32_SIZE)+X86_IRREGS_USER32_OFFSETOF_USERESP)(%edx), %eax
@@ -810,7 +810,6 @@ INTERN_ENTRY(x86_interrupt_except)
 	                      TASK_SEGMENT_OFFSETOF_XCURRENT+ \
 	                      EXCEPTION_INFO_OFFSETOF_FLAG+1
 	movzwl  x86_interrupt_mode_select(,%edx,2), %edx /* mode */
-
 #if 1
 	/* Check if a system call should be restarted after an E_INTERRUPT. */
 	testw   $(TASK_USERCTX_TYPE_INTR_SYSCALL), %dx
@@ -821,12 +820,11 @@ INTERN_ENTRY(x86_interrupt_except)
 	jne     9f
 	pushl_cfi %edx /* saved */
 	pushl_cfi X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX(%ecx) /* sysno */
-	call    task_restart_syscall /* XXX: Exceptions thrown by this function? */
-//	addl    $4, %esp
+	call    task_tryrestart_syscall
 	.cfi_adjust_cfa_offset -4
 	popl_cfi %edx
 	testl   %eax, %eax
-	jz      8f
+	jz      .exit_after_propagate
 	/* Restart the system call. */
 
 #ifndef NDEBUG
@@ -871,7 +869,7 @@ INTERN_ENTRY(x86_interrupt_except)
 	rep;    movsl
 	/* Load the CPU context now generated at the base of the stack into ESP */
 	leal    -(X86_HOSTCONTEXT_USER32_SIZE - X86_IRREGS_USER32_SIZE)(%edi), %esp
-	sti /* Re-enable interrupts */
+	sti     /* Re-enable interrupts */
 #endif
 
 #ifndef CONFIG_NO_X86_SYSENTER
@@ -897,6 +895,7 @@ INTERN_ENTRY(x86_interrupt_except)
 	/* Propgate the exception to user-space. */
 	call    task_propagate_user_exception
 
+.exit_after_propagate:
 #ifndef NDEBUG
 	movl    %taskseg:TASK_OFFSETOF_STACKEND, %edx
 	cli     /* Disable interrupts to ensure a consistent redirection state */

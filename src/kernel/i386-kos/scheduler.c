@@ -428,9 +428,11 @@ rethrow:
 
 /* Same as `task_restart_interrupt()', but meant to be called from a
  * `CATCH(E_INTERRUPT)' block surrounding a system call invocation.
- * When these functions return normally, the system call should be restarted.
- * When it shouldn't, these functions rethrow the dangling `E_INTERRUPT'. */
-PUBLIC bool FCALL
+ * When these functions return `true', the system call should be restarted.
+ * Otherwise, `false' is returned and the caller should rethrow the dangling `E_INTERRUPT'.
+ * @param: mode: `TASK_USERCTX_TYPE_INTR_SYSCALL', optionally or'd with arch-
+ *                dependent context flags (e.g.: on X86, `X86_SYSCALL_TYPE_F*') */
+PUBLIC void FCALL
 task_restart_syscall(struct cpu_hostcontext_user *__restrict context,
                      unsigned int mode, syscall_ulong_t sysno) {
 again:
@@ -478,9 +480,66 @@ again:
  /* If none of the RPC functions overwrote the E_INTERRUPT exception,
   * or if the system call shouldn't be restarted, don't restart the
   * system call. Otherwise, do. */
- if (error_code() != E_INTERRUPT)
-     return false;
- return should_restart_syscall(sysno,SHOULD_RESTART_SYSCALL_FNORMAL);
+ if (error_code() != E_INTERRUPT ||
+    !should_restart_syscall(sysno,SHOULD_RESTART_SYSCALL_FNORMAL))
+     error_rethrow();
+}
+
+
+PUBLIC bool FCALL
+task_tryrestart_syscall(struct cpu_hostcontext_user *__restrict context,
+                        unsigned int mode, syscall_ulong_t sysno) {
+again:
+ assertf(error_code() == E_INTERRUPT,
+         "Only call this function from a CATCH(E_INTERRUPT) block");
+ assertf(PREEMPTION_ENABLED(),
+         "Preemption must be enabled during execution of a system call");
+ /* Check if the context returns to user-space. */
+ assertf(X86_ANYCONTEXT32_ISUSER(*context) ||
+         context->c_eip != (uintptr_t)&x86_redirect_preemption,
+         "Only user-space must be allowed to execute system calls");
+ assertf(!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB),
+         "How did a kernel job manage to redirect its preemption? "
+         "Also from what should that preemption have been redirected?");
+ assert((mode & TASK_USERCTX_TYPE_FMASK) == TASK_USERCTX_TYPE_INTR_SYSCALL);
+ if (context->c_eip == (uintptr_t)&x86_redirect_preemption) {
+  /* Ok. So we got here as the result of a preemption redirection (`task_wake_for_rpc()'),
+   * meaning that at some point the calling interrupt must have been waiting for some
+   * kind of lock, before it got interrupted when some other thread scheduled an RPC.
+   * Our job now is to restore the saved IRET tail and act as though we weren't waiting
+   * at all, instead opting to handle the RPC function the same way we would if
+   * preemption was never redirected. */
+  assertf(&context->c_iret == REAL_IRET(),
+          "Only the directed CPU context could point at `x86_redirect_preemption'. "
+          "This means that the given context must be the real IRET tail");
+  /* Restore the saved IRET tail. */
+  memcpy(&context->c_iret,&PERTASK(iret_saved),
+          sizeof(struct x86_irregs_user));
+ }
+ TRY {
+  /* Since the system call will be restarted once RPC
+   * functions have been served, semantically speaking,
+   * the user-space CPU context is the same as if the
+   * RPC was being served while the thread was still
+   * in user-space, about to trigger the system call that
+   * was interrupted in order to serve RPC functions. */
+  task_serve_before_user(context,mode);
+ } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+#if 1
+  /* Deal with recursive restart attempts. */
+  if (error_code() == E_INTERRUPT)
+      goto again;
+#endif
+ }
+ /* If none of the RPC functions overwrote the E_INTERRUPT exception,
+  * or if the system call shouldn't be restarted, don't restart the
+  * system call. Otherwise, do. */
+ if (error_code() == E_INTERRUPT &&
+     should_restart_syscall(sysno,SHOULD_RESTART_SYSCALL_FNORMAL))
+     return true;
+ /* Propagate the exception to user-space. */
+ task_propagate_user_exception(context,mode);
+ return false;
 }
 
 
@@ -1281,6 +1340,7 @@ task_propagate_user_exception(struct cpu_hostcontext_user *__restrict context,
  struct exception_info *EXCEPT_VAR error = error_info();
  struct exception_info EXCEPT_VAR info;
  bool is_standalone = false;
+ assert(PREEMPTION_ENABLED());
 copy_error:
  /* Save exception information if something goes wrong during cleanup. */
  memcpy((void *)&info,error,sizeof(struct exception_info));

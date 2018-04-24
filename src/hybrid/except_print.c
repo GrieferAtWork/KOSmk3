@@ -751,37 +751,39 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
  TRY {
   bool is_first = true;
   uintptr_t last_eip = 0;
+  struct cpu_context context;
+  context = INFO->e_context;
   for (;;) {
    struct fde_info finfo;
-   if (last_eip != INFO->e_context.c_eip) {
+   if (last_eip != context.c_eip) {
     PRINTF("%[vinfo:%f(%l,%c) : %n] : %p : ESP %p, EBP %p\n",
            is_first && (INFO->e_error.e_flag&ERR_FRESUMENEXT) ?
-           INFO->e_context.c_eip : INFO->e_context.c_eip-1,
-           INFO->e_context.c_eip,
-           INFO->e_context.c_esp,INFO->e_context.c_gpregs.gp_ebp);
+           context.c_eip : context.c_eip-1,
+           context.c_eip,
+           context.c_esp,context.c_gpregs.gp_ebp);
    }
-   last_eip = INFO->e_context.c_eip;
+   last_eip = context.c_eip;
    if (!linker_findfde_consafe(is_first && (INFO->e_error.e_flag&ERR_FRESUMENEXT) ?
-                               INFO->e_context.c_eip : INFO->e_context.c_eip-1,&finfo)) {
+                               context.c_eip : context.c_eip-1,&finfo)) {
  #if 0
     /* For the first entry, assume a standard unwind which can be used
      * to properly display tracebacks when execution tries to call a
      * NULL-function pointer. */
     if (!is_first) break;
-    if (INFO->e_context.c_esp >= (uintptr_t)PERTASK_GET(this_task.t_stackend)) {
+    if (context.c_esp >= (uintptr_t)PERTASK_GET(this_task.t_stackend)) {
      PRINTF("SP is out-of-bounds (%p not in %p...%p)\n",
-            INFO->e_context.c_esp,
+            context.c_esp,
            (uintptr_t)PERTASK_GET(this_task.t_stackmin),
            (uintptr_t)PERTASK_GET(this_task.t_stackend)-1);
      break;
     }
-    INFO->e_context.c_eip = *(u32 *)INFO->e_context.c_esp;
-    INFO->e_context.c_esp += 4;
+    context.c_eip = *(u32 *)context.c_esp;
+    context.c_esp += 4;
  #else
     break;
  #endif
    } else {
-    if (!eh_return(&finfo,&INFO->e_context,EH_FNORMAL)) {
+    if (!eh_return(&finfo,&context,EH_FNORMAL)) {
  #if 0
      struct frame {
          struct frame *f_caller;
@@ -789,10 +791,10 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
      };
      struct frame *f;
      TRY {
-      f = (struct frame *)INFO->e_context.c_gpregs.gp_ebp;
-      INFO->e_context.c_eip           = (uintptr_t)f->f_return;
-      INFO->e_context.c_esp           = (uintptr_t)(f+1);
-      INFO->e_context.c_gpregs.gp_ebp = (uintptr_t)f->f_caller;
+      f = (struct frame *)context.c_gpregs.gp_ebp;
+      context.c_eip           = (uintptr_t)f->f_return;
+      context.c_esp           = (uintptr_t)(f+1);
+      context.c_gpregs.gp_ebp = (uintptr_t)f->f_caller;
      } CATCH (E_SEGFAULT) {
       break;
      }
@@ -806,19 +808,23 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
  }
 #else
- /* Print a traceback. */
- for (;;) {
-  if (last_ip != INFO->e_context.c_eip) {
-   PRINTF("%[vinfo:%f(%l,%c) : %n] : %p : SP %p\n",
-          is_first && (INFO->e_error.e_flag&ERR_FRESUMENEXT) ?
-          CPU_CONTEXT_IP(INFO->e_context) : CPU_CONTEXT_IP(INFO->e_context)-1,
-          CPU_CONTEXT_IP(INFO->e_context),
-          CPU_CONTEXT_SP(INFO->e_context));
+ {
+  struct cpu_context context;
+  context = INFO->e_context;
+  /* Print a traceback. */
+  for (;;) {
+   if (last_ip != context.c_eip) {
+    PRINTF("%[vinfo:%f(%l,%c) : %n] : %p : SP %p\n",
+           is_first && (INFO->e_error.e_flag&ERR_FRESUMENEXT) ?
+           CPU_CONTEXT_IP(context) : CPU_CONTEXT_IP(context)-1,
+           CPU_CONTEXT_IP(context),
+           CPU_CONTEXT_SP(context));
+   }
+   if (sys_xunwind(&context,code,
+                  (!is_first || !(INFO->e_error.e_flag&ERR_FRESUMENEXT))))
+       break;
+   is_first = false;
   }
-  if (sys_xunwind(&INFO->e_context,code,
-                 (!is_first || !(INFO->e_error.e_flag&ERR_FRESUMENEXT))))
-      break;
-  is_first = false;
  }
  /* Copy back exception information in case it got overwritten in the mean time. */
  libc_memcpy(libc_error_info(),INFO,sizeof(struct exception_info));

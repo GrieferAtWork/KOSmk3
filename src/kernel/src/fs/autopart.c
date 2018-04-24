@@ -67,7 +67,8 @@ block_device_delparts(struct block_device *__restrict self) {
 
 PRIVATE minor_t KCALL
 block_device_do_autopart(struct block_device *__restrict self,
-                         minor_t EXCEPT_VAR partition_id) {
+                         minor_t partition_id) {
+ minor_t EXCEPT_VAR xpartition_id = partition_id;
  mbr_data_t mbr;
  unsigned int i;
  /* Read the MBR disk header. */
@@ -99,15 +100,15 @@ block_device_do_autopart(struct block_device *__restrict self,
    REF struct block_device *part;
    if (mbr.mbr_part[i].pt.pt_sysid == 0xee) {
     /* Special case: EFI partition */
-    partition_id = efi_autopart(self,lba_start,partition_id);
+    xpartition_id = efi_autopart(self,lba_start,xpartition_id);
    } else {
     /* Construct a new partition. */
-    do part = block_device_partition(self,lba_start,lba_size,partition_id,
+    do part = block_device_partition(self,lba_start,lba_size,xpartition_id,
                                     (u8 *)&mbr.mbr_part[i]),
-       ++partition_id;
+       ++xpartition_id;
     while (!part);
     debug_printf("[MBR] Created partition #%d (%[dev]) for %I64u...%I64u of %[dev] (%I64ux%Iu bytes)\n",
-                (int)partition_id-1,part->b_device.d_devno,
+                (int)xpartition_id-1,part->b_device.d_devno,
                 (u64)(part->b_partstart),
                 (u64)(part->b_partstart+part->b_blockcount),
                       part->b_master->b_device.d_devno,
@@ -117,7 +118,7 @@ block_device_do_autopart(struct block_device *__restrict self,
          /* NOTE: Check for `lba_start' to prevent infinite recursion! */
          lba_start != 0) {
       /* Recursively scan and load extended partitions. */
-      partition_id = block_device_do_autopart(part,partition_id);
+      xpartition_id = block_device_do_autopart(part,xpartition_id);
      }
     } FINALLY {
      block_device_decref(part);
@@ -127,7 +128,7 @@ block_device_do_autopart(struct block_device *__restrict self,
    /* Invalid partition. */
   }
  }
- return partition_id;
+ return xpartition_id;
 }
 
 PUBLIC void KCALL

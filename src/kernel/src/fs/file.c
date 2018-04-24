@@ -404,8 +404,9 @@ PRIVATE u8 const access_matrix[] = {
 
 /* High-level open a given INode and path pair as a file stream. */
 FUNDEF REF struct handle KCALL
-file_open(struct inode *__restrict EXCEPT_VAR node,
+file_open(struct inode *__restrict node,
           struct path *__restrict p, oflag_t flags) {
+ struct inode *EXCEPT_VAR xnode = node;
  REF struct handle result;
  if (flags & O_NOATIME) /* TODO: Implement permissions for this */
      throw_fs_error(ERROR_FS_ACCESS_ERROR);
@@ -425,7 +426,7 @@ file_open(struct inode *__restrict EXCEPT_VAR node,
    /* Mark the INode as changed. */
    inode_changed(node);
   } FINALLY {
-   rwlock_endwrite(&node->i_lock);
+   rwlock_endwrite(&xnode->i_lock);
   }
  }
 
@@ -521,25 +522,27 @@ file_seek(struct file *__restrict self,
 }
 
 PUBLIC size_t KCALL
-file_read(struct file *__restrict EXCEPT_VAR self,
+file_read(struct file *__restrict self,
           USER CHECKED void *buf,
           size_t bufsize, iomode_t flags) {
+ struct file *EXCEPT_VAR xself = self;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  rwlock_readf(&self->f_node->i_lock,flags);
  TRY {
   result = SAFECALL_KCALL_4(self->f_ops->f_read,self,buf,bufsize,flags);
  } FINALLY {
-  if (rwlock_endread(&self->f_node->i_lock))
+  if (rwlock_endread(&xself->f_node->i_lock))
       goto again;
  }
  return result;
 }
 
 PUBLIC size_t KCALL
-file_write(struct file *__restrict EXCEPT_VAR self,
+file_write(struct file *__restrict self,
            USER CHECKED void const *buf,
            size_t bufsize, iomode_t flags) {
+ struct file *EXCEPT_VAR xself = self;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  rwlock_writef(&self->f_node->i_lock,flags);
  TRY {
@@ -551,42 +554,44 @@ file_write(struct file *__restrict EXCEPT_VAR self,
   }
   result = SAFECALL_KCALL_4(self->f_ops->f_write,self,buf,bufsize,flags);
  } FINALLY {
-  rwlock_endwrite(&self->f_node->i_lock);
+  rwlock_endwrite(&xself->f_node->i_lock);
  }
  return result;
 }
 
 PUBLIC size_t KCALL
-file_readdir(struct file *__restrict EXCEPT_VAR self,
+file_readdir(struct file *__restrict self,
              USER CHECKED struct dirent *buf,
              size_t bufsize, int mode, iomode_t flags) {
+ struct file *EXCEPT_VAR xself = self;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  rwlock_readf(&self->f_node->i_lock,flags);
  TRY {
   result = SAFECALL_KCALL_5(self->f_ops->f_readdir,self,buf,bufsize,mode,flags);
  } FINALLY {
-  if (rwlock_endread(&self->f_node->i_lock))
+  if (rwlock_endread(&xself->f_node->i_lock))
       goto again;
  }
  return result;
 }
 
 PUBLIC ssize_t KCALL
-file_ioctl(struct file *__restrict EXCEPT_VAR self,
+file_ioctl(struct file *__restrict self,
            unsigned long cmd,
            USER UNCHECKED void *arg, iomode_t flags) {
+ struct file *EXCEPT_VAR xself = self;
  ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
  rwlock_writef(&self->f_node->i_lock,flags);
  TRY {
   result = SAFECALL_KCALL_4(self->f_ops->f_ioctl,self,cmd,arg,flags);
  } FINALLY {
-  rwlock_endwrite(&self->f_node->i_lock);
+  rwlock_endwrite(&xself->f_node->i_lock);
  }
  return result;
 }
 PUBLIC unsigned int KCALL
-file_poll(struct file *__restrict EXCEPT_VAR self, unsigned int mode) {
+file_poll(struct file *__restrict self, unsigned int mode) {
  return SAFECALL_KCALL_2(self->f_ops->f_poll,self,mode);
 }
 

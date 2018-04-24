@@ -465,9 +465,10 @@ Fat_GetAbsDiskPos(struct inode *__restrict self, pos_t pos, iomode_t flags) {
 
 
 INTERN FatClusterIndex KCALL
-Fat_GetFileCluster(struct inode *__restrict EXCEPT_VAR node,
+Fat_GetFileCluster(struct inode *__restrict node,
                    size_t nth_cluster,
                    unsigned int mode, iomode_t flags) {
+ struct inode *EXCEPT_VAR xnode = node;
  FatClusterIndex COMPILER_IGNORE_UNINITIALIZED(result);
  FatNode *EXCEPT_VAR data = node->i_fsdata;
  Fat *EXCEPT_VAR fat = node->i_super->s_fsdata;
@@ -572,7 +573,7 @@ create_cluster:
   }
  } FINALLY {
   if (has_write_lock)
-      rwlock_endwrite(&node->i_lock);
+      rwlock_endwrite(&xnode->i_lock);
  }
  return result;
 }
@@ -1073,9 +1074,10 @@ Fat32_PRead(struct inode *__restrict self,
 }
 
 PRIVATE size_t KCALL
-Fat32_PWrite(struct inode *__restrict EXCEPT_VAR self,
+Fat32_PWrite(struct inode *__restrict self,
              CHECKED USER void const *buf, size_t bufsize,
              pos_t pos, iomode_t flags) {
+ struct inode *EXCEPT_VAR xself = self;
  pos_t new_size = pos+bufsize;
  inode_loadattr(self);
  if (new_size > self->i_attr.a_size) {
@@ -1095,7 +1097,7 @@ Fat32_PWrite(struct inode *__restrict EXCEPT_VAR self,
   TRY {
    Fat32_WriteToINode(self,(byte_t *)buf,bufsize,pos,flags);
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-   self->i_attr.a_size = old_size;
+   xself->i_attr.a_size = old_size;
    error_rethrow();
   }
   inode_changed(self);
@@ -1479,9 +1481,10 @@ dos_8dot3:
 }
 
 PRIVATE void KCALL
-Fat_AddFileToDirectory(struct directory_node *__restrict EXCEPT_VAR target_directory,
+Fat_AddFileToDirectory(struct directory_node *__restrict target_directory,
                        struct directory_entry *__restrict target_dirent,
                        struct inode *__restrict new_node) {
+ struct directory_node *EXCEPT_VAR xtarget_directory = target_directory;
  FatFile dos83;
  u32 EXCEPT_VAR num_files;
  u32 EXCEPT_VAR file_index;
@@ -1497,7 +1500,7 @@ Fat_AddFileToDirectory(struct directory_node *__restrict EXCEPT_VAR target_direc
                          num_files,new_node);
  } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
   /* TODO: `FatDirectory_AddFreeRange()' might override the active exception */
-  FatDirectory_AddFreeRange(target_directory,file_index,num_files);
+  FatDirectory_AddFreeRange(xtarget_directory,file_index,num_files);
   error_rethrow();
  }
 }
@@ -1557,9 +1560,10 @@ PRIVATE FatFile directory_pattern[3] = {
 };
 
 PRIVATE void KCALL
-Fat_CreateDirectory(struct directory_node *__restrict EXCEPT_VAR target_directory,
+Fat_CreateDirectory(struct directory_node *__restrict target_directory,
                     struct directory_entry *__restrict target_dirent,
                     struct directory_node *__restrict new_node) {
+ struct directory_node *EXCEPT_VAR xtarget_directory = target_directory;
  FatFile dirinit[3]; FatClusterIndex EXCEPT_VAR clusno;
  new_node->d_node.i_nlink  = 1;
  new_node->d_node.i_fsdata = Fat_AllocateEmptyNode(target_directory->d_node.i_super->s_fsdata);
@@ -1591,7 +1595,7 @@ Fat_CreateDirectory(struct directory_node *__restrict EXCEPT_VAR target_director
   Fat_AddFileToDirectory(target_directory,target_dirent,&new_node->d_node);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Delete data of the new directory. */
-  Fat_SetFatIndirection(target_directory->d_node.i_super,
+  Fat_SetFatIndirection(xtarget_directory->d_node.i_super,
                         clusno,FAT_CLUSTER_UNUSED,
                         IO_WRONLY);
   error_rethrow();

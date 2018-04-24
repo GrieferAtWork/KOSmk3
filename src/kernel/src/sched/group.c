@@ -548,8 +548,9 @@ threadlist_reserve(struct threadlist EXCEPT_VAR *__restrict self,
 
 
 PUBLIC size_t KCALL
-signal_raise_pgroup(struct task *__restrict EXCEPT_VAR processgroup,
+signal_raise_pgroup(struct task *__restrict processgroup,
                     USER CHECKED siginfo_t *__restrict info) {
+ struct task *EXCEPT_VAR xprocessgroup = processgroup;
  size_t result = 0;
  struct processgroup *pgroup;
  processgroup = FORTASK(processgroup,_this_group).tg_leader;
@@ -612,8 +613,8 @@ signal_raise_pgroup(struct task *__restrict EXCEPT_VAR processgroup,
    }
   } FINALLY {
    threadlist_fini(&threads);
-   if (processgroup)
-       task_decref(processgroup);
+   if (xprocessgroup)
+       task_decref(xprocessgroup);
   }
  }
  return result;

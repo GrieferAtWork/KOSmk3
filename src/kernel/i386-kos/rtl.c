@@ -217,7 +217,7 @@ x86_default_error_unhandled_exception(bool is_standalone) {
      goto done;
  debug_printf("\n\n\n");
  kernel_print_exception();
- error_print_other_thread();
+ /*error_print_other_thread();*/
  error_print_vm();
 
 done:

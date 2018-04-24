@@ -275,12 +275,13 @@ typedef struct {
 } Elf_HashTable;
 
 LOCAL void KCALL
-Elf_LoadDynamic(ElfModule *__restrict EXCEPT_VAR self,
+Elf_LoadDynamic(ElfModule *__restrict self,
                 struct module *__restrict mod,
                 USER CHECKED byte_t *__restrict begin,
                 USER CHECKED byte_t *__restrict end,
                 USER CHECKED uintptr_t loadaddr,
                 image_rva_t image_end) {
+ ElfModule *EXCEPT_VAR xself = self;
  for (;;) {
   Elf_Word flags = ATOMIC_FETCHOR(self->e_flags,ELFMODULE_FDYNLOADING);
   if (flags & ELFMODULE_FDYNLOADED) return; /* The other thread finished. */
@@ -489,8 +490,8 @@ no_symbols:
 
  } FINALLY {
   if (FINALLY_WILL_RETHROW)
-       ATOMIC_FETCHAND(self->e_flags,~ELFMODULE_FDYNLOADING);
-  else ATOMIC_FETCHOR(self->e_flags,ELFMODULE_FDYNLOADED);
+       ATOMIC_FETCHAND(xself->e_flags,~ELFMODULE_FDYNLOADING);
+  else ATOMIC_FETCHOR(xself->e_flags,ELFMODULE_FDYNLOADED);
  }
 }
 
