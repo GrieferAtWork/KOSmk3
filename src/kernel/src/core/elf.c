@@ -241,6 +241,7 @@ Elf_LoadRegions(struct module *__restrict self) {
    if (mod->e_phdr[i].p_filesz) {
     region->vr_init                 = VM_REGION_INIT_FFILE_RO;
     region->vr_setup.s_file.f_node  = &self->m_fsloc->re_node;
+    inode_incref(region->vr_setup.s_file.f_node);
     region->vr_setup.s_file.f_begin = page_offset;
     region->vr_setup.s_file.f_start = mod->e_phdr[i].p_offset;
     region->vr_setup.s_file.f_size  = mod->e_phdr[i].p_filesz;
@@ -598,6 +599,7 @@ Elf_NewApplication(struct module_patcher *__restrict self) {
 #if 1
   /* Unmap everything that had already been mapped. */
   while (i--) {
+   if (!vector[i]) continue;
    vm_unmap(loadpage + VM_ADDR2PAGE(mod->e_phdr[i].p_vaddr),
             vector[i]->vr_size,VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT,
             app);
@@ -606,7 +608,8 @@ Elf_NewApplication(struct module_patcher *__restrict self) {
    * NOTE: An unmap() race condition is prevented because the
    *       caller is holding a lock on the effective VM. */
   vm_sync(loadpage+app->a_module->m_imagemin,
-          app->a_module->m_size);
+          app->a_module->m_imageend-
+          app->a_module->m_imagemin);
 #endif
   error_rethrow();
  }
