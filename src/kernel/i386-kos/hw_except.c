@@ -288,6 +288,15 @@ restart_syscall:
      /* Set the FSYSCALL flag so that exceptions are propagated accordingly. */
      error_info()->e_error.e_flag |= X86_INTERRUPT_GUARD_FSYSCALL;
      if (error_code() == E_INTERRUPT) {
+#if 1
+      COMPILER_WRITE_BARRIER();
+      /* Deal with system call restarts. */
+      if (!task_restart_syscall(&context->c_user,
+                                TASK_USERCTX_TYPE_INTR_SYSCALL|
+                                X86_SYSCALL_TYPE_FINT80,
+                                sysno))
+           error_rethrow();
+#else
       /* Restore the original user-space CPU context. */
       context->c_gpregs.gp_eax = context->c_eip;
       context->c_eip           = (uintptr_t)fault_address;
@@ -301,6 +310,7 @@ restart_syscall:
        context->c_gpregs.gp_eax = sysno;
        error_rethrow();
       }
+#endif
       COMPILER_BARRIER();
       goto restart_syscall;
      }

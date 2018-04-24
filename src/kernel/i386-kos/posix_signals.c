@@ -259,6 +259,7 @@ restart_sigframe_syscall:
 
 
 
+DEFINE_SYSCALL_DONTRESTART(sigreturn);
 DEFINE_SYSCALL0(sigreturn) {
  /* Use an RPC callback to gain access to the user-space register state. */
  task_queue_rpc_user(THIS_TASK,

@@ -1008,6 +1008,9 @@ PUBLIC ATTR_NORETURN void KCALL task_exit(void) {
  while (PERTASK_TESTF(this_task.t_state,TASK_STATE_FINTERRUPTED)) {
   /* With the flag now set, serve all remaining RPCs. */
   TRY {
+   /* XXX: This `task_serve()' will throw an `E_INTERRUPT' exception if
+    *      there are any RPC callbacks left with the `TASK_RPC_USER' flag
+    *      set. - How should we deal with those? */
    task_serve();
   } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
    /* XXX: Seriously: What should we do now?
@@ -1015,9 +1018,12 @@ PUBLIC ATTR_NORETURN void KCALL task_exit(void) {
     *                 we might want to log it somewhere? */
    /* XXX: Free stack memory by restoring ESP to a value before `task_serve()' was called */
    error_printf("Error in task_serve() during task_exit()\n");
+   if (error_code() == E_INTERRUPT)
+       goto done_rpc; /* ??? (See problem above...) */
   }
  }
 
+done_rpc:
  assert(PREEMPTION_ENABLED());
 
  {
