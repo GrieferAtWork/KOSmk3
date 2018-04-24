@@ -421,7 +421,7 @@ DEFINE_DRIVER_STRING(module_runpath,"module-runpath");
 
 
 PUBLIC ATTR_RETNONNULL REF struct driver *
-KCALL kernel_insmod(struct module *__restrict mod,
+KCALL kernel_insmod(struct module *__restrict EXCEPT_VAR mod,
                     bool *pwas_newly_loaded,
                     USER CHECKED char const *module_commandline,
                     size_t module_commandline_length) {
@@ -481,7 +481,7 @@ again:
                 mod->m_path,
                 APPLICATION_MAPMIN(&result->d_app),
                 APPLICATION_MAPMAX(&result->d_app),
-                result->d_cmdline ? result->d_cmdline : "");
+                result->d_cmdline);
    /* Format the commandline to split it into individual arguments. */
    *pwas_newly_loaded = true;
    sym = application_dlsym(&result->d_app,
@@ -529,17 +529,21 @@ again:
     TRY {
      /* Evaluate the module commandline. */
      char *cmdline = result->d_cmdline;
-     format_commandline(result->d_cmdline);
-     for (argc = 1; *cmdline; cmdline = strend(cmdline)+1) ++argc;
-     result->d_cmdsize = (size_t)(cmdline-result->d_cmdline);
-     argv = (char **)malloca(argc*sizeof(char *));
-     cmdline = result->d_cmdline;
-     for (argc = 0; *cmdline; cmdline = strend(cmdline)+1)
-          argv[argc++] = cmdline;
-     /* Serve driver parameters. */
-     argc = serve_driver_params((struct driver_param *)(load_addr + spec->ds_parm),
-                                 spec->ds_parm_sz,load_addr,argc,argv);
-     argv[argc] = NULL; /* Add a trailing NULL-argument */
+     if (cmdline) {
+      format_commandline(cmdline);
+      for (argc = 1; *cmdline; cmdline = strend(cmdline)+1) ++argc;
+      result->d_cmdsize = (size_t)(cmdline-result->d_cmdline);
+      argv = (char **)malloca(argc*sizeof(char *));
+      cmdline = result->d_cmdline;
+      for (argc = 0; *cmdline; cmdline = strend(cmdline)+1)
+           argv[argc++] = cmdline;
+      /* Serve driver parameters. */
+      argc = serve_driver_params((struct driver_param *)(load_addr + spec->ds_parm),
+                                  spec->ds_parm_sz,load_addr,argc,argv);
+      argv[argc] = NULL; /* Add a trailing NULL-argument */
+     } else {
+      argc = 0;
+     }
 
 #if 0
      debug_printf("spec->ds_free    = %p\n",spec->ds_free);
