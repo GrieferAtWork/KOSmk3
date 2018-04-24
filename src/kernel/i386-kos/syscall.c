@@ -41,6 +41,7 @@ should_restart_syscall(syscall_ulong_t sysno,
                        unsigned int context) {
  u8 mode;
  debug_printf("should_restart_syscall(%p,%x)\n",sysno,context);
+ sysno &= ~0x80000000;
  if (sysno <= __NR_syscall_max)
   mode = x86_syscall_restart[sysno];
  else if (sysno >= __NR_xsyscall_min && sysno <= __NR_xsyscall_max)
