@@ -18,12 +18,20 @@
  */
 #ifndef GUARD_KERNEL_SRC_SCHED_ONEXIT_C
 #define GUARD_KERNEL_SRC_SCHED_ONEXIT_C 1
+#define _KOS_SOURCE 1
 
 #include <hybrid/compiler.h>
+#include <hybrid/align.h>
+#include <kos/safecall.h>
 #include <kos/types.h>
 #include <sched/onexit.h>
 #include <kernel/sections.h>
 #include <hybrid/sync/atomic-rwptr.h>
+#include <kernel/malloc.h>
+#include <sched/task.h>
+#include <fs/driver.h>
+#include <except.h>
+#include <string.h>
 
 DECL_BEGIN
 
@@ -37,8 +45,57 @@ struct thread_onexit {
                                         *  Inline vector of on-exit callbacks. */
 };
 
+#if 1 /* XXX: Only if `offsetof(struct thread_onexit,te_entries) == 0' */
+#define ONEXIT_SIZE(x) (kmalloc_usable_size(x) / sizeof(struct onexit_entry))
+#else
+LOCAL size_t KCALL ONEXIT_SIZE(struct thread_onexit *x) {
+ size_t result = kmalloc_usable_size(x);
+ if (result) result -= offsetof(struct thread_onexit,te_entries);
+ return result / sizeof(struct onexit_entry);
+}
+#endif
+
 /* [TYPE(struct thread_onexit *)][0..1][lock(.)][owned] */
 INTERN ATTR_PERTASK DEFINE_ATOMIC_RWPTR(_this_onexit,NULL);
+
+DEFINE_PERTASK_FINI(exec_onexit);
+PRIVATE ATTR_USED void KCALL
+exec_onexit(struct task *__restrict thread) {
+ struct thread_onexit *onexit; size_t i,count;
+ atomic_rwptr_t *ptr = &FORTASK(thread,_this_onexit);
+ /* Quick (weak) check: are there any callbacks? */
+ if (!ATOMIC_RWPTR_GET(*ptr)) return;
+ COMPILER_READ_BARRIER();
+ atomic_rwptr_write(ptr);
+ onexit = (struct thread_onexit *)ATOMIC_RWPTR_GET(*ptr);
+ ATOMIC_WRITE(ptr->ap_data,0); /* Unlock + clear. */
+ /* Execute callbacks (NOTE: If due to a race condition `onexit'
+  *                          became `NULL', `kmalloc_usable_size()'
+  *                          simply returns ZERO(0) for `NULL',
+  *                          and kfree() is a no-op) */
+ count = ONEXIT_SIZE(onexit);
+ for (i = 0; i < count; ++i) {
+  if unlikely(!onexit->te_entries[i].oe_func) {
+   assertf(!memxchr(&onexit->te_entries[i],0,
+                   (count-i)*sizeof(struct onexit_entry)),
+            "A NULL-entry is a the sentinel, and all following entries must be NULL");
+   break; /* End of the callback list */
+  }
+  /* Execute the callback. */
+  SAFECALL_KCALL_VOID_2(*onexit->te_entries[i].oe_func,
+                         thread,
+                         onexit->te_entries[i].oe_arg);
+  driver_decref(onexit->te_entries[i].oe_owner);
+ }
+ kfree(onexit);
+}
+
+
+DEFINE_PERTASK_CLEANUP(cleanup_onexit);
+PRIVATE ATTR_USED void KCALL cleanup_onexit(void) {
+ exec_onexit(THIS_TASK);
+}
+
 
 
 
@@ -72,8 +129,78 @@ PUBLIC bool KCALL
 __os_task_queue_onexit(struct task *__restrict thread,
                        task_onexit_t callback, void *arg,
                        struct driver *__restrict owner) {
- /* TODO */
- return false;
+ atomic_rwptr_t *ptr;
+ struct thread_onexit *old_onexit;
+ struct thread_onexit *onexit;
+ size_t old_size,new_size,i;
+ assert(callback != NULL);
+ ptr = &FORTASK(thread,_this_onexit);
+again:
+ atomic_rwptr_write(ptr);
+ /* Check if the thread has already exited. */
+ if unlikely(TASK_ISTERMINATING(thread)) {
+  atomic_rwptr_endwrite(ptr);
+  return false;
+ }
+ old_onexit = (struct thread_onexit *)ATOMIC_RWPTR_GET(*ptr);
+ old_size   = ONEXIT_SIZE(old_onexit);
+ for (i = 0; i < old_size; ++i) {
+  if (old_onexit->te_entries[i].oe_func) continue;
+  if unlikely((owner->d_app.a_flags & APPLICATION_FCLOSING) ||
+              !driver_tryincref(owner)) {
+   atomic_rwptr_endwrite(ptr);
+   error_throw(E_DRIVER_CLOSED);
+  }
+  /* Found an unused entry. (Use it!) */
+  old_onexit->te_entries[i].oe_func  = callback;
+  old_onexit->te_entries[i].oe_arg   = arg;
+  old_onexit->te_entries[i].oe_owner = owner; /* Inherit reference. */
+  atomic_rwptr_endwrite(ptr);
+  return true;
+ }
+ atomic_rwptr_endwrite(ptr);
+ /* Allocate a larger onexit vector. */
+ new_size  = old_size;
+ new_size += CEILDIV(HEAP_ALIGNMENT,sizeof(struct onexit_entry));
+ onexit    = (struct thread_onexit *)kmemalign(ATOMIC_RWPTR_ALIGN,
+                                               offsetof(struct thread_onexit,te_entries)+
+                                               new_size*sizeof(struct onexit_entry),
+                                               GFP_SHARED|GFP_CALLOC);
+ /* Re-lock the vector. */
+ atomic_rwptr_write(ptr);
+ old_onexit = (struct thread_onexit *)ATOMIC_RWPTR_GET(*ptr);
+ old_size   = ONEXIT_SIZE(old_onexit);
+ if unlikely(new_size < old_size) {
+  /* Our new vector is too small... (start over) */
+  atomic_rwptr_endwrite(ptr);
+  kfree(onexit);
+  goto again;
+ }
+ /* Copy the vector over. */
+ memcpy(onexit,old_onexit,
+        offsetof(struct thread_onexit,te_entries)+
+       (old_size*sizeof(struct onexit_entry)));
+ /* Find the first free spot. */
+ for (i = 0; i < new_size; ++i) {
+  if (old_onexit->te_entries[i].oe_func) continue;
+  if unlikely((owner->d_app.a_flags & APPLICATION_FCLOSING) ||
+              !driver_tryincref(owner)) {
+   atomic_rwptr_endwrite(ptr);
+   kfree(onexit);
+   error_throw(E_DRIVER_CLOSED);
+  }
+  /* Found an unused entry. (Use it!) */
+  old_onexit->te_entries[i].oe_func  = callback;
+  old_onexit->te_entries[i].oe_arg   = arg;
+  old_onexit->te_entries[i].oe_owner = owner; /* Inherit reference. */
+  atomic_rwptr_endwrite(ptr);
+  break;
+ }
+ /* Save the new vector and unlock the pointer. */
+ ATOMIC_WRITE(ptr->ap_data,(uintptr_t)onexit);
+ /* Free the old vector. */
+ kfree(old_onexit);
+ return true;
 }
 
 /* Deque a previously queued onexit() callback.
@@ -93,7 +220,30 @@ PUBLIC ATTR_NOTHROW bool KCALL
 __os_task_dequeue_onexit(struct task *__restrict thread,
                          task_onexit_t callback, void *arg,
                          struct driver *__restrict owner) {
- /* TODO */
+ atomic_rwptr_t *ptr;
+ size_t size,i;
+ struct thread_onexit *onexit;
+ ptr = &FORTASK(thread,_this_onexit);
+ atomic_rwptr_write(ptr);
+ onexit = (struct thread_onexit *)ATOMIC_RWPTR_GET(*ptr);
+ i = size = ONEXIT_SIZE(onexit);
+ /* Find the newest entry matching the given arguments. */
+ while (i--) {
+  if (onexit->te_entries[i].oe_func != callback) continue;
+  if (onexit->te_entries[i].oe_arg != arg) continue;
+  if (onexit->te_entries[i].oe_owner != owner) continue;
+  /* Found it! (shift upcoming entries downwards) */
+  memmove(&onexit->te_entries[i],
+          &onexit->te_entries[i+1],
+         ((size-1)-i)*sizeof(struct thread_onexit));
+  /* Clear out the last entry that just became free. */
+  memset(&onexit->te_entries[size-1],0,
+          sizeof(struct thread_onexit));
+  atomic_rwptr_endwrite(ptr);
+  driver_decref(owner); /* The reference held by `oe_owner' */
+  return true;
+ }
+ atomic_rwptr_endwrite(ptr);
  return false;
 }
 

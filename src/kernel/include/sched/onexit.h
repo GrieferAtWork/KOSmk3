@@ -43,6 +43,7 @@ typedef /*ATTR_NOTHROW*/void (KCALL *task_onexit_t)(struct task *__restrict thre
  *     any callbacks defined using `DEFINE_PERTASK_CLEANUP()'
  *   - This function can be called multiple times with the same arguments,
  *     to have the same callback be registered more than once.
+ *   - onexit() callbacks are _NOT_ inherited during a clone() system call.
  * @param: callback:        The callback that should be executed (must be a valid )
  * @return: false:         `thread' has already terminated, or is currently in
  *                          the process to terminating.
