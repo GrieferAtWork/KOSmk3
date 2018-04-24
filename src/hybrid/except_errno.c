@@ -41,7 +41,13 @@ libc_exception_errno(struct exception_info *__restrict info) {
  errno_t result = EPERM;
  /*PRINTF("libc_exception_errno()\n");*/
  switch (info->e_error.e_code) {
- case E_BADALLOC:               result = ENOMEM; break;
+ case E_BADALLOC:
+  if (info->e_error.e_badalloc.ba_resource == ERROR_BADALLOC_HANDLE)
+   result = EMFILE;
+  else {
+   result = ENOMEM;
+  }
+  break;
  case E_INTERRUPT:              result = EINTR; break;
  case E_INVALID_HANDLE:
   result = EBADF;
@@ -58,7 +64,6 @@ libc_exception_errno(struct exception_info *__restrict info) {
  case E_NO_DATA:                result = ENODATA; break;
  case E_NOT_EXECUTABLE:         result = ENOEXEC; break;
  case E_INVALID_ARGUMENT:       result = EINVAL; break;
- case E_TOO_MANY_HANDLES:       result = EMFILE; break;
  case E_PROCESS_EXITED:         result = ESRCH; break;
  case E_STACK_OVERFLOW:         result = EFAULT; break; /* Barely questionable... */
  case E_UNHANDLED_INTERRUPT:    result = EFAULT; break; /* Definitely questionable... */

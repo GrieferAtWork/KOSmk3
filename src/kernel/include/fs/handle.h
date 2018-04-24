@@ -211,17 +211,17 @@ FUNDEF bool KCALL handle_close(fd_t fd);
 FUNDEF unsigned int KCALL handle_closeall(unsigned int minfd, unsigned int maxfd);
 
 /* Duplicate the handle `fd' and return a new descriptor for it.
- * @param: flags:              Set of `IO_HANDLE_F*'
- * @throw: E_INVALID_HANDLE:   The given `fd' is an invalid handle.
- * @throw: E_TOO_MANY_HANDLES: Too many open handles. */
+ * @param: flags:                            Set of `IO_HANDLE_F*'
+ * @throw: E_INVALID_HANDLE:                 The given `fd' is an invalid handle.
+ * @throw: E_BADALLOC.ERROR_BADALLOC_HANDLE: Too many open handles. */
 FUNDEF unsigned int KCALL handle_dup(fd_t fd, iomode_t flags);
 
 /* Similar to `handle_dup()', but duplicate into a file
  * descriptor slot that is greater than, or equal to `hint'.
- * @param: flags:              Set of `IO_HANDLE_F*'
- * @throw: E_INVALID_HANDLE:   The given `fd' is an invalid handle.
- * @throw: E_TOO_MANY_HANDLES: `hint' is great than the max allowed handle number.
- * @throw: E_TOO_MANY_HANDLES: Too many open handles. */
+ * @param: flags:                            Set of `IO_HANDLE_F*'
+ * @throw: E_INVALID_HANDLE:                 The given `fd' is an invalid handle.
+ * @throw: E_BADALLOC.ERROR_BADALLOC_HANDLE: `hint' is great than the max allowed handle number.
+ * @throw: E_BADALLOC.ERROR_BADALLOC_HANDLE: Too many open handles. */
 FUNDEF unsigned int KCALL handle_dupat(fd_t fd, unsigned int hint, iomode_t flags);
 
 /* Duplicate `fd' into `dfd'.
@@ -232,13 +232,13 @@ FUNDEF void KCALL handle_dupinto(fd_t fd, fd_t dfd, iomode_t flags);
 
 /* Add the given handle to the handle manager and
  * return the handle number of where it was placed.
- * @throw: E_TOO_MANY_HANDLES: Too many open handles. */
+ * @throw: E_BADALLOC.ERROR_BADALLOC_HANDLE: Too many open handles. */
 FUNDEF unsigned int KCALL handle_put(struct handle hnd);
 
 /* Similar to `handle_put()', but place the handle in a
  * descriptor slot that is greater than, or equal to `hint'.
- * @throw: E_TOO_MANY_HANDLES: `hint' is great than the max allowed handle number.
- * @throw: E_TOO_MANY_HANDLES: Too many open handles. */
+ * @throw: E_BADALLOC.ERROR_BADALLOC_HANDLE: `hint' is great than the max allowed handle number.
+ * @throw: E_BADALLOC.ERROR_BADALLOC_HANDLE: Too many open handles. */
 FUNDEF unsigned int KCALL handle_putat(struct handle hnd, unsigned int hint);
 
 /* Place the given handle into the specified handler slot.

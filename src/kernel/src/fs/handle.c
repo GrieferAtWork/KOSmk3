@@ -379,8 +379,8 @@ PUBLIC bool KCALL handle_close(fd_t fd) {
 
 
 /* Duplicate the handle `fd' and return a new descriptor for it.
- * @throw: E_INVALID_HANDLE:   The given `fd' is an invalid handle.
- * @throw: E_TOO_MANY_HANDLES: Too many open handles. */
+ * @throw: E_INVALID_HANDLE:                 The given `fd' is an invalid handle.
+ * @throw: E_BADALLOC.ERROR_BADALLOC_HANDLE: Too many open handles. */
 PUBLIC unsigned int KCALL handle_dup(fd_t fd, iomode_t flags) {
  struct handle EXCEPT_VAR hnd;
  unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
@@ -397,9 +397,9 @@ PUBLIC unsigned int KCALL handle_dup(fd_t fd, iomode_t flags) {
 
 /* Similar to `handle_dup()', but duplicate into a file
  * descriptor slot that is greater than, or equal to `hint'.
- * @throw: E_INVALID_HANDLE:   The given `fd' is an invalid handle.
- * @throw: E_TOO_MANY_HANDLES: `hint' is great than the max allowed handle number.
- * @throw: E_TOO_MANY_HANDLES: Too many open handles. */
+ * @throw: E_INVALID_HANDLE:                 The given `fd' is an invalid handle.
+ * @throw: E_BADALLOC.ERROR_BADALLOC_HANDLE: `hint' is great than the max allowed handle number.
+ * @throw: E_BADALLOC.ERROR_BADALLOC_HANDLE: Too many open handles. */
 PUBLIC unsigned int KCALL
 handle_dupat(fd_t fd, unsigned int hint, iomode_t flags) {
  struct handle EXCEPT_VAR hnd;
@@ -433,7 +433,7 @@ handle_dupinto(fd_t fd, fd_t dfd, iomode_t flags) {
 
 /* Add the given handle to the handle manager and
  * return the handle number of where it was placed.
- * @throw: E_TOO_MANY_HANDLES: Too many open handles. */
+ * @throw: E_BADALLOC.ERROR_BADALLOC_HANDLE: Too many open handles. */
 PUBLIC unsigned int KCALL handle_put(struct handle hnd) {
  struct handle *EXCEPT_VAR vector; unsigned int result;
  struct handle_manager *EXCEPT_VAR man = THIS_HANDLE_MANAGER;
@@ -449,7 +449,10 @@ PUBLIC unsigned int KCALL handle_put(struct handle hnd) {
    new_alloc = man->hm_limit;
    if unlikely(new_alloc <= man->hm_alloc) {
     atomic_rwlock_endwrite(&man->hm_lock);
-    error_throw(E_TOO_MANY_HANDLES); /* Too many handles. */
+    /* Too many handles. */
+    error_throwf(E_BADALLOC,
+                 ERROR_BADALLOC_HANDLE,
+                (size_t)new_alloc);
    }
   }
 #if HANDLE_TYPE_FNONE != 0
@@ -519,7 +522,10 @@ handle_putat(struct handle hnd, unsigned int EXCEPT_VAR hint) {
   if unlikely(hint >= man->hm_limit) {
    /* Invalid hint position. */
    atomic_rwlock_endwrite(&man->hm_lock);
-   error_throw(E_TOO_MANY_HANDLES); /* Too many handles. */
+    /* Too many handles. */
+    error_throwf(E_BADALLOC,
+                 ERROR_BADALLOC_HANDLE,
+                (size_t)new_alloc);
   }
   while (new_alloc <= hint) new_alloc *= 2;
   if unlikely(new_alloc > man->hm_limit)

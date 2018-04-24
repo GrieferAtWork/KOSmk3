@@ -334,16 +334,32 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
   break;
 
  case E_BADALLOC:
-  if (INFO->e_error.e_badalloc.ba_resource == ERROR_BADALLOC_VIRTMEMORY) {
+  switch (INFO->e_error.e_badalloc.ba_resource) {
+  case ERROR_BADALLOC_VIRTMEMORY:
    PRINTF("\tFailed locate space for %Iu (%#Ix) bytes of virtual memory\n",
-                INFO->e_error.e_badalloc.ba_amount,INFO->e_error.e_badalloc.ba_amount);
-  } else if (INFO->e_error.e_badalloc.ba_resource == ERROR_BADALLOC_PHYSMEMORY) {
+          INFO->e_error.e_badalloc.ba_amount,INFO->e_error.e_badalloc.ba_amount);
+   break;
+  case ERROR_BADALLOC_PHYSMEMORY:
    PRINTF("\tFailed to allocate %Iu (%#Ix) bytes of physical memory\n",
-                INFO->e_error.e_badalloc.ba_amount,INFO->e_error.e_badalloc.ba_amount);
-  } else {
+          INFO->e_error.e_badalloc.ba_amount,INFO->e_error.e_badalloc.ba_amount);
+   break;
+  case ERROR_BADALLOC_DEVICEID:
+   PRINTF("\tFailed to allocate %Iu device ids\n",
+          INFO->e_error.e_badalloc.ba_amount);
+   break;
+  case ERROR_BADALLOC_IOPORT:
+   PRINTF("\tFailed to allocate %Iu I/O port numbers\n",
+          INFO->e_error.e_badalloc.ba_amount);
+   break;
+  case ERROR_BADALLOC_HANDLE:
+   PRINTF("\tToo many open handles. %Iu exceeds the effective handle limit\n",
+          INFO->e_error.e_badalloc.ba_amount);
+   break;
+  default:
    PRINTF("\tFailed to allocate %Iu (%#Ix) of resource %d\n",
-                INFO->e_error.e_badalloc.ba_amount,INFO->e_error.e_badalloc.ba_amount,
-                INFO->e_error.e_badalloc.ba_resource);
+          INFO->e_error.e_badalloc.ba_amount,INFO->e_error.e_badalloc.ba_amount,
+          INFO->e_error.e_badalloc.ba_resource);
+   break;
   }
   break;
 
@@ -370,8 +386,8 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
   break;
 
  case E_INVALID_ALIGNMENT:
-   PRINTF("\tThe alignment of an operand was not valid\n");
-   break;
+  PRINTF("\tThe alignment of an operand was not valid\n");
+  break;
 
  case E_DIVIDE_BY_ZERO:
   switch (INFO->e_error.e_divide_by_zero.dz_type) {
@@ -521,10 +537,6 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
 
  case E_INVALID_ARGUMENT:
   PRINTF("\tInvalid argument\n");
-  break;
-
- case E_TOO_MANY_HANDLES:
-  PRINTF("\tToo many open handles\n");
   break;
 
  case E_PROCESS_EXITED:

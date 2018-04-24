@@ -225,7 +225,6 @@ typedef __UINT16_TYPE__ except_t;
 #define E_INVALID_ARGUMENT       0x0002          /* [ERRNO(EINVAL)] Invalid argument. */
 #define E_NOT_IMPLEMENTED        0x0003          /* [ERRNO(ENOSYS)] Unimplemented function. */
 #define E_INVALID_HANDLE         0x0004          /* [ERRNO(EBADF)] Bad file descriptor. */
-#define E_TOO_MANY_HANDLES       0x0014          /* [ERRNO(EMFILE)] Too many open handles. (TODO: Make this a resource type for E_BADALLOC) */
 #define E_WOULDBLOCK             0x0005          /* [ERRNO(EWOULDBLOCK)] A blocking call was attempted when non-blocking behavior was requested. */
 #define E_NO_DATA                0x0006          /* [ERRNO(ENODATA)] No data is available. */
 #define E_PROCESS_EXITED         0x0016          /* [ERRNO(ESRCH)] The task controller for the specified process has already been deallocated.
@@ -320,6 +319,7 @@ struct __ATTR_PACKED exception_data_noncontinuable {
 #define ERROR_BADALLOC_PHYSMEMORY 0x0001 /* Physical memory resource. */
 #define ERROR_BADALLOC_DEVICEID   0x0002 /* Dynamically allocated device IDs (e.g. `pty' ids). */
 #define ERROR_BADALLOC_IOPORT     0x0003 /* Dynamically allocated I/O port IDs. */
+#define ERROR_BADALLOC_HANDLE     0x0004 /* Too many handles (`ba_amount' total number of handle IDs that would have had to be allocated; not the number of new handles!). */
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_badalloc {
     __UINT16_TYPE__      ba_resource;  /* The type of that was attempted to be allocated (One of `ERROR_BADALLOC_*'). */
