@@ -39,6 +39,13 @@
 
 DECL_BEGIN
 
+STATIC_ASSERT(FS_MODE_FSYMLINK_NOFOLLOW == AT_SYMLINK_NOFOLLOW);
+STATIC_ASSERT(FS_MODE_FSYMLINK_REGULAR  == AT_SYMLINK_REGULAR);
+STATIC_ASSERT(FS_MODE_FNO_AUTOMOUNT     == AT_NO_AUTOMOUNT);
+STATIC_ASSERT(FS_MODE_FEMPTY_PATH       == AT_EMPTY_PATH);
+STATIC_ASSERT(FS_MODE_FDOSPATH          == AT_DOSPATH);
+
+
 PRIVATE ATTR_NORETURN void KCALL
 throw_fs_error(u16 fs_error_code) {
  struct exception_info *info;
@@ -134,7 +141,9 @@ default_lookup:
       throw_fs_error(ERROR_FS_FILENAME_TOO_LONG);
    result = path_casechild(pwd,remaining_path,(u16)segment_relevant);
    atomic_rwlock_read(&result->p_lock);
-   if (INODE_ISLNK(result->p_node)) {
+   if (INODE_ISLNK(result->p_node) &&
+      (remaining_pathlen != segment_length ||
+     !(flags & FS_MODE_FSYMLINK_NOFOLLOW))) {
     REF struct path *COMPILER_IGNORE_UNINITIALIZED(new_result);
     REF struct symlink_node *EXCEPT_VAR node;
     /* Check if we've got any remaining link tickets. */
@@ -234,7 +243,9 @@ default_lookup:
       throw_fs_error(ERROR_FS_FILENAME_TOO_LONG);
    result = path_child(pwd,remaining_path,(u16)segment_relevant);
    atomic_rwlock_read(&result->p_lock);
-   if (INODE_ISLNK(result->p_node)) {
+   if (INODE_ISLNK(result->p_node) &&
+      (remaining_pathlen != segment_length ||
+     !(flags & FS_MODE_FSYMLINK_NOFOLLOW))) {
     REF struct path *COMPILER_IGNORE_UNINITIALIZED(new_result);
     REF struct symlink_node *EXCEPT_VAR node;
     /* Check if we've got any remaining link tickets. */
@@ -479,8 +490,8 @@ do_path:
   atomic_rwlock_endread(&f->fs_lock);
  }
 
- /* Don't allow any symbolic links when `FS_MODE_FSYMLINK_NOFOLLOW' is set. */
- if (flags & FS_MODE_FSYMLINK_NOFOLLOW)
+ /* Don't allow any symbolic links when `FS_MODE_FSYMLINK_REGULAR' is set. */
+ if (flags & FS_MODE_FSYMLINK_REGULAR)
      max_links = 0;
 
  /* Walk the path. */
@@ -560,8 +571,8 @@ fs_path(struct path *cwd_, USER CHECKED char const *path,
  path_incref(cwd);
  atomic_rwlock_endread(&f->fs_lock);
 
- /* Don't allow any symbolic links when `FS_MODE_FSYMLINK_NOFOLLOW' is set. */
- if (flags & FS_MODE_FSYMLINK_NOFOLLOW)
+ /* Don't allow any symbolic links when `FS_MODE_FSYMLINK_REGULAR' is set. */
+ if (flags & FS_MODE_FSYMLINK_REGULAR)
      max_links = 0;
 
  /* Walk the path. */

@@ -301,15 +301,19 @@ FUNDEF ATTR_NOTHROW void KCALL vfs_unbind_drives(struct vfs *__restrict self);
 #define FS_MODE_FNORMAL                   0x00000000 /* Operate normally. */
 #define FS_MODE_FDIRECTORY                0x00000001 /* Open a directory. */
 #define FS_MODE_FIGNORE_TRAILING_SLASHES  0x00000002 /* Ignore empty trailing path segments. */
-#define FS_MODE_FSYMLINK_NOFOLLOW         0x00000100 /* Do not follow symbolic links. */
+#define FS_MODE_FSYMLINK_NOFOLLOW         0x00000100 /* If the last path component is a symlink, don't follow it. */
 #define FS_MODE_FNO_AUTOMOUNT             0x00000800 /* Suppress terminal automount traversal. */
 #define FS_MODE_FEMPTY_PATH               0x00001000 /* Allow empty relative pathname. */
+#define FS_MODE_FSYMLINK_REGULAR          0x00002000 /* Treat symbolic links similar to like regular files and throw an
+                                                      * `ERROR_FS_TOO_MANY_LINKS' error during the first encounter. */
 #define FS_MODE_FDOSPATH                  0x00100000 /* Interpret '\\' as '/', and ignore casing during path resolution. */
 #define FS_MODE_FALWAYS0MASK              0x000000ff /* Mask of bits always 0 in `fs_atmask' */
-#define FS_MODE_FALWAYS1MASK              0xffefe100 /* Mask of bits always 1 in `fs_atmask' */
-#define FS_MODE_FALWAYS0FLAG              0xffefe6ff /* Mask of bits always 0 in `fs_atflag' */
+#define FS_MODE_FALWAYS1MASK              0xffefc100 /* Mask of bits always 1 in `fs_atmask' */
+#define FS_MODE_FALWAYS0FLAG              0xffefc7ff /* Mask of bits always 0 in `fs_atflag' */
 #define FS_MODE_FALWAYS1FLAG              0x00000000 /* Mask of bits always 1 in `fs_atflag' */
-#define FS_MODE_FKNOWNBITS   (~FS_MODE_FALWAYS0FLAG) /* Mask of known, general-purpose user-mode path flags */
+
+/* Mask of known, general-purpose user-mode path flags */
+#define FS_MODE_FKNOWNBITS   (~FS_MODE_FALWAYS0FLAG|FS_MODE_FSYMLINK_NOFOLLOW)
 
 /* Use this macro to mask user-space filesystem mode flags. */
 #define FS_ATMODE(x)      (((x) & THIS_FS->fs_atmask) | THIS_FS->fs_atflag)

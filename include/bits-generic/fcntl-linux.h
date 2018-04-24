@@ -196,10 +196,15 @@ __SYSDECL_BEGIN
 #   define __O_CLOFORK    004000000
 #endif /* !__O_CLOFORK */
 #ifndef __O_SYMLINK
-#   define __O_SYMLINK   0200000000 /* Open a symlink itself, rather than dereferencing it. */
+#   define __O_SYMLINK   0200000000 /* Open a symlink itself, rather than dereferencing it.
+                                     * NOTE: When combined with O_EXCL, throw an `ERROR_FS_NOT_A_SYMLINK'
+                                     *       if the file isn't a symbolic link.
+                                     * NOTE: When used alongside `O_NOFOLLOW', throw an `E_INVALID_ARGUMENT' */
 #endif /* !__O_SYMLINK */
 #ifndef __O_DOSPATH
-#   define __O_DOSPATH   0400000000 /* Interpret '\\' as '/', and ignore casing during path resolution. */
+#   define __O_DOSPATH   0400000000 /* Interpret '\\' as '/', and ignore casing during path resolution.
+                                     * Additionally, recognize DOS mounting points, and interpret leading
+                                     * slashes as relative to the closest DOS mounting point. (s.a.: `AT_DOSPATH') */
 #endif /* !__O_DOSPATH */
 #else /* __CRT_KOS */
 #   undef __O_CLOFORK
@@ -458,16 +463,18 @@ struct file_handle {
 
 #ifdef __USE_ATFILE
 #   define AT_FDCWD              (-100)/* Special value used to indicate the *at functions should use the current working directory. */
-#   define AT_SYMLINK_NOFOLLOW  0x0100 /* Do not follow symbolic links. */
+#   define AT_SYMLINK_NOFOLLOW  0x0100 /* If the last path component is a symlink, don't follow it. */
 #   define AT_REMOVEDIR         0x0200 /* Remove directory instead of unlinking file. */
 #   define AT_EACCESS           0x0200 /* Test access permitted for effective IDs, not real IDs. */
-#   define AT_SYMLINK_FOLLOW    0x0400 /* Follow symbolic links. */
+#   define AT_SYMLINK_FOLLOW    0x0400 /* If the last path component is a symlink, follow it. (WARNING: Only used by `linkat(2)') */
 #ifdef __USE_GNU
 #   define AT_NO_AUTOMOUNT      0x0800 /* Suppress terminal automount traversal. */
 #   define AT_EMPTY_PATH        0x1000 /* Allow empty relative pathname. */
 #endif /* __USE_GNU */
-#ifdef __USE_KOS
+
+#if defined(__USE_KOS) || defined(__KERNEL__)
 #if __KOS_VERSION__ >= 300
+#   define AT_SYMLINK_REGULAR   0x2000 /* Treat symbolic links similar to like regular files and throw an `ERROR_FS_TOO_MANY_LINKS' error during the first encounter. */
 #   define AT_CHANGE_CTIME      0x0200 /* For use with `utimensat' and friends: Take `struct timespec[3]', where the 3rd entry
                                         * (when not equal to `UTIME_OMIT') is used to override the file creation timestamp.
                                         * NOTE: Passing this flag when the 3rd timespec isn't set to `UTIME_OMIT' requires
@@ -506,15 +513,18 @@ struct file_handle {
                                         * path names that start with a leading slash.
                                         * Basically, when set: perform the system call in DOS-compatibility mode.
                                         * HINT: This flag can be specified with the `fsmode()' system call. */
-#endif
 
-#if defined(__USE_KOS) || defined(__KERNEL__)
-#   define AT_FDROOT        (-101) /* Same as `AT_FDCWD' but sets the filesystem root (using this, you can `chroot()' with 'dup2()'!) */
+/* Same as `AT_FDCWD' but sets the filesystem root
+ * (using this, you can `chroot()' with 'dup2()'!) */
+#define AT_FDROOT        (-101)
+
 /* Special, symbolic file numbers. 
- * These descriptors cannot be overwritten, and their meaning is context-sensible. */
-#   define AT_THIS_TASK     (-180)
-#   define AT_THIS_MMAN     AT_THIS_TASK /* DEPRECATED */
-#   define AT_THIS_STACK    AT_THIS_TASK /* DEPRECATED */
+ * These descriptors cannot be overwritten,
+ * and their meaning is context-sensible. */
+#define AT_THIS_TASK     (-180)
+#define AT_THIS_MMAN     AT_THIS_TASK /* DEPRECATED */
+#define AT_THIS_STACK    AT_THIS_TASK /* DEPRECATED */
+
 #if __KOS_VERSION__ >= 300
 /* DOS Drive root / current-working paths.
  * These are special file descriptors that can be written to using `dup2()',

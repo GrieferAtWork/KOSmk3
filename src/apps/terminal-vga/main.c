@@ -604,8 +604,8 @@ PRIVATE keyboard_state_t keystate;
 /* Parse and relay keyboard-style inputs from the terminal driver's STDIN */
 PRIVATE ATTR_NORETURN void relay_incoming_threadmain(void) {
  char text[32]; char *iter; keyboard_key_t key; ssize_t s;
- while ((s = read(keyboard_fd,&key,sizeof(keyboard_key_t))) ==
-                          (ssize_t)sizeof(keyboard_key_t)) {
+ while ((s = read(keyboard_fd,&key,sizeof(keyboard_key_t))) >= 0) {
+  if (s < (ssize_t)sizeof(keyboard_key_t)) continue;
 rescan:
   switch (key) {
 #define MIRROR(key,state) \

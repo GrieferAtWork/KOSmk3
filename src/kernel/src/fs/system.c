@@ -208,7 +208,8 @@ DEFINE_SYSCALL4(fstatat64,fd_t,dfd,USER UNCHECKED char const *,path,
      error_throw(E_INVALID_ARGUMENT);
  /* Lookup the user-path. */
  p = fs_pathat(dfd,path,user_strlen(path),
-              (struct inode **)&node,FS_ATMODE(flags));
+              (struct inode **)&node,
+               FS_ATMODE(flags));
  path_decref(p);
  TRY {
   /* Query information in the INode. */
@@ -618,8 +619,11 @@ DEFINE_SYSCALL5(linkat,
  REF struct inode *EXCEPT_VAR link_target;
  REF struct path *p;
  size_t newname_length = user_strlen(newname);
- if (flags & ~FS_MODE_FKNOWNBITS)
+ if (flags & ~((FS_MODE_FKNOWNBITS & ~FS_MODE_FSYMLINK_NOFOLLOW) | AT_SYMLINK_FOLLOW))
      error_throw(E_INVALID_ARGUMENT);
+ /* Convert linkat()'s special `AT_SYMLINK_FOLLOW' to something we better understand. */
+ if (!(flags & AT_SYMLINK_FOLLOW))
+       flags |= FS_MODE_FSYMLINK_NOFOLLOW;
  flags = FS_ATMODE(flags);
  p = fs_lastpathat(newdfd,&newname,&newname_length,
                   (REF struct inode **)&target_dir,
@@ -727,7 +731,12 @@ DEFINE_SYSCALL4(openat,
  atflag_t at_flags;
  size_t newname_length = user_strlen(filename);
  at_flags = FS_MODE_FNORMAL;
- if (flags & O_NOFOLLOW)  at_flags |= FS_MODE_FSYMLINK_NOFOLLOW;
+ if (flags & (O_SYMLINK|O_NOFOLLOW)) {
+  /* You can't combine both flags! */
+  if ((flags & (O_SYMLINK|O_NOFOLLOW)) == (O_SYMLINK|O_NOFOLLOW))
+       error_throw(E_INVALID_ARGUMENT);
+  at_flags |= FS_MODE_FSYMLINK_NOFOLLOW;
+ }
  if (flags & O_DIRECTORY) at_flags |= (FS_MODE_FDIRECTORY|FS_MODE_FIGNORE_TRAILING_SLASHES);
  if (flags & O_DOSPATH)   at_flags |= FS_MODE_FDOSPATH;
  at_flags = FS_ATMODE(at_flags);
@@ -753,29 +762,16 @@ DEFINE_SYSCALL4(openat,
    path_decref(path);
   }
  } else {
-  if (flags & O_SYMLINK) {
-   REF struct path *EXCEPT_VAR filedir;
-   /* `O_SYMLINK' -- Open a symbolic link.
-    * Implemented by not including the last part during regular path traversal. */
-   filedir = fs_lastpathat(dfd,&filename,&newname_length,
-                          (REF struct inode **)&target_node,
-                           at_flags);
-   TRY {
-    /* Lookup the last child of the path. */
-    path = (at_flags&FS_MODE_FDOSPATH) ? path_casechild(filedir,filename,newname_length)
-                                       : path_child(filedir,filename,newname_length);
-   } FINALLY {
-    if (FINALLY_WILL_RETHROW &&
-        error_info()->e_error.e_code == E_FILESYSTEM_ERROR &&
-        error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_PATH_NOT_FOUND)
-        error_info()->e_error.e_filesystem_error.fs_errcode = ERROR_FS_FILE_NOT_FOUND;
-    path_decref(filedir);
-   }
-  } else {
-   path = fs_pathat(dfd,filename,newname_length,
-                   (REF struct inode **)&target_node,
-                    at_flags);
+  path = fs_pathat(dfd,filename,newname_length,
+                  (REF struct inode **)&target_node,
+                   at_flags);
+  if ((flags & O_NOFOLLOW) &&
+       INODE_ISLNK(target_node)) {
+   inode_decref(target_node);
+   path_decref(path);
+   throw_fs_error(ERROR_FS_IS_A_SYMLINK);
   }
+
   if (flags & O_PATH) {
    /* Open the path as a handle, not the INode itself. */
    result.h_mode = HANDLE_MODE(HANDLE_TYPE_FPATH,IO_FROM_O(flags));
@@ -2047,7 +2043,7 @@ DEFINE_SYSCALL2(umount2,
  if (flags & ~(MNT_FORCE|MNT_DETACH|MNT_EXPIRE|UMOUNT_NOFOLLOW))
      error_throw(E_INVALID_ARGUMENT);
  atflags = 0;
- if (UMOUNT_NOFOLLOW) atflags |= AT_SYMLINK_NOFOLLOW;
+ if (flags & UMOUNT_NOFOLLOW) atflags |= AT_SYMLINK_NOFOLLOW;
  p = fs_path(NULL,name,user_strlen(name),NULL,FS_ATMODE(atflags));
  if (!path_umount(p))
       throw_fs_error(ERROR_FS_UNMOUNT_NOTAMOUNT);

@@ -410,6 +410,8 @@ file_open(struct inode *__restrict node,
  REF struct handle result;
  if (flags & O_NOATIME) /* TODO: Implement permissions for this */
      throw_fs_error(ERROR_FS_ACCESS_ERROR);
+ if ((flags & (O_SYMLINK|O_EXCL)) == (O_SYMLINK|O_EXCL) && !INODE_ISLNK(node))
+      throw_fs_error(ERROR_FS_NOT_A_SYMLINK);
 
  /* Check if the caller is allowed to access the file. */
  inode_access(node,access_matrix[flags & IO_ACCMODE]);

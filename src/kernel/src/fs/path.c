@@ -1156,6 +1156,7 @@ REF struct fs *KCALL fs_clone(void) {
         sizeof(REF struct path *)*VFS_DRIVECOUNT);
  result->fs_umask  = orig->fs_umask;
  result->fs_lnkmax = orig->fs_lnkmax;
+ result->fs_mode   = orig->fs_mode;
  vfs_incfscount(result->fs_vfs);
  vfs_incref(result->fs_vfs);
  path_incref(result->fs_cwd);
@@ -1233,8 +1234,8 @@ PUBLIC struct fs fs_kernel = {
     .fs_cwd    = &vfs_kernel.v_root,
     .fs_umask  = CONFIG_FS_UMASK_DEFAULT,
     .fs_lnkmax = CONFIG_FS_LNKMAX_DEFAULT,
-    .fs_atmask = (u32)-1,
-    .fs_atflag = FS_MODE_FEMPTY_PATH /* Allow empty paths everywhere by default. */
+    .fs_atmask = ~FS_MODE_FALWAYS0MASK,
+    .fs_atflag = FS_MODE_FALWAYS1FLAG|FS_MODE_FEMPTY_PATH /* Allow empty paths everywhere by default. */
 };
 
 
