@@ -994,24 +994,24 @@ patcher_open_path(struct module_patcher *__restrict self,
 }
 
 PUBLIC ATTR_RETNONNULL struct application *KCALL
-patcher_require_string(struct module_patcher *__restrict self,
-                       USER CHECKED char const *__restrict name,
-                       size_t name_length) {
- struct module_patcher *EXCEPT_VAR xself = self;
- USER CHECKED char const *EXCEPT_VAR xname = name;
- size_t EXCEPT_VAR xname_length = name_length;
+patcher_require_string(struct module_patcher *__restrict self_,
+                       USER CHECKED char const *__restrict name_,
+                       size_t name_length_) {
+ struct module_patcher *EXCEPT_VAR self = self_;
+ USER CHECKED char const *EXCEPT_VAR name = name_;
+ size_t EXCEPT_VAR name_length = name_length_;
  struct application *COMPILER_IGNORE_UNINITIALIZED(result);
  struct module_patcher *EXCEPT_VAR iter;
  REF struct path *EXCEPT_VAR search_path;
  USER CHECKED char *EXCEPT_VAR p;
  USER CHECKED char *EXCEPT_VAR end;
  char EXCEPT_VAR ch;
- if unlikely(xname_length > (u16)-1)
+ if unlikely(name_length > (u16)-1)
     goto not_found;
- iter = xself;
+ iter = self;
  do {
   end = p = (char *)iter->mp_altpath;
-  if (!p) continue;
+  if (!p) goto next_iter;
 next_part:
   for (;; ++end) {
    ch = *end;
@@ -1019,6 +1019,7 @@ next_part:
    if (ch == ':' && !(iter->mp_flags&DL_OPEN_FDOSALT)) break;
    if (ch == ';' && (iter->mp_flags&DL_OPEN_FDOSALT)) break;
   }
+  COMPILER_BARRIER();
   TRY {
    search_path = fs_path(NULL,p,(size_t)(end-p),NULL,
                         (iter->mp_flags&DL_OPEN_FDOSALT)
@@ -1026,23 +1027,25 @@ next_part:
                        : FS_MODE_FDIRECTORY|FS_MODE_FIGNORE_TRAILING_SLASHES);
    /* Search for the module in this path. */
    TRY {
-    result = patcher_open_path(xself,search_path,xname,(u16)xname_length);
+    result = patcher_open_path(self,search_path,name,(u16)name_length);
    } FINALLY {
     path_decref(search_path);
    }
-   return result;
   } CATCH (E_FILESYSTEM_ERROR) {
-   if (error_info()->e_error.e_filesystem_error.fs_errcode != ERROR_FS_NOT_A_DIRECTORY &&
-       error_info()->e_error.e_filesystem_error.fs_errcode != ERROR_FS_PATH_NOT_FOUND)
+   struct exception_info *info = (error_info)();
+   if (info->e_error.e_filesystem_error.fs_errcode != ERROR_FS_NOT_A_DIRECTORY &&
+       info->e_error.e_filesystem_error.fs_errcode != ERROR_FS_PATH_NOT_FOUND)
        error_rethrow();
+   COMPILER_BARRIER();
+   if (ch) {
+    p = ++end;
+    goto next_part;
+   }
   }
-  if (ch) {
-   p = ++end;
-   goto next_part;
-  }
+  return result;
+next_iter:;
  } while ((iter = iter->mp_prev) != NULL);
-
- iter = xself->mp_root;
+ iter = self->mp_root;
  end = p = (char *)iter->mp_runpath;
  if (!p) goto not_found;
 next_rootpart:
@@ -1052,6 +1055,7 @@ next_rootpart:
   if (ch == ':' && !(iter->mp_flags&DL_OPEN_FDOSRUN)) break;
   if (ch == ';' && (iter->mp_flags&DL_OPEN_FDOSRUN)) break;
  }
+ COMPILER_BARRIER();
  TRY {
   search_path = fs_path(NULL,p,(size_t)(end-p),NULL,
                        (iter->mp_flags&DL_OPEN_FDOSRUN)
@@ -1059,16 +1063,18 @@ next_rootpart:
                       : FS_MODE_FDIRECTORY|FS_MODE_FIGNORE_TRAILING_SLASHES);
   /* Search for the module in this path. */
   TRY {
-   result = patcher_open_path(xself,search_path,xname,(u16)xname_length);
+   result = patcher_open_path(self,search_path,name,(u16)name_length);
   } FINALLY {
    path_decref(search_path);
   }
   return result;
  } CATCH (E_FILESYSTEM_ERROR) {
-  if (error_info()->e_error.e_filesystem_error.fs_errcode != ERROR_FS_NOT_A_DIRECTORY &&
-      error_info()->e_error.e_filesystem_error.fs_errcode != ERROR_FS_PATH_NOT_FOUND)
+  struct exception_info *info = (error_info)();
+  if (info->e_error.e_filesystem_error.fs_errcode != ERROR_FS_NOT_A_DIRECTORY &&
+      info->e_error.e_filesystem_error.fs_errcode != ERROR_FS_PATH_NOT_FOUND)
       error_rethrow();
  }
+ COMPILER_BARRIER();
  if (ch) {
   p = ++end;
   goto next_rootpart;

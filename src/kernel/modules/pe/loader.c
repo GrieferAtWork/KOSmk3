@@ -338,9 +338,10 @@ make_readonly(PE_MODULE *__restrict mod, uintptr_t loadaddr,
 
 PRIVATE ATTR_NOINLINE LPVOID KCALL
 Pe_ImportSymbol(struct application *__restrict pApp,
+                struct application *__restrict pDependency,
                 PIMAGE_IMPORT_BY_NAME pEntry) {
  struct module_symbol sym;
- if (pApp->a_module->m_type == &Pe_ModuleType) {
+ if (pDependency->a_module->m_type == &Pe_ModuleType) {
   /* TODO: Use `pEntry->Hint' */
  } else if (memcmp(pEntry->Name,"KOS$",4) != 0) {
   /* NOTE: Only do KOS/DOS indirect linking when
@@ -356,31 +357,34 @@ Pe_ImportSymbol(struct application *__restrict pApp,
   pDosSymbolName[3] = '$';
   memcpy(pDosSymbolName+4,pEntry->Name,szSymbolLength*sizeof(CHAR));
   pDosSymbolName[szSymbolLength+4] = '\0';
-  sym = application_dlsym(pApp,pDosSymbolName);
+  sym = application_dlsym(pDependency,pDosSymbolName);
   if (sym.ms_type != MODULE_SYMBOL_INVALID)
       return sym.ms_base;
  }
  /* Symbol Do a regular symbol lookup. */
- sym = application_dlsym(pApp,(char *)pEntry->Name);
+ sym = application_dlsym(pDependency,(char *)pEntry->Name);
  if (sym.ms_type != MODULE_SYMBOL_INVALID)
      return sym.ms_base;
  /* Symbol wasn't found... */
- debug_printf(COLDSTR("[PE] Failed to patch symbol %q in %q\n"),
-              pEntry->Name,pApp->a_module->m_path->p_dirent->de_name);
+ debug_printf(COLDSTR("[PE] Failed to patch symbol %q in %q, imported from %q\n"),
+              pEntry->Name,
+              pApp->a_module->m_path->p_dirent->de_name,
+              pDependency->a_module->m_path->p_dirent->de_name);
  error_throw(E_NOT_EXECUTABLE);
 }
 
 
 PRIVATE void KCALL
 Pe_PatchApp(struct module_patcher *__restrict self) {
+ struct module_patcher *EXCEPT_VAR xself = self;
  struct application *EXCEPT_VAR pApp = self->mp_app;
  struct module *EXCEPT_VAR pModule = pApp->a_module;
  PE_MODULE *EXCEPT_VAR pPeModule = pModule->m_data;
  uintptr_t EXCEPT_VAR pLoadAddr = pApp->a_loadaddr;
  /* Deal with import tables. */
  if (pPeModule->pm_Import.Size >= sizeof(IMAGE_IMPORT_DESCRIPTOR)) {
-  PIMAGE_IMPORT_DESCRIPTOR pImportIter;
-  PIMAGE_IMPORT_DESCRIPTOR pImportEnd;
+  PIMAGE_IMPORT_DESCRIPTOR EXCEPT_VAR pImportIter;
+  PIMAGE_IMPORT_DESCRIPTOR EXCEPT_VAR pImportEnd;
   pImportIter = (PIMAGE_IMPORT_DESCRIPTOR)(pLoadAddr +
                                            pPeModule->pm_Import.VirtualAddress);
   pImportEnd  = (PIMAGE_IMPORT_DESCRIPTOR)((uintptr_t)pImportIter+
@@ -389,7 +393,7 @@ Pe_PatchApp(struct module_patcher *__restrict self) {
    * ignore casing when loading dependencies. */
   self->mp_flags |= DL_OPEN_FNOCASE;
   for (; pImportIter < pImportEnd; ++pImportIter) {
-   LPSTR pImportFilename;
+   LPSTR EXCEPT_VAR pImportFilename;
    struct application *EXCEPT_VAR pDependency;
    /* The import is terminated by a ZERO-entry.
     * https://msdn.microsoft.com/en-us/library/ms809762.aspx */
@@ -403,14 +407,15 @@ Pe_PatchApp(struct module_patcher *__restrict self) {
                              pImportIter->Name);
    ASSERT_BOUNDS(pApp->a_bounds,(uintptr_t)pImportFilename);
    TRY {
-    pDependency = patcher_require_string(self,pImportFilename,
+    pDependency = patcher_require_string(xself,pImportFilename,
                                          user_strlen(pImportFilename));
    } CATCH (E_FILESYSTEM_ERROR) {
     if (error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_FILE_NOT_FOUND &&
         memcasecmp(pImportFilename,"msvcr",5*sizeof(char)) == 0) {
      /* Substitute msvcr* libraries with `libc.so'. */
-     pDependency = patcher_require_string(self,"libc.so",7);
+     pDependency = patcher_require_string(xself,"libc.so",7);
     } else {
+     debug_printf("[PE] Cannot find dependency %p:%q\n",pImportFilename,pImportFilename);
      error_rethrow();
     }
    }
@@ -426,7 +431,7 @@ Pe_PatchApp(struct module_patcher *__restrict self) {
                                       (pImportIter->FirstThunk
                                      ? pImportIter->FirstThunk
                                      : pImportIter->OriginalFirstThunk));
-    for (;;) {
+    for (;; ++pThunkIter,++pThunk2Iter) {
      PIMAGE_IMPORT_BY_NAME pImportEntry;
      LPVOID pImportAddress;
      ASSERT_BOUNDS(pApp->a_bounds,(uintptr_t)pThunkIter);
@@ -436,7 +441,7 @@ Pe_PatchApp(struct module_patcher *__restrict self) {
      pImportEntry = (PIMAGE_IMPORT_BY_NAME)(pLoadAddr+pThunkIter->u1.AddressOfData);
      ASSERT_BOUNDS(pApp->a_bounds,(uintptr_t)pImportEntry);
      /* Import the symbol. */
-     pImportAddress = Pe_ImportSymbol(pDependency,pImportEntry);
+     pImportAddress = Pe_ImportSymbol(pApp,pDependency,pImportEntry);
      pThunkIter->u1.AddressOfData  = (uintptr_t)pImportAddress;
      pThunk2Iter->u1.AddressOfData = (uintptr_t)pImportAddress;
     }
