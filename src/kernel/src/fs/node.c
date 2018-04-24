@@ -83,7 +83,7 @@ directory_entry_hash(CHECKED USER char const *__restrict name,
 PUBLIC ATTR_NOTHROW void KCALL
 directory_entry_destroy(struct directory_entry *__restrict self) {
  /* Drop references from mounting points. */
- if unlikely(self->de_type = DT_WHT)
+ if unlikely(self->de_type == DT_WHT)
     inode_decref(self->de_virtual);
  kfree(self);
 }
