@@ -156,8 +156,8 @@ task_exit_secondary_threads(int exit_status) {
   atomic_rwlock_write(&PERTASK(_this_group.tg_process.h_lock));
   thread = PERTASK_GET(_this_group.tg_process.h_group);
   while (thread &&
-       !(thread->t_flags&TASK_STATE_FTERMINATING) &&
-       !ATOMIC_INCIFNONZERO(thread->t_refcnt))
+        !TASK_ISTERMINATING(thread) &&
+        !ATOMIC_INCIFNONZERO(thread->t_refcnt))
       thread = FORTASK(thread,_this_group).tg_thread.g_group.le_next;
   if (thread) {
    /* Remove the thread from the group of threads registered to us. */
@@ -335,8 +335,7 @@ INTERN void KCALL task_startup_group(u32 UNUSED(flags)) {
  leader_group = &FORTASK(get_this_process(),_this_group);
  atomic_rwlock_write(&leader_group->tg_process.h_lock);
  /* Check if the leader is terminating. */
- if unlikely(get_this_process()->t_state &
-            (TASK_STATE_FTERMINATING|TASK_STATE_FTERMINATED)) {
+ if unlikely(TASK_ISTERMINATING(get_this_process())) {
   struct exception_info *reason;
   atomic_rwlock_endwrite(&leader_group->tg_process.h_lock);
   /* Just exit the thread if the leader is dead. */
@@ -404,7 +403,7 @@ again:
    /* Collect all threads. */
    iter = PERTASK_GET(_this_group.tg_process.h_group);
    for (; iter; iter = GROUP_NEXT(iter)) {
-    if (iter->t_state & TASK_STATE_FTERMINATING) continue;
+    if (TASK_ISTERMINATING(iter)) continue;
     if (!ATOMIC_INCIFNONZERO(iter->t_refcnt)) continue;
     if unlikely(num_threads == min_threads) {
      atomic_rwlock_endread(&PERTASK(_this_group.tg_process.h_lock));
@@ -796,8 +795,9 @@ reapall_check:
     }
     if (!(options & WNOWAIT)) {
      for (; child; child = child->tp_siblings.le_next) {
-      if (!child->tp_task || !ATOMIC_READ(child->tp_task->t_refcnt) ||
-          (ATOMIC_READ(child->tp_task->t_state) & TASK_STATE_FTERMINATED)) {
+      if (!child->tp_task ||
+          !ATOMIC_READ(child->tp_task->t_refcnt) ||
+           TASK_ISTERMINATED(child->tp_task)) {
        /* Detach (reap) this child. */
        LIST_REMOVE(child,tp_siblings); /* Inherit reference. */
        child->tp_siblings.le_pself = NULL;
@@ -867,8 +867,9 @@ continue_next_child_unlock:
     continue;
    }
   }
-  if (!child->tp_task || !ATOMIC_READ(child->tp_task->t_refcnt) ||
-      (ATOMIC_READ(child->tp_task->t_state) & TASK_STATE_FTERMINATED)) {
+  if (!child->tp_task ||
+      !ATOMIC_READ(child->tp_task->t_refcnt) ||
+       TASK_ISTERMINATED(child->tp_task)) {
    pid_t COMPILER_IGNORE_UNINITIALIZED(result);
 child_died:
    /* The thread has died. */

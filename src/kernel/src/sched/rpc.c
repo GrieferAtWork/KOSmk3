@@ -98,8 +98,7 @@ again:
   task_yield();
  }
  /* Check if the thread is currently terminating, or has terminated. */
- if (state & (TASK_STATE_FTERMINATING |
-              TASK_STATE_FTERMINATED)) {
+ if (state & (TASK_STATE_FTERMINATING|TASK_STATE_FTERMINATED)) {
   ATOMIC_FETCHAND(thread->t_state,~TASK_STATE_FINTERRUPTING);
   return NULL;
  }

@@ -90,8 +90,7 @@ kernel_join_bootworkers(void) {
  atomic_rwlock_read(&bw_thread_lock);
  for (; i < bw_thread_c; ++i) {
   struct task *thread = bw_thread_v[i];
-  if (thread->t_state & (TASK_STATE_FTERMINATING|
-                         TASK_STATE_FTERMINATED))
+  if (TASK_ISTERMINATING(thread))
       continue;
   atomic_rwlock_endread(&bw_thread_lock);
   /* Join this thread. */

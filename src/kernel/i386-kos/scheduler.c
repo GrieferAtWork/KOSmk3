@@ -493,7 +493,7 @@ task_wake_ex(struct task *__restrict thread,
 #ifdef CONFIG_NO_SMP
  bool result = true;
  pflag_t was = PREEMPTION_PUSHOFF();
- if (thread->t_state & TASK_STATE_FTERMINATED)
+ if (TASK_ISTERMINATED(thread))
   result = false;
  else if (thread->t_state & TASK_STATE_FSLEEPING) {
   LIST_REMOVE(thread,t_sched.sched_list);
@@ -974,7 +974,7 @@ task_connect_join(struct task *__restrict other_task) {
   * missed the join signal).
   * If we did miss it, simply set a signaled state using `joinsig'. */
  COMPILER_BARRIER();
- if (other_task->t_state & TASK_STATE_FTERMINATED)
+ if (TASK_ISTERMINATED(other_task))
      task_setsignaled(joinsig);
 }
 
@@ -1186,7 +1186,7 @@ restart_final_decref:
   task_decref(next_task); /* This will probably destroy it... */
   goto restart_final_decref;
  }
- if (next_task->t_state & TASK_STATE_FTERMINATING) {
+ if (TASK_ISTERMINATING(next_task)) {
   /* The next thread won't be able to terminate us using RPC calls.
    * Let's ask around for help. */
 #if 0

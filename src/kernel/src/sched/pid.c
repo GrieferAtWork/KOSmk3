@@ -500,8 +500,7 @@ INTERN void KCALL task_clone_pid(struct task *__restrict new_thread, u32 flags) 
    /* Add the PID descriptor to the parent process's chain of children. */
 #define PROCESS (FORTASK(parent_leader,_this_group).tg_process)
    sig_get(&PROCESS.h_cldevent);
-   if unlikely(!(parent_leader->t_state &
-                (TASK_STATE_FTERMINATING|TASK_STATE_FTERMINATED))) {
+   if unlikely(!TASK_ISTERMINATING(parent_leader)) {
     /* Add the PID to the chain of children. */
     LIST_INSERT(PROCESS.h_children,pid,tp_siblings);
     thread_pid_incref(pid); /* The reference stored in the `tp_siblings' chain. */

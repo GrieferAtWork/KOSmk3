@@ -134,7 +134,7 @@ x86_ipi_handle(struct x86_ipi const *__restrict ipi,
   } else if (thread->t_flags & TASK_FKEEPCORE) {
    /* The thread can't be moved right now. */
    *ipi->ipi_unschedule.us_status = X86_IPI_UNSCHEDULE_KEEP;
-  } else if (thread->t_state & (TASK_STATE_FTERMINATING|TASK_STATE_FTERMINATED)) {
+  } else if (TASK_ISTERMINATING(thread)) {
    /* The thread is dead (or dying). */
    *ipi->ipi_unschedule.us_status = X86_IPI_UNSCHEDULE_DEAD;
   } else if (thread != THIS_TASK) {
@@ -214,7 +214,7 @@ newcpu_continue:
     * this task is indeed apart of our CPU, we can
     * simply move it from the `c_sleeping' to the
     * `c_running' chain (causing a sporadic wakeup). */
-   if (ipi->ipi_wake.wt_task->t_state & TASK_STATE_FTERMINATED) {
+   if (TASK_ISTERMINATED(ipi->ipi_wake.wt_task)) {
     /* The task has died and can no longer be woken. */
     *ipi->ipi_wake.wt_status = X86_IPI_WAKETASK_DEAD;
    } else {
@@ -238,7 +238,7 @@ newcpu_continue:
 
  case X86_IPI_WAKETASK_P:
   if (ipi->ipi_wake_p.wt_task->t_cpu == THIS_CPU) {
-   if (ipi->ipi_wake_p.wt_task->t_state & TASK_STATE_FTERMINATED) {
+   if (TASK_ISTERMINATED(ipi->ipi_wake_p.wt_task)) {
     *ipi->ipi_wake_p.wt_status = X86_IPI_WAKETASK_DEAD;
    } else {
     x86_scheduler_localwake_p(ipi->ipi_wake_p.wt_prev,

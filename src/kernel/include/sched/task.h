@@ -380,6 +380,8 @@ struct task {
                                                *  an `E_WOULDBLOCK' error. */
     u16                          t_flags;     /* Set of `TASK_F*' */
     u16                          t_state;     /* Set of `TASK_STATE_F*' */
+#define TASK_ISTERMINATING(x) ((x)->t_state & (TASK_STATE_FTERMINATING|TASK_STATE_FTERMINATED))
+#define TASK_ISTERMINATED(x)  ((x)->t_state & TASK_STATE_FTERMINATED)
     /* A way of delaying exceptions from RPC functions.
      * When `kfree()' locks the heap, it could potentially
      * serve RPC functions which could then throw an
