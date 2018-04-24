@@ -462,7 +462,6 @@ read_through:
  assert(self->fb_cnt  == 0);
  assert(self->fb_chsz == 0);
  assert(self->fb_size != 0);
- assert(self->fb_file);
  if (next_data != self->fb_fpos) {
   /* Seek in the underlying file to get where we need to go. */
   COMPILER_BARRIER();
@@ -882,7 +881,6 @@ again:
  assert(self->fb_cnt  == 0);
  assert(self->fb_chsz == 0);
  assert(self->fb_size != 0);
- assert(self->fb_file);
  if (next_data != self->fb_fpos) {
   /* Seek in the underlying file to get where we need to go. */
   COMPILER_BARRIER();
