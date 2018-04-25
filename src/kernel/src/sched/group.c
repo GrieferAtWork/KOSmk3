@@ -457,6 +457,7 @@ task_set_group(struct task *__restrict thread,
  struct processgroup *pgroup;
  struct processgroup *old_pgroup;
  struct processgroup *new_pgroup;
+ REF struct task *old_session_leader = NULL;
  /* Dereference to get the thread-group leader of `thread' and `group'. */
  thread    = FORTASK(thread,_this_group).tg_leader;
  new_group = FORTASK(new_group,_this_group).tg_leader;
@@ -479,6 +480,9 @@ task_set_group(struct task *__restrict thread,
     next_group = &FORTASK(pgroup->pg_slave.m_members.le_next,_this_group).tg_process.h_procgroup;
     next_group->pg_slave.m_members.le_pself = pgroup->pg_slave.m_members.le_pself;
    }
+   old_session_leader = old_pgroup->pg_master.m_session;
+   assert(old_session_leader);
+   task_incref(old_session_leader);
    atomic_rwlock_endwrite(&old_pgroup->pg_lock);
   }
 
@@ -493,11 +497,19 @@ task_set_group(struct task *__restrict thread,
     next_group->pg_slave.m_members.le_pself = &pgroup->pg_slave.m_members.le_next;
    }
    atomic_rwlock_endwrite(&new_pgroup->pg_lock);
+  } else {
+   /* Leader of the new group. (Add to session) */
+   assert(old_session_leader);
+   pgroup->pg_master.m_members = NULL;
+   pgroup->pg_master.m_session = old_session_leader;
+   old_session_leader = NULL;
   }
   /* Set the new group leader in the associated group descriptor. */
   pgroup->pg_leader = new_group;
  }
  atomic_rwlock_endwrite(&pgroup->pg_lock);
+ if (old_session_leader)
+     task_decref(old_session_leader);
  if (old_group != thread)
      task_decref(old_group);
 }

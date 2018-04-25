@@ -384,6 +384,7 @@ task_failed(struct task *__restrict self) {
 PUBLIC void KCALL
 task_destroy(struct task *__restrict self) {
  task_func_t *iter;
+ assert(self != &_boot_task);
 
  /* Execute finalizers. */
  for (iter = pertask_fini_start;
