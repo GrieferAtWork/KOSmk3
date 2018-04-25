@@ -125,13 +125,15 @@ linker_findfde(uintptr_t ip, struct fde_info *__restrict result) {
  if (!app) return false;
  TRY {
   if (!module_loadexcept(app) &&
-      !app->a_module->m_sect.m_eh_frame.ms_size)
+      !app->a_module->m_sect.m_eh_frame.ds_size)
       fde_ok = false;
   else {
    struct module *mod = app->a_module;
    /* Lookup FDE information. */
-   fde_ok = eh_findfde((byte_t *)(app->a_loadaddr + mod->m_sect.m_eh_frame.ms_base),
-                        mod->m_sect.m_eh_frame.ms_size,ip,result,NULL);
+   fde_ok = eh_findfde((byte_t *)
+                      ((uintptr_t)mod->m_sect.m_eh_frame.ds_base + app->a_loadaddr),
+                                  mod->m_sect.m_eh_frame.ds_size,
+                        ip,result,NULL);
    /* XXX: `relinfo'? */
   }
  } FINALLY {
@@ -282,13 +284,14 @@ linker_findexcept(uintptr_t ip, u16 exception_code,
  TRY {
   except_ok = false;
   if (module_loadexcept(app) ||
-      app->a_module->m_sect.m_except.ms_size) {
+      app->a_module->m_sect.m_except.ds_size) {
    struct module *mod = app->a_module;
    struct except_handler *iter;
-   iter = (struct except_handler *)(app->a_loadaddr+mod->m_sect.m_except.ms_base);
+   iter = (struct except_handler *)((uintptr_t)mod->m_sect.m_except.ds_base+
+                                               app->a_loadaddr);
    except_ok = find_exception(iter,
                              (struct except_handler *)((uintptr_t)iter+
-                                                        mod->m_sect.m_except.ms_size),
+                                                        mod->m_sect.m_except.ds_size),
                               ip,exception_code,app,result);
   }
  } FINALLY {

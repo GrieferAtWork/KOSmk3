@@ -340,7 +340,7 @@ PRIVATE ATTR_NOINLINE LPVOID KCALL
 Pe_ImportSymbol(struct application *__restrict pApp,
                 struct application *__restrict pDependency,
                 PIMAGE_IMPORT_BY_NAME pEntry) {
- struct module_symbol sym;
+ struct dl_symbol sym;
  if (pDependency->a_module->m_type == &Pe_ModuleType) {
   /* TODO: Use `pEntry->Hint' */
  } else if (memcmp(pEntry->Name,"KOS$",4) != 0) {
@@ -358,13 +358,13 @@ Pe_ImportSymbol(struct application *__restrict pApp,
   memcpy(pDosSymbolName+4,pEntry->Name,szSymbolLength*sizeof(CHAR));
   pDosSymbolName[szSymbolLength+4] = '\0';
   sym = application_dlsym(pDependency,pDosSymbolName);
-  if (sym.ms_type != MODULE_SYMBOL_INVALID)
-      return sym.ms_base;
+  if (sym.ds_type != MODULE_SYMBOL_INVALID)
+      return sym.ds_base;
  }
  /* Symbol Do a regular symbol lookup. */
  sym = application_dlsym(pDependency,(char *)pEntry->Name);
- if (sym.ms_type != MODULE_SYMBOL_INVALID)
-     return sym.ms_base;
+ if (sym.ds_type != MODULE_SYMBOL_INVALID)
+     return sym.ds_base;
  /* Symbol wasn't found... */
  debug_printf(COLDSTR("[PE] Failed to patch symbol %q in %q, imported from %q\n"),
               pEntry->Name,
@@ -410,7 +410,8 @@ Pe_PatchApp(struct module_patcher *__restrict self) {
     pDependency = patcher_require_string(xself,pImportFilename,
                                          user_strlen(pImportFilename));
    } CATCH (E_FILESYSTEM_ERROR) {
-    if (error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_FILE_NOT_FOUND &&
+    u16 fs_code = error_info()->e_error.e_filesystem_error.fs_errcode;
+    if (ERROR_FS_IS_NOT_FOUND(fs_code) &&
         memcasecmp(pImportFilename,"msvcr",5*sizeof(char)) == 0) {
      error_handled();
      /* Substitute msvcr* libraries with `libc.so'. */
@@ -563,54 +564,58 @@ restart_rel_iter:
 }
 
 
-PRIVATE struct module_symbol KCALL
+PRIVATE struct dl_symbol KCALL
 Pe_GetSymbol(struct application *__restrict app,
              USER CHECKED char const *__restrict name,
              u32 hash) {
- struct module_symbol result;
+ struct dl_symbol result;
  /* XXX: Lazily fill in a symbol table cache. */
  /* TODO */
- result.ms_type = MODULE_SYMBOL_INVALID;
+ result.ds_type = MODULE_SYMBOL_INVALID;
  return result;
 }
 
-PRIVATE struct module_section KCALL
+
+PRIVATE struct dl_section KCALL
 Pe_GetSection(struct application *__restrict app,
               USER CHECKED char const *__restrict name) {
- struct module_section result; WORD i;
+ struct dl_section result; WORD i;
  PE_MODULE *pPeModule = app->a_module->m_data;
  for (i = 0; i < pPeModule->pm_NumSections; ++i) {
   DWORD dwSectionFlags;
   if (strcmp((char *)pPeModule->pm_Sections[i].Name,name) != 0)
       continue;
   /* Found it! */
-  result.ms_base    = pPeModule->pm_Sections[i].VirtualAddress;
-  result.ms_size    = pPeModule->pm_Sections[i].SizeOfRawData;
-  result.ms_offset  = pPeModule->pm_Sections[i].PointerToRawData;
-  result.ms_type    = SHT_PROGBITS;
-  result.ms_flags   = 0;
-  result.ms_entsize = 0;
+  result.ds_base = (void *)(pPeModule->pm_Sections[i].VirtualAddress+
+                            app->a_loadaddr);
+  result.ds_size    = pPeModule->pm_Sections[i].SizeOfRawData;
+  result.ds_offset  = pPeModule->pm_Sections[i].PointerToRawData;
+  result.ds_type    = SHT_PROGBITS;
+  result.ds_flags   = 0;
+  result.ds_entsize = 0;
   dwSectionFlags    = pPeModule->pm_Sections[i].Characteristics;
   if (dwSectionFlags & IMAGE_SCN_LNK_INFO)
-   result.ms_type = SHT_NOTE;
+   result.ds_type = SHT_NOTE;
   else if (!(dwSectionFlags & IMAGE_SCN_LNK_REMOVE)) {
-   result.ms_flags |= SHF_ALLOC;
+   result.ds_flags |= SHF_ALLOC;
   }
+  if (dwSectionFlags & IMAGE_SCN_MEM_SHARED)
+      result.ds_flags |= SHF_SHARED;
   if (dwSectionFlags & IMAGE_SCN_MEM_EXECUTE)
-      result.ms_flags |= SHF_EXECINSTR;
+      result.ds_flags |= SHF_EXECINSTR;
   if (dwSectionFlags & IMAGE_SCN_MEM_READ)
-      result.ms_flags |= SHF_ALLOC;
+      result.ds_flags |= SHF_ALLOC;
   if (dwSectionFlags & IMAGE_SCN_MEM_WRITE)
-      result.ms_flags |= SHF_WRITE;
+      result.ds_flags |= SHF_WRITE;
   if ((dwSectionFlags & IMAGE_SCN_CNT_UNINITIALIZED_DATA) &&
-       result.ms_size == 0) {
-   result.ms_type = SHT_NOBITS;
-   result.ms_size = pPeModule->pm_Sections[i].Misc.VirtualSize;
+       result.ds_size == 0) {
+   result.ds_type = SHT_NOBITS;
+   result.ds_size = pPeModule->pm_Sections[i].Misc.VirtualSize;
   }
   return result;
  }
- result.ms_size  = 0;
- result.ms_flags = 0;
+ result.ds_size  = 0;
+ result.ds_flags = 0;
  return result;
 }
 

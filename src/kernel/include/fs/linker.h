@@ -20,20 +20,20 @@
 #define GUARD_KERNEL_INCLUDE_FS_LINKER_H 1
 
 #include <hybrid/compiler.h>
-#include <kos/types.h>
 #include <hybrid/atomic.h>
 #include <hybrid/host.h>
 #include <hybrid/list/list.h>
 #include <hybrid/sync/atomic-rwlock.h>
+#include <kernel/sections.h>
+#include <kernel/vm.h>
 #include <kos/bound.h>
 #include <kos/dl.h>
-#include <kernel/vm.h>
-#include <kernel/sections.h>
+#include <kos/types.h>
 
 DECL_BEGIN
 
 #ifdef __CC__
-struct module_section;
+struct dl_section;
 struct module_type;
 struct module_data;
 struct module_debug;
@@ -49,30 +49,6 @@ struct driver;
 #ifdef __CC__
 typedef VIRT uintptr_t image_rva_t;
 #endif /* __CC__ */
-
-#define MODULE_SYMBOL_NORMAL  0x0000
-#define MODULE_SYMBOL_WEAK    0x0001 /* Weak symbol. */
-#define MODULE_SYMBOL_INVALID 0xffff /* Invalid symbol. */
-#ifdef __CC__
-struct module_symbol {
-    VIRT void *ms_base; /* [1..1] Symbol base address. */
-    size_t     ms_size; /* Symbol size in bytes, or `0' if unknown. */
-    uintptr_t  ms_type; /* Type type (One of `MODULE_SYMBOL_*') */
-};
-
-struct module_section {
-    image_rva_t   ms_base;      /* [1..ms_size][valid_if(ms_size && ms_flags & SHF_ALLOC)]
-                                 * Absolute section base address. */
-    size_t        ms_size;      /* Section size in bytes. */
-    pos_t         ms_offset;    /* [valid_if(ms_size)] Absolute offset into the associated file where section data starts.
-                                 * NOTE: In special sections, if the associated module has no file, this field is undefined. */
-    u16           ms_type;      /* [valid_if(ms_size)] Section type (One of `SHT_*' from <elf.h>) */
-    u16           ms_flags;     /* [valid_if(ms_size)] Section Flags (Set of `SHF_*' from <elf.h>) */
-    u32           ms_entsize;   /* [valid_if(ms_size)] Size of data-entries contained (or undefined if not used by `ms_type') */
-};
-#endif /* __CC__ */
-
-
 
 #define MODULE_MAX_MAGIC   12 /* Max number of magic bytes for determining module types. */
 
@@ -139,7 +115,6 @@ FUNDEF u32 KCALL patcher_symhash(USER CHECKED char const *__restrict name);
 
 
 #ifdef __CC__
-typedef void (*module_callback_t)(void);
 typedef void (KCALL *module_enumerator_t)(module_callback_t func, void *arg);
 
 struct module_type {
@@ -213,25 +188,16 @@ struct module_type {
                              module_enumerator_t func, void *arg);
     /* [1..1] Return the symbol mapping to `name'.
      * @return: MODULE_SYMBOL_INVALID: The given symbol `name' could not be found. */
-    struct module_symbol (KCALL *m_symbol)(struct application *__restrict app,
-                                           USER CHECKED char const *__restrict name, u32 hash);
+    struct dl_symbol (KCALL *m_symbol)(struct application *__restrict app,
+                                       USER CHECKED char const *__restrict name, u32 hash);
 
     /* [0..1] Return information about a section, given its name.
      * @return. ms_size == 0: The given section `name' could be not found. */
-    struct module_section (KCALL *m_section)(struct application *__restrict app,
-                                             USER CHECKED char const *__restrict name);
+    struct dl_section (KCALL *m_section)(struct application *__restrict app,
+                                         USER CHECKED char const *__restrict name);
 };
 #endif /* __CC__ */
 
-
-#define MODULE_FNORMAL            0x0000
-#define MODULE_FFIXED             0x0001 /* Instances of the module must loaded at a fixed
-                                          * `a_loadaddr' that is stored in `m_fixedbase' */
-#define MODULE_FENTRY             0x0002 /* The module offers an explicit entry point. */
-#define MODULE_FBASEHINT          0x0004 /* `m_fixedbase' is a load address hint. */
-#define MODULE_FNODEBUG           0x0080 /* [lock(WRITE_ONCE)] The module doesn't contain a `.debug_line' section */
-#define MODULE_FSECTLOADED        0x0800 /* [lock(WRITE_ONCE)] Special `m_sect' section data has been loaded. */
-#define MODULE_FSECTLOADING       0x8000 /* [lock(atomic)] Special `m_sect' section data is currently being loaded. */
 
 #ifdef __CC__
 struct module {
@@ -244,8 +210,8 @@ struct module {
                                                 *  not have any explicit filesystem location associated with themself. */
     VIRT uintptr_t                m_fixedbase; /* [const] Fixed, virtual base address of this module; load address hint.. */
     image_rva_t                   m_imagemin;  /* [const] Offset from `m_fixedbase', the address of the lowest segment.
-                                                * Using this value, the actual required memory range of the image
-                                                * can be determined. */
+                                                *  Using this value, the actual required memory range of the image
+                                                *  can be determined. */
     union PACKED {
         image_rva_t               m_imageend;  /* [const] The end address of the greatest section of the module. */
         image_rva_t               m_size;      /* [const] The module length (in bytes), offset from `m_fixedbase' */
@@ -259,8 +225,10 @@ struct module {
 
     struct module_data           *m_data;      /* [0..?] Module type-specific data (pre-initialized to NULL) */
     struct {
-        struct module_section     m_except;    /* The `.except' section (NOTE: You can assume that this section has `SHF_ALLOC' set if it exists). */
-        struct module_section     m_eh_frame;  /* The `.eh_frame' section (NOTE: You can assume that this section has `SHF_ALLOC' set if it exists). */
+        struct dl_section         m_except;    /* The `.except' section (NOTE: You can assume that this section has `SHF_ALLOC' set if it exists).
+                                                * NOTE: `ds_base' is actually an `image_rva_t' */
+        struct dl_section         m_eh_frame;  /* The `.eh_frame' section (NOTE: You can assume that this section has `SHF_ALLOC' set if it exists).
+                                                * NOTE: `ds_base' is actually an `image_rva_t' */
     }                             m_sect;      /* [valid_if(MODULE_FSECTLOADED)] Special section data. */
     struct module_debug          *m_debug;     /* [0..1][lock(WRITE_ONCE)] Module debug information (for addr2line) */
 };
@@ -401,13 +369,13 @@ struct application {
 
 
 /* Lookup a symbol / section within the given application. */
-FUNDEF struct module_symbol KCALL
+FUNDEF struct dl_symbol KCALL
 application_dlsym(struct application *__restrict self,
                   USER CHECKED char const *__restrict name);
-FUNDEF struct module_symbol KCALL
+FUNDEF struct dl_symbol KCALL
 application_dlsym3(struct application *__restrict self,
                    USER CHECKED char const *__restrict name, u32 hash);
-FUNDEF struct module_section KCALL
+FUNDEF struct dl_section KCALL
 application_dlsect(struct application *__restrict self,
                    USER CHECKED char const *__restrict name);
 
@@ -534,8 +502,8 @@ vm_apps_primary(struct vm *__restrict effective_vm);
  * NOTE: These functions will automatically deal with weak symbol visibility,
  *       where the first encountered non-weak match is returned in favor of
  *       the first encountered match. */
-FUNDEF struct module_symbol KCALL vm_apps_dlsym(USER CHECKED char const *__restrict name);
-FUNDEF struct module_symbol KCALL vm_apps_dlsym2(USER CHECKED char const *__restrict name, u32 hash);
+FUNDEF struct dl_symbol KCALL vm_apps_dlsym(USER CHECKED char const *__restrict name);
+FUNDEF struct dl_symbol KCALL vm_apps_dlsym2(USER CHECKED char const *__restrict name, u32 hash);
 
 /* Queue initializers/finalizers for all loaded modules
  * that haven't been initialized/finalized, yet.

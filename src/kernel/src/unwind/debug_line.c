@@ -39,9 +39,9 @@ DECL_BEGIN
 /* Delete module debug information. */
 PUBLIC ATTR_NOTHROW void KCALL
 module_debug_delete(struct module_debug *__restrict self) {
- if (self->md_debug_line.ms_size)
+ if (self->md_debug_line.ds_size)
      vm_unmap(VM_ADDR2PAGE((uintptr_t)self->md_data),
-              CEIL_ALIGN(self->md_debug_line.ms_size,PAGESIZE),
+              CEIL_ALIGN(self->md_debug_line.ds_size,PAGESIZE),
               VM_UNMAP_NOEXCEPT|VM_UNMAP_SYNC,NULL);
  kfree(self);
 }
@@ -51,20 +51,22 @@ module_debug_delete(struct module_debug *__restrict self) {
 FUNDEF /*inherit*/struct module_debug *KCALL
 module_debug_alloc(struct application *__restrict app) {
  struct module_debug *EXCEPT_VAR result;
- struct module_section debug_line;
+ struct dl_section debug_line;
  /* Lookup the .debug_line section */
  debug_line = application_dlsect(app,".debug_line");
- if (!debug_line.ms_size) return NULL; /* Nothing... */
+ if (!debug_line.ds_size) return NULL; /* Nothing... */
  /* Allocate the module-debug descriptor. */
  result = (struct module_debug *)kmalloc(sizeof(struct module_debug),
                                          GFP_SHARED|GFP_CALLOC);
- memcpy(&result->md_debug_line,&debug_line,sizeof(struct module_section));
+ memcpy(&result->md_debug_line,
+        &debug_line,
+        sizeof(struct dl_section));
  /* Map the debug_line section into memory. */
  TRY {
   REF struct vm_region *EXCEPT_VAR region;
   size_t num_pages,padding_size;
   padding_size = 64; /* Add some padding to guard against curruption. */
-  num_pages = CEILDIV(debug_line.ms_size+padding_size,PAGESIZE);
+  num_pages = CEILDIV(debug_line.ds_size+padding_size,PAGESIZE);
   if (app->a_flags & APPLICATION_FTRUSTED)
       padding_size = 0; /* No need to add padding if the app can be trusted. */
   /* Construct a new VM region to represent a file mapping. */
@@ -72,8 +74,8 @@ module_debug_alloc(struct application *__restrict app) {
                                 false,
                                (struct inode *)app->a_module->m_fsloc,
                                 0,
-                                debug_line.ms_offset,
-                                debug_line.ms_size,
+                                debug_line.ds_offset,
+                                debug_line.ds_size,
                                 0);
   TRY {
    /* Cannot share this region... */
@@ -243,7 +245,7 @@ module_debug_query(struct application *__restrict app,
  debug  = module_debug_open(app);
  if (!debug) return false;
  reader = debug->md_data;
- end    = reader + debug->md_debug_line.ms_size;
+ end    = reader + debug->md_debug_line.ds_size;
  while (reader < end) {
   uintptr_t length;
   byte_t *next_chunk; u16 version;

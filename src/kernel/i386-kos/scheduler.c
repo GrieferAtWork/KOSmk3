@@ -1656,17 +1656,17 @@ serve_rpc:
         is_standalone = true; /* If you say so... */
     if (!(user_state & THREAD_STATE_FINUEH)) {
      /* Search for the UEH callback. */
-     struct module_symbol ueh;
+     struct dl_symbol ueh;
      if (!ATOMIC_CMPXCH(useg->ts_state,user_state,user_state|THREAD_STATE_FINUEH))
           goto reload_state; /* Shouldn't happen, but give this one the benefit of the doubt */
-     ueh.ms_base = useg->ts_ueh;
+     ueh.ds_base = useg->ts_ueh;
      COMPILER_READ_BARRIER();
-     if (ueh.ms_base != NULL)
-         ueh.ms_type = MODULE_SYMBOL_NORMAL;
+     if (ueh.ds_base != NULL)
+         ueh.ds_type = MODULE_SYMBOL_NORMAL;
      else {
       ueh = vm_apps_dlsym("__$$OS$error_unhandled_exception");
      }
-     if (ueh.ms_type != MODULE_SYMBOL_INVALID) {
+     if (ueh.ds_type != MODULE_SYMBOL_INVALID) {
       void *ueh_sp;
       /* Found a handler! - Copy exception information to user-space. */
       errorinfo_copy_to_user(useg,&info,context);
@@ -1675,10 +1675,10 @@ serve_rpc:
       COMPILER_READ_BARRIER();
       if (ueh_sp)
           CPU_CONTEXT_SP(*context) = (uintptr_t)ueh_sp;
-      CPU_CONTEXT_IP(*context) = (uintptr_t)ueh.ms_base;
-      debug_printf("ueh.ms_base = %p\n",ueh.ms_base);
-      debug_printf("ueh.ms_size = %p\n",ueh.ms_size);
-      debug_printf("ueh.ms_type = %p\n",ueh.ms_type);
+      CPU_CONTEXT_IP(*context) = (uintptr_t)ueh.ds_base;
+      debug_printf("ueh.ms_base = %p\n",ueh.ds_base);
+      debug_printf("ueh.ms_size = %p\n",ueh.ds_size);
+      debug_printf("ueh.ms_type = %p\n",ueh.ds_type);
 #ifndef CONFIG_NO_X86_SEGMENTATION
       /* Set the user-space TLS segment to ensure
        * that the thread can read exception information. */

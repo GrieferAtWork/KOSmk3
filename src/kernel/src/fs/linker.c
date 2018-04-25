@@ -139,20 +139,20 @@ recheck_apps:
 }
 
 
-PUBLIC struct module_symbol KCALL
+PUBLIC struct dl_symbol KCALL
 vm_apps_dlsym(USER CHECKED char const *__restrict name) {
  return vm_apps_dlsym2(name,patcher_symhash(name));
 }
-PUBLIC struct module_symbol KCALL
+PUBLIC struct dl_symbol KCALL
 vm_apps_dlsym2(USER CHECKED char const *__restrict name, u32 hash) {
- struct module_symbol result,new_result;
+ struct dl_symbol result,new_result;
  struct application *EXCEPT_VAR app; struct vmapps *apps;
  struct vm *EXCEPT_VAR myvm = THIS_VM;
 again:
  vm_acquire_read(myvm);
  TRY {
 recheck_apps:
-  result.ms_type = MODULE_SYMBOL_INVALID;
+  result.ds_type = MODULE_SYMBOL_INVALID;
   apps = FORVM(myvm,vm_apps);
   if (apps) {
    size_t i;
@@ -167,9 +167,9 @@ recheck_apps:
      } FINALLY {
       application_decref(app);
      }
-     if (new_result.ms_type < result.ms_type) {
+     if (new_result.ds_type < result.ds_type) {
       result = new_result;
-      if (result.ms_type == MODULE_SYMBOL_NORMAL)
+      if (result.ds_type == MODULE_SYMBOL_NORMAL)
           goto got_result;
      }
      atomic_rwlock_read(&apps->va_lock);
@@ -527,17 +527,19 @@ module_loadexcept(struct application *__restrict self) {
  TRY {
   /* Load special sections. */
   if (!mod->m_type->m_section) {
-   mod->m_sect.m_eh_frame.ms_size = 0;
-   mod->m_sect.m_except.ms_size   = 0;
+   mod->m_sect.m_eh_frame.ds_size = 0;
+   mod->m_sect.m_except.ds_size   = 0;
   } else {
    /* Load special sections. */
    mod->m_sect.m_eh_frame = (*mod->m_type->m_section)(self,".eh_frame");
    mod->m_sect.m_except   = (*mod->m_type->m_section)(self,".except");
+   *(uintptr_t *)&mod->m_sect.m_eh_frame.ds_base -= self->a_loadaddr;
+   *(uintptr_t *)&mod->m_sect.m_except.ds_base   -= self->a_loadaddr;
    /* Make sure that the sections have been allocated in memory. */
-   if (!(mod->m_sect.m_eh_frame.ms_flags & SHF_ALLOC))
-         mod->m_sect.m_eh_frame.ms_size = 0;
-   if (!(mod->m_sect.m_except.ms_flags & SHF_ALLOC))
-         mod->m_sect.m_except.ms_size = 0;
+   if (!(mod->m_sect.m_eh_frame.ds_flags & SHF_ALLOC))
+         mod->m_sect.m_eh_frame.ds_size = 0;
+   if (!(mod->m_sect.m_except.ds_flags & SHF_ALLOC))
+         mod->m_sect.m_except.ds_size = 0;
   }
  } FINALLY {
   if (FINALLY_WILL_RETHROW)
@@ -545,8 +547,8 @@ module_loadexcept(struct application *__restrict self) {
   else ATOMIC_FETCHOR(mod->m_flags,MODULE_FSECTLOADED);
  }
 done:
- return (mod->m_sect.m_eh_frame.ms_size != 0 &&
-         mod->m_sect.m_except.ms_size != 0);
+ return (mod->m_sect.m_eh_frame.ds_size != 0 &&
+         mod->m_sect.m_except.ds_size != 0);
 }
 
 
@@ -1087,18 +1089,18 @@ not_found:
 }
 
 
-PRIVATE struct module_symbol KCALL
+PRIVATE struct dl_symbol KCALL
 impl_patcher_symaddr(struct module_patcher *__restrict self,
                      USER CHECKED char const *__restrict name,
                      u32 hash, bool search_current) {
- struct module_symbol result,weak_result; size_t i;
- weak_result.ms_type = MODULE_SYMBOL_INVALID;
+ struct dl_symbol result,weak_result; size_t i;
+ weak_result.ds_type = MODULE_SYMBOL_INVALID;
  /* Deep binding prefers the module itself above others. */
  if (self->mp_flags & DL_OPEN_FDEEPBIND) {
   if (!search_current) goto done;
   result = (*self->mp_app->a_module->m_type->m_symbol)(self->mp_app,name,hash);
-  if (result.ms_type != MODULE_SYMBOL_INVALID) {
-   if (result.ms_type == MODULE_SYMBOL_NORMAL)
+  if (result.ds_type != MODULE_SYMBOL_INVALID) {
+   if (result.ds_type == MODULE_SYMBOL_NORMAL)
        goto done;
    weak_result = result;
   }
@@ -1107,8 +1109,8 @@ impl_patcher_symaddr(struct module_patcher *__restrict self,
  /* Search upper modules first. */
  if (self->mp_prev) {
   result = impl_patcher_symaddr(self->mp_prev,name,hash,true);
-  if (result.ms_type != MODULE_SYMBOL_INVALID) {
-   if (result.ms_type == MODULE_SYMBOL_NORMAL)
+  if (result.ds_type != MODULE_SYMBOL_INVALID) {
+   if (result.ds_type == MODULE_SYMBOL_NORMAL)
        goto done;
    weak_result = result;
   }
@@ -1119,8 +1121,8 @@ impl_patcher_symaddr(struct module_patcher *__restrict self,
  for (i = 0; i < self->mp_requirec; ++i) {
   struct application *dep = self->mp_requirev[i];
   result = (*dep->a_module->m_type->m_symbol)(dep,name,hash);
-  if (result.ms_type != MODULE_SYMBOL_INVALID) {
-   if (result.ms_type == MODULE_SYMBOL_NORMAL) goto done;
+  if (result.ds_type != MODULE_SYMBOL_INVALID) {
+   if (result.ds_type == MODULE_SYMBOL_NORMAL) goto done;
    weak_result = result;
   }
  }
@@ -1128,8 +1130,8 @@ impl_patcher_symaddr(struct module_patcher *__restrict self,
  /* Search the module being patched itself. */
  if (!(self->mp_flags & DL_OPEN_FDEEPBIND)) {
   result = (*self->mp_app->a_module->m_type->m_symbol)(self->mp_app,name,hash);
-  if (result.ms_type != MODULE_SYMBOL_INVALID) {
-   if (result.ms_type == MODULE_SYMBOL_NORMAL) goto done;
+  if (result.ds_type != MODULE_SYMBOL_INVALID) {
+   if (result.ds_type == MODULE_SYMBOL_NORMAL) goto done;
    weak_result = result;
   }
  }
@@ -1146,10 +1148,10 @@ PUBLIC void *KCALL
 patcher_symaddr(struct module_patcher *__restrict self,
                 USER CHECKED char const *__restrict name,
                 u32 hash, bool search_current) {
- struct module_symbol result;
+ struct dl_symbol result;
  result = impl_patcher_symaddr(self,name,hash,search_current);
- if (result.ms_type != MODULE_SYMBOL_INVALID)
-     return result.ms_base;
+ if (result.ds_type != MODULE_SYMBOL_INVALID)
+     return result.ds_base;
  if (self->mp_apptype & APPLICATION_TYPE_FDRIVER) {
   /* Special symbols provided for drivers. */
   assertf(patcher_symhash(ELFNAME_THIS_DRIVER) == ELFHASH_THIS_DRIVER,
@@ -1210,12 +1212,12 @@ application_loadroot(struct application *__restrict self, u16 flags,
 }
 
 
-PUBLIC struct module_symbol KCALL
+PUBLIC struct dl_symbol KCALL
 application_dlsym(struct application *__restrict self,
                   USER CHECKED char const *__restrict name) {
  return application_dlsym3(self,name,patcher_symhash(name));
 }
-PUBLIC struct module_symbol KCALL
+PUBLIC struct dl_symbol KCALL
 application_dlsym3(struct application *__restrict self,
                    USER CHECKED char const *__restrict name,
                    u32 hash) {
@@ -1223,15 +1225,15 @@ application_dlsym3(struct application *__restrict self,
  return (*self->a_module->m_type->m_symbol)(self,name,hash);
 }
 
-PUBLIC struct module_section KCALL
+PUBLIC struct dl_section KCALL
 application_dlsect(struct application *__restrict self,
                    USER CHECKED char const *__restrict name) {
- struct module_section (KCALL *pfun)(struct application *__restrict app,
+ struct dl_section (KCALL *pfun)(struct application *__restrict app,
                                      USER CHECKED char const *__restrict name);
  pfun = self->a_module->m_type->m_section;
  if (!pfun) {
-  struct module_section result;
-  result.ms_size = 0; /* return ZERO(0) to indicate an empty section. */
+  struct dl_section result;
+  result.ds_size = 0; /* return ZERO(0) to indicate an empty section. */
   return result;
  }
  /* Lookup a section within the associated module. */

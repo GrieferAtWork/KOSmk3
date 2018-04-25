@@ -886,14 +886,14 @@ symend_overflow:
 
 
 
-PRIVATE struct module_symbol KCALL
+PRIVATE struct dl_symbol KCALL
 Elf_GetSymbolAddress(struct application *__restrict app,
                      USER CHECKED char const *__restrict name,
                      u32 hash) {
  ElfModule *self = app->a_module->m_data;
  uintptr_t load_addr = (uintptr_t)app->a_loadaddr;
- struct module_symbol result;
- result.ms_type = MODULE_SYMBOL_INVALID;
+ struct dl_symbol result;
+ result.ds_type = MODULE_SYMBOL_INVALID;
  if (self->e_dyn.di_symcnt != 0) {
   Elf_Sym *symtab_begin,*symtab_end,*symtab_iter;
   char *string_table = (char *)(load_addr + self->e_dyn.di_strtab);
@@ -944,13 +944,13 @@ broken_hash:
 #endif
      if (strcmp(sym_name,name) != 0) goto next_candidate;
      if (symtab_iter->st_shndx == SHN_UNDEF) goto end; /* Symbol not defined by this library. */
-     result.ms_base = (void *)symtab_iter->st_value;
-     result.ms_size = symtab_iter->st_size;
+     result.ds_base = (void *)symtab_iter->st_value;
+     result.ds_size = symtab_iter->st_size;
      if (symtab_iter->st_shndx != SHN_ABS)
-       *(uintptr_t *)&result.ms_base += load_addr;
-     result.ms_type = MODULE_SYMBOL_NORMAL;
+       *(uintptr_t *)&result.ds_base += load_addr;
+     result.ds_type = MODULE_SYMBOL_NORMAL;
      if (ELF_ST_BIND(symtab_iter->st_info) == STB_WEAK)
-         result.ms_type = MODULE_SYMBOL_WEAK;
+         result.ds_type = MODULE_SYMBOL_WEAK;
      goto end;
 next_candidate:
      if unlikely(chain >= hashtab.ht_nchains) /* Shouldn't happen. */
@@ -971,13 +971,13 @@ next_candidate:
                (uintptr_t)sym_name >= (uintptr_t)string_end) break;
    if (strcmp(sym_name,name) != 0) continue;
    if (symtab_iter->st_shndx == SHN_UNDEF) goto end; /* Symbol not defined by this library. */
-   result.ms_base = (void *)symtab_iter->st_value;
-   result.ms_size = symtab_iter->st_size;
+   result.ds_base = (void *)symtab_iter->st_value;
+   result.ds_size = symtab_iter->st_size;
    if (symtab_iter->st_shndx != SHN_ABS)
-     *(uintptr_t *)&result.ms_base += load_addr;
-   result.ms_type = MODULE_SYMBOL_NORMAL;
+     *(uintptr_t *)&result.ds_base += load_addr;
+   result.ds_type = MODULE_SYMBOL_NORMAL;
    if (ELF_ST_BIND(symtab_iter->st_info) == STB_WEAK)
-       result.ms_type = MODULE_SYMBOL_WEAK;
+       result.ds_type = MODULE_SYMBOL_WEAK;
    goto end;
   }
  }
@@ -1102,10 +1102,10 @@ Elf_EnumFinalizers(struct application *__restrict app,
  }
 }
 
-PRIVATE struct module_section KCALL
+PRIVATE struct dl_section KCALL
 Elf_GetSectionAddress(struct application *__restrict app,
                       USER CHECKED char const *__restrict name) {
- struct module_section result;
+ struct dl_section result;
  Elf_Shdr *vector; unsigned int i;
  struct module *appmod = app->a_module;
  ElfModule *mod = appmod->m_data;
@@ -1122,22 +1122,23 @@ Elf_GetSectionAddress(struct application *__restrict app,
   if unlikely(secnam >= shstrend) continue;
   if (strcmp(secnam,name) != 0) continue;
   /* Found it! */
-  result.ms_base    = vector[i].sh_addr;
-  result.ms_size    = vector[i].sh_size;
-  result.ms_offset  = vector[i].sh_offset;
-  result.ms_type    = vector[i].sh_type;
-  result.ms_flags   = vector[i].sh_flags;
-  result.ms_entsize = vector[i].sh_entsize;
+  result.ds_base    = (void *)vector[i].sh_addr;
+  result.ds_size    = vector[i].sh_size;
+  result.ds_offset  = vector[i].sh_offset;
+  result.ds_type    = vector[i].sh_type;
+  result.ds_flags   = vector[i].sh_flags;
+  result.ds_entsize = vector[i].sh_entsize;
   /* Verify the section's address range. */
-  if unlikely(result.ms_base < appmod->m_imagemin &&
-             (result.ms_flags & SHF_ALLOC))
+  if unlikely((uintptr_t)result.ds_base < appmod->m_imagemin &&
+             (result.ds_flags & SHF_ALLOC))
      continue;
-  if unlikely(result.ms_base+result.ms_size > appmod->m_imageend)
-     result.ms_size = appmod->m_imageend - result.ms_base;
+  if unlikely((uintptr_t)result.ds_base+result.ds_size > appmod->m_imageend)
+     result.ds_size = appmod->m_imageend - (uintptr_t)result.ds_base;
+  *(uintptr_t *)&result.ds_base += app->a_loadaddr;
   return result;
  }
 not_found:
- result.ms_size = 0;
+ result.ds_size = 0;
  debug_printf("[ELF] Section %q could not be found in `%[path]'\n",
               name,app->a_module->m_path);
  return result;

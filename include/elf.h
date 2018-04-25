@@ -372,16 +372,19 @@ typedef struct
 #define SHF_STRINGS          (1 << 5)   /* Contains nul-terminated strings */
 #define SHF_INFO_LINK        (1 << 6)   /* `sh_info' contains SHT index */
 #define SHF_LINK_ORDER       (1 << 7)   /* Preserve order after combining */
-#define SHF_OS_NONCONFORMING (1 << 8)   /* Non-standard OS specific handling
-                                           required */
+#define SHF_OS_NONCONFORMING (1 << 8)   /* Non-standard OS specific handling required */
 #define SHF_GROUP            (1 << 9)   /* Section is member of a group. */
 #define SHF_TLS              (1 << 10)  /* Section hold thread-local data. */
 #define SHF_MASKOS           0x0ff00000 /* OS-specific. */
 #define SHF_MASKPROC         0xf0000000 /* Processor-specific */
-#define SHF_ORDERED          (1 << 30)  /* Special ordering requirement
-                                           (Solaris). */
-#define SHF_EXCLUDE          (1 << 31)  /* Section is excluded unless
-                                           referenced or allocated (Solaris).*/
+#define SHF_ORDERED          (1 << 30)  /* Special ordering requirement (Solaris). */
+#define SHF_EXCLUDE          (1 << 31)  /* Section is excluded unless referenced or allocated (Solaris).*/
+
+#if defined(__USE_KOS)
+#define SHF_SHARED           (1 << 27)  /* KOS-specific: The section is shared (changes made to section contents (e.g. globals)
+                                         *               will be visible in all running instance of the module immediately)
+                                         * This is the equivalent of the `PROT_SHARED' flag, or NT's `IMAGE_SCN_MEM_SHARED' */
+#endif
 
 /* Section group handling. */
 #define GRP_COMDAT      0x1             /* Mark group as COMDAT. */

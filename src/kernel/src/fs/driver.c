@@ -72,11 +72,11 @@ struct kernel_symbol_table_struct {
 
 INTDEF struct kernel_symbol_table_struct kernel_symbol_table;
 
-PRIVATE struct module_symbol KCALL
+PRIVATE struct dl_symbol KCALL
 kernel_symbol(struct application *__restrict UNUSED(app),
               USER CHECKED char const *__restrict name,
               u32 hash) {
- struct module_symbol result;
+ struct dl_symbol result;
  uintptr_t perturb,j;
  /* Search the kernel symbol hash-vector. */
  perturb = j = hash & kernel_symbol_table.kst_mask;
@@ -86,30 +86,30 @@ kernel_symbol(struct application *__restrict UNUSED(app),
   if unlikely(!entry->kse_name) break;
   if (entry->kse_hash != hash) continue;
   if (strcmp(entry->kse_name,name) != 0) continue;
-  result.ms_type = MODULE_SYMBOL_NORMAL;
-  result.ms_base = entry->kse_base;
-  result.ms_size = entry->kse_size;
+  result.ds_type = MODULE_SYMBOL_NORMAL;
+  result.ds_base = entry->kse_base;
+  result.ds_size = entry->kse_size;
 #if 0
   debug_printf("KERNEL_SYMBOL(%q) -> %p\n",name,result.ms_base);
 #endif
   return result;
  }
- result.ms_type = MODULE_SYMBOL_INVALID;
+ result.ds_type = MODULE_SYMBOL_INVALID;
  return result;
 }
 
 
-PRIVATE struct module_section KCALL
+PRIVATE struct dl_section KCALL
 kernel_section(struct application *__restrict UNUSED(app),
                USER CHECKED char const *__restrict name) {
- struct module_section result;
+ struct dl_section result;
  if (!strcmp(name,".except"))
       return kernel_module.m_sect.m_except;
  if (!strcmp(name,".eh_frame"))
       return kernel_module.m_sect.m_eh_frame;
  /* TODO: .debug_line */
 
- result.ms_size = 0;
+ result.ds_size = 0;
  return result;
 }
 
@@ -158,12 +158,12 @@ PRIVATE struct path kernel_bin_path = {
 
 PRIVATE struct module_debug kernel_debug = {
     .md_debug_line = {
-        .ms_base    = (uintptr_t)kernel_debug_line_start,
-        .ms_size    = (uintptr_t)kernel_debug_line_size,
-        .ms_offset  = 0,
-        .ms_type    = SHT_PROGBITS,
-        .ms_flags   = SHF_WRITE|SHF_ALLOC,
-        .ms_entsize = 0
+        .ds_base    = (void *)kernel_debug_line_start,
+        .ds_size    = (size_t)kernel_debug_line_size,
+        .ds_offset  = 0,
+        .ds_type    = SHT_PROGBITS,
+        .ds_flags   = SHF_WRITE|SHF_ALLOC,
+        .ds_entsize = 0
     },
     .md_data = kernel_debug_line_start
 };
@@ -181,17 +181,17 @@ PUBLIC struct module kernel_module = {
     .m_flags     = MODULE_FFIXED|MODULE_FENTRY|MODULE_FSECTLOADED|MODULE_FSECTLOADING,
     .m_sect      = {
         .m_except = {
-            .ms_base    = (image_rva_t)(uintptr_t)kernel_except_start,
-            .ms_size    = (size_t)kernel_except_size,
-            .ms_type    = SHT_PROGBITS,
-            .ms_flags   = SHF_ALLOC,
-            .ms_entsize = sizeof(struct except_handler), /* Sure... Why not? (although this isn't a rule...) */
+            .ds_base    = (void *)kernel_except_start,
+            .ds_size    = (size_t)kernel_except_size,
+            .ds_type    = SHT_PROGBITS,
+            .ds_flags   = SHF_ALLOC,
+            .ds_entsize = sizeof(struct except_handler), /* Sure... Why not? (although this isn't a rule...) */
         },
         .m_eh_frame = {
-            .ms_base    = (image_rva_t)(uintptr_t)kernel_ehframe_start,
-            .ms_size    = (size_t)kernel_ehframe_size,
-            .ms_type    = SHT_PROGBITS,
-            .ms_flags   = SHF_ALLOC,
+            .ds_base    = (void *)kernel_ehframe_start,
+            .ds_size    = (size_t)kernel_ehframe_size,
+            .ds_type    = SHT_PROGBITS,
+            .ds_flags   = SHF_ALLOC,
         },
     },
     .m_debug     = &kernel_debug,
@@ -459,7 +459,7 @@ again:
   *pwas_newly_loaded = false;
  } else {
   TRY {
-   struct module_symbol sym;
+   struct dl_symbol sym;
    struct driver_specs *EXCEPT_VAR spec;
    uintptr_t load_addr; size_t i;
    image_rva_t *vec;
@@ -487,9 +487,9 @@ again:
    *pwas_newly_loaded = true;
    sym = application_dlsym(&result->d_app,
                            "__$$OS$driver_specs");
-   if unlikely(sym.ms_type == MODULE_SYMBOL_INVALID)
+   if unlikely(sym.ds_type == MODULE_SYMBOL_INVALID)
       error_throw(E_INVALID_ARGUMENT);
-   result->d_spec = spec = (struct driver_specs *)sym.ms_base;
+   result->d_spec = spec = (struct driver_specs *)sym.ds_base;
    if unlikely(result->d_spec->ds_version != DRIVER_SPECS_VERSION)
       error_throw(E_INVALID_ARGUMENT);
    load_addr = result->d_app.a_loadaddr;
@@ -498,7 +498,7 @@ again:
     unsigned int argc;
     /* Verify driver spec pointers (prevent system crashes due to corrupt drivers).
      * NOTE: These are split into individual calls to `error_throw()', so that a
-     *       traceback can quickly reveil which of these checks got triggered. */
+     *       traceback can quickly reveal which of these checks got triggered. */
     if ((spec->ds_free_sz &&
         (spec->ds_free < FLOORDIV(mod->m_imagemin,PAGESIZE) ||
          spec->ds_free+spec->ds_free_sz < spec->ds_free ||

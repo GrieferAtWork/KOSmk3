@@ -44,7 +44,7 @@ struct module_addr2line {
 };
 
 struct module_debug {
-    struct module_section md_debug_line; /* The .debug_line section. */
+    struct dl_section md_debug_line; /* The .debug_line section. */
     VIRT HOST byte_t     *md_data;       /* [1..1][owned] Starting address where data of
                                           *               this module has been mapped at.
                                           *  -> This address is locate in kernel-space and

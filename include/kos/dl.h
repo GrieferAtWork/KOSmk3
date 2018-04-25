@@ -73,27 +73,110 @@ struct module_basic_info {
 #define APPLICATION_FCLOSING 0x0200 /* [lock(WRITE_ONCE)] A driver is being closed and must not be used to create new global hooks. */
 #endif /* __KERNEL__ */
 #define APPLICATION_FDYNAMIC 0x4000 /* [const] The module has been opened dynamically and can therefor be closed using `dlclose()'. */
-#define APPLICATION_FTRUSTED 0x8000 /* [const] Module's code can be trusted and various security checks can be skipped during parsing of FDE/exception data. */
+#define APPLICATION_FTRUSTED 0x8000 /* [const] The module's code can be trusted and various security checks can be skipped during parsing of FDE/exception data. */
 
-#define MODULE_INFO_CLASS_STATE  0x0001 /* Module state / reference counting information. */
+
+#define MODULE_FNORMAL            0x0000 /* Normal module flags. */
+#define MODULE_FFIXED             0x0001 /* Instances of the module must loaded at a fixed
+                                          * `a_loadaddr' that is stored in `m_fixedbase' */
+#define MODULE_FENTRY             0x0002 /* The module offers an explicit entry point. */
+#define MODULE_FBASEHINT          0x0004 /* `m_fixedbase' is a load address hint. */
+#define MODULE_FNODEBUG           0x0080 /* [lock(WRITE_ONCE)] The module doesn't contain a `.debug_line' section */
+#define MODULE_FSECTLOADED        0x0800 /* [lock(WRITE_ONCE)] Special `m_sect' section data has been loaded. */
+#define MODULE_FSECTLOADING       0x8000 /* [lock(atomic)] Special `m_sect' section data is currently being loaded. */
+
+
+#define MODULE_INFO_CLASS_STATE 0x0001 /* Module state / reference counting information. */
 #ifdef __CC__
 struct module_state_info {
     /* [MODULE_INFO_CLASS_STATE] */
     __ref_t         si_mapcnt;   /* Amount of individual segments over which this application is split. */
     __ref_t         si_loadcnt;  /* Amount of times the application has been loaded using `xdlopen()' and friends (recursion counter for `xdlclose()'). */
-    __uintptr_t     si_appflags; /* Set of `APPLICATION_F*' */
+    __uint16_t      si_appflags; /* Set of `APPLICATION_F*' */
+    __uint16_t      si_modflags; /* Set of `MODULE_F*' */
+#if __SIZEOF_POINTER__ > 4
+    __uint16_t    __si_pad[(sizeof(void *)-2)/2]; /* ... */
+#endif
+    void           *si_entry;    /* [valid_if(si_flags & MODULE_FENTRY)] Module entry address. */
 };
 #endif /* __CC__ */
 
 
-#define MODULE_INFO_CLASS_PATH   0x0002 /* Module path. */
+#define MODULE_INFO_CLASS_PATH 0x0002 /* Module path. */
 #ifdef __CC__
 struct module_path_info {
     /* [MODULE_INFO_CLASS_PATH] */
     unsigned int    pi_format;   /* [IN] The format in which to generate the path (Set of `REALPATH_F*'). */
     __uintptr_t     pi_loadaddr; /* [OUT] The load address of the module (Same as `MODULE_INFO_CLASS_BASIC::mi_loadaddr') */
-    char           *pi_path;     /* [OUT] Filled with a NUL-terminated representation of the module's path. */
+    char           *pi_path;     /* [IN(0..pi_pathlen)][OUT] Filled with a NUL-terminated representation of the module's path. */
     size_t          pi_pathlen;  /* [IN|OUT] Updated with the required buffer size. */
+};
+#endif /* __CC__ */
+
+
+/* Symbol types */
+#define MODULE_SYMBOL_NORMAL  0x0000 /* Normal symbol. */
+#define MODULE_SYMBOL_WEAK    0x0001 /* Weak symbol. */
+#define MODULE_SYMBOL_INVALID 0xffff /* Invalid symbol. */
+
+#define MODULE_INFO_CLASS_SYMBOL 0x0003 /* Module symbol lookup. */
+#ifdef __CC__
+struct dl_symbol {
+    u16        ds_type; /* Type type (One of `MODULE_SYMBOL_*') */
+    u16      __ds_pad[(sizeof(void *)-2)/2]; /* ... */
+    VIRT void *ds_base; /* [1..1] Symbol base address. */
+    size_t     ds_size; /* Symbol size in bytes, or `0' if unknown. */
+};
+struct module_symbol_info {
+    /* [MODULE_INFO_CLASS_SYMBOL] */
+    char const          *si_name;   /* [IN][1..1] Name of the symbol to query information on. */
+    struct dl_symbol     si_symbol; /* [OUT] The symbol discovered (NOTE: `ds_type' is set to
+                                     *      `MODULE_SYMBOL_INVALID' if the symbol doesn't exist) */
+};
+#endif /* __CC__ */
+
+
+#define MODULE_INFO_CLASS_SECTION 0x0004 /* Module section lookup. */
+#ifdef __CC__
+struct dl_section {
+    void         *ds_base;      /* [1..ds_size][valid_if(ds_size && ds_flags & SHF_ALLOC)]
+                                 * Image-relative section base address. */
+    size_t        ds_size;      /* Section size in bytes. */
+    pos_t         ds_offset;    /* [valid_if(ds_size)] Absolute offset into the associated file where section data starts.
+                                 * NOTE: In special sections, if the associated module has no file, this field is undefined. */
+    u16           ds_type;      /* [valid_if(ds_size)] Section type (One of `SHT_*' from <elf.h>) */
+    u16           ds_flags;     /* [valid_if(ds_size)] Section Flags (Set of `SHF_*' from <elf.h>) */
+    u32           ds_entsize;   /* [valid_if(ds_size)] Size of data-entries contained (or ZERO(0) if not used) */
+};
+struct module_section_info {
+    /* [MODULE_INFO_CLASS_SECTION] */
+    char const          *si_name;    /* [IN][1..1] Name of the section to query information on. */
+    struct dl_section    si_section; /* [OUT] The section discovered (NOTE: `ds_size' is
+                                      *       set to `0' if the section doesn't exist) */
+};
+#endif /* __CC__ */
+
+
+
+#define MODULE_INFO_CLASS_INIT 0x0005 /* Enumerate module initializers. */
+#define MODULE_INFO_CLASS_FINI 0x0006 /* Enumerate module finalizers. */
+#ifdef __CC__
+typedef void (*module_callback_t)(void);
+struct module_callback_info {
+    /* [MODULE_INFO_CLASS_INIT | MODULE_INFO_CLASS_FINI] */
+    module_callback_t    ci_callbacks[1]; /* [0..*RETURN/sizeof(module_callback_t)] Vector of functions.
+                                           * NOTE: Initializer callbacks are enumerated in order of execution.
+                                           * NOTE: Finalizer callbacks are enumerated in reverse order of execution. */
+};
+#endif /* __CC__ */
+
+
+
+#define MODULE_INFO_REQUIREMENTS 0x0007 /* Enumerate module dependencies. */
+#ifdef __CC__
+struct module_requirements_info {
+    /* [MODULE_INFO_REQUIREMENTS] */
+    void *ri_deps[1]; /* [0..*RETURN/sizeof(void *)] Vector of handles for module dependencies. */
 };
 #endif /* __CC__ */
 

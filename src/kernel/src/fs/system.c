@@ -1856,7 +1856,7 @@ DEFINE_SYSCALL1(xdlclose,void *,handle) {
 
 DEFINE_SYSCALL2(xdlsym,void *,handle,
                 USER UNCHECKED char const *,symbol) {
- struct module_symbol sym;
+ struct dl_symbol sym;
  validate_readable(symbol,1);
  if (!handle) {
   sym = vm_apps_dlsym(symbol);
@@ -1871,9 +1871,9 @@ DEFINE_SYSCALL2(xdlsym,void *,handle,
   }
  }
  /* Check if a symbol was found. */
- if (sym.ms_type == MODULE_SYMBOL_INVALID)
+ if (sym.ds_type == MODULE_SYMBOL_INVALID)
      error_throw(E_NO_SUCH_OBJECT);
- return (syscall_ulong_t)sym.ms_base;
+ return (syscall_ulong_t)sym.ds_base;
 }
 
 
@@ -1895,11 +1895,31 @@ DEFINE_SYSCALL0(xdlfini) {
  return 0; /* XXX: Don't get here? */
 }
 
-DEFINE_SYSCALL4(xdlmodule_info,void *,handle,
+
+struct callback_enum_data {
+    module_callback_t *buf; /* Address of the next buffer slot for a callback. */
+    size_t             rem; /* Number of remaining buffer slots. */
+    size_t             cnt; /* Total number of requested slots. */
+};
+PRIVATE void KCALL
+callback_enum_func(module_callback_t func,
+                   struct callback_enum_data *__restrict data) {
+ ++data->cnt;
+ if (data->rem) {
+  --data->rem;
+  *data->buf++ = func;
+ }
+}
+
+
+
+
+DEFINE_SYSCALL4(xdlmodule_info,USER UNCHECKED void *,handle,
                 unsigned int,info_class,
-                void *,buf,size_t,bufsize) {
+                USER UNCHECKED void *,buf,size_t,bufsize) {
  REF struct application *app;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ validate_writable(buf,bufsize);
  app = vm_getapp(handle);
  TRY {
   switch (info_class) {
@@ -1926,6 +1946,8 @@ DEFINE_SYSCALL4(xdlmodule_info,void *,handle,
    info->si_mapcnt   = app->a_mapcnt;
    info->si_loadcnt  = app->a_loadcnt;
    info->si_appflags = app->a_flags;
+   info->si_modflags = app->a_module->m_flags;
+   info->si_entry    = (void *)(app->a_loadaddr + app->a_module->m_entry);
   } break;
 
   {
@@ -1945,6 +1967,90 @@ DEFINE_SYSCALL4(xdlmodule_info,void *,handle,
    /* Lookup the path name of the module. */
    info->pi_pathlen = path_getname(app->a_module->m_path,info->pi_path,
                                    info->pi_pathlen,info->pi_format);
+  } break;
+
+  {
+   struct module_symbol_info *info;
+   USER UNCHECKED char const *name;
+   struct dl_symbol sym;
+  case MODULE_INFO_CLASS_SYMBOL:
+   result = sizeof(struct module_symbol_info);
+   if (bufsize < sizeof(struct module_symbol_info))
+       break;
+   info = (struct module_symbol_info *)buf;
+   name = info->si_name;
+   COMPILER_READ_BARRIER();
+   validate_readable(name,1);
+   /* Lookup a symbol matching the given name. */
+   sym = application_dlsym(app,name);
+   if (sym.ds_type == MODULE_SYMBOL_INVALID) {
+    /* Don't leak kernel data into user-space.
+     * (fields other than TYPE are normally undefined for INVALID symbols) */
+    memset(&sym,0,sizeof(sym));
+    sym.ds_type = MODULE_SYMBOL_INVALID;
+   }
+   info->si_symbol = sym;
+  } break;
+
+  {
+   struct module_section_info *info;
+   USER UNCHECKED char const *name;
+   struct dl_section sect;
+  case MODULE_INFO_CLASS_SECTION:
+   result = sizeof(struct module_section_info);
+   if (bufsize < sizeof(struct module_section_info))
+       break;
+   info = (struct module_section_info *)buf;
+   name = info->si_name;
+   COMPILER_READ_BARRIER();
+   validate_readable(name,1);
+   /* Lookup a symbol matching the given name. */
+   sect = application_dlsect(app,name);
+   if (sect.ds_size == MODULE_SYMBOL_INVALID) {
+    /* Don't leak kernel data into user-space.
+     * (fields other than SIZE are normally undefined for INVALID sections) */
+    memset(&sect,0,sizeof(sect));
+   }
+   info->si_section = sect;
+  } break;
+
+  {
+   struct callback_enum_data data;
+   void (KCALL *enum_operator)(struct application *__restrict app,
+                               module_enumerator_t func, void *arg);
+  case MODULE_INFO_CLASS_INIT:
+   enum_operator = app->a_module->m_type->m_enuminit;
+   goto do_enum_operator;
+  case MODULE_INFO_CLASS_FINI:
+   enum_operator = app->a_module->m_type->m_enumfini;
+do_enum_operator:
+   data.buf = (module_callback_t *)buf;
+   data.rem = bufsize / sizeof(module_callback_t);
+   data.cnt = 0;
+   if (enum_operator) {
+    /* Enumerate callbacks. */
+    SAFECALL_KCALL_VOID_3(enum_operator,
+                          app,
+                         (module_enumerator_t)&callback_enum_func,
+                         &data);
+   }
+   result = data.cnt * sizeof(module_callback_t);
+  } break;
+
+  {
+   size_t i,count;
+  case MODULE_INFO_REQUIREMENTS:
+   result = app->a_requirec * sizeof(void *);
+   /* Figure out how many handles can fit into the the user-space buffer. */
+   count  = bufsize / sizeof(void *);
+   if (count > app->a_requirec)
+       count = app->a_requirec;
+   /* Copy handles for module dependencies to user-space. */
+   for (i = 0; i < count; ++i) {
+    void *module_handle;
+    module_handle = (void *)APPLICATION_MAPBEGIN(app->a_requirev[i]);
+    ((void **)buf)[i] = module_handle;
+   }
   } break;
 
   default:

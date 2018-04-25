@@ -405,9 +405,10 @@ struct __ATTR_PACKED exception_data_buffer_too_small {
 #define ERROR_FS_PATH_NOT_FOUND        0x0002 /* [ERRNO(ENOENT)]       Directory could not be found (when `foo' doesn't exist in `/foo/bar'). */
 #define ERROR_FS_NOT_A_DIRECTORY       0x0003 /* [ERRNO(ENOTDIR)]      Expected a directory when encountering a file while traversing a path. */
 #define ERROR_FS_TOO_MANY_LINKS        0x0004 /* [ERRNO(ELOOP)]        Too many symbolic links encountered while evaluating a path. */
+#define ERROR_FS_IS_NOT_FOUND(x)     ((x) <= ERROR_FS_TOO_MANY_LINKS) /* A file, directory, or path doesn't exists */
 #define ERROR_FS_DIRECTORY_NOT_EMPTY   0x0005 /* [ERRNO(ENOTEMPTY)]    Cannot remove a directory that isn't empty. */
 #define ERROR_FS_ILLEGAL_PATH          0x0006 /* [ERRNO(EINVAL)]       A portion of the path contains characters that are not supported by the hosting filesystem.
-                                               *                      (Only when creating files; during lookup `ERROR_FS_FILE_NOT_FOUND' is returned). */
+                                               *                      (Only thrown when creating files; during lookup `ERROR_FS_FILE_NOT_FOUND' is returned instead). */
 #define ERROR_FS_CROSSDEVICE_LINK      0x0007 /* [ERRNO(EXDEV)]        The source and destination of a `rename()' or `link()' operation do not target the same device. */
 #define ERROR_FS_FILENAME_TOO_LONG     0x0008 /* [ERRNO(ENAMETOOLONG)] A single path segment is longer than the max supported length (which is `65535' characters) */
 #define ERROR_FS_FILE_ALREADY_EXISTS   0x0009 /* [ERRNO(EEXIST)]       The target of a `rename()' or `link()' operation already exists, or `O_EXCL' was passed to `open()', and the file already exists. */
@@ -420,18 +421,18 @@ struct __ATTR_PACKED exception_data_buffer_too_small {
                                                *                       XXX: Posix allows truncate() to increase the length of a file... */
 #define ERROR_FS_ACCESS_ERROR          0x000e /* [ERRNO(EACCES)]       The calling process does not have sufficient permissions for the operation. */
 #define ERROR_FS_DISK_FULL             0x000f /* [ERRNO(ENOSPC)]       The associated disk is full or insufficient space is available to complete the operation. */
-#define ERROR_FS_RMDIR_REGULAR         0x0010 /* [ERRNO(ENOTDIR)]      `rmdir()' cannot be used to remove a non-directory file. */
+#define ERROR_FS_RMDIR_REGULAR         0x0010 /* [ERRNO(ENOTDIR)]     `rmdir()' cannot be used to remove a non-directory file. */
 #define ERROR_FS_UNLINK_DIRECTORY      0x0011 /* [ERRNO(EISDIR)]       Cannot unlink() a directory. */
-#define ERROR_FS_REMOVE_MOUNTPOINT     0x0012 /* [ERRNO(EBUSY)]        `rmdir()' or `unlink()' cannot be used to remove a mounting point (Virtual INode). */
-#define ERROR_FS_UNMOUNT_NOTAMOUNT     0x0013 /* [ERRNO(EINVAL)]       `umount()' cannot be used to remove something that isn't a mounting point. */
-#define ERROR_FS_RENAME_NOTAMOUNT      0x0014 /* [ERRNO(EBUSY)]        `rename()' cannot be used to perform a re-mount operation. */
+#define ERROR_FS_REMOVE_MOUNTPOINT     0x0012 /* [ERRNO(EBUSY)]       `rmdir()' or `unlink()' cannot be used to remove a mounting point (Virtual INode). */
+#define ERROR_FS_UNMOUNT_NOTAMOUNT     0x0013 /* [ERRNO(EINVAL)]      `umount()' cannot be used to remove something that isn't a mounting point. */
+#define ERROR_FS_RENAME_NOTAMOUNT      0x0014 /* [ERRNO(EBUSY)]       `rename()' cannot be used to perform a re-mount operation. */
 #define ERROR_FS_NEGATIVE_SEEK         0x0015 /* [ERRNO(ESPIPE)]       Cannot seek() to a negative file position. */
 #define ERROR_FS_FILE_TOO_LARGE        0x0016 /* [ERRNO(EFBIG)]        A file or device is too large to be representable in the associated operation. */
 #define ERROR_FS_TOO_MANY_HARD_LINKS   0x0017 /* [ERRNO(EMLINK)]       Cannot create another new hardlink. The hard link counter has already reached
                                                *                       its limit (Highly unlikely, considering a common limit of at least 2^16). */
 #define ERROR_FS_OBJECT_IS_BUSY        0x0018 /* [ERRNO(EBUSY)]        The named filesystem component cannot be operated upon before some sort of persistent lock is removed. */
-#define ERROR_FS_NOT_A_SYMLINK         0x0019 /* [ERRNO(ENOENT)]       O_SYMLINK was used with O_EXCL, but the named file isn't a symbolic link. */
-#define ERROR_FS_IS_A_SYMLINK          0x001a /* [ERRNO(ELOOP)]        O_NOFOLLOW was used, but named file was a symbolic link. */
+#define ERROR_FS_NOT_A_SYMLINK         0x0019 /* [ERRNO(ENOENT)]      `O_SYMLINK' was used with `O_EXCL', but the named file isn't a symbolic link. */
+#define ERROR_FS_IS_A_SYMLINK          0x001a /* [ERRNO(ELOOP)]       `O_NOFOLLOW' was used, but the named file is a symbolic link. */
 #define ERROR_FS_CORRUPTED_FILESYSTEM  0xffff /* [ERRNO(EIO)]          Corrupted, miss-configured, or otherwise not compatible filesystem. */
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_filesystem_error {
