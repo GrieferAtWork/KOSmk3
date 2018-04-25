@@ -481,21 +481,6 @@ struct __ATTR_PACKED exception_data_retry_rwlock {
 /* The number of extended exception information data pointers. */
 #define __EXCEPTION_INFO_NUM_DATA_POINTERS  15
 #define __EXCEPTION_INFO_SIZEOF_DATA       (__EXCEPTION_INFO_NUM_DATA_POINTERS*__SIZEOF_POINTER__)
-#define __EXCEPTION_INFO_OFFSETOF_CODE      0
-#define __EXCEPTION_INFO_OFFSETOF_FLAG      2
-#define __EXCEPTION_INFO_OFFSETOF_DATA      __SIZEOF_POINTER__
-#define __EXCEPTION_INFO_OFFSETOF_CONTEXT  (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZEOF_DATA)
-#define __EXCEPTION_INFO_SIZE              (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZEOF_DATA+__CPU_CONTEXT_SIZE)
-
-#if defined(__KERNEL__) || defined(__USE_KOS)
-#define EXCEPTION_INFO_NUM_DATA_POINTERS    __EXCEPTION_INFO_NUM_DATA_POINTERS
-#define EXCEPTION_INFO_SIZEOF_DATA          __EXCEPTION_INFO_SIZEOF_DATA
-#define EXCEPTION_INFO_OFFSETOF_CODE        __EXCEPTION_INFO_OFFSETOF_CODE
-#define EXCEPTION_INFO_OFFSETOF_FLAG        __EXCEPTION_INFO_OFFSETOF_FLAG
-#define EXCEPTION_INFO_OFFSETOF_DATA        __EXCEPTION_INFO_OFFSETOF_DATA
-#define EXCEPTION_INFO_OFFSETOF_CONTEXT     __EXCEPTION_INFO_OFFSETOF_CONTEXT
-#define EXCEPTION_INFO_SIZE                 __EXCEPTION_INFO_SIZE
-#endif
 
 #ifdef __CC__
 struct exception_data {
@@ -535,15 +520,49 @@ struct exception_data {
 #endif
     };
 };
+#endif /* __CC__ */
+
+
+#define __EXCEPTION_INFO_OFFSETOF_CODE      0
+#define __EXCEPTION_INFO_OFFSETOF_FLAG      2
+#define __EXCEPTION_INFO_OFFSETOF_DATA      __SIZEOF_POINTER__
+#ifdef __EXCEPTION_RT_DATA_SIZE
+#define __EXCEPTION_INFO_OFFSETOF_RTDATA   (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZEOF_DATA)
+#define __EXCEPTION_INFO_OFFSETOF_CONTEXT  (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZEOF_DATA+__EXCEPTION_RT_DATA_SIZE)
+#else
+#define __EXCEPTION_INFO_OFFSETOF_CONTEXT  (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZEOF_DATA)
+#endif
+#define __EXCEPTION_INFO_SIZE              (__EXCEPTION_INFO_OFFSETOF_CONTEXT+__CPU_CONTEXT_SIZE)
+#ifdef __x86_64__
+#define __USEREXCEPTION_INFO_SIZE          (__EXCEPTION_INFO_OFFSETOF_CONTEXT+__CPU_CONTEXT_SIZE)
+#elif defined(__KERNEL__)
+#define __USEREXCEPTION_INFO_SIZE          (__EXCEPTION_INFO_OFFSETOF_CONTEXT+X86_USERCONTEXT32_SIZE)
+#else
+#define __USEREXCEPTION_INFO_SIZE          (__EXCEPTION_INFO_OFFSETOF_CONTEXT+X86_CONTEXT32_SIZE)
+#endif
+
+#if defined(__KERNEL__) || defined(__USE_KOS)
+#define EXCEPTION_INFO_NUM_DATA_POINTERS    __EXCEPTION_INFO_NUM_DATA_POINTERS
+#define EXCEPTION_INFO_SIZEOF_DATA          __EXCEPTION_INFO_SIZEOF_DATA
+#define EXCEPTION_INFO_OFFSETOF_CODE        __EXCEPTION_INFO_OFFSETOF_CODE
+#define EXCEPTION_INFO_OFFSETOF_FLAG        __EXCEPTION_INFO_OFFSETOF_FLAG
+#define EXCEPTION_INFO_OFFSETOF_DATA        __EXCEPTION_INFO_OFFSETOF_DATA
+#define EXCEPTION_INFO_OFFSETOF_CONTEXT     __EXCEPTION_INFO_OFFSETOF_CONTEXT
+#define EXCEPTION_INFO_SIZE                 __EXCEPTION_INFO_SIZE
+#endif
+
+#ifdef __CC__
 struct exception_info {
     /* The exception-information data structure. */
     struct exception_data        e_error;      /* Error information. */
+#ifdef __EXCEPTION_RT_DATA_SIZE
+    struct exception_rt_data     e_rtdata;     /* Exception runtime data. */
+#endif
     struct cpu_context           e_context;    /* The CPU context at the time of the interrupt happening.
                                                 * The instruction pointer is either directed at the start of
                                                 * the faulting instruction, or at the following instruction,
                                                 * depending on the `ERR_FRESUMENEXT' flag. */
 };
-
 #endif /* __CC__ */
 
 

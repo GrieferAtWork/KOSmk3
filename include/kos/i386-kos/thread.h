@@ -34,17 +34,17 @@ __SYSDECL_BEGIN
 #ifdef __KERNEL__
 #define __TASK_SEGMENT_SIZE                (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE)
 #endif
-#define __USERTASK_SEGMENT_OFFSETOF_STATE      (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE)
-#define __USERTASK_SEGMENT_OFFSETOF_EFORMAT    (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+3)
-#define __USERTASK_SEGMENT_OFFSETOF_ERRNO      (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+4)
-#define __USERTASK_SEGMENT_OFFSETOF_DOS_ERRNO  (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+8)
-#define __USERTASK_SEGMENT_OFFSETOF_TID        (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+16)
-#define __USERTASK_SEGMENT_OFFSETOF_PROCESS    (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
-#define __USERTASK_SEGMENT_OFFSETOF_UEH        (2*__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
-#define __USERTASK_SEGMENT_OFFSETOF_UEH_SP     (3*__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
-#define __USERTASK_SEGMENT_OFFSETOF_X86SYSBASE (4*__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __USERTASK_SEGMENT_OFFSETOF_STATE      (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE)
+#define __USERTASK_SEGMENT_OFFSETOF_EFORMAT    (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+3)
+#define __USERTASK_SEGMENT_OFFSETOF_ERRNO      (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+4)
+#define __USERTASK_SEGMENT_OFFSETOF_DOS_ERRNO  (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+8)
+#define __USERTASK_SEGMENT_OFFSETOF_TID        (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16)
+#define __USERTASK_SEGMENT_OFFSETOF_PROCESS    (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __USERTASK_SEGMENT_OFFSETOF_UEH        (2*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __USERTASK_SEGMENT_OFFSETOF_UEH_SP     (3*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __USERTASK_SEGMENT_OFFSETOF_X86SYSBASE (4*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
 #ifndef CONFIG_NO_DOS_COMPAT
-#define __USERTASK_SEGMENT_OFFSETOF_TIB        (5*__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __USERTASK_SEGMENT_OFFSETOF_TIB        (5*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
 #define __USERTASK_SEGMENT_OFFSETOF_NT_ERRNO   (__USERTASK_SEGMENT_OFFSETOF_TIB+13*__SIZEOF_POINTER__)
 #endif /* !CONFIG_NO_DOS_COMPAT */
 
@@ -55,7 +55,6 @@ __SYSDECL_BEGIN
 #define USERTASK_SEGMENT_OFFSETOF_EFORMAT   __USERTASK_SEGMENT_OFFSETOF_EFORMAT
 #define USERTASK_SEGMENT_OFFSETOF_ERRNO     __USERTASK_SEGMENT_OFFSETOF_ERRNO
 #define USERTASK_SEGMENT_OFFSETOF_DOS_ERRNO __USERTASK_SEGMENT_OFFSETOF_DOS_ERRNO
-#define USERTASK_SEGMENT_OFFSETOF_NT_ERRNO  __USERTASK_SEGMENT_OFFSETOF_NT_ERRNO
 #define USERTASK_SEGMENT_OFFSETOF_TID       __USERTASK_SEGMENT_OFFSETOF_TID
 #define USERTASK_SEGMENT_OFFSETOF_PROCESS   __USERTASK_SEGMENT_OFFSETOF_PROCESS
 #define USERTASK_SEGMENT_OFFSETOF_UEH       __USERTASK_SEGMENT_OFFSETOF_UEH
@@ -63,6 +62,7 @@ __SYSDECL_BEGIN
 #define USERTASK_SEGMENT_OFFSETOF_X86SYSBASE __USERTASK_SEGMENT_OFFSETOF_X86SYSBASE
 #ifndef CONFIG_NO_DOS_COMPAT
 #define USERTASK_SEGMENT_OFFSETOF_TIB       __USERTASK_SEGMENT_OFFSETOF_TIB
+#define USERTASK_SEGMENT_OFFSETOF_NT_ERRNO  __USERTASK_SEGMENT_OFFSETOF_NT_ERRNO
 #endif /* !CONFIG_NO_DOS_COMPAT */
 #ifdef __KERNEL__
 #define TASK_SEGMENT_SIZE                   __TASK_SEGMENT_SIZE
@@ -93,21 +93,27 @@ __SYSDECL_BEGIN
 #ifdef __CC__
 struct process_env;
 #ifdef __KERNEL__
-struct task_segment {
+struct __ATTR_PACKED task_segment {
      struct task_segment  *ts_self;      /* [1..1][const] Self-pointer. */
      struct exception_info ts_xcurrent;  /* Task error information. (The last exception that occurred)
                                           * A pointer to this field is returned by `error_info()' */
 };
-struct user_task_segment
+struct __ATTR_PACKED user_task_segment
 #else
-struct task_segment
+struct __ATTR_PACKED task_segment
 #endif
 {
 #ifdef __KERNEL__
      struct user_task_segment  *ts_self;       /* [1..1][const] Self-pointer. */
-     struct {
-         struct exception_data  e_error;
-         struct x86_usercontext e_context;
+     struct __ATTR_PACKED {
+         struct exception_data  e_error;       /* Error information. */
+#ifdef __EXCEPTION_RT_DATA_SIZE
+         struct exception_rt_data e_rtdata;    /* Exception runtime data. */
+#endif
+         struct x86_usercontext e_context;     /* The CPU context at the time of the interrupt happening.
+                                                * The instruction pointer is either directed at the start of
+                                                * the faulting instruction, or at the following instruction,
+                                                * depending on the `ERR_FRESUMENEXT' flag. */
      }                          ts_xcurrent;   /* Task error information. (The last exception that occurred)
                                                 * A pointer to this field is returned by `error_info()' */
 #else

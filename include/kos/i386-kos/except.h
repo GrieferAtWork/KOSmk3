@@ -22,8 +22,8 @@
 #include <__stdinc.h>
 #include <hybrid/host.h>
 #include <hybrid/typecore.h>
-#include <kos/i386-kos/context.h>
 #include <bits/siginfo.h>
+#include "context.h"
 
 __SYSDECL_BEGIN
 
@@ -349,6 +349,24 @@ struct __ATTR_PACKED exception_data_invalid_segment {
         __UINT64_TYPE__  is_segment;       /* The invalid segment index, including privilege bits (RPL) and the LDT bit. */
         __UINT16_TYPE__  is_segment16;     /* The invalid segment index, including privilege bits (RPL) and the LDT bit. */
     };
+};
+#endif /* __CC__ */
+
+
+
+#define __EXCEPTION_RT_DATA_SIZE   __SIZEOF_POINTER__
+#ifdef __CC__
+struct exception_rt_data {
+    __UINTPTR_TYPE__     xrt_free_sp; /* The stack pointer up to which stack data
+                                       * can be deallocated by an exception handler
+                                       * that hasn't allocated additional stack memory.
+                                       * This field is used to implement `error_dealloc_continue()',
+                                       * which checks that the caller's stack-pointer matches the
+                                       * SP-pointer described by the exception context, and overrides
+                                       * the SP pointer with this value if they do match.
+                                       * This field in return is set to the SP value calculated following
+                                       * the last unwind operation completed prior to invocation of the
+                                       * calling exception handler. */
 };
 #endif /* __CC__ */
 

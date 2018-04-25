@@ -20,7 +20,6 @@
 #define __GUARD_HYBRID_SYNC_ATOMIC_RWLOCK_H 1
 
 #include <hybrid/compiler.h>
-#include <stdbool.h>
 #include <assert.h>
 #include <hybrid/atomic.h>
 #include <hybrid/typecore.h>
@@ -64,42 +63,43 @@ typedef union PACKED {
 #define atomic_rwlock_writing(x)   (ATOMIC_READ((x)->arw_lock)&ATOMIC_RWLOCK_WFLAG)
 
 /* Acquire an exclusive read/write lock. */
-LOCAL bool KCALL atomic_rwlock_tryread(atomic_rwlock_t *__restrict self);
-LOCAL bool KCALL atomic_rwlock_trywrite(atomic_rwlock_t *__restrict self);
-LOCAL void KCALL atomic_rwlock_read(atomic_rwlock_t *__restrict self);
-LOCAL void KCALL atomic_rwlock_write(atomic_rwlock_t *__restrict self);
+__LOCAL __BOOL __LIBCCALL atomic_rwlock_tryread(atomic_rwlock_t *__restrict self);
+__LOCAL __BOOL __LIBCCALL atomic_rwlock_trywrite(atomic_rwlock_t *__restrict self);
+__LOCAL void __LIBCCALL atomic_rwlock_read(atomic_rwlock_t *__restrict self);
+__LOCAL void __LIBCCALL atomic_rwlock_write(atomic_rwlock_t *__restrict self);
 
 /* Try to upgrade a read-lock to a write-lock. Return `FALSE' upon failure. */
-LOCAL bool KCALL atomic_rwlock_tryupgrade(atomic_rwlock_t *__restrict self);
+__LOCAL __BOOL __LIBCCALL atomic_rwlock_tryupgrade(atomic_rwlock_t *__restrict self);
 
 /* NOTE: The lock is always upgraded, but when `FALSE' is returned, no lock
  *       may have been held temporarily, meaning that the caller should
  *       re-load local copies of affected resources. */
-LOCAL bool KCALL atomic_rwlock_upgrade(atomic_rwlock_t *__restrict self);
+__LOCAL __BOOL __LIBCCALL atomic_rwlock_upgrade(atomic_rwlock_t *__restrict self);
 
 /* Downgrade a write-lock to a read-lock (Always succeeds). */
-LOCAL void KCALL atomic_rwlock_downgrade(atomic_rwlock_t *__restrict self);
+__LOCAL void __LIBCCALL atomic_rwlock_downgrade(atomic_rwlock_t *__restrict self);
 
 /* End reading/writing/either.
  * @return: true:  The lock has become free.
  * @return: false: The lock is still held by something. */
-LOCAL void KCALL atomic_rwlock_endwrite(atomic_rwlock_t *__restrict self);
-LOCAL bool KCALL atomic_rwlock_endread(atomic_rwlock_t *__restrict self);
-LOCAL bool KCALL atomic_rwlock_end(atomic_rwlock_t *__restrict self);
+__LOCAL void __LIBCCALL atomic_rwlock_endwrite(atomic_rwlock_t *__restrict self);
+__LOCAL __BOOL __LIBCCALL atomic_rwlock_endread(atomic_rwlock_t *__restrict self);
+__LOCAL __BOOL __LIBCCALL atomic_rwlock_end(atomic_rwlock_t *__restrict self);
 
 
 
 
 
-LOCAL void (KCALL atomic_rwlock_endwrite)(atomic_rwlock_t *__restrict self) {
- COMPILER_BARRIER();
+__LOCAL void (__LIBCCALL atomic_rwlock_endwrite)(atomic_rwlock_t *__restrict self) {
 #ifdef NDEBUG
+ COMPILER_BARRIER();
 #ifdef __KOS__
  assert(TASK_ISSAFE());
 #endif /* __KOS__ */
  ATOMIC_STORE(self->arw_lock,0);
 #else
  __UINT32_TYPE__ f;
+ COMPILER_BARRIER();
 #ifdef __KOS__
  assert(TASK_ISSAFE());
 #endif /* __KOS__ */
@@ -109,15 +109,16 @@ LOCAL void (KCALL atomic_rwlock_endwrite)(atomic_rwlock_t *__restrict self) {
  } while (!ATOMIC_CMPXCH_WEAK(self->arw_lock,f,0));
 #endif
 }
-LOCAL bool (KCALL atomic_rwlock_endread)(atomic_rwlock_t *__restrict self) {
- COMPILER_READ_BARRIER();
+__LOCAL __BOOL (__LIBCCALL atomic_rwlock_endread)(atomic_rwlock_t *__restrict self) {
 #ifdef NDEBUG
+ COMPILER_READ_BARRIER();
 #ifdef __KOS__
  assert(TASK_ISSAFE());
 #endif /* __KOS__ */
  return ATOMIC_DECFETCH(self->arw_lock) == 0;
 #else
  __UINT32_TYPE__ f;
+ COMPILER_READ_BARRIER();
 #ifdef __KOS__
  assert(TASK_ISSAFE());
 #endif /* __KOS__ */
@@ -129,7 +130,7 @@ LOCAL bool (KCALL atomic_rwlock_endread)(atomic_rwlock_t *__restrict self) {
  return f == 1;
 #endif
 }
-LOCAL bool (KCALL atomic_rwlock_end)(atomic_rwlock_t *__restrict self) {
+__LOCAL __BOOL (__LIBCCALL atomic_rwlock_end)(atomic_rwlock_t *__restrict self) {
  __UINT32_TYPE__ temp,newval;
 #ifdef __KOS__
  assert(TASK_ISSAFE());
@@ -147,55 +148,55 @@ LOCAL bool (KCALL atomic_rwlock_end)(atomic_rwlock_t *__restrict self) {
  } while (!ATOMIC_CMPXCH_WEAK(self->arw_lock,temp,newval));
  return newval == 0;
 }
-LOCAL bool (KCALL atomic_rwlock_tryread)(atomic_rwlock_t *__restrict self) {
+__LOCAL __BOOL (__LIBCCALL atomic_rwlock_tryread)(atomic_rwlock_t *__restrict self) {
  __UINT32_TYPE__ temp;
 #ifdef __KOS__
  assert(TASK_ISSAFE());
 #endif /* __KOS__ */
  do {
   temp = ATOMIC_READ(self->arw_lock);
-  if (temp&ATOMIC_RWLOCK_WFLAG) return false;
+  if (temp&ATOMIC_RWLOCK_WFLAG) return 0;
   assert((temp&ATOMIC_RWLOCK_RMASK) != ATOMIC_RWLOCK_RMASK);
  } while (!ATOMIC_CMPXCH_WEAK(self->arw_lock,temp,temp+1));
  COMPILER_READ_BARRIER();
- return true;
+ return 1;
 }
-LOCAL bool (KCALL atomic_rwlock_trywrite)(atomic_rwlock_t *__restrict self) {
+__LOCAL __BOOL (__LIBCCALL atomic_rwlock_trywrite)(atomic_rwlock_t *__restrict self) {
 #ifdef __KOS__
  assert(TASK_ISSAFE());
 #endif /* __KOS__ */
  if (!ATOMIC_CMPXCH(self->arw_lock,0,ATOMIC_RWLOCK_WFLAG))
-      return false;
+      return 0;
  COMPILER_BARRIER();
- return true;
+ return 1;
 }
-LOCAL void (KCALL atomic_rwlock_read)(atomic_rwlock_t *__restrict self) {
+__LOCAL void (__LIBCCALL atomic_rwlock_read)(atomic_rwlock_t *__restrict self) {
  while (!atomic_rwlock_tryread(self)) SCHED_YIELD();
  COMPILER_READ_BARRIER();
 }
-LOCAL void (KCALL atomic_rwlock_write)(atomic_rwlock_t *__restrict self) {
+__LOCAL void (__LIBCCALL atomic_rwlock_write)(atomic_rwlock_t *__restrict self) {
  while (!atomic_rwlock_trywrite(self)) SCHED_YIELD();
  COMPILER_BARRIER();
 }
-LOCAL bool (KCALL atomic_rwlock_tryupgrade)(atomic_rwlock_t *__restrict self) {
+__LOCAL __BOOL (__LIBCCALL atomic_rwlock_tryupgrade)(atomic_rwlock_t *__restrict self) {
  __UINT32_TYPE__ temp;
 #ifdef __KOS__
  assert(TASK_ISSAFE());
 #endif /* __KOS__ */
  do {
   temp = ATOMIC_READ(self->arw_lock);
-  if (temp != 1) return false;
+  if (temp != 1) return 0;
  } while (!ATOMIC_CMPXCH_WEAK(self->arw_lock,temp,ATOMIC_RWLOCK_WFLAG));
  COMPILER_WRITE_BARRIER();
- return true;
+ return 1;
 }
-LOCAL bool (KCALL atomic_rwlock_upgrade)(atomic_rwlock_t *__restrict self) {
- if (atomic_rwlock_tryupgrade(self)) return true;
+__LOCAL __BOOL (__LIBCCALL atomic_rwlock_upgrade)(atomic_rwlock_t *__restrict self) {
+ if (atomic_rwlock_tryupgrade(self)) return 1;
  atomic_rwlock_endread(self);
  atomic_rwlock_write(self);
- return false;
+ return 0;
 }
-LOCAL void (KCALL atomic_rwlock_downgrade)(atomic_rwlock_t *__restrict self) {
+__LOCAL void (__LIBCCALL atomic_rwlock_downgrade)(atomic_rwlock_t *__restrict self) {
 #ifdef NDEBUG
 #ifdef __KOS__
  assert(TASK_ISSAFE());
@@ -218,8 +219,8 @@ LOCAL void (KCALL atomic_rwlock_downgrade)(atomic_rwlock_t *__restrict self) {
 #ifdef __ASSEMBLER__
 #if defined(__i386__) || defined(__x86_64__)
 /* Clobber: \clobber, %eax
- * @return: true:  ZF=1
- * @return: false: ZF=0 */
+ * @return: 1:  ZF=1
+ * @return: 0: ZF=0 */
 .macro atomic_rwlock_trywrite self, clobber=%ecx, eax_is_zero=0
 .if \eax_is_zero == 0
     xorl  %eax, %eax
@@ -229,8 +230,8 @@ LOCAL void (KCALL atomic_rwlock_downgrade)(atomic_rwlock_t *__restrict self) {
 .endm
 
 /* WARNING: Clobber: \clobber, %eax
- * @return: true:  ZF=1
- * @return: false: ZF=0 */
+ * @return: 1:  ZF=1
+ * @return: 0: ZF=0 */
 .macro atomic_rwlock_tryread self, clobber=%ecx
 995:
     movl  \self, %eax
@@ -281,10 +282,10 @@ LOCAL void (KCALL atomic_rwlock_downgrade)(atomic_rwlock_t *__restrict self) {
 #endif
 
 #if !defined(__INTELLISENSE__) && !defined(__NO_builtin_expect)
-#define atomic_rwlock_tryread(self)    __builtin_expect(atomic_rwlock_tryread(self),true)
-#define atomic_rwlock_trywrite(self)   __builtin_expect(atomic_rwlock_trywrite(self),true)
-#define atomic_rwlock_tryupgrade(self) __builtin_expect(atomic_rwlock_tryupgrade(self),true)
-#define atomic_rwlock_upgrade(self)    __builtin_expect(atomic_rwlock_upgrade(self),true)
+#define atomic_rwlock_tryread(self)    __builtin_expect(atomic_rwlock_tryread(self),1)
+#define atomic_rwlock_trywrite(self)   __builtin_expect(atomic_rwlock_trywrite(self),1)
+#define atomic_rwlock_tryupgrade(self) __builtin_expect(atomic_rwlock_tryupgrade(self),1)
+#define atomic_rwlock_upgrade(self)    __builtin_expect(atomic_rwlock_upgrade(self),1)
 #endif
 
 #ifdef __GUARD_HYBRID_SYNC_DEFINES_ASSERTF

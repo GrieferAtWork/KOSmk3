@@ -27,6 +27,7 @@
 #include <sched/onexit.h>
 #include <kernel/sections.h>
 #include <hybrid/sync/atomic-rwptr.h>
+#include <kernel/debug.h>
 #include <kernel/malloc.h>
 #include <sched/task.h>
 #include <fs/driver.h>
