@@ -356,7 +356,7 @@ struct __ATTR_PACKED exception_data_invalid_segment {
 
 #define __EXCEPTION_RT_DATA_SIZE   __SIZEOF_POINTER__
 #ifdef __CC__
-struct exception_rt_data {
+struct __ATTR_PACKED exception_rt_data {
     __UINTPTR_TYPE__     xrt_free_sp; /* The stack pointer up to which stack data
                                        * can be deallocated by an exception handler
                                        * that hasn't allocated additional stack memory.

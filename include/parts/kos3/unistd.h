@@ -76,9 +76,9 @@ __SYSDECL_BEGIN
  * @return: * :         [xfrealpathat2] The required buffer size (in characters), excluding a terminated NUL-character
  * @return: >= BUFSIZE: [xfrealpathat2] Only a portion of the path was printed. Pass a buffer capable of holding at least `return+1' characters.
  * @return: -1 :        [xfrealpathat2] An error occurred (see `errno') */
-__REDIRECT_EXCEPT(__LIBC,__PORT_KOSONLY,char *,__LIBCCALL,xfrealpath,(__fd_t __fd, char *__buf, __size_t __bufsize, unsigned int __type),(__fd,__buf,__bufsize,__type))
-__REDIRECT_EXCEPT_UFS(__LIBC,__PORT_KOSONLY,char *,__LIBCCALL,xrealpath,(char const *__path, char *__buf, __size_t __bufsize, unsigned int __type),(__path,__buf,__bufsize,__type))
-__REDIRECT_EXCEPT_UFS(__LIBC,__PORT_KOSONLY,char *,__LIBCCALL,xfrealpathat,(__fd_t __dfd, char const *__path, __atflag_t __flags, char *__buf, __size_t __bufsize, unsigned int __type),(__dfd,__path,__flags,__buf,__bufsize,__type))
+__REDIRECT_EXCEPT(__LIBC,__PORT_KOSONLY __XATTR_RETNONNULL,char *,__LIBCCALL,xfrealpath,(__fd_t __fd, char *__buf, __size_t __bufsize, unsigned int __type),(__fd,__buf,__bufsize,__type))
+__REDIRECT_EXCEPT_UFS(__LIBC,__PORT_KOSONLY __XATTR_RETNONNULL,char *,__LIBCCALL,xrealpath,(char const *__path, char *__buf, __size_t __bufsize, unsigned int __type),(__path,__buf,__bufsize,__type))
+__REDIRECT_EXCEPT_UFS(__LIBC,__PORT_KOSONLY __XATTR_RETNONNULL,char *,__LIBCCALL,xfrealpathat,(__fd_t __dfd, char const *__path, __atflag_t __flags, char *__buf, __size_t __bufsize, unsigned int __type),(__dfd,__path,__flags,__buf,__bufsize,__type))
 __REDIRECT_EXCEPT(__LIBC,__PORT_KOSONLY,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xfrealpath2,(__fd_t __fd, char *__buf, __size_t __bufsize, unsigned int __type),(__fd,__buf,__bufsize,__type))
 __REDIRECT_EXCEPT_UFS(__LIBC,__PORT_KOSONLY,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xrealpath2,(char const *__path, char *__buf, __size_t __bufsize, unsigned int __type),(__path,__buf,__bufsize,__type))
 __REDIRECT_EXCEPT_UFS(__LIBC,__PORT_KOSONLY,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xfrealpathat2,(__fd_t __dfd, char const *__path, __atflag_t __flags, char *__buf, __size_t __bufsize, unsigned int __type),(__dfd,__path,__flags,__buf,__bufsize,__type))

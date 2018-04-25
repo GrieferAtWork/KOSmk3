@@ -552,17 +552,32 @@ struct exception_data {
 #endif
 
 #ifdef __CC__
-struct exception_info {
+struct __ATTR_PACKED exception_info {
     /* The exception-information data structure. */
-    struct exception_data        e_error;      /* Error information. */
+    struct exception_data         e_error;      /* Error information. */
 #ifdef __EXCEPTION_RT_DATA_SIZE
-    struct exception_rt_data     e_rtdata;     /* Exception runtime data. */
+    struct exception_rt_data      e_rtdata;     /* Exception runtime data. */
 #endif
-    struct cpu_context           e_context;    /* The CPU context at the time of the interrupt happening.
-                                                * The instruction pointer is either directed at the start of
-                                                * the faulting instruction, or at the following instruction,
-                                                * depending on the `ERR_FRESUMENEXT' flag. */
+    struct cpu_context            e_context;    /* The CPU context at the time of the interrupt happening.
+                                                 * The instruction pointer is either directed at the start of
+                                                 * the faulting instruction, or at the following instruction,
+                                                 * depending on the `ERR_FRESUMENEXT' flag. */
 };
+#ifdef __KERNEL__
+struct __ATTR_PACKED user_exception_info {
+    /* The exception-information data structure (for user-space). */
+    struct exception_data         e_error;      /* Error information. */
+#ifdef __USER_EXCEPTION_RT_DATA_SIZE
+    struct user_exception_rt_data e_rtdata;     /* Exception runtime data. */
+#elif defined(__EXCEPTION_RT_DATA_SIZE)
+    struct exception_rt_data      e_rtdata;     /* Exception runtime data. */
+#endif
+    struct x86_usercontext        e_context;    /* The CPU context at the time of the interrupt happening.
+                                                 * The instruction pointer is either directed at the start of
+                                                 * the faulting instruction, or at the following instruction,
+                                                 * depending on the `ERR_FRESUMENEXT' flag. */
+};
+#endif /* __KERNEL__ */
 #endif /* __CC__ */
 
 

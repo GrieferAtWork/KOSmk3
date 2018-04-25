@@ -75,14 +75,25 @@ struct module_basic_info {
 #define APPLICATION_FDYNAMIC 0x4000 /* [const] The module has been opened dynamically and can therefor be closed using `dlclose()'. */
 #define APPLICATION_FTRUSTED 0x8000 /* [const] Module's code can be trusted and various security checks can be skipped during parsing of FDE/exception data. */
 
-#define MODULE_INFO_CLASS_STATE     0x0001 /* Module state / reference counting information. */
+#define MODULE_INFO_CLASS_STATE  0x0001 /* Module state / reference counting information. */
 #ifdef __CC__
 struct module_state_info {
     /* [MODULE_INFO_CLASS_STATE] */
     __ref_t         si_mapcnt;   /* Amount of individual segments over which this application is split. */
     __ref_t         si_loadcnt;  /* Amount of times the application has been loaded using `xdlopen()' and friends (recursion counter for `xdlclose()'). */
     __uintptr_t     si_appflags; /* Set of `APPLICATION_F*' */
+};
+#endif /* __CC__ */
 
+
+#define MODULE_INFO_CLASS_PATH   0x0002 /* Module path. */
+#ifdef __CC__
+struct module_path_info {
+    /* [MODULE_INFO_CLASS_PATH] */
+    unsigned int    pi_format;   /* [IN] The format in which to generate the path (Set of `REALPATH_F*'). */
+    __uintptr_t     pi_loadaddr; /* [OUT] The load address of the module (Same as `MODULE_INFO_CLASS_BASIC::mi_loadaddr') */
+    char           *pi_path;     /* [OUT] Filled with a NUL-terminated representation of the module's path. */
+    size_t          pi_pathlen;  /* [IN|OUT] Updated with the required buffer size. */
 };
 #endif /* __CC__ */
 
@@ -123,10 +134,34 @@ void *(__LIBCCALL Xxfdlopenat)(__fd_t __dfd, char const *__path, __atflag_t __at
  * @throw: E_SEGFAULT:         The given `HANDLE' is faulty, or the associated application is corrupt.
  * @throw: E_INVALID_ARGUMENT: The given `INFO_CLASS' wasn't recognized.
  */
-__LIBC __PORT_KOSONLY __ssize_t (__LIBCCALL xdlmodule_info)(void *__handle, unsigned int __info_class, void *__buf, __size_t __bufsize);
+__REDIRECT_EXCEPT(__LIBC,__PORT_KOSONLY,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xdlmodule_info,
+                 (void *__handle, unsigned int __info_class, void *__buf, __size_t __bufsize),
+                 (__handle,__info_class,__buf,__bufsize))
 #ifdef __USE_EXCEPT
 __LIBC __PORT_KOSONLY __size_t (__LIBCCALL Xxdlmodule_info)(void *__handle, unsigned int __info_class, void *__buf, __size_t __bufsize);
 #endif /* __USE_EXCEPT */
+
+/* Operating in the same way as `xfrealpath()', lookup the path of a given module.
+ * REMINDER: A module handle is simply any mapped pointer within that module, meaning
+ *           you can even pass a function pointer to figure out what module is implementing
+ *           that function.
+ * @param: BUF:         A buffer to be filled with the name of the path.
+ *                      [xdlpath] When NULL, malloc() a new buffer of `BUFSIZE' bytes, or if
+ *                               `BUFSIZE' is ZERO(0), allocate a buffer of appropriate size.
+ * @param: BUFSIZE:     The size of the provided `BUF' (in characters)
+ * @param: TYPE:        The type of path that should be returned. (Set of `REALPATH_F*')
+ * @return: * :         [xdlpath] Either `BUF', or the newly allocated buffer when `BUF' was NULL
+ * @return: NULL:       [xdlpath] An error occurred (see `errno')
+ * @return: * :         [xdlpath2] The required buffer size (in characters), excluding a terminated NUL-character
+ * @return: >= BUFSIZE: [xdlpath2] Only a portion of the path was printed. Pass a buffer capable of holding at least `return+1' characters.
+ * @return: -1 :        [xdlpath2] An error occurred (see `errno') */
+__REDIRECT_EXCEPT(__LIBC,__PORT_KOSONLY __XATTR_RETNONNULL,char *,__LIBCCALL,xdlpath,(void *__handle, char *__buf, __size_t __bufsize, unsigned int __type),(__handle,__buf,__bufsize,__type))
+__REDIRECT_EXCEPT(__LIBC,__PORT_KOSONLY,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xdlpath2,(void *__handle, char *__buf, __size_t __bufsize, unsigned int __type),(__handle,__buf,__bufsize,__type))
+#ifdef __USE_EXCEPT
+__LIBC __PORT_KOSONLY __ATTR_RETNONNULL char *(__LIBCCALL Xxdlpath)(void *__handle, char *__buf, __size_t __bufsize, unsigned int __type);
+__LIBC __PORT_KOSONLY __EXCEPT_SELECT(__size_t,__ssize_t) (__LIBCCALL Xxdlpath2)(void *__handle, char *__buf, __size_t __bufsize, unsigned int __type);
+#endif /* __USE_EXCEPT */
+
 #endif /* __KOS_VERSION__ >= 300 */
 
 #ifndef __xdlopen_defined

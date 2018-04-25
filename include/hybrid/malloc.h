@@ -30,6 +30,19 @@
 #define __hybrid_free(mallptr)                     kfree(mallptr)
 #define __hybrid_realloc(mallptr,n_bytes)          krealloc(mallptr,n_bytes,GFP_SHARED)
 #define __hybrid_realloc_in_place(mallptr,n_bytes) krealloc(mallptr,n_bytes,GFP_SHARED|GFP_NOMOVE)
+#elif defined(__BUILDING_LIBC) && __KOS_VERSION__ >= 300
+#include <parts/kos2/malldefs.h>
+
+__SYSDECL_BEGIN
+
+__REDIRECT(__LIBC,__WUNUSED __MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((1)) __ATTR_MALLOC,void *,__LIBCCALL,__hybrid_malloc,(__SIZE_TYPE__ __n_bytes),libc_malloc,(__n_bytes))
+__REDIRECT(__LIBC,__WUNUSED __MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((1,2)) __ATTR_MALLOC,void *,__LIBCCALL,__hybrid_calloc,(__SIZE_TYPE__ __count, __SIZE_TYPE__ __n_bytes),libc_calloc,(__count,__n_bytes))
+__REDIRECT(__LIBC,__WUNUSED __MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((2)),void *,__LIBCCALL,__hybrid_realloc,(void *__restrict __mallptr, __SIZE_TYPE__ __n_bytes),libc_realloc,(__mallptr,__n_bytes))
+__REDIRECT(__LIBC,__MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((2)),void *,__LIBCCALL,__hybrid_realloc_in_place,(void *__restrict __mallptr, __SIZE_TYPE__ __n_bytes),libc_realloc_in_place,(__mallptr,__n_bytes))
+__REDIRECT_VOID(__LIBC,,__LIBCCALL,__hybrid_free,(void *__restrict __mallptr),libc_free,(__mallptr))
+
+__SYSDECL_END
+
 #else
 
 #include "typecore.h"

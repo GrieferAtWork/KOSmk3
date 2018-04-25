@@ -406,7 +406,7 @@ INTERN_ENTRY(x86_exchange_context)
 	movb    %cl,         X86_SEGMENT_OFFSETOF_BASEHI + GDT(X86_SEG_USER_TLS) /* Set base_hi */
 
 #ifndef CONFIG_NO_DOS_COMPAT
-	addl    $(USERTASK_SEGMENT_OFFSETOF_TIB), %eax
+	addl    $(USER_TASK_SEGMENT_OFFSETOF_TIB), %eax
 	movl    %eax, %edx
 	shrl    $24,  %eax
 	andl    $0x00ffffff, %edx

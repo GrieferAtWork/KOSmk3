@@ -1899,7 +1899,7 @@ DEFINE_SYSCALL4(xdlmodule_info,void *,handle,
                 unsigned int,info_class,
                 void *,buf,size_t,bufsize) {
  REF struct application *app;
- size_t result;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  app = vm_getapp(handle);
  TRY {
   switch (info_class) {
@@ -1926,6 +1926,25 @@ DEFINE_SYSCALL4(xdlmodule_info,void *,handle,
    info->si_mapcnt   = app->a_mapcnt;
    info->si_loadcnt  = app->a_loadcnt;
    info->si_appflags = app->a_flags;
+  } break;
+
+  {
+   struct module_path_info *info;
+  case MODULE_INFO_CLASS_PATH:
+   result = sizeof(struct module_path_info);
+   if (bufsize < sizeof(struct module_path_info))
+       break;
+   info = (struct module_path_info *)buf;
+   info->pi_loadaddr = app->a_loadaddr;
+   if unlikely(!app->a_module->m_path) {
+    if (info->pi_pathlen >= 1)
+        info->pi_path[0] = '\0';
+    info->pi_pathlen = 1;
+    break;
+   }
+   /* Lookup the path name of the module. */
+   info->pi_pathlen = path_getname(app->a_module->m_path,info->pi_path,
+                                   info->pi_pathlen,info->pi_format);
   } break;
 
   default:
@@ -2065,7 +2084,6 @@ DEFINE_SYSCALL2(umount2,
 /* Extended system calls (added by KOS). */
 /*
 #define __NR_xvirtinfo    0x8000002a
-INTDEF size_t LIBCCALL Xsys_xdlmodule_info(void *handle, int info_class, void *buf, size_t bufsize);
 */
 
 

@@ -23,9 +23,11 @@
 #include "system.h"
 #include "errno.h"
 #include "dl.h"
+#include "malloc.h"
 #include <kos/dl.h>
 #include <errno.h>
 #include <except.h>
+#include <unistd.h>
 
 DECL_BEGIN
 
@@ -131,6 +133,195 @@ EXPORT(_getdllprocaddr,libc_getdllprocaddr);
 /* GLibc Aliases */
 EXPORT_STRONG(__libc_dlsym,libc_xdlsym);
 EXPORT_STRONG(__libc_dlclose,libc_xdlclose);
+
+
+
+/* Extended DL APIs */
+EXPORT(xdladdr2line,libc_xdladdr2line);
+CRT_KOS ssize_t LIBCCALL
+libc_xdladdr2line(void *abs_pc,
+                  struct dl_addr2line *__restrict buf,
+                  size_t bufsize) {
+ return FORWARD_SYSTEM_VALUE(sys_xaddr2line(abs_pc,buf,bufsize));
+}
+
+
+EXPORT(xunwind,libc_xunwind);
+CRT_KOS int LIBCCALL
+libc_xunwind(struct cpu_context *__restrict ccontext,
+             struct fpu_context *fcontext,
+             sigset_t *signal_set) {
+ return FORWARD_SYSTEM_ERROR(sys_xunwind(ccontext,fcontext,signal_set,sizeof(sigset_t)));
+}
+
+EXPORT(Xxunwind,libc_Xxunwind);
+CRT_KOS bool LIBCCALL
+libc_Xxunwind(struct cpu_context *__restrict ccontext,
+              struct fpu_context *fcontext, sigset_t *signal_set) {
+ return Xsys_xunwind(ccontext,fcontext,signal_set,sizeof(sigset_t)) == -EOK;
+}
+
+
+EXPORT(__KSYM(xdlpath),libc_xdlpath);
+CRT_KOS char *LIBCCALL
+libc_xdlpath(void *handle, char *buf,
+             size_t bufsize, unsigned int type) {
+ ssize_t reqsize; bool is_libc_buffer = false;
+ if (!buf && bufsize && (is_libc_buffer = true,
+      buf = (char *)libc_malloc(bufsize*sizeof(char))) == NULL) return NULL;
+#if 1
+ else if (!buf && !bufsize) {
+  char *result;
+  /* Allocate a small, initial buffer */
+  bufsize = (260+1);
+  if ((buf = (char *)libc_malloc(bufsize*sizeof(char))) == NULL) return NULL;
+  reqsize = libc_xdlpath2(handle,buf,bufsize,type);
+  if ((ssize_t)reqsize == -1) goto err_buffer;
+  if ((size_t)reqsize >= bufsize) goto do_dynamic;
+  /* Free unused memory. */
+  result = (char *)libc_realloc(buf,((size_t)reqsize+1));
+  return likely(result) ? result : buf;
+ }
+#endif
+ reqsize = libc_xdlpath2(handle,buf,bufsize,type);
+ if (reqsize == -1) {
+  if (is_libc_buffer)
+      goto err_buffer;
+  return NULL;
+ }
+ if ((size_t)reqsize >= bufsize) {
+  if (!buf) {
+   /* Allocate a new buffer dynamically. */
+do_dynamic:
+   do {
+    char *new_buf;
+    bufsize = (size_t)reqsize;
+    new_buf = (char *)libc_realloc(buf,(bufsize+1)*sizeof(char));
+    if unlikely(!new_buf) {err_buffer: libc_free(buf); return NULL; }
+    buf = new_buf;
+    reqsize = libc_xdlpath2(handle,buf,bufsize+1,type);
+    if unlikely(reqsize == -1) goto err_buffer;
+   } while ((size_t)reqsize != bufsize);
+   return buf;
+  }
+  libc_seterrno(ERANGE);
+  return NULL;
+ } else if (!reqsize && !buf) {
+  /* Must allocate an empty buffer... */
+  buf = (char *)libc_malloc(1*sizeof(char));
+  if (buf) buf[0] = '\0';
+ }
+ return buf;
+}
+
+EXPORT(Xxdlpath,libc_Xxdlpath);
+CRT_KOS ATTR_RETNONNULL char *LIBCCALL
+libc_Xxdlpath(void *handle, char *buf_,
+              size_t bufsize, unsigned int type) {
+ char *EXCEPT_VAR buf = buf_;
+ size_t COMPILER_IGNORE_UNINITIALIZED(reqsize);
+ bool EXCEPT_VAR is_libc_buffer = false;
+ if (!buf && bufsize)
+      is_libc_buffer = true,
+      buf = (char *)libc_Xmalloc(bufsize*sizeof(char));
+#if 1
+ else if (!buf && !bufsize) {
+  char *result;
+  /* Allocate a small, initial buffer */
+  bufsize = (260+1);
+  buf = (char *)libc_Xmalloc(bufsize*sizeof(char));
+  TRY {
+   reqsize = libc_Xxdlpath2(handle,buf,bufsize,type);
+  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+   libc_free(buf);
+   error_rethrow();
+  }
+  if ((size_t)reqsize >= bufsize)
+       goto do_dynamic;
+  /* Free unused memory. */
+  result = (char *)libc_realloc(buf,((size_t)reqsize+1));
+  return likely(result) ? result : buf;
+ }
+#endif
+ TRY {
+  reqsize = libc_Xxdlpath2(handle,buf,bufsize,type);
+ } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+  if (is_libc_buffer)
+      libc_free(buf);
+  error_rethrow();
+ }
+ if (reqsize >= bufsize) {
+  if (!buf) {
+   /* Allocate a new buffer dynamically. */
+do_dynamic:
+   do {
+    bufsize = (size_t)reqsize;
+    TRY {
+     buf = (char *)libc_Xrealloc(buf,(bufsize+1)*sizeof(char));
+     reqsize = libc_Xxdlpath2(handle,buf,bufsize+1,type);
+    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+     libc_free(buf);
+     error_rethrow();
+    }
+   } while ((size_t)reqsize != bufsize);
+   return buf;
+  }
+  libc_throw_buffer_too_small(reqsize,bufsize);
+ } else if (!reqsize && !buf) {
+  /* Must allocate an empty buffer... */
+  buf = (char *)libc_Xmalloc(1*sizeof(char));
+  buf[0] = '\0';
+ }
+ return buf;
+}
+
+EXPORT(__KSYM(xdlpath2),libc_xdlpath2);
+CRT_KOS ssize_t LIBCCALL
+libc_xdlpath2(void *handle, char *buf,
+              size_t bufsize, unsigned int type) {
+ struct module_path_info query;
+ ssize_t response;
+ query.pi_format  = type;
+ query.pi_path    = buf;
+ query.pi_pathlen = bufsize;
+ response = libc_xdlmodule_info(handle,
+                                MODULE_INFO_CLASS_PATH,
+                               &query,
+                                sizeof(query));
+ if (response < 0) return -1;
+ if (response != sizeof(query)) {
+  libc_seterrno(ENOSYS);
+  return -1;
+ }
+ return query.pi_pathlen;
+}
+
+EXPORT(Xxdlpath2,libc_Xxdlpath2);
+CRT_KOS size_t LIBCCALL
+libc_Xxdlpath2(void *handle, char *buf,
+               size_t bufsize, unsigned int type) {
+ struct module_path_info query;
+ query.pi_format  = type;
+ query.pi_path    = buf;
+ query.pi_pathlen = bufsize;
+ if (libc_Xxdlmodule_info(handle,MODULE_INFO_CLASS_PATH,&query,sizeof(query)) != sizeof(query))
+     libc_error_throw(E_NOT_IMPLEMENTED);
+ return query.pi_pathlen;
+}
+
+
+EXPORT(__DSYM(xdlpath),libc_dos_xdlpath);
+CRT_DOS_EXT char *LIBCCALL
+libc_dos_xdlpath(void *handle, char *buf, size_t bufsize, unsigned int type) {
+ return libc_xdlpath(handle,buf,bufsize,type|REALPATH_FDOSPATH);
+}
+EXPORT(__DSYM(xdlpath2),libc_dos_xdlpath2);
+CRT_DOS_EXT ssize_t LIBCCALL
+libc_dos_xdlpath2(void *handle, char *buf, size_t bufsize, unsigned int type) {
+ return libc_xdlpath2(handle,buf,bufsize,type|REALPATH_FDOSPATH);
+}
+
+
 
 
 DECL_END

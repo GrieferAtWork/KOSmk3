@@ -18,6 +18,7 @@
  */
 #ifdef __INTELLISENSE__
 #define _UTF_SOURCE 1
+#define _KOS_SOURCE 1
 #include "format-printer.c"
 #define FORMAT_OPTION_CHARTYPE   CHARACTER_TYPE_CHAR
 //#define FORMAT_OPTION_LOCALE     1 /* Enable locale support. */
@@ -31,10 +32,15 @@
 #include <unicode.h>
 #include <kos/kdev_t.h>
 #ifndef __KERNEL__
+#include <alloca.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include "../libs/libc/libc.h"
+#include "../libs/libc/err.h"
 #include "../libs/libc/format.h"
 #include "../libs/libc/unicode.h"
 #include "../libs/libc/ushare.h"
+#include "../libs/libc/dl.h"
 #endif
 
 #ifndef FORMAT_OPTION_CHARTYPE
@@ -322,6 +328,52 @@ DECL_BEGIN
 do{ if unlikely((temp = (*printer)(p,s,closure)) < 0) goto err; \
     result += temp; \
 }__WHILE0
+#if FORMAT_OPTION_CHARTYPE == CHARACTER_TYPE_CHAR
+#define DO_PRINT_ASCII(p,s) \
+do{ if unlikely((temp = (*printer)(p,s,closure)) < 0) goto err; \
+    result += temp; \
+}__WHILE0
+#elif FORMAT_OPTION_CHARTYPE == CHARACTER_TYPE_CHAR16
+#define DO_PRINT_ASCII(p,s) \
+do{ if unlikely((temp = impl_do_print_ascii16(printer,closure,p,s)) < 0) goto err; \
+    result += temp; \
+}__WHILE0
+#ifndef IMPL_DO_PRINT_ASCII16_DEFINED
+#define IMPL_DO_PRINT_ASCII16_DEFINED 1
+PRIVATE ssize_t LIBCCALL
+impl_do_print_ascii16(PFORMATPRINTER printer, void *closure,
+                      char const *__restrict p, size_t s) {
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+ STRUCT_PRINTER fwd = W16PRINTER_INIT(printer,closure);
+ TRY {
+  result = STRUCT_PRINTER_PRINT(p,s,&fwd);
+ } FINALLY {
+  STRUCT_PRINTER_FINI(&fwd);
+ }
+ return result;
+}
+#endif /* !IMPL_DO_PRINT_ASCII16_DEFINED */
+#else
+#define DO_PRINT_ASCII(p,s) \
+do{ if unlikely((temp = impl_do_print_ascii32(printer,closure,p,s)) < 0) goto err; \
+    result += temp; \
+}__WHILE0
+#ifndef IMPL_DO_PRINT_ASCII32_DEFINED
+#define IMPL_DO_PRINT_ASCII32_DEFINED 1
+PRIVATE ssize_t LIBCCALL
+impl_do_print_ascii32(PFORMATPRINTER printer, void *closure,
+                      char const *__restrict p, size_t s) {
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+ STRUCT_PRINTER fwd = W32PRINTER_INIT(printer,closure);
+ TRY {
+  result = STRUCT_PRINTER_PRINT(p,s,&fwd);
+ } FINALLY {
+  STRUCT_PRINTER_FINI(&fwd);
+ }
+ return result;
+}
+#endif /* !IMPL_DO_PRINT_ASCII32_DEFINED */
+#endif
 #ifdef FORMAT_OPTION_LOCALE
 #define DO_PRINTF(format,...) \
 do{ if unlikely((temp = LIBC_FORMAT_PRINTF(printer,closure,format,locale,##__VA_ARGS__)) < 0) goto err; \
@@ -412,6 +464,34 @@ UNIQUE(xformat_dev)(PFORMATPRINTER printer, void *closure,
 #include <unwind/debug_line.h>
 #endif /* __KERNEL__ */
 
+#ifndef VINFO_USE_MAGIC_DEFINED
+#define VINFO_USE_MAGIC_DEFINED 1
+
+/* Recognized values for `CONFIG_VINFO_USE_MAGIC':
+ * <  0: Don't use magic
+ * == 0: Automatically determine at runtime
+ * >  0: Do use magic
+ */
+#ifndef CONFIG_VINFO_USE_MAGIC
+#ifdef NDEBUG
+#define CONFIG_VINFO_USE_MAGIC  (-1)
+#endif
+#elif (CONFIG_VINFO_USE_MAGIC+0) == 0
+#undef CONFIG_VINFO_USE_MAGIC
+#endif
+
+#ifdef CONFIG_VINFO_USE_MAGIC
+#if (CONFIG_VINFO_USE_MAGIC+0) > 0
+#define vinfo_use_magic()   0
+#else
+#define vinfo_use_magic()   1
+#endif
+#else
+INTDEF bool LIBCCALL vinfo_use_magic(void);
+#endif
+#endif
+
+
 PRIVATE format_T_char const UNIQUE(xformat_vinfo_name)[] = { 'v', 'i', 'n', 'f', 'o' };
 PRIVATE ssize_t LIBCCALL
 UNIQUE(xformat_vinfo)(PFORMATPRINTER printer, void *closure,
@@ -421,164 +501,264 @@ UNIQUE(xformat_vinfo)(PFORMATPRINTER printer, void *closure,
                       locale_t locale,
 #endif
                       struct va_cont *args) {
-#ifndef __KERNEL__
- uintptr_t addr = va_arg(args->args,uintptr_t);
- (void)addr; /* XXX: TODO */
- return 0;
-#elif 1
- uintptr_t addr = va_arg(args->args,uintptr_t);
- size_t arglen = 0; unsigned int recursion = 1;
- ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
- struct vm *effective_vm = &vm_kernel;
- bool has_lock; struct vm_node *node;
- REF struct application *EXCEPT_VAR app = NULL;
- if (addr < KERNEL_BASE) effective_vm = THIS_VM;
- if (!arg) arg = "%f(%l,%c) : %n";
- for (; arg[arglen]; ++arglen) {
-  /* */if (arg[arglen] == '[') ++recursion;
-  else if (arg[arglen] == ']') { if (!--recursion) break; }
- }
- has_lock = vm_tryacquire(effective_vm);
- if (!has_lock) PREEMPTION_DISABLE();
- node = vm_getnode(VM_ADDR2PAGE(addr));
- if (node && node->vn_notify == &application_notify) {
-  app = (REF struct application *)node->vn_closure;
-  application_incref(app);
- }
- if (!has_lock) PREEMPTION_ENABLE();
- else vm_release(effective_vm);
- if (!app) {
-  app = &kernel_driver.d_app;
-  application_incref(app);
- }
- TRY {
-  struct application *used_app = app;
-  addr -= app->a_loadaddr;
-  if (!app->a_module->m_path)
-       used_app = &kernel_driver.d_app;
-  result = LIBC_FORMAT_PRINTF(printer,closure,
-                              "%%{vinfo:%[path]:%p:%p:%$s}",
-                              used_app->a_module->m_path,
-                              addr,addr+app->a_loadaddr,arglen,arg);
- } FINALLY {
-  application_decref(app);
- }
- return result;
+ PRIVATE format_T_char const default_format[] = {
+  '%','f','(','%','l',',','%','c',')',' ',':',' ','%','n',0
+ };
+#ifndef CONFIG_VINFO_USE_MAGIC
+ if (vinfo_use_magic())
+#endif
+#if !defined(CONFIG_VINFO_USE_MAGIC) || (CONFIG_VINFO_USE_MAGIC+0) > 0
+ {
+#ifdef __KERNEL__
+  PRIVATE format_T_char const magic_format[] = {
+   '%','%','{','v','i','n','f','o',':','%','[','p','a','t',
+   'h',']',':','%','p',':','%','p',':','%','$','s','}',0
+  };
+  uintptr_t addr = va_arg(args->args,uintptr_t);
+  size_t arglen = 0; unsigned int recursion = 1;
+  ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+  struct vm *effective_vm = &vm_kernel;
+  bool has_lock; struct vm_node *node;
+  REF struct application *EXCEPT_VAR app = NULL;
+  if (addr < KERNEL_BASE) effective_vm = THIS_VM;
+  if (!arg) arg = default_format;
+  for (; arg[arglen]; ++arglen) {
+   /* */if (arg[arglen] == '[') ++recursion;
+   else if (arg[arglen] == ']') { if (!--recursion) break; }
+  }
+  has_lock = vm_tryacquire(effective_vm);
+  if (!has_lock) PREEMPTION_DISABLE();
+  node = vm_getnode(VM_ADDR2PAGE(addr));
+  if (node && node->vn_notify == &application_notify) {
+   app = (REF struct application *)node->vn_closure;
+   application_incref(app);
+  }
+  if (!has_lock) PREEMPTION_ENABLE();
+  else vm_release(effective_vm);
+  if (!app) {
+   app = &kernel_driver.d_app;
+   application_incref(app);
+  }
+  TRY {
+   struct application *used_app = app;
+   if (!app->a_module->m_path)
+        used_app = &kernel_driver.d_app;
+   result = LIBC_FORMAT_PRINTF(printer,closure,
+                               magic_format,
+#ifdef FORMAT_OPTION_LOCALE
+                               locale,
+#endif
+                               used_app->a_module->m_path,
+                               addr-app->a_loadaddr,addr,arglen,arg);
+  } FINALLY {
+   application_decref(app);
+  }
+  return result;
 #else
- ssize_t temp,result = 0; uintptr_t load_addr;
- format_T_char const *flush_start; void *addr;
- format_T_char ch; struct module_addr2line info;
- unsigned int recursion = 1;
- addr = va_arg(args->args,void *);
- load_addr = linker_debug_query((uintptr_t)addr,&info);
- if (load_addr == (uintptr_t)-1)
-     load_addr = 0,libc_memset(&info,0,sizeof(info));
- /* Format options:
-  *    %%: Emit a '%' character.
-  *    %f: Source file name. (Or `"???"')
-  *    %l: Source line number (1-based). (Or `"0"')
-  *    %c: Source column offset (1-based). (Or `"0"')
-  *    %n: Nearest symbol name. (Or `"???"')
-  *    %<: Next lower address. (Or 0)
-  *    %>: Next greater address. (Or 0)
-  *    %p: The requested address.
-  * Example:
-  * >>my_label:
-  * >>    syslog(LOG_DEBUG,"%[vinfo:%f(%l,%c) : %n] : This is me\n",&&my_label);
-  */
- /* Use a default representation if no argument was given. */
- if (!arg) arg = "%f(%l,%c) : %n";
- flush_start = arg;
+  PRIVATE format_T_char const magic_format[] = {
+   '%','%','{','v','i','n','f','o',':','%','s',
+   ':','%','p',':','%','p',':','%','$','s','}',0
+  };
+  char pathbuf[80]; size_t arglen = 0;
+  unsigned int recursion = 1;
+  char *path = pathbuf; char *free_path = NULL;
+  struct module_path_info query; ssize_t result;
+  uintptr_t addr = va_arg(args->args,uintptr_t);
+  if (!arg) arg = default_format;
+  for (; arg[arglen]; ++arglen) {
+   /* */if (arg[arglen] == '[') ++recursion;
+   else if (arg[arglen] == ']') { if (!--recursion) break; }
+  }
+  query.pi_format  = REALPATH_FPATH;
+  query.pi_path    = pathbuf;
+  query.pi_pathlen = sizeof(pathbuf);
+  if (libc_xdlmodule_info((void *)addr,MODULE_INFO_CLASS_PATH,&query,sizeof(query)) != sizeof(query)) {
+missing_path:
+   path = libc_program_invocation_name(); /* Better than nothing... */
+   query.pi_loadaddr = 0;
+  } else if (query.pi_pathlen > sizeof(pathbuf)) {
+   /* Allocate a larger buffer for the module path. */
+   __malloca_nofail(free_path,query.pi_pathlen);
+   query.pi_path = path = free_path;
+   if (libc_xdlmodule_info((void *)addr,MODULE_INFO_CLASS_PATH,&query,sizeof(query)) != sizeof(query))
+       goto missing_path;
+  }
+  result = LIBC_FORMAT_PRINTF(printer,closure,magic_format,
+#ifdef FORMAT_OPTION_LOCALE
+                              locale,
+#endif
+                              path,
+                              addr-query.pi_loadaddr,
+                              addr,arglen,arg);
+  if (free_path) freea(free_path);
+  return result;
+#endif
+ }
+#endif
+#ifndef CONFIG_VINFO_USE_MAGIC
+ else
+#endif
+#if !defined(CONFIG_VINFO_USE_MAGIC) || (CONFIG_VINFO_USE_MAGIC+0) < 0
+ {
+  PRIVATE format_T_char const slash[] = { '/', 0 };
+  PRIVATE format_T_char const questionmasks[] = { '?', '?', '?', 0 };
+  PRIVATE format_T_char const pointer_format[] = { '%', 'p', 0 };
+  PRIVATE format_T_char const unsigned_format[] = { '%', 'u', 0 };
+  ssize_t temp,result = 0; format_T_char ch;
+  format_T_char const *flush_start; void *addr;
+#ifdef __KERNEL__
+  uintptr_t load_addr;
+  struct module_addr2line info;
+#else
+  struct {
+     struct dl_addr2line _info;
+     char                _strings[64];
+  }  _info_buffer;
+#ifndef __INTELLISENSE__
+#define info   _info_buffer._info
+#else
+  struct dl_addr2line info;
+#endif
+  struct dl_addr2line *dyninfo = NULL;
+  ssize_t req_size;
+#endif
+  unsigned int recursion = 1;
+  addr = va_arg(args->args,void *);
+#ifdef __KERNEL__
+  load_addr = linker_debug_query((uintptr_t)addr,&info);
+  if (load_addr == (uintptr_t)-1)
+      load_addr = 0,libc_memset(&info,0,sizeof(info));
+#else
+  req_size = libc_xdladdr2line((void *)addr,&_info_buffer._info,sizeof(_info_buffer));
+  if ((size_t)req_size > sizeof(_info_buffer)) {
+   __malloca_nofail(dyninfo,(size_t)req_size);
+   req_size = libc_xdladdr2line((void *)addr,dyninfo,(size_t)req_size);
+   libc_memcpy(&_info_buffer._info,dyninfo,sizeof(struct dl_addr2line));
+  }
+  if unlikely(req_size <= 0)
+     libc_memset(&_info_buffer._info,0,sizeof(struct dl_addr2line));
+#endif
+  /* Format options:
+   *    %%: Emit a '%' character.
+   *    %f: Source file name. (Or `"???"')
+   *    %l: Source line number (1-based). (Or `"0"')
+   *    %c: Source column offset (1-based). (Or `"0"')
+   *    %n: Nearest symbol name. (Or `"???"')
+   *    %<: Next lower address. (Or 0)
+   *    %>: Next greater address. (Or 0)
+   *    %p: The requested address.
+   * Example:
+   * >>my_label:
+   * >>    syslog(LOG_DEBUG,"%[vinfo:%f(%l,%c) : %n] : This is me\n",&&my_label);
+   */
+  /* Use a default representation if no argument was given. */
+  if (!arg) arg = default_format;
+  flush_start = arg;
 next:
- ch = *arg++;
- /* */if unlikely(!ch) goto end;
- else if (ch == '[') ++recursion;
- else if (ch == ']') { if (!--recursion) goto end; }
- if (ch != '%') goto next;
- if (arg-1 != flush_start)
-     DO_PRINT(flush_start,(size_t)((arg-1)-flush_start));
+  ch = *arg++;
+  /* */if unlikely(!ch) goto end;
+  else if (ch == '[') ++recursion;
+  else if (ch == ']') { if (!--recursion) goto end; }
+  if (ch != '%') goto next;
+  if (arg-1 != flush_start)
+      DO_PRINT(flush_start,(size_t)((arg-1)-flush_start));
 /*nextfmt:*/
- ch = *arg++;
- switch (ch) {
+  ch = *arg++;
+  switch (ch) {
 
- case 'f':
-  if (info.d_base) {
-   size_t baselen = libc_strlen(info.d_base);
-   DO_PRINT(info.d_base,baselen);
-   if (info.d_base[baselen-1] != '/' &&
-      (info.d_path || info.d_file)) DO_PRINT("/",1);
+  case 'f':
+   if (info.d_base) {
+    size_t baselen = libc_strlen(info.d_base);
+    DO_PRINT_ASCII(info.d_base,baselen);
+    if (info.d_base[baselen-1] != '/' &&
+       (info.d_path || info.d_file)) DO_PRINT(slash,1);
+   }
+   if (info.d_path) {
+    size_t pathlen = libc_strlen(info.d_path);
+    DO_PRINT_ASCII(info.d_path,pathlen);
+    if (info.d_path[pathlen-1] != '/' &&
+        info.d_file) DO_PRINT(slash,1);
+   }
+   if (info.d_file) {
+    size_t filelen = libc_strlen(info.d_file);
+    DO_PRINT_ASCII(info.d_file,filelen);
+   }
+   if (!info.d_base && !info.d_path && !info.d_file)
+        DO_PRINT(questionmasks,COMPILER_STRLEN(questionmasks));
+   break;
+
+  {
+   int integer;
+  case 'l':
+   integer = info.d_line;
+ do_print_int:
+   DO_PRINTF(unsigned_format,integer);
+   break;
+  case 'c':
+   integer = info.d_column;
+   goto do_print_int;
   }
-  if (info.d_path) {
-   size_t pathlen = libc_strlen(info.d_path);
-   DO_PRINT(info.d_path,pathlen);
-   if (info.d_path[pathlen-1] != '/' &&
-       info.d_file) DO_PRINT("/",1);
-  }
-  if (info.d_file) {
-   size_t filelen = libc_strlen(info.d_file);
-   DO_PRINT(info.d_file,filelen);
-  }
-  if (!info.d_base && !info.d_path && !info.d_file)
-       DO_PRINT("??" "?",3);
-  break;
 
- {
-  int integer;
- case 'l':
-  integer = info.d_line;
-do_print_int:
-  DO_PRINTF("%u",integer);
-  break;
- case 'c':
-  integer = info.d_column;
-  goto do_print_int;
- }
+  case 'n':
+   if (!info.d_name) {
+    DO_PRINT(questionmasks,COMPILER_STRLEN(questionmasks));
+   } else {
+    DO_PRINT_ASCII(info.d_name,libc_strlen(info.d_name));
+   }
+   break;
 
- case 'n':
-  if (!info.d_name) info.d_name = "??" "?";
-  DO_PRINT(info.d_name,libc_strlen(info.d_name));
-  break;
-
- {
-  uintptr_t ptr;
- case '<':
-  ptr = load_addr+info.d_begin;
+  {
+   uintptr_t ptr;
+  case '<':
+   ptr = (uintptr_t)info.d_begin;
+do_print_relptr:
+#ifdef __KERNEL__
+   ptr += load_addr;
+#endif
 do_print_ptr:
-  DO_PRINTF("%p",ptr);
-  break;
- case '>':
-  ptr = load_addr+info.d_end;
-  goto do_print_ptr;
- case 'p':
-  ptr = addr;
-  goto do_print_ptr;
- }
+   DO_PRINTF(pointer_format,ptr);
+   break;
+  case '>':
+   ptr = (uintptr_t)info.d_end;
+   goto do_print_relptr;
+  case 'p':
+   ptr = (uintptr_t)addr;
+   goto do_print_ptr;
+  }
 
- case '%':
-  flush_start = arg-1;
-  goto next;
- case '\0':
- case ']':
-  goto end;
+  case '%':
+   flush_start = arg-1;
+   goto next;
+  case '\0':
+  case ']':
+   goto end;
  
- default:
-/*broken_format:*/
-  arg = flush_start;
-  --flush_start;
+  default:
+ /*broken_format:*/
+   arg = flush_start;
+   --flush_start;
+   goto next;
+  }
+  flush_start = arg;
   goto next;
- }
- flush_start = arg;
- goto next;
 end:
- --arg;
- if (flush_start != arg) {
-  temp = (*printer)(flush_start,(size_t)(arg-flush_start),closure);
-  if unlikely(temp < 0) goto err;
-  result += temp;
- }
- return result;
+  --arg;
+  if (flush_start != arg) {
+   temp = (*printer)(flush_start,(size_t)(arg-flush_start),closure);
+   if unlikely(temp < 0) goto err;
+   result += temp;
+  }
+#ifndef __KERNEL__
+  if (dyninfo) freea(dyninfo);
+#endif /* !__KERNEL__ */
+  return result;
 err:
- return temp;
+#ifndef __KERNEL__
+  if (dyninfo) freea(dyninfo);
+#undef info
+#endif /* !__KERNEL__ */
+  return temp;
+ }
 #endif
 }
 
@@ -1074,6 +1254,7 @@ err:
 
 #undef DO_PRINTF
 #undef DO_PRINT
+#undef DO_PRINT_ASCII
 #undef UNIQUE
 
 #undef sizeof_T_char

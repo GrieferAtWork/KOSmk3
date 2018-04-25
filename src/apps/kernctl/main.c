@@ -84,6 +84,11 @@ int main(int argc, char *argv[]) {
    return Xkernctl(id);
   }
  }
+ if (!strcmp(cmd,"fault")) {
+  int *ptr = (int *)42;
+  while (++(*ptr++));
+ }
+
  fprintf(stderr,"Unknown command %q\n",cmd);
  fprintf(stderr,"Type `%s --help' for a list of known commands\n",
          program_invocation_short_name);

@@ -156,6 +156,8 @@ for (local line: fp) {
 #define SYS_xreaddirf __NR_xreaddirf
 #define SYS_xkernctl __NR_xkernctl
 #define SYS_xunwind __NR_xunwind
+#define SYS_xunwind_except __NR_xunwind_except
+#define SYS_xaddr2line __NR_xaddr2line
 #define SYS_xfdlopenat __NR_xfdlopenat
 #define SYS_xdlclose __NR_xdlclose
 #define SYS_xdlsym __NR_xdlsym

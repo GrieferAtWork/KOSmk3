@@ -21,6 +21,8 @@
 
 #include "libc.h"
 #include <kos/dl.h>
+#include <kos/types.h>
+#include <kos/addr2line.h>
 
 #ifdef __CC__
 DECL_BEGIN
@@ -45,6 +47,21 @@ INTDEF void *LIBCCALL libc_loaddll(char *file);
 INTDEF void *LIBCCALL libc_dos_loaddll(char *file);
 INTDEF int LIBCCALL libc_unloaddll(void *hnd);
 INTDEF void *LIBCCALL libc_getdllprocaddr(void *hnd, char const *symname, intptr_t ord);
+
+
+struct dl_addr2line;
+struct cpu_context;
+struct fpu_context;
+INTDEF ssize_t LIBCCALL libc_xdladdr2line(void *abs_pc, struct dl_addr2line *__restrict buf, size_t bufsize);
+INTDEF size_t LIBCCALL libc_Xxdladdr2line(void *abs_pc, struct dl_addr2line *__restrict buf, size_t bufsize);
+INTDEF int LIBCCALL libc_xunwind(struct cpu_context *__restrict ccontext, struct fpu_context *fcontext, sigset_t *signal_set);
+INTDEF bool LIBCCALL libc_Xxunwind(struct cpu_context *__restrict ccontext, struct fpu_context *fcontext, sigset_t *signal_set);
+INTDEF char *LIBCCALL libc_xdlpath(void *handle, char *buf, size_t bufsize, unsigned int type);
+INTDEF ssize_t LIBCCALL libc_xdlpath2(void *handle, char *buf, size_t bufsize, unsigned int type);
+INTDEF ATTR_RETNONNULL char *LIBCCALL libc_Xxdlpath(void *handle, char *buf, size_t bufsize, unsigned int type);
+INTDEF size_t LIBCCALL libc_Xxdlpath2(void *handle, char *buf, size_t bufsize, unsigned int type);
+INTDEF char *LIBCCALL libc_dos_xdlpath(void *handle, char *buf, size_t bufsize, unsigned int type);
+INTDEF ssize_t LIBCCALL libc_dos_xdlpath2(void *handle, char *buf, size_t bufsize, unsigned int type);
 
 
 DECL_END

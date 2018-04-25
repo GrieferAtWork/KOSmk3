@@ -24,6 +24,7 @@
 #include "sched.h"
 #include "errno.h"
 #include "nop.h"
+#include "system.h"
 
 #include <hybrid/minmax.h>
 #include <kos/kdev_t.h>
@@ -439,8 +440,6 @@ EXPORT(mkostemps,libc_mkostemps);
 EXPORT(mktemp,libc_mktemp);
 EXPORT(mkstemp,libc_mkstemp);
 EXPORT(mkdtemp,libc_mkdtemp);
-
-
 
 
 /* TODO */

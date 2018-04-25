@@ -25,6 +25,8 @@
 #include <kernel/syscall.h>
 #include <kernel/user.h>
 #include <sched/task.h>
+#include <sched/posix_signals.h>
+#include <syscall.h>
 #include <kos/context.h>
 #include <unwind/eh_frame.h>
 #include <unwind/linker.h>
@@ -36,6 +38,8 @@
 #include <string.h>
 
 #include <kernel/debug.h> /* TODO: Get rid of this. */
+
+#include "posix_signals.h"
 
 DECL_BEGIN
 
@@ -88,7 +92,10 @@ libc_error_rethrow_at(struct cpu_context *__restrict context,
      /* Must allocate stack memory at the back and copy data there. */
      sp -= hand.ehi_desc.ed_safe;
      memcpy((void *)sp,(void *)CPU_CONTEXT_SP(unwind),hand.ehi_desc.ed_safe);
+     error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(unwind);
      CPU_CONTEXT_SP(unwind) = sp;
+    } else {
+     error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(unwind);
     }
     if (hand.ehi_desc.ed_flags & EXCEPT_DESC_FDISABLE_PREEMPTION)
         unwind.c_eflags &= ~EFLAGS_IF;
@@ -99,10 +106,12 @@ libc_error_rethrow_at(struct cpu_context *__restrict context,
                   hand.ehi_entry);
      goto no_handler;
     }
+
     /* Restore the original SP to restore the stack as
      * it were when the exception originally occurred.
      * Without this, it would be impossible to continue
      * execution after an exception occurred. */
+    error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(unwind);
     CPU_CONTEXT_SP(unwind) = sp;
    }
 #if 0
@@ -136,78 +145,111 @@ no_handler:
 }
 DEFINE_PUBLIC_ALIAS(__error_rethrow_at,libc_error_rethrow_at);
 
+struct cpu_context_ss {
+    struct cpu_context c_context;
+    uintptr_t          c_ss;
+};
+
+PRIVATE bool FCALL
+unwind_check_signal_frame(struct cpu_context_ss *__restrict context,
+                          USER CHECKED sigset_t *signal_set,
+                          size_t signal_set_size) {
+ struct signal_frame *frame;
+ if (context->c_context.c_eip != PERTASK_GET(x86_sysbase)+X86_ENCODE_PFSYSCALL(SYS_sigreturn))
+     return false;
+ frame = (struct signal_frame *)(context->c_context.c_esp -
+                                 COMPILER_OFFSETAFTER(struct signal_frame,sf_sigreturn));
+ validate_readable(frame,sizeof(*frame));
+ /* Copy the signal mask that would be restored into userspace. */
+ if (signal_set_size)
+     memcpy(signal_set,&frame->sf_sigmask,signal_set_size);
+ frame->sf_return.m_context.c_cs;
+#ifndef CONFIG_NO_X86_SEGMENTATION
+ memcpy(context,&frame->sf_return.m_context,
+        sizeof(struct x86_gpregs32)+
+        sizeof(struct x86_segments32));
+#else /* !CONFIG_NO_X86_SEGMENTATION */
+ memcpy(context,&frame->sf_return.m_context,
+        sizeof(struct x86_gpregs32));
+#endif /* CONFIG_NO_X86_SEGMENTATION */
+ context->c_context.c_iret.ir_eip    = frame->sf_return.m_context.c_eip;
+ context->c_context.c_iret.ir_cs     = frame->sf_return.m_context.c_cs;
+ context->c_context.c_iret.ir_eflags = frame->sf_return.m_context.c_eflags;
+ context->c_ss                       = frame->sf_return.m_context.c_ss;
+ return true;
+}
+
+
 INTERN bool FCALL
-libc_error_rethrow_at_user(struct cpu_hostcontext_user *__restrict context,
-                           u16 exception_code, int ip_is_after_faulting) {
+error_rethrow_at_user(USER CHECKED struct user_exception_info *except_info,
+                      struct cpu_context_ss *__restrict context) {
  struct fde_info info;
  struct exception_handler_info hand;
  bool is_first = true;
  /* Safe the original stack-pointer. */
  uintptr_t sp;
- sp = CPU_CONTEXT_SP(*context);
- context->c_gpregs.gp_esp = context->c_iret.ir_useresp;
+ sp = CPU_CONTEXT_SP(context->c_context);
  for (;;) {
-  uintptr_t ip = CPU_CONTEXT_IP(*context);
+  uintptr_t ip = CPU_CONTEXT_IP(context->c_context);
   if (ip >= KERNEL_BASE)
       return false;
   /* Account for the fact that return addresses point to the
    * first instruction _after_ the `call', when it is actually
    * that call which we are trying to guard. */
-  if (!is_first || ip_is_after_faulting) --ip;
+  if (!is_first) --ip;
   if (!linker_findfde(ip,&info))
        return false;
   is_first = false;
   /* Search for a suitable exception handler (in reverse order!). */
-  if (linker_findexcept(ip,exception_code,&hand)) {
-   if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS) {
-    /* TODO */
-    /*info->e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK*/
-   }
+  if (linker_findexcept(ip,except_info->e_error.e_code,&hand)) {
+   if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS)
+       except_info->e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK;
    if (hand.ehi_flag & EXCEPTION_HANDLER_FDESCRIPTOR) {
     /* Unwind the stack to the caller-site. */
-    if (!eh_return(&info,(struct cpu_context *)context,
+    if (!eh_return(&info,&context->c_context,
                     EH_FRESTRICT_USERSPACE|EH_FDONT_UNWIND_SIGFRAME))
          return false;
     /* Override the IP to use the entry point.  */
-    context->c_eip = (uintptr_t)hand.ehi_entry;
+    context->c_context.c_eip = (uintptr_t)hand.ehi_entry;
     assert(hand.ehi_desc.ed_type == EXCEPT_DESC_TYPE_BYPASS); /* XXX: What should we do here? */
     /* Allocate the stack-save area. */
-    CPU_CONTEXT_SP(*context) -= hand.ehi_desc.ed_safe;
+    CPU_CONTEXT_SP(context->c_context) -= hand.ehi_desc.ed_safe;
     if (!(hand.ehi_desc.ed_flags&EXCEPT_DESC_FDEALLOC_CONTINUE)) {
      /* Must allocate stack memory at the back and copy data there. */
      sp -= hand.ehi_desc.ed_safe;
      validate_writable((void *)sp,hand.ehi_desc.ed_safe);
      COMPILER_WRITE_BARRIER();
-     memcpy((void *)sp,(void *)CPU_CONTEXT_SP(*context),hand.ehi_desc.ed_safe);
-     CPU_CONTEXT_SP(*context) = sp;
+     memcpy((void *)sp,(void *)CPU_CONTEXT_SP(context->c_context),hand.ehi_desc.ed_safe);
+     except_info->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(context->c_context);
+     CPU_CONTEXT_SP(context->c_context) = sp;
+    } else {
+     except_info->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(context->c_context);
     }
    } else {
     /* Jump to the entry point of this exception handler. */
-    if (!eh_jmp(&info,(struct cpu_context *)context,
-                      (uintptr_t)hand.ehi_entry,
+    if (!eh_jmp(&info,&context->c_context,(uintptr_t)hand.ehi_entry,
                  EH_FRESTRICT_USERSPACE))
          return false;
     /* Restore the original SP to restore the stack as
      * it were when the exception originally occurred.
      * Without this, it would be impossible to continue
      * execution after an exception occurred. */
-    CPU_CONTEXT_SP(*context) = sp;
+    except_info->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(context->c_context);
+    CPU_CONTEXT_SP(context->c_context) = sp;
    }
-   /* Force user-space target. */
-   context->c_iret.ir_cs     |= 3;
-   context->c_iret.ir_useresp = context->c_gpregs.gp_esp;
-   context->c_gpregs.gp_esp   = (uintptr_t)PERTASK_GET(this_task.t_stackend);
-   context->c_iret.ir_eflags |= EFLAGS_IF;
-   context->c_iret.ir_eflags &= ~(EFLAGS_TF|EFLAGS_IOPL(3)|
-                                  EFLAGS_NT|EFLAGS_RF|EFLAGS_VM|
-                                  EFLAGS_AC|EFLAGS_VIF|EFLAGS_VIP|
-                                  EFLAGS_ID);
    return true;
   }
   /* Continue unwinding the stack. */
-  if (!eh_return(&info,(struct cpu_context *)context,
+  if (!eh_return(&info,&context->c_context,
                   EH_FRESTRICT_USERSPACE|EH_FDONT_UNWIND_SIGFRAME))
        return false;
+  {
+   sigset_t sigset;
+   if (unwind_check_signal_frame(context,&sigset,sizeof(sigset_t))) {
+    /* Set the new signal mask. */
+    signal_chmask(&sigset,NULL,sizeof(sigset_t),SIGNAL_CHMASK_FSETMASK);
+   }
+  }
  }
  return false;
 }
@@ -217,42 +259,97 @@ DEFINE_PUBLIC_ALIAS(__error_rethrow_at,libc_error_rethrow_at);
 
 
 
-DEFINE_SYSCALL3(xunwind,
-                USER UNCHECKED struct x86_usercontext *,context,
-                u16,exception_code,int,ip_is_after_faulting) {
- /* TODO: This system call is incorrectly being used for unwinding.
-  *       Rename this one to `xunwind_except' and refactor add a new
-  *       one called `xunwind' that only unwinds a single stack frame. */
- struct cpu_hostcontext_user unwind;
- validate_writable(context,sizeof(struct x86_usercontext));
+DEFINE_SYSCALL_MUSTRESTART(xunwind_except);
+DEFINE_SYSCALL3(xunwind_except,
+                USER UNCHECKED struct user_exception_info *,except_info,
+                USER UNCHECKED struct x86_usercontext *,dispatcher_context,
+                USER UNCHECKED struct fpu_context *,dispatcher_fcontext) {
+ struct cpu_context_ss unwind;
+ validate_writable(except_info,sizeof(struct user_exception_info));
+ validate_writable(dispatcher_context,sizeof(struct x86_usercontext));
+ unwind.c_context.c_iret.ir_cs     = dispatcher_context->c_cs;
+ unwind.c_context.c_iret.ir_eip    = dispatcher_context->c_eip;
+ unwind.c_context.c_iret.ir_eflags = dispatcher_context->c_eflags;
+ unwind.c_ss                       = dispatcher_context->c_ss;
+ if (!unwind.c_ss)                   unwind.c_ss                   = X86_SEG_USER_SS;
+ if (!unwind.c_context.c_iret.ir_cs) unwind.c_context.c_iret.ir_cs = X86_SEG_USER_CS;
 #ifndef CONFIG_NO_X86_SEGMENTATION
- memcpy(&unwind.c_gpregs,context,sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
- if (!unwind.c_iret.ir_cs) unwind.c_iret.ir_cs = X86_SEG_USER_CS;
- if (!unwind.c_iret.ir_ss) unwind.c_iret.ir_ss = X86_SEG_USER_DS;
- if (!unwind.c_segments.sg_ds) unwind.c_segments.sg_ds = X86_SEG_USER_DS;
- if (!unwind.c_segments.sg_es) unwind.c_segments.sg_es = X86_SEG_USER_DS;
- if (!unwind.c_segments.sg_fs) unwind.c_segments.sg_fs = X86_SEG_USER_FS;
- if (!unwind.c_segments.sg_gs) unwind.c_segments.sg_gs = X86_SEG_USER_GS;
+ memcpy(&unwind.c_context.c_gpregs,dispatcher_context,
+        sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
+ if (!unwind.c_context.c_segments.sg_ds) unwind.c_context.c_segments.sg_ds = X86_SEG_USER_DS;
+ if (!unwind.c_context.c_segments.sg_es) unwind.c_context.c_segments.sg_es = X86_SEG_USER_DS;
+ if (!unwind.c_context.c_segments.sg_fs) unwind.c_context.c_segments.sg_fs = X86_SEG_USER_FS;
+ if (!unwind.c_context.c_segments.sg_gs) unwind.c_context.c_segments.sg_gs = X86_SEG_USER_GS;
 #else
- memcpy(&unwind.c_gpregs,context,sizeof(struct x86_gpregs));
+ memcpy(&unwind.c_context.c_gpregs,dispatcher_context,sizeof(struct x86_gpregs));
 #endif
- unwind.c_iret.ir_cs     = context->c_cs;
- unwind.c_iret.ir_ss     = context->c_ss;
- unwind.c_iret.ir_eip    = context->c_eip;
- unwind.c_iret.ir_eflags = context->c_eflags;
- if (!libc_error_rethrow_at_user(&unwind,exception_code,ip_is_after_faulting))
+ COMPILER_BARRIER();
+ if (!error_rethrow_at_user(except_info,&unwind))
       return -EPERM; /* No handler found. */
  COMPILER_BARRIER();
  /* Copy the new context back to user-space. */
 #ifndef CONFIG_NO_X86_SEGMENTATION
- memcpy(context,&unwind.c_gpregs,sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
+ memcpy(dispatcher_context,&unwind.c_context.c_gpregs,
+        sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
+#else
+ memcpy(dispatcher_context,&unwind.c_gpregs,
+        sizeof(struct x86_gpregs));
+#endif
+ dispatcher_context->c_ss     = unwind.c_ss;
+ dispatcher_context->c_cs     = unwind.c_context.c_iret.ir_cs;
+ dispatcher_context->c_eip    = unwind.c_context.c_iret.ir_eip;
+ dispatcher_context->c_eflags = unwind.c_context.c_iret.ir_eflags;
+ return 0;
+}
+
+
+DEFINE_SYSCALL_MUSTRESTART(xunwind);
+DEFINE_SYSCALL4(xunwind,
+                USER UNCHECKED struct x86_usercontext *,context,
+                USER UNCHECKED struct fpu_context *,fcontext,
+                USER UNCHECKED sigset_t *,signal_set,size_t,sigset_size) {
+ struct cpu_context_ss unwind; struct fde_info info;
+ validate_writable(context,sizeof(struct x86_usercontext));
+ if unlikely(sigset_size > sizeof(sigset_t))
+             sigset_size = sizeof(sigset_t);
+ if (sigset_size)
+     validate_writable(signal_set,sigset_size);
+ unwind.c_ss                       = context->c_ss;
+ unwind.c_context.c_iret.ir_cs     = context->c_cs;
+ unwind.c_context.c_iret.ir_eip    = context->c_eip;
+ unwind.c_context.c_iret.ir_eflags = context->c_eflags;
+ if (!unwind.c_ss)                   unwind.c_ss                   = X86_SEG_USER_SS;
+ if (!unwind.c_context.c_iret.ir_cs) unwind.c_context.c_iret.ir_cs = X86_SEG_USER_CS;
+#ifndef CONFIG_NO_X86_SEGMENTATION
+ memcpy(&unwind.c_context.c_gpregs,context,sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
+ if (!unwind.c_context.c_segments.sg_ds) unwind.c_context.c_segments.sg_ds = X86_SEG_USER_DS;
+ if (!unwind.c_context.c_segments.sg_es) unwind.c_context.c_segments.sg_es = X86_SEG_USER_DS;
+ if (!unwind.c_context.c_segments.sg_fs) unwind.c_context.c_segments.sg_fs = X86_SEG_USER_FS;
+ if (!unwind.c_context.c_segments.sg_gs) unwind.c_context.c_segments.sg_gs = X86_SEG_USER_GS;
 #else
  memcpy(&unwind.c_gpregs,context,sizeof(struct x86_gpregs));
 #endif
- context->c_cs     = unwind.c_iret.ir_cs;
- context->c_ss     = unwind.c_iret.ir_ss;
- context->c_eip    = unwind.c_iret.ir_eip;
- context->c_eflags = unwind.c_iret.ir_eflags;
+ /* Search for FDE information */
+ if (!linker_findfde(unwind.c_context.c_iret.ir_eip,&info))
+      return -EPERM;
+ /* Unwind the frame. */
+ if (!eh_return(&info,&unwind.c_context,
+                 EH_FRESTRICT_USERSPACE|EH_FDONT_UNWIND_SIGFRAME))
+      return -EPERM;
+ /* Deal with posix-signal frame. */
+ unwind_check_signal_frame(&unwind,signal_set,sigset_size);
+ /* Copy the new context back to user-space. */
+#ifndef CONFIG_NO_X86_SEGMENTATION
+ memcpy(context,&unwind.c_context.c_gpregs,
+        sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
+#else
+ memcpy(context,&unwind.c_context.c_gpregs,
+        sizeof(struct x86_gpregs));
+#endif
+ context->c_ss     = unwind.c_ss;
+ context->c_cs     = unwind.c_context.c_iret.ir_cs;
+ context->c_eip    = unwind.c_context.c_iret.ir_eip;
+ context->c_eflags = unwind.c_context.c_iret.ir_eflags;
  return 0;
 }
 

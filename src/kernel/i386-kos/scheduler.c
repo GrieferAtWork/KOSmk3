@@ -1338,7 +1338,7 @@ PUBLIC void FCALL
 task_propagate_user_exception(struct cpu_hostcontext_user *__restrict context,
                               unsigned int mode) {
  struct exception_info *EXCEPT_VAR error = error_info();
- struct exception_info EXCEPT_VAR info;
+ struct exception_info info;
  bool is_standalone = false;
  assert(PREEMPTION_ENABLED());
 copy_error:
@@ -1417,6 +1417,14 @@ serve_rpc:
    unwind.c_iret.ir_eflags = context->c_iret.ir_eflags;
    if (info.e_error.e_flag & ERR_FRESUMENEXT) ++unwind.c_iret.ir_eip;
    TRY {
+    USER CHECKED struct user_task_segment *useg;
+    /* NOTE: Dereference the user-space segment's self-pointer, so
+     *       user-space is able to quickly re-direct exception storage
+     *       by overriding the thread-local TLS self-pointer. */
+    useg = PERTASK_GET(this_task.t_userseg);
+    validate_readable(&useg->ts_self,sizeof(useg->ts_self));
+    useg = useg->ts_self;
+    validate_writable(useg,COMPILER_OFFSETAFTER(struct user_task_segment,ts_xcurrent));
     /* Unwind the stack and search for user-space exception handlers. */
     while (unwind.c_iret.ir_eip < KERNEL_BASE) {
      struct fde_info fde;
@@ -1427,6 +1435,7 @@ serve_rpc:
       /* Found a user-space exception handler! */
       if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS)
           info.e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK;
+      useg->ts_xcurrent.e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(unwind);
       if (hand.ehi_flag & EXCEPTION_HANDLER_FDESCRIPTOR) {
        /* Unwind the stack to the caller-site. */
        if (!eh_return(&fde,&unwind,EH_FRESTRICT_USERSPACE|EH_FDONT_UNWIND_SIGFRAME))
@@ -1467,15 +1476,7 @@ serve_rpc:
                                    EFLAGS_AC|EFLAGS_VIF|EFLAGS_VIP|
                                    EFLAGS_ID);
       /* Now copy the exception context to user-space. */
-      {
-       USER CHECKED struct user_task_segment *useg;
-       /* NOTE: Dereference the user-space segment's self-pointer, so
-        *       user-space is able to quickly re-direct exception storage
-        *       by overriding the thread-local TLS self-pointer. */
-       useg = PERTASK_GET(this_task.t_userseg)->ts_self;
-       validate_writable(useg,sizeof(struct user_task_segment));
-       errorinfo_copy_to_user(useg,(struct exception_info *)&info,context);
-      }
+      errorinfo_copy_to_user(useg,(struct exception_info *)&info,context);
       /* Set the unwound context as what should be returned to for user-space. */
 #ifndef CONFIG_NO_X86_SEGMENTATION
       memcpy(&context->c_gpregs,&unwind.c_gpregs,
@@ -1632,7 +1633,7 @@ serve_rpc:
  cannot_signal:;
 #endif
 
-#if 0
+#if 1
   if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG|TASK_FUSEREXCEPT)) {
    /* This is an exception-enabled user-space thread, but we
     * weren't able to find an exception handler, or signal handler.
@@ -1644,8 +1645,10 @@ serve_rpc:
     /* NOTE: Dereference the user-space segment's self-pointer, so
      *       user-space is able to quickly re-direct exception storage
      *       by overriding the thread-local TLS self-pointer. */
-    useg = PERTASK_GET(this_task.t_userseg)->ts_self;
-    validate_writable(useg,sizeof(struct user_task_segment));
+    useg = PERTASK_GET(this_task.t_userseg);
+    validate_readable(&useg->ts_self,sizeof(useg->ts_self));
+    useg = useg->ts_self;
+    validate_writable(useg,COMPILER_OFFSETAFTER(struct user_task_segment,ts_x86sysbase));
  reload_state:
     user_state = useg->ts_state;
     COMPILER_READ_BARRIER();

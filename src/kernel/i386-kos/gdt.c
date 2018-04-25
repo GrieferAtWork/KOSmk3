@@ -62,7 +62,7 @@ PUBLIC void KCALL set_user_tls_register(void *value) {
 #ifdef CONFIG_NO_X86_SEGMENTATION
  /* Reload the user TLS segment register immediately
   * if switching back to user-space won't do that. */
- __asm__ __volatile__("movw %w0, %%" PP_STR(__ASM_USERTASK_SEGMENT)
+ __asm__ __volatile__("movw %w0, %%" PP_STR(__ASM_USER_TASK_SEGMENT)
                       :
                       : "r" (X86_USER_TLS));
 #endif

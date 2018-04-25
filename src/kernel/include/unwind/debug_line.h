@@ -22,6 +22,7 @@
 #include <hybrid/compiler.h>
 #include <kos/types.h>
 #include <fs/linker.h>
+#include <kos/addr2line.h>
 
 DECL_BEGIN
 
@@ -38,12 +39,6 @@ struct module_addr2line {
     char const  *d_name;    /* [0..1] The name of the containing function (if known) */
     int          d_line;    /* Source line number (1-based; `0' if unknown) */
     int          d_column;  /* Source column number (1-based; `0' if unknown) */
-#define MODULE_ADDR2LINE_FNORMAL 0x0000
-#define MODULE_ADDR2LINE_FISSTMT 0x0001 /* The address is part of statement text, rather than that of an expression. */
-#define MODULE_ADDR2LINE_FBBLOCK 0x0002 /* The address is the start of a basic_block. */
-#define MODULE_ADDR2LINE_FINFUNC 0x0004 /* The address is part of a function, rather than data. */
-#define MODULE_ADDR2LINE_FPROLOG 0x0010 /* The address is located within an auto-generated function prolog. */
-#define MODULE_ADDR2LINE_FEPILOG 0x0020 /* The address is located within an auto-generated function epilog. */
     u16          d_flags;   /* Set of `MODULE_ADDR2LINE_F*' */
     u16        __d_pad;     /* ... */
 };

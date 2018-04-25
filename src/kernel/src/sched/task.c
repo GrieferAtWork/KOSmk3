@@ -182,20 +182,20 @@ task_alloc_stack(struct task *__restrict thread,
 /* Assert user-space task segment offsets. */
 STATIC_ASSERT(offsetof(struct user_task_segment,ts_self) == TASK_SEGMENT_OFFSETOF_SELF);
 STATIC_ASSERT(offsetof(struct user_task_segment,ts_xcurrent) == TASK_SEGMENT_OFFSETOF_XCURRENT);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_state) == USERTASK_SEGMENT_OFFSETOF_STATE);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_eformat) == USERTASK_SEGMENT_OFFSETOF_EFORMAT);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_errno) == USERTASK_SEGMENT_OFFSETOF_ERRNO);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_dos_errno) == USERTASK_SEGMENT_OFFSETOF_DOS_ERRNO);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_tid) == USERTASK_SEGMENT_OFFSETOF_TID);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_process) == USERTASK_SEGMENT_OFFSETOF_PROCESS);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_ueh) == USERTASK_SEGMENT_OFFSETOF_UEH);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_ueh_sp) == USERTASK_SEGMENT_OFFSETOF_UEH_SP);
+STATIC_ASSERT(offsetof(struct user_task_segment,ts_state) == USER_TASK_SEGMENT_OFFSETOF_STATE);
+STATIC_ASSERT(offsetof(struct user_task_segment,ts_eformat) == USER_TASK_SEGMENT_OFFSETOF_EFORMAT);
+STATIC_ASSERT(offsetof(struct user_task_segment,ts_errno) == USER_TASK_SEGMENT_OFFSETOF_ERRNO);
+STATIC_ASSERT(offsetof(struct user_task_segment,ts_dos_errno) == USER_TASK_SEGMENT_OFFSETOF_DOS_ERRNO);
+STATIC_ASSERT(offsetof(struct user_task_segment,ts_tid) == USER_TASK_SEGMENT_OFFSETOF_TID);
+STATIC_ASSERT(offsetof(struct user_task_segment,ts_process) == USER_TASK_SEGMENT_OFFSETOF_PROCESS);
+STATIC_ASSERT(offsetof(struct user_task_segment,ts_ueh) == USER_TASK_SEGMENT_OFFSETOF_UEH);
+STATIC_ASSERT(offsetof(struct user_task_segment,ts_ueh_sp) == USER_TASK_SEGMENT_OFFSETOF_UEH_SP);
 #if defined(__i386__) || defined(__x86_64__)
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_x86sysbase) == USERTASK_SEGMENT_OFFSETOF_X86SYSBASE);
+STATIC_ASSERT(offsetof(struct user_task_segment,ts_x86sysbase) == USER_TASK_SEGMENT_OFFSETOF_X86SYSBASE);
 #endif
 #ifndef CONFIG_NO_DOS_COMPAT
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_tib) == USERTASK_SEGMENT_OFFSETOF_TIB);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_tib.nt_errno) == USERTASK_SEGMENT_OFFSETOF_NT_ERRNO);
+STATIC_ASSERT(offsetof(struct user_task_segment,ts_tib) == USER_TASK_SEGMENT_OFFSETOF_TIB);
+STATIC_ASSERT(offsetof(struct user_task_segment,ts_tib.nt_errno) == USER_TASK_SEGMENT_OFFSETOF_NT_ERRNO);
 #endif /* !CONFIG_NO_DOS_COMPAT */
 
 

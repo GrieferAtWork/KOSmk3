@@ -54,7 +54,7 @@ validate_readable(UNCHECKED USER void const *base, size_t num_bytes) {
   throw_segfault((void *)limit,0);
  }
  if unlikely(addr_end > limit && num_bytes)
-    throw_segfault((void *)limit,0);
+    throw_segfault((void *)addr_end,0);
 }
 PUBLIC void KCALL
 validate_writable(UNCHECKED USER void *base, size_t num_bytes) {
@@ -65,7 +65,7 @@ validate_writable(UNCHECKED USER void *base, size_t num_bytes) {
   throw_segfault((void *)limit,X86_SEGFAULT_FWRITE);
  }
  if unlikely(addr_end > limit && num_bytes)
-    throw_segfault((void *)limit,X86_SEGFAULT_FWRITE);
+    throw_segfault((void *)addr_end,X86_SEGFAULT_FWRITE);
  /* Ensure cow-writability on the address range. */
  vm_cow(base,num_bytes);
 }

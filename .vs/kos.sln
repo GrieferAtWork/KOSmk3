@@ -167,6 +167,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "linux", "linux", "{61261588
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kos", "kos", "{AF58F0E7-5058-4D46-B809-727D330670C2}"
 	ProjectSection(SolutionItems) = preProject
+		..\include\kos\addr2line.h = ..\include\kos\addr2line.h
 		..\include\kos\bound.h = ..\include\kos\bound.h
 		..\include\kos\context.h = ..\include\kos\context.h
 		..\include\kos\dl.h = ..\include\kos\dl.h

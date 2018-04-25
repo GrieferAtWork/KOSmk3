@@ -38,6 +38,7 @@
 #include "../libs/libc/format.h"
 #endif
 
+#include <kos/addr2line.h>
 #include <kos/registers.h>
 #include <kos/handle.h>
 #include <hybrid/compiler.h>
@@ -274,11 +275,30 @@ handle_kind_name(char buf[HANDLE_KIND_NAME_BUFSIZE], u16 type) {
 INTERN void KCALL kernel_print_exception(void)
 #else
 #if 1
+PRIVATE void LIBCCALL
+exception_vprintf(FILE *fp, char const *__restrict format, va_list args) {
+ LIBC_TRY {
+  libc_vsyslog(LOG_ERROR,format,args);
+  libc_vfprintf(fp,format,args);
+ } LIBC_EXCEPT(EXCEPT_EXECUTE_HANDLER) {
+  /* Ignore other exceptions in here... */
+ }
+}
+PRIVATE void ATTR_CDECL
+exception_printf(FILE *fp, char const *__restrict format, ...) {
+ va_list args;
+ va_start(args,format);
+ exception_vprintf(fp,format,args);
+ va_end(args);
+}
+#define VPRINTF(f,a) exception_vprintf(fp,f,a)
+#define PRINTF(...)  exception_printf(fp,__VA_ARGS__)
+#elif 1
 #define VPRINTF(f,a) libc_vsyslog(LOG_ERROR,f,a)
-#define PRINTF(...)  libc_syslog(LOG_ERROR,__VA_ARGS__)
+#define PRINTF(...)  libc_syslog(LOG_ERROR,##__VA_ARGS__)
 #else
 #define VPRINTF(f,a) libc_vfprintf(fp,f,a)
-#define PRINTF(...)  libc_fprintf(fp,__VA_ARGS__)
+#define PRINTF(...)  libc_fprintf(fp,##__VA_ARGS__)
 #endif
 INTERN void LIBCCALL
 libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
@@ -292,7 +312,6 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
 #else
 #define INFO   (&info_struct)
  struct exception_info info_struct; u16 code;
- bool is_first = true; uintptr_t last_ip = 0;
  if (!fp) fp = libc_stderr;
  if (reason)
   VPRINTF(reason,args);
@@ -809,19 +828,18 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
  }
 #else
  {
+  bool is_first = true;
   struct cpu_context context;
   context = INFO->e_context;
   /* Print a traceback. */
   for (;;) {
-   if (last_ip != context.c_eip) {
-    PRINTF("%[vinfo:%f(%l,%c) : %n] : %p : SP %p\n",
-           is_first && (INFO->e_error.e_flag&ERR_FRESUMENEXT) ?
-           CPU_CONTEXT_IP(context) : CPU_CONTEXT_IP(context)-1,
-           CPU_CONTEXT_IP(context),
-           CPU_CONTEXT_SP(context));
-   }
-   if (sys_xunwind(&context,code,
-                  (!is_first || !(INFO->e_error.e_flag&ERR_FRESUMENEXT))))
+   PRINTF("%[vinfo:%f(%l,%c) : %n] : %p : SP %p\n",
+          is_first && (INFO->e_error.e_flag&ERR_FRESUMENEXT) ?
+          CPU_CONTEXT_IP(context) : CPU_CONTEXT_IP(context)-1,
+          CPU_CONTEXT_IP(context),
+          CPU_CONTEXT_SP(context));
+   if (!is_first || !(INFO->e_error.e_flag&ERR_FRESUMENEXT)) --context.c_eip;
+   if (sys_xunwind(&context,NULL,NULL,0) != -EOK)
        break;
    is_first = false;
   }

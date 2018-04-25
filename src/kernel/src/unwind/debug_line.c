@@ -26,6 +26,8 @@
 #include <kernel/debug.h>
 #include <kernel/paging.h>
 #include <kernel/malloc.h>
+#include <kernel/syscall.h>
+#include <kernel/user.h>
 #include <hybrid/align.h>
 #include <unwind/debug_line.h>
 #include <string.h>
@@ -86,7 +88,7 @@ module_debug_alloc(struct application *__restrict app) {
                                       VM_KERNELDEBUG_MODE,
                                       0,
                                       region,
-                                      PROT_READ|PROT_WRITE,
+                                      PROT_READ|PROT_WRITE|PROT_NOUSER,
                                       NULL,
                                       NULL);
   } FINALLY {
@@ -526,6 +528,56 @@ fail:
 }
 
 #pragma GCC diagnostic pop
+
+DEFINE_SYSCALL3(xaddr2line,USER UNCHECKED uintptr_t,abs_pc,
+                USER UNCHECKED struct dl_addr2line *,buf,
+                size_t,bufsize) {
+ struct module_addr2line info;
+ uintptr_t load_addr; size_t result;
+ char *strbuf; size_t strbuf_size;
+ unsigned int i;
+ validate_executable((void *)abs_pc);
+ load_addr = linker_debug_query(abs_pc,&info);
+ if (load_addr == (uintptr_t)-1) return 0; /* No data */
+ result = sizeof(struct dl_addr2line);
+ strbuf = (char *)((uintptr_t)buf+sizeof(struct dl_addr2line));
+ strbuf_size = bufsize > sizeof(struct dl_addr2line) ? bufsize - sizeof(struct dl_addr2line) : 0;
+ /* XXX: This assumes that all 4 strings immediately follow each other. */
+ for (i = 0; i < 4; ++i) {
+  char const *string = (&info.d_base)[i];
+  size_t string_length;
+  if (!string || ADDR_ISUSER(string))
+       continue; /* String is already mapped to user-space. */
+  string_length = (strlen(string)+1)*sizeof(char);
+  /* Track the required buffer size. */
+  result += string_length;
+  /* Update the info pointer to be directed at user-space. */
+  (&info.d_base)[i] = strbuf;
+  /* Copy the string into user-space. */
+  if (string_length > strbuf_size)
+      string_length = strbuf_size;
+  memcpy(strbuf,string,string_length);
+  strbuf      += string_length;
+  strbuf_size -= string_length;
+ }
+ /* Copy base descriptor data into user-space (string pointers have already been updated) */
+ if (bufsize >= sizeof(struct dl_addr2line)) {
+  buf->d_begin  = (void *)(load_addr + info.d_begin);
+  buf->d_end    = (void *)(load_addr + info.d_end);
+  buf->d_discr  = info.d_discr;
+  buf->d_srcno  = info.d_srcno;
+  buf->d_line   = info.d_line;
+  buf->d_base   = info.d_base;
+  buf->d_path   = info.d_path;
+  buf->d_file   = info.d_file;
+  buf->d_name   = info.d_name;
+  buf->d_column = info.d_column;
+  buf->d_flags  = info.d_flags;
+ }
+ return result;
+}
+
+
 
 DECL_END
 

@@ -294,6 +294,7 @@ no_free_segment:
 
 
 
+DEFINE_SYSCALL_MUSTRESTART(xsyslog);
 DEFINE_SYSCALL3(xsyslog,int,type,char *,str,size_t,len) {
  validate_readable(str,len);
  if unlikely(len > 0x1000) {

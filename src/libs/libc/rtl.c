@@ -33,6 +33,7 @@
 #include <hybrid/compiler.h>
 #include <kos/context.h>
 #include <format-printer.h>
+#include <errno.h>
 #include <assert.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -113,7 +114,9 @@ libc_error_rethrow_at(struct cpu_context *__restrict context,
                       int ip_is_after_faulting) {
  /* Unwind the stack to the nearest handler.
   * If that fails, invoke the unhandled-exception handler. */
- if (sys_xunwind(context,libc_error_code(),ip_is_after_faulting) != 0)
+ if (ip_is_after_faulting) --context->c_eip;
+ /* TODO: FPU context */
+ if (sys_xunwind_except(libc_error_info(),context,NULL) != -EOK)
      libc_error_unhandled_exception();
  /* Jump to the new exception context. */
  libc_cpu_setcontext(context);

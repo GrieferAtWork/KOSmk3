@@ -350,6 +350,11 @@ __XSYSCALL(__NR_xreaddirf,sys_xreaddirf)
 __XSYSCALL(__NR_xkernctl,sys_xkernctl) /* Kernel control (s.a. `<kos/kernctl.h>') */
 #define __NR_xunwind      0x4000001f
 __XSYSCALL(__NR_xunwind,sys_xunwind)
+#define __NR_xunwind_except 0x40000020
+__XSYSCALL(__NR_xunwind_except,sys_xunwind_except)
+#define __NR_xaddr2line   0x40000021
+__XSYSCALL(__NR_xaddr2line,sys_xaddr2line)
+
 
 /* Dynamic linker system calls.
  * NOTE: Library handles and simply the instance base pointer,
@@ -357,13 +362,12 @@ __XSYSCALL(__NR_xunwind,sys_xunwind)
  *       handing the address to the vm's addr-tree.
  * >> This also means that library access is only possible
  *    within one's own memory manager, as instance handles
- *    cannot be shared between different processes (or rather VMs)
- */
-#define __NR_xfdlopenat   0x40000020
+ *    cannot be shared between different processes (or rather VMs) */
+#define __NR_xfdlopenat   0x40000030
 __RXSYSCALL(__NR_xfdlopenat,sys_xfdlopenat)
-#define __NR_xdlclose     0x40000022
+#define __NR_xdlclose     0x40000032
 __XSYSCALL(__NR_xdlclose,sys_xdlclose)
-#define __NR_xdlsym       0x40000023
+#define __NR_xdlsym       0x40000033
 __XSYSCALL(__NR_xdlsym,sys_xdlsym)
 /* Push a list of all non-executed module finalizers onto the stack
  * and start executing the in order, returning to the caller once all
@@ -385,12 +389,12 @@ __XSYSCALL(__NR_xdlsym,sys_xdlsym)
  *       It is however not called when `_exit()' or '_Exit()' is invoked,
  *       or when an unhandled signal causes the application to terminate.
  * NOTE: libc invokes this system-call after `atexit()' was executed. */
-#define __NR_xdlfini      0x40000024
+#define __NR_xdlfini      0x40000034
 #define __SC_ATTRIB_CLOBB_0x40000024 C("memory")
 __XSYSCALL_ASM(__NR_xdlfini,sys_xdlfini)
-#define __NR_xdlmodule_info 0x40000025
+#define __NR_xdlmodule_info 0x40000035
 __XSYSCALL_ASM(__NR_xdlmodule_info,sys_xdlmodule_info)
-#define __NR_xsyscall_max 0x40000025
+#define __NR_xsyscall_max 0x40000035
 
 
 #undef __RXSYSCALL

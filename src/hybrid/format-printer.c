@@ -18,6 +18,8 @@
  */
 #ifndef GUARD_HYBRID_FORMAT_PRINTER_C
 #define GUARD_HYBRID_FORMAT_PRINTER_C 1
+#define _UTF_SOURCE 1
+#define _KOS_SOURCE 2
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
@@ -284,6 +286,25 @@ libc_snprintf(char *__restrict buf, size_t buflen,
 }
 
 #endif /* CONFIG_LIBC_LIMITED_API */
+
+
+
+#if !defined(CONFIG_VINFO_USE_MAGIC) || \
+            (CONFIG_VINFO_USE_MAGIC+0) == 0
+INTERN bool LIBCCALL vinfo_use_magic(void) {
+#ifdef __KERNEL__
+ /* TODO: Check if we're being hosted by an emulator. */
+ return true;
+#else
+ PRIVATE s8 saved_vinfo_use_magic = 0;
+ if (saved_vinfo_use_magic != 0)
+     return saved_vinfo_use_magic > 0;
+ /* XXX: Make this some kind of boot option? */
+ return false;
+#endif
+}
+#endif
+
 
 DECL_END
 

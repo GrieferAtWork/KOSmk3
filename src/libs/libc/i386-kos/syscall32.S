@@ -607,7 +607,6 @@ define_wrapper xdlclose, SYS_xdlclose, 1
 define_wrapper xdlmodule_info, SYS_xdlmodule_info, 4
 define_wrapper xfsymlinkat, SYS_xfsymlinkat, 4
 define_wrapper xfreadlinkat, SYS_xfreadlinkat, 5
-define_wrapper xunwind, SYS_xunwind, 3
 define_wrapper xfmknodat, SYS_xfmknodat, 5
 define_wrapper xfmkdirat, SYS_xfmkdirat, 4
 define_wrapper xgetdrives, SYS_xgetdrives, 0, 0
@@ -621,6 +620,9 @@ define_wrapper xreadf, SYS_xreadf, 4
 define_wrapper xwritef, SYS_xwritef, 4
 define_wrapper xreaddirf, SYS_xreaddirf, 5
 define_wrapper xioctlf, SYS_xioctlf, 4
+define_wrapper xunwind_except, SYS_xunwind_except, 3, 0
+define_wrapper xunwind, SYS_xunwind, 4
+define_wrapper xaddr2line, SYS_xaddr2line, 3
 
 #ifdef __ARCH_WIDE_64BIT_SYSCALL
 define_wrapper lseek, SYS_lseek, 4
@@ -905,6 +907,9 @@ EXPORT(Xsysconf,libc_Xsysconf)
 
 DEFINE_INTERN_ALIAS(libc_Xmremap,Xsys_mremap)
 EXPORT(Xmremap,libc_Xmremap)
+
+DEFINE_INTERN_ALIAS(libc_Xxdladdr2line,Xsys_xaddr2line)
+EXPORT(Xxdladdr2line,libc_Xxdladdr2line)
 
 
 

@@ -51,6 +51,10 @@ typedef PHYS u64               vm_phys_t;  /* A physical memory pointer. */
  * NOTE: This macro is only defined when `CONFIG_HIGH_KERNEL' is set. */
 #define KERNEL_BASE        0xc0000000
 
+#define ADDR_ISUSER(x)  (__CCAST(uintptr_t)(x) < KERNEL_BASE)
+#define ADDR_ISHOST(x)  (__CCAST(uintptr_t)(x) >= KERNEL_BASE)
+
+
 /* VM hints. */
 #define VM_KERNEL_SHAREDHEAP_HINT        0xe1200
 #define VM_KERNEL_SHAREDHEAP_MODE        VM_GETFREE_FABOVE

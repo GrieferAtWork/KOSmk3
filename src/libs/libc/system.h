@@ -43,6 +43,9 @@ struct termios;
 struct winsize;
 struct gc_specs;
 struct gc_data;
+struct dl_addr2line;
+struct cpu_context;
+struct fpu_context;
 INTDEF int LIBCCALL sys_openat(fd_t dfd, char const *filename, oflag_t flags, mode_t mode);
 INTDEF errno_t LIBCCALL sys_close(fd_t fd);
 INTDEF ATTR_NORETURN void LIBCCALL sys_exit(int exitcode);
@@ -163,7 +166,6 @@ INTDEF pid_t LIBCCALL sys_clone(struct cpu_context *context, syscall_ulong_t fla
 INTDEF void *LIBCCALL sys_xreset_debug_data(void *ptr, u32 pattern, size_t num_bytes);
 INTDEF void *LIBCCALL sys_xfind_modified_address(void *ptr, u32 pattern, size_t num_bytes);
 INTDEF ssize_t LIBCCALL sys_xgc_search(struct gc_specs const *uspecs, unsigned int flags, struct gc_data *udata, syscall_ulong_t current_version);
-INTDEF errno_t FCALL sys_xunwind(struct cpu_context *context, u16 exception_code, int ip_is_after_faulting);
 INTDEF ssize_t LIBCCALL sys_xcapture_traceback(struct cpu_context *ctx, unsigned int num_skipframes, void **ptb, size_t bufsize);
 INTDEF ssize_t LIBCCALL sys_xreadf(fd_t fd, void *buf, size_t bufsize, oflag_t flags);
 INTDEF ssize_t LIBCCALL sys_xwritef(fd_t fd, void const *buf, size_t bufsize, oflag_t flags);
@@ -171,6 +173,9 @@ INTDEF ssize_t LIBCCALL sys_xpreadf64(fd_t fd, void *buf, size_t bufsize, u64 po
 INTDEF ssize_t LIBCCALL sys_xpwritef64(fd_t fd, void const *buf, size_t bufsize, u64 pos, oflag_t flags);
 INTDEF syscall_slong_t LIBCCALL sys_xioctlf(fd_t fd, unsigned long cmd, oflag_t flags, void *arg);
 INTDEF ssize_t LIBCCALL sys_xreaddirf(fd_t fd, struct dirent *buf, size_t bufsize, int mode, oflag_t flags);
+INTDEF errno_t LIBCCALL sys_xunwind_except(struct exception_info *except_info, struct cpu_context *dispatcher_ccontext, struct fpu_context *dispatcher_fcontext);
+INTDEF errno_t LIBCCALL sys_xunwind(struct cpu_context *ccontext, struct fpu_context *fcontext, sigset_t *signal_set, size_t sigset_size);
+INTDEF ssize_t LIBCCALL sys_xaddr2line(void *abs_pc, struct dl_addr2line *buf, size_t bufsize);
 
 
 
@@ -278,7 +283,6 @@ INTDEF pid_t LIBCCALL Xsys_clone(struct cpu_context *context, syscall_ulong_t fl
 INTDEF void *LIBCCALL Xsys_xreset_debug_data(void *ptr, u32 pattern, size_t num_bytes);
 INTDEF void *LIBCCALL Xsys_xfind_modified_address(void *ptr, u32 pattern, size_t num_bytes);
 INTDEF size_t LIBCCALL Xsys_xgc_search(struct gc_specs const *uspecs, unsigned int flags, struct gc_data *udata, syscall_ulong_t current_version);
-INTDEF errno_t FCALL Xsys_xunwind(struct cpu_context *context, u16 exception_code, int ip_is_after_faulting);
 INTDEF size_t LIBCCALL Xsys_xcapture_traceback(struct cpu_context *ctx, unsigned int num_skipframes, void **ptb, size_t bufsize);
 INTDEF size_t LIBCCALL Xsys_xreadf(fd_t fd, void *buf, size_t bufsize, oflag_t flags);
 INTDEF size_t LIBCCALL Xsys_xwritef(fd_t fd, void const *buf, size_t bufsize, oflag_t flags);
@@ -286,6 +290,8 @@ INTDEF size_t LIBCCALL Xsys_xpreadf64(fd_t fd, void *buf, size_t bufsize, u64 po
 INTDEF size_t LIBCCALL Xsys_xpwritef64(fd_t fd, void const *buf, size_t bufsize, u64 pos, oflag_t flags);
 INTDEF syscall_slong_t LIBCCALL Xsys_xioctlf(fd_t fd, unsigned long cmd, oflag_t flags, void *arg);
 INTDEF size_t LIBCCALL Xsys_xreaddirf(fd_t fd, struct dirent *buf, size_t bufsize, int mode, oflag_t flags);
+INTDEF errno_t LIBCCALL Xsys_xunwind(struct cpu_context *ccontext, struct fpu_context *fcontext, sigset_t *signal_set, size_t sigset_size);
+INTDEF ssize_t LIBCCALL Xsys_xaddr2line(void *abs_pc, struct dl_addr2line *buf, size_t bufsize);
 
 DECL_END
 #endif /* __CC__ */

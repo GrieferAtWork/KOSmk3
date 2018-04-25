@@ -27,10 +27,10 @@ __SYSDECL_BEGIN
 #ifndef __ASM_TASK_SEGMENT
 #ifdef __x86_64__
 #    define __ASM_HOSTTASK_SEGMENT gs
-#    define __ASM_USERTASK_SEGMENT fs
+#    define __ASM_USER_TASK_SEGMENT fs
 #else
 #    define __ASM_HOSTTASK_SEGMENT fs
-#    define __ASM_USERTASK_SEGMENT gs
+#    define __ASM_USER_TASK_SEGMENT gs
 #endif
 #ifdef __KERNEL__
 #ifdef __x86_64__
@@ -45,7 +45,7 @@ __SYSDECL_BEGIN
 #else
 #    define __ASM_TASK_SEGMENT_ISGS 1
 #endif
-#    define __ASM_TASK_SEGMENT __ASM_USERTASK_SEGMENT
+#    define __ASM_TASK_SEGMENT __ASM_USER_TASK_SEGMENT
 #endif
 #endif /* !__ASM_TASK_SEGMENT */
 
