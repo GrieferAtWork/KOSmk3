@@ -49,10 +49,10 @@
 
 DECL_BEGIN
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 INTDEF ATTR_NORETURN void KCALL
 throw_invalid_segment(u16 segment_index, u16 segment_register);
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 
 INTERN void KCALL
@@ -73,19 +73,19 @@ x86_sigreturn_impl(void *UNUSED(arg),
   * NOTE: User-space register sanitization _must_ be done _after_ we copied register
   *       values, and must be performed on the values then saved in `context'! */
  COMPILER_READ_BARRIER();
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
  memcpy(&context->c_gpregs,&frame->sf_return.m_context.c_gpregs,
         sizeof(struct x86_gpregs32)+sizeof(struct x86_segments32));
  context->c_iret.ir_cs = frame->sf_return.m_context.c_cs;
  context->c_iret.ir_ss = frame->sf_return.m_context.c_ss;
-#else /* CONFIG_X86_SEGMENTATION */
+#else /* !CONFIG_NO_X86_SEGMENTATION */
  memcpy(&context->c_gpregs,&frame->sf_return.m_context.c_gpregs,
         sizeof(struct x86_gpregs32));
 #if 0 /* Since `context' originates from user-space, these are already set. */
  context->c_iret.ir_cs = X86_USER_CS;
  context->c_iret.ir_ss = X86_USER_DS;
 #endif
-#endif /* !CONFIG_X86_SEGMENTATION */
+#endif /* CONFIG_NO_X86_SEGMENTATION */
  context->c_iret.ir_eflags  = frame->sf_return.m_context.c_eflags;
  context->c_iret.ir_eip     = frame->sf_return.m_context.c_eip;
  context->c_iret.ir_useresp = context->c_gpregs.gp_esp;
@@ -114,7 +114,7 @@ x86_sigreturn_impl(void *UNUSED(arg),
                                 EFLAGS_NT|EFLAGS_RF|EFLAGS_VM|
                                 EFLAGS_AC|EFLAGS_VIF|EFLAGS_VIP|
                                 EFLAGS_ID);
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
  /* Verify user-space segment indices. */
  TRY {
   if (context->c_segments.sg_ds && !__verw(context->c_segments.sg_ds))
@@ -134,17 +134,17 @@ x86_sigreturn_impl(void *UNUSED(arg),
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Must fix register values, as otherwise userspace wouldn't be able to handle the exception. */
   if (xcontext->c_segments.sg_ds && !__verw(xcontext->c_segments.sg_ds))
-      xcontext->c_segments.sg_ds = X86_USER_DS;
+      xcontext->c_segments.sg_ds = X86_SEG_USER_DS;
   if (xcontext->c_segments.sg_es && !__verw(xcontext->c_segments.sg_es))
-      xcontext->c_segments.sg_es = X86_USER_DS;
+      xcontext->c_segments.sg_es = X86_SEG_USER_ES;
   if (xcontext->c_segments.sg_fs && !__verw(xcontext->c_segments.sg_fs))
-      xcontext->c_segments.sg_fs = X86_SEG_FS;
+      xcontext->c_segments.sg_fs = X86_SEG_USER_FS;
   if (xcontext->c_segments.sg_gs && !__verw(xcontext->c_segments.sg_gs))
-      xcontext->c_segments.sg_gs = X86_SEG_GS;
+      xcontext->c_segments.sg_gs = X86_SEG_USER_GS;
   if (xcontext->c_iret.ir_ss && !__verw(xcontext->c_iret.ir_ss))
-      xcontext->c_iret.ir_ss = X86_USER_DS;
+      xcontext->c_iret.ir_ss = X86_SEG_USER_SS;
   if (!(xcontext->c_iret.ir_cs&3) || !__verr(xcontext->c_iret.ir_cs))
-      xcontext->c_iret.ir_cs = X86_USER_CS;
+      xcontext->c_iret.ir_cs = X86_SEG_USER_CS;
   error_rethrow();
  }
 #endif
@@ -325,7 +325,7 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
  }
 
  /* Construct the return CPU context. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
  memcpy(&frame->sf_return.m_context.c_segments,
         &context->c_segments,sizeof(struct x86_segments));
 #endif
@@ -339,10 +339,10 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
  frame->sf_return.m_context.c_gpregs.gp_eax = context->c_gpregs.gp_eax;
  frame->sf_return.m_context.c_eip           = context->c_eip;
  frame->sf_return.m_context.c_eflags        = context->c_eflags;
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
  frame->sf_return.m_context.c_cs = context->c_iret.ir_cs;
  frame->sf_return.m_context.c_ss = context->c_iret.ir_ss;
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
  frame->sf_return.m_flags = __MCONTEXT_FNORMAL;
  if (info->si_signo == SIGSEGV) {
   frame->sf_return.m_cr2    = (uintptr_t)info->si_addr;

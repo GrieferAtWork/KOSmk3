@@ -90,18 +90,18 @@ linker_unwind_user(struct cpu_hostcontext_user *__restrict context) {
   memcpy(&context->c_gpregs,
          &frame->sf_return.m_context.c_gpregs,
          sizeof(struct x86_gpregs32)
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
          +
          sizeof(struct x86_segments32)
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
          );
   context->c_iret.ir_eflags = frame->sf_return.m_context.c_eflags;
   context->c_iret.ir_eip    = frame->sf_return.m_context.c_eip;
   context->c_esp            = context->c_gpregs.gp_esp;
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
   context->c_iret.ir_cs     = frame->sf_return.m_context.c_cs;
   context->c_iret.ir_ss     = frame->sf_return.m_context.c_ss;
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
   /* XXX: Restore FPU context? */
  }
  return true;

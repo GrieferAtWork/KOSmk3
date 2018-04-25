@@ -38,6 +38,7 @@
 #include <sched/pid.h>
 #include <sched/stat.h>
 #include <sched/pertask-arith.h>
+#include <sched/userstack.h>
 #include <stdbool.h>
 #include <string.h>
 #include <assert.h>
@@ -178,14 +179,27 @@ task_alloc_stack(struct task *__restrict thread,
 #define USERSEG_SIZE  CEILDIV(sizeof(struct user_task_segment),PAGESIZE)
 
 PRIVATE void KCALL
-setup_user_segment(USER CHECKED struct user_task_segment *__restrict seg) {
+setup_user_segment(USER CHECKED struct user_task_segment *__restrict self) {
  /* Setup default values of the user-space thread segment.
   * NOTE: All other values are pre-initialized to all ZEROes. */
- seg->ts_self       = seg;
- seg->ts_tid        = posix_gettid();
- seg->ts_process    = PERVM(vm_environ);
+ self->ts_self       = self;
+ self->ts_tid        = posix_gettid();
+ self->ts_process    = PERVM(vm_environ);
 #if defined(__i386__) || defined(__x86_64__)
- seg->ts_x86sysbase = PERTASK_GET(x86_sysbase);
+ self->ts_x86sysbase = PERTASK_GET(x86_sysbase);
+#endif
+#ifndef CONFIG_NO_DOS_COMPAT
+ /* Fill in the DOS-compatible TIB data block */
+ {
+  struct userstack *stack = PERTASK_GET(_this_user_stack);
+  if (stack) {
+   self->ts_tib.nt_stack_top = (void *)VM_PAGE2ADDR(stack->us_pageend);
+   self->ts_tib.nt_stack_min = (void *)VM_PAGE2ADDR(stack->us_pagemin);
+  }
+  self->ts_tib.nt_pid = posix_getpid();
+  self->ts_tib.nt_tid = self->ts_tid;
+  self->ts_tib.nt_teb = &self->ts_tib;
+ }
 #endif
 }
 

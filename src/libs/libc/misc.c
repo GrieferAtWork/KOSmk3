@@ -23,6 +23,7 @@
 #include "misc.h"
 #include "sched.h"
 #include "errno.h"
+#include "nop.h"
 
 #include <hybrid/minmax.h>
 #include <kos/kdev_t.h>
@@ -438,6 +439,28 @@ EXPORT(mkostemps,libc_mkostemps);
 EXPORT(mktemp,libc_mktemp);
 EXPORT(mkstemp,libc_mkstemp);
 EXPORT(mkdtemp,libc_mkdtemp);
+
+
+
+
+/* TODO */
+DEFINE_NOP_FUNCTION_ZERO(CRT_DOS,u32,libd_clearfp,(void));
+DEFINE_NOP_FUNCTION_ZERO(CRT_DOS,u32,libd_controlfp,(u32 newval, u32 mask));
+DEFINE_NOP_FUNCTION_ZERO(CRT_DOS,u32,libd_controlfp_s,(u32 *pcurrent, u32 newval, u32 mask));
+DEFINE_INTERN_ALIAS(libd_set_controlfp,libd_controlfp);
+DEFINE_NOP_FUNCTION_ZERO(CRT_DOS,u32,libd_statusfp,(void));
+DEFINE_NOP_FUNCTION_VOID(CRT_DOS,libd_fpreset,(void));
+DEFINE_NOP_FUNCTION_ZERO(CRT_DOS,u32,libd_control87,(u32 newval, u32 mask));
+CRT_DOS_BSS int libd_fpecode_value = 0; /* ??? */
+CRT_DOS int *LIBCCALL libd_fpecode(void) { return &libd_fpecode_value; }
+EXPORT(__DSYM(_clearfp),libd_clearfp);
+EXPORT(__DSYM(_controlfp),libd_controlfp);
+EXPORT(__DSYM(_set_controlfp),libd_set_controlfp);
+EXPORT(__DSYM(_controlfp_s),libd_controlfp_s);
+EXPORT(__DSYM(_statusfp),libd_statusfp);
+EXPORT(__DSYM(_fpreset),libd_fpreset);
+EXPORT(__DSYM(_control87),libd_control87);
+EXPORT(__DSYM(__fpecode),libd_fpecode);
 
 
 DECL_END

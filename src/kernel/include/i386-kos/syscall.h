@@ -252,7 +252,7 @@ struct PACKED syscall_trace_regs {
         u32                  a_arg5;       /* Arg #5 */
         u32                  a_sysno;      /* System call number (including special flags). */
     }                        str_args;     /* System call arguments. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
     struct x86_segments32    str_segments; /* User-space segment registers. */
 #endif
     struct x86_irregs_user32 str_iret;     /* User-space IRET Tail. */

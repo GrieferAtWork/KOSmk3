@@ -144,15 +144,15 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
    host_context->c_iret.ir_cs     = X86_KERNEL_CS;
    host_context->c_iret.ir_eflags = EFLAGS_IF;
    host_context->c_iret.ir_eip    = (uintptr_t)&clone_entry;
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
    host_context->c_segments.sg_gs = X86_SEG_GS;
    host_context->c_segments.sg_fs = X86_SEG_FS;
    host_context->c_segments.sg_es = X86_KERNEL_DS;
    host_context->c_segments.sg_ds = X86_KERNEL_DS;
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
    /* Copy the user-space CPU context. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
    memcpy(&vm_context->c_gpregs,&context->c_gpregs,
           sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
 #else
@@ -176,21 +176,21 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
        EFLAGS_VIP))
        error_throw(E_INVALID_ARGUMENT);
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
    vm_context->c_iret.ir_es     = vm_context->c_segments.sg_es;
    vm_context->c_iret.ir_ds     = vm_context->c_segments.sg_ds;
    vm_context->c_iret.ir_fs     = vm_context->c_segments.sg_fs;
    vm_context->c_iret.ir_gs     = vm_context->c_segments.sg_gs;
-   vm_context->c_segments.sg_gs = X86_SEG_GS;
-   vm_context->c_segments.sg_fs = X86_SEG_FS;
-   vm_context->c_segments.sg_es = X86_USER_DS;
-   vm_context->c_segments.sg_ds = X86_USER_DS;
-#else /* CONFIG_X86_SEGMENTATION */
+   vm_context->c_segments.sg_gs = X86_SEG_USER_GS;
+   vm_context->c_segments.sg_fs = X86_SEG_USER_FS;
+   vm_context->c_segments.sg_es = X86_SEG_USER_ES;
+   vm_context->c_segments.sg_ds = X86_SEG_USER_DS;
+#else /* !CONFIG_NO_X86_SEGMENTATION */
    vm_context->c_iret.ir_es = context->c_segments.sg_es;
    vm_context->c_iret.ir_ds = context->c_segments.sg_ds;
    vm_context->c_iret.ir_fs = context->c_segments.sg_fs;
    vm_context->c_iret.ir_gs = context->c_segments.sg_gs;
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
   } else
 #endif /* CONFIG_VM86 */
   {
@@ -210,15 +210,15 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
    host_context->c_iret.ir_cs     = X86_KERNEL_CS;
    host_context->c_iret.ir_eflags = EFLAGS_IF;
    host_context->c_iret.ir_eip    = (uintptr_t)&clone_entry;
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
    host_context->c_segments.sg_gs = X86_SEG_GS;
    host_context->c_segments.sg_fs = X86_SEG_FS;
    host_context->c_segments.sg_es = X86_KERNEL_DS;
    host_context->c_segments.sg_ds = X86_KERNEL_DS;
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
    /* Copy the user-space CPU context. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
    memcpy(&user_context->c_gpregs,&context->c_gpregs,
           sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
 #else
@@ -249,16 +249,16 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
     * user-space would be executed as kernel-code; autsch...) */
    if (!(user_context->c_iret.ir_cs & 3) || !__verr(user_context->c_iret.ir_cs))
         throw_invalid_segment(user_context->c_iret.ir_cs,X86_REGISTER_SEGMENT_CS);
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
    /* Segment registers set to ZERO are set to their default values. */
    if (!user_context->c_segments.sg_gs)
-        user_context->c_segments.sg_gs = X86_SEG_GS;
+        user_context->c_segments.sg_gs = X86_SEG_USER_GS;
    if (!user_context->c_segments.sg_fs)
-        user_context->c_segments.sg_fs = X86_SEG_FS;
+        user_context->c_segments.sg_fs = X86_SEG_USER_FS;
    if (!user_context->c_segments.sg_es)
-        user_context->c_segments.sg_es = X86_USER_DS;
+        user_context->c_segments.sg_es = X86_SEG_USER_ES;
    if (!user_context->c_segments.sg_ds)
-        user_context->c_segments.sg_ds = X86_USER_DS;
+        user_context->c_segments.sg_ds = X86_SEG_USER_DS;
    /* Verify user-space segment indices. */
    if (!__verw(user_context->c_segments.sg_ds))
         throw_invalid_segment(user_context->c_segments.sg_ds,X86_REGISTER_SEGMENT_DS);
@@ -268,7 +268,7 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
         throw_invalid_segment(user_context->c_segments.sg_fs,X86_REGISTER_SEGMENT_FS);
    if (!__verw(user_context->c_segments.sg_gs))
         throw_invalid_segment(user_context->c_segments.sg_gs,X86_REGISTER_SEGMENT_GS);
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
    /* Place the stack-pointer given from user-space in its proper slot. */
    user_context->c_iret.ir_useresp = user_context->c_gpregs.gp_esp;
 
@@ -371,7 +371,7 @@ task_fork_impl(void *UNUSED(arg),
 
  /* Copy and context the given user-space context to
   * one that can be used to construct a new thread. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
  memcpy(&user_state,context,sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
 #else
  memcpy(&user_state,context,sizeof(struct x86_gpregs));

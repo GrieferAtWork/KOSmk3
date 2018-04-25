@@ -144,7 +144,7 @@ extend_instruction:
   }
 
   switch (flags & F_SEGMASK) {
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
   case F_SEGDS: effective_segment_value = context->c_segments.sg_ds; break;
   case F_SEGES: effective_segment_value = context->c_segments.sg_es; break;
   case F_SEGFS: effective_segment_value = context->c_segments.sg_fs; break;

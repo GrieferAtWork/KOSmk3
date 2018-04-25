@@ -396,7 +396,7 @@ SECTIONS {
 	PROVIDE_HIDDEN(_x86_gdt_tssdf_lo = __X86_SEG_ENCODELO(boot_cpu_start + x86_cputssdf,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
 	PROVIDE_HIDDEN(_x86_gdt_tssdf_hi = __X86_SEG_ENCODEHI(boot_cpu_start + x86_cputssdf,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
 #endif
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	/* With full segmentation, we don't need to expose the TLS segment to user-space. */
 	PROVIDE_HIDDEN(_x86_gdt_tls_lo   = __X86_SEG_ENCODELO(boot_task_start,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL0));
 	PROVIDE_HIDDEN(_x86_gdt_tls_hi   = __X86_SEG_ENCODEHI(boot_task_start,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL0));

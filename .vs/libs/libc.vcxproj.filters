@@ -129,6 +129,7 @@
     <ClInclude Include="..\..\src\libs\libc\err.h" />
     <ClInclude Include="..\..\src\libs\libc\dos_slib.h" />
     <ClInclude Include="..\..\src\libs\libc\stdio.h" />
+    <ClInclude Include="..\..\src\libs\libc\nop.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="i386-kos">

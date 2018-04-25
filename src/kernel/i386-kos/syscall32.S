@@ -162,7 +162,7 @@ SYMEND(x86_xsyscall_restart)
 
 
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 #define IF_CONFIG_X86_SEGMENTATION(x) x
 #else
 #define IF_CONFIG_X86_SEGMENTATION(x) /* nothing */
@@ -295,7 +295,7 @@ INTERN_ENTRY(sysenter_kernel_entry)
 	/* Enable interrupts. */
 	sti
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs
@@ -452,7 +452,7 @@ INTERN_ENTRY(irq_80)
 	.cfi_def_cfa %esp,    3*4
 	.cfi_offset %eflags, -1*4
 	.cfi_offset %eip,    -3*4
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi_r  %ds
 	pushl_cfi_r  %es
 	pushl_cfi_r  %fs
@@ -547,7 +547,7 @@ INTERN_ENTRY(irq_80_trace)
 	.cfi_offset %eflags, -1*4
 	.cfi_offset %eip,    -3*4
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi_r  %ds
 	pushl_cfi_r  %es
 	pushl_cfi_r  %fs
@@ -597,7 +597,7 @@ INTERN_ENTRY(sysenter_kernel_entry_trace)
 	/* Enable interrupts. */
 	sti
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi_r  %ds
 	pushl_cfi_r  %es
 	pushl_cfi_r  %fs
@@ -737,7 +737,7 @@ PUBLIC_ENTRY(x86_syscall_exec80_trace)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EFLAGS)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_CS)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EIP)(%ecx)
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_DS)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_ES)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FS)(%ecx)
@@ -753,7 +753,7 @@ PUBLIC_ENTRY(x86_syscall_exec80_trace)
 	pushl_cfi %esp /* regs */
 	call  syscall_trace
 	.cfi_adjust_cfa_offset -4 /* STDCALL... (callee-argument-cleanup) */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	addl  $(16 * 4), %esp
 	.cfi_adjust_cfa_offset -(16 * 4)
 #else

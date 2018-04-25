@@ -158,22 +158,22 @@ inode_destroy(struct inode *__restrict self) {
 
 
 PUBLIC size_t KCALL
-inode_read(struct inode *__restrict self,
+inode_read(struct inode *__restrict self_,
            CHECKED USER void *buf, size_t bufsize,
            pos_t pos, iomode_t flags) {
- struct inode *EXCEPT_VAR xself = self;
+ struct inode *EXCEPT_VAR self = self_;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
- rwlock_readf(&xself->i_lock,flags);
+ rwlock_readf(&self->i_lock,flags);
  TRY {
-  if unlikely(INODE_ISCLOSED(xself))
+  if unlikely(INODE_ISCLOSED(self))
    result = 0; /* INode was closed. */
-  else if likely(xself->i_ops->io_file.f_pread)
-   result = (*xself->i_ops->io_file.f_pread)(xself,buf,bufsize,pos,flags);
-  else if (S_ISCHR(xself->i_attr.a_mode)) {
+  else if likely(self->i_ops->io_file.f_pread)
+   result = (*self->i_ops->io_file.f_pread)(self,buf,bufsize,pos,flags);
+  else if (S_ISCHR(self->i_attr.a_mode)) {
    REF struct character_device *EXCEPT_VAR dev;
    result = 0; /* Try to read using the pread() operator of a pointed-to character device. */
-   if ((dev = try_lookup_character_device(xself->i_attr.a_rdev)) != NULL) {
+   if ((dev = try_lookup_character_device(self->i_attr.a_rdev)) != NULL) {
     TRY {
      /* Invoke the pread() operator of the character device (if it exists) */
      if (dev->c_ops->c_file.f_pread)
@@ -186,7 +186,7 @@ again:
    result = 0; /* No way of reading data */
   }
  } FINALLY {
-  if (rwlock_endread(&xself->i_lock))
+  if (rwlock_endread(&self->i_lock))
       goto again;
  }
  return result;
@@ -425,9 +425,9 @@ inode_pathconf(struct inode *__restrict self, int name) {
 }
 
 PUBLIC void KCALL
-inode_stat(struct inode *__restrict self,
+inode_stat(struct inode *__restrict self_,
            USER CHECKED struct stat64 *result) {
- struct inode *EXCEPT_VAR xself = self;
+ struct inode *EXCEPT_VAR self = self_;
  struct block_device *superdev;
 again:
  rwlock_read(&self->i_lock);
@@ -455,7 +455,7 @@ again:
   result->st_ctim32.tv_nsec = result->st_ctim64.tv_nsec = self->i_attr.a_ctime.tv_nsec;
   COMPILER_WRITE_BARRIER();
  } FINALLY {
-  if (rwlock_endread(&xself->i_lock))
+  if (rwlock_endread(&self->i_lock))
       goto again;
  }
 }
@@ -907,10 +907,10 @@ read_directory:
 /* Same as `directory_getentry()', but automatically dereference
  * the directory entry to retrieve the associated INode. */
 PUBLIC WUNUSED REF struct inode *KCALL
-directory_getnode(struct directory_node *__restrict self,
+directory_getnode(struct directory_node *__restrict self_,
                   CHECKED USER char const *__restrict name,
                   u16 namelen, uintptr_t hash) {
- struct directory_node *EXCEPT_VAR xself = self;
+ struct directory_node *EXCEPT_VAR self = self_;
  struct directory_entry *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(entry);
  REF struct inode *COMPILER_IGNORE_UNINITIALIZED(result);
 again:
@@ -920,7 +920,7 @@ again:
   /* Load a reference to the entry. */
   if (entry) directory_entry_incref(entry);
  } FINALLY {
-  if (rwlock_endread(&xself->d_node.i_lock))
+  if (rwlock_endread(&self->d_node.i_lock))
       goto again;
  }
  if (!entry) return NULL;
@@ -938,10 +938,10 @@ again:
  return result;
 }
 PUBLIC WUNUSED REF struct inode *KCALL
-directory_getcasenode(struct directory_node *__restrict self,
+directory_getcasenode(struct directory_node *__restrict self_,
                       CHECKED USER char const *__restrict name,
                       u16 namelen, uintptr_t hash) {
- struct directory_node *EXCEPT_VAR xself = self;
+ struct directory_node *EXCEPT_VAR self = self_;
  struct directory_entry *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(entry);
  REF struct inode *COMPILER_IGNORE_UNINITIALIZED(result);
 again:
@@ -951,7 +951,7 @@ again:
   /* Load a reference to the entry. */
   if (entry) directory_entry_incref(entry);
  } FINALLY {
-  if (rwlock_endread(&xself->d_node.i_lock))
+  if (rwlock_endread(&self->d_node.i_lock))
       goto again;
  }
  if (!entry) return NULL;

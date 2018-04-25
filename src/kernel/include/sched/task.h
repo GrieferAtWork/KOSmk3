@@ -476,8 +476,10 @@ task_alloc_stack(struct task *__restrict thread,
 
 /* Allocate and map a user-space thread segment for the calling thread.
  * No-op if the thread already has a user-space thread segment.
- * NOTE: This function will also pre-initialize the user-segment to its default vaules.
- * @throw E_BADALLOC: Not enough available memory. */
+ * NOTE: This function will also pre-initialize the user-segment to its default values.
+ * NOTE: If user-space should use an automatically allocated stack, this
+ *       function must be called _AFTER_ `task_alloc_userstack()'
+ * @throw E_BADALLOC: Not enough available memory.*/
 FUNDEF void KCALL task_alloc_userseg(void);
 
 /* Check for pending RPC functions yet to be executed.

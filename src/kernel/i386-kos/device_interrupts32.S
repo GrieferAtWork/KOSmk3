@@ -40,13 +40,13 @@ INTERN_ENTRY(X86_IRQ_ATA0)
 	pushl_cfi_r %eax
 	pushl_cfi_r %ecx
 	pushl_cfi_r %edx
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Save segment registers. */
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	call   x86_load_segments
 	incl   Ata_BusInterruptCounter + 0
 
@@ -65,12 +65,12 @@ INTERN_ENTRY(X86_IRQ_ATA0)
 1:	movb   $(X86_PIC_CMD_EOI), %al
 	outb   %al, $(X86_PIC2_CMD) /* outb(X86_PIC2_CMD,X86_PIC_CMD_EOI); */
 	outb   %al, $(X86_PIC1_CMD) /* outb(X86_PIC1_CMD,X86_PIC_CMD_EOI); */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
 	popl_cfi_r %es
 	popl_cfi_r %ds
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	popl_cfi_r %edx
 	popl_cfi_r %ecx
 	popl_cfi_r %eax
@@ -81,13 +81,13 @@ INTERN_ENTRY(X86_IRQ_ATA1)
 	pushl_cfi_r %eax
 	pushl_cfi_r %ecx
 	pushl_cfi_r %edx
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Save segment registers. */
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	call   x86_load_segments
 	incl   Ata_BusInterruptCounter + 4
 
@@ -111,23 +111,23 @@ INTERN_ENTRY(X86_IRQ_KBD)
 	pushl_cfi_r %eax
 	pushl_cfi_r %ecx
 	pushl_cfi_r %edx
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Save segment registers. */
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	call   x86_load_segments
 	call   ps2_irq_1
 	movb   $(X86_PIC_CMD_EOI), %al
 	outb   %al, $(X86_PIC1_CMD) /* outb(X86_PIC1_CMD,X86_PIC_CMD_EOI); */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
 	popl_cfi_r %es
 	popl_cfi_r %ds
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	popl_cfi_r %edx
 	popl_cfi_r %ecx
 	popl_cfi_r %eax
@@ -138,24 +138,24 @@ INTERN_ENTRY(X86_IRQ_PS2M)
 	pushl_cfi_r %eax
 	pushl_cfi_r %ecx
 	pushl_cfi_r %edx
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Save segment registers. */
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	call   x86_load_segments
 	call   ps2_irq_2
 	movb   $(X86_PIC_CMD_EOI), %al
 	outb   %al, $(X86_PIC2_CMD) /* outb(X86_PIC2_CMD,X86_PIC_CMD_EOI); */
 	outb   %al, $(X86_PIC1_CMD) /* outb(X86_PIC1_CMD,X86_PIC_CMD_EOI); */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
 	popl_cfi_r %es
 	popl_cfi_r %ds
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	popl_cfi_r %edx
 	popl_cfi_r %ecx
 	popl_cfi_r %eax

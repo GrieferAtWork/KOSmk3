@@ -48,9 +48,9 @@ struct __ATTR_PACKED x86_irregs_vm86 {
 
 struct __ATTR_PACKED cpu_context_vm86 {
     struct x86_gpregs32              c_gpregs;   /* General purpose registers */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
     struct x86_segments32            c_segments; /* Segment registers (ignored, but must be valid) */
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
     union __ATTR_PACKED {
         struct x86_irregs_vm86       c_iret;     /* IRet registers */
         struct __ATTR_PACKED {

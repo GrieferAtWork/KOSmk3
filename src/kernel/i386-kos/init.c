@@ -176,28 +176,31 @@ void KCALL x86_switch_to_userspace(void) {
  /* Construct the initial application environment for /bin/init */
  environ_create(init_exe,init_exe_len);
 
- /* Allocate a user-space thread segment for the boot task. */
- task_alloc_userseg();
- set_user_tls_register(PERTASK_GET(this_task.t_userseg));
-
  {
   struct userstack *stack;
   struct cpu_hostcontext_user ctx;
   /* Allocate a stack for user-space. */
   stack = task_alloc_userstack();
 
+  /* Allocate a user-space thread segment for the boot task. */
+  task_alloc_userseg();
+  set_user_tls_register(_boot_task.t_userseg);
+#ifndef CONFIG_NO_DOS_COMPAT
+  set_user_tib_register(&_boot_task.t_userseg->ts_tib);
+#endif /* !CONFIG_NO_DOS_COMPAT */
+
   memset(&ctx,0,sizeof(struct cpu_hostcontext_user));
   ctx.c_iret.ir_eip     = init_app->a_loadaddr+init_mod->m_entry;
   ctx.c_iret.ir_cs      = X86_USER_CS;
   ctx.c_iret.ir_eflags  = EFLAGS_IF;
   ctx.c_iret.ir_useresp = VM_PAGE2ADDR(stack->us_pageend);
-  ctx.c_iret.ir_ss      = X86_USER_DS;
-#ifdef CONFIG_X86_SEGMENTATION
-  ctx.c_segments.sg_gs  = X86_SEG_GS;
-  ctx.c_segments.sg_fs  = X86_SEG_FS;
-  ctx.c_segments.sg_es  = X86_USER_DS;
-  ctx.c_segments.sg_ds  = X86_USER_DS;
-#else /* CONFIG_X86_SEGMENTATION */
+  ctx.c_iret.ir_ss      = X86_SEG_USER_SS;
+#ifndef CONFIG_NO_X86_SEGMENTATION
+  ctx.c_segments.sg_gs  = X86_SEG_USER_GS;
+  ctx.c_segments.sg_fs  = X86_SEG_USER_FS;
+  ctx.c_segments.sg_es  = X86_SEG_USER_ES;
+  ctx.c_segments.sg_ds  = X86_SEG_USER_DS;
+#else /* !CONFIG_NO_X86_SEGMENTATION */
   /* Add user-space permissions to segments we're going to share with it. */
   __asm__ __volatile__("movw %w0, %%ds\n"
                        "movw %w0, %%es\n"
@@ -205,7 +208,7 @@ void KCALL x86_switch_to_userspace(void) {
                        : "q" (X86_USER_DS)
                        : "memory");
 
-#endif /* !CONFIG_X86_SEGMENTATION */
+#endif /* CONFIG_NO_X86_SEGMENTATION */
 
   /* Queue library initializers for all loaded user-space application. */
   vm_apps_initall(&ctx);

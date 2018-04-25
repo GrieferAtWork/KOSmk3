@@ -44,7 +44,7 @@ INTERN_ENTRY(libc_cpu_getcontext)
 	pushfl_cfi
 	popl_cfi     X86_CONTEXT_OFFSETOF_EFLAGS(%ecx)
 	movl   %esp, X86_CONTEXT_OFFSETOF_ESP(%ecx)
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	movw   %gs,  X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GS(%ecx)
 	movw   $0,   X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GS+2(%ecx)
 	movw   %fs,  X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FS(%ecx)
@@ -57,7 +57,7 @@ INTERN_ENTRY(libc_cpu_getcontext)
 	movw   $0,   X86_CONTEXT32_OFFSETOF_CS+2(%ecx)
 	movw   %ss,  X86_CONTEXT32_OFFSETOF_SS(%ecx)
 	movw   $0,   X86_CONTEXT32_OFFSETOF_SS+2(%ecx)
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	movl   $1,   %eax
 	jmp    *X86_CONTEXT_OFFSETOF_EIP(%ecx)
 	.cfi_endproc
@@ -81,7 +81,7 @@ INTERN_ENTRY(libc_cpu_xchcontext)
 	pushfl_cfi
 	popl_cfi     X86_CONTEXT_OFFSETOF_EFLAGS(%edx)
 	movl   %esp, X86_CONTEXT_OFFSETOF_ESP(%edx)
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	movw   %gs,  X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GS(%edx)
 	movw   $0,   X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GS+2(%edx)
 	movw   %fs,  X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FS(%edx)
@@ -94,7 +94,7 @@ INTERN_ENTRY(libc_cpu_xchcontext)
 	movw   $0,   X86_CONTEXT32_OFFSETOF_CS+2(%edx)
 	movw   %ss,  X86_CONTEXT32_OFFSETOF_SS(%edx)
 	movw   $0,   X86_CONTEXT32_OFFSETOF_SS+2(%edx)
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	.cfi_endproc
 	/* Now load the new context. */
 PUBLIC_ENTRY(cpu_setcontext)
@@ -109,14 +109,14 @@ INTERN_ENTRY(libc_cpu_setcontext)
 	pushl  X86_CONTEXT_OFFSETOF_EFLAGS(%ecx)
 	popfl
 	movl   X86_CONTEXT_OFFSETOF_ESP(%ecx), %esp
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	movw   X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GS(%ecx), %gs
 	movw   X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FS(%ecx), %fs
 	movw   X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_ES(%ecx), %es
 	movw   X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_DS(%ecx), %ds
 //	movw   X86_CONTEXT32_OFFSETOF_CS(%ecx), %cs /* Not how it works... */
 	movw   X86_CONTEXT32_OFFSETOF_SS(%ecx), %ss
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	pushl  X86_CONTEXT_OFFSETOF_EIP(%ecx)
 	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ECX(%ecx), %ecx
 	ret
@@ -143,7 +143,7 @@ INTERN_ENTRY(libc_cpu_getcontext)
 	pushfl_cfi
 	popl_cfi     X86_CONTEXT_OFFSETOF_EFLAGS(%ecx)
 	movl   %esp, X86_CONTEXT_OFFSETOF_ESP(%ecx)
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	movw   %gs,  X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GS(%ecx)
 	movw   $0,   X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GS+2(%ecx)
 	movw   %fs,  X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FS(%ecx)
@@ -152,7 +152,7 @@ INTERN_ENTRY(libc_cpu_getcontext)
 	movw   $0,   X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_ES+2(%ecx)
 	movw   %ds,  X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_DS(%ecx)
 	movw   $0,   X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_DS+2(%ecx)
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	xorl   %eax, %eax
 	movw   %cs,  %ax
 	movl   %eax, X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_CS(%ecx)
@@ -179,7 +179,7 @@ INTERN_ENTRY(libc_cpu_xchcontext)
 	pushfl_cfi
 	popl_cfi     X86_CONTEXT_OFFSETOF_EFLAGS(%edx)
 	movl   %esp, X86_CONTEXT_OFFSETOF_ESP(%edx)
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	movw   %gs,  X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GS(%edx)
 	movw   $0,   X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GS+2(%edx)
 	movw   %fs,  X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FS(%edx)
@@ -188,7 +188,7 @@ INTERN_ENTRY(libc_cpu_xchcontext)
 	movw   $0,   X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_ES+2(%edx)
 	movw   %ds,  X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_DS(%edx)
 	movw   $0,   X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_DS+2(%edx)
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	xorl   %eax, %eax
 	movw   %cs,  %ax
 	movl   %eax, X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_CS(%edx)
@@ -210,7 +210,7 @@ INTERN_ENTRY(libc_cpu_setcontext)
 	jnz    .cpu_setcontext_vm86
 #endif
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 #define REGSPACE 12
 #else
 #define REGSPACE 0
@@ -241,14 +241,14 @@ INTERN_ENTRY(libc_cpu_setcontext)
 	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDI(%ecx), %edi
 	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ESI(%ecx), %esi
 	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDX(%ecx), %edx
-#ifndef CONFIG_X86_SEGMENTATION
+#ifdef CONFIG_NO_X86_SEGMENTATION
 	/* Load the new stack. */
 	cli
 	movl   %eax, %esp
 	/* Load remaining registers. */
 	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX(%ecx), %eax
 	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ECX(%ecx), %ecx
-#else /* !CONFIG_X86_SEGMENTATION */
+#else /* CONFIG_NO_X86_SEGMENTATION */
 	/* Load the new segment registers (NOTE: Load `DS' last!)
 	 * NOTE: Must be loaded before we push the segment prefix in
 	 *       case the target stack overlaps with the given CPU state. */
@@ -262,7 +262,7 @@ INTERN_ENTRY(libc_cpu_setcontext)
 	/* Load the remaining registers. */
 	movl   %ss:X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX(%ecx), %eax
 	movl   %ss:X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ECX(%ecx), %ecx
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	/* Execute the IRET */
 	iret
 SYMEND(libc_cpu_setcontext)
@@ -280,7 +280,7 @@ SYMEND(cpu_xchcontext)
 	/* Load a `struct cpu_context_vm86' currently stored in `ECX' */
 	movl   X86_GPREGS32_OFFSETOF_ESP(%ecx), %eax
 	subl   $40, %eax /* 4+sizeof(struct x86_irregs_vm86) */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 #define VM86_OFFSETOF_IRET  (X86_GPREGS_SIZE+X86_SEGMENTS_SIZE)
 #else
 #define VM86_OFFSETOF_IRET   X86_GPREGS_SIZE

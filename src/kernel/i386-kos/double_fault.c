@@ -70,12 +70,12 @@ INTERN void FCALL c_x86_double_fault_handler(void) {
  context.c_gpregs.gp_edx  = tss->t_edx;
  context.c_gpregs.gp_ecx  = tss->t_ecx;
  context.c_gpregs.gp_eax  = tss->t_eax;
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
  context.c_segments.sg_ds = tss->t_ds;
  context.c_segments.sg_es = tss->t_es;
  context.c_segments.sg_fs = tss->t_fs;
  context.c_segments.sg_gs = tss->t_gs;
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
  context.c_iret.ir_eip    = tss->t_eip;
  context.c_iret.ir_cs     = tss->t_cs;
  context.c_iret.ir_eflags = tss->t_eflags;
@@ -238,12 +238,12 @@ INTERN void FCALL c_x86_double_fault_handler(void) {
     tss->t_edx    = context.c_gpregs.gp_edx;
     tss->t_ecx    = context.c_gpregs.gp_ecx;
     tss->t_eax    = context.c_gpregs.gp_eax;
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
     tss->t_ds     = context.c_segments.sg_ds;
     tss->t_es     = context.c_segments.sg_es;
     tss->t_fs     = context.c_segments.sg_fs;
     tss->t_gs     = context.c_segments.sg_gs;
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
     tss->t_eip    = context.c_iret.ir_eip;
     tss->t_cs     = context.c_iret.ir_cs;
     tss->t_eflags = context.c_iret.ir_eflags;

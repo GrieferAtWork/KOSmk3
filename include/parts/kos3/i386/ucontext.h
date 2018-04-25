@@ -47,7 +47,7 @@ typedef __REGISTER_TYPE__ greg_t;
 #define __UCONTEXT_REGNO_EDX    5
 #define __UCONTEXT_REGNO_ECX    6
 #define __UCONTEXT_REGNO_EAX    7
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 #define __UCONTEXT_REGNO_GS     8
 #define __UCONTEXT_REGNO_FS     9
 #define __UCONTEXT_REGNO_ES     10

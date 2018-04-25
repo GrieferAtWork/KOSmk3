@@ -1409,10 +1409,15 @@ retry_environ_relocate:
 retry_final_setup:
   TRY {
    struct userstack *stack;
+   struct user_task_segment *tls;
    /* The new application has now been loaded.
     * Allocate the user-space task segment and a new stack. */
    task_alloc_userseg();
-   set_user_tls_register(PERTASK_GET(this_task.t_userseg));
+   tls = PERTASK_GET(this_task.t_userseg);
+   set_user_tls_register(tls);
+#ifndef CONFIG_NO_DOS_COMPAT
+   set_user_tib_register(&tls->ts_tib);
+#endif /* !CONFIG_NO_DOS_COMPAT */
    stack = task_alloc_userstack();
 
    /* Finally, update the user-space CPU context

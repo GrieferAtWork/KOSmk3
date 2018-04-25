@@ -356,7 +356,7 @@ x86_redirect_preempted_userspace(struct task *__restrict thread) {
  iret->ir_rflags  = 0; /* Disable interrupts on entry. */
  iret->ir_rip     = (uintptr_t)&x86_redirect_preemption;
  iret->ir_userrsp = thread->t_stackend;
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
  iret->ir_ss      = X86_KERNEL_DS;
 #else
  iret->ir_ss      = X86_USER_DS;
@@ -890,13 +890,13 @@ task_setup_kernel(struct task *__restrict thread,
  memset(context,0,sizeof(struct cpu_context));
  context->c_eflags         = EFLAGS_IF;
  context->c_eip            = (uintptr_t)thread_main;
- context->c_iret.ir_cs     = X86_KERNEL_CS;
-#ifdef CONFIG_X86_SEGMENTATION
- context->c_segments.sg_ds = X86_KERNEL_DS;
- context->c_segments.sg_es = X86_KERNEL_DS;
- context->c_segments.sg_fs = X86_SEG_FS;
- context->c_segments.sg_gs = X86_SEG_GS;
-#endif /* CONFIG_X86_SEGMENTATION */
+ context->c_iret.ir_cs     = X86_SEG_HOST_CS;
+#ifndef CONFIG_NO_X86_SEGMENTATION
+ context->c_segments.sg_ds = X86_SEG_HOST_DS;
+ context->c_segments.sg_es = X86_SEG_HOST_ES;
+ context->c_segments.sg_fs = X86_SEG_HOST_FS;
+ context->c_segments.sg_gs = X86_SEG_HOST_GS;
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
  /* Make sure to set the kernel-job flag in the thread. */
  thread->t_flags |= TASK_FKERNELJOB;
@@ -1312,22 +1312,22 @@ errorinfo_copy_to_user(USER CHECKED struct user_task_segment *useg,
  memcpy(&useg->ts_xcurrent.e_error,
         &info->e_error,
         sizeof(struct exception_data));
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
  memcpy(&useg->ts_xcurrent.e_context.c_gpregs,
         &context->c_gpregs,
         sizeof(struct x86_gpregs)+
         sizeof(struct x86_segments));
-#else /* CONFIG_X86_SEGMENTATION */
+#else /* !CONFIG_NO_X86_SEGMENTATION */
  memcpy(&useg->ts_xcurrent.e_context.c_gpregs,
         &context->c_gpregs,
         sizeof(struct x86_gpregs));
-#endif /* !CONFIG_X86_SEGMENTATION */
+#endif /* CONFIG_NO_X86_SEGMENTATION */
  useg->ts_xcurrent.e_context.c_eip    = context->c_iret.ir_eip;
  useg->ts_xcurrent.e_context.c_eflags = context->c_iret.ir_eflags;
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
  useg->ts_xcurrent.e_context.c_cs     = context->c_iret.ir_cs;
  useg->ts_xcurrent.e_context.c_ss     = context->c_iret.ir_ss;
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 }
 
 
@@ -1403,14 +1403,14 @@ serve_rpc:
   if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG|TASK_FUSEREXCEPT)) {
    struct cpu_context unwind;
    unwind.c_gpregs = context->c_gpregs;
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
    memcpy(&unwind.c_gpregs,&context->c_gpregs,
           sizeof(struct x86_gpregs)+
           sizeof(struct x86_segments));
-#else /* CONFIG_X86_SEGMENTATION */
+#else /* !CONFIG_NO_X86_SEGMENTATION */
    memcpy(&unwind.c_gpregs,&context->c_gpregs,
           sizeof(struct x86_gpregs));
-#endif /* !CONFIG_X86_SEGMENTATION */
+#endif /* CONFIG_NO_X86_SEGMENTATION */
    unwind.c_esp            = context->c_iret.ir_useresp;
    unwind.c_iret.ir_eip    = context->c_iret.ir_eip;
    unwind.c_iret.ir_cs     = context->c_iret.ir_cs;
@@ -1477,14 +1477,14 @@ serve_rpc:
        errorinfo_copy_to_user(useg,(struct exception_info *)&info,context);
       }
       /* Set the unwound context as what should be returned to for user-space. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
       memcpy(&context->c_gpregs,&unwind.c_gpregs,
              sizeof(struct x86_gpregs)+
              sizeof(struct x86_segments));
-#else /* CONFIG_X86_SEGMENTATION */
+#else /* !CONFIG_NO_X86_SEGMENTATION */
       memcpy(&context->c_gpregs,&unwind.c_gpregs,
              sizeof(struct x86_gpregs));
-#endif /* !CONFIG_X86_SEGMENTATION */
+#endif /* CONFIG_NO_X86_SEGMENTATION */
       context->c_iret.ir_useresp = unwind.c_esp;
       context->c_iret.ir_eip     = unwind.c_iret.ir_eip;
       context->c_iret.ir_cs      = unwind.c_iret.ir_cs;
@@ -1676,7 +1676,7 @@ serve_rpc:
       debug_printf("ueh.ms_base = %p\n",ueh.ms_base);
       debug_printf("ueh.ms_size = %p\n",ueh.ms_size);
       debug_printf("ueh.ms_type = %p\n",ueh.ms_type);
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
       /* Set the user-space TLS segment to ensure
        * that the thread can read exception information. */
 #ifdef __x86_64__

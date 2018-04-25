@@ -23,47 +23,72 @@
 #include <hybrid/host.h>
 #include <kos/except.h>
 #include "tls.h"
+#ifndef CONFIG_NO_DOS_COMPAT
+#include "tib.h"
+#endif /* !CONFIG_NO_DOS_COMPAT */
 
 __SYSDECL_BEGIN
 
 #define __TASK_SEGMENT_OFFSETOF_SELF        0
 #define __TASK_SEGMENT_OFFSETOF_XCURRENT    __SIZEOF_POINTER__
 #ifdef __KERNEL__
-#define __TASK_SEGMENT_SIZE                (__SIZEOF_POINTER__+EXCEPTION_INFO_SIZE)
-#else
-#define __TASK_SEGMENT_OFFSETOF_STATE      (__SIZEOF_POINTER__+EXCEPTION_INFO_SIZE)
-#define __TASK_SEGMENT_OFFSETOF_EFORMAT    (__SIZEOF_POINTER__+EXCEPTION_INFO_SIZE+3)
-#define __TASK_SEGMENT_OFFSETOF_ERRNO      (__SIZEOF_POINTER__+EXCEPTION_INFO_SIZE+4)
-#define __TASK_SEGMENT_OFFSETOF_DOS_ERRNO  (__SIZEOF_POINTER__+EXCEPTION_INFO_SIZE+8)
-#define __TASK_SEGMENT_OFFSETOF_NT_ERRNO   (__SIZEOF_POINTER__+EXCEPTION_INFO_SIZE+12)
-#define __TASK_SEGMENT_OFFSETOF_TID        (__SIZEOF_POINTER__+EXCEPTION_INFO_SIZE+16)
-#define __TASK_SEGMENT_OFFSETOF_PROCESS    (__SIZEOF_POINTER__+EXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
-#define __TASK_SEGMENT_OFFSETOF_UEH        (2*__SIZEOF_POINTER__+EXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
-#define __TASK_SEGMENT_OFFSETOF_UEH_SP     (3*__SIZEOF_POINTER__+EXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
-#define __TASK_SEGMENT_OFFSETOF_X86SYSBASE (4*__SIZEOF_POINTER__+EXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
-#define __TASK_SEGMENT_SIZE                (5*__SIZEOF_POINTER__+EXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __TASK_SEGMENT_SIZE                (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE)
 #endif
+#define __USERTASK_SEGMENT_OFFSETOF_STATE      (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE)
+#define __USERTASK_SEGMENT_OFFSETOF_EFORMAT    (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+3)
+#define __USERTASK_SEGMENT_OFFSETOF_ERRNO      (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+4)
+#define __USERTASK_SEGMENT_OFFSETOF_DOS_ERRNO  (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+8)
+#define __USERTASK_SEGMENT_OFFSETOF_TID        (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+16)
+#define __USERTASK_SEGMENT_OFFSETOF_PROCESS    (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __USERTASK_SEGMENT_OFFSETOF_UEH        (2*__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __USERTASK_SEGMENT_OFFSETOF_UEH_SP     (3*__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __USERTASK_SEGMENT_OFFSETOF_X86SYSBASE (4*__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#ifndef CONFIG_NO_DOS_COMPAT
+#define __USERTASK_SEGMENT_OFFSETOF_TIB        (5*__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __USERTASK_SEGMENT_OFFSETOF_NT_ERRNO   (__USERTASK_SEGMENT_OFFSETOF_TIB+13*__SIZEOF_POINTER__)
+#endif /* !CONFIG_NO_DOS_COMPAT */
+
 #if defined(__KERNEL__) || defined(__USE_KOS)
 #define TASK_SEGMENT_OFFSETOF_SELF          __TASK_SEGMENT_OFFSETOF_SELF
 #define TASK_SEGMENT_OFFSETOF_XCURRENT      __TASK_SEGMENT_OFFSETOF_XCURRENT
-#ifndef __KERNEL__
-#define TASK_SEGMENT_OFFSETOF_STATE         __TASK_SEGMENT_OFFSETOF_STATE
-#define TASK_SEGMENT_OFFSETOF_EFORMAT       __TASK_SEGMENT_OFFSETOF_EFORMAT
-#define TASK_SEGMENT_OFFSETOF_ERRNO         __TASK_SEGMENT_OFFSETOF_ERRNO
-#define TASK_SEGMENT_OFFSETOF_DOS_ERRNO     __TASK_SEGMENT_OFFSETOF_DOS_ERRNO
-#define TASK_SEGMENT_OFFSETOF_NT_ERRNO      __TASK_SEGMENT_OFFSETOF_NT_ERRNO
-#define TASK_SEGMENT_OFFSETOF_TID           __TASK_SEGMENT_OFFSETOF_TID
-#define TASK_SEGMENT_OFFSETOF_PROCESS       __TASK_SEGMENT_OFFSETOF_PROCESS
-#define TASK_SEGMENT_OFFSETOF_UEH           __TASK_SEGMENT_OFFSETOF_UEH
-#define TASK_SEGMENT_OFFSETOF_UEH_SP        __TASK_SEGMENT_OFFSETOF_UEH_SP
-#define TASK_SEGMENT_OFFSETOF_X86SYSBASE    __TASK_SEGMENT_OFFSETOF_X86SYSBASE
-#endif
+#define USERTASK_SEGMENT_OFFSETOF_STATE     __USERTASK_SEGMENT_OFFSETOF_STATE
+#define USERTASK_SEGMENT_OFFSETOF_EFORMAT   __USERTASK_SEGMENT_OFFSETOF_EFORMAT
+#define USERTASK_SEGMENT_OFFSETOF_ERRNO     __USERTASK_SEGMENT_OFFSETOF_ERRNO
+#define USERTASK_SEGMENT_OFFSETOF_DOS_ERRNO __USERTASK_SEGMENT_OFFSETOF_DOS_ERRNO
+#define USERTASK_SEGMENT_OFFSETOF_NT_ERRNO  __USERTASK_SEGMENT_OFFSETOF_NT_ERRNO
+#define USERTASK_SEGMENT_OFFSETOF_TID       __USERTASK_SEGMENT_OFFSETOF_TID
+#define USERTASK_SEGMENT_OFFSETOF_PROCESS   __USERTASK_SEGMENT_OFFSETOF_PROCESS
+#define USERTASK_SEGMENT_OFFSETOF_UEH       __USERTASK_SEGMENT_OFFSETOF_UEH
+#define USERTASK_SEGMENT_OFFSETOF_UEH_SP    __USERTASK_SEGMENT_OFFSETOF_UEH_SP
+#define USERTASK_SEGMENT_OFFSETOF_X86SYSBASE __USERTASK_SEGMENT_OFFSETOF_X86SYSBASE
+#ifndef CONFIG_NO_DOS_COMPAT
+#define USERTASK_SEGMENT_OFFSETOF_TIB       __USERTASK_SEGMENT_OFFSETOF_TIB
+#endif /* !CONFIG_NO_DOS_COMPAT */
+#ifdef __KERNEL__
 #define TASK_SEGMENT_SIZE                   __TASK_SEGMENT_SIZE
-#endif
+#else /* __KERNEL__ */
+#define TASK_SEGMENT_OFFSETOF_STATE         __USERTASK_SEGMENT_OFFSETOF_STATE
+#define TASK_SEGMENT_OFFSETOF_EFORMAT       __USERTASK_SEGMENT_OFFSETOF_EFORMAT
+#define TASK_SEGMENT_OFFSETOF_ERRNO         __USERTASK_SEGMENT_OFFSETOF_ERRNO
+#define TASK_SEGMENT_OFFSETOF_DOS_ERRNO     __USERTASK_SEGMENT_OFFSETOF_DOS_ERRNO
+#define TASK_SEGMENT_OFFSETOF_NT_ERRNO      __USERTASK_SEGMENT_OFFSETOF_NT_ERRNO
+#define TASK_SEGMENT_OFFSETOF_TID           __USERTASK_SEGMENT_OFFSETOF_TID
+#define TASK_SEGMENT_OFFSETOF_PROCESS       __USERTASK_SEGMENT_OFFSETOF_PROCESS
+#define TASK_SEGMENT_OFFSETOF_UEH           __USERTASK_SEGMENT_OFFSETOF_UEH
+#define TASK_SEGMENT_OFFSETOF_UEH_SP        __USERTASK_SEGMENT_OFFSETOF_UEH_SP
+#define TASK_SEGMENT_OFFSETOF_X86SYSBASE    __USERTASK_SEGMENT_OFFSETOF_X86SYSBASE
+#ifndef CONFIG_NO_DOS_COMPAT
+#define TASK_SEGMENT_OFFSETOF_TIB           __USERTASK_SEGMENT_OFFSETOF_TIB
+#endif /* !CONFIG_NO_DOS_COMPAT */
+#endif /* !__KERNEL__ */
+#endif /* __KERNEL__ || __USE_KOS */
 
-#define TASK_ERRNO_FKOS    0x00          /* Use `ts_errno' */
-#define TASK_ERRNO_FDOS    0x01          /* Use `ts_dos_errno' */
-#define TASK_ERRNO_FNT     0x02          /* Use `ts_nt_errno' */
+
+#define TASK_ERRNO_FKOS    0x00   /* Use `ts_errno' */
+#define TASK_ERRNO_FDOS    0x01   /* Use `ts_dos_errno' */
+#ifndef CONFIG_NO_DOS_COMPAT
+#define TASK_ERRNO_FNT     0x02   /* Use `ts_tib.nt_errno' */
+#endif /* !CONFIG_NO_DOS_COMPAT */
 
 #ifdef __CC__
 struct process_env;
@@ -108,7 +133,7 @@ struct task_segment
      __UINT8_TYPE__             ts_eformat;    /* The format for the most recent errno value (One of `TASK_ERRNO_F*'). */
      __UINT32_TYPE__            ts_errno;      /* The `errno' value used by libc. */
      __UINT32_TYPE__            ts_dos_errno;  /* The `errno' value used by libc (in DOS emulation). */
-     __UINT32_TYPE__            ts_nt_errno;   /* The `errno' value used by kernel32.dll (GetLastError()). */
+     __UINT32_TYPE__          __ts_pad2;       /* ... */
      __pid_t                    ts_tid;        /* The thread ID of this thread (as returned by `gettid()')
                                                 * This field is originally initialized by the kernel, but
                                                 * after that only ever used by user-space.
@@ -128,6 +153,12 @@ struct task_segment
                                                 * On i386, this value is located between `0xc0000000 ... 0xc0fbffff'
                                                 * Or more precisely: `0xc0ffffff - X86_ENCODE_PFSYSCALL_SIZE'
                                                 * NOTE: Additionally, this address is aligned on a 16 byte boundary. */
+#ifdef __KERNEL__
+#ifndef CONFIG_NO_DOS_COMPAT
+     struct nt_tib              ts_tib;        /* The NT-compatible TIB block (Since this block's location may change,
+                                                * user-space should access it using the %fs register, not this pointer) */
+#endif /* !CONFIG_NO_DOS_COMPAT */
+#endif
 };
 #endif
 

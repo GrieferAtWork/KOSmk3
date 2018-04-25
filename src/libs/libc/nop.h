@@ -6,7 +6,7 @@
  *                                                                            *
  * Permission is granted to anyone to use this software for any purpose,      *
  * including commercial applications, and to alter it and redistribute it     *
- * freely, subject to the following restrictions:                             *
+ * freely, subject to the following __restrictions:                             *
  *                                                                            *
  * 1. The origin of this software must not be misrepresented; you must not    *
  *    claim that you wrote the original software. If you use this software    *
@@ -16,53 +16,42 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef _KOS_I386_KOS_TLS_H
-#define _KOS_I386_KOS_TLS_H 1
+#ifndef GUARD_LIBS_LIBC_NOP_H
+#define GUARD_LIBS_LIBC_NOP_H 1
 
-#include <__stdinc.h>
-#include <hybrid/host.h>
+#include "libc.h"
 
-__SYSDECL_BEGIN
+#ifdef __CC__
+DECL_BEGIN
 
-#ifndef __ASM_TASK_SEGMENT
+#if (defined(__x86_64__) || defined(__i386__)) && 0
+/* Doesn't work? (It links, but readelf is upset and runtime linking breaks...) */
+__asm__(".pushsection .text.__x86.nop,\"axG\",@progbits,__x86.nop,comdat\n"
+        "__x86.nop:\n\t"
+        ".cfi_startproc\n\t"
 #ifdef __x86_64__
-#    define __ASM_HOSTTASK_SEGMENT gs
-#    define __ASM_USERTASK_SEGMENT fs
+        "xorq %rax, %rax\n"
 #else
-#    define __ASM_HOSTTASK_SEGMENT fs
-#    define __ASM_USERTASK_SEGMENT gs
+        "xorl %eax, %eax\n"
 #endif
-#ifdef __KERNEL__
-#ifdef __x86_64__
-#    define __ASM_TASK_SEGMENT_ISGS 1
+        "ret\n\t"
+        ".cfi_endproc\n\t"
+        ".size __x86.nop, . - __x86.nop\n\t"
+        ".popsection");
+#define DEFINE_NOP_FUNCTION_ZERO(decl,Treturn,name,args) \
+        DEFINE_INTERN_ALIAS(name,__x86.nop);
+#define DEFINE_NOP_FUNCTION_VOID(decl,name,args) \
+        DEFINE_INTERN_ALIAS(name,__x86.nop);
 #else
-#    define __ASM_TASK_SEGMENT_ISFS 1
-#endif
-#    define __ASM_TASK_SEGMENT __ASM_HOSTTASK_SEGMENT
-#else
-#ifdef __x86_64__
-#    define __ASM_TASK_SEGMENT_ISFS 1
-#else
-#    define __ASM_TASK_SEGMENT_ISGS 1
-#endif
-#    define __ASM_TASK_SEGMENT __ASM_USERTASK_SEGMENT
-#endif
-#endif /* !__ASM_TASK_SEGMENT */
-
-#ifndef CONFIG_NO_DOS_COMPAT
-#ifdef __x86_64__
-#define __ASM_TIBTASK_SEGMENT  gs
-#define __ASM_TIBTASK_SEGMENT_ISGS 1
-#else
-#define __ASM_TIBTASK_SEGMENT  fs
-#define __ASM_TIBTASK_SEGMENT_ISFS 1
-#endif
-#endif /* !CONFIG_NO_DOS_COMPAT */
-
-#ifdef __ASSEMBLER__
-#define taskseg   __ASM_TASK_SEGMENT
+#define DEFINE_NOP_FUNCTION_ZERO(decl,Treturn,name,args) \
+ decl Treturn LIBCCALL name args { return (Treturn)0; }
+#define DEFINE_NOP_FUNCTION_VOID(decl,name,args) \
+ decl void LIBCCALL name args { }
 #endif
 
-__SYSDECL_END
 
-#endif /* !_KOS_I386_KOS_TLS_H */
+
+DECL_END
+#endif /* __CC__ */
+
+#endif /* !GUARD_LIBS_LIBC_NOP_H */

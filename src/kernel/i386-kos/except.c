@@ -225,14 +225,14 @@ DEFINE_SYSCALL3(xunwind,
   *       one called `xunwind' that only unwinds a single stack frame. */
  struct cpu_hostcontext_user unwind;
  validate_writable(context,sizeof(struct x86_usercontext));
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
  memcpy(&unwind.c_gpregs,context,sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
- if (!unwind.c_iret.ir_cs) unwind.c_iret.ir_cs = X86_USER_CS;
- if (!unwind.c_iret.ir_ss) unwind.c_iret.ir_ss = X86_USER_DS;
- if (!unwind.c_segments.sg_ds) unwind.c_segments.sg_ds = X86_USER_DS;
- if (!unwind.c_segments.sg_es) unwind.c_segments.sg_es = X86_USER_DS;
- if (!unwind.c_segments.sg_fs) unwind.c_segments.sg_fs = X86_SEG_FS;
- if (!unwind.c_segments.sg_gs) unwind.c_segments.sg_gs = X86_SEG_GS;
+ if (!unwind.c_iret.ir_cs) unwind.c_iret.ir_cs = X86_SEG_USER_CS;
+ if (!unwind.c_iret.ir_ss) unwind.c_iret.ir_ss = X86_SEG_USER_DS;
+ if (!unwind.c_segments.sg_ds) unwind.c_segments.sg_ds = X86_SEG_USER_DS;
+ if (!unwind.c_segments.sg_es) unwind.c_segments.sg_es = X86_SEG_USER_DS;
+ if (!unwind.c_segments.sg_fs) unwind.c_segments.sg_fs = X86_SEG_USER_FS;
+ if (!unwind.c_segments.sg_gs) unwind.c_segments.sg_gs = X86_SEG_USER_GS;
 #else
  memcpy(&unwind.c_gpregs,context,sizeof(struct x86_gpregs));
 #endif
@@ -244,7 +244,7 @@ DEFINE_SYSCALL3(xunwind,
       return -EPERM; /* No handler found. */
  COMPILER_BARRIER();
  /* Copy the new context back to user-space. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
  memcpy(context,&unwind.c_gpregs,sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
 #else
  memcpy(&unwind.c_gpregs,context,sizeof(struct x86_gpregs));

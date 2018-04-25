@@ -107,12 +107,12 @@ INTERN_ENTRY(X86_IRQ_PIT)
 	.cfi_offset %eip,    -3*4
 
 	/* Save segment registers. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 	/* Save general-purpose registers. */
 	pushal_cfi_r
@@ -328,12 +328,12 @@ INTERN_ENTRY(x86_exchange_context)
 	/* With that, the IRET is now complete. */
 
 	/* Save segment registers. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 	/* Save general purpose registers. */
 	pushal_cfi_r
@@ -391,16 +391,32 @@ INTERN_ENTRY(x86_exchange_context)
 	movb    %cl,         X86_SEGMENT_OFFSETOF_BASEHI + GDT(X86_SEG_HOST_TLS) /* Set base_hi */
 
 	/* Load the user-space segment register. */
+#ifndef CONFIG_NO_DOS_COMPAT
+	movl    t_userseg(%edi), %eax
+	movl    %eax, %ecx
+	movl    %eax, %edx
+#else /* !CONFIG_NO_DOS_COMPAT */
 	movl    t_userseg(%edi), %ecx
 	movl    %ecx, %edx
+#endif /* CONFIG_NO_DOS_COMPAT */
 	shrl    $24,  %ecx
 	andl    $0x00ffffff, %edx
 	andl    $0xff000000, X86_SEGMENT_OFFSETOF_BASELO + GDT(X86_SEG_USER_TLS) /* Clear out base_low */
 	orl     %edx,        X86_SEGMENT_OFFSETOF_BASELO + GDT(X86_SEG_USER_TLS) /* Set base_low */
 	movb    %cl,         X86_SEGMENT_OFFSETOF_BASEHI + GDT(X86_SEG_USER_TLS) /* Set base_hi */
+
+#ifndef CONFIG_NO_DOS_COMPAT
+	addl    $(USERTASK_SEGMENT_OFFSETOF_TIB), %eax
+	movl    %eax, %edx
+	shrl    $24,  %eax
+	andl    $0x00ffffff, %edx
+	andl    $0xff000000, X86_SEGMENT_OFFSETOF_BASELO + GDT(X86_SEG_USER_TIB) /* Clear out base_low */
+	orl     %edx,        X86_SEGMENT_OFFSETOF_BASELO + GDT(X86_SEG_USER_TIB) /* Set base_low */
+	movb    %al,         X86_SEGMENT_OFFSETOF_BASEHI + GDT(X86_SEG_USER_TIB) /* Set base_hi */
+#endif /* !CONFIG_NO_DOS_COMPAT */
 #undef GDT
 
-#ifndef CONFIG_X86_SEGMENTATION
+#ifdef CONFIG_NO_X86_SEGMENTATION
 	/* Without segmentation to reload the FS and GS
 	 * registers for us, we must reload them manually. */
 	movw    $(X86_SEG_FS), %ax
@@ -425,12 +441,12 @@ INTERN_ENTRY(x86_load_cpu_state)
 	popal_cfi_r
 
 	/* Load segment registers. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
 	popl_cfi_r %es
 	popl_cfi_r %ds
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 	/* Do an IRET */
 	iret
@@ -480,24 +496,24 @@ INTERN_ENTRY(x86_redirect_preemption)
 /*	.cfi_offset %esp,    -2*4 */
 
 	/* Save segment registers. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 	/* Save user-space registers. */
 	pushal_cfi_r
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 #define CFA_OFFSET   68 /* 4*8 + 4*4 + 12 + 8 */
 #else
 #define CFA_OFFSET   52 /* 4*8 + 12 + 8 */
 #endif
 #define IRET_OFFSET  (CFA_OFFSET-20) /* - 5*4 (sizeof(struct x86_irregs_user32)) */
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Since user-space segments had already been
 	 * restore before our redirection was invoked,
 	 * we must load kernel segments once again.
@@ -546,12 +562,12 @@ INTERN_ENTRY(x86_redirect_preemption)
 	popal_cfi_r
 
 	/* Load segment registers. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
 	popl_cfi_r %es
 	popl_cfi_r %ds
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 	/* Jump to user-space (likely; we may just end up
 	 * back above at the entry of `x86_redirect_preemption()'

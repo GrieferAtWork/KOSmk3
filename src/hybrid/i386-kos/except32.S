@@ -50,12 +50,12 @@ INTERN_ENTRY(libc_error_rethrow)
 	pushl_cfi    %cs    /* CS */
 #endif
 	pushl_cfi    %eax   /* EIP */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi    %ds
 	pushl_cfi    %es
 	pushl_cfi    %fs
 	pushl_cfi    %gs
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	pushal_cfi_r
 	/* Fix ESP to point to caller, aka. the start of the context structure. */
 	leal   X86_CONTEXT_SIZE(%esp), %ecx
@@ -140,7 +140,7 @@ INTERN_ENTRY(libc_error_throw_current)
 	.cfi_register %eip, %eax
 	movl   %eax, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_EIP
 	movl   %esp, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_ESP
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	movw   %gs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GS
 	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GS+2
 	movw   %fs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FS
@@ -149,11 +149,11 @@ INTERN_ENTRY(libc_error_throw_current)
 	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_ES+2
 	movw   %ds,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_DS
 	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_DS+2
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 #ifdef __KERNEL__
 	movw   %cs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_CS
 	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_CS+2
-#elif defined(CONFIG_X86_SEGMENTATION)
+#elif !defined(CONFIG_NO_X86_SEGMENTATION)
 	movw   %cs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT32_OFFSETOF_CS
 	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT32_OFFSETOF_CS+2
 	movw   %ss,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT32_OFFSETOF_SS

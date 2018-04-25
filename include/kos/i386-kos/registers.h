@@ -27,11 +27,21 @@ __SYSDECL_BEGIN
 
 #define X86_REGISTER_NONE              0x0000 /* No registers. */
 
+/* Universal masks for registers. */
+#define X86_REGISTER_SIZEMASK   0xc000
+#define X86_REGISTER_IDMASK     0x3fff
+
+/* Return the size of a general-purpose, or misc. register. (in bytes) */
+#ifdef __x86_64__
+#define X86_REGISTER_SIZEOF(x) (1 << (3-(((x)&0xc000) >> 14)))
+#else
+#define X86_REGISTER_SIZEOF(x) (1 << (2-(((x)&0xc000) >> 14)))
+#endif
+
 
 /* General-purpose registers. */
 #define X86_REGISTER_GENERAL_PURPOSE   0x0001
 #ifdef __x86_64__
-#   define X86_REGISTER_GENERAL_PURPOSE_SIZEOF(x) (1 << (3-(((x)&0xc000) >> 14)))
 #   define X86_REGISTER_GENERAL_PURPOSE_RAX 0x0000 /* %rax */
 #   define X86_REGISTER_GENERAL_PURPOSE_RCX 0x0001 /* %rcx */
 #   define X86_REGISTER_GENERAL_PURPOSE_RDX 0x0002 /* %rdx */
@@ -73,7 +83,6 @@ __SYSDECL_BEGIN
 #   define X86_REGISTER_GENERAL_PURPOSE_DH  0xc006 /* %dh */
 #   define X86_REGISTER_GENERAL_PURPOSE_BH  0xc007 /* %bh */
 #else
-#   define X86_REGISTER_GENERAL_PURPOSE_SIZEOF(x) (1 << (2-(((x)&0xc000) >> 14)))
 #   define X86_REGISTER_GENERAL_PURPOSE_EAX 0x0000 /* %eax */
 #   define X86_REGISTER_GENERAL_PURPOSE_ECX 0x0001 /* %ecx */
 #   define X86_REGISTER_GENERAL_PURPOSE_EDX 0x0002 /* %edx */
@@ -140,20 +149,19 @@ __SYSDECL_BEGIN
 #   define X86_REGISTER_XMM_XMM5            5 /* %xmm5 */
 #   define X86_REGISTER_XMM_XMM6            6 /* %xmm6 */
 #   define X86_REGISTER_XMM_XMM7            7 /* %xmm7 */
-
-/* Debug registers. */
-#define X86_REGISTER_DEBUG             0x0006
-#   define X86_REGISTER_DEBUG_DB0           0 /* %db0 */
-#   define X86_REGISTER_DEBUG_DB1           1 /* %db1 */
-#   define X86_REGISTER_DEBUG_DB2           2 /* %db2 */
-#   define X86_REGISTER_DEBUG_DB3           3 /* %db3 */
-#   define X86_REGISTER_DEBUG_DB4           4 /* %db4 */
-#   define X86_REGISTER_DEBUG_DB5           5 /* %db5 */
-#   define X86_REGISTER_DEBUG_DB6           6 /* %db6 */
-#   define X86_REGISTER_DEBUG_DB7           7 /* %db7 */
+#ifdef __x86_64__
+#   define X86_REGISTER_XMM_XMM8            8 /* %xmm8 */
+#   define X86_REGISTER_XMM_XMM9            9 /* %xmm9 */
+#   define X86_REGISTER_XMM_XMM10          10 /* %xmm10 */
+#   define X86_REGISTER_XMM_XMM11          11 /* %xmm11 */
+#   define X86_REGISTER_XMM_XMM12          12 /* %xmm12 */
+#   define X86_REGISTER_XMM_XMM13          13 /* %xmm13 */
+#   define X86_REGISTER_XMM_XMM14          14 /* %xmm14 */
+#   define X86_REGISTER_XMM_XMM15          15 /* %xmm15 */
+#endif
 
 /* Float registers. */
-#define X86_REGISTER_FLOAT             0x0007
+#define X86_REGISTER_FLOAT             0x0006
 #   define X86_REGISTER_FLOAT_ST(x)    ((x)&7)/* %st(x) */
 #   define X86_REGISTER_FLOAT_ST0           0 /* %st(0) */
 #   define X86_REGISTER_FLOAT_ST1           1 /* %st(1) */
@@ -163,6 +171,17 @@ __SYSDECL_BEGIN
 #   define X86_REGISTER_FLOAT_ST5           5 /* %st(5) */
 #   define X86_REGISTER_FLOAT_ST6           6 /* %st(6) */
 #   define X86_REGISTER_FLOAT_ST7           7 /* %st(7) */
+
+/* Debug registers. */
+#define X86_REGISTER_DEBUG             0x0007
+#   define X86_REGISTER_DEBUG_DB0           0 /* %db0 */
+#   define X86_REGISTER_DEBUG_DB1           1 /* %db1 */
+#   define X86_REGISTER_DEBUG_DB2           2 /* %db2 */
+#   define X86_REGISTER_DEBUG_DB3           3 /* %db3 */
+#   define X86_REGISTER_DEBUG_DB4           4 /* %db4 */
+#   define X86_REGISTER_DEBUG_DB5           5 /* %db5 */
+#   define X86_REGISTER_DEBUG_DB6           6 /* %db6 */
+#   define X86_REGISTER_DEBUG_DB7           7 /* %db7 */
 
 /* Model-specific registers. */
 #define X86_REGISTER_MSR               0x0010

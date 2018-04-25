@@ -86,7 +86,7 @@ INTERN_ENTRY(X86_IRQ_APICSPUR)
 	pushl_cfi_r %ecx
 	pushl_cfi_r %edx
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs
@@ -98,7 +98,7 @@ INTERN_ENTRY(X86_IRQ_APICSPUR)
 	movl    x86_lapic_base_address, %eax
 	movl    $(APIC_EOI_FSIGNAL), APIC_EOI(%eax)
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r  %gs
 	popl_cfi_r  %fs
 	popl_cfi_r  %es
@@ -128,7 +128,7 @@ INTERN_ENTRY(X86_IRQ_APICIPI)
 	pushl_cfi_r %ecx
 	pushl_cfi_r %edx
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs
@@ -158,7 +158,7 @@ INTERN_ENTRY(X86_IRQ_APICIPI)
 	call    x86_ipi_process
 1:
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r  %gs
 	popl_cfi_r  %fs
 	popl_cfi_r  %es
@@ -346,12 +346,12 @@ INTERN_ENTRY(x86_smp_entry32)
 	movw    %ax, %ds
 	movw    %ax, %es
 	movw    %ax, %ss
-#ifndef CONFIG_X86_SEGMENTATION
+#ifdef CONFIG_NO_X86_SEGMENTATION
 	movw    $(X86_SEG_FS), %ax
 	movw    %ax, %fs
 	movw    $(X86_SEG_GS), %ax
 	movw    %ax, %gs
-#endif /* !CONFIG_X86_SEGMENTATION */
+#endif /* CONFIG_NO_X86_SEGMENTATION */
 	/* NOTE: This also does the jump from physical into virtual memory! */
 	ljmp    $(X86_KERNEL_CS), $1f
 1:
@@ -370,11 +370,11 @@ INTERN_ENTRY(x86_smp_entry32)
 	movl    %eax, %cr3
 
 1:	/* Load user-space sharable segments when full segmentation is disabled. */
-#ifndef CONFIG_X86_SEGMENTATION
+#ifdef CONFIG_NO_X86_SEGMENTATION
 	movw    $(X86_USER_DS), %ax
 	movw    %ax, %ds
 	movw    %ax, %es
-#endif /* !CONFIG_X86_SEGMENTATION */
+#endif /* CONFIG_NO_X86_SEGMENTATION */
 
 	/* Finally, jump to load the CPU state pointed by to ESP.
 	 *  -> That state should then lead us into

@@ -66,7 +66,7 @@ INTERN_ENTRY(x86_load_segments)
 	movw    $(X86_SEG_FS), %ax
 	movw    %ax, %fs
 #ifndef CONFIG_X86_LOADSEGMENTS_IGNORE_USERTLS
-	restore_segment %gs, $(X86_SEG_GS)
+	restore_segment %gs, $(X86_SEG_USER_GS)
 #endif /* !CONFIG_X86_LOADSEGMENTS_IGNORE_USERTLS */
 #else /* CONFIG_LOAD_SEGMENTS_IFCHANGED */
 	movw    $(X86_KERNEL_DS), %ax
@@ -76,7 +76,7 @@ INTERN_ENTRY(x86_load_segments)
 	movw    $(X86_SEG_FS), %ax
 	movw    %ax, %fs
 #ifndef CONFIG_X86_LOADSEGMENTS_IGNORE_USERTLS
-	movw    $(X86_SEG_GS), %ax
+	movw    $(X86_SEG_USER_GS), %ax
 	movw    %ax, %gs
 #endif /* !CONFIG_X86_LOADSEGMENTS_IGNORE_USERTLS */
 #endif /* !CONFIG_LOAD_SEGMENTS_IFCHANGED */
@@ -98,7 +98,7 @@ INTERN_ENTRY(x86_load_segments_ecx)
 	movw    $(X86_SEG_FS), %cx
 	movw    %cx, %fs
 #ifndef CONFIG_X86_LOADSEGMENTS_IGNORE_USERTLS
-	restore_segment %gs, $(X86_SEG_GS), %cx
+	restore_segment %gs, $(X86_SEG_USER_GS), %cx
 #endif /* !CONFIG_X86_LOADSEGMENTS_IGNORE_USERTLS */
 #else /* CONFIG_LOAD_SEGMENTS_IFCHANGED */
 	movw    $(X86_KERNEL_DS), %cx
@@ -108,7 +108,7 @@ INTERN_ENTRY(x86_load_segments_ecx)
 	movw    $(X86_SEG_FS), %cx
 	movw    %cx, %fs
 #ifndef CONFIG_X86_LOADSEGMENTS_IGNORE_USERTLS
-	movw    $(X86_SEG_GS), %cx
+	movw    $(X86_SEG_USER_GS), %cx
 	movw    %cx, %gs
 #endif /* !CONFIG_X86_LOADSEGMENTS_IGNORE_USERTLS */
 #endif /* !CONFIG_LOAD_SEGMENTS_IFCHANGED */
@@ -134,12 +134,12 @@ INTERN_ENTRY(x86_check_spurious_interrupt_PIC1)
 99:	/* Preserve scratch registers. */
 	pushl_cfi_r %ecx
 	pushl_cfi_r %edx
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	call   x86_load_segments
 	call   x86_pic2_spur
 	jmp    98f
@@ -163,21 +163,21 @@ INTERN_ENTRY(x86_check_spurious_interrupt_PIC2)
 99:	/* Preserve scratch registers. */
 	pushl_cfi_r %ecx
 	pushl_cfi_r %edx
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	call   x86_load_segments
 	call   x86_pic1_spur
 98:
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r  %gs
 	popl_cfi_r  %fs
 	popl_cfi_r  %es
 	popl_cfi_r  %ds
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	popl_cfi_r  %edx
 	popl_cfi_r  %ecx
 	popl_cfi_r  %eax
@@ -218,7 +218,7 @@ irq_\id:
 .elseif \type == INTERRUPT_TYPE_SPUR2
 	call    x86_check_spurious_interrupt_PIC2
 .endif
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi %ss:-(4+X86_GPREGS_SIZE+X86_SEGMENTS_SIZE)(%esp) /* ECODE */
 #else
 	popl_cfi %ss:-(4+X86_GPREGS_SIZE)(%esp) /* ECODE */
@@ -234,13 +234,13 @@ irq_\id:
 .elseif \type == INTERRUPT_TYPE_SPUR2
 	call    x86_check_spurious_interrupt_PIC2
 .endif
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	movl    $0, %ss:-(4+X86_GPREGS_SIZE+X86_SEGMENTS_SIZE)(%esp) /* ECODE */
 #else
 	movl    $0, %ss:-(4+X86_GPREGS_SIZE)(%esp) /* ECODE */
 #endif
 .endif
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	movl    $0x\id, %ss:-(8+X86_GPREGS_SIZE+X86_SEGMENTS_SIZE)(%esp) /* INTNO */
 #else
 	movl    $0x\id, %ss:-(8+X86_GPREGS_SIZE)(%esp) /* INTNO */
@@ -522,13 +522,13 @@ INTERN_ENTRY(irq_common)
 	/*.cfi_offset %cs,   -2*4*/
 	.cfi_offset %eip,    -3*4
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Save segment registers. */
 	pushl_cfi_r  %ds
 	pushl_cfi_r  %es
 	pushl_cfi_r  %fs
 	pushl_cfi_r  %gs
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 	/* Save general-purpose registers. */
 	pushal_cfi_r
@@ -559,11 +559,11 @@ INTERN_ENTRY(irq_common)
 	 * NOTE: According to PUSHAL, the currently stored
 	 *       ESP points at the end of GPREGS, aka. at
 	 *       the start of the segment state. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	addl    $(X86_SEGMENTS_SIZE+X86_IRREGS_HOST32_SIZE), X86_GPREGS_OFFSETOF_ESP(%ecx)
-#else /* CONFIG_X86_SEGMENTATION */
+#else /* !CONFIG_NO_X86_SEGMENTATION */
 	addl    $(X86_IRREGS_HOST32_SIZE), X86_GPREGS_OFFSETOF_ESP(%ecx)
-#endif /* !CONFIG_X86_SEGMENTATION */
+#endif /* CONFIG_NO_X86_SEGMENTATION */
 
 	/* With everything now set up, switch to the interrupt handler. */
 	call    x86_interrupt_handler
@@ -573,13 +573,13 @@ INTERN_ENTRY(irq_common)
 
 	/* Load general-purpose registers. */
 	popal_cfi_r
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Load segment registers. */
 	popl_cfi_r   %gs
 	popl_cfi_r   %fs
 	popl_cfi_r   %es
 	popl_cfi_r   %ds
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	iret
 	.cfi_endproc
 .irq_common_end = .
@@ -654,12 +654,12 @@ INTERN_ENTRY(x86_interrupt_except)
 	subl    $(X86_IRREGS_HOST32_SIZE), %esp
 	.cfi_def_cfa_offset X86_IRREGS_HOST32_SIZE
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 	/* Save general-purpose registers. */
 	pushal_cfi_r
@@ -668,7 +668,7 @@ INTERN_ENTRY(x86_interrupt_except)
 
 	/* We already know that the interrupt is originating from kernel-space,
 	 * so we also know that we must fix the ESP of the cpu-context. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	addl    $(X86_SEGMENTS_SIZE+X86_IRREGS_HOST32_SIZE), X86_GPREGS_OFFSETOF_ESP(%esp)
 #else
 	addl    $(X86_IRREGS_HOST32_SIZE), X86_GPREGS_OFFSETOF_ESP(%esp)
@@ -715,9 +715,9 @@ INTERN_ENTRY(x86_interrupt_except)
 	 * NOTE: `task_propagate_user_exception()' below will serve RPC functions
 	 *        that were requested for execution by the redirection.
 	 */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	movw    %taskseg, %ss:(+0 + (-CONFIG_KERNELSTACK_SIZE) + X86_IRREGS_USER32_SIZE)(%esp)
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	movl    %eax, %ss:0(%esp) /* Preserve EAX */
 	movw    $(X86_HOST_TLS), %ax
 	movw    %ax, %taskseg
@@ -732,10 +732,10 @@ INTERN_ENTRY(x86_interrupt_except)
 	movl    %eax, %ss:20(%esp)
 	movl    %taskseg:iret_saved + 0, %eax
 	xchgl   %ss:0(%esp), %eax /* Restore EAX */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Restore the user-space version of the %fs register. */
 	movw    %ss:(+0 + (-CONFIG_KERNELSTACK_SIZE) + X86_IRREGS_USER32_SIZE)(%esp), %taskseg
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	/* Fallthrough to propagate the exception to user-space. */
 
 .interrupt_except_user:
@@ -749,31 +749,31 @@ INTERN_ENTRY(x86_interrupt_except)
 	 * Because of that, we need to carefully redirect execution
 	 * to the upper half of the kernel stack, above the part
 	 * that was used by the error. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	movw    %taskseg, %ss:(+0 + (-CONFIG_KERNELSTACK_SIZE) + X86_IRREGS_USER32_SIZE)(%esp)
 	movw    %ax,      %ss:(+2 + (-CONFIG_KERNELSTACK_SIZE) + X86_IRREGS_USER32_SIZE)(%esp)
 	movw    $(X86_HOST_TLS), %ax
 	movw    %ax, %taskseg
 	movw    %ss:(+2 + (-CONFIG_KERNELSTACK_SIZE) + X86_IRREGS_USER32_SIZE)(%esp), %ax
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	/* Load the stack address below the exception location. */
 	movl    %taskseg:TASK_OFFSETOF_SEGMENT+ \
 	                 TASK_SEGMENT_OFFSETOF_XCURRENT+ \
 	                 EXCEPTION_INFO_OFFSETOF_CONTEXT+ \
 	                 X86_CONTEXT32_OFFSETOF_ESP, %esp
 	subl    $(X86_IRREGS_USER32_SIZE), %esp /* Reserve memory for a copy of the IRET tail. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs /* Will get overwritten below. */
 	pushl_cfi_r %gs
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	pushal_cfi_r /* Save general-purpose registers. */
 	call    x86_load_segments
 
 	movl    %taskseg:TASK_OFFSETOF_STACKEND, %edx
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Fix the user-space %fs register, which we temporaryly
 	 * saved at the other end of the kernel stack above. */
 	movzwl  (+0 + (-CONFIG_KERNELSTACK_SIZE))(%edx), %eax
@@ -792,12 +792,12 @@ INTERN_ENTRY(x86_interrupt_except)
 	movl    ((-X86_IRREGS_USER32_SIZE)+X86_IRREGS_USER32_OFFSETOF_EIP)(%edx), %eax
 	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EIP(%esp)
 #else /* !NDEBUG */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	/* Save general-purpose registers. */
 	pushal_cfi_r
 	call    x86_load_segments
@@ -925,23 +925,23 @@ INTERN_ENTRY(x86_interrupt_except)
 	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_SS(%esp)
 
 1:	popal_cfi_r /* Load general-purpose registers. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r  %gs /* Load segment registers. */
 	popl_cfi_r  %fs
 	popl_cfi_r  %es
 	popl_cfi_r  %ds
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	iret
 #else /* !NDEBUG */
 	/* Load general-purpose registers. */
 	popal_cfi_r
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Load segment registers. */
 	popl_cfi_r  %gs
 	popl_cfi_r  %fs
 	popl_cfi_r  %es
 	popl_cfi_r  %ds
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	iret
 #endif /* NDEBUG */
 	.cfi_endproc

@@ -20,6 +20,7 @@
 #define GUARD_LIBS_LIBC_DOS_CRT_H 1
 
 #include "libc.h"
+#include <winapi/excpt.h>
 
 #ifdef __CC__
 DECL_BEGIN
@@ -84,6 +85,19 @@ INTDEF int32_t *LIBCCALL libd_p_crtDbgFlag(void);
 INTDEF int32_t libd_crtDbgFlag;
 INTDEF void LIBCCALL libd_vacopy(char **pdst, char *src);
 INTDEF void LIBCCALL libd_freea(void *ptr);
+
+
+typedef struct { int newmode; } dos_startupinfo_t;
+struct _EXCEPTION_POINTERS;
+struct _EXCEPTION_RECORD;
+struct _CONTEXT;
+
+INTDEF int LIBCCALL libd_set_error_mode(int mode);
+INTDEF void LIBCCALL libd_set_app_type(int type);
+INTDEF int LIBCCALL libd_getmainargs(int *pargc, char ***pargv, char ***penvp, int do_wildcard, dos_startupinfo_t *info);
+INTDEF int LIBCCALL libd_XcptFilter(u32 xno, struct _EXCEPTION_POINTERS *infp_ptrs);
+INTERN EXCEPTION_DISPOSITION LIBCCALL libd_except_handler4(struct _EXCEPTION_RECORD *ExceptionRecord, void *EstablisherFrame, struct _CONTEXT *ContextRecord, void *DispatcherContext);
+
 
 
 /*

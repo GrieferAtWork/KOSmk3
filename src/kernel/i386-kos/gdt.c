@@ -48,6 +48,9 @@ PUBLIC ATTR_PERCPU struct x86_segment x86_cpugdt[X86_SEG_BUILTIN] = {
     [X86_SEG_KERNEL_LDT]  = X86_SEGMENT_INIT(0,0,X86_SEG_LDT), /* Kernel LDT table. */
     [X86_SEG_HOST_TLS]    = {{{(uintptr_t)_x86_gdt_tls_lo,(uintptr_t)_x86_gdt_tls_hi}}}, /* task-self */
     [X86_SEG_USER_TLS]    = X86_SEGMENT_INIT(0,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL3),
+#ifndef CONFIG_NO_DOS_COMPAT
+    [X86_SEG_USER_TIB]    = X86_SEGMENT_INIT(0,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL3),
+#endif
 };
 
 PUBLIC void KCALL set_user_tls_register(void *value) {
@@ -56,7 +59,7 @@ PUBLIC void KCALL set_user_tls_register(void *value) {
  seg = &PERCPU(x86_cpugdt)[X86_SEG_USER_TLS];
  X86_SEGMENT_STBASE(*seg,value);
 
-#ifndef CONFIG_X86_SEGMENTATION
+#ifdef CONFIG_NO_X86_SEGMENTATION
  /* Reload the user TLS segment register immediately
   * if switching back to user-space won't do that. */
  __asm__ __volatile__("movw %w0, %%" PP_STR(__ASM_USERTASK_SEGMENT)
@@ -64,6 +67,15 @@ PUBLIC void KCALL set_user_tls_register(void *value) {
                       : "r" (X86_USER_TLS));
 #endif
 }
+
+#ifndef CONFIG_NO_DOS_COMPAT
+PUBLIC void KCALL set_user_tib_register(void *value) {
+ struct x86_segment *seg;
+ /* Set the base address of the user-space TLS segment. */
+ seg = &PERCPU(x86_cpugdt)[X86_SEG_USER_TIB];
+ X86_SEGMENT_STBASE(*seg,value);
+}
+#endif /* !CONFIG_NO_DOS_COMPAT */
 
 
 

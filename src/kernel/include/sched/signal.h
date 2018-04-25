@@ -39,7 +39,7 @@ struct task_connection;
  * With that in mind, we can use the bottom 2 bits for
  * our own purposes, in this case: As locking bits.
  * This way, we keep `struct sig' the size of a single
- * pointer, meaning it is one of the host light-weight
+ * pointer, meaning it is one of the most light-weight
  * types there are (which is important, considering
  * that signals are the bottom-most structured used
  * to implement all other synchronization primitives) */
@@ -105,7 +105,7 @@ FUNDEF ATTR_NOTHROW size_t KCALL sig_broadcast_channel_locked(struct sig *__rest
  * the right conditions, these functions will do their best to have the
  * woken threads continue executing as soon as possible.
  * Use of these functions should be kept to a bare minimum, so-as not to
- * utterly confuse the scheduler, however when used correctly, they can
+ * utterly confuse the scheduler. However when used correctly, they can
  * improve response time considerably, and should therefor be used to
  * signal events related to user-input.
  * NOTES:
@@ -113,9 +113,9 @@ FUNDEF ATTR_NOTHROW size_t KCALL sig_broadcast_channel_locked(struct sig *__rest
  *   - If more than one thread is woken, scheduling order to manipulated such that
  *     threads will execute in order of initially connecting to signals.
  *     If such a re-ordering operation isn't possible due to priority constraints,
- *     or due to thread operating on different cores (meaning that the calling thread's
+ *     or due to threads operating on different cores (meaning that the calling thread's
  *     CPU can't interfere with the scheduling order of the woken thread's CPU),
- *     woken threads are not re-ordered. */
+ *     woken threads may not be re-ordered. */
 FUNDEF ATTR_NOTHROW size_t KCALL sig_send_p(struct sig *__restrict self, size_t max_threads);
 FUNDEF ATTR_NOTHROW size_t KCALL sig_broadcast_p(struct sig *__restrict self);
 FUNDEF ATTR_NOTHROW size_t KCALL sig_send_locked_p(struct sig *__restrict self, size_t max_threads);

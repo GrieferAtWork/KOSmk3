@@ -40,51 +40,69 @@ __FORCELOCAL __BOOL (__btsl)(__UINT32_TYPE__ *__x, __UINT32_TYPE__ __bitindex) {
 __FORCELOCAL void (__clc)(void) { __asm__("clc" : : : "cc"); }
 __FORCELOCAL void (__cmc)(void) { __asm__("cmc" : : : "cc"); }
 __FORCELOCAL void (__stc)(void) { __asm__("stc" : : : "cc"); }
-__FORCELOCAL void (__cld)(void) { __asm__("cld" /*: : : "cc"*/); }
-__FORCELOCAL void (__std)(void) { __asm__("std" /*: : : "cc"*/); }
-__FORCELOCAL void (__cli)(void) { __asm__("cli" /*: : : "cc"*/); }
-__FORCELOCAL void (__sti)(void) { __asm__("sti" /*: : : "cc"*/); }
-__FORCELOCAL void (__clflush)(void *__p) { __asm__("clflush %0" : : "m" (*(int *)__p)); }
+__FORCELOCAL void (__cld)(void) { __COMPILER_BARRIER(); __asm__ __volatile__("cld" /*: : : "cc"*/); __COMPILER_BARRIER(); }
+__FORCELOCAL void (__std)(void) { __COMPILER_BARRIER(); __asm__ __volatile__("std" /*: : : "cc"*/); __COMPILER_BARRIER(); }
+__FORCELOCAL void (__cli)(void) { __asm__ __volatile__("cli" : : : "memory"); }
+__FORCELOCAL void (__sti)(void) { __asm__ __volatile__("sti" : : : "memory"); }
+__FORCELOCAL void (__clflush)(void *__p) { struct __cl { __BYTE_TYPE__ __b[64]; }; __asm__ __volatile__("clflush %0" : : "m" (*(struct __cl *)__p)); }
 __FORCELOCAL void (__cpuid)(__UINT32_TYPE__ __leaf, __UINT32_TYPE__ *__peax, __UINT32_TYPE__ *__pecx, __UINT32_TYPE__ *__pedx, __UINT32_TYPE__ *__pebx) { __asm__("cpuid" : "=a" (*__peax), "=c" (*__pecx), "=d" (*__pedx), "=b" (*__pebx) : "a" (__leaf)); }
 __FORCELOCAL __UINT8_TYPE__ (__daa)(__UINT8_TYPE__ __x) { __UINT8_TYPE__ __result; __asm__("daa" : "=a" (__result) : "0" (__x) : "cc"); return __result; }
 __FORCELOCAL __UINT8_TYPE__ (__dal)(__UINT8_TYPE__ __x) { __UINT8_TYPE__ __result; __asm__("dal" : "=a" (__result) : "0" (__x) : "cc"); return __result; }
-__FORCELOCAL void (__hlt)(void) { __asm__("hlt"); }
+__FORCELOCAL void (__hlt)(void) { __asm__ __volatile__("hlt" : : : "memory"); }
 __FORCELOCAL void (__into)(void) { __asm__("into"); }
 __FORCELOCAL void (__int3)(void) { __asm__("int {$}3"); }
 __FORCELOCAL void (__int)(__UINT8_TYPE__ __intno) { __asm__("int %0" : : "N" (__intno)); }
-__FORCELOCAL void (__invd)(void) { __asm__("invd"); }
-__FORCELOCAL void (__wbinvd)(void) { __asm__("wbinvd"); }
-__FORCELOCAL void (__invlpg)(void *__p) { __asm__("invlpg" : : "m" (*(int *)__p)); }
-__FORCELOCAL void (__ldmxcsr)(__UINT32_TYPE__ __val) { __asm__("ldmxcsr" : : "m" (__val)); }
-__FORCELOCAL __UINT32_TYPE__ (__stmxcsr)(void) { __UINT32_TYPE__ __result; __asm__("stmxcsr" : "=m" (__result)); return __result; }
-__FORCELOCAL void (__lfence)(void) { __asm__("lfence"); }
-__FORCELOCAL void (__sfence)(void) { __asm__("sfence"); }
-__FORCELOCAL void (__mfence)(void) { __asm__("mfence"); }
-__FORCELOCAL void (__lgdt)(void const *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__("lgdt %0" : : "m" (*(__T const *)__p)); }
-__FORCELOCAL void (__lidt)(void const *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__("lidt %0" : : "m" (*(__T const *)__p)); }
-__FORCELOCAL void (__sgdt)(void *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__("sgdt %0" : "=m" (*(__T *)__p)); }
-__FORCELOCAL void (__sidt)(void *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__("sidt %0" : "=m" (*(__T *)__p)); }
-__FORCELOCAL void (__lldt)(__UINT16_TYPE__ __x) { __asm__("lldt %0" : : "g" (__x)); }
-__FORCELOCAL __UINT16_TYPE__ (__sldt)(void) { __UINT16_TYPE__ __result; __asm__("sldt %0" : "=g" (__result)); return __result; }
-__FORCELOCAL void (__ud2)(void) { __asm__("ud2"); }
+__FORCELOCAL void (__invd)(void) { __asm__ __volatile__("invd"); }
+__FORCELOCAL void (__wbinvd)(void) { __asm__ __volatile__("wbinvd"); }
+__FORCELOCAL void (__invlpg)(void *__p) { __asm__ __volatile__("invlpg" : : "m" (*(int *)__p)); }
+__FORCELOCAL void (__lfence)(void) { __COMPILER_READ_BARRIER(); __asm__ __volatile__("lfence"); __COMPILER_READ_BARRIER(); }
+__FORCELOCAL void (__sfence)(void) { __COMPILER_WRITE_BARRIER(); __asm__ __volatile__("sfence"); __COMPILER_WRITE_BARRIER(); }
+__FORCELOCAL void (__mfence)(void) { __COMPILER_BARRIER(); __asm__ __volatile__("mfence"); __COMPILER_BARRIER(); }
+__FORCELOCAL void (__lgdt)(void const *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__ __volatile__("lgdt %0" : : "m" (*(__T const *)__p)); }
+__FORCELOCAL void (__lidt)(void const *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__ __volatile__("lidt %0" : : "m" (*(__T const *)__p)); }
+__FORCELOCAL void (__sgdt)(void *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__ __volatile__("sgdt %0" : "=m" (*(__T *)__p)); }
+__FORCELOCAL void (__sidt)(void *__p) { typedef struct { __UINT16_TYPE__ __x[3]; } __T; __asm__ __volatile__("sidt %0" : "=m" (*(__T *)__p)); }
+__FORCELOCAL void (__lldt)(__UINT16_TYPE__ __x) { __asm__ __volatile__("lldt %0" : : "g" (__x)); }
+__FORCELOCAL __UINT16_TYPE__ (__sldt)(void) { __UINT16_TYPE__ __result; __asm__ __volatile__("sldt %0" : "=g" (__result)); return __result; }
+__FORCELOCAL void (__ud2)(void) { __asm__ __volatile__("ud2"); }
 __FORCELOCAL void (__nop)(void) { __asm__("nop"); }
 __FORCELOCAL void (__pause)(void) { __asm__("pause"); }
 __FORCELOCAL __UINT32_TYPE__ (__getfl)(void) { __UINT32_TYPE__ __result; __asm__("pushfl; popl %0" : "=g" (__result)); return __result; }
 __FORCELOCAL void (__setfl)(__UINT32_TYPE__ __fl) { __asm__("pushl %0; popfl" : : "g" (__fl) : "cc"); }
-__FORCELOCAL void (__lmsw)(__UINT16_TYPE__ __x) { __asm__("lmsw %0" : : "g" (__x)); }
-__FORCELOCAL __UINT16_TYPE__ (__smsw)(void) { __UINT16_TYPE__ __result; __asm__("smsw %0" : "=g" (__result)); return __result; }
+__FORCELOCAL void (__lmsw)(__UINT16_TYPE__ __x) { __asm__ __volatile__("lmsw %0" : : "g" (__x)); }
+__FORCELOCAL __UINT16_TYPE__ (__smsw)(void) { __UINT16_TYPE__ __result; __asm__ __volatile__("smsw %0" : "=g" (__result)); return __result; }
 __FORCELOCAL __UINT8_TYPE__ (__lahf)(void) { __UINT8_TYPE__ __result; __asm__("lahf" : "=a" (__result)); return __result; }
 __FORCELOCAL void (__sahf)(__UINT8_TYPE__ __fl) { __asm__("sahf" : : "a" (__fl) : "cc"); }
 __FORCELOCAL __UINT16_TYPE__ (__rolw)(__UINT16_TYPE__ __x, __UINT8_TYPE__ __y) { __UINT16_TYPE__ __result; __asm__("rolw %1, %w0" : "=g" (__result) : "nc" (__y), "0" (__x) : "cc"); return __result; }
 __FORCELOCAL __UINT32_TYPE__ (__roll)(__UINT32_TYPE__ __x, __UINT8_TYPE__ __y) { __UINT32_TYPE__ __result; __asm__("roll %1, %0" : "=g" (__result) : "nc" (__y), "0" (__x) : "cc"); return __result; }
 __FORCELOCAL __UINT16_TYPE__ (__rorw)(__UINT16_TYPE__ __x, __UINT8_TYPE__ __y) { __UINT16_TYPE__ __result; __asm__("rorw %1, %w0" : "=g" (__result) : "nc" (__y), "0" (__x) : "cc"); return __result; }
 __FORCELOCAL __UINT32_TYPE__ (__rorl)(__UINT32_TYPE__ __x, __UINT8_TYPE__ __y) { __UINT32_TYPE__ __result; __asm__("rorl %1, %0" : "=g" (__result) : "nc" (__y), "0" (__x) : "cc"); return __result; }
-__FORCELOCAL __UINT64_TYPE__ (__rdmsr)(__UINT32_TYPE__ __id) { __UINT64_TYPE__ __result; __asm__("rdmsr" : "=A" (__result) : "c" (__id)); return __result; }
-__FORCELOCAL __UINT64_TYPE__ (__rdpmc)(__UINT32_TYPE__ __id) { __UINT64_TYPE__ __result; __asm__("rdpmc" : "=A" (__result) : "c" (__id)); return __result; }
-__FORCELOCAL __UINT64_TYPE__ (__rdtsc)(void) { __UINT64_TYPE__ __result; __asm__("rdtsc" : "=A" (__result)); return __result; }
-__FORCELOCAL void (__wrmsr)(__UINT32_TYPE__ __id, __UINT64_TYPE__ __val) { __asm__("wrmsr" : : "c" (__id), "A" (__val)); }
-__FORCELOCAL __ATTR_NORETURN void (__sysenter)(void) { __asm__("sysenter"); __builtin_unreachable(); }
-__FORCELOCAL __ATTR_NORETURN void (__sysexit)(__UINT32_TYPE__ __uesp, __UINT32_TYPE__ __ueip) { __asm__("sysexit" : : "c" (__uesp), "d" (__ueip)); __builtin_unreachable(); }
+__FORCELOCAL __UINT64_TYPE__ (__rdmsr)(__UINT32_TYPE__ __id) { __UINT64_TYPE__ __result; __asm__ __volatile__("rdmsr" : "=A" (__result) : "c" (__id)); return __result; }
+__FORCELOCAL __UINT64_TYPE__ (__rdpmc)(__UINT32_TYPE__ __id) { __UINT64_TYPE__ __result; __asm__ __volatile__("rdpmc" : "=A" (__result) : "c" (__id)); return __result; }
+__FORCELOCAL __UINT64_TYPE__ (__rdtsc)(void) { __UINT64_TYPE__ __result; __asm__ __volatile__("rdtsc" : "=A" (__result)); return __result; }
+__FORCELOCAL void (__wrmsr)(__UINT32_TYPE__ __id, __UINT64_TYPE__ __val) { __asm__ __volatile__("wrmsr" : : "c" (__id), "A" (__val)); }
+__FORCELOCAL __ATTR_NORETURN void (__sysenter)(void) { __asm__ __volatile__("sysenter"); __builtin_unreachable(); }
+__FORCELOCAL __ATTR_NORETURN void (__sysexit)(__UINT32_TYPE__ __uesp, __UINT32_TYPE__ __ueip) { __asm__ __volatile__("sysexit" : : "c" (__uesp), "d" (__ueip)); __builtin_unreachable(); }
+
+/* Floating point intrinsics. */
+__FORCELOCAL void (__ldmxcsr)(__UINT32_TYPE__ __val) { __asm__ __volatile__("ldmxcsr" : : "m" (__val)); }
+__FORCELOCAL __UINT32_TYPE__ (__stmxcsr)(void) { __UINT32_TYPE__ __result; __asm__ __volatile__("stmxcsr" : "=m" (__result)); return __result; }
+__FORCELOCAL void (__clts)(void) { __asm__ __volatile__("clts"); }
+__FORCELOCAL void (__fldcw)(__UINT16_TYPE__ __cw) { __asm__ __volatile__("fldcw %0" : : "m" (__cw)); }
+__FORCELOCAL void (__fxsave)(__BYTE_TYPE__ __data[512]) { __asm__ __volatile__("fxsave %0" : "=m" (*__data)); }
+__FORCELOCAL void (__fxrstor)(__BYTE_TYPE__ const __data[512]) { __asm__ __volatile__("fxrstor %0" : : "m" (*__data)); }
+__FORCELOCAL void (__fninit)(void) { __asm__ __volatile__("fninit"); }
+
+/* Read/Write control registers. */
+__FORCELOCAL __REGISTER_TYPE__ (__rdcr0)(void) { register __REGISTER_TYPE__ __result; __asm__ __volatile__("mov %%cr0, %0" : "=r" (__result)); return __result; }
+__FORCELOCAL __REGISTER_TYPE__ (__rdcr2)(void) { register __REGISTER_TYPE__ __result; __asm__ __volatile__("mov %%cr2, %0" : "=r" (__result)); return __result; }
+__FORCELOCAL __REGISTER_TYPE__ (__rdcr3)(void) { register __REGISTER_TYPE__ __result; __asm__ __volatile__("mov %%cr3, %0" : "=r" (__result)); return __result; }
+__FORCELOCAL __REGISTER_TYPE__ (__rdcr4)(void) { register __REGISTER_TYPE__ __result; __asm__ __volatile__("mov %%cr4, %0" : "=r" (__result)); return __result; }
+__FORCELOCAL void (__wrcr0)(__REGISTER_TYPE__ __val) { __asm__ __volatile__("mov %0, %%cr0" : : "r" (__val)); }
+__FORCELOCAL void (__wrcr2)(__REGISTER_TYPE__ __val) { __asm__ __volatile__("mov %0, %%cr2" : : "r" (__val)); }
+__FORCELOCAL void (__wrcr3)(__REGISTER_TYPE__ __val) { __asm__ __volatile__("mov %0, %%cr3" : : "r" (__val)); }
+__FORCELOCAL void (__wrcr4)(__REGISTER_TYPE__ __val) { __asm__ __volatile__("mov %0, %%cr4" : : "r" (__val)); }
+
 
 #if !defined(__KERNEL__) || !defined(CONFIG_NO_SMP)
 #define __X86_LOCK_PREFIX "lock;"

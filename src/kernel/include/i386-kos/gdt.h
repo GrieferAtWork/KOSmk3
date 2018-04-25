@@ -273,8 +273,13 @@ typedef u16 segid_t; /* == Segment index*X86_SEG_INDEX_MULTIPLIER */
 #define X86_SEG_KERNEL_LDT   9 /* [0x48] Symbolic kernel LDT (Usually empty). */
 #define X86_SEG_HOST_TLS    10 /* [0x50] Ring #0 thread-local block. */
 #define X86_SEG_USER_TLS    11 /* [0x58] Ring #3 thread-local block. */
+#ifndef CONFIG_NO_DOS_COMPAT
+#define X86_SEG_USER_TIB    12 /* [0x60] Ring #3 thread-information block. (For DOS compatibility) */
+#define X86_SEG_BUILTIN     13
+#else
+#define X86_SEG_BUILTIN     12
+#endif
 
-#define X86_SEG_BUILTIN        12
 #define X86_SEG_MAX            0xffff
 #define X86_SEG_ISBUILTIN(seg) ((seg) < X86_SEG(X86_SEG_BUILTIN))
 
@@ -286,12 +291,44 @@ typedef u16 segid_t; /* == Segment index*X86_SEG_INDEX_MULTIPLIER */
 #define X86_USER_CS       (X86_SEG(X86_SEG_USER_CODE)|3)
 #define X86_HOST_TLS       X86_SEG(X86_SEG_HOST_TLS)     /* Points the current HOST `struct task_segment' and `struct task' */
 #define X86_USER_TLS      (X86_SEG(X86_SEG_USER_TLS)|3)  /* Points the current USER `struct task_segment' */
+#ifndef CONFIG_NO_DOS_COMPAT
+#define X86_USER_TIB      (X86_SEG(X86_SEG_USER_TIB)|3)  /* Points the current USER `struct nt_tib' */
+#endif
 #ifdef __x86_64__
 #define X86_SEG_FS         X86_USER_TLS
 #define X86_SEG_GS         X86_HOST_TLS
+#define X86_SEG_USER_FS    X86_USER_TLS
+#ifndef CONFIG_NO_DOS_COMPAT
+#define X86_SEG_USER_GS    X86_USER_TIB
+#else
+#define X86_SEG_USER_GS    X86_HOST_TLS
+#endif
 #else
 #define X86_SEG_FS         X86_HOST_TLS
 #define X86_SEG_GS         X86_USER_TLS
+#ifndef CONFIG_NO_DOS_COMPAT
+#define X86_SEG_USER_FS    X86_USER_TIB
+#else
+#define X86_SEG_USER_FS    X86_HOST_TLS
+#endif
+#define X86_SEG_USER_GS    X86_USER_TLS
+#endif
+
+#define X86_SEG_USER_CS    X86_USER_CS
+#define X86_SEG_USER_DS    X86_USER_DS
+#define X86_SEG_USER_ES    X86_USER_DS
+#define X86_SEG_USER_SS    X86_USER_DS
+
+#define X86_SEG_HOST_CS    X86_KERNEL_CS
+#define X86_SEG_HOST_DS    X86_KERNEL_DS
+#define X86_SEG_HOST_ES    X86_KERNEL_DS
+#define X86_SEG_HOST_SS    X86_KERNEL_DS
+#ifdef __x86_64__
+#define X86_SEG_HOST_FS    X86_KERNEL_DS
+#define X86_SEG_HOST_GS    X86_HOST_TLS
+#else
+#define X86_SEG_HOST_FS    X86_HOST_TLS
+#define X86_SEG_HOST_GS    X86_KERNEL_DS
 #endif
 
 #ifdef __CC__

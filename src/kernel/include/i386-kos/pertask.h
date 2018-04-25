@@ -20,6 +20,7 @@
 #define GUARD_KERNEL_INCLUDE_I386_KOS_PERTASK_H 1
 
 #include <hybrid/compiler.h>
+#include <kos/i386-kos/tls.h>
 
 #ifdef __CC__
 DECL_BEGIN
@@ -160,6 +161,9 @@ FORCELOCAL ATTR_CONST WUNUSED void *(KCALL __get_per_task)(void *__ptr) {
 /* Set the current value of the user TLS register (the base address of %gs/%fs)
  * NOTE: During a context switch, this is done automatically. */
 FUNDEF void KCALL set_user_tls_register(void *value);
+#ifndef CONFIG_NO_DOS_COMPAT
+FUNDEF void KCALL set_user_tib_register(void *value);
+#endif /* !CONFIG_NO_DOS_COMPAT */
 
 DECL_END
 #endif /* __CC__ */

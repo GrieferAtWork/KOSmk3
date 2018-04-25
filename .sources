@@ -110,7 +110,5 @@ C_FLAGS("-fno-reorder-blocks-and-partition") /* Definitely */
 //C_FLAGS("-fno-rerun-cse-after-loop") /* NOPE#2 */
 //C_FLAGS("-fno-cse-skip-blocks") /* NOPE#2 */
 
-DEFINE("CONFIG_X86_SEGMENTATION")
-
 #include "src/.sources"
 #include "disk/.sources"

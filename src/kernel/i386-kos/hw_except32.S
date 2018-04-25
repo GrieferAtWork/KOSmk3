@@ -40,7 +40,7 @@ INTERN_ENTRY(irq_\id)
 	.cfi_offset %eflags, -1*4
 	.cfi_offset %eip,    -3*4
 	/* Move the exception code above the CPU-state. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi %ss:-(4+X86_GPREGS_SIZE+X86_SEGMENTS_SIZE)(%esp) /* ECODE */
 #else
 	popl_cfi %ss:-(4+X86_GPREGS_SIZE)(%esp) /* ECODE */
@@ -51,13 +51,13 @@ INTERN_ENTRY(irq_\id)
 	.cfi_offset %eip,    -3*4
 .endif
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Save segment registers. */
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 	/* Save general-purpose registers. */
 	pushal_cfi_r
@@ -77,11 +77,11 @@ INTERN_ENTRY(irq_\id)
 #endif
 
 	/* Fix the stack-pointer `c_gpregs.gp_esp'. */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	addl   $(X86_SEGMENTS_SIZE+X86_IRREGS_HOST32_SIZE), X86_GPREGS_OFFSETOF_ESP(%esp)
-#else /* CONFIG_X86_SEGMENTATION */
+#else /* !CONFIG_NO_X86_SEGMENTATION */
 	addl   $(X86_IRREGS_HOST32_SIZE), X86_GPREGS_OFFSETOF_ESP(%esp)
-#endif /* !CONFIG_X86_SEGMENTATION */
+#endif /* CONFIG_NO_X86_SEGMENTATION */
 
 	movl   %esp,     %ecx /* context */
 
@@ -91,12 +91,12 @@ INTERN_ENTRY(irq_\id)
 	/* Reload registers. */
 	popal_cfi_r
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
 	popl_cfi_r %es
 	popl_cfi_r %ds
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	iret
 	.cfi_endproc
 SYMEND(irq_\id)
@@ -126,7 +126,7 @@ INTERN_ENTRY(irq_07)
 	pushl_cfi_r  %ecx
 	pushl_cfi_r  %edx
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	pushl_cfi_r  %ds
 	pushl_cfi_r  %es
 	pushl_cfi_r  %fs
@@ -137,7 +137,7 @@ INTERN_ENTRY(irq_07)
 	/* Try to invoke the FPU interrupt handler. */
 	call   x86_fpu_interrupt_handler
 
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r   %gs
 	popl_cfi_r   %fs
 	popl_cfi_r   %es
@@ -152,13 +152,13 @@ INTERN_ENTRY(irq_07)
 	iret
 	/* If that failed, handle the IRQ as an unhandled interrupt. */
 1:	cli
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	movl   $0,    %ss:-(4+X86_GPREGS_SIZE+X86_SEGMENTS_SIZE)(%esp) /* ECODE */
 	movl   $0x07, %ss:-(8+X86_GPREGS_SIZE+X86_SEGMENTS_SIZE)(%esp) /* INTNO */
-#else /* CONFIG_X86_SEGMENTATION */
+#else /* !CONFIG_NO_X86_SEGMENTATION */
 	movl   $0,    %ss:-(4+X86_GPREGS_SIZE)(%esp) /* ECODE */
 	movl   $0x07, %ss:-(8+X86_GPREGS_SIZE)(%esp) /* INTNO */
-#endif /* !CONFIG_X86_SEGMENTATION */
+#endif /* CONFIG_NO_X86_SEGMENTATION */
 	jmp    irq_common
 	.cfi_endproc
 SYMEND(irq_07)

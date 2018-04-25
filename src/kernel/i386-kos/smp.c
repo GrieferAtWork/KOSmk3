@@ -157,14 +157,14 @@ KCALL smp_allocate_processor(void) {
  bootstrap_state->c_gpregs.gp_ebx  = (uintptr_t)result;          /* EBX: THIS_CPU */
  bootstrap_state->c_gpregs.gp_esi  = (uintptr_t)idle_bootstrap;  /* ESI: THIS_TASK */
  bootstrap_state->c_eip            = (uintptr_t)&x86_smp_task0_entry;
- bootstrap_state->c_iret.ir_cs     = X86_KERNEL_CS;
+ bootstrap_state->c_iret.ir_cs     = X86_SEG_HOST_CS;
  bootstrap_state->c_iret.ir_eflags = EFLAGS_IF;
-#ifdef CONFIG_X86_SEGMENTATION
- bootstrap_state->c_segments.sg_ds = X86_KERNEL_DS;
- bootstrap_state->c_segments.sg_es = X86_KERNEL_DS;
- bootstrap_state->c_segments.sg_fs = X86_SEG_FS;
- bootstrap_state->c_segments.sg_gs = X86_SEG_GS;
-#endif /* CONFIG_X86_SEGMENTATION */
+#ifndef CONFIG_NO_X86_SEGMENTATION
+ bootstrap_state->c_segments.sg_ds = X86_SEG_HOST_DS;
+ bootstrap_state->c_segments.sg_es = X86_SEG_HOST_ES;
+ bootstrap_state->c_segments.sg_fs = X86_SEG_HOST_FS;
+ bootstrap_state->c_segments.sg_gs = X86_SEG_HOST_GS;
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
  /* Also initialize the GDT segment base
   * addresses for the HOST_TLS and TSS segments. */
  { struct x86_segment *tls_segment; struct x86_tss *tss;

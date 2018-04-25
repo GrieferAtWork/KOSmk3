@@ -23,8 +23,12 @@
 #include "dos_crt.h"
 #include "malloc.h"
 #include "rtl.h"
+#include "environ.h"
 #include "heap.h"
+#include "nop.h"
+#include "sched.h"
 #include <hybrid/xch.h>
+#include <kos/environ.h>
 
 DECL_BEGIN
 
@@ -118,22 +122,16 @@ CRT_DOS void LIBCCALL libd_CrtMemCheckpoint(CrtMemState *UNUSED(state)) {
 }
 
 EXPORT(__DSYM(_CrtMemDifference),libd_CrtMemDifference);
-CRT_DOS int LIBCCALL
-libd_CrtMemDifference(CrtMemState *UNUSED(state),
-                      CrtMemState const *UNUSED(oldstate),
-                      CrtMemState const *UNUSED(newstate)) {
- return 0;
-}
+DEFINE_NOP_FUNCTION_ZERO(CRT_DOS,int,libd_CrtMemDifference,
+                        (CrtMemState *UNUSED(state),
+                         CrtMemState const *UNUSED(oldstate),
+                         CrtMemState const *UNUSED(newstate)))
 
 EXPORT(__DSYM(_CrtMemDumpAllObjectsSince),libd_CrtMemDumpAllObjectsSince);
-CRT_DOS void LIBCCALL
-libd_CrtMemDumpAllObjectsSince(CrtMemState const *UNUSED(state)) {
-}
+DEFINE_NOP_FUNCTION_VOID(CRT_DOS,libd_CrtMemDumpAllObjectsSince,(CrtMemState const *UNUSED(state)))
 
 EXPORT(__DSYM(_CrtMemDumpStatistics),libd_CrtMemDumpStatistics);
-CRT_DOS void LIBCCALL
-libd_CrtMemDumpStatistics(CrtMemState const *UNUSED(state)) {
-}
+DEFINE_NOP_FUNCTION_VOID(CRT_DOS,libd_CrtMemDumpStatistics,(CrtMemState const *UNUSED(state)))
 
 EXPORT(__DSYM(_CrtDumpMemoryLeaks),libd_CrtDumpMemoryLeaks);
 CRT_DOS int LIBCCALL libd_CrtDumpMemoryLeaks(void) {
@@ -165,15 +163,11 @@ EXPORT(__DSYM(_CrtSetReportHook2),libd_CrtSetReportHook2);
 EXPORT(__DSYM(_CrtSetReportHookW2),libd_CrtSetReportHookW2);
 
 EXPORT(__DSYM(_CrtSetReportMode),libd_CrtSetReportMode);
-CRT_DOS int LIBCCALL
-libd_CrtSetReportMode(int UNUSED(reporttype), int UNUSED(reportmode)) {
- return 0;
-}
+DEFINE_NOP_FUNCTION_ZERO(CRT_DOS,int,libd_CrtSetReportMode,
+                        (int UNUSED(reporttype), int UNUSED(reportmode)))
 EXPORT(__DSYM(_CrtSetReportFile),libd_CrtSetReportFile);
-CRT_DOS _HFILE LIBCCALL
-libd_CrtSetReportFile(int reporttype, _HFILE reportfile) {
- return 0;
-}
+DEFINE_NOP_FUNCTION_ZERO(CRT_DOS,_HFILE,libd_CrtSetReportFile,
+                        (int UNUSED(reporttype), _HFILE UNUSED(reportfile)))
 
 EXPORT(__DSYM(_CrtDbgReport),libd_CrtDbgReport);
 CRT_DOS int LIBCCALL
@@ -239,8 +233,8 @@ libd_vacopy(char **pdst, char *src) {
 #define FREEA_HEAP_MARKER      0xDDDD
 
 
-EXPORT(_freea,libd_freea);
-EXPORT(_freea_s,libd_freea);
+EXPORT(__DSYM(_freea),libd_freea);
+EXPORT(__DSYM(_freea_s),libd_freea);
 CRT_DOS void LIBCCALL libd_freea(void *ptr) {
  if (ptr) {
   *(uintptr_t *)&ptr -= FREEA_MARKER_SIZE;
@@ -248,6 +242,55 @@ CRT_DOS void LIBCCALL libd_freea(void *ptr) {
       libc_free(ptr);
  }
 }
+
+DEFINE_NOP_FUNCTION_ZERO(CRT_DOS,int,libd_set_error_mode,(int UNUSED(mode)))
+DEFINE_NOP_FUNCTION_VOID(CRT_DOS,libd_set_app_type,(int UNUSED(type)))
+EXPORT(__DSYM(_seterrormode),libd_set_error_mode);
+EXPORT(__DSYM(_set_error_mode),libd_set_error_mode);
+EXPORT(__DSYM(__set_app_type),libd_set_app_type);
+
+
+EXPORT(__DSYM(__getmainargs),libd_getmainargs);
+CRT_DOS int LIBCCALL
+libd_getmainargs(int *pargc, char ***pargv, char ***penvp,
+                 int do_wildcard, dos_startupinfo_t *info) {
+ struct process_environ *proc;
+ proc = libc_procenv();
+ if likely(proc) {
+  if (pargc) *pargc = proc->pe_argc;
+  if (pargv) *pargv = proc->pe_argv;
+  if (penvp) *penvp = proc->pe_envp;
+ } else {
+  if (pargc) *pargc = 1;
+  if (pargv) *pargv = environ;
+  if (penvp) *penvp = environ;
+ }
+ return 0;
+}
+
+EXPORT(__DSYM(_XcptFilter),libd_XcptFilter);
+CRT_DOS int LIBCCALL
+libd_XcptFilter(u32 xno, struct _EXCEPTION_POINTERS *infp_ptrs) {
+ /* XXX: TODO? */
+ return 0;
+}
+
+CRT_DOS EXCEPTION_DISPOSITION LIBCCALL
+libd_except_handler4(struct _EXCEPTION_RECORD *ExceptionRecord,
+                     void *EstablisherFrame,
+                     struct _CONTEXT *ContextRecord,
+                     void *DispatcherContext) {
+ /* ??? What's this supposed to do? */
+ return EXCEPTION_CONTINUE_SEARCH;
+}
+
+EXPORT(__DSYM(_except_handler2),libd_except_handler4);
+EXPORT(__DSYM(_except_handler3),libd_except_handler4);
+EXPORT(__DSYM(_except_handler_3),libd_except_handler4);
+EXPORT(__DSYM(_except_handler4),libd_except_handler4); /* XXX: Are all the others OK? */
+EXPORT(__DSYM(_except_handler4_common),libd_except_handler4);
+
+
 
 
 DECL_END

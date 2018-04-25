@@ -970,7 +970,11 @@ search_heap:
   gfp_t chain_flags;
   /* Search this bucket. */
   chain = *iter;
-  while (chain && MFREE_SIZE(chain) < result.hp_siz)
+  while (chain &&
+        (assertf(IS_ALIGNED(MFREE_SIZE(chain),HEAP_ALIGNMENT),
+                           "MFREE_SIZE(chain) = 0x%Ix",
+                            MFREE_SIZE(chain)),
+         MFREE_SIZE(chain) < result.hp_siz))
          chain = chain->mf_lsize.le_next;
   if (!chain) continue;
   asserte(mfree_tree_remove(&self->h_addr,MFREE_BEGIN(chain)) == chain);
@@ -982,6 +986,7 @@ search_heap:
 #endif /* CONFIG_HEAP_TRACE_DANGLE */
   atomic_rwlock_endwrite(&self->h_lock);
   heap_validate_all();
+  assert(IS_ALIGNED(dangle_size,HEAP_ALIGNMENT));
   /* We've got the memory! */
   result.hp_ptr = (void *)chain;
   chain_flags = chain->mf_flags;
@@ -1392,7 +1397,11 @@ heap_align_untraced(struct heap *__restrict self,
 #endif /* CONFIG_HEAP_TRACE_DANGLE */
    /* Search this bucket. */
    chain = *iter;
-   while (chain && MFREE_SIZE(chain) < alloc_bytes)
+   while (chain &&
+         (assertf(IS_ALIGNED(MFREE_SIZE(chain),HEAP_ALIGNMENT),
+                            "MFREE_SIZE(chain) = 0x%Ix",
+                             MFREE_SIZE(chain)),
+          MFREE_SIZE(chain) < alloc_bytes))
           chain = chain->mf_lsize.le_next;
    if (!chain) continue;
    /* Check if this chain entry can sustain our required alignment. */

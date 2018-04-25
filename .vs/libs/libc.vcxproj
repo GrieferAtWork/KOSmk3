@@ -93,6 +93,7 @@
     <ClInclude Include="..\..\src\libs\libc\malloc.h" />
     <ClInclude Include="..\..\src\libs\libc\misc.h" />
     <ClInclude Include="..\..\src\libs\libc\mount.h" />
+    <ClInclude Include="..\..\src\libs\libc\nop.h" />
     <ClInclude Include="..\..\src\libs\libc\posix_signal.h" />
     <ClInclude Include="..\..\src\libs\libc\regex.h" />
     <ClInclude Include="..\..\src\libs\libc\rtl.h" />

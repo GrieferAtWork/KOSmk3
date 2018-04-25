@@ -278,7 +278,7 @@ int main(int argc, char *argv[]) {
  if (fork() == 0)
      Xexecl("/bin/hybrid-demo.exe","hybrid-demo.exe",(char *)NULL);
 
- kernctl(KERNEL_CONTROL_TRACE_SYSCALLS_OFF);
+//  kernctl(KERNEL_CONTROL_TRACE_SYSCALLS_OFF);
  sched_yield();
  sched_yield();
  sched_yield();
@@ -352,14 +352,14 @@ pid_t start_thread(void *(*func)(void *arg), void *arg) {
  context.c_gpregs.gp_edx  = (uintptr_t)arg;
  context.c_gpregs.gp_ecx  = (uintptr_t)func;
  context.c_gpregs.gp_eax  = 0;
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
  context.c_segments.sg_gs = 0;
  context.c_segments.sg_fs = 0;
  context.c_segments.sg_es = 0;
  context.c_segments.sg_ds = 0;
  context.c_cs             = 0;
  context.c_ss             = 0;
-#endif /* CONFIG_X86_SEGMENTATION */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
  context.c_eip            = (uintptr_t)&thread_entry;
  context.c_eflags         = 0;
 

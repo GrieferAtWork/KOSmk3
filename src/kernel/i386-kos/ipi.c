@@ -27,6 +27,7 @@
 #include <i386-kos/apic.h>
 #include <i386-kos/ipi.h>
 #include <i386-kos/interrupt.h>
+#include <i386-kos/fpu.h>
 #include <kernel/debug.h>
 #include <kernel/interrupt.h>
 #include <kernel/vm.h>
@@ -137,70 +138,73 @@ x86_ipi_handle(struct x86_ipi const *__restrict ipi,
   } else if (TASK_ISTERMINATING(thread)) {
    /* The thread is dead (or dying). */
    *ipi->ipi_unschedule.us_status = X86_IPI_UNSCHEDULE_DEAD;
-  } else if (thread != THIS_TASK) {
-   /* Make sure to load pending tasks first, just in case
-    * the given thread hasn't actually been started, yet. */
-   x86_scheduler_loadpending();
-   COMPILER_BARRIER();
-   /* Simple case: Unschedule some secondary thread. */
-   if (thread->t_state & TASK_STATE_FSLEEPING) {
-    LIST_REMOVE(thread,t_sched.sched_list);
-   } else {
-    RING_REMOVE(thread,t_sched.sched_ring);
-   }
-   /* Successfully unscheduled the thread.
-    * The sender of the IPI must now inherit the
-    * reference that used to be held by the scheduler. */
-   *ipi->ipi_unschedule.us_status = X86_IPI_UNSCHEDULE_OK;
   } else {
-   /* Special case: The interrupted thread should be unscheduled.
-    * In this case we must check if it's the last thread, as well
-    * as do some pretty complicated stuff to acknowledge the
-    * unscheduling before atomically switching to the next task. */
-   struct task *sched_next;
-   assert(!(thread->t_state & TASK_STATE_FSLEEPING));
-   /* TODO: Save the FPU context */
-   sched_next = thread->t_sched.sched_ring.re_next;
-   if (sched_next == thread) {
-    /* TODO: Once implemented, check if we can load threads
-     *       with the `TASK_STATE_FIDLETHREAD' flag set. */
-    /* Special case: the current thread is the last one being hosted
-     *               by the CPU, meaning we can't take take it away. */
-    *ipi->ipi_unschedule.us_status = X86_IPI_UNSCHEDULE_LAST;
+   /* Save the FPU context of the thread (if it used the FPU) */
+   x86_fpu_save_thread(thread);
+   if (thread != THIS_TASK) {
+    /* Make sure to load pending tasks first, just in case
+     * the given thread hasn't actually been started, yet. */
+    x86_scheduler_loadpending();
+    COMPILER_BARRIER();
+    /* Simple case: Unschedule some secondary thread. */
+    if (thread->t_state & TASK_STATE_FSLEEPING) {
+     LIST_REMOVE(thread,t_sched.sched_list);
+    } else {
+     RING_REMOVE(thread,t_sched.sched_ring);
+    }
+    /* Successfully unscheduled the thread.
+     * The sender of the IPI must now inherit the
+     * reference that used to be held by the scheduler. */
+    *ipi->ipi_unschedule.us_status = X86_IPI_UNSCHEDULE_OK;
    } else {
-    /* Atomically switch to the next task. */
-    RING_REMOVE(thread,t_sched.sched_ring);
-    /* Set the next pending thread as the one now actively running. */
-    THIS_CPU->c_running = sched_next;
-    __asm__ __volatile__ goto("pushfl\n"                         /* IRET.EFLAGS */
-                              "orl    %[eflags_if], (%%esp)\n"   /* IRET.EFLAGS */
-                              "pushl  %%cs\n"                    /* IRET.CS */
-                              "pushl  $%l5\n"                    /* IRET.EIP */
-#ifdef CONFIG_X86_SEGMENTATION
-                              "pushl  %%ds\n"                    /* SEGMENTS.DS */
-                              "pushl  %%es\n"                    /* SEGMENTS.ES */
-                              "pushl  %%fs\n"                    /* SEGMENTS.FS */
-                              "pushl  %%gs\n"                    /* SEGMENTS.GS */
-#endif /* CONFIG_X86_SEGMENTATION */
-                              "pushal\n"                         /* GPREGS */
-                              /* Saved the IRET tail that we just generated. */
-                              "movl   %%esp, %%" PP_STR(__ASM_TASK_SEGMENT) ":" PP_STR(TASK_OFFSETOF_CONTEXT) "\n"
-                              /* Indicate a successful unschedule. */
-                              "movl   %[status_ok], %[status]\n"
-                              /* Resume execution in this CPU by loading the next thread */
-                              "jmp    x86_load_context"
-                              :
-                              : [next]      "c" (sched_next)
-                              , [physdir]   "d" ((uintptr_t)thread->t_vm->vm_physdir)
-                              , [status]    "m" (*ipi->ipi_unschedule.us_status)
-                              , [eflags_if] "i" (EFLAGS_IF)
-                              , [status_ok] "i" (X86_IPI_UNSCHEDULE_OK)
-                              : "memory", "cc", "esp"
-                              : newcpu_continue);
+    /* Special case: The interrupted thread should be unscheduled.
+     * In this case we must check if it's the last thread, as well
+     * as do some pretty complicated stuff to acknowledge the
+     * unscheduling before atomically switching to the next task. */
+    struct task *sched_next;
+    assert(!(thread->t_state & TASK_STATE_FSLEEPING));
+    sched_next = thread->t_sched.sched_ring.re_next;
+    if (sched_next == thread) {
+     /* TODO: Once implemented, check if we can load threads
+      *       with the `TASK_STATE_FIDLETHREAD' flag set. */
+     /* Special case: the current thread is the last one being hosted
+      *               by the CPU, meaning we can't take take it away. */
+     *ipi->ipi_unschedule.us_status = X86_IPI_UNSCHEDULE_LAST;
+    } else {
+     /* Atomically switch to the next task. */
+     RING_REMOVE(thread,t_sched.sched_ring);
+     /* Set the next pending thread as the one now actively running. */
+     THIS_CPU->c_running = sched_next;
+     __asm__ __volatile__ goto("pushfl\n\t"                         /* IRET.EFLAGS */
+                               "orl    %[eflags_if], (%%esp)\n\t"   /* IRET.EFLAGS */
+                               "pushl  %%cs\n\t"                    /* IRET.CS */
+                               "pushl  $%l5\n\t"                    /* IRET.EIP */
+#ifndef CONFIG_NO_X86_SEGMENTATION
+                               "pushl  %%ds\n\t"                    /* SEGMENTS.DS */
+                               "pushl  %%es\n\t"                    /* SEGMENTS.ES */
+                               "pushl  %%fs\n\t"                    /* SEGMENTS.FS */
+                               "pushl  %%gs\n\t"                    /* SEGMENTS.GS */
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
+                               "pushal\n\t"                         /* GPREGS */
+                               /* Saved the IRET tail that we just generated. */
+                               "movl   %%esp, %%" PP_STR(__ASM_TASK_SEGMENT) ":" PP_STR(TASK_OFFSETOF_CONTEXT) "\n\t"
+                               /* Indicate a successful unschedule. */
+                               "movl   %[status_ok], %[status]\n\t"
+                               /* Resume execution in this CPU by loading the next thread */
+                               "jmp    x86_load_context"
+                               :
+                               : [next]      "c" (sched_next)
+                               , [physdir]   "d" ((uintptr_t)thread->t_vm->vm_physdir)
+                               , [status]    "m" (*ipi->ipi_unschedule.us_status)
+                               , [eflags_if] "i" (EFLAGS_IF)
+                               , [status_ok] "i" (X86_IPI_UNSCHEDULE_OK)
+                               : "memory", "cc", "esp"
+                               : newcpu_continue);
 newcpu_continue:
-    /* This is where the calling thread continues
-     * execution within the context of the new CPU. */
-    return X86_IPI_STOP;
+     /* This is where the calling thread continues
+      * execution within the context of the new CPU. */
+     return X86_IPI_STOP;
+    }
    }
   }
  } break;
@@ -269,9 +273,9 @@ newcpu_continue:
 #if 1
    /* Because STI only enables interrupts after the next instruction,
     * this code actually doesn't introduce a race condition. */
-   __asm__ __volatile__("sti\n" /* Enable interrupts so we can receive `X86_IPI_RESUME_CPU' */
-                        "hlt\n" /* Wait for interrupts. */
-                        "cli\n" /* Disable interrupts again. */
+   __asm__ __volatile__("sti\n\t" /* Enable interrupts so we can receive `X86_IPI_RESUME_CPU' */
+                        "hlt\n\t" /* Wait for interrupts. */
+                        "cli"     /* Disable interrupts again. */
                         :
                         :
                         : "memory");

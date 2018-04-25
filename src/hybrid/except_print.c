@@ -641,37 +641,37 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
         INFO->e_context.c_gpregs.gp_edi);
 #endif /* !__x86_64__ */
 #ifdef __KERNEL__
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
  PRINTF("CS %.4IX DS %.4IX ES %.4IX FS %.4IX GS %.4IX\n",
         INFO->e_context.c_iret.ir_cs,
         INFO->e_context.c_segments.sg_ds,
         INFO->e_context.c_segments.sg_es,
         INFO->e_context.c_segments.sg_fs,
         INFO->e_context.c_segments.sg_gs);
-#else /* CONFIG_X86_SEGMENTATION */
+#else /* !CONFIG_NO_X86_SEGMENTATION */
 #define GETREG(name) XBLOCK({ register register_t v; __asm__("movl %" name ", %0" : "=r" (v)); XRETURN v; })
  PRINTF("CS %.4IX DS %.4IX ES %.4IX FS %.4IX GS %.4IX\n",
         INFO->e_context.c_iret.ir_cs,
         GETREG("%ds"),GETREG("%es"),
         GETREG("%fs"),GETREG("%gs"));
 #undef GETREG
-#endif /* !CONFIG_X86_SEGMENTATION */
+#endif /* CONFIG_NO_X86_SEGMENTATION */
 #else /* __KERNEL__ */
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
  PRINTF("CS %.4IX DS %.4IX ES %.4IX FS %.4IX GS %.4IX\n",
         INFO->e_context.c_cs,
         INFO->e_context.c_segments.sg_ds,
         INFO->e_context.c_segments.sg_es,
         INFO->e_context.c_segments.sg_fs,
         INFO->e_context.c_segments.sg_gs);
-#else /* CONFIG_X86_SEGMENTATION */
+#else /* !CONFIG_NO_X86_SEGMENTATION */
 #define GETREG(name) XBLOCK({ register register_t v; __asm__("movl %" name ", %0" : "=r" (v)); XRETURN v; })
  PRINTF("CS %.4IX DS %.4IX ES %.4IX FS %.4IX GS %.4IX\n",
         GETREG("%cs"),GETREG("%ds"),
         GETREG("%es"),GETREG("%fs"),
         GETREG("%gs"));
 #undef GETREG
-#endif /* !CONFIG_X86_SEGMENTATION */
+#endif /* CONFIG_NO_X86_SEGMENTATION */
 #endif /* !__KERNEL__ */
  PRINTF("EFLAGS %p",INFO->e_context.c_eflags);
  {

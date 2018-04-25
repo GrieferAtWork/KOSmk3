@@ -230,7 +230,7 @@ x86_modrm_getmem(struct cpu_anycontext *__restrict context,
  if (modrm->mi_index != 0xff)
      result += X86_GPREG(*context,modrm->mi_index) << modrm->mi_shift;
  switch (flags & F_SEGMASK) {
-#ifdef CONFIG_X86_SEGMENTATION
+#ifndef CONFIG_NO_X86_SEGMENTATION
  case F_SEGDS: result += get_segment_base(context,context->c_segments.sg_ds); break;
  case F_SEGES: result += get_segment_base(context,context->c_segments.sg_es); break;
  case F_SEGFS: result += get_segment_base(context,context->c_segments.sg_fs); break;

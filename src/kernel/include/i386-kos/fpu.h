@@ -41,11 +41,15 @@ FUNDEF void KCALL x86_fpu_reset(void);
 
 /* Save the current FPU state if it has been
  * modified and no longer matches `x86_fpu_context'.
- * If the FPU state has been initialized and `x86_fpu_context'
- * hasn't been allocated yet, allocate it now.
  * @return: false: The FPU wasn't initialized, and `x86_fpu_context' wasn't allocated.
- * @return: true:  `x86_fpu_context' is allocated and is up-to-date. */
-FUNDEF bool KCALL x86_fpu_save(void);
+ * @return: true:  `x86_fpu_context' was allocated and is up-to-date. */
+FUNDEF ATTR_NOTHROW bool KCALL x86_fpu_save(void);
+
+/* If `thread' was modified and holds the current FPU
+ * context on the calling CPU, save its context.
+ * @return: false: The FPU wasn't initialized, and `x86_fpu_context' wasn't allocated.
+ * @return: true:  `x86_fpu_context' was allocated and is up-to-date. */
+FUNDEF NOIRQ ATTR_NOTHROW bool KCALL x86_fpu_save_thread(struct task *__restrict thread);
 
 /* Reconfigure the FPU to either load `x86_fpu_context' lazily, or
  * load `x86_fpu_context' now. Either way, a previously active FPU
