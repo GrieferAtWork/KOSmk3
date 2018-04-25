@@ -28,7 +28,7 @@
 #include "sched.h"
 #include "exit.h"
 #include "system.h"
-#include "stdio/file.h"
+#include "stdio.h"
 
 #include <hybrid/compiler.h>
 #include <kos/context.h>
@@ -170,6 +170,12 @@ libc_error_unhandled_exception(void) {
  
  /* Dump exception information */
  libc_error_printf(NULL);
+
+ /* Flush stdio buffers so that everything written
+  * by `libc_error_printf()' gets flushed. */
+#ifdef CONFIG_LIBC_USES_NEW_STDIO
+ FileBuffer_FlushAllBuffers();
+#endif /* CONFIG_LIBC_USES_NEW_STDIO */
 
  if (thread->ts_state & THREAD_STATE_FALONE)
      sys_exit(1); /* Only exit the thread. */

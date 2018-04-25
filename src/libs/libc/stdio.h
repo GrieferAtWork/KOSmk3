@@ -26,6 +26,7 @@
 #include <hybrid/atomic.h>
 #include <hybrid/list/list.h>
 #include <kos/sched/mutex.h>
+#include <stdbool.h>
 
 #undef CONFIG_LIBC_USES_NEW_STDIO
 #define CONFIG_LIBC_USES_NEW_STDIO 1
@@ -206,6 +207,7 @@ INTDEF void LIBCCALL FileBuffer_AddChangedTTY(FileBuffer *__restrict self);
 INTDEF void LIBCCALL FileBuffer_RemoveChangedTTY(FileBuffer *__restrict self);
 INTDEF void LIBCCALL FileBuffer_Register(FileBuffer *__restrict self);
 INTDEF void LIBCCALL FileBuffer_Unregister(FileBuffer *__restrict self);
+INTDEF bool LIBCCALL FileBuffer_IsATTY(FileBuffer *__restrict self);
 
 /* FileBuffer I/O Core functions. */
 INTDEF size_t LIBCCALL FileBuffer_ReadUnlocked(FileBuffer *__restrict self, void *__restrict buffer, size_t bufsize);

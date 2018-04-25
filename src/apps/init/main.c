@@ -275,8 +275,10 @@ int main(int argc, char *argv[]) {
 
  Xkernctl(KERNEL_CONTROL_INSMOD,"/mod/pe.mod",NULL);
 
+#if 0
  if (fork() == 0)
      Xexecl("/bin/hybrid-demo.exe","hybrid-demo.exe",(char *)NULL);
+#endif
 
 //  kernctl(KERNEL_CONTROL_TRACE_SYSCALLS_OFF);
  sched_yield();

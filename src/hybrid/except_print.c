@@ -271,6 +271,7 @@ handle_kind_name(char buf[HANDLE_KIND_NAME_BUFSIZE], u16 type) {
 
 
 #ifdef __KERNEL__
+#define TTY_PRINTF(...) (void)0
 #define PRINTF(...) debug_printf(__VA_ARGS__)
 INTERN void KCALL kernel_print_exception(void)
 #else
@@ -291,14 +292,41 @@ exception_printf(FILE *fp, char const *__restrict format, ...) {
  exception_vprintf(fp,format,args);
  va_end(args);
 }
-#define VPRINTF(f,a) exception_vprintf(fp,f,a)
-#define PRINTF(...)  exception_printf(fp,__VA_ARGS__)
+PRIVATE void ATTR_CDECL
+exception_tty_printf(FILE *fp, char const *__restrict format, ...) {
+ va_list args;
+ va_start(args,format);
+ LIBC_TRY {
+  if (FileBuffer_IsATTY(fp))
+      libc_vfprintf(fp,format,args);
+ } LIBC_EXCEPT(EXCEPT_EXECUTE_HANDLER) {
+  /* Ignore other exceptions in here... */
+ }
+ va_end(args);
+}
+#define TTY_PRINTF(...) exception_tty_printf(fp,__VA_ARGS__)
+#define VPRINTF(f,a)    exception_vprintf(fp,f,a)
+#define PRINTF(...)     exception_printf(fp,__VA_ARGS__)
 #elif 1
-#define VPRINTF(f,a) libc_vsyslog(LOG_ERROR,f,a)
-#define PRINTF(...)  libc_syslog(LOG_ERROR,##__VA_ARGS__)
+#define TTY_PRINTF(...) (void)0
+#define VPRINTF(f,a)    libc_vsyslog(LOG_ERROR,f,a)
+#define PRINTF(...)     libc_syslog(LOG_ERROR,##__VA_ARGS__)
 #else
-#define VPRINTF(f,a) libc_vfprintf(fp,f,a)
-#define PRINTF(...)  libc_fprintf(fp,##__VA_ARGS__)
+PRIVATE void ATTR_CDECL
+exception_tty_printf(FILE *fp, char const *__restrict format, ...) {
+ va_list args;
+ va_start(args,format);
+ LIBC_TRY {
+  if (FileBuffer_IsATTY(fp))
+      libc_vfprintf(fp,format,args);
+ } LIBC_EXCEPT(EXCEPT_EXECUTE_HANDLER) {
+  /* Ignore other exceptions in here... */
+ }
+ va_end(args);
+}
+#define TTY_PRINTF(...) exception_tty_printf(fp,__VA_ARGS__)
+#define VPRINTF(f,a)    libc_vfprintf(fp,f,a)
+#define PRINTF(...)     libc_fprintf(fp,##__VA_ARGS__)
 #endif
 INTERN void LIBCCALL
 libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
@@ -313,11 +341,13 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
 #define INFO   (&info_struct)
  struct exception_info info_struct; u16 code;
  if (!fp) fp = libc_stderr;
+ TTY_PRINTF("\e[31;100m"); /* Red on dark gray */
  if (reason)
   VPRINTF(reason,args);
  else {
   PRINTF("Unhandled exception:\n");
  }
+ TTY_PRINTF("\e[0m"); /* Reset */
 #endif
  code = error_code();
  PRINTF("\tcode:  %I16u (%I16x)\n",code,code);
@@ -337,6 +367,7 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
          cpuid == 0 ? " (boot CPU)" : "");
  }
  /* Print exception-specific information. */
+ TTY_PRINTF("\e[36m"); /* Cyan */
  switch (code) {
 
  case E_NONCONTINUABLE:
@@ -622,6 +653,7 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
 
  default: break;
  }
+ TTY_PRINTF("\e[0m"); /* Reset */
  /* Print an arch-specific register state. */
 #if defined(__x86_64__) || defined(__i386__)
 #ifdef __x86_64__
@@ -766,6 +798,7 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
  }
 #endif
 
+ TTY_PRINTF("\e[37;1m"); /* Bright white */
 #ifdef __KERNEL__
  TRY {
   bool is_first = true;
@@ -847,6 +880,7 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
  /* Copy back exception information in case it got overwritten in the mean time. */
  libc_memcpy(libc_error_info(),INFO,sizeof(struct exception_info));
 #endif
+ TTY_PRINTF("\e[0m"); /* Reset */
 #undef INFO
 }
 

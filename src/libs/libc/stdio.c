@@ -56,42 +56,69 @@ FileBuffer_SetError(FileBuffer *__restrict self) {
 
 
 CRT_STDIO size_t LIBCCALL
-FileBuffer_SystemRead(FileBuffer *__restrict self,
-                      void *buffer, size_t bufsize) {
- ssize_t result;
- if likely(!FileBuffer_HasCookie(self))
-    return libc_Xread(self->fb_file,buffer,bufsize);
- if (!self->fb_ops.cio_read) return 0;
- result = (*self->fb_ops.cio_read)(self->fb_arg,
-                                  (char *)buffer,
-                                   bufsize);
- if unlikely(result < 0)
-    libc_throw_io_error();
+FileBuffer_SystemRead(FileBuffer *__restrict self_,
+                      void *buffer_, size_t bufsize_) {
+ FileBuffer *EXCEPT_VAR self = self_;
+ void *EXCEPT_VAR buffer = buffer_;
+ size_t EXCEPT_VAR bufsize = bufsize_;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+again:
+ LIBC_TRY {
+  if likely(!FileBuffer_HasCookie(self))
+     return libc_Xread(self->fb_file,buffer,bufsize);
+  if (!self->fb_ops.cio_read) return 0;
+  result = (*self->fb_ops.cio_read)(self->fb_arg,
+                                   (char *)buffer,
+                                    bufsize);
+  if unlikely(result < 0)
+     libc_throw_io_error();
+ } LIBC_CATCH (E_INTERRUPT) {
+  /* Deal with interruptions */
+  goto again;
+ }
  return (size_t)result;
 }
 CRT_STDIO size_t LIBCCALL
-FileBuffer_SystemWrite(FileBuffer *__restrict self,
-                       void const *buffer, size_t bufsize) {
- ssize_t result;
- if likely(!FileBuffer_HasCookie(self))
-    return libc_Xwrite(self->fb_file,buffer,bufsize);
- if (!self->fb_ops.cio_write) return bufsize;
- result = (*self->fb_ops.cio_write)(self->fb_arg,
-                                   (char *)buffer,
-                                    bufsize);
- if unlikely(result < 0)
-    libc_throw_io_error();
+FileBuffer_SystemWrite(FileBuffer *__restrict self_,
+                       void const *buffer_, size_t bufsize_) {
+ FileBuffer *EXCEPT_VAR self = self_;
+ void const *EXCEPT_VAR buffer = buffer_;
+ size_t EXCEPT_VAR bufsize = bufsize_;
+ ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
+again:
+ LIBC_TRY {
+  if likely(!FileBuffer_HasCookie(self))
+     return libc_Xwrite(self->fb_file,buffer,bufsize);
+  if (!self->fb_ops.cio_write) return 0;
+  result = (*self->fb_ops.cio_write)(self->fb_arg,
+                                    (char *)buffer,
+                                     bufsize);
+  if unlikely(result < 0)
+     libc_throw_io_error();
+ } LIBC_CATCH (E_INTERRUPT) {
+  /* Deal with interruptions */
+  goto again;
+ }
  return (size_t)result;
 }
 CRT_STDIO pos64_t LIBCCALL
-FileBuffer_SystemSeek(FileBuffer *__restrict self,
-                      off64_t offset, int whence) {
- if likely(!self->fb_ops.cio_seek)
-    return libc_Xlseek64(self->fb_file,offset,whence);
- if (!self->fb_ops.cio_seek)
-    libc_error_throw(E_NOT_IMPLEMENTED);
- if unlikely((*self->fb_ops.cio_seek)(self->fb_arg,&offset,whence) < 0)
-    libc_throw_io_error();
+FileBuffer_SystemSeek(FileBuffer *__restrict self_,
+                      off64_t offset_, int whence_) {
+ FileBuffer *EXCEPT_VAR self = self_;
+ off64_t EXCEPT_VAR offset = offset_;
+ int EXCEPT_VAR whence = whence_;
+again:
+ TRY {
+  if likely(!self->fb_ops.cio_seek)
+     return libc_Xlseek64(self->fb_file,offset,whence);
+  if (!self->fb_ops.cio_seek)
+     libc_error_throw(E_NOT_IMPLEMENTED);
+  if unlikely((*self->fb_ops.cio_seek)(self->fb_arg,(off64_t *)&offset,whence) < 0)
+     libc_throw_io_error();
+ } LIBC_CATCH (E_INTERRUPT) {
+  /* Deal with interruptions */
+  goto again;
+ }
  return (pos64_t)offset;
 }
 CRT_STDIO int LIBCCALL
@@ -150,6 +177,14 @@ FileBuffer_Unregister(FileBuffer *__restrict self) {
  all_buffers_lock_enter();
  LIST_REMOVE(self,fb_files);
  all_buffers_lock_leave();
+}
+
+
+EXPORT(fisatty,FileBuffer_IsATTY); /* KOS extension function (isatty() for `FILE *') */
+CRT_STDIO bool LIBCCALL
+FileBuffer_IsATTY(FileBuffer *__restrict self) {
+ FileBuffer_XCheckTTY(self);
+ return !!(self->fb_flag & FILE_BUFFER_FISATTY);
 }
 
 

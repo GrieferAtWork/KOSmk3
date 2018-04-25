@@ -291,8 +291,10 @@ threadgroup_fini(struct task *__restrict thread) {
             "us alive with their `pg_leader' pointers");
     /* Drop a reference from the process's session (if that was ever assigned) */
     if (pgroup->pg_master.m_session &&
-        pgroup->pg_master.m_session != thread)
-        task_decref(pgroup->pg_master.m_session);
+        pgroup->pg_master.m_session != thread) {
+     /* XXX: Remove from the chain of process groups found in this session? */
+     task_decref(pgroup->pg_master.m_session);
+    }
    } else {
     struct processgroup *leadergroup;
     /* Remove this process from its process group. */
@@ -484,6 +486,9 @@ task_set_group(struct task *__restrict thread,
    assert(old_session_leader);
    task_incref(old_session_leader);
    atomic_rwlock_endwrite(&old_pgroup->pg_lock);
+  } else {
+   /* XXX: Remove `old_group' from the chain of process groups associated
+    *      with the session in `old_pgroup->pg_master.m_session'? */
   }
 
   if (new_group != thread) {
@@ -502,6 +507,7 @@ task_set_group(struct task *__restrict thread,
    assert(old_session_leader);
    pgroup->pg_master.m_members = NULL;
    pgroup->pg_master.m_session = old_session_leader;
+   /* XXX: Add to the chain of process groups of this session? */
    old_session_leader = NULL;
   }
   /* Set the new group leader in the associated group descriptor. */
@@ -683,6 +689,7 @@ PUBLIC ATTR_NOTHROW bool KCALL task_set_session(void) {
  /* Set the process as the leader of its own group and session. */
  pgroup->pg_leader           = get_this_process();
  pgroup->pg_master.m_session = pgroup->pg_leader;
+ /* XXX: Clear the chain of sessions members? */
  pgroup->pg_master.m_members = NULL; /* No additional members, yet. */
  atomic_rwlock_endwrite(&pgroup->pg_lock);
  /* Drop a reference from the old leader (inherited from `pgroup->pg_leader') */
