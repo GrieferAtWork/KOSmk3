@@ -509,7 +509,7 @@ again:
                                                   GFP_SHARED|GFP_CALLOC);
   } CATCH (E_BADALLOC) {
    atomic_rwlock_write(&map->dm_lock);
-   if (map->dm_mapv != NULL) goto use_map;
+   if (map->dm_mapv != NULL) { error_handled(); goto use_map; }
    atomic_rwlock_endwrite(&map->dm_lock);
    error_rethrow();
   }
@@ -894,10 +894,12 @@ do_rehash:
       new_map = (struct block_page *)kmalloc((new_mask+1)*sizeof(struct block_page),
                                               GFP_SHARED|GFP_LOCKED|
                                               GFP_NOSWAP|GFP_NOFS|GFP_CALLOC);
-     } CATCH(E_BADALLOC) {
+     } CATCH (E_BADALLOC) {
       /* If the buffer isn't completely full, then we can simply ignore a bad allocation. */
-      if (xself->b_pagebuf.ps_mapc != xself->b_pagebuf.ps_mapm)
-          goto increment_count;
+      if (xself->b_pagebuf.ps_mapc != xself->b_pagebuf.ps_mapm) {
+       error_handled();
+       goto increment_count;
+      }
       error_rethrow();
      }
 
@@ -1243,7 +1245,7 @@ device_add_to_devfs(struct device *__restrict dev) {
                          dev->d_devno,
                          false);
   inode_decref(node);
- } CATCH (E_FILESYSTEM_ERROR) {
+ } CATCH_HANDLED (E_FILESYSTEM_ERROR) {
  }
 }
 PUBLIC void KCALL
@@ -1260,7 +1262,7 @@ device_remove_from_devfs(struct device *__restrict dev) {
                    directory_entry_hash(dev->d_name,namlen),
                    DIRECTORY_REMOVE_FREGULAR,
                    NULL);
- } CATCH (E_FILESYSTEM_ERROR) {
+ } CATCH_HANDLED (E_FILESYSTEM_ERROR) {
  }
 }
 

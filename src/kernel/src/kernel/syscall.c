@@ -469,7 +469,7 @@ print_name:
   } break;
   }
 
- } CATCH (E_SEGFAULT) {
+ } CATCH_HANDLED (E_SEGFAULT) {
  }
 }
 

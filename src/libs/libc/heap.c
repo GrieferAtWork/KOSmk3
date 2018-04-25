@@ -100,7 +100,7 @@ quick_verify_mfree(struct mfree *__restrict self) {
   if (!IS_ALIGNED(self->mf_size,HEAP_ALIGNMENT)) return false;
   if (*self->mf_lsize.le_pself != self) return false;
   return true;
- } CATCH (E_SEGFAULT) {
+ } CATCH_HANDLED (E_SEGFAULT) {
  }
  return false;
 }

@@ -412,6 +412,7 @@ Pe_PatchApp(struct module_patcher *__restrict self) {
    } CATCH (E_FILESYSTEM_ERROR) {
     if (error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_FILE_NOT_FOUND &&
         memcasecmp(pImportFilename,"msvcr",5*sizeof(char)) == 0) {
+     error_handled();
      /* Substitute msvcr* libraries with `libc.so'. */
      pDependency = patcher_require_string(xself,"libc.so",7);
     } else {
@@ -541,6 +542,7 @@ restart_rel_iter:
       if (!(error_info()->e_error.e_segfault.sf_reason & X86_SEGFAULT_FWRITE))
             error_rethrow();
 #endif
+      error_handled();
       COMPILER_BARRIER();
       make_writable(pPeModule,pLoadAddr,pApp);
       COMPILER_BARRIER();

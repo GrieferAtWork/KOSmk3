@@ -236,7 +236,7 @@ continue_search:
    COMPILER_READ_BARRIER();
    /* Check if this is a heap pointer, and if so: mark it as reachable. */
    result += mall_reachable_pointer(ptr);
-  } CATCH (E_SEGFAULT) {
+  } CATCH_HANDLED (E_SEGFAULT) {
    /* Page isn't allocated. -> Just skip it! */
    uintptr_t skip_bytes;
    skip_bytes = PAGESIZE-((uintptr_t)iter & (PAGESIZE-1));
@@ -815,7 +815,7 @@ mall_register(gfp_t flags, struct heapptr pointer,
 #endif
       continue; /* Skip the slow FINDFDE and EH_RETURN below. */
      }
-    } CATCH (E_SEGFAULT) {
+    } CATCH_HANDLED (E_SEGFAULT) {
     }
 #endif
 #ifdef CONFIG_ONLY_SIMPLE_TRACEBACKS
@@ -825,7 +825,7 @@ mall_register(gfp_t flags, struct heapptr pointer,
     if (!eh_return(&fde,allocator_context,EH_FNORMAL)) break;
 #endif
    }
-  } CATCH (E_SEGFAULT) {
+  } CATCH_HANDLED (E_SEGFAULT) {
   }
 #endif
   memcpy(error_info(),&info,sizeof(struct exception_info));

@@ -403,7 +403,7 @@ libc_malloc_f(size_t num_bytes) {
      return malloc_failed();
  TRY {
   ptr = libc_heap_alloc_untraced(&mheap,total,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)ptr.hp_ptr;
@@ -422,7 +422,7 @@ libc_calloc_f(size_t count, size_t num_bytes) {
      return malloc_failed();
  TRY {
   ptr = libc_heap_alloc_untraced(&mheap,total,GFP_CALLOC);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)ptr.hp_ptr;
@@ -439,7 +439,7 @@ libc_memalign_f(size_t min_alignment, size_t num_bytes) {
      return malloc_failed();
  TRY {
   ptr = libc_heap_align_untraced(&mheap,min_alignment,sizeof(struct mptr),total,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)ptr.hp_ptr;
@@ -456,7 +456,7 @@ libc_memalign_offset_f(size_t min_alignment, size_t num_bytes, ptrdiff_t offset)
      return malloc_failed();
  TRY {
   ptr = libc_heap_align_untraced(&mheap,min_alignment,offset+sizeof(struct mptr),total,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)ptr.hp_ptr;
@@ -473,7 +473,7 @@ libc_memcalign_f(size_t min_alignment, size_t num_bytes) {
      return malloc_failed();
  TRY {
   ptr = libc_heap_align_untraced(&mheap,min_alignment,sizeof(struct mptr),total,GFP_CALLOC);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)ptr.hp_ptr;
@@ -490,7 +490,7 @@ libc_memcalign_offset_f(size_t min_alignment, size_t num_bytes, ptrdiff_t offset
      return malloc_failed();
  TRY {
   ptr = libc_heap_align_untraced(&mheap,min_alignment,offset+sizeof(struct mptr),total,GFP_CALLOC);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)ptr.hp_ptr;
@@ -520,7 +520,7 @@ libc_realloc_f(void *ptr, size_t num_bytes) {
  result = ((struct mptr *)ptr)-1;
  TRY {
   newptr = libc_heap_realloc_untraced(&mheap,result,result->m_size,total,0,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)newptr.hp_ptr;
@@ -539,7 +539,7 @@ libc_recalloc_f(void *ptr, size_t num_bytes) {
  result = ((struct mptr *)ptr)-1;
  TRY {
   newptr = libc_heap_realloc_untraced(&mheap,result,result->m_size,total,GFP_CALLOC,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)newptr.hp_ptr;
@@ -559,7 +559,7 @@ libc_realign_f(void *ptr, size_t min_alignment, size_t num_bytes) {
  TRY {
   newptr = libc_heap_realign_untraced(&mheap,result,result->m_size,min_alignment,
                               sizeof(struct mptr),total,0,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)newptr.hp_ptr;
@@ -579,7 +579,7 @@ libc_recalign_f(void *ptr, size_t min_alignment, size_t num_bytes) {
  TRY {
   newptr = libc_heap_realign_untraced(&mheap,result,result->m_size,min_alignment,
                               sizeof(struct mptr),total,GFP_CALLOC,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)newptr.hp_ptr;
@@ -599,7 +599,7 @@ libc_realign_offset_f(void *ptr, size_t min_alignment, size_t num_bytes, ptrdiff
  TRY {
   newptr = libc_heap_realign_untraced(&mheap,result,result->m_size,min_alignment,
                               offset+sizeof(struct mptr),total,0,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)newptr.hp_ptr;
@@ -619,7 +619,7 @@ libc_recalign_offset_f(void *ptr, size_t min_alignment, size_t num_bytes, ptrdif
  TRY {
   newptr = libc_heap_realign_untraced(&mheap,result,result->m_size,min_alignment,
                               offset+sizeof(struct mptr),total,GFP_CALLOC,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)newptr.hp_ptr;
@@ -643,7 +643,7 @@ compare:
   TRY {
    more_bytes = libc_heap_allat_untraced(&mheap,(void *)((uintptr_t)result+result->m_size),
                                  total-result->m_size,0);
-  } CATCH (E_BADALLOC) {
+  } CATCH_HANDLED (E_BADALLOC) {
    return malloc_failed();
   }
   if (!more_bytes)
@@ -678,7 +678,7 @@ compare:
   TRY {
    more_bytes = libc_heap_allat_untraced(&mheap,(void *)((uintptr_t)result+result->m_size),
                                  total-result->m_size,GFP_CALLOC);
-  } CATCH (E_BADALLOC) {
+  } CATCH_HANDLED (E_BADALLOC) {
    return malloc_failed();
   }
   if (!more_bytes)

@@ -489,7 +489,7 @@ got_regions:
        TRY {
         result_high = vm_getfree(hint,num_pages,page_alignment,
                                  gap_pages,mode);
-       } CATCH (E_BADALLOC) {
+       } CATCH_HANDLED (E_BADALLOC) {
         /* If there is no high-location, still check for one in lower memory. */
         result = vm_getfree(hint,num_pages,page_alignment,
                             gap_pages,mode|VM_GETFREE_FBELOW);
@@ -513,7 +513,7 @@ got_regions:
 #undef DIFF_TO
          /* Choose the mapping with the smaller distance. */
          result = low_diff <= high_diff ? result_low : result_high;
-        } CATCH (E_BADALLOC) {
+        } CATCH_HANDLED (E_BADALLOC) {
          result = result_high; /* Use the high-memory location. */
         }
        }
@@ -668,7 +668,7 @@ DEFINE_SYSCALL5(mremap,
     /* Move the range to a new location. */
     TRY {
      result = vm_getfree(old_page,new_size,1,0,VM_GETFREE_FABOVE);
-    } CATCH (E_BADALLOC) {
+    } CATCH_HANDLED (E_BADALLOC) {
      result = vm_getfree(old_page,new_size,1,0,VM_GETFREE_FBELOW);
     }
     /* Got a new location! */

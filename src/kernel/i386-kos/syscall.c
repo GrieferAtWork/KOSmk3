@@ -223,7 +223,7 @@ x86_throw_bad_syscall_sysenter(struct bad_syscall_sysenter_info *__restrict sysc
    arg4 = ((uintptr_t *)syscall->si_ebp)[0];
    arg5 = ((uintptr_t *)syscall->si_ebp)[1];
    COMPILER_READ_BARRIER();
-  } CATCH (E_SEGFAULT) {
+  } CATCH_HANDLED (E_SEGFAULT) {
   }
  }
  memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));

@@ -200,7 +200,7 @@ Fat_ReadFromCluster(struct superblock *__restrict self,
    COMPILER_WRITE_BARRIER();
    cluster = Fat_GetFatIndirection(self,cluster,flags);
   }
- } CATCH (E_WOULDBLOCK) {
+ } CATCH_HANDLED (E_WOULDBLOCK) {
   result -= bufsize;
  }
  return result;
@@ -260,7 +260,7 @@ Fat_WriteToCluster(struct superblock *__restrict self,
     cluster = next_index;
    }
   }
- } CATCH (E_WOULDBLOCK) {
+ } CATCH_HANDLED (E_WOULDBLOCK) {
   result -= bufsize;
  }
  return result;
@@ -554,7 +554,7 @@ create_cluster:
      data->i_clusterv = (FatClusterIndex *)krealloc(data->i_clusterv,new_alloc*
                                                     sizeof(FatClusterIndex),
                                                     GFP_SHARED);
-    } CATCH (E_BADALLOC) {
+    } CATCH_HANDLED (E_BADALLOC) {
      /* Try to allocate the minimum increment. */
      new_alloc = data->i_clusterc+1;
      data->i_clusterv = (FatClusterIndex *)krealloc(data->i_clusterv,new_alloc*
@@ -910,7 +910,7 @@ FatDirectory_AllocFreeRange(FatNode *__restrict node) {
   vector = (FatDirectoryFreeRange *)krealloc(vector,new_alloc*
                                              sizeof(FatDirectoryFreeRange),
                                              GFP_SHARED|GFP_NOFS);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   /* Try with minimal increment. */
   new_alloc = node->i_directory.i_freec+1;
   vector = (FatDirectoryFreeRange *)krealloc(vector,new_alloc*

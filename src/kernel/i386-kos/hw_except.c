@@ -178,7 +178,7 @@ again:
          } else {
           vm_ok = x86_handle_vio(xcontext,vio_region,vio_addr,fault_address);
          }
-        } CATCH (E_NOT_IMPLEMENTED) {
+        } CATCH_HANDLED (E_NOT_IMPLEMENTED) {
          vm_ok = false;
         }
        } FINALLY {
@@ -242,7 +242,7 @@ again:
    /* If the VM says the error is OK, return without throwing a SEGFAULT. */
    if (vm_ok)
        return;
-  } CATCH (E_INTERRUPT) {
+  } CATCH_HANDLED (E_INTERRUPT) {
    /* Deal with interrupt restarts. */
    task_restart_interrupt(xcontext);
    goto again;
@@ -340,7 +340,7 @@ restart_syscall:
     ++*pesp; /* Consume the addressed pushed by `call' */
     CONTEXT_IP(*xcontext) = return_ip;
    }
-  } CATCH (E_SEGFAULT) {
+  } CATCH_HANDLED (E_SEGFAULT) {
   }
  }
 #endif
@@ -399,7 +399,7 @@ x86_handle_divide_by_zero(struct x86_anycontext *__restrict context) {
   } else {
    arg = 0;
   }
- } CATCH (E_SEGFAULT) {
+ } CATCH_HANDLED (E_SEGFAULT) {
  }
 default_divide:
  /* Construct and emit an DIVIDE_BY_ZERO exception. */
@@ -523,13 +523,9 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
      };
      struct frame *f;
      f = (struct frame *)dup.c_gpregs.gp_ebp;
-     TRY {
-      dup.c_eip           = (uintptr_t)f->f_return;
-      dup.c_esp           = (uintptr_t)(f+1);
-      dup.c_gpregs.gp_ebp = (uintptr_t)f->f_caller;
-     } CATCH (E_SEGFAULT) {
-      break;
-     }
+     dup.c_eip           = (uintptr_t)f->f_return;
+     dup.c_esp           = (uintptr_t)(f+1);
+     dup.c_gpregs.gp_ebp = (uintptr_t)f->f_caller;
 #else
      break;
 #endif
@@ -607,7 +603,7 @@ x86_handle_overflow(struct x86_anycontext *__restrict context) {
     if (instruction_byte == 0xcd)
         is_after_faulting = true; /* `int $4' */
    }
-  } CATCH (E_SEGFAULT) {
+  } CATCH_HANDLED (E_SEGFAULT) {
   }
   /* Throw the error. */
   if (!is_after_faulting)
@@ -666,8 +662,7 @@ x86_handle_bound(struct x86_anycontext *__restrict context) {
    info->e_error.e_index_error.b_boundmax = high;
   }
   info->e_error.e_index_error.b_index = X86_GPREG(*context,modrm.mi_reg);
- } CATCH (E_SEGFAULT) {
-  goto do_throw_error;
+ } CATCH_HANDLED (E_SEGFAULT) {
  }
 
 do_throw_error:

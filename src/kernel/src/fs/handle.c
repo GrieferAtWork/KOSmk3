@@ -808,7 +808,7 @@ unbound_handle:
   TRY {
    result.h_object.o_path = vfs_drive((u8)((unsigned int)fd-
                                            (unsigned int)HANDLE_SYMBOLIC_DRIVE_ROOT('A')));
-  } CATCH (E_FILESYSTEM_ERROR) {
+  } CATCH_HANDLED (E_FILESYSTEM_ERROR) {
    goto unbound_handle;
   }
   break;

@@ -58,7 +58,7 @@ INTERN void FCALL private_error_continue(int retry) {
  TRY {
   context.e_context.c_eip = retry ? (uintptr_t)libc_prev_instruction((void *)context.e_context.c_eip)
                                   : (uintptr_t)libc_next_instruction((void *)context.e_context.c_eip);
- } CATCH (E_SEGFAULT) {
+ } CATCH_HANDLED (E_SEGFAULT) {
   /* Restore the saved context */
   libc_memcpy(info,(void *)&context,sizeof(struct exception_info));
   goto non_continuable;

@@ -292,7 +292,7 @@ int main(int argc, char *argv[]) {
              "sh",
              "-i",
              (char *)NULL);
-  CATCH (E_INTERRUPT) { }
+  CATCH_HANDLED (E_INTERRUPT) { }
   syslog(LOG_DEBUG,"\n\nCATCH INTERRUPT\n\n\n");
  }
 }

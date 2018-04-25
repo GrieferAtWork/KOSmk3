@@ -322,7 +322,7 @@ next_byte:
  instruction = 0;
 extend_instruction:
  TRY instruction |= *text++;
- CATCH (E_SEGFAULT) goto fail;
+ CATCH_HANDLED (E_SEGFAULT) goto fail;
  switch (instruction) {
  case 0x66: flags |= F_OP16; goto next_byte;
  case 0x67: flags |= F_AD16; goto next_byte;

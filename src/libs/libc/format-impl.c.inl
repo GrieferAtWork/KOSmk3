@@ -307,7 +307,7 @@ libc_XstringX(printer_print)(T_char const *__restrict data,
   /* Reallocate the buffer (But include 1 character for the terminating '\0') */
   LIBC_TRY {
    new_buffer = (T_char *)libc_Xrealloc(self->sp_buffer,(newsize+1)*sizeof(T_char));
-  } LIBC_CATCH (E_BADALLOC) {
+  } LIBC_CATCH_HANDLED (E_BADALLOC) {
    newsize    = reqsize;
    new_buffer = (T_char *)libc_Xrealloc(self->sp_buffer,(newsize+1)*sizeof(T_char));
   }
@@ -1525,7 +1525,7 @@ LIBCCALL libc_stringX(Xstrdupf_printer)(T_char const *__restrict data, size_t da
   /* Realloc the strdup string */
   LIBC_TRY {
    newiter = (T_char *)libc_Xrealloc(fmt->start,(newsize+1)*sizeof(T_char));
-  } LIBC_CATCH (E_BADALLOC) {
+  } LIBC_CATCH_HANDLED (E_BADALLOC) {
    /* If there isn't enough memory, retry
     * with a smaller buffer before giving up. */
    newsize = (fmt->end-fmt->start)+datalen;
@@ -1548,7 +1548,7 @@ PRIVATE ATTR_RETNONNULL ATTR_MALLOC T_char *(LIBCCALL libc_XvstrX(dupf_l_impl))
  ssize_t error;
  LIBC_TRY {
   data.start = (T_char *)libc_Xmalloc((format_length+1)*sizeof(T_char));
- } LIBC_CATCH(E_BADALLOC) {
+ } LIBC_CATCH_HANDLED (E_BADALLOC) {
   /* Failed to allocate initial buffer (try with a smaller one) */
   data.start = (T_char *)libc_Xmalloc(2*sizeof(T_char));
   format_length = 1;

@@ -171,7 +171,7 @@ quick_verify_mfree(struct mfree *__restrict self) {
   if (!IS_ALIGNED(self->mf_size,HEAP_ALIGNMENT)) return false;
   if (*self->mf_lsize.le_pself != self) return false;
   return true;
- } CATCH (E_SEGFAULT) {
+ } CATCH_HANDLED (E_SEGFAULT) {
  }
  return false;
 }
@@ -1112,7 +1112,7 @@ search_heap:
   TRY {
    page_bytes &= ~(PAGESIZE-1);
    pageaddr    = core_page_alloc(self,page_bytes/PAGESIZE,flags);
-  } CATCH(E_BADALLOC) {
+  } CATCH_HANDLED (E_BADALLOC) {
 allocate_without_overalloc:
    /* Try again without overallocation. */
    page_bytes  = result.hp_siz + (PAGESIZE-1);

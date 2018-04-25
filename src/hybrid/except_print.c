@@ -842,14 +842,10 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
          void         *f_return;
      };
      struct frame *f;
-     TRY {
-      f = (struct frame *)context.c_gpregs.gp_ebp;
-      context.c_eip           = (uintptr_t)f->f_return;
-      context.c_esp           = (uintptr_t)(f+1);
-      context.c_gpregs.gp_ebp = (uintptr_t)f->f_caller;
-     } CATCH (E_SEGFAULT) {
-      break;
-     }
+     f = (struct frame *)context.c_gpregs.gp_ebp;
+     context.c_eip           = (uintptr_t)f->f_return;
+     context.c_esp           = (uintptr_t)(f+1);
+     context.c_gpregs.gp_ebp = (uintptr_t)f->f_caller;
  #else
      break;
  #endif

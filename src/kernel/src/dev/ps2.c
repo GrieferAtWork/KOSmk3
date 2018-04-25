@@ -246,7 +246,7 @@ again:
  TRY {
   new_vector = (struct ps2_callback *)kmalloc((old_count-1)*sizeof(struct ps2_callback),
                                                GFP_SHARED);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   /* Replace the given `buffer' with `&stub_buffer' */
   atomic_rwlock_write(&xself->bv_lock);
   if (ATOMIC_READ(xself->bv_bufv) != old_vector ||

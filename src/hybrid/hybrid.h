@@ -20,8 +20,9 @@
 #define GUARD_HYBRID_HYBRID_H 1
 #define _KOS_SOURCE 2
 #define _GNU_SOURCE 1
-#define error_code()  libc_error_code()
-#define error_info()  libc_error_info()
+#define error_code()     libc_error_code()
+#define error_info()     libc_error_info()
+#define error_handled()  libc_error_handled()
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
@@ -112,13 +113,17 @@ DECL_BEGIN
 #define LIBC_FINALLY              FINALLY
 #define LIBC_FINALLY_WILL_RETHROW FINALLY_WILL_RETHROW
 #define LIBC_EXCEPT               EXCEPT
+#define LIBC_EXCEPT_HANDLED       EXCEPT_HANDLED
 #define LIBC_CATCH                CATCH
+#define LIBC_CATCH_HANDLED        CATCH_HANDLED
 #else
 #define LIBC_TRY                  /* nothing */
 #define LIBC_FINALLY              /* nothing */
 #define LIBC_FINALLY_WILL_RETHROW 0
 #define LIBC_EXCEPT(x)            if(0)
+#define LIBC_EXCEPT_HANDLED(x)    if(0)
 #define LIBC_CATCH(x)             if(0)
+#define LIBC_CATCH_HANDLED(x)     if(0)
 #endif
 
 #ifndef __errno_t_defined
@@ -916,6 +921,8 @@ INTDEF bool FCALL libc_error_throw_current(void);
 INTDEF ATTR_NORETURN void FCALL libc_error_rethrow(void);
 INTDEF ATTR_NORETURN void FCALL libc_error_continue(int retry);
 INTDEF void FCALL libc_error_except(int mode);
+INTDEF size_t FCALL libc_error_dealloc_continue(void);
+INTDEF void FCALL libc_error_handled(void);
 INTDEF u16 (FCALL libc_error_code)(void);
 INTDEF ATTR_NORETURN void FCALL libc_error_unhandled_exception(void);
 INTDEF ATTR_NORETURN void FCALL libc_error_rethrow_at(struct cpu_context *__restrict context, int ip_is_after_faulting);

@@ -121,7 +121,7 @@ again:
   TRY {
    new_vector = (struct rpc_slot *)kmalloc(new_alloc*sizeof(struct rpc_slot),
                                            GFP_SHARED);
-  } CATCH (E_BADALLOC) {
+  } CATCH_HANDLED (E_BADALLOC) {
    /* Try half the size */
    new_alloc = (new_alloc/2)+1;
    new_vector = (struct rpc_slot *)kmalloc(new_alloc*sizeof(struct rpc_slot),

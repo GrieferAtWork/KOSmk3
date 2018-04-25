@@ -1349,7 +1349,7 @@ retry_loadroot:
                          DL_OPEN_FGLOBAL,
                          "/lib:/usr/lib" /* XXX: This should be taken from environ. */
                          );
-   } CATCH (E_INTERRUPT) {
+   } CATCH_HANDLED (E_INTERRUPT) {
     task_serve_before_user(xcontext,
                            TASK_USERCTX_TYPE_WITHINUSERCODE);
     goto retry_loadroot;
@@ -1382,7 +1382,7 @@ retry_loadenv:
     } FINALLY {
      vm_release(THIS_VM);
     }
-   } CATCH (E_INTERRUPT) {
+   } CATCH_HANDLED (E_INTERRUPT) {
     task_serve_before_user(xcontext,
                            TASK_USERCTX_TYPE_WITHINUSERCODE);
     goto retry_loadenv;
@@ -1400,7 +1400,7 @@ retry_environ_relocate:
   TRY {
    /* Relocate the environment table to its proper address. */
    environ_relocate(environ_address);
-  } CATCH (E_INTERRUPT) {
+  } CATCH_HANDLED (E_INTERRUPT) {
    task_serve_before_user(xcontext,
                           TASK_USERCTX_TYPE_WITHINUSERCODE);
    goto retry_environ_relocate;
@@ -1431,7 +1431,7 @@ retry_final_setup:
    /* Queue execution of library initializers
     * for all currently loaded modules. */
    vm_apps_initall(xcontext);
-  } CATCH (E_INTERRUPT) {
+  } CATCH_HANDLED (E_INTERRUPT) {
    task_serve_before_user(xcontext,
                           TASK_USERCTX_TYPE_WITHINUSERCODE);
    goto retry_final_setup;
@@ -1574,7 +1574,7 @@ scan_again:
     } FINALLY {
      handle_decref(hnd);
     }
-   } CATCH (E_INVALID_HANDLE) {
+   } CATCH_HANDLED (E_INVALID_HANDLE) {
     xufds[i].revents = POLLERR;
    }
   }

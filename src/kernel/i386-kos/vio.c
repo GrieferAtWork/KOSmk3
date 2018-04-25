@@ -1120,7 +1120,10 @@ next_byte:
  opcode = 0;
 extend_instruction:
  TRY opcode |= *text++;
- CATCH (E_SEGFAULT) goto fail;
+ CATCH_HANDLED (E_SEGFAULT) {
+  error_handled();
+  goto fail;
+ }
 #if 0
  debug_printf("OPCODE = %I32X (%p)\n",opcode,text-1);
 #endif
@@ -1622,11 +1625,11 @@ extend_instruction:
    /* call r/m32 */
    if (flags & F_OP16) {
     TRY *--(*(u16 **)&X86_ANYCONTEXT32_ESP(*context)) = (u16)CONTEXT_IP(*context);
-    CATCH (E_SEGFAULT) goto fail;
+    CATCH_HANDLED (E_SEGFAULT) goto fail;
     CONTEXT_IP(*context) = (uintptr_t)vio_readw(ops,closure,addr);
    } else {
     TRY *--(*(uintptr_t **)&X86_ANYCONTEXT32_ESP(*context)) = CONTEXT_IP(*context);
-    CATCH (E_SEGFAULT) goto fail;
+    CATCH_HANDLED (E_SEGFAULT) goto fail;
 #ifdef __x86_64__
     CONTEXT_IP(*context) = (uintptr_t)vio_readq(ops,closure,addr);
 #else
@@ -1657,11 +1660,11 @@ extend_instruction:
    if (flags & F_OP16) {
     u16 value = vio_readw(ops,closure,addr);
     TRY *--(*(u16 **)&X86_ANYCONTEXT32_ESP(*context)) = value;
-    CATCH (E_SEGFAULT) goto fail;
+    CATCH_HANDLED (E_SEGFAULT) goto fail;
    } else {       
     u32 value = vio_readw(ops,closure,addr);
     TRY *--(*(u32 **)&X86_ANYCONTEXT32_ESP(*context)) = value;
-    CATCH (E_SEGFAULT) goto fail;
+    CATCH_HANDLED (E_SEGFAULT) goto fail;
    }
    goto ok;
 
@@ -1681,12 +1684,12 @@ extend_instruction:
    if (flags & F_OP16) {
     u16 COMPILER_IGNORE_UNINITIALIZED(value);
     TRY value = *(*(u16 **)&X86_ANYCONTEXT32_ESP(*context))++;
-    CATCH (E_SEGFAULT) goto fail;
+    CATCH_HANDLED (E_SEGFAULT) goto fail;
     vio_writew(ops,closure,addr,value);
    } else {
     u32 COMPILER_IGNORE_UNINITIALIZED(value);
     TRY value = *(*(u32 **)&X86_ANYCONTEXT32_ESP(*context))++;
-    CATCH (E_SEGFAULT) goto fail;
+    CATCH_HANDLED (E_SEGFAULT) goto fail;
     vio_writel(ops,closure,addr,value);
    }
    goto ok;

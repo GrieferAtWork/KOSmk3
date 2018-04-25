@@ -354,7 +354,8 @@ struct __ATTR_PACKED exception_data_invalid_segment {
 
 
 
-#define __EXCEPTION_RT_DATA_SIZE   __SIZEOF_POINTER__
+#define __EXCEPTION_RT_DATA_OFFSETOF_FREE_SP 0
+#define __EXCEPTION_RT_DATA_SIZE             __SIZEOF_POINTER__
 #ifdef __CC__
 struct __ATTR_PACKED exception_rt_data {
     __UINTPTR_TYPE__     xrt_free_sp; /* The stack pointer up to which stack data

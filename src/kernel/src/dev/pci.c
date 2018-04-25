@@ -236,7 +236,7 @@ struct pci_device *KCALL RegisterPCIDevice(pci_addr_t addr) {
                result->pd_revid);
   SLIST_INSERT(pci_list,result,pd_chain);
   return result;
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   if (result) {
    kfree(result);
    result = NULL;

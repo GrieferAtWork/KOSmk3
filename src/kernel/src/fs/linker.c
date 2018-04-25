@@ -268,7 +268,7 @@ again:
    new_apps = (struct vmapps *)kmalloc(offsetof(struct vmapps,va_apps)+
                                        new_alloc*sizeof(WEAK REF struct application *),
                                        GFP_SHARED);
-  } CATCH (E_BADALLOC) {
+  } CATCH_HANDLED (E_BADALLOC) {
    /* Try again with a minimal buffer increment. */
    new_alloc = count+1;
    new_apps = (struct vmapps *)kmalloc(offsetof(struct vmapps,va_apps)+
@@ -934,6 +934,7 @@ got_application:
                                                                  GFP_SHARED);
    } CATCH (E_BADALLOC) {
     if (new_alloc == xself->mp_requirec+1) error_rethrow();
+    error_handled();
     new_alloc = xself->mp_requirec+1;
     xself->mp_requirev = (WEAK REF struct application **)krealloc(xself->mp_requirev,new_alloc*
                                                                   sizeof(WEAK REF struct application *),
@@ -1037,6 +1038,7 @@ next_part:
        info->e_error.e_filesystem_error.fs_errcode != ERROR_FS_PATH_NOT_FOUND)
        error_rethrow();
    COMPILER_BARRIER();
+   error_handled();
    if (ch) {
     p = ++end;
     goto next_part;
@@ -1073,6 +1075,7 @@ next_rootpart:
   if (info->e_error.e_filesystem_error.fs_errcode != ERROR_FS_NOT_A_DIRECTORY &&
       info->e_error.e_filesystem_error.fs_errcode != ERROR_FS_PATH_NOT_FOUND)
       error_rethrow();
+  error_handled();
  }
  COMPILER_BARRIER();
  if (ch) {

@@ -936,7 +936,7 @@ libc_Xxw16frealpathat2(fd_t dfd, char16_t const *path, int flags,
   mbstate_t state = MBSTATE_INIT;
   LIBC_TRY {
    temp = libc_Xxfrealpathat(dfd,path8,flags,tempbuf,sizeof(tempbuf),type);
-  } LIBC_CATCH (E_BUFFER_TOO_SMALL) {
+  } LIBC_CATCH_HANDLED (E_BUFFER_TOO_SMALL) {
    temp = libc_Xxfrealpathat(dfd,path8,flags,NULL,0,type);
   }
   result = libc_Xutf8to16(temp,(size_t)-1,buf,bufsize,&state,
@@ -962,7 +962,7 @@ libc_Xxw32frealpathat2(fd_t dfd, char32_t const *path, int flags,
   mbstate_t state = MBSTATE_INIT;
   LIBC_TRY {
    temp = libc_Xxfrealpathat(dfd,path8,flags,tempbuf,sizeof(tempbuf),type);
-  } LIBC_CATCH (E_BUFFER_TOO_SMALL) {
+  } LIBC_CATCH_HANDLED (E_BUFFER_TOO_SMALL) {
    temp = libc_Xxfrealpathat(dfd,path8,flags,NULL,0,type);
   }
   result = libc_Xutf8to32(temp,(size_t)-1,buf,bufsize,&state,

@@ -124,7 +124,7 @@ block_device_do_autopart(struct block_device *__restrict self,
      block_device_decref(part);
     }
    }
-  } CATCH (E_INVALID_ARGUMENT) {
+  } CATCH_HANDLED (E_INVALID_ARGUMENT) {
    /* Invalid partition. */
   }
  }

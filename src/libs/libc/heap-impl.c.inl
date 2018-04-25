@@ -779,7 +779,7 @@ without_random:
   TRY {
    page_bytes   &= ~(PAGESIZE-1);
    result.hp_ptr = HSYM(core_page_alloc)(self,page_bytes,flags);
-  } CATCH(E_BADALLOC) {
+  } CATCH_HANDLED (E_BADALLOC) {
 allocate_without_overalloc:
    /* Try again without overallocation. */
    page_bytes    = result.hp_siz + (PAGESIZE-1);

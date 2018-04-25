@@ -1095,8 +1095,10 @@ vm_unmap(vm_vpage_t page, size_t num_pages,
    vm_split_before(effective_vm,page);
    vm_split_before(effective_vm,page+num_pages);
   } CATCH (E_BADALLOC) {
-   if (mode & VM_UNMAP_NOEXCEPT)
-       goto done_unlock;
+   if (mode & VM_UNMAP_NOEXCEPT) {
+    error_handled();
+    goto done_unlock;
+   }
    error_rethrow();
   }
   /* Pop all nodes in the affected range. */

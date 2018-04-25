@@ -463,7 +463,7 @@ libc_Xsystem(char const *command) {
    error = libc_Xwaitpid(child,&status,WEXITED);
    if (error == child)
        return status;
-  } LIBC_CATCH (E_INTERRUPT) {
+  } LIBC_CATCH_HANDLED (E_INTERRUPT) {
   }
  }
 }

@@ -142,6 +142,22 @@ __LIBC __ATTR_CONST __ATTR_RETNONNULL struct exception_info *(__FCALL error_info
  *       unhandled exceptions, you must simply override this symbol. */
 __LIBC __ATTR_NORETURN void (__FCALL error_unhandled_exception)(void);
 
+/* Deallocate continue information if possible.
+ * This function should be called prior to re-attempting an operation
+ * in situations where an operation is to be re-attempted, should it
+ * have failed before then.
+ * WARNING: This function operates by moving the stack-pointer before
+ *          returning, however will not do so if additional stack-memory
+ *          has been allocated since execution returned to the location
+ *          to the exception handler.
+ * @return: * : The number of deallocated bytes of stack memory. */
+__LIBC __SIZE_TYPE__ (__FCALL error_dealloc_continue)(void);
+
+/* Same as `error_dealloc_continue()', but carrying a slightly
+ * more obvious name that should easily imply its meaning.... */
+__LIBC void (__FCALL error_handled)(void);
+
+
 
 #ifndef __errno_t_defined
 #define __errno_t_defined 1
@@ -248,6 +264,7 @@ __LIBC void const *(__FCALL __rtl_prev_instruction)(void const *__restrict ip);
 #define __ERROR_CURRENT_RETHROW  error_rethrow
 #define __ERROR_CURRENT_CONTINUE error_continue
 #define __ERROR_CURRENT_EXCEPT   error_except
+#define __ERROR_CURRENT_HANDLED  error_handled
 #endif /* !__ERROR_CURRENT_RETHROW */
 
 /* High-level try/finally/except macros.
@@ -261,12 +278,16 @@ extern bool FINALLY_WILL_RETHROW;
 #define TRY                   if(0)
 #define FINALLY               else
 #define EXCEPT                else if
+#define EXCEPT_HANDLED        else if
 #define CATCH                 else if
+#define CATCH_HANDLED         else if
 #else
 #define TRY                   __try
 #define FINALLY               __finally
 #define EXCEPT                __except
+#define EXCEPT_HANDLED        __except
 #define CATCH                 __except /* Same semantics, but different behavior. */
+#define CATCH_HANDLED         __except /* Same semantics, but different behavior. */
 #endif
 #elif defined(__TPP_SECOND_PASS)
 /* Special case: TPP is invoked during a second preprocessing pass.
@@ -280,6 +301,8 @@ extern bool FINALLY_WILL_RETHROW;
 #define FINALLY              FINALLY
 #define EXCEPT               EXCEPT
 #define CATCH                CATCH
+#define EXCEPT_HANDLED       EXCEPT_HANDLED
+#define CATCH_HANDLED        CATCH_HANDLED
 #elif defined(__TPP_VERSION__)
 /* Use self-redefining macros to implement a
  * recursive way of independently defining labels.
@@ -337,10 +360,26 @@ extern bool FINALLY_WILL_RETHROW;
      __builtin_unreachable(); \
  } else __IF1; else __TRY_INDIRECTION_ENTRY: \
    if((__EXCEPT_CLOBBER_REGS(),__builtin_constant_p(mode) ? \
-     ((mode) == EXCEPT_CONTINUE_SEARCH ? (__ERROR_CURRENT_RETHROW(),0) : \
-      (mode) == EXCEPT_EXECUTE_HANDLER ? 0 : \
+     ((mode) == EXCEPT_EXECUTE_HANDLER ? 0 : \
       (__ERROR_CURRENT_CONTINUE((mode) == EXCEPT_CONTINUE_RETRY),0)) : \
        __ERROR_CURRENT_EXCEPT(mode),0)); else __TRY_INDIRECTION_DECREMENT()
+#define EXCEPT_HANDLED(mode) \
+ else{} \
+ __EXCEPT_BARRIER(); \
+ __IF0 { \
+ __TRY_INDIRECTION_END: \
+     if (!__builtin_constant_p(mode) || (mode) != EXCEPT_CONTINUE_SEARCH) { \
+         __DEFINE_EXCEPT_HANDLER(__TRY_INDIRECTION_BEGIN, \
+                                 __TRY_INDIRECTION_END, \
+                                 __TRY_INDIRECTION_ENTRY) \
+     } \
+     __builtin_unreachable(); \
+ } else __IF1; else __TRY_INDIRECTION_ENTRY: \
+   if((__EXCEPT_CLOBBER_REGS(),__builtin_constant_p(mode) ? \
+     ((mode) == EXCEPT_EXECUTE_HANDLER ? 0 : \
+      (__ERROR_CURRENT_CONTINUE((mode) == EXCEPT_CONTINUE_RETRY),0)) : \
+       __ERROR_CURRENT_EXCEPT(mode),__ERROR_CURRENT_HANDLED(),0)); \
+   else __TRY_INDIRECTION_DECREMENT()
 #define CATCH(error) \
  else{} \
  __EXCEPT_BARRIER(); \
@@ -358,10 +397,30 @@ extern bool FINALLY_WILL_RETHROW;
      } \
      __builtin_unreachable(); \
  } else __IF1; else __TRY_INDIRECTION_ENTRY: \
-   if((__EXCEPT_CLOBBER_REGS(), \
-       __builtin_constant_p(error) ? 0 : \
+   if((__EXCEPT_CLOBBER_REGS(),__builtin_constant_p(error) ? 0 : \
       (__ERROR_CURRENT_EXCEPT(error_code() == error),0))); \
    else  __TRY_INDIRECTION_DECREMENT()
+#define CATCH_HANDLED(error) \
+ else{} \
+ __EXCEPT_BARRIER(); \
+ __IF0 { \
+ __TRY_INDIRECTION_END: \
+     if (__builtin_constant_p(error)) { \
+         __DEFINE_CATCH_HANDLER(__TRY_INDIRECTION_BEGIN, \
+                                __TRY_INDIRECTION_END, \
+                                __TRY_INDIRECTION_ENTRY, \
+                                error) \
+     } else { \
+         __DEFINE_EXCEPT_HANDLER(__TRY_INDIRECTION_BEGIN, \
+                                 __TRY_INDIRECTION_END, \
+                                 __TRY_INDIRECTION_ENTRY) \
+     } \
+     __builtin_unreachable(); \
+ } else __IF1; else __TRY_INDIRECTION_ENTRY: \
+   if((__EXCEPT_CLOBBER_REGS(),__builtin_constant_p(error) ? 0 : \
+      (__ERROR_CURRENT_EXCEPT(error_code() == error), \
+       __ERROR_CURRENT_HANDLED(),0))); \
+   else __TRY_INDIRECTION_DECREMENT()
 #else
 #define __TRY_LABEL_LINE1 __PP_CAT2(__try_label_entry1_,__LINE__)
 #define __TRY_LABEL_LINE2 __PP_CAT2(__try_label_entry2_,__LINE__)
@@ -378,7 +437,6 @@ extern bool FINALLY_WILL_RETHROW;
         __IF1
 #define FINALLY_WILL_RETHROW  __rethrow
 
-#if 1
 #define FINALLY \
         else{} \
         __EXCEPT_BARRIER(); \
@@ -402,10 +460,23 @@ extern bool FINALLY_WILL_RETHROW;
                                     __TRY_LABEL_LINE1) \
         } \
  } else __TRY_LABEL_LINE1:if((__EXCEPT_CLOBBER_REGS(),__builtin_constant_p(mode) ? \
-                            ((mode) == EXCEPT_CONTINUE_SEARCH ? (__ERROR_CURRENT_RETHROW(),0) : \
-                             (mode) == EXCEPT_EXECUTE_HANDLER ? 0 : \
-                             (__ERROR_CURRENT_CONTINUE((mode) == EXCEPT_CONTINUE_RETRY),0)) : \
-                             (__ERROR_CURRENT_EXCEPT(mode),0))); else 
+                            ((mode) == EXCEPT_EXECUTE_HANDLER ? 0 : \
+                              __ERROR_CURRENT_CONTINUE((mode) == EXCEPT_CONTINUE_RETRY)) : \
+                              __ERROR_CURRENT_EXCEPT(mode),0)); else 
+#define EXCEPT_HANDLED(mode) \
+        else{} \
+        __EXCEPT_BARRIER(); \
+        __try_label_end: \
+        if (!__builtin_constant_p(mode) || (mode) != EXCEPT_CONTINUE_SEARCH) { \
+            __DEFINE_EXCEPT_HANDLER(__try_label_begin, \
+                                    __try_label_end, \
+                                    __TRY_LABEL_LINE1) \
+        } \
+ } else __TRY_LABEL_LINE1:if((__EXCEPT_CLOBBER_REGS(),__builtin_constant_p(mode) ? \
+                            ((mode) == EXCEPT_EXECUTE_HANDLER ? 0 : \
+                              __ERROR_CURRENT_CONTINUE((mode) == EXCEPT_CONTINUE_RETRY)) : \
+                              __ERROR_CURRENT_EXCEPT(mode),__ERROR_CURRENT_HANDLED(),0)); \
+   else
 #define CATCH(error) \
         else{} \
         __EXCEPT_BARRIER(); \
@@ -420,65 +491,26 @@ extern bool FINALLY_WILL_RETHROW;
                                     __try_label_end, \
                                     __TRY_LABEL_LINE1) \
         } \
- } else __TRY_LABEL_LINE1:if((__EXCEPT_CLOBBER_REGS(), \
-                              __builtin_constant_p(error) ? 0 : \
+ } else __TRY_LABEL_LINE1:if((__EXCEPT_CLOBBER_REGS(),__builtin_constant_p(error) ? 0 : \
                              (__ERROR_CURRENT_EXCEPT(error_code() == error),0)));else 
-#else
-#define FINALLY \
+#define CATCH_HANDLED(error) \
         else{} \
         __EXCEPT_BARRIER(); \
-        __IF0 { \
         __try_label_end: \
-            __DEFINE_FINALLY_HANDLER(__try_label_begin, \
-                                     __try_label_end, \
-                                     __TRY_LABEL_LINE2) \
-            __builtin_unreachable(); \
+        if (__builtin_constant_p(error)) { \
+            __DEFINE_CATCH_HANDLER(__try_label_begin, \
+                                   __try_label_end, \
+                                   __TRY_LABEL_LINE1, \
+                                   error) \
+        } else { \
+            __DEFINE_EXCEPT_HANDLER(__try_label_begin, \
+                                    __try_label_end, \
+                                    __TRY_LABEL_LINE1) \
         } \
-        goto __TRY_LABEL_LINE1; \
- } else __TRY_LABEL_LINE1: \
- for(register int __rethrow = 0; !__rethrow; \
-     __rethrow ? __ERROR_CURRENT_RETHROW() : (void)(__rethrow=1)) \
- __IF0{ __TRY_LABEL_LINE2: __EXCEPT_CLOBBER_REGS(); __rethrow = 1; goto __TRY_LABEL_LINE3;} \
- else __TRY_LABEL_LINE3:
-#define EXCEPT(mode) \
-        else{} \
-        __EXCEPT_BARRIER(); \
-        __IF0 { \
-        __try_label_end: \
-            if (!__builtin_constant_p(mode) || (mode) != EXCEPT_CONTINUE_SEARCH) { \
-                __DEFINE_EXCEPT_HANDLER(__try_label_begin, \
-                                        __try_label_end, \
-                                        __TRY_LABEL_LINE1) \
-            } \
-            __builtin_unreachable(); \
-        } \
- } else __TRY_LABEL_LINE1:if((__EXCEPT_CLOBBER_REGS(),__builtin_constant_p(mode) ? \
-                            ((mode) == EXCEPT_CONTINUE_SEARCH ? (__ERROR_CURRENT_RETHROW(),0) : \
-                             (mode) == EXCEPT_EXECUTE_HANDLER ? 0 : \
-                             (__ERROR_CURRENT_CONTINUE((mode) == EXCEPT_CONTINUE_RETRY),0)) : \
-                              __ERROR_CURRENT_EXCEPT(mode),0)); else 
-#define CATCH(error) \
-        else{} \
-        __EXCEPT_BARRIER(); \
-        __IF0 { \
-        __try_label_end: \
-            if (__builtin_constant_p(error)) { \
-                __DEFINE_CATCH_HANDLER(__try_label_begin, \
-                                       __try_label_end, \
-                                       __TRY_LABEL_LINE1, \
-                                       error) \
-            } else { \
-                __DEFINE_EXCEPT_HANDLER(__try_label_begin, \
-                                        __try_label_end, \
-                                        __TRY_LABEL_LINE1) \
-            } \
-            __builtin_unreachable(); \
-        } \
- } else __TRY_LABEL_LINE1:if((__EXCEPT_CLOBBER_REGS(), \
-                              __builtin_constant_p(error) ? 0 : \
-                             (__ERROR_CURRENT_EXCEPT(error_code() == error),0)));else 
-#endif
-#endif
+ } else __TRY_LABEL_LINE1:if((__EXCEPT_CLOBBER_REGS(),__builtin_constant_p(error) ? (void)0 : \
+                              __ERROR_CURRENT_EXCEPT(error_code() == error), \
+                              __ERROR_CURRENT_HANDLED(),0));else 
+ #endif
 #endif /* __CC__ */
 
 /* Declare a variable for use within an exception handler.

@@ -394,7 +394,7 @@ vm_region_mergenext(struct vm_region *__restrict region,
                                     (required_scatter*sizeof(struct vm_phys_scatter)),
                                      GFP_SHARED|GFP_LOCKED|GFP_NOOVER);
    }
-  } CATCH (E_BADALLOC) {
+  } CATCH_HANDLED (E_BADALLOC) {
    goto nomerge; /* Then we just don't merge this one... */
   }
   assert(self->vp_chain.le_next == old_next);

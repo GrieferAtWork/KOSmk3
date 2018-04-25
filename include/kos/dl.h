@@ -175,8 +175,8 @@ __REDIRECT_EXCEPT(__LIBC,__XATTR_RETNONNULL __PORT_KOSONLY_ALT(dlopen),void *,__
 __REDIRECT_EXCEPT(__LIBC,__XATTR_RETNONNULL __PORT_KOSONLY_ALT(dlsym),void *,__LIBCCALL,xdlsym,(void *__handle, char const *__symbol),(__handle,__symbol))
 __LIBC __PORT_KOSONLY_ALT(dlclose) int (__LIBCCALL xdlclose)(void *__handle);
 #ifdef __USE_EXCEPT
-__LIBC __PORT_KOSONLY __ATTR_RETNONNULL void * (__LIBCCALL Xxdlopen)(char const *__filename, int __flags);
-__LIBC __PORT_KOSONLY __ATTR_RETNONNULL void * (__LIBCCALL Xxfdlopen)(__fd_t __fd, int __open_flags);
+__LIBC __PORT_KOSONLY __ATTR_RETNONNULL void *(__LIBCCALL Xxdlopen)(char const *__filename, int __flags);
+__LIBC __PORT_KOSONLY __ATTR_RETNONNULL void *(__LIBCCALL Xxfdlopen)(__fd_t __fd, int __open_flags);
 __LIBC __PORT_KOSONLY __ATTR_RETNONNULL void *(__LIBCCALL Xxdlsym)(void *__handle, char const *__symbol);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xxdlclose)(void *__handle);
 #endif /* __USE_EXCEPT */

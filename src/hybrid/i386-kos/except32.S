@@ -38,7 +38,6 @@
 #define c_eip        X86_CONTEXT_OFFSETOF_EIP
 #define c_eflags     X86_CONTEXT_OFFSETOF_EFLAGS
 
-PUBLIC_ENTRY(error_rethrow)
 INTERN_ENTRY(libc_error_rethrow)
 	.cfi_startproc
 	/* Construct a new CPU-state for the caller. */
@@ -69,7 +68,7 @@ INTERN_ENTRY(libc_error_rethrow)
 	call   libc_error_rethrow_at
 	.cfi_endproc
 SYMEND(libc_error_rethrow)
-SYMEND(error_rethrow)
+EXPORT(error_rethrow,libc_error_rethrow)
 
 .cfi_startproc
 INTERN_ENTRY(libc_error_throw_resumable_ex)
@@ -179,16 +178,14 @@ EXPORT(error_throw_current,     libc_error_throw_current)
 
 
 .cfi_startproc
-PUBLIC_ENTRY(error_continue)
 INTERN_ENTRY(libc_error_continue)
 	/* Forward the call to a C version that does most of the work. */
 	call   private_error_continue
 	/* Throw the non-continuable error constructed by `private_error_continue()'. */
 	jmp    libc_error_throw_current
 SYMEND(libc_error_continue)
-SYMEND(error_continue)
+EXPORT(error_continue,libc_error_continue)
 
-PUBLIC_ENTRY(error_except)
 INTERN_ENTRY(libc_error_except)
 	cmpl   $0, %ecx
 	jl     1f                       /* EXCEPT_CONTINUE_RETRY or EXCEPT_CONTINUE_IGNORE */
@@ -199,20 +196,48 @@ INTERN_ENTRY(libc_error_except)
 	movzbl %al, %ecx
 	jmp    error_continue
 SYMEND(libc_error_except)
-SYMEND(error_except)
+EXPORT(error_except,libc_error_except)
 
-PUBLIC_ENTRY(error_code)
 INTERN_ENTRY(libc_error_code)
 	movzwl %taskseg:ts_xcurrent+e_code, %eax
 	ret
 SYMEND(libc_error_code)
-SYMEND(error_code)
+EXPORT(error_code,libc_error_code)
 
-PUBLIC_ENTRY(error_info)
 INTERN_ENTRY(libc_error_info)
 	movl $(ts_xcurrent),   %eax
 	addl %taskseg:ts_self, %eax
 	ret
 SYMEND(libc_error_info)
-SYMEND(error_info)
+EXPORT(error_info,libc_error_info)
+
+
+INTERN_ENTRY(libc_error_handled)
+	.cfi_def_cfa %esp, 4
+	popl_cfi %edx
+	.cfi_register %eip, %edx
+	cmpl     %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_ESP, %esp
+	jne      1f
+	movl     %taskseg:ts_xcurrent+EXCEPTION_INFO_OFFSETOF_RTDATA+__EXCEPTION_RT_DATA_OFFSETOF_FREE_SP, %esp
+1:	jmpl     *%edx
+SYMEND(libc_error_handled)
+EXPORT(error_handled,libc_error_handled)
+
+INTERN_ENTRY(libc_error_dealloc_continue)
+	popl_cfi %edx
+	.cfi_register %eip, %edx
+	cmpl     %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_ESP, %esp
+	jne      1f
+	movl     %taskseg:ts_xcurrent+EXCEPTION_INFO_OFFSETOF_RTDATA+__EXCEPTION_RT_DATA_OFFSETOF_FREE_SP, %ecx
+	.cfi_def_cfa %ecx, 0
+	movl     %ecx, %eax
+	subl     %esp, %eax
+	movl     %ecx, %esp
+	jmpl     *%edx
+1:	.cfi_def_cfa %esp, 0
+	jmpl     *%edx
+SYMEND(libc_error_dealloc_continue)
+EXPORT(error_dealloc_continue,libc_error_dealloc_continue)
+
+
 .cfi_endproc

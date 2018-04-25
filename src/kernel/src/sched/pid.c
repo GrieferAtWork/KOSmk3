@@ -192,7 +192,7 @@ again:
   TRY {
    new_list = (WEAK struct thread_pid **)kmalloc((new_mask+1)*sizeof(struct thread_pid *),
                                                   GFP_SHARED|GFP_CALLOC);
-  } CATCH (E_BADALLOC) {
+  } CATCH_HANDLED (E_BADALLOC) {
    new_list = NULL;
   }
   atomic_rwlock_write(&self->pn_lock);

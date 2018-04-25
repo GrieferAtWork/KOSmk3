@@ -545,7 +545,7 @@ dw_update_register(struct dw_register *__restrict reg,
    if (flags & EH_FRESTRICT_USERSPACE)
        validate_readable((UnwindRegister *)result,sizeof(UnwindRegister));
    result = *(UnwindRegister *)result;
-  } CATCH(E_SEGFAULT) {
+  } CATCH_HANDLED (E_SEGFAULT) {
    goto err;
   }
   break;
@@ -561,7 +561,7 @@ dw_update_register(struct dw_register *__restrict reg,
    if (flags & EH_FRESTRICT_USERSPACE)
        validate_readable((UnwindRegister *)exprval,sizeof(UnwindRegister));
    result = *(UnwindRegister *)exprval;
-  } CATCH(E_SEGFAULT) {
+  } CATCH_HANDLED (E_SEGFAULT) {
    goto err;
   }
  } break;
@@ -1298,7 +1298,7 @@ dw_eval_expression(eh_instr_t *__restrict text, uintptr_t cfa,
    default: GOTO_FAIL(err);
    }
   }
- } CATCH (E_SEGFAULT) {
+ } CATCH_HANDLED (E_SEGFAULT) {
   return false;
  }
  *presult = stack[i];

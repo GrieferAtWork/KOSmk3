@@ -405,7 +405,7 @@ libc_malloc_d(size_t num_bytes) {
      return malloc_failed();
  TRY {
   ptr = libc_heap_alloc_d(&mheap,total,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)ptr.hp_ptr;
@@ -424,7 +424,7 @@ libc_calloc_d(size_t count, size_t num_bytes) {
      return malloc_failed();
  TRY {
   ptr = libc_heap_alloc_d(&mheap,total,GFP_CALLOC);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)ptr.hp_ptr;
@@ -441,7 +441,7 @@ libc_memalign_d(size_t min_alignment, size_t num_bytes) {
      return malloc_failed();
  TRY {
   ptr = libc_heap_align_d(&mheap,min_alignment,sizeof(struct mptr),total,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)ptr.hp_ptr;
@@ -458,7 +458,7 @@ libc_memalign_offset_d(size_t min_alignment, size_t num_bytes, ptrdiff_t offset)
      return malloc_failed();
  TRY {
   ptr = libc_heap_align_d(&mheap,min_alignment,offset+sizeof(struct mptr),total,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)ptr.hp_ptr;
@@ -475,7 +475,7 @@ libc_memcalign_d(size_t min_alignment, size_t num_bytes) {
      return malloc_failed();
  TRY {
   ptr = libc_heap_align_d(&mheap,min_alignment,sizeof(struct mptr),total,GFP_CALLOC);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)ptr.hp_ptr;
@@ -492,7 +492,7 @@ libc_memcalign_offset_d(size_t min_alignment, size_t num_bytes, ptrdiff_t offset
      return malloc_failed();
  TRY {
   ptr = libc_heap_align_d(&mheap,min_alignment,offset+sizeof(struct mptr),total,GFP_CALLOC);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)ptr.hp_ptr;
@@ -522,7 +522,7 @@ libc_realloc_d(void *ptr, size_t num_bytes) {
  result = ((struct mptr *)ptr)-1;
  TRY {
   newptr = libc_heap_realloc_d(&mheap,result,result->m_size,total,0,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)newptr.hp_ptr;
@@ -541,7 +541,7 @@ libc_recalloc_d(void *ptr, size_t num_bytes) {
  result = ((struct mptr *)ptr)-1;
  TRY {
   newptr = libc_heap_realloc_d(&mheap,result,result->m_size,total,GFP_CALLOC,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)newptr.hp_ptr;
@@ -561,7 +561,7 @@ libc_realign_d(void *ptr, size_t min_alignment, size_t num_bytes) {
  TRY {
   newptr = libc_heap_realign_d(&mheap,result,result->m_size,min_alignment,
                               sizeof(struct mptr),total,0,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)newptr.hp_ptr;
@@ -581,7 +581,7 @@ libc_recalign_d(void *ptr, size_t min_alignment, size_t num_bytes) {
  TRY {
   newptr = libc_heap_realign_d(&mheap,result,result->m_size,min_alignment,
                               sizeof(struct mptr),total,GFP_CALLOC,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)newptr.hp_ptr;
@@ -601,7 +601,7 @@ libc_realign_offset_d(void *ptr, size_t min_alignment, size_t num_bytes, ptrdiff
  TRY {
   newptr = libc_heap_realign_d(&mheap,result,result->m_size,min_alignment,
                               offset+sizeof(struct mptr),total,0,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)newptr.hp_ptr;
@@ -621,7 +621,7 @@ libc_recalign_offset_d(void *ptr, size_t min_alignment, size_t num_bytes, ptrdif
  TRY {
   newptr = libc_heap_realign_d(&mheap,result,result->m_size,min_alignment,
                               offset+sizeof(struct mptr),total,GFP_CALLOC,0);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return malloc_failed();
  }
  result = (struct mptr *)newptr.hp_ptr;
@@ -645,7 +645,7 @@ compare:
   TRY {
    more_bytes = libc_heap_allat_d(&mheap,(void *)((uintptr_t)result+result->m_size),
                                  total-result->m_size,0);
-  } CATCH (E_BADALLOC) {
+  } CATCH_HANDLED (E_BADALLOC) {
    return malloc_failed();
   }
   if (!more_bytes)
@@ -680,7 +680,7 @@ compare:
   TRY {
    more_bytes = libc_heap_allat_d(&mheap,(void *)((uintptr_t)result+result->m_size),
                                  total-result->m_size,GFP_CALLOC);
-  } CATCH (E_BADALLOC) {
+  } CATCH_HANDLED (E_BADALLOC) {
    return malloc_failed();
   }
   if (!more_bytes)

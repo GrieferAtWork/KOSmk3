@@ -75,7 +75,7 @@ again:
    /* Allocate the new buffer. */
    TRY {
     new_buffer = heap_alloc_untraced(CANON_HEAP,new_size,CANON_GFP);
-   } CATCH (E_BADALLOC) {
+   } CATCH_HANDLED (E_BADALLOC) {
     new_buffer = heap_alloc_untraced(CANON_HEAP,written_size+1,CANON_GFP);
    }
    atomic_rwlock_write(&self->cb_lock);

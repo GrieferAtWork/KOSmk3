@@ -61,7 +61,7 @@ INTERN void KCALL userthread_signal(void) {
    sig_broadcast(&futex_object->f_sig);
    futex_decref(futex_object);
   }
- } CATCH (E_SEGFAULT) {
+ } CATCH_HANDLED (E_SEGFAULT) {
   /* Ignore a possible segmentation fault
    * when writing to the TID address. */
  }

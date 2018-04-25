@@ -645,7 +645,7 @@ oneshot_enum_callback(char const *__restrict name, u16 namelen,
                                                                         (uintptr_t)data->current_ent-
                                                                         (uintptr_t)buf->odb_buf,
                                                                          GFP_SHARED);
-   } CATCH (E_BADALLOC) {
+   } CATCH_HANDLED (E_BADALLOC) {
    }
   }
   data->previous_buffer = &buf->odb_next;
@@ -719,7 +719,7 @@ oneshot_getentries(struct directory_node *__restrict node) {
                                                                         (uintptr_t)data.current_ent-
                                                                         (uintptr_t)data.current_buffer->odb_buf,
                                                                          GFP_SHARED);
-    } CATCH (E_BADALLOC) {
+    } CATCH_HANDLED (E_BADALLOC) {
     }
    }
   }

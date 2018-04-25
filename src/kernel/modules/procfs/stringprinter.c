@@ -53,7 +53,7 @@ StringPrinter_Pack(struct stringprinter *__restrict EXCEPT_VAR self) {
  if (self->sp_bufpos != self->sp_bufend) {
   TRY {
    result = (char *)krealloc(self->sp_buffer,(result_size+1)*sizeof(char),GFP_SHARED);
-  } CATCH (E_BADALLOC) {
+  } CATCH_HANDLED (E_BADALLOC) {
    result = xself->sp_buffer;
   }
  } else {
@@ -87,7 +87,7 @@ StringPrinter_Print(char const *__restrict data,
   /* Reallocate the buffer (But include 1 character for the terminating '\0') */
   TRY {
    new_buffer = (char *)krealloc(self->sp_buffer,(newsize+1)*sizeof(char),GFP_SHARED);
-  } CATCH (E_BADALLOC) {
+  } CATCH_HANDLED (E_BADALLOC) {
    newsize    = reqsize;
    new_buffer = (char *)krealloc(self->sp_buffer,(newsize+1)*sizeof(char),GFP_SHARED);
   }

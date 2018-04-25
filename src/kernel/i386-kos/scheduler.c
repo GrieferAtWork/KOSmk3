@@ -415,7 +415,7 @@ do_serve:
    * was interrupted in order to serve RPC functions. */
   task_serve_before_user(&context->c_user,
                           TASK_USERCTX_TYPE_WITHINUSERCODE);
- } CATCH (E_INTERRUPT) {
+ } CATCH_HANDLED (E_INTERRUPT) {
   /* Deal with recursive restart attempts. */
   goto again;
  }
@@ -473,7 +473,7 @@ again:
    * in user-space, about to trigger the system call that
    * was interrupted in order to serve RPC functions. */
   task_serve_before_user(context,mode);
- } CATCH (E_INTERRUPT) {
+ } CATCH_HANDLED (E_INTERRUPT) {
   /* Deal with recursive restart attempts. */
   goto again;
  }
@@ -1219,7 +1219,7 @@ restart_final_decref:
   if (task_queue_rpc(calling_cpu->c_running,&task_decref_rpc,
                      calling_task,TASK_RPC_NORMAL))
       goto load_next_task;
- } CATCH (E_WOULDBLOCK) {
+ } CATCH_HANDLED (E_WOULDBLOCK) {
   /* Preemption is disabled and `task_queue_rpc()' would have blocked.
    * However, we can't enable preemption during the queue, because we
    * need it disabled to keep us alive once the RPC _has_ been scheduled. */
@@ -1495,7 +1495,7 @@ serve_rpc:
      if (!eh_return(&fde,&unwind,EH_FRESTRICT_USERSPACE|EH_FDONT_UNWIND_SIGFRAME))
           goto cannot_unwind;
     }
-   } CATCH (E_SEGFAULT) {
+   } CATCH_HANDLED (E_SEGFAULT) {
    }
   }
  cannot_unwind:
@@ -1628,7 +1628,7 @@ serve_rpc:
 
    /* Return to user-space now that it's been re-directed. */
    return;
-  } CATCH (E_SEGFAULT) {
+  } CATCH_HANDLED (E_SEGFAULT) {
   }
  cannot_signal:;
 #endif
@@ -1693,7 +1693,7 @@ serve_rpc:
       debug_printf("WTF? No UEH handler?\n");
      }
     }
-   } CATCH (E_SEGFAULT) {
+   } CATCH_HANDLED (E_SEGFAULT) {
    }
   }
 #endif

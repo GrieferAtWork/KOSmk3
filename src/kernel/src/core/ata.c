@@ -312,7 +312,10 @@ retry_io:
                              buf,part);
   } CATCH (E_IOERROR) {
    if (reset_count++ < Ata_MaxResetCount &&
-       Ata_Reset(self)) goto retry_io;
+       Ata_Reset(self)) {
+    error_handled();
+    goto retry_io;
+   }
    error_rethrow();
   }
   num_blocks -= part;
@@ -333,7 +336,10 @@ retry_io:
                              buf,part);
   } CATCH (E_IOERROR) {
    if (reset_count++ < Ata_MaxResetCount &&
-       Ata_Reset(self)) goto retry_io;
+       Ata_Reset(self)) {
+    error_handled();
+    goto retry_io;
+   }
    error_rethrow();
   }
   num_blocks -= part;
@@ -360,7 +366,10 @@ retry_io:
                                   max_count);
   } CATCH (E_IOERROR) {
    if (reset_count++ < Ata_MaxResetCount &&
-       Ata_Reset(self)) goto retry_io;
+       Ata_Reset(self)) {
+    error_handled();
+    goto retry_io;
+   }
    error_rethrow();
   }
   num_blocks -= max_count;
@@ -382,7 +391,10 @@ retry_io:
                               buf,part);
   } CATCH (E_IOERROR) {
    if (reset_count++ < Ata_MaxResetCount &&
-       Ata_Reset(self)) goto retry_io;
+       Ata_Reset(self)) {
+    error_handled();
+    goto retry_io;
+   }
    error_rethrow();
   }
   num_blocks -= part;
@@ -403,7 +415,10 @@ retry_io:
                               buf,part);
   } CATCH (E_IOERROR) {
    if (reset_count++ < Ata_MaxResetCount &&
-       Ata_Reset(self)) goto retry_io;
+       Ata_Reset(self)) {
+    error_handled();
+    goto retry_io;
+   }
    error_rethrow();
   }
   num_blocks -= part;
@@ -430,7 +445,10 @@ retry_io:
                                    max_count);
   } CATCH (E_IOERROR) {
    if (reset_count++ < Ata_MaxResetCount &&
-       Ata_Reset(self)) goto retry_io;
+       Ata_Reset(self)) {
+    error_handled();
+    goto retry_io;
+   }
    error_rethrow();
   }
   num_blocks -= max_count;
@@ -646,10 +664,10 @@ Ata_ProbeBusLocations(u16 bus, u8 drive) {
 
 DEFINE_DRIVER_INIT(Ata_InitializeSubSystem);
 INTERN ATTR_FREETEXT void KCALL Ata_InitializeSubSystem(void) {
- TRY Ata_ProbeBusLocations(ATA_BUS_PRIMARY,ATA_DRIVE_MASTER); CATCH(E_IOERROR) {}
- TRY Ata_ProbeBusLocations(ATA_BUS_PRIMARY,ATA_DRIVE_SLAVE); CATCH(E_IOERROR) {}
- TRY Ata_ProbeBusLocations(ATA_BUS_SECONDARY,ATA_DRIVE_MASTER); CATCH(E_IOERROR) {}
- TRY Ata_ProbeBusLocations(ATA_BUS_SECONDARY,ATA_DRIVE_SLAVE); CATCH(E_IOERROR) {}
+ TRY Ata_ProbeBusLocations(ATA_BUS_PRIMARY,ATA_DRIVE_MASTER); CATCH_HANDLED(E_IOERROR) {}
+ TRY Ata_ProbeBusLocations(ATA_BUS_PRIMARY,ATA_DRIVE_SLAVE); CATCH_HANDLED(E_IOERROR) {}
+ TRY Ata_ProbeBusLocations(ATA_BUS_SECONDARY,ATA_DRIVE_MASTER); CATCH_HANDLED(E_IOERROR) {}
+ TRY Ata_ProbeBusLocations(ATA_BUS_SECONDARY,ATA_DRIVE_SLAVE); CATCH_HANDLED(E_IOERROR) {}
 }
 
 

@@ -72,7 +72,7 @@ again:
                                     bufsize);
   if unlikely(result < 0)
      libc_throw_io_error();
- } LIBC_CATCH (E_INTERRUPT) {
+ } LIBC_CATCH_HANDLED (E_INTERRUPT) {
   /* Deal with interruptions */
   goto again;
  }
@@ -95,7 +95,7 @@ again:
                                      bufsize);
   if unlikely(result < 0)
      libc_throw_io_error();
- } LIBC_CATCH (E_INTERRUPT) {
+ } LIBC_CATCH_HANDLED (E_INTERRUPT) {
   /* Deal with interruptions */
   goto again;
  }
@@ -115,7 +115,7 @@ again:
      libc_error_throw(E_NOT_IMPLEMENTED);
   if unlikely((*self->fb_ops.cio_seek)(self->fb_arg,(off64_t *)&offset,whence) < 0)
      libc_throw_io_error();
- } LIBC_CATCH (E_INTERRUPT) {
+ } LIBC_CATCH_HANDLED (E_INTERRUPT) {
   /* Deal with interruptions */
   goto again;
  }

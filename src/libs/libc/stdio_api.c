@@ -418,8 +418,10 @@ again:
   result = libc_Xfopen(name,"w+x");
  } LIBC_CATCH (E_FILESYSTEM_ERROR) {
   /* If the file already exists, generate a new random number and try once more. */
-  if (error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_FILE_ALREADY_EXISTS)
-      goto again;
+  if (error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_FILE_ALREADY_EXISTS) {
+   error_handled();
+   goto again;
+  }
   /* Propagate all other errors. */
   error_rethrow();
  }

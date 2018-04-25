@@ -683,7 +683,7 @@ continue_reading:
 #endif
  TRY {
   result = (*self->d_node.i_ops->io_directory.d_readdir)(self,&last_directory_position,flags);
- } CATCH (E_NO_DATA) {
+ } CATCH_HANDLED (E_NO_DATA) {
   /* Catch E_NO_DATA and handle it as end-of-directory. */
   result = NULL;
  }
@@ -770,7 +770,7 @@ continue_reading:
      * ignore allocation failures during re-hashing. */
     TRY {
      directory_rehash(self);
-    } CATCH(E_BADALLOC) {
+    } CATCH_HANDLED (E_BADALLOC) {
     }
    }
   } else {
@@ -811,8 +811,10 @@ directory_getentry(struct directory_node *__restrict self,
   TRY {
    return (*self->d_node.i_ops->io_directory.d_oneshot.o_lookup)(self,name,namelen,hash,FS_MODE_FNORMAL);
   } CATCH (E_FILESYSTEM_ERROR) {
-   if (error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_FILE_NOT_FOUND)
-       return NULL;
+   if (error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_FILE_NOT_FOUND) {
+    error_handled();
+    return NULL;
+   }
    error_rethrow();
   }
  }
@@ -852,8 +854,10 @@ directory_getcaseentry(struct directory_node *__restrict self,
   TRY {
    return (*self->d_node.i_ops->io_directory.d_oneshot.o_lookup)(self,name,namelen,hash,FS_MODE_FDOSPATH);
   } CATCH (E_FILESYSTEM_ERROR) {
-   if (error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_FILE_NOT_FOUND)
-       return NULL;
+   if (error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_FILE_NOT_FOUND) {
+    error_handled();
+    return NULL;
+   }
    error_rethrow();
   }
  }
@@ -987,7 +991,7 @@ superblock_rehash_and_unlock(struct superblock *__restrict self) {
   new_map = (REF LIST_HEAD(struct inode) *)kmalloc((new_mask+1)*
                                                     sizeof(LIST_HEAD(struct inode)),
                                                     GFP_SHARED|GFP_CALLOC);
- } CATCH (E_BADALLOC) {
+ } CATCH_HANDLED (E_BADALLOC) {
   return;
  }
  /* @NOEXCEPT:begin */
@@ -1103,7 +1107,7 @@ directory_addentry(struct directory_node *__restrict self,
    * ignore allocation failures during re-hashing. */
   TRY {
    directory_rehash(self);
-  } CATCH(E_BADALLOC) {
+  } CATCH_HANDLED (E_BADALLOC) {
   }
  }
 }
@@ -2122,7 +2126,7 @@ blocklist_insert(struct blocklist EXCEPT_VAR *__restrict EXCEPT_VAR self,
    self->bl_blocks = (struct superblock **)krealloc(self->bl_blocks,new_alloc*
                                                     sizeof(struct superblock *),
                                                     GFP_SHARED);
-  } CATCH (E_BADALLOC) {
+  } CATCH_HANDLED (E_BADALLOC) {
    new_alloc = self->bl_count+1;
    self->bl_blocks = (struct superblock **)krealloc(self->bl_blocks,new_alloc*
                                                     sizeof(struct superblock *),

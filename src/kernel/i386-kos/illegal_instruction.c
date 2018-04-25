@@ -386,7 +386,7 @@ extend_instruction:
   default:
    goto generic_failure;
   }
- } CATCH (E_SEGFAULT) {
+ } CATCH_HANDLED (E_SEGFAULT) {
   goto generic_failure;
  }
 do_throw_error:

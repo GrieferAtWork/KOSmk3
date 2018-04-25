@@ -370,7 +370,7 @@ again:
               new_bufsize = (size_t)load_size;
   LIBC_TRY {
    self->ds_buf = (struct dirent *)libc_Xrealloc(self->ds_buf,new_bufsize);
-  } LIBC_CATCH (E_BADALLOC) {
+  } LIBC_CATCH_HANDLED (E_BADALLOC) {
    new_bufsize  = (size_t)load_size;
    self->ds_buf = (struct dirent *)libc_Xrealloc(self->ds_buf,new_bufsize);
   }

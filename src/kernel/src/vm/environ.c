@@ -75,7 +75,7 @@ environ_alloc(USER UNCHECKED char *USER UNCHECKED *argv,
    /* Try try to re-use the original environment block of the calling process. */
    TRY {
     envp = FORVM(myvm,vm_environ)->pe_envp;
-   } CATCH (E_SEGFAULT) {
+   } CATCH_HANDLED (E_SEGFAULT) {
     envp = NULL;
    }
    if (envp) for (; envp[envc]; ++envc);
