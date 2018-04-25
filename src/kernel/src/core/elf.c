@@ -1122,17 +1122,18 @@ Elf_GetSectionAddress(struct application *__restrict app,
   if unlikely(secnam >= shstrend) continue;
   if (strcmp(secnam,name) != 0) continue;
   /* Found it! */
-  result.ms_base = vector[i].sh_addr;
-  result.ms_size = vector[i].sh_size;
-  /* Verify the section's address range. */
-  if unlikely(result.ms_base < appmod->m_imagemin)
-     continue;
-  if unlikely(result.ms_base+result.ms_size > appmod->m_imageend)
-     result.ms_size = appmod->m_imageend - result.ms_base;
+  result.ms_base    = vector[i].sh_addr;
+  result.ms_size    = vector[i].sh_size;
   result.ms_offset  = vector[i].sh_offset;
   result.ms_type    = vector[i].sh_type;
   result.ms_flags   = vector[i].sh_flags;
   result.ms_entsize = vector[i].sh_entsize;
+  /* Verify the section's address range. */
+  if unlikely(result.ms_base < appmod->m_imagemin &&
+             (result.ms_flags & SHF_ALLOC))
+     continue;
+  if unlikely(result.ms_base+result.ms_size > appmod->m_imageend)
+     result.ms_size = appmod->m_imageend - result.ms_base;
   return result;
  }
 not_found:
