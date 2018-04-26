@@ -109,7 +109,7 @@ FileBuffer_SystemSeek(FileBuffer *__restrict self_,
  int EXCEPT_VAR whence = whence_;
 again:
  TRY {
-  if likely(!self->fb_ops.cio_seek)
+  if likely(!FileBuffer_HasCookie(self))
      return libc_Xlseek64(self->fb_file,offset,whence);
   if (!self->fb_ops.cio_seek)
      libc_error_throw(E_NOT_IMPLEMENTED);
@@ -123,7 +123,7 @@ again:
 }
 CRT_STDIO int LIBCCALL
 FileBuffer_SystemClose(FileBuffer *__restrict self) {
- if likely(!self->fb_ops.cio_close) {
+ if likely(!FileBuffer_HasCookie(self)) {
   if (self->fb_file & __IO_FILE_IONOFD)
       return 0;
   return libc_close(self->fb_file);
