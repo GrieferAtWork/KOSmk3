@@ -1528,7 +1528,6 @@ DEFINE_SYSCALL4(sigprocmask,int,how,
  validate_writable_opt(oldset,sigsetsize);
  /* Change the signal mask. */
  signal_chmask(set,oldset,sigsetsize,how);
- pagedir_syncall();
  return 0;
 }
 

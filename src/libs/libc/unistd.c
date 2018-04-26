@@ -110,12 +110,8 @@ INTERN ssize_t ATTR_CDECL libc_fcntl(fd_t fd, unsigned int cmd, ...) {
 }
 INTERN ssize_t ATTR_CDECL libc_ioctl(fd_t fd, unsigned long cmd, ...) {
  va_list args; ssize_t result;
- void *arg;
  va_start(args,cmd);
- arg = va_arg(args,void *);
- libc_syslog(LOG_DEBUG,"IOCTL_START(%d,%lx,%p)\n",fd,cmd,arg);
- result = FORWARD_SYSTEM_VALUE(sys_ioctl(fd,cmd,arg));
- libc_syslog(LOG_DEBUG,"IOCTL_END(%d,%lx,%p) -> %Id\n",fd,cmd,arg,result);
+ result = FORWARD_SYSTEM_VALUE(sys_ioctl(fd,cmd,va_arg(args,void *)));
  va_end(args);
  return result;
 }

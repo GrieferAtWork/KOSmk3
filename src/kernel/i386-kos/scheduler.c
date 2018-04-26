@@ -1633,7 +1633,7 @@ do_addrip:
 cannot_signal:;
 #endif
 
-#if 0
+#if 1
   if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG|TASK_FUSEREXCEPT)) {
    /* This is an exception-enabled user-space thread, but we
     * weren't able to find an exception handler, or signal handler.

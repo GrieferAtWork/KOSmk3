@@ -282,7 +282,7 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
                                    unsigned int mode) {
  struct signal_frame *frame;
  validate_executable(action->sa_handler);
-#if 1
+#if 0
  debug_printf("REDIRECT_ACTION %u:%p -> %p\n",
               posix_gettid(),
               context->c_eip,
