@@ -89,10 +89,36 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                (unsigned int)regs->str_args.a_arg2);
    break;
 
-#define SYS_symlinkat __NR_symlinkat
-#define SYS_linkat __NR_linkat
-#define SYS_renameat __NR_renameat
-#define SYS_umount2 __NR_umount2
+  case SYS_symlinkat:
+   debug_printf("sys_symlinkat(%q,%d,%q)\n",
+               (char *)regs->str_args.a_arg0,
+               (int)regs->str_args.a_arg1,
+               (char *)regs->str_args.a_arg2);
+   break;
+
+  case SYS_linkat:
+   debug_printf("sys_linkat(%d,%q,%d,%q,%x)\n",
+               (int)regs->str_args.a_arg0,
+               (char *)regs->str_args.a_arg1,
+               (int)regs->str_args.a_arg2,
+               (char *)regs->str_args.a_arg3,
+               (unsigned int)regs->str_args.a_arg4);
+   break;
+
+  case SYS_renameat:
+   debug_printf("sys_renameat(%d,%q,%d,%q)\n",
+               (int)regs->str_args.a_arg0,
+               (char *)regs->str_args.a_arg1,
+               (int)regs->str_args.a_arg2,
+               (char *)regs->str_args.a_arg3);
+   break;
+
+  case SYS_umount2:
+   debug_printf("sys_umount2(%q,%x)\n",
+               (char *)regs->str_args.a_arg0,
+               (unsigned int)regs->str_args.a_arg1);
+   break;
+
   case SYS_mount:
    debug_printf("sys_mount(%q,%q,%q,%x,%p)\n",
                (char *)regs->str_args.a_arg0,
@@ -102,27 +128,59 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                (void *)regs->str_args.a_arg4);
    break;
 
-#define SYS_truncate __NR_truncate
-#define SYS_ftruncate __NR_ftruncate
-#define SYS_fallocate __NR_fallocate
-#define SYS_faccessat __NR_faccessat
+  case SYS_truncate:
+   debug_printf("sys_truncate(%q,%I64u)\n",
+               (char *)regs->str_args.a_arg0,
+               *(u64 *)&regs->str_args.a_arg1);
+   break;
+
+  case SYS_ftruncate:
+   debug_printf("sys_ftruncate(%d,%I64u)\n",
+               (int)regs->str_args.a_arg0,
+               *(u64 *)&regs->str_args.a_arg1);
+   break;
+
+  case SYS_fallocate:
+   debug_printf("sys_fallocate(%d,%I64u,%I64u)\n",
+               (int)regs->str_args.a_arg0,
+               *(u64 *)&regs->str_args.a_arg1,
+#ifdef CONFIG_WIDE_64BIT_SYSCALL
+               *(u64 *)&regs->str_args.a_arg3
+#else
+               *(u64 *)&regs->str_args.a_arg2
+#endif
+               );
+   break;
+
+  case SYS_faccessat:
+   debug_printf("sys_faccessat(%d,%q,%x,%x)\n",
+               (int)regs->str_args.a_arg0,
+               (char *)regs->str_args.a_arg1,
+               (unsigned int)regs->str_args.a_arg2,
+               (unsigned int)regs->str_args.a_arg3);
+   break;
+
   case SYS_chdir:
    debug_printf("sys_chdir(%q)\n",
                (char *)regs->str_args.a_arg0);
    break;
+
   case SYS_fchdir:
    debug_printf("sys_fchdir(%d)\n",
                (int)regs->str_args.a_arg0);
    break;
+
   case SYS_chroot:
    debug_printf("sys_chroot(%q)\n",
                (char *)regs->str_args.a_arg0);
    break;
+
   case SYS_fchmod:
    debug_printf("sys_fchmod(%d,%o)\n",
                (int)regs->str_args.a_arg0,
                (unsigned int)regs->str_args.a_arg1);
    break;
+
   case SYS_fchmodat:
    debug_printf("sys_fchmodat(%d,%q,%o,%x)\n",
                (int)regs->str_args.a_arg0,
@@ -130,6 +188,7 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                (unsigned int)regs->str_args.a_arg2,
                (unsigned int)regs->str_args.a_arg3);
    break;
+
   case SYS_fchownat:
    debug_printf("sys_fchownat(%d,%q,%u,%u,%x)\n",
                (int)regs->str_args.a_arg0,
@@ -138,12 +197,14 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                (unsigned int)regs->str_args.a_arg3,
                (unsigned int)regs->str_args.a_arg4);
    break;
+
   case SYS_fchown:
    debug_printf("sys_fchown(%d,%u,%u)\n",
                (int)regs->str_args.a_arg0,
                (unsigned int)regs->str_args.a_arg1,
                (unsigned int)regs->str_args.a_arg2);
    break;
+
   case SYS_openat:
    if (regs->str_args.a_arg2 & O_CREAT) {
     debug_printf("sys_openat(%d,%q,%#x,%#o)\n",
@@ -158,15 +219,18 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                 (unsigned int)regs->str_args.a_arg2);
    }
    break;
+
   case SYS_close:
    debug_printf("sys_close(%d)\n",
                (int)regs->str_args.a_arg0);
    break;
+
   case SYS_pipe2:
    debug_printf("sys_pipe2(%p,%x)\n",
                (int *)regs->str_args.a_arg0,
                (unsigned int)regs->str_args.a_arg1);
    break;
+
   case SYS_lseek:
    debug_printf("sys_lseek(%d,%I64d,%d)\n",
                (int *)regs->str_args.a_arg0,
@@ -179,12 +243,14 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
 #endif
                );
    break;
+
   case SYS_read:
    debug_printf("sys_read(%d,%p,%Iu)\n",
                (int)regs->str_args.a_arg0,
                (void *)regs->str_args.a_arg1,
                (size_t)regs->str_args.a_arg2);
    break;
+
   case SYS_write:
    if (regs->str_args.a_arg2 > 128 ||
        regs->str_args.a_arg1 >= KERNEL_BASE) {
@@ -200,10 +266,42 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                 (size_t)regs->str_args.a_arg2);
    }
    break;
-#define SYS_pread64 __NR_pread64
-#define SYS_pwrite64 __NR_pwrite64
-#define SYS_pselect6 __NR_pselect6
-#define SYS_ppoll __NR_ppoll
+
+  case SYS_pread64:
+   debug_printf("sys_pread64(%d,%p,%Iu,%I64u)\n",
+               (int)regs->str_args.a_arg0,
+               (void *)regs->str_args.a_arg1,
+               (size_t)regs->str_args.a_arg2,
+               *(u64 *)&regs->str_args.a_arg3);
+   break;
+
+  case SYS_pwrite64:
+   debug_printf("sys_pwrite64(%d,%p,%Iu,%I64u)\n",
+               (int)regs->str_args.a_arg0,
+               (void *)regs->str_args.a_arg1,
+               (size_t)regs->str_args.a_arg2,
+               *(u64 *)&regs->str_args.a_arg3);
+   break;
+
+  case SYS_pselect6:
+   debug_printf("sys_pselect6(%Iu,%p,%p,%p,%p,%p)\n",
+               (size_t)regs->str_args.a_arg0,
+               (void *)regs->str_args.a_arg1,
+               (void *)regs->str_args.a_arg2,
+               (void *)regs->str_args.a_arg3,
+               (void *)regs->str_args.a_arg4,
+               (void *)regs->str_args.a_arg5);
+   break;
+
+  case SYS_ppoll:
+   debug_printf("sys_ppoll(%p,%Iu,%p,%p,%Iu)\n",
+               (void *)regs->str_args.a_arg0,
+               (size_t)regs->str_args.a_arg1,
+               (void *)regs->str_args.a_arg2,
+               (void *)regs->str_args.a_arg3,
+               (size_t)regs->str_args.a_arg4);
+   break;
+
   case SYS_readlinkat:
    debug_printf("sys_readlinkat(%d,%q,%p,%Iu)\n",
                (int)regs->str_args.a_arg0,
@@ -211,6 +309,7 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                (void *)regs->str_args.a_arg2,
                (size_t)regs->str_args.a_arg3);
    break;
+
   case SYS_fstatat64:
    debug_printf("sys_fstatat64(%d,%q,%p,%x)\n",
                (int)regs->str_args.a_arg0,
@@ -218,19 +317,23 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                (void *)regs->str_args.a_arg2,
                (unsigned int)regs->str_args.a_arg3);
    break;
+
   case SYS_fstat64:
    debug_printf("sys_fstat64(%d,%p)\n",
                (int)regs->str_args.a_arg0,
                (void *)regs->str_args.a_arg1);
    break;
+
   case SYS_fsync:
    debug_printf("sys_fsync(%d)\n",
                (int)regs->str_args.a_arg0);
    break;
+
   case SYS_fdatasync:
    debug_printf("sys_fdatasync(%d)\n",
                (int)regs->str_args.a_arg0);
    break;
+
   case SYS_utimensat:
    debug_printf("sys_utimensat(%d,%q,%p,%x)\n",
                (int)regs->str_args.a_arg0,
@@ -238,14 +341,17 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                (void *)regs->str_args.a_arg2,
                (unsigned int)regs->str_args.a_arg3);
    break;
+
   case SYS_exit:
    debug_printf("sys_exit(%d)\n",
                (int)regs->str_args.a_arg0);
    break;
+
   case SYS_exit_group:
    debug_printf("sys_exit_group(%d)\n",
                (int)regs->str_args.a_arg0);
    break;
+
   case SYS_waitid:
    debug_printf("sys_waitid(%u,%u,%p,%x)\n",
                (unsigned int)regs->str_args.a_arg0,
@@ -253,34 +359,47 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                (void *)regs->str_args.a_arg2,
                (unsigned int)regs->str_args.a_arg3);
    break;
-  case SYS_set_tid_address:
-   debug_printf("sys_set_tid_address(%p)\n",
-               (void *)regs->str_args.a_arg0);
-   break;
+
   case SYS_unshare:
    debug_printf("sys_unshare(%x)\n",
                (unsigned int)regs->str_args.a_arg0);
    break;
-#define SYS_futex __NR_futex
-#define SYS_nanosleep __NR_nanosleep
+
+  case SYS_futex:
+   debug_printf("sys_futex(%p,%u,%I32x,%p,%p,%I32x)\n",
+               (void *)regs->str_args.a_arg0,
+               (unsigned int)regs->str_args.a_arg1,
+               (u32)regs->str_args.a_arg2,
+               (void *)regs->str_args.a_arg3,
+               (void *)regs->str_args.a_arg4,
+               (u32)regs->str_args.a_arg5);
+   break;
+
   case SYS_kill:
    debug_printf("sys_kill(%u,%d)\n",
                (unsigned int)regs->str_args.a_arg0,
                (int)regs->str_args.a_arg1);
    break;
+
   case SYS_tkill:
    debug_printf("sys_tkill(%u,%d)\n",
                (unsigned int)regs->str_args.a_arg0,
                (int)regs->str_args.a_arg1);
    break;
+
   case SYS_tgkill:
    debug_printf("sys_tgkill(%u,%u,%d)\n",
                (unsigned int)regs->str_args.a_arg0,
                (unsigned int)regs->str_args.a_arg1,
                (int)regs->str_args.a_arg2);
    break;
-#define SYS_sigaltstack __NR_sigaltstack
-#define SYS_sigsuspend __NR_sigsuspend
+
+  case SYS_sigsuspend:
+   debug_printf("sys_sigsuspend(%p,%Iu)\n",
+               (void *)regs->str_args.a_arg0,
+               (size_t)regs->str_args.a_arg1);
+   break;
+
   case SYS_sigaction:
    debug_printf("sys_sigaction(%u,%p,%p,%Iu)\n",
                (unsigned int)regs->str_args.a_arg0,
@@ -288,6 +407,7 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                (void *)regs->str_args.a_arg2,
                (size_t)regs->str_args.a_arg3); 
    break;
+
   case SYS_sigprocmask:
    debug_printf("sys_sigprocmask(%u,%p,%p,%Iu)\n",
                (unsigned int)regs->str_args.a_arg0,
@@ -295,11 +415,13 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                (void *)regs->str_args.a_arg2,
                (size_t)regs->str_args.a_arg3); 
    break;
+
   case SYS_sigpending:
    debug_printf("sys_sigpending(%p,%Iu)\n",
                (void *)regs->str_args.a_arg0,
                (size_t)regs->str_args.a_arg1); 
    break;
+
   case SYS_sigtimedwait:
    debug_printf("sys_sigtimedwait(%p,%p,%p,%Iu)\n",
                (void *)regs->str_args.a_arg0,
@@ -307,6 +429,7 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                (void *)regs->str_args.a_arg2,
                (size_t)regs->str_args.a_arg3); 
    break;
+
 #define SYS_rt_sigqueueinfo __NR_rt_sigqueueinfo
 #define SYS_sigreturn __NR_sigreturn
 #define SYS_rt_sigreturn __NR_rt_sigreturn
@@ -327,6 +450,7 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
 #define SYS_munmap __NR_munmap
 #define SYS_mremap __NR_mremap
 #define SYS_clone __NR_clone
+
   {
    char **iter;
   case SYS_execve:
@@ -341,6 +465,7 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
    }
    debug_printf("})\n");
   } break;
+
 #define SYS_mmap __NR_mmap
 #define SYS_swapon __NR_swapon
 #define SYS_swapoff __NR_swapoff
@@ -355,12 +480,46 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
 #define SYS_xmunmap __NR_xmunmap
 #define SYS_xmprotect __NR_xmprotect
 #define SYS_xreaddir __NR_xreaddir
-#define SYS_xopenpty __NR_xopenpty
-#define SYS_xfrealpathat __NR_xfrealpathat
-#define SYS_xpipe __NR_xpipe
-#define SYS_xfchdirat __NR_xfchdirat
-#define SYS_xfrenameat __NR_xfrenameat
-#define SYS_xfsymlinkat __NR_xfsymlinkat
+
+  case SYS_xfrealpathat:
+   debug_printf("sys_xfrealpathat(%d,%q,%x,%p,%Iu,%x)\n",
+               (int)regs->str_args.a_arg0,
+               (char *)regs->str_args.a_arg1,
+               (unsigned int)regs->str_args.a_arg2,
+               (char *)regs->str_args.a_arg3,
+               (size_t)regs->str_args.a_arg4,
+               (unsigned int)regs->str_args.a_arg5);
+   break;
+
+  case SYS_xpipe:
+   debug_printf("sys_xpipe(%x)\n",
+               (unsigned int)regs->str_args.a_arg0);
+   break;
+
+  case SYS_xfchdirat:
+   debug_printf("sys_xfchdirat(%d,%q,%x)\n",
+               (int)regs->str_args.a_arg0,
+               (char *)regs->str_args.a_arg1,
+               (unsigned int)regs->str_args.a_arg2);
+   break;
+
+  case SYS_xfrenameat:
+   debug_printf("sys_xfrenameat(%d,%q,%d,%q,%x)\n",
+               (int)regs->str_args.a_arg0,
+               (char *)regs->str_args.a_arg1,
+               (int)regs->str_args.a_arg2,
+               (char *)regs->str_args.a_arg3,
+               (unsigned int)regs->str_args.a_arg4);
+   break;
+
+  case SYS_xfsymlinkat:
+   debug_printf("sys_xfsymlinkat(%q,%d,%q,%x)\n",
+               (char *)regs->str_args.a_arg0,
+               (int)regs->str_args.a_arg1,
+               (char *)regs->str_args.a_arg2,
+               (unsigned int)regs->str_args.a_arg3);
+   break;
+
 #define SYS_xfreadlinkat __NR_xfreadlinkat
 #define SYS_xfsmask __NR_xfsmask
 #define SYS_xfmknodat __NR_xfmknodat
@@ -394,16 +553,6 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                (char *)regs->str_args.a_arg2,
                (size_t)regs->str_args.a_arg3,
                (unsigned int)regs->str_args.a_arg4);
-   break;
-
-  case SYS_xfrealpathat:
-   debug_printf("sys_xfrealpathat(%d,%q,%x,%p,%Iu,%x)\n",
-               (int)regs->str_args.a_arg0,
-               (char *)regs->str_args.a_arg1,
-               (unsigned int)regs->str_args.a_arg2,
-               (char *)regs->str_args.a_arg3,
-               (size_t)regs->str_args.a_arg4,
-               (unsigned int)regs->str_args.a_arg5);
    break;
 
   {
