@@ -57,6 +57,7 @@
 #include <bits/sigaction.h>
 
 #include <asm/cpu-flags.h>
+#include <syscall.h>
 #include <stdint.h>
 #include <except.h>
 #include <assert.h>
@@ -1378,7 +1379,14 @@ serve_rpc:
 
   default: break;
   }
-#if 1
+
+#if 1 /* In a perfect world (kernel) this check wouldn't be required, but
+       * since that's not the kind of world (kernel) we live in, assume that
+       * kernel-space causing a segfault that isn't located as NULL is probably
+       * not userspace's fault (but rather a bug in kernel-space).
+       * Without this, such a bug would just cause the system call to return -EFAULT,
+       * or propagate the SEGFAULT exception back into user-space, erasing the traceback
+       * containing information about what _actually_ happened... */
   if (info.e_error.e_code == E_SEGFAULT &&
    !((uintptr_t)info.e_error.e_segfault.sf_reason & X86_SEGFAULT_FUSER) &&
       info.e_error.e_segfault.sf_vaddr != 0)

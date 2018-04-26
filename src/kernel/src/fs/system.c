@@ -93,11 +93,19 @@ DEFINE_SYSCALL1(syncfs,fd_t,fd) {
 }
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL5(xftruncateat,
+                fd_t,dfd,USER UNCHECKED char const *,path,
+                syscall_ulong_t,len_lo,
+                syscall_ulong_t,len_hi,
+                int,flags)
+#else
 DEFINE_SYSCALL5(xftruncateat,
                 fd_t,dfd,USER UNCHECKED char const *,path,
                 syscall_ulong_t,len_hi,
                 syscall_ulong_t,len_lo,
                 int,flags)
+#endif
 #else
 DEFINE_SYSCALL4(xftruncateat,
                 fd_t,dfd,USER UNCHECKED char const *,path,
@@ -207,9 +215,12 @@ DEFINE_SYSCALL4(fstatat64,fd_t,dfd,USER UNCHECKED char const *,path,
  if (flags & ~(FS_MODE_FKNOWNBITS))
      error_throw(E_INVALID_ARGUMENT);
  /* Lookup the user-path. */
+ flags = FS_ATMODE(flags);
+ debug_printf("flags = %x (%x,%x)\n",flags,
+              THIS_FS->fs_atmask,THIS_FS->fs_atflag);
  p = fs_pathat(dfd,path,user_strlen(path),
               (struct inode **)&node,
-               FS_ATMODE(flags));
+               flags);
  path_decref(p);
  TRY {
   /* Query information in the INode. */
@@ -266,10 +277,17 @@ DEFINE_SYSCALL4(utimensat,fd_t,dfd,USER UNCHECKED char const *,path,
 }
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL3(ftruncate,
+                fd_t,fd,
+                syscall_ulong_t,len_lo,
+                syscall_ulong_t,len_hi)
+#else
 DEFINE_SYSCALL3(ftruncate,
                 fd_t,fd,
                 syscall_ulong_t,len_hi,
                 syscall_ulong_t,len_lo)
+#endif
 #else
 DEFINE_SYSCALL2(ftruncate,fd_t,fd,u64,length)
 #endif
@@ -444,22 +462,15 @@ DEFINE_SYSCALL5(xfreadlinkat,fd_t,dfd,
                 size_t,bufsize,int,flags) {
  REF struct path *p;
  REF struct symlink_node *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(node);
- REF struct directory_node *EXCEPT_VAR dir;
  size_t filename_length = user_strlen(path);
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  if (flags & ~FS_MODE_FKNOWNBITS)
      error_throw(E_INVALID_ARGUMENT);
  flags = FS_ATMODE(flags);
- p = fs_lastpathat(dfd,&path,&filename_length,
-                  (REF struct inode **)&dir,
-                   flags|FS_MODE_FDIRECTORY);
+ p = fs_pathat(dfd,path,filename_length,
+              (REF struct inode **)&node,flags|
+               FS_MODE_FSYMLINK_NOFOLLOW);
  path_decref(p);
- TRY {
-  node = (struct symlink_node *)directory_getnode(dir,path,(u16)filename_length,
-                                                  directory_entry_hash(path,(u16)filename_length));
- } FINALLY {
-  inode_decref(&dir->d_node);
- }
  TRY {
   if (!INODE_ISLNK(&node->sl_node))
        error_throw(E_INVALID_ARGUMENT); /* XXX: Dedicated FS-error? */
@@ -932,12 +943,17 @@ DEFINE_SYSCALL5(xreaddirf,
 }
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL2_64(xfsmask,u32,mask_lo,u32,mask_hi)
+#else
 DEFINE_SYSCALL2_64(xfsmask,u32,mask_hi,u32,mask_lo)
+#endif
 #else
 DEFINE_SYSCALL1_64(xfsmask,u64,mask)
 #endif
 {
- union fs_mask mask; u64 result;
+ union fs_mask mask;
+ union fs_mask result;
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
  mask.fs_lo = mask_lo;
  mask.fs_hi = mask_hi;
@@ -948,8 +964,8 @@ DEFINE_SYSCALL1_64(xfsmask,u64,mask)
  mask.fs_atmask |=  FS_MODE_FALWAYS1MASK;
  mask.fs_atflag &= ~FS_MODE_FALWAYS0FLAG;
  mask.fs_atflag |=  FS_MODE_FALWAYS1FLAG;
- result = ATOMIC_XCH(THIS_FS->fs_mode,mask.fs_mode);
- return result;
+ result.fs_mode = ATOMIC_XCH(THIS_FS->fs_mode,mask.fs_mode);
+ return result.fs_mode;
 }
 
 DEFINE_SYSCALL3(xfchdirat,fd_t,dfd,USER UNCHECKED char const *,reldir,int,flags) {
@@ -1031,10 +1047,17 @@ DEFINE_SYSCALL4(xwritef,
 }
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL4_64(lseek,fd_t,fd,
+                   syscall_slong_t,off_lo,
+                   syscall_slong_t,off_hi,
+                   int,whence)
+#else
 DEFINE_SYSCALL4_64(lseek,fd_t,fd,
                    syscall_slong_t,off_hi,
                    syscall_slong_t,off_lo,
                    int,whence)
+#endif
 #else
 DEFINE_SYSCALL3_64(lseek,fd_t,fd,s64,off,int,whence)
 #endif
@@ -1057,10 +1080,17 @@ DEFINE_SYSCALL3_64(lseek,fd_t,fd,s64,off,int,whence)
 }
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL5(pread64,fd_t,fd,
+                USER UNCHECKED void *,buf,size_t,bufsize,
+                syscall_ulong_t,pos_lo,
+                syscall_ulong_t,pos_hi)
+#else
 DEFINE_SYSCALL5(pread64,fd_t,fd,
                 USER UNCHECKED void *,buf,size_t,bufsize,
                 syscall_ulong_t,pos_hi,
                 syscall_ulong_t,pos_lo)
+#endif
 #else
 DEFINE_SYSCALL4(pread64,fd_t,fd,
                 USER UNCHECKED void *,buf,size_t,bufsize,
@@ -1087,10 +1117,17 @@ DEFINE_SYSCALL4(pread64,fd_t,fd,
 }
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL5(pwrite64,fd_t,fd,
+                USER UNCHECKED void const *,buf,size_t,bufsize,
+                syscall_ulong_t,pos_lo,
+                syscall_ulong_t,pos_hi)
+#else
 DEFINE_SYSCALL5(pwrite64,fd_t,fd,
                 USER UNCHECKED void const *,buf,size_t,bufsize,
                 syscall_ulong_t,pos_hi,
                 syscall_ulong_t,pos_lo)
+#endif
 #else
 DEFINE_SYSCALL4(pwrite64,fd_t,fd,
                 USER UNCHECKED void const *,buf,size_t,bufsize,
@@ -1118,11 +1155,19 @@ DEFINE_SYSCALL4(pwrite64,fd_t,fd,
 
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL6(xpreadf64,fd_t,fd,
+                USER UNCHECKED void *,buf,size_t,bufsize,
+                syscall_ulong_t,pos_lo,
+                syscall_ulong_t,pos_hi,
+                oflag_t,flags)
+#else
 DEFINE_SYSCALL6(xpreadf64,fd_t,fd,
                 USER UNCHECKED void *,buf,size_t,bufsize,
                 syscall_ulong_t,pos_hi,
                 syscall_ulong_t,pos_lo,
                 oflag_t,flags)
+#endif
 #else
 DEFINE_SYSCALL5(xpreadf64,fd_t,fd,
                 USER UNCHECKED void *,buf,size_t,bufsize,
@@ -1154,10 +1199,19 @@ DEFINE_SYSCALL5(xpreadf64,fd_t,fd,
 }
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL6(xpwritef64,fd_t,fd,
+                USER UNCHECKED void const *,buf,size_t,bufsize,
+                syscall_ulong_t,pos_lo,
+                syscall_ulong_t,pos_hi,
+                oflag_t,flags)
+#else
 DEFINE_SYSCALL6(xpwritef64,fd_t,fd,
                 USER UNCHECKED void const *,buf,size_t,bufsize,
                 syscall_ulong_t,pos_hi,
-                syscall_ulong_t,pos_lo,oflag_t,flags)
+                syscall_ulong_t,pos_lo,
+                oflag_t,flags)
+#endif
 #else
 DEFINE_SYSCALL5(xpwritef64,fd_t,fd,
                 USER UNCHECKED void const *,buf,size_t,bufsize,
@@ -1295,12 +1349,21 @@ DEFINE_SYSCALL3(symlinkat,
  return SYSC_xfsymlinkat(link_text,dfd,filename,FS_MODE_FNORMAL);
 }
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL3(truncate,
+                USER UNCHECKED char const *,path,
+                syscall_ulong_t,len_lo,
+                syscall_ulong_t,len_hi) {
+ return SYSC_xftruncateat(AT_FDCWD,path,len_lo,len_hi,FS_MODE_FNORMAL);
+}
+#else
 DEFINE_SYSCALL3(truncate,
                 USER UNCHECKED char const *,path,
                 syscall_ulong_t,len_hi,
                 syscall_ulong_t,len_lo) {
  return SYSC_xftruncateat(AT_FDCWD,path,len_hi,len_lo,FS_MODE_FNORMAL);
 }
+#endif
 #else
 DEFINE_SYSCALL2(truncate,USER UNCHECKED char const *,path,u64,length) {
  return SYSC_xftruncateat(AT_FDCWD,path,length,FS_MODE_FNORMAL);
@@ -1715,12 +1778,21 @@ scan_again:
 
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL6(fallocate,
+                fd_t,fd,int,mode,
+                syscall_ulong_t,off_lo,
+                syscall_ulong_t,off_hi,
+                syscall_ulong_t,len_lo,
+                syscall_ulong_t,len_hi)
+#else
 DEFINE_SYSCALL6(fallocate,
                 fd_t,fd,int,mode,
                 syscall_ulong_t,off_hi,
                 syscall_ulong_t,off_lo,
                 syscall_ulong_t,len_hi,
                 syscall_ulong_t,len_lo)
+#endif
 #else
 DEFINE_SYSCALL4(fallocate,
                 fd_t,fd,int,mode,

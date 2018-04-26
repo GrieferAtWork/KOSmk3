@@ -305,8 +305,8 @@ FUNDEF ATTR_NOTHROW void KCALL vfs_unbind_drives(struct vfs *__restrict self);
 #define FS_MODE_FSYMLINK_REGULAR          0x00002000 /* Treat symbolic links similar to like regular files and throw an
                                                       * `ERROR_FS_TOO_MANY_LINKS' error during the first encounter. */
 #define FS_MODE_FDOSPATH                  0x00100000 /* Interpret '\\' as '/', and ignore casing during path resolution. */
-#define FS_MODE_FALWAYS0MASK              0x000000ff /* Mask of bits always 0 in `fs_atmask' */
-#define FS_MODE_FALWAYS1MASK              0xffefc100 /* Mask of bits always 1 in `fs_atmask' */
+#define FS_MODE_FALWAYS0MASK              0xffefc7ff /* Mask of bits always 0 in `fs_atmask' */
+#define FS_MODE_FALWAYS1MASK              0x00000100 /* Mask of bits always 1 in `fs_atmask' */
 #define FS_MODE_FALWAYS0FLAG              0xffefc7ff /* Mask of bits always 0 in `fs_atflag' */
 #define FS_MODE_FALWAYS1FLAG              0x00000000 /* Mask of bits always 1 in `fs_atflag' */
 
@@ -328,6 +328,8 @@ union fs_mask {
         ATOMIC_DATA u32 fs_hi;
         ATOMIC_DATA u32 fs_lo;
 #endif
+    };
+    struct PACKED {
         ATOMIC_DATA u32 fs_atmask; /* File system operations mode mask (Set of negated `FS_MODE_F*'). */
         ATOMIC_DATA u32 fs_atflag; /* File system operations mode flags (Set of negated `FS_MODE_F*'). */
     };
@@ -357,13 +359,8 @@ struct fs {
     union PACKED {
         ATOMIC_DATA u64     fs_mode;   /* File system operations mode. */
         struct PACKED {
-#if __BYTE_ORDER == __LITTLE_ENDIAN
             ATOMIC_DATA u32 fs_atmask; /* File system operations mode mask (Set of negated `FS_MODE_F*'). */
             ATOMIC_DATA u32 fs_atflag; /* File system operations mode flags (Set of negated `FS_MODE_F*'). */
-#else
-            ATOMIC_DATA u32 fs_atmask; /* File system operations mode mask (Set of negated `FS_MODE_F*'). */
-            ATOMIC_DATA u32 fs_atflag; /* File system operations mode flags (Set of negated `FS_MODE_F*'). */
-#endif
         };
     };
 };

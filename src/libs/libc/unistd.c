@@ -480,7 +480,7 @@ INTERN struct fsmask LIBCCALL libc_fsmode(struct fsmask new_mode) {
 }
 INTERN struct fsmask LIBCCALL libc_getfsmode(void) {
  if (current_fs_mask.fm_mask == 0) {
-  struct fsmask temp = {(u32)-1,0};
+  struct fsmask temp = { (u32)-1, 0 };
   current_fs_mask = libc_fsmode(temp);
   libc_fsmode(current_fs_mask);
  }

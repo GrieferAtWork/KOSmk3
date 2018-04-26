@@ -723,8 +723,19 @@ search_end:
    *ppath    = path;
    *ppathlen = pathlen;
    /* Return the current working directory. */
-   if (!cwd) return fs_getcwd();
-   path_incref(cwd);
+   if (cwd) path_incref(cwd);
+   else cwd = fs_getcwd();
+   if (pnode) {
+    atomic_rwlock_read(&cwd->p_lock);
+    *pnode = cwd->p_node;
+    inode_incref(cwd->p_node);
+    atomic_rwlock_endread(&cwd->p_lock);
+    if ((flags & FS_MODE_FDIRECTORY) && !INODE_ISDIR(*pnode)) {
+     inode_decref(*pnode);
+     path_decref(cwd);
+     throw_fs_error(ERROR_FS_NOT_A_DIRECTORY);
+    }
+   }
    return cwd;
   }
   temp = *--path_end;
@@ -787,8 +798,19 @@ search_end:
   *ppath    = path;
   *ppathlen = pathlen;
   /* Return the current working directory. */
-  if (!cwd) return fs_getcwd();
-  path_incref(cwd);
+  if (cwd) path_incref(cwd);
+  else cwd = fs_getcwd();
+  if (pnode) {
+   atomic_rwlock_read(&cwd->p_lock);
+   *pnode = cwd->p_node;
+   inode_incref(cwd->p_node);
+   atomic_rwlock_endread(&cwd->p_lock);
+   if ((flags & FS_MODE_FDIRECTORY) && !INODE_ISDIR(*pnode)) {
+    inode_decref(*pnode);
+    path_decref(cwd);
+    throw_fs_error(ERROR_FS_NOT_A_DIRECTORY);
+   }
+  }
   return cwd;
  }
  ++path_end;
