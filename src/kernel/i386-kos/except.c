@@ -18,6 +18,7 @@
  */
 #ifndef GUARD_KERNEL_I386_KOS_EXCEPT_C
 #define GUARD_KERNEL_I386_KOS_EXCEPT_C 1
+#define _KOS_SOURCE 1
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
@@ -45,63 +46,62 @@ DECL_BEGIN
 
 
 INTERN ATTR_NORETURN void FCALL
-libc_error_rethrow_at(struct cpu_context *__restrict context,
-                      int ip_is_after_faulting) {
- struct cpu_context unwind;
+libc_error_rethrow_at(struct cpu_context *__restrict context) {
  struct fde_info info;
  struct exception_handler_info hand;
  bool is_first = true;
  /* Safe the original stack-pointer. */
- uintptr_t sp;
- memcpy(&unwind,context,sizeof(struct cpu_context));
+ uintptr_t sp = CPU_CONTEXT_SP(*context);
+ assertf(context != &error_info()->e_context,
+         "Remeber how this function is allowed to modify the context? "
+         "Wouldn't make much sense if you passed the context that's supposed "
+         "to represent what was going on when the exception was thrown...");
 
- sp = CPU_CONTEXT_SP(unwind);
 #if 0
- debug_printf("%[vinfo:%f(%l,%c) : %n : __error_rethrow_at(%p)\n]",
-             (uintptr_t)CPU_CONTEXT_IP(unwind)-1);
+ debug_printf("%[vinfo:%f(%l,%c) : %n : __error_rethrow_at(%p)]\n",
+             (uintptr_t)CPU_CONTEXT_IP(unwind));
 #endif
  for (;;) {
-  uintptr_t ip = CPU_CONTEXT_IP(unwind);
-  if (ip < KERNEL_BASE && !(THIS_TASK->t_flags & TASK_FKERNELJOB))
-      goto no_handler; /* Exception must be propagated to userspace. */
-
   /* Account for the fact that return addresses point to the
    * first instruction _after_ the `call', when it is actually
    * that call which we are trying to guard. */
-  if (!is_first || ip_is_after_faulting) --ip;
-  if (!linker_findfde_consafe(ip,&info)) {
-   debug_printf("No frame at %p\n",ip);
+  if (!is_first) --CPU_CONTEXT_IP(*context);
+  if (CPU_CONTEXT_IP(*context) < KERNEL_BASE &&
+    !(THIS_TASK->t_flags & TASK_FKERNELJOB))
+      goto no_handler; /* Exception must be propagated to userspace. */
+  if (!linker_findfde_consafe(CPU_CONTEXT_IP(*context),&info)) {
+   debug_printf("No frame at %p\n",CPU_CONTEXT_IP(*context));
    goto no_handler;
   }
   is_first = false;
   /* Search for a suitable exception handler (in reverse order!). */
-  if (linker_findexcept_consafe(ip,error_code(),&hand)) {
+  if (linker_findexcept_consafe(CPU_CONTEXT_IP(*context),error_code(),&hand)) {
     if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS)
         error_info()->e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK;
    if (hand.ehi_flag & EXCEPTION_HANDLER_FDESCRIPTOR) {
     /* Unwind the stack to the caller-site. */
-    if (!eh_return(&info,&unwind,EH_FDONT_UNWIND_SIGFRAME))
+    if (!eh_return(&info,context,EH_FDONT_UNWIND_SIGFRAME))
          goto cannot_unwind;
     /* Override the IP to use the entry point. */
-    unwind.c_eip = (uintptr_t)hand.ehi_entry;
+    context->c_eip = (uintptr_t)hand.ehi_entry;
     assert(hand.ehi_desc.ed_type == EXCEPT_DESC_TYPE_BYPASS); /* XXX: What should we do here? */
 
     /* Allocate the stack-save area. */
-    CPU_CONTEXT_SP(unwind) -= hand.ehi_desc.ed_safe;
+    CPU_CONTEXT_SP(*context) -= hand.ehi_desc.ed_safe;
     if (!(hand.ehi_desc.ed_flags&EXCEPT_DESC_FDEALLOC_CONTINUE)) {
      /* Must allocate stack memory at the back and copy data there. */
      sp -= hand.ehi_desc.ed_safe;
-     memcpy((void *)sp,(void *)CPU_CONTEXT_SP(unwind),hand.ehi_desc.ed_safe);
-     error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(unwind);
-     CPU_CONTEXT_SP(unwind) = sp;
+     memcpy((void *)sp,(void *)CPU_CONTEXT_SP(*context),hand.ehi_desc.ed_safe);
+     error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(*context);
+     CPU_CONTEXT_SP(*context) = sp;
     } else {
-     error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(unwind);
+     error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(*context);
     }
     if (hand.ehi_desc.ed_flags & EXCEPT_DESC_FDISABLE_PREEMPTION)
-        unwind.c_eflags &= ~EFLAGS_IF;
+        context->c_eflags &= ~EFLAGS_IF;
    } else {
     /* Jump to the entry point of this exception handler. */
-    if (!eh_jmp(&info,&unwind,(uintptr_t)hand.ehi_entry,EH_FNORMAL)) {
+    if (!eh_jmp(&info,context,(uintptr_t)hand.ehi_entry,EH_FNORMAL)) {
      debug_printf("Failed to jump to handler at %p\n",
                   hand.ehi_entry);
      goto no_handler;
@@ -111,8 +111,8 @@ libc_error_rethrow_at(struct cpu_context *__restrict context,
      * it were when the exception originally occurred.
      * Without this, it would be impossible to continue
      * execution after an exception occurred. */
-    error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(unwind);
-    CPU_CONTEXT_SP(unwind) = sp;
+    error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(*context);
+    CPU_CONTEXT_SP(*context) = sp;
    }
 #if 0
    debug_printf("%[vinfo:%f(%l,%c) : %n : cpu_setcontext(%p)] cs = %p, eflags = %p\n",
@@ -126,18 +126,19 @@ libc_error_rethrow_at(struct cpu_context *__restrict context,
                 unwind.c_segments.sg_fs,
                 unwind.c_segments.sg_gs);
 #endif
-   cpu_setcontext(&unwind);
+   cpu_setcontext(context);
    /* Never get here... */
   }
   /* Continue unwinding the stack. */
-  if (!eh_return(&info,&unwind,EH_FDONT_UNWIND_SIGFRAME)) {
+  if (!eh_return(&info,context,EH_FDONT_UNWIND_SIGFRAME)) {
 cannot_unwind:
-   debug_printf("Failed to unwind frame at %p\n",ip);
+   debug_printf("Failed to unwind frame at %p\n",CPU_CONTEXT_IP(*context));
    goto no_handler;
   }
 #if 0
-  debug_printf("%[vinfo:%f(%l,%c) : %n :] Unwind %p -> %p (ebp %p; fs: %p)\n",
-               ip,ip,unwind.c_eip,unwind.c_gpregs.gp_ebp,unwind.c_segments.sg_fs);
+  debug_printf("%[vinfo:%f(%l,%c) : %n :] Unwind %p (ebp %p; fs: %p)\n",
+               CPU_CONTEXT_IP(unwind),CPU_CONTEXT_IP(unwind),
+               unwind.c_gpregs.gp_ebp,unwind.c_segments.sg_fs);
 #endif
  }
 no_handler:
@@ -190,18 +191,18 @@ error_rethrow_at_user(USER CHECKED struct user_exception_info *except_info,
  uintptr_t sp;
  sp = CPU_CONTEXT_SP(context->c_context);
  for (;;) {
-  uintptr_t ip = CPU_CONTEXT_IP(context->c_context);
-  if (ip >= KERNEL_BASE)
-      return false;
   /* Account for the fact that return addresses point to the
    * first instruction _after_ the `call', when it is actually
    * that call which we are trying to guard. */
-  if (!is_first) --ip;
-  if (!linker_findfde(ip,&info))
+  if (!is_first) --CPU_CONTEXT_IP(context->c_context);
+  if (CPU_CONTEXT_IP(context->c_context) >= KERNEL_BASE)
+      return false;
+  if (!linker_findfde(CPU_CONTEXT_IP(context->c_context),&info))
        return false;
   is_first = false;
   /* Search for a suitable exception handler (in reverse order!). */
-  if (linker_findexcept(ip,except_info->e_error.e_code,&hand)) {
+  if (linker_findexcept(CPU_CONTEXT_IP(context->c_context),
+                        except_info->e_error.e_code,&hand)) {
    if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS)
        except_info->e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK;
    if (hand.ehi_flag & EXCEPTION_HANDLER_FDESCRIPTOR) {

@@ -628,7 +628,7 @@ eh_return(struct fde_info *__restrict info,
  if unlikely(!dw_state_init(&state,info))
     return false;
  /* Evaluate the code to find the proper IP. */
- while (state.s_pc < ip) {
+ while (state.s_pc <= ip) {
   int error;
   if (state.s_text >= state.s_end)
       break;

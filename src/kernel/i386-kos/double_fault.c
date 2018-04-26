@@ -168,7 +168,6 @@ INTERN void FCALL c_x86_double_fault_handler(void) {
     *             where the exception happened, we instead
     *             safe the new context into the TSS that's
     *             going to be loaded once our task gate returns. */
-   uintptr_t ip = context.c_eip;
    if (info->e_error.e_code == E_STACK_OVERFLOW) {
     /* Deallocate frames to make space to STACK_OVERFLOW handling.
      * NOTE: Although this might break tracebacks showing where
@@ -195,11 +194,11 @@ INTERN void FCALL c_x86_double_fault_handler(void) {
      */
     sp = context.c_esp;
    }
-   if (!is_first) --ip;
-   if (!linker_findfde_consafe(ip,&fde)) goto no_handler;
+   if (!is_first) --context.c_eip;
+   if (!linker_findfde_consafe(context.c_eip,&fde)) goto no_handler;
    is_first = false;
    /* Search for a suitable exception handler (in reverse order!). */
-   if (linker_findexcept_consafe(ip,error_code(),&hand)) {
+   if (linker_findexcept_consafe(context.c_eip,error_code(),&hand)) {
     if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS)
         info->e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK;
     if (hand.ehi_flag & EXCEPTION_HANDLER_FDESCRIPTOR) {

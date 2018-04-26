@@ -60,7 +60,6 @@ INTERN_ENTRY(libc_error_rethrow)
 	leal   X86_CONTEXT_SIZE(%esp), %ecx
 	movl   %ecx, X86_CONTEXT_OFFSETOF_ESP(%esp)
 	movl   %esp, %ecx
-	movl   $1, %edx
 	/* FIX EIP to point into the middle of the
 	 * instruction the caller used to get here. */
 	decl   X86_CONTEXT_OFFSETOF_EIP(%ecx)
@@ -212,6 +211,19 @@ SYMEND(libc_error_info)
 EXPORT(error_info,libc_error_info)
 
 
+#if 1
+INTERN_ENTRY(libc_error_handled)
+	ret
+SYMEND(libc_error_handled)
+EXPORT(error_handled,libc_error_handled)
+
+INTERN_ENTRY(libc_error_dealloc_continue)
+	xorl %eax, %eax
+	ret
+SYMEND(libc_error_dealloc_continue)
+EXPORT(error_dealloc_continue,libc_error_dealloc_continue)
+#else
+
 INTERN_ENTRY(libc_error_handled)
 	.cfi_def_cfa %esp, 4
 	popl_cfi %edx
@@ -238,6 +250,7 @@ INTERN_ENTRY(libc_error_dealloc_continue)
 	jmpl     *%edx
 SYMEND(libc_error_dealloc_continue)
 EXPORT(error_dealloc_continue,libc_error_dealloc_continue)
+#endif
 
 
 .cfi_endproc

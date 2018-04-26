@@ -192,9 +192,7 @@ __LIBC int (__FCALL except_errno)(void);
  *           caused the exception. (Not at the instruction thereafter)
  * This function is invoked by `error_rethrow', using
  * a stack-allocated cpu-context of the caller. */
-__LIBC __ATTR_NORETURN void
-(__FCALL __error_rethrow_at)(struct cpu_context *__restrict __context,
-                             int __ip_is_after_faulting);
+__LIBC __ATTR_NORETURN void (__FCALL __error_rethrow_at)(struct cpu_context *__restrict __context);
 
 /* Return a pointer to the instruction following `ip'
  * If the next instruction cannot be determined, `NULL' is returned.

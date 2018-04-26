@@ -925,7 +925,7 @@ INTDEF size_t FCALL libc_error_dealloc_continue(void);
 INTDEF void FCALL libc_error_handled(void);
 INTDEF u16 (FCALL libc_error_code)(void);
 INTDEF ATTR_NORETURN void FCALL libc_error_unhandled_exception(void);
-INTDEF ATTR_NORETURN void FCALL libc_error_rethrow_at(struct cpu_context *__restrict context, int ip_is_after_faulting);
+INTDEF ATTR_NORETURN void FCALL libc_error_rethrow_at(struct cpu_context *__restrict context);
 INTDEF void ATTR_CDECL libc_error_printf(char const *__restrict reason, ...);
 INTDEF void LIBCCALL libc_error_vprintf(char const *__restrict reason, va_list args);
 INTDEF errno_t FCALL libc_exception_errno(struct exception_info *__restrict info);

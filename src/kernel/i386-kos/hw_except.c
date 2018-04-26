@@ -90,8 +90,11 @@ x86_handle_vio(struct cpu_anycontext *__restrict context,
 
 INTERN void FCALL
 error_rethrow_atuser(struct cpu_context *__restrict context) {
- if (!(context->c_iret.ir_cs & 3))
-       __error_rethrow_at(context,!(error_info()->e_error.e_flag & ERR_FRESUMENEXT));
+ if (!(context->c_iret.ir_cs & 3)) {
+  if (!(error_info()->e_error.e_flag & ERR_FRESUMENEXT))
+        --CONTEXT_IP(*context);
+  __error_rethrow_at(context);
+ }
  task_propagate_user_exception((struct cpu_hostcontext_user *)context,
                                 TASK_USERCTX_TYPE_INTR_INTERRUPT);
 }

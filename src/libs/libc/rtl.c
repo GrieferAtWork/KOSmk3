@@ -110,11 +110,13 @@ EXPORT(vsyslog,libc_vsyslog);
 
 
 INTERN ATTR_NORETURN void FCALL
-libc_error_rethrow_at(struct cpu_context *__restrict context,
-                      int ip_is_after_faulting) {
+libc_error_rethrow_at(struct cpu_context *__restrict context) {
+ assertf(context != &error_info()->e_context,
+         "Remeber how this function is allowed to modify the context? "
+         "Wouldn't make much sense if you passed the context that's supposed "
+         "to represent what was going on when the exception was thrown...");
  /* Unwind the stack to the nearest handler.
   * If that fails, invoke the unhandled-exception handler. */
- if (ip_is_after_faulting) --context->c_eip;
  /* TODO: FPU context */
  if (sys_xunwind_except(libc_error_info(),context,NULL) != -EOK)
      libc_error_unhandled_exception();
