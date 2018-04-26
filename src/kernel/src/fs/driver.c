@@ -165,7 +165,7 @@ PRIVATE struct module_debug kernel_debug = {
         .ds_flags   = SHF_WRITE|SHF_ALLOC,
         .ds_entsize = 0
     },
-    .md_data = kernel_debug_line_start
+    .md_dl_data = kernel_debug_line_start
 };
 
 PUBLIC struct module kernel_module = {

@@ -26,26 +26,9 @@
 
 DECL_BEGIN
 
-struct module_addr2line {
-    image_rva_t  d_begin;   /* Image-relative starting address of text describing debug information for the requested IP. */
-    image_rva_t  d_end;     /* Image-relative end address of text describing debug information for the requested IP. */
-    unsigned int d_discr;   /* Source location discriminator. */
-    unsigned int d_srcno;   /* Compilation unit number (can be used to discriminate individual object files) */
-    char const  *d_base;    /* [0..1] Source path base string (if non-NULL, should be prepended before `d_path') */
-    char const  *d_path;    /* [0..1] The path of the associated source.
-                             *  NOTE: This string points into a private
-                             *        data block of `module_debug' data. */
-    char const  *d_file;    /* [0..1] The filename of the associated source. */
-    char const  *d_name;    /* [0..1] The name of the containing function (if known) */
-    int          d_line;    /* Source line number (1-based; `0' if unknown) */
-    int          d_column;  /* Source column number (1-based; `0' if unknown) */
-    u16          d_flags;   /* Set of `MODULE_ADDR2LINE_F*' */
-    u16        __d_pad;     /* ... */
-};
-
 struct module_debug {
-    struct dl_section md_debug_line; /* The .debug_line section. */
-    VIRT HOST byte_t     *md_data;       /* [1..1][owned] Starting address where data of
+    struct dl_section     md_debug_line; /* The .debug_line section. */
+    VIRT HOST byte_t     *md_dl_data;    /* [1..1][owned] Starting address where data of
                                           *               this module has been mapped at.
                                           *  -> This address is locate in kernel-space and
                                           *     is a simple file-mapping of the .debug_line
@@ -84,14 +67,14 @@ module_debug_open(struct application *__restrict app);
 FUNDEF bool KCALL
 module_debug_query(struct application *__restrict app,
                    image_rva_t image_relative_ip,
-                   struct module_addr2line *__restrict result);
+                   struct dl_addr2line *__restrict result);
 
 /* Lookup an application at `ip' (an absolute address) and invoke `module_debug_query()'.
  * @return: * :            The load address of the application containing addr2line information.
  * @return: (uintptr_t)-1: No application found, or application didn't contain debug information. */
 FUNDEF uintptr_t KCALL
 linker_debug_query(uintptr_t ip,
-                   struct module_addr2line *__restrict result);
+                   struct dl_addr2line *__restrict result);
 
 
 

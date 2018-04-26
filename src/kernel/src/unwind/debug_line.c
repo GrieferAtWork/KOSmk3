@@ -35,12 +35,11 @@
 
 DECL_BEGIN
 
-
 /* Delete module debug information. */
 PUBLIC ATTR_NOTHROW void KCALL
 module_debug_delete(struct module_debug *__restrict self) {
  if (self->md_debug_line.ds_size)
-     vm_unmap(VM_ADDR2PAGE((uintptr_t)self->md_data),
+     vm_unmap(VM_ADDR2PAGE((uintptr_t)self->md_dl_data),
               CEIL_ALIGN(self->md_debug_line.ds_size,PAGESIZE),
               VM_UNMAP_NOEXCEPT|VM_UNMAP_SYNC,NULL);
  kfree(self);
@@ -65,7 +64,8 @@ module_debug_alloc(struct application *__restrict app) {
  TRY {
   REF struct vm_region *EXCEPT_VAR region;
   size_t num_pages,padding_size;
-  padding_size = 64; /* Add some padding to guard against curruption. */
+  /* Lookup additional sections .strtab and .symtab for symbol name information. */
+  padding_size = 64; /* Add some padding to guard against corruption. */
   num_pages = CEILDIV(debug_line.ds_size+padding_size,PAGESIZE);
   if (app->a_flags & APPLICATION_FTRUSTED)
       padding_size = 0; /* No need to add padding if the app can be trusted. */
@@ -83,7 +83,7 @@ module_debug_alloc(struct application *__restrict app) {
    /* Map the new region into memory.
     * NOTE: We add `PROT_WRITE' into the mix, so we're
     *       later able to do some fix-ups on the data. */
-   result->md_data = (byte_t *)vm_map(VM_KERNELDEBUG_HINT,
+   result->md_dl_data = (byte_t *)vm_map(VM_KERNELDEBUG_HINT,
                                       num_pages,
                                       1,
                                       0,
@@ -142,7 +142,7 @@ module_debug_open(struct application *__restrict app) {
  * @return: false: No application found, or application didn't contain debug information. */
 FUNDEF uintptr_t KCALL
 linker_debug_query(uintptr_t ip,
-                   struct module_addr2line *__restrict result) {
+                   struct dl_addr2line *__restrict result) {
  REF struct application *EXCEPT_VAR app = NULL; 
  uintptr_t return_value = (uintptr_t)-1;
  struct vm *EXCEPT_VAR effective_vm;
@@ -227,6 +227,12 @@ PRIVATE state_machine_t const default_state = {
 INTDEF intptr_t  KCALL decode_sleb128(byte_t **__restrict ptext);
 INTDEF uintptr_t KCALL decode_uleb128(byte_t **__restrict ptext);
 
+
+
+
+
+
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 
@@ -236,7 +242,7 @@ INTDEF uintptr_t KCALL decode_uleb128(byte_t **__restrict ptext);
 FUNDEF bool KCALL
 module_debug_query(struct application *__restrict app,
                    image_rva_t image_relative_ip,
-                   struct module_addr2line *__restrict result) {
+                   struct dl_addr2line *__restrict result) {
  struct module_debug *debug;
  byte_t *reader,*end;
 #define GOTO_FAIL { debug_printf("%s(%d) : FAIL\n",__FILE__,__LINE__); goto fail; }
@@ -244,7 +250,7 @@ module_debug_query(struct application *__restrict app,
  unsigned int sourceno = 0;
  debug  = module_debug_open(app);
  if (!debug) return false;
- reader = debug->md_data;
+ reader = debug->md_dl_data;
  end    = reader + debug->md_debug_line.ds_size;
  while (reader < end) {
   uintptr_t length;
@@ -346,8 +352,8 @@ found_state:
       /* Save discriminator information. */
       result->d_name   = NULL; /* TODO */
       result->d_base   = NULL; /* TODO */
-      result->d_begin  = old_state.address;
-      result->d_end    = state.address;
+      result->d_begin  = (void *)(app->a_loadaddr + old_state.address);
+      result->d_end    = (void *)(app->a_loadaddr + state.address);
       result->d_srcno  = sourceno;
       result->d_discr  = old_state.discriminator;
       result->d_line   = old_state.line;
@@ -534,7 +540,7 @@ fail:
 DEFINE_SYSCALL3(xaddr2line,USER UNCHECKED uintptr_t,abs_pc,
                 USER UNCHECKED struct dl_addr2line *,buf,
                 size_t,bufsize) {
- struct module_addr2line info;
+ struct dl_addr2line info;
  uintptr_t load_addr; size_t result;
  char *strbuf; size_t strbuf_size;
  unsigned int i;
@@ -564,17 +570,8 @@ DEFINE_SYSCALL3(xaddr2line,USER UNCHECKED uintptr_t,abs_pc,
  }
  /* Copy base descriptor data into user-space (string pointers have already been updated) */
  if (bufsize >= sizeof(struct dl_addr2line)) {
-  buf->d_begin  = (void *)(load_addr + info.d_begin);
-  buf->d_end    = (void *)(load_addr + info.d_end);
-  buf->d_discr  = info.d_discr;
-  buf->d_srcno  = info.d_srcno;
-  buf->d_line   = info.d_line;
-  buf->d_base   = info.d_base;
-  buf->d_path   = info.d_path;
-  buf->d_file   = info.d_file;
-  buf->d_name   = info.d_name;
-  buf->d_column = info.d_column;
-  buf->d_flags  = info.d_flags;
+  info.__d_pad = 0;
+  memcpy(buf,&info,sizeof(struct dl_addr2line));
  }
  return result;
 }

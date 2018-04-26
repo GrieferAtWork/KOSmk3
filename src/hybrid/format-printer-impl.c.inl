@@ -608,7 +608,7 @@ missing_path:
   format_T_char const *flush_start; void *addr;
 #ifdef __KERNEL__
   uintptr_t load_addr;
-  struct module_addr2line info;
+  struct dl_addr2line info;
 #else
   struct {
      struct dl_addr2line _info;
@@ -711,16 +711,12 @@ next:
    uintptr_t ptr;
   case '<':
    ptr = (uintptr_t)info.d_begin;
-do_print_relptr:
-#ifdef __KERNEL__
-   ptr += load_addr;
-#endif
 do_print_ptr:
    DO_PRINTF(pointer_format,ptr);
    break;
   case '>':
    ptr = (uintptr_t)info.d_end;
-   goto do_print_relptr;
+   goto do_print_ptr;
   case 'p':
    ptr = (uintptr_t)addr;
    goto do_print_ptr;
