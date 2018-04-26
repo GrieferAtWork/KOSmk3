@@ -33,7 +33,7 @@ __SYSDECL_BEGIN
 
 /* Get/Set/exchange the current CPU context.
  * NOTE: `cpu_getcontext()' returns `1' after the initial call, and `0' after every other. */
-__LIBC int (__FCALL cpu_getcontext)(struct cpu_context *__restrict __old_context);
+__LIBC __ATTR_RETURNS_TWICE int (__FCALL cpu_getcontext)(struct cpu_context *__restrict __old_context);
 __LIBC void (__FCALL cpu_xchcontext)(struct cpu_context const *__restrict __new_context, struct cpu_context *__restrict __old_context);
 __LIBC __ATTR_NORETURN void (__FCALL cpu_setcontext)(struct cpu_context const *__restrict __new_context);
 

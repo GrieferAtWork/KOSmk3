@@ -214,11 +214,30 @@ __SYSDECL_BEGIN
 #endif
 
 
+#ifdef __CC__
+#if 0
+/* Sadly, GCC's -Wclobber warnings are totally broken, this is a no-go */
+__PRIVATE __ATTR_UNUSED __ATTR_NOINLINE __ATTR_RETURNS_TWICE
+void (__except_returns_twice)(void) { __asm__ __volatile__(""); }
+#if 1
+#define __EXCEPT_CLOBBER_REGS() \
+ __XBLOCK({ __asm__ __volatile__(".pushsection .discard #%=" : : : "memory"); \
+            __except_returns_twice(); \
+            __asm__ __volatile__(".popsection #%=" : : : "memory", "esp"); \
+           (void)0; })
+#else
+#define __EXCEPT_CLOBBER_REGS() \
+ __XBLOCK({ __except_returns_twice(); \
+            __asm__ __volatile__("#%=" : : : "memory", "esp"); \
+           (void)0; })
+#endif
+#else
 /* Mark ESP as clobber, because as far as GCC is concerned,
  * exception continue data is allocated the same way alloca
  * allocates memory (aka. on the stack) */
 #define __EXCEPT_CLOBBER_REGS() \
         __XBLOCK({ __asm__ __volatile__("#%=" : : : "memory", "esp"); (void)0; })
+#endif
 
 
 /* Defining `error_rethrow()' as inline assembly prevents GCC from optimizing
@@ -269,6 +288,7 @@ __SYSDECL_BEGIN
 #define error_throw_current() __XBLOCK({ __BOOL __etc_res; __asm__ __volatile__("call error_throw_current@PLT#%=" : "=a" (__etc_res) : : "memory"); __XRETURN __etc_res; })
 #endif
 #endif /* __INTELLISENSE__ */
+#endif /* __CC__ */
 
 
 

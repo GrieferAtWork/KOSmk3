@@ -500,11 +500,11 @@ __REDIRECT_UFS(__LIBC,__NONNULL((1)) __ATTR_DEPRECATED("Use getcwd()"),char *,__
 #ifdef __CRT_GLC
 __LIBC __PORT_NODOS __useconds_t (__LIBCCALL ualarm)(__useconds_t __value, __useconds_t __interval);
 #if !defined(__NO_ASMNAME) || !defined(__USE_EXCEPT_API)
-__REDIRECT_EXCEPT(__LIBC,__PORT_NODOS __WUNUSED,__pid_t,__LIBCCALL,vfork,(void),())
+__REDIRECT_EXCEPT(__LIBC,__ATTR_RETURNS_TWICE __PORT_NODOS __WUNUSED,__pid_t,__LIBCCALL,vfork,(void),())
 #else
 #ifndef __Xvfork_defined
 #define __Xvfork_defined 1
-__LIBC __PORT_NODOS __WUNUSED __pid_t (__LIBCCALL Xvfork)(void);
+__LIBC __ATTR_RETURNS_TWICE __PORT_NODOS __WUNUSED __pid_t (__LIBCCALL Xvfork)(void);
 #endif /* !__Xvfork_defined */
 #define vfork()     Xvfork()
 #endif

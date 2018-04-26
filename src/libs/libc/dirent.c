@@ -313,11 +313,11 @@ libc_public_Xfopendirat(fd_t dfd, char const *name, int flags) {
          --end;
   if (end == name) {
    DIR *COMPILER_IGNORE_UNINITIALIZED(result);
-   dfd = libc_dup(dfd);
+   fd_t EXCEPT_VAR new_dfd = libc_dup(dfd);
    LIBC_TRY {
-    result = libc_Xfdopendir(dfd);
+    result = libc_Xfdopendir(new_dfd);
    } LIBC_EXCEPT(EXCEPT_EXECUTE_HANDLER) {
-    sys_close(dfd);
+    sys_close(new_dfd);
     error_rethrow();
    }
    return result;

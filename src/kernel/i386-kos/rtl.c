@@ -242,7 +242,8 @@ PRIVATE ATTR_NOINLINE ATTR_NORETURN void KCALL
 core_assertion_failure(char const *expr, DEBUGINFO,
                        char const *format, va_list args) {
  struct cpu_context context;
- unsigned int frame_id = 0;
+ /* `volatile' to silence warnings about `cpu_getcontext()' */
+ unsigned int volatile frame_id = 0;
  PREEMPTION_DISABLE();
  debug_printf("\n\n\n"
               "%s(%d) : %s : Assertion failed : %q\n",

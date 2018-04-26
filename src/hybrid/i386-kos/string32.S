@@ -16,6 +16,7 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
+#if 1
 #include <hybrid/compiler.h>
 #include <hybrid/asm.h>
 #include <hybrid/host.h>
@@ -592,3 +593,4 @@ DEFINE_PUBLIC_ALIAS(__SYMw32(wcsnend),libc_w32nend)
 
 
 
+#endif

@@ -897,7 +897,7 @@ INTDEF void LIBCCALL libc_srandom(unsigned int seed);
 /*     CONTEXT                                                                           */
 /* ===================================================================================== */
 struct cpu_context;
-INTDEF int FCALL libc_cpu_getcontext(struct cpu_context *__restrict old_context);
+INTDEF __ATTR_RETURNS_TWICE int FCALL libc_cpu_getcontext(struct cpu_context *__restrict old_context);
 INTDEF void FCALL libc_cpu_xchcontext(struct cpu_context const *__restrict new_context, struct cpu_context *__restrict old_context);
 INTDEF ATTR_NORETURN void FCALL libc_cpu_setcontext(struct cpu_context const *__restrict new_context);
 

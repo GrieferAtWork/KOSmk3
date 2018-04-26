@@ -137,7 +137,7 @@ __LIBC __PORT_KOSONLY __WUNUSED int (__LIBCCALL Xsetresgid)(__gid_t __rgid, __gi
      defined(__USE_MISC)
 #ifndef __Xvfork_defined
 #define __Xvfork_defined 1
-__LIBC __PORT_KOSONLY __WUNUSED __pid_t (__LIBCCALL Xvfork)(void);
+__LIBC __ATTR_RETURNS_TWICE __PORT_KOSONLY __WUNUSED __pid_t (__LIBCCALL Xvfork)(void);
 #endif /* !__Xvfork_defined */
 #endif
 

@@ -1498,7 +1498,7 @@ serve_rpc:
    } CATCH_HANDLED (E_SEGFAULT) {
    }
   }
- cannot_unwind:
+cannot_unwind:
 #endif
 
 #if 1
@@ -1548,7 +1548,7 @@ serve_rpc:
                       ? ILL_ILLOPC : ILL_ILLOPN);
     }
     sinfo.si_signo = 1+SIGILL;
- do_addrip:
+do_addrip:
     sinfo.si_addr  = (void *)CPU_CONTEXT_IP(*context);
     sinfo.si_lower = (void *)CPU_CONTEXT_IP(*context);
     sinfo.si_upper = (void *)CPU_CONTEXT_IP(*context);
@@ -1630,10 +1630,10 @@ serve_rpc:
    return;
   } CATCH_HANDLED (E_SEGFAULT) {
   }
- cannot_signal:;
+cannot_signal:;
 #endif
 
-#if 1
+#if 0
   if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG|TASK_FUSEREXCEPT)) {
    /* This is an exception-enabled user-space thread, but we
     * weren't able to find an exception handler, or signal handler.

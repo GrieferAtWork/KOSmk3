@@ -330,8 +330,8 @@ extern bool FINALLY_WILL_RETHROW;
  __TRY_INDIRECTION_INCREMENT() \
  __TRY_INDIRECTION_NEXTUNIQUE() \
  __TRY_INDIRECTION_BEGIN: \
- __asm__ __volatile__ goto("" : : : : __TRY_INDIRECTION_END); \
  __EXCEPT_BARRIER(); \
+ __asm__ __volatile__ goto("" : : : "memory" : __TRY_INDIRECTION_END); \
  __IF1
 #define FINALLY_WILL_RETHROW  __rethrow
 #define FINALLY \
@@ -425,15 +425,11 @@ extern bool FINALLY_WILL_RETHROW;
 #define __TRY_LABEL_LINE1 __PP_CAT2(__try_label_entry1_,__LINE__)
 #define __TRY_LABEL_LINE2 __PP_CAT2(__try_label_entry2_,__LINE__)
 #define __TRY_LABEL_LINE3 __PP_CAT2(__try_label_entry3_,__LINE__)
-
-#define __FORCE_REACHABLE(label) \
-   __asm__ __volatile__ goto("" : : : : label);
 #define TRY \
  __IF1{ __label__ __try_label_begin; \
         __label__ __try_label_end; \
         __try_label_begin: \
-        __EXCEPT_BARRIER(); \
-        __FORCE_REACHABLE(__try_label_end) \
+        __asm__ __volatile__ goto("" : : : "memory" : __try_label_end); \
         __IF1
 #define FINALLY_WILL_RETHROW  __rethrow
 

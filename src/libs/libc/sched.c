@@ -269,7 +269,7 @@ CRT_EXCEPT void LIBCCALL libc_Xsetpgrp(void) {
 }
 
 EXPORT(Xvfork,libc_Xvfork);
-CRT_EXCEPT pid_t LIBCCALL libc_Xvfork(void) {
+CRT_EXCEPT __ATTR_RETURNS_TWICE pid_t LIBCCALL libc_Xvfork(void) {
  return libc_Xfork();
 }
 
