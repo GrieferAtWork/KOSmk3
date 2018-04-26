@@ -80,8 +80,6 @@ struct path {
                                                   *       design of block-device page buffering. */
 #define PATH_FNORMAL                0x0000       /* Normal path flags. */
 #define PATH_FISDRIVE               0x0001       /* [lock(p_vfs->v_drives.d_lock)] This path is a DOS drive mounting point. */
-#define PATH_FDONTCACHE             0x1000       /* [lock(d_lock)] Don't cache this path as possibly used recently.
-                                                  *                This flag mirrors the `INODE_FDONTCACHE' flag of the effective node. */
 #define PATH_FCLOSED                0x4000       /* [lock(WRITE_ONCE)]
                                                   * The path or VFS has been closed and can
                                                   * no longer be used as a mounting point. */

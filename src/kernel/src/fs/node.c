@@ -109,10 +109,11 @@ inode_destroy(struct inode *__restrict self) {
    atomic_rwlock_endwrite(&self->i_super->s_nodes_lock);
   }
   /* Unlink from the changed inodes list. */
-  if ((self->i_flags & INODE_FCHANGED) &&
-      (self->i_changed.le_pself != NULL)) {
+  if (self->i_changed.le_pself != NULL) {
    atomic_rwlock_write(&self->i_super->s_changed_lock);
-   LIST_REMOVE(self,i_changed);
+   COMPILER_READ_BARRIER();
+   if (self->i_changed.le_pself != NULL)
+       LIST_REMOVE(self,i_changed);
    atomic_rwlock_endwrite(&self->i_super->s_changed_lock);
   }
   if (self != (struct inode *)self->i_super->s_root)
@@ -286,12 +287,15 @@ inode_changed(struct inode *__restrict self) {
          "You must only change a node if it "
          "implements the `io_saveattr' operator");
  if (!(ATOMIC_FETCHOR(self->i_flags,INODE_FCHANGED) & INODE_FCHANGED)) {
-  /* Do not register the INode if then superblock has been closed. */
-  if (self->i_flags&INODE_FCLOSED)
+  /* Do not register the INode if it has been closed. */
+  if (self->i_flags & INODE_FCLOSED)
       return;
+  COMPILER_READ_BARRIER();
   super = self->i_super;
   atomic_rwlock_write(&super->s_changed_lock);
-  LIST_INSERT(super->s_changed,self,i_changed);
+  if ((ATOMIC_READ(self->i_flags) & INODE_FCHANGED) &&
+      (self->i_changed.le_pself == NULL))
+       LIST_INSERT(super->s_changed,self,i_changed);
   atomic_rwlock_endwrite(&super->s_changed_lock);
  }
 }
@@ -584,12 +588,39 @@ inode_sync(struct inode *__restrict self, bool data_only) {
 
 PUBLIC bool KCALL
 inode_syncatttr(struct inode *__restrict self) {
+ struct inode *EXCEPT_VAR xself = self;
+ struct superblock *super;
  if (!(self->i_flags & INODE_FCHANGED))
        return false;
- /* TODO: Lock the node. */
- /* TODO: Remove the node from the superblock's changed-list. */
- /* TODO: Try to call `io_saveattr'. */
- /* TODO: If that fails, re-add the node to the superblock's changed-list. */
+ assert(self->i_ops->io_saveattr != NULL);
+ super = self->i_super;
+ atomic_rwlock_write(&super->s_changed_lock);
+ /* Remove the node from the chain of changed INodes. */
+ if (self->i_changed.le_pself != NULL) {
+  LIST_REMOVE(self,i_changed);
+  self->i_changed.le_pself = NULL;
+ }
+ atomic_rwlock_endwrite(&super->s_changed_lock);
+ rwlock_write(&self->i_lock);
+ TRY {
+  if (ATOMIC_READ(self->i_flags) & INODE_FCHANGED) {
+   /* Try to call `io_saveattr'. */
+   (*self->i_ops->io_saveattr)(self);
+   /* Clear the FCHANGED bit. */
+   ATOMIC_FETCHAND(self->i_flags,~INODE_FCHANGED);
+  }
+ } FINALLY {
+  rwlock_endwrite(&xself->i_lock);
+  if (FINALLY_WILL_RETHROW) {
+   /* If syncing failed, re-add the node to the superblock's changed-list. */
+   atomic_rwlock_write(&super->s_changed_lock);
+   /* Remove the node from the chain of changed INodes. */
+   if (self->i_changed.le_pself == NULL &&
+      (ATOMIC_READ(self->i_flags) & INODE_FCHANGED))
+       LIST_INSERT(super->s_changed,self,i_changed);
+   atomic_rwlock_endwrite(&super->s_changed_lock);
+  }
+ }
  return true;
 }
 
@@ -602,13 +633,16 @@ inode_syncatttr(struct inode *__restrict self) {
  * and will set `INODE_FLNKLOADED' after successfully loading the text.
  * @throw: E_IO_ERROR:              [...]
  * @throw: ERROR_FS_FILE_NOT_FOUND: [...] */
-PUBLIC void KCALL
+PUBLIC bool KCALL
 symlink_node_load(struct symlink_node *__restrict self) {
  struct symlink_node *EXCEPT_VAR xself = self;
  assert(INODE_ISLNK(&self->sl_node));
  /* Check if the symbolic link has already been loaded. */
  if (self->sl_text == NULL) {
-  assert(self->sl_node.i_ops->io_symlink.sl_readlink);
+  assert(self->sl_node.i_ops->io_symlink.sl_readlink ||
+         self->sl_node.i_ops->io_symlink.sl_readlink_dynamic);
+  if (!self->sl_node.i_ops->io_symlink.sl_readlink)
+       return false; /* Dynamic, symbolic link. */
   rwlock_write(&self->sl_node.i_lock);
   TRY {
    COMPILER_READ_BARRIER();
@@ -621,6 +655,7 @@ symlink_node_load(struct symlink_node *__restrict self) {
    rwlock_endwrite(&xself->sl_node.i_lock);
   }
  }
+ return true;
 }
 
 
@@ -1040,13 +1075,14 @@ superblock_addnode(struct superblock *__restrict self,
   assert(node->i_ops->io_saveattr);
   /* Add the node the chain of changed nodes. */
   atomic_rwlock_write(&self->s_changed_lock);
-  LIST_INSERT(self->s_changed,node,i_changed);
+  if (ATOMIC_READ(node->i_flags) & INODE_FCHANGED &&
+     (node->i_changed.le_pself == NULL))
+      LIST_INSERT(self->s_changed,node,i_changed);
   atomic_rwlock_endwrite(&self->s_changed_lock);
  }
 
  /* Insert the new node into the hash-map. */
- if (!(node->i_flags & INODE_FDONTCACHE))
-       inode_incref(node);
+ inode_incref(node);
  LIST_INSERT(*pbucket,node,i_nodes);
  if (++self->s_nodesc >= (self->s_nodesm/3)*2) {
   superblock_rehash_and_unlock(self);
@@ -1325,6 +1361,8 @@ directory_remove(struct directory_node *__restrict self,
           throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
        (*self->d_node.i_ops->io_directory.d_rmdir)(self,entry,dir);
        assert(dir->d_node.i_nlink == 0);
+       /* Close the INode in the associated superblock. */
+       superblock_closenode(dir->d_node.i_super,&dir->d_node);
       } else {
        /* Use the unlink() operator. */
        if unlikely(!self->d_node.i_ops->io_directory.d_unlink)
@@ -1351,16 +1389,14 @@ directory_remove(struct directory_node *__restrict self,
        node->i_attr.a_size = 0;
       }
       /* Do the actual unlink. */
-#ifndef NDEBUG
       if (node->i_nlink == 1) {
        (*self->d_node.i_ops->io_directory.d_unlink)(self,entry,node);
        assert(node->i_nlink == 0);
+       /* Close the INode. */
+       superblock_closenode(node->i_super,node);
       } else {
        (*self->d_node.i_ops->io_directory.d_unlink)(self,entry,node);
       }
-#else
-      (*self->d_node.i_ops->io_directory.d_unlink)(self,entry,node);
-#endif
      } FINALLY {
       rwlock_endwrite(&node->i_lock);
      }
@@ -2031,23 +2067,11 @@ again:
     *       we can safely get rid of _all_ nodes.
     */
    if (!(flags&SUPERBLOCK_FCLOSED)) {
-    if (node->i_flags & INODE_FDONTCACHE) {
-     if (ATOMIC_READ(node->i_refcnt) != 0)
+    if (!ATOMIC_DECIFONE(node->i_refcnt))
          continue;
-    } else {
-     if (!ATOMIC_DECIFONE(node->i_refcnt))
-          continue;
-    }
    }
    LIST_REMOVE(node,i_nodes);
    --self->s_nodesc;
-   /* Create a reference if the INode was weakyl cached. */
-   if ((node->i_flags & INODE_FDONTCACHE) &&
-       !inode_tryincref(node)) {
-    ATOMIC_WRITE(node->i_nodes.le_pself,NULL);
-    continue;
-   }
-
    atomic_rwlock_endwrite(&self->s_nodes_lock);
    /* Drop a reference to this node. */
    node->i_nodes.le_pself = NULL;
@@ -2077,23 +2101,27 @@ superblock_sync(struct superblock *__restrict EXCEPT_VAR self) {
    atomic_rwlock_endwrite(&self->s_changed_lock);
    break;
   }
+  assert(node->i_changed.le_pself == &self->s_changed);
   LIST_REMOVE(node,i_changed);
+  node->i_changed.le_pself = NULL;
   inode_incref(node);
   atomic_rwlock_endwrite(&self->s_changed_lock);
   /* Save attributes for this INode. */
   rwlock_write(&node->i_lock);
   TRY {
-   if likely(node->i_flags & INODE_FCHANGED) {
+   if likely(ATOMIC_READ(node->i_flags) & INODE_FCHANGED) {
     assert(node->i_ops->io_saveattr);
     (*node->i_ops->io_saveattr)(node);
-    ATOMIC_FETCHAND(node->i_flags,INODE_FCHANGED);
+    ATOMIC_FETCHAND(node->i_flags,~INODE_FCHANGED);
    }
   } FINALLY {
    rwlock_endwrite(&node->i_lock);
    if (FINALLY_WILL_RETHROW) {
     /* Re-add the node to the set of changed INodes after an error. */
     atomic_rwlock_write(&self->s_changed_lock);
-    LIST_INSERT(self->s_changed,node,i_changed);
+    if (node->i_changed.le_pself == NULL &&
+       (ATOMIC_READ(node->i_flags) & INODE_FCHANGED))
+        LIST_INSERT(self->s_changed,node,i_changed);
     atomic_rwlock_endwrite(&self->s_changed_lock);
    }
    inode_decref(node);
@@ -2522,6 +2550,7 @@ superblock_opennode(struct superblock *__restrict self,
                     struct directory_entry *__restrict parent_directory_entry) {
  REF struct inode *EXCEPT_VAR result,*new_result,**pbucket;
  uintptr_t ino_hash = INO_HASH(parent_directory_entry->de_ino);
+again:
  atomic_rwlock_read(&self->s_nodes_lock);
  if unlikely(self->s_flags & SUPERBLOCK_FCLOSED) {
   atomic_rwlock_endread(&self->s_nodes_lock);
@@ -2536,6 +2565,7 @@ superblock_opennode(struct superblock *__restrict self,
  for (; result; result = result->i_nodes.le_next) {
   assert(result->i_super == self);
   if (result->i_attr.a_ino == parent_directory_entry->de_ino) {
+   if (result->i_flags & INODE_FCLOSED) continue;
    if (!inode_tryincref(result)) continue;
    /* Found it! */
    atomic_rwlock_endread(&self->s_nodes_lock);
@@ -2543,13 +2573,6 @@ superblock_opennode(struct superblock *__restrict self,
   }
  }
  atomic_rwlock_endread(&self->s_nodes_lock);
-
- if (self->s_type->st_functions.f_lookupnode) {
-  result = (*self->s_type->st_functions.f_lookupnode)(self,
-                                                      parent_directory,
-                                                      parent_directory_entry);
-  if (result) return result;
- }
 
  /* Node wasn't in cache. Allocate a new descriptor. */
  switch (parent_directory_entry->de_type) {
@@ -2581,9 +2604,7 @@ superblock_opennode(struct superblock *__restrict self,
   result = (REF struct inode *)me;
  } break;
 
- default:
-  break;
-
+ default: break;
  }
 
  /* Initialize common INode members. */
@@ -2600,8 +2621,8 @@ superblock_opennode(struct superblock *__restrict self,
                                            parent_directory,
                                            parent_directory_entry);
  } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
-  assert(result->i_refcnt == 1);
-  inode_destroy(result);
+  assert(result->i_refcnt >= 1);
+  inode_decref(result);
   error_rethrow();
  }
  assertf(result->i_ops != NULL,"`f_opennode' must fill in `i_ops'");
@@ -2610,12 +2631,20 @@ superblock_opennode(struct superblock *__restrict self,
  /* Insert the new INode into the hash-map, unless
   * its already been loaded in the mean time. */
  atomic_rwlock_write(&self->s_nodes_lock);
+ if unlikely(result->i_flags & INODE_FCLOSED) {
+  /* Might happen due to race conditions. (start over...) */
+  atomic_rwlock_endwrite(&self->s_nodes_lock);
+  inode_decref(result);
+  goto again;
+ }
+
  pbucket = &self->s_nodesv[ino_hash & self->s_nodesm];
  new_result = *pbucket;
  for (; new_result; new_result = new_result->i_nodes.le_next) {
   assert(new_result->i_super == self);
   if unlikely(new_result->i_attr.a_ino == parent_directory_entry->de_ino) {
    /* Another thread was faster. */
+   if (new_result->i_flags & INODE_FCLOSED) continue;
    if (!inode_tryincref(new_result)) continue;
    atomic_rwlock_endwrite(&self->s_nodes_lock);
    /* Destroy the newly constructed node and return the existing one. */
@@ -2628,15 +2657,16 @@ superblock_opennode(struct superblock *__restrict self,
   assert(result->i_ops->io_saveattr);
   /* Add the node the chain of changed nodes. */
   atomic_rwlock_write(&self->s_changed_lock);
-  LIST_INSERT(self->s_changed,result,i_changed);
+  if (result->i_changed.le_pself == NULL &&
+     (ATOMIC_READ(result->i_flags) & INODE_FCHANGED))
+      LIST_INSERT(self->s_changed,result,i_changed);
   atomic_rwlock_endwrite(&self->s_changed_lock);
  }
 
  /* Insert the new node into the hash-map. */
  LIST_INSERT(*pbucket,result,i_nodes);
- assert(result->i_refcnt == 1);
- if (!(result->i_flags & INODE_FDONTCACHE))
-       inode_incref(result); /* The reference stored in the bucket chain. */
+ assert(result->i_refcnt >= 1);
+ inode_incref(result); /* The reference stored in the bucket chain. */
 
  if (++self->s_nodesc >= (self->s_nodesm/3)*2) {
   TRY {
@@ -2651,6 +2681,120 @@ superblock_opennode(struct superblock *__restrict self,
  }
  return result;
 }
+
+
+/* Close an INode `node':
+ *   #1 If the `INODE_FCLOSED' flag is already set, return `false'
+ *   #2 Set the `INODE_FCLOSED' flag.
+ *   #3 Synchronize changes that were made to the INode.
+ *   #4 Remove the node from the superblock INode cache.
+ *   #5 return `true' */
+PUBLIC bool KCALL
+superblock_closenode(struct superblock *__restrict self,
+                     struct inode *__restrict node) {
+ struct inode *EXCEPT_VAR xnode = node;
+ u16 flags;
+ assert(node->i_super == self);
+ flags = ATOMIC_FETCHOR(node->i_flags,INODE_FCLOSED);
+ if unlikely(flags & INODE_FCLOSED)
+    return false;
+ /* Synchronize changes made to the INode. */
+ if (flags & INODE_FCHANGED) {
+  TRY {
+   inode_syncatttr(node);
+  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+   /* Unset the CLOSED bit if the sync() failed. */
+   ATOMIC_FETCHAND(xnode->i_flags,~INODE_FCLOSED);
+   error_rethrow();
+  }
+ }
+
+ /* Remove the INode from the INodes cache. */
+ atomic_rwlock_write(&self->s_nodes_lock);
+ if (node->i_nodes.le_pself) {
+  LIST_REMOVE(node,i_nodes);
+  node->i_nodes.le_pself = NULL;
+  --self->s_nodesc;
+  atomic_rwlock_endwrite(&self->s_nodes_lock);
+  /* Drop the reference previously stored
+   * in the superblock INode cache. */
+  inode_decref(node);
+ } else {
+  atomic_rwlock_endwrite(&self->s_nodes_lock);
+ }
+ return true;
+}
+
+/* Similar to `superblock_closenode()', but search the
+ * INode cache for an INode matching `ino' and return `false'
+ * if no such INode exists. */
+PUBLIC bool KCALL
+superblock_closenode_ino(struct superblock *__restrict self, ino_t ino) {
+ bool has_write_lock = false;
+ uintptr_t ino_hash = INO_HASH(ino);
+ struct inode *node; u16 flags;
+ atomic_rwlock_read(&self->s_nodes_lock);
+again_locked:
+ assert(self->s_nodesv);
+ node = self->s_nodesv[ino_hash & self->s_nodesm];
+ for (; node; node = node->i_nodes.le_next) {
+  if (node->i_attr.a_ino != ino) continue;
+  /* Found it! */
+  flags = ATOMIC_FETCHOR(node->i_flags,INODE_FCLOSED);
+  if ((flags & INODE_FCLOSED) && !has_write_lock) break;
+  if ((flags & INODE_FCHANGED) && inode_tryincref(node)) {
+   REF struct inode *EXCEPT_VAR xnode = node;
+   if (has_write_lock)
+        atomic_rwlock_endwrite(&self->s_nodes_lock);
+   else atomic_rwlock_endread(&self->s_nodes_lock);
+   /* Must sync changes before we can actually do this! */
+   TRY {
+    inode_syncatttr(node);
+   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+    /* Unset the CLOSED bit if the sync() failed. */
+    ATOMIC_FETCHAND(xnode->i_flags,~INODE_FCLOSED);
+    error_rethrow();
+   }
+   /* Remove the INode from the INodes cache. */
+   atomic_rwlock_write(&self->s_nodes_lock);
+   if (node->i_nodes.le_pself) {
+    LIST_REMOVE(node,i_nodes);
+    node->i_nodes.le_pself = NULL;
+    /* Drop the reference previously stored
+     * in the superblock INode cache.
+     * NOTE: Since we're still holding another reference, this
+     *       decref() must never cause the reference counter
+     *       to drop to ZERO. */
+    assert(node->i_refcnt >= 2);
+    ATOMIC_FETCHDEC(node->i_refcnt);
+    --self->s_nodesc;
+   }
+   atomic_rwlock_endwrite(&self->s_nodes_lock);
+   /* Drop the reference we've acquired above. */
+   inode_decref(node);
+   return true;
+  }
+  /* The INode doesn't need to be synced. */
+  if (!has_write_lock) {
+   has_write_lock = true;
+   if (!atomic_rwlock_upgrade(&self->s_nodes_lock))
+        goto again_locked;
+  }
+  assertf(node->i_nodes.le_pself,
+          "This link is how we got to this node!");
+  LIST_REMOVE(node,i_nodes);
+  --self->s_nodesc;
+  atomic_rwlock_endwrite(&self->s_nodes_lock);
+  /* Drop the reference previously stored by the superblock INode cache. */
+  inode_decref(node);
+  return true;
+ }
+ if (has_write_lock)
+      atomic_rwlock_endwrite(&self->s_nodes_lock);
+ else atomic_rwlock_endread(&self->s_nodes_lock);
+ return false;
+}
+
 
 
 

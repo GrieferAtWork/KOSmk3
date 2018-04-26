@@ -488,10 +488,10 @@ struct file_handle {
                                         */
 #   define AT_READLINK_REQSIZE  0x0200 /* For use with `freadlinkat' and friends.
                                         * Rather than following unix semantics and returning the amount of
-                                        * copied bytes with no indication of whether of not everything was
+                                        * copied bytes with no indication of whether or not everything was
                                         * copied, return the ~required~ buffer size (including a terminating
                                         * NUL-character that normally wouldn't be copied either) to user-space
-                                        * (which may be more than the specified buffer size, and should be
+                                        * (which may be more than the specified buffer size, which should be
                                         * reallocated to fit in successive calls)
                                         * Additionally, as already mentioned, a trailing NUL-character is
                                         * appended to the link text, ensuring that a valid C-style string

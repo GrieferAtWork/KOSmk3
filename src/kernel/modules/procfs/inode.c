@@ -228,13 +228,11 @@ ProcFS_OpenNode(struct inode *__restrict node,
      break;
 
     case PROCFS_INODE_SELF:
-     node->i_ops    = &Iprocfs_self_link;
-     node->i_flags |= INODE_FDONTCACHE;
+     node->i_ops = &Iprocfs_self_link;
      break;
 
     case PROCFS_INODE_THREAD_SELF:
-     node->i_ops    = &Iprocfs_self_link;
-     node->i_flags |= INODE_FDONTCACHE;
+     node->i_ops = &Iprocfs_thread_self_link;
      break;
 
     default: goto invalid_pid;
@@ -275,7 +273,6 @@ ProcFS_OpenNode(struct inode *__restrict node,
      atomic_rwlock_endread(&thread_fs->fs_lock);
      fs_decref(thread_fs);
      node->i_ops = &Iprocfs_path_link;
-     node->i_flags |= INODE_FDONTCACHE;
     } break;
 
     case PROCFS_INODE_P_ENVIRON:

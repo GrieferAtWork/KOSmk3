@@ -161,10 +161,7 @@ struct superblock_data {
     REF struct pidns  *pf_pidns; /* [1..1][const] The PID namespace within which `/proc' operates.
                                   *               While being mounted, this is set to the PID
                                   *               namespace of the calling thread. */
-    /* TODO: Cache mapping `pid_t' to `REF struct inode *' for /proc/[PID]/
-     *       Every N lookups, a cleanup pass is done that removes all entries
-     *       associated with processes that have exited, or become zombies.
-     * TODO: Cache mapping `pid_t' to `REF struct directory_entry *' for /proc/[PID]/
+    /* TODO: Cache mapping `pid_t' to `REF struct directory_entry *' for /proc/[PID]/
      *       This cache is optional and makes use of `tp_procfsent'
      * TODO: Couldn't we just add some kind of callback mechanism to
      *      `struct thread_pid' or `struct task' that is invoked when the thread
@@ -197,6 +194,12 @@ INTDEF ATTR_RETNONNULL REF struct handle_manager *KCALL ProcFS_GetTaskHandleMana
 
 INTDEF ATTR_NORETURN void KCALL ProcFS_FileNotFound(void);
 
+/* Returns the `/proc/[PID]' directory entry for a given thread. */
+INTDEF ATTR_RETNONNULL REF struct directory_entry *KCALL
+ProcFS_GetThreadDirent(struct superblock *__restrict self,
+                       struct thread_pid *__restrict thread);
+
+
 
 INTDEF struct inode_operations Iprocfs_text_ro;
 INTDEF struct inode_operations Iprocfs_text_rw;
@@ -226,6 +229,7 @@ INTDEF struct inode_operations Iprocfs_p_root_dir;       /* /proc/[PID]/ */
 INTDEF struct inode_operations Iprocfs_p_fd_dir;         /* /proc/[PID]/fd/ */
 INTDEF struct inode_operations Iprocfs_p_fd_link;        /* /proc/[PID]/fd/xxx */
 INTDEF struct inode_operations Iprocfs_p_task_dir;       /* /proc/[PID]/task/ */
+
 
 DECL_END
 

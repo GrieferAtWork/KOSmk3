@@ -441,7 +441,7 @@ DEFINE_SYSCALL3(fcntl,fd_t,fd,unsigned int,cmd,void *,arg) {
 DEFINE_SYSCALL5(xfreadlinkat,fd_t,dfd,
                 USER UNCHECKED char const *,path,
                 USER UNCHECKED char *,buf,
-                size_t,len,int,flags) {
+                size_t,bufsize,int,flags) {
  REF struct path *p;
  REF struct symlink_node *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(node);
  REF struct directory_node *EXCEPT_VAR dir;
@@ -463,21 +463,41 @@ DEFINE_SYSCALL5(xfreadlinkat,fd_t,dfd,
  TRY {
   if (!INODE_ISLNK(&node->sl_node))
        error_throw(E_INVALID_ARGUMENT); /* XXX: Dedicated FS-error? */
-  symlink_node_load(node);
-  if (flags & AT_READLINK_REQSIZE) {
-   /* Return the required buffer size (including a terminating NUL-character). */
-   result = (size_t)node->sl_node.i_attr.a_size+1;
-   COMPILER_BARRIER();
-   /* Copy the link's text to user-space. */
-   memcpy(buf,node->sl_text,MIN(result,len)*sizeof(char));
+  if (symlink_node_load(node)) {
+   if (flags & AT_READLINK_REQSIZE) {
+    /* Return the required buffer size (including a terminating NUL-character). */
+    result = (size_t)node->sl_node.i_attr.a_size+1;
+    COMPILER_BARRIER();
+    /* Copy the link's text to user-space. */
+    memcpy(buf,node->sl_text,MIN(result,bufsize)*sizeof(char));
+   } else {
+    /* Why couldn't this system call just return the _required_ buffer size?
+     * Then it wouldn't be a guessing game over in user-space... */
+    result = (size_t)node->sl_node.i_attr.a_size;
+    if (result > bufsize)
+        result = bufsize;
+    COMPILER_BARRIER();
+    /* Copy the link's text to user-space. */
+    memcpy(buf,node->sl_text,result*sizeof(char));
+   }
   } else {
-   /* Why couldn't this system call just return the _required_ buffer size?
-    * Then it wouldn't be a guessing game over in user-space... */
-   result = (size_t)node->sl_node.i_attr.a_size;
-   if (result > len) result = len;
-   COMPILER_BARRIER();
-   /* Copy the link's text to user-space. */
-   memcpy(buf,node->sl_text,result*sizeof(char));
+   /* Read the text of a dynamic symlink. */
+   result = (*node->sl_node.i_ops->io_symlink.sl_readlink_dynamic)(node,
+                                                                   buf,
+                                                                   bufsize);
+   if (flags & AT_READLINK_REQSIZE) {
+    /* Append a trailing NUL-character. */
+    if (result < bufsize)
+        buf[result] = '\0';
+    /* Include the trailing NUL-characer */
+    ++result;
+   } else {
+    /* Don't include a trailing NUL-character, and return
+     * the number of written bytes, rather than what a
+     * successive call would require (Ugh...) */
+    if (result > bufsize)
+        result = bufsize;
+   }
   }
  } FINALLY {
   inode_decref(&node->sl_node);
@@ -2113,6 +2133,8 @@ DEFINE_SYSCALL5(mount,
    } else {
     REF struct superblock_type *EXCEPT_VAR fstype;
     fstype = lookup_filesystem_type(type);
+    if (!fstype)
+         error_throw(E_INVALID_ARGUMENT);
     TRY {
      if (fstype->st_flags & SUPERBLOCK_TYPE_FSINGLE) {
       block = fstype->st_singleton;

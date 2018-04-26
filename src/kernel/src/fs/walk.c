@@ -36,6 +36,7 @@
 #include <except.h>
 #include <fcntl.h>
 #include <ctype.h>
+#include <alloca.h>
 
 DECL_BEGIN
 
@@ -61,14 +62,6 @@ throw_fs_error(u16 fs_error_code) {
 
 
 
-
-
-
-
-
-
-
-
 PRIVATE ATTR_RETNONNULL REF struct path *KCALL
 dosfs_walk_path_all(struct path *__restrict root,
                     struct path *__restrict pwd,
@@ -83,6 +76,69 @@ fs_walk_path_all(struct path *__restrict root,
                  size_t pathlen,
                  u16 *__restrict premaining_links,
                  int flags);
+
+
+
+
+PRIVATE ATTR_NOINLINE ATTR_RETNONNULL REF struct path *KCALL
+symlink_walk_dynamic(struct path *__restrict root,
+                     struct path *__restrict pwd,
+                     struct symlink_node *__restrict link,
+                     u16 *__restrict premaining_links,
+                     int flags) {
+ REF struct path *COMPILER_IGNORE_UNINITIALIZED(result);
+ char pathbuf[64]; size_t pathlen;
+ char *EXCEPT_VAR link_path = pathbuf;
+ pathlen = (*link->sl_node.i_ops->io_symlink.sl_readlink_dynamic)(link,
+                                                                  pathbuf,
+                                                                  sizeof(pathbuf));
+ TRY {
+  if unlikely(pathlen > sizeof(pathbuf)) {
+   size_t new_pathlen;
+   /* Allocate dynamic memory for a link text buffer. */
+   link_path = (char *)malloca(pathlen);
+   new_pathlen = (*link->sl_node.i_ops->io_symlink.sl_readlink_dynamic)(link,
+                                                                        link_path,
+                                                                        pathlen);
+   while unlikely(new_pathlen > pathlen) {
+    /* Well... This sucks... (but we have to get there eventually) */
+    /* NOTE: Force allocate to use the heap at this point, since
+     *       there's no way to safely use malloca() inside a loop. */
+    freea(link_path);
+    link_path = (char *)__malloca_heap(new_pathlen);
+    pathlen = new_pathlen;
+    new_pathlen = (*link->sl_node.i_ops->io_symlink.sl_readlink_dynamic)(link,
+                                                                         link_path,
+                                                                         pathlen);
+   }
+   pathlen = new_pathlen;
+  }
+  /* Walk the read symlink text. */
+  if (flags & FS_MODE_FDOSPATH) {
+   result = dosfs_walk_path_all(root,
+                                pwd,
+                                link_path,
+                                pathlen,
+                                premaining_links,
+                                flags);
+  } else {
+   result = fs_walk_path_all(root,
+                             pwd,
+                             link_path,
+                             pathlen,
+                             premaining_links,
+                             flags);
+  }
+ } FINALLY {
+  if (link_path != pathbuf)
+      freea(link_path);
+ }
+ return result;
+}
+
+
+
+
 FORCELOCAL ATTR_RETNONNULL REF struct path *KCALL
 dosfs_walk_path_one(struct path *__restrict root,
                     struct path *__restrict pwd,
@@ -157,18 +213,26 @@ default_lookup:
     --*premaining_links;
     TRY {
      struct path *symlink_path;
-     /* Make sure that the symlink has been loaded. */
-     symlink_node_load(node);
      /* Dereference a symbolic link relative to its directory. */
      symlink_path = result->p_parent;
      if unlikely(!symlink_path)
         symlink_path = result; /* Shouldn't happen, unless the filesystem root is a symlink? */
-     new_result = dosfs_walk_path_all(root,
-                                      symlink_path,
-                                      node->sl_text,
-                                     (size_t)node->sl_node.i_attr.a_size,
-                                      premaining_links,
-                                      flags);
+     /* Make sure that the symlink has been loaded. */
+     if (symlink_node_load(node)) {
+      new_result = dosfs_walk_path_all(root,
+                                       symlink_path,
+                                       node->sl_text,
+                                      (size_t)node->sl_node.i_attr.a_size,
+                                       premaining_links,
+                                       flags);
+     } else {
+      /* Walk a dynamic, symbolic link */
+      new_result = symlink_walk_dynamic(root,
+                                        symlink_path,
+                                        node,
+                                        premaining_links,
+                                        flags);
+     }
     } FINALLY {
      path_decref(result);
      inode_decref(&node->sl_node);
@@ -259,18 +323,26 @@ default_lookup:
     --*premaining_links;
     TRY {
      struct path *symlink_path;
-     /* Make sure that the symlink has been loaded. */
-     symlink_node_load(node);
      /* Dereference a symbolic link relative to its directory. */
      symlink_path = result->p_parent;
      if unlikely(!symlink_path)
-        symlink_path = result; /* Shouldn't happen, unless the fileystem root is a symlink? */
-     new_result = fs_walk_path_all(root,
-                                   symlink_path,
-                                   node->sl_text,
-                                  (size_t)node->sl_node.i_attr.a_size,
-                                   premaining_links,
-                                   flags);
+        symlink_path = result; /* Shouldn't happen, unless the filesystem root is a symlink? */
+     /* Make sure that the symlink has been loaded. */
+     if (symlink_node_load(node)) {
+      new_result = fs_walk_path_all(root,
+                                    symlink_path,
+                                    node->sl_text,
+                                   (size_t)node->sl_node.i_attr.a_size,
+                                    premaining_links,
+                                    flags);
+     } else {
+      /* Dereference a symbolic link relative to its directory. */
+      new_result = symlink_walk_dynamic(root,
+                                        symlink_path,
+                                        node,
+                                        premaining_links,
+                                        flags);
+     }
     } FINALLY {
      path_decref(result);
      inode_decref(&node->sl_node);

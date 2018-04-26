@@ -30,6 +30,7 @@
 #include <sched/pid.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #include "inode.h"
 #include "stringprinter.h"
@@ -152,43 +153,35 @@ INTERN struct inode_operations Iprocfs_path_link = {
 
 
 
-PRIVATE void KCALL
-ProcSelf_Readlink(struct symlink_node *__restrict self) {
- struct stringprinter printer;
- StringPrinter_Init(&printer,HEAP_ALIGNMENT);
- TRY {
-  format_printf(&StringPrinter_Print,&printer,"%u",posix_getpid());
-  self->sl_text = StringPrinter_Pack(&printer);
- } FINALLY {
-  StringPrinter_Fini(&printer);
- }
+PRIVATE size_t KCALL
+ProcSelf_Readlink(struct symlink_node *__restrict self,
+                  USER CHECKED char *buf, size_t bufsize) {
+ return snprintf(buf,bufsize,
+                 "%u",
+                 posix_getpid());
 }
 
 INTERN struct inode_operations Iprocfs_self_link = {
     /* /proc/self */
     .io_symlink = {
-        .sl_readlink = &ProcSelf_Readlink
+        .sl_readlink_dynamic = &ProcSelf_Readlink
     }
 };
 
 
-PRIVATE void KCALL
-ProcThreadSelf_Readlink(struct symlink_node *__restrict self) {
- struct stringprinter printer;
- StringPrinter_Init(&printer,HEAP_ALIGNMENT);
- TRY {
-  format_printf(&StringPrinter_Print,&printer,"%u/task/%u",
-                 posix_getpid(),posix_gettid());
-  self->sl_text = StringPrinter_Pack(&printer);
- } FINALLY {
-  StringPrinter_Fini(&printer);
- }
+PRIVATE size_t KCALL
+ProcThreadSelf_Readlink(struct symlink_node *__restrict self,
+                        USER CHECKED char *buf, size_t bufsize) {
+ return snprintf(buf,bufsize,
+                 "%u/task/%u",
+                 posix_getpid(),
+                 posix_gettid());
 }
 
 INTERN struct inode_operations Iprocfs_thread_self_link = {
     /* /proc/thread-self */
     .io_symlink = {
-        .sl_readlink = &ProcThreadSelf_Readlink
+        .sl_readlink_dynamic = &ProcThreadSelf_Readlink
     }
 };
 

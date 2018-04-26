@@ -173,9 +173,8 @@ struct oneshot_directory_buffer;
  * for enumerating directories that contain data which could
  * randomly change at any time, independent of the filesystem.
  * e.g. /proc
- * Inode making use of this type of file should not implement the `d_readdir'
- * operator, but implement implement `d_oneshot.o_lookup' and `d_oneshot.o_enum'
- * instead, as well as have the `INODE_FDONTCACHE' flag set.
+ * Inode making use of this type of file should not implement the `d_readdir' operator,
+ * but implement implement `d_oneshot.o_lookup' and `d_oneshot.o_enum' instead.
  *  - This type of directory stream is designed to collect _all_
  *    entries that will ever show up _once_ during the first call
  *    to `readdir()' */

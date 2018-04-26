@@ -67,8 +67,6 @@ struct superblock_data;
 #define INODE_FCHANGED          0x0001     /* [lock(i_lock)] The node has changed and is part of the
                                             *                per-superblock chain of changed nodes. */
 #define INODE_FATTRLOADED       0x0002     /* [lock(WRITE_ONCE,i_lock)] INode attributes have been read from disk. */
-#define INODE_FDONTCACHE        0x1000     /* [const] Don't cache the node and keep it, and other caches referring
-                                            *         to it alive only as long as it is being used. */
 #define INODE_FPERSISTENT       0x2000     /* [const] This INode is persistent and must not be removed from caches.
                                             *         This flag is used by RAMFS filesystems that store persistent
                                             *         data in INodes that must therefor be kept in RAM (or swap...)
@@ -511,15 +509,28 @@ struct inode_operations {
                                   struct directory_node *__restrict node_to_unlink);
         }              io_directory;
         struct PACKED {
-            /* [1..1]
-             * [locked(WRITE(self))]
+            /* [0..1][locked(WRITE(self))]
              *  Load the link text of the given symlink node.
              *  This operator must fill in the following members of `self':
              *    - sl_text
-             *    - sl_node.i_attr.a_size
+             *    - sl_node.i_attr.a_size   (to the intended `strlen(sl_text)')
              *    - sl_node.i_attr.a_blocks (Optionally)
-             */
+             *  NOTE: When this operator isn't implemented, `sl_readlink_dynamic'
+             *        _MUST_ be implemented instead. */
             void (KCALL *sl_readlink)(struct symlink_node *__restrict self);
+
+            /* [if(sl_readlink == NULL,[1..1]) else([0..1])][locked(READ(self))]
+             *  Used when `sl_readlink' isn't implemented to dynamically generate
+             *  the symlink text of a given INode. This operator is used by symlinks
+             *  that can arbitrarily change their text, or who's text depends on the
+             *  calling thread (e.g. `/proc/self')
+             *  NOTE: This function is not required to append a terminating NUL-character,
+             *        and even if it does, it mustn't include its memory requirement in
+             *        the required buffer size returned.
+             * @return: * : The required buffer size. (Excluding a terminating
+             *              NUL-character that can even be omitted) */
+            size_t (KCALL *sl_readlink_dynamic)(struct symlink_node *__restrict self,
+                                                USER CHECKED char *buf, size_t bufsize);
         }              io_symlink;
     };
 };
@@ -895,8 +906,12 @@ FUNDEF bool KCALL inode_syncatttr(struct inode *__restrict self);
  * and guaranties that `self->sl_text' will be non-NULL upon success.
  * @throw: E_BADALLOC:                                       [...]
  * @throw: E_IO_ERROR:                                       [...]
- * @throw: E_FILESYSTEM_ERROR.ERROR_FS_FILE_NOT_FOUND:       [...] */
-FUNDEF void KCALL
+ * @throw: E_FILESYSTEM_ERROR.ERROR_FS_FILE_NOT_FOUND:       [...]
+ * @return: true:  The symlink text has not been loaded.
+ * @return: false: The INode uses the dynamic symlink interface,
+ *                 meaning the caller must invoke the `sl_readlink_dynamic'
+ *                 operator with their own buffer. */
+FUNDEF bool KCALL
 symlink_node_load(struct symlink_node *__restrict self);
 
 
@@ -1135,17 +1150,6 @@ struct superblock_type {
                                  struct directory_entry *__restrict parent_directory_entry);
 
         /* [0..1][const]
-         * An optional companion function to `f_opennode', which (if defined) is
-         * invoked first, allowing the filesystem to implement its own (custom)
-         * caching of special INodes (e.g. procfs's PID-INode cache that checks
-         * if processes already in cache are still alive)
-         * @return: NULL: Failed to find the node in-cache.
-         *                The caller should allocate a new node and invoke `f_opennode' */
-        REF struct inode *(KCALL *f_lookupnode)(struct superblock *__restrict self,
-                                                struct directory_node *__restrict parent_directory,
-                                                struct directory_entry *__restrict parent_directory_entry);
-
-        /* [0..1][const]
          *  Synchronize all unwritten data of this superblock.
          *  NOTE: This function is called when `superblock_sync()'
          *        finishes flushing the data of all changed INodes. */
@@ -1185,10 +1189,8 @@ struct superblock {
     u16                          s_pad[(sizeof(void *)-2)/2]; /* ... */
     size_t                       s_nodesc;       /* [lock(s_nodes_lock)] Amount of hashed INodes. */
     size_t                       s_nodesm;       /* [lock(s_nodes_lock)] Hash-mask for the INodes mash-map. */
-    REF LIST_HEAD(struct inode) *s_nodesv;       /* [0..1][ref_if(!INODE_FDONTCACHE)][CHAIN(->i_nodes)]
-                                                  * [1..s_nodesm+1][owned][lock(s_nodes_lock)]
-                                                  * Hash-map of cached INodes (use INode numbers as hash-index,
-                                                  * and mask bits using `s_nodesm').
+    REF LIST_HEAD(struct inode) *s_nodesv;       /* [0..1][CHAIN(->i_nodes)][1..s_nodesm+1][owned][lock(s_nodes_lock)]
+                                                  * Hash-map of cached INodes (use INode numbers as hash-index, and mask bits using `s_nodesm').
                                                   * NOTE: This cache is automatically cleared for loaded
                                                   *       superblocks when memory becomes sparse.
                                                   *       However until then, this hash-map can be used
@@ -1295,6 +1297,23 @@ FUNDEF ATTR_RETNONNULL REF struct inode *KCALL
 superblock_opennode(struct superblock *__restrict self,
                     struct directory_node *__restrict parent_directory,
                     struct directory_entry *__restrict parent_directory_entry);
+
+/* Close an INode `node':
+ *   #1 If the `INODE_FCLOSED' flag is already set, return `false'
+ *   #2 Set the `INODE_FCLOSED' flag.
+ *   #3 Synchronize changes that were made to the INode.
+ *   #4 Remove the node from the superblock INode cache.
+ *   #5 return `true' */
+FUNDEF bool KCALL
+superblock_closenode(struct superblock *__restrict self,
+                     struct inode *__restrict node);
+
+/* Similar to `superblock_closenode()', but search the
+ * INode cache for an INode matching `ino' and return `false'
+ * if no such INode exists. */
+FUNDEF bool KCALL
+superblock_closenode_ino(struct superblock *__restrict self, ino_t ino);
+
 
 struct filesystem_types {
     atomic_rwlock_t                   ft_typelock; /* Lock for the chain of known filesystem types. */
