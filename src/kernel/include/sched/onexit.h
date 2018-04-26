@@ -28,8 +28,14 @@ DECL_BEGIN
 #ifdef __CC__
 struct task;
 
-/* Callback executed during task exit, as registered by `task_queue_onexit()' */
-typedef /*ATTR_NOTHROW*/void (KCALL *task_onexit_t)(struct task *__restrict thread, void *arg);
+/* Callback executed during task exit, as registered by `task_queue_onexit()'
+ * @param: reason: The reason why the callback is invoked (One of `ONEXIT_REASON_*') */
+typedef /*ATTR_NOTHROW*/void (KCALL *task_onexit_t)(struct task *__restrict thread,
+                                                    unsigned int reason, void *arg);
+#define ONEXIT_REASON_TERMINATION  0x0000 /* The callback is executed because the thread is terminating (THIS_TASK == thread) */
+#define ONEXIT_REASON_DESTRUCTION  0x0001 /* The callback is executed because the thread is deing destroyed (THIS_TASK != thread) */
+#define ONEXIT_REASON_DRIVERCLOSE  0x0002 /* The callback is executed because the driver that was used to register the callback is being closed. */
+
 
 /* Query a function to-be executed by `thread' during its cleanup phase.
  * NOTES:

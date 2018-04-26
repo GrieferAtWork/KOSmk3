@@ -59,9 +59,9 @@ LOCAL size_t KCALL ONEXIT_SIZE(struct thread_onexit *x) {
 /* [TYPE(struct thread_onexit *)][0..1][lock(.)][owned] */
 INTERN ATTR_PERTASK DEFINE_ATOMIC_RWPTR(_this_onexit,NULL);
 
-DEFINE_PERTASK_FINI(exec_onexit);
+
 PRIVATE ATTR_USED void KCALL
-exec_onexit(struct task *__restrict thread) {
+do_exec_onexit(struct task *__restrict thread, unsigned int reason) {
  struct thread_onexit *onexit; size_t i,count;
  atomic_rwptr_t *ptr = &FORTASK(thread,_this_onexit);
  /* Quick (weak) check: are there any callbacks? */
@@ -83,18 +83,23 @@ exec_onexit(struct task *__restrict thread) {
    break; /* End of the callback list */
   }
   /* Execute the callback. */
-  SAFECALL_KCALL_VOID_2(*onexit->te_entries[i].oe_func,
+  SAFECALL_KCALL_VOID_3(*onexit->te_entries[i].oe_func,
                          thread,
+                         reason,
                          onexit->te_entries[i].oe_arg);
   driver_decref(onexit->te_entries[i].oe_owner);
  }
  kfree(onexit);
 }
 
-
+DEFINE_PERTASK_FINI(exec_onexit);
+PRIVATE ATTR_USED void KCALL
+exec_onexit(struct task *__restrict thread) {
+ do_exec_onexit(thread,ONEXIT_REASON_DESTRUCTION);
+}
 DEFINE_PERTASK_CLEANUP(cleanup_onexit);
 PRIVATE ATTR_USED void KCALL cleanup_onexit(void) {
- exec_onexit(THIS_TASK);
+ do_exec_onexit(THIS_TASK,ONEXIT_REASON_TERMINATION);
 }
 
 
