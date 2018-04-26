@@ -544,7 +544,7 @@ DEFINE_SYSCALL3(xaddr2line,USER UNCHECKED uintptr_t,abs_pc,
  uintptr_t load_addr; size_t result;
  char *strbuf; size_t strbuf_size;
  unsigned int i;
- validate_executable((void *)abs_pc);
+ if (!ADDR_ISUSER(abs_pc)) return 0;
  load_addr = linker_debug_query(abs_pc,&info);
  if (load_addr == (uintptr_t)-1) return 0; /* No data */
  result = sizeof(struct dl_addr2line);
