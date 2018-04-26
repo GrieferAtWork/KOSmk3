@@ -63,8 +63,10 @@
 
 DECL_BEGIN
 
-PRIVATE ATTR_NORETURN void KCALL
-throw_fs_error(u16 fs_error_code) {
+#define throw_fs_error(fs_error_code) \
+        __EXCEPT_INVOKE_THROW_NORETURN(throw_fs_error(fs_error_code))
+PRIVATE __EXCEPT_NORETURN void
+(KCALL throw_fs_error)(u16 fs_error_code) {
  struct exception_info *info;
  info = error_info();
  memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));

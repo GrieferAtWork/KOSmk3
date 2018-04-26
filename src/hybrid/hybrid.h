@@ -20,9 +20,20 @@
 #define GUARD_HYBRID_HYBRID_H 1
 #define _KOS_SOURCE 2
 #define _GNU_SOURCE 1
-#define error_code()     libc_error_code()
-#define error_info()     libc_error_info()
-#define error_handled()  libc_error_handled()
+#define error_throw_resumable(code)         __EXCEPT_INVOKE_THROW_T(__BOOL,libc_error_throw_resumable(code))
+#define error_throw(code)                   __EXCEPT_INVOKE_THROW_NORETURN(libc_error_throw(code))
+#define error_throw_resumablef(...)         __EXCEPT_INVOKE_THROW_T(__BOOL,libc_error_throw_resumablef(__VA_ARGS__))
+#define error_throwf(...)                   __EXCEPT_INVOKE_THROW_NORETURN(libc_error_throwf(__VA_ARGS__))
+#define error_throw_resumable_ex(code,data) __EXCEPT_INVOKE_THROW_T(__BOOL,libc_error_throw_resumable_ex(code,data))
+#define error_throw_ex(code,data)           __EXCEPT_INVOKE_THROW_NORETURN(libc_error_throw_ex(code,data))
+#define error_throw_current()               __EXCEPT_INVOKE_THROW_T(__BOOL,libc_error_throw_current())
+#define error_rethrow()                     __EXCEPT_INVOKE_THROW_NORETURN(libc_error_rethrow())
+#define error_continue(retry)               __EXCEPT_INVOKE_THROW_NORETURN(libc_error_continue(retry))
+#define error_except(mode)                  __EXCEPT_INVOKE_THROW_NORETURN(libc_error_except(mode))
+#define __error_rethrow_at(context)         __EXCEPT_INVOKE_THROW_NORETURN(libc_error_rethrow_at(context))
+#define error_code()                        libc_error_code()
+#define error_info()                        libc_error_info()
+#define error_handled()                     libc_error_handled()
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>

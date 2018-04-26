@@ -31,48 +31,34 @@
 
 DECL_BEGIN
 
-INTERN ATTR_NORETURN void KCALL
-throw_segfault(VIRT void *addr, uintptr_t reason) {
- struct exception_info *info;
- info = error_info();
- memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
- /* Construct an segmentation fault error. */
- info->e_error.e_segfault.sf_vaddr  = addr;
- info->e_error.e_segfault.sf_reason = reason;
- info->e_error.e_code               = E_SEGFAULT;
- info->e_error.e_flag               = ERR_FNORMAL;
- error_throw_current();
- __builtin_unreachable();
-}
-
 PUBLIC void KCALL
 validate_readable(UNCHECKED USER void const *base, size_t num_bytes) {
  uintptr_t addr_end,limit = PERTASK_GET(this_task.t_addrlimit);
  if unlikely(__builtin_add_overflow((uintptr_t)base,num_bytes,&addr_end)) {
   if unlikely((uintptr_t)base > limit)
-     throw_segfault((void *)base,0);
-  throw_segfault((void *)limit,0);
+     error_throwf(E_SEGFAULT,0,(void *)base);
+  error_throwf(E_SEGFAULT,0,(void *)limit);
  }
  if unlikely(addr_end > limit && num_bytes)
-    throw_segfault((void *)addr_end,0);
+    error_throwf(E_SEGFAULT,0,(void *)addr_end);
 }
 PUBLIC void KCALL
 validate_writable(UNCHECKED USER void *base, size_t num_bytes) {
  uintptr_t addr_end,limit = PERTASK_GET(this_task.t_addrlimit);
  if unlikely(__builtin_add_overflow((uintptr_t)base,num_bytes,&addr_end)) {
   if unlikely((uintptr_t)base > limit)
-     throw_segfault((void *)base,X86_SEGFAULT_FWRITE);
-  throw_segfault((void *)limit,X86_SEGFAULT_FWRITE);
+     error_throwf(E_SEGFAULT,X86_SEGFAULT_FWRITE,(void *)base);
+  error_throwf(E_SEGFAULT,X86_SEGFAULT_FWRITE,(void *)limit);
  }
  if unlikely(addr_end > limit && num_bytes)
-    throw_segfault((void *)addr_end,X86_SEGFAULT_FWRITE);
+    error_throwf(E_SEGFAULT,X86_SEGFAULT_FWRITE,(void *)addr_end);
  /* Ensure cow-writability on the address range. */
  vm_cow(base,num_bytes);
 }
 PUBLIC void KCALL
 validate_executable(UNCHECKED USER void const *base) {
  if unlikely((uintptr_t)base >= PERTASK_GET(this_task.t_addrlimit))
-    throw_segfault((void *)base,X86_SEGFAULT_FEXEC);
+    error_throwf(E_SEGFAULT,X86_SEGFAULT_FEXEC,(void *)base);
 }
 
 /* Search for the end of the given user-space string.
@@ -84,7 +70,7 @@ validate_executable(UNCHECKED USER void const *base) {
 PUBLIC size_t KCALL
 user_strlen(UNCHECKED USER char const *base) {
  if unlikely((uintptr_t)base >= PERTASK_GET(this_task.t_addrlimit))
-    throw_segfault((void *)base,0);
+    error_throwf(E_SEGFAULT,0,(void *)base);
  return strlen(base);
 }
 

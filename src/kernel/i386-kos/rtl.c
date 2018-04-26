@@ -270,7 +270,8 @@ core_assertion_failure(char const *expr, DEBUGINFO,
                 context.c_eip-1,context.c_eip,
                 context.c_esp,context.c_gpregs.gp_ebp);
   }
-  if (!linker_findfde(context.c_eip-1,&finfo)) break;
+  --context.c_eip;
+  if (!linker_findfde(context.c_eip,&finfo)) break;
   if (!eh_return(&finfo,&context,EH_FNORMAL)) break;
  }
  error_print_other_thread();

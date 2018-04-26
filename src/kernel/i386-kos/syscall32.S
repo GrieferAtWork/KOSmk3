@@ -407,12 +407,12 @@ SYMEND(sysenter_kernel_entry)
 	SYSCALL_EXIT_BLOCK(.sysenter_return_except)
 
 .sysenter_bad_args_except:
-	pushl_cfi $0   /* reason */
-	pushl_cfi %ebp /* addr */
-	DEFINE_INTERN(throw_segfault)
-	call    throw_segfault
+	pushl_cfi %ebp          /* addr */
+	pushl_cfi $0            /* reason */
+	pushl_cfi $(E_SEGFAULT) /* code */
+	call      error_throwf
 #if 0 /* Never returns */
-	addl      $8, %esp /* reason + addr */
+	addl      $12, %esp
 	.cfi_adjust_cfa_offset -8
 	jmp       .sysenter_return_except
 #else

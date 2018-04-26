@@ -92,8 +92,11 @@ clone_entry(struct cpu_hostcontext_user *__restrict user_context, u32 flags) {
 
 INTDEF void KCALL task_vm_clone(struct task *__restrict new_thread, u32 flags);
 
-INTERN ATTR_NORETURN void KCALL
-throw_invalid_segment(u16 segment_index, u16 segment_register) {
+
+#define throw_invalid_segment(segment_index,segment_register) \
+       __EXCEPT_INVOKE_THROW_NORETURN(throw_invalid_segment(segment_index,segment_register))
+INTERN __EXCEPT_NORETURN void
+(KCALL throw_invalid_segment)(u16 segment_index, u16 segment_register) {
  struct exception_info *info;
  info = error_info();
  memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));

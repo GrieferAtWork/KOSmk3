@@ -40,15 +40,93 @@ __SYSDECL_BEGIN
                                         * an `E_NONCONTINUABLE' is thrown. */
 
 
-/* Helper functions for implementing exception handling. */
 #ifdef __CC__
+
+/* Work around a problem (bug?) related to CSE (CommonSubexpressionElimination), that
+ * will break expectations made about the validity of the return address present
+ * when any of the no-return error_* functions is called.
+ * For obvious reasons, that return address must be valid and actually point to
+ * the location where the function was called from. However, thinking it's sooo
+ * clever for doing it, GCC (WRONGLY!!!!) does the following:
+ * >> volatile int x = 0;
+ * >> volatile int y = 1;
+ * >> TRY {
+ * >>     if (x)
+ * >>         error_throw(E_INVALID_ARGUMENT);
+ * >> } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+ * >>     error_printf("How did we get here? x is zero...\n");
+ * >>     error_handled();
+ * >> }
+ * >> if (y)
+ * >>     error_throw(E_INVALID_ARGUMENT);
+ * ASSEMBLY:
+ * >>     ...
+ * >> <TRY_BEGIN>
+ * >>     movl   x(%ebp), %eax
+ * >>     testl  %eax, %eax
+ * >>     jz     1f
+ * >> .Lthrow_invalid_argument:
+ * >>     pushl  $E_INVALID_ARGUMENT
+ * >>     call   error_throw
+ * >> 1:
+ * >>     jmp    .Lafter_try
+ * >> <EXCEPT_BEGIN>
+ * >>     ...
+ * >> <TRY_END>
+ * >> .Lafter_try:
+ * >>     movl   x(%ebp), %eax
+ * >>     testl  %eax, %eax
+ * >>     jnz    .Lthrow_invalid_argument // <<--- This right here
+ * >>     ret
+ *
+ * I understand where GCC comes from with this, noticing that
+ * `error_throw()' is called twice with the same arguments,
+ * however it (WRONGLY!) ignores that fact that the return
+ * address of a function (which is even accessible using the
+ * arch-independent builtin function `__builtin_return_address(0)')
+ * is a valid side-effect of a call that should be considered
+ * just as important as arguments passed to a function.
+ *
+ * Now I get that not every function marked as noreturn actually
+ * needs to know about its return address the way that error_*
+ * functions need to, but the problem also exists in c++, where
+ * GCC _really_ can't optimize away the return address of a
+ * function.
+ * I haven't really looked into what g++ does to prevent this
+ * optimization, but whatever it is, it should be possible to
+ * enforce the same behavior in C using some kind of attribute
+ * in the lines of `__attribute__((need_return))' or `__attribute__((no_cse))'.
+ */
+#if defined(__INTELLISENSE__) || defined(__cplusplus)
+#define __EXCEPT_INVOKE_THROW(expr)          expr
+#define __EXCEPT_INVOKE_THROW_T(T,expr)      expr
+#define __EXCEPT_INVOKE_THROW_NORETURN(expr) expr
+#define __EXCEPT_NORETURN                    __ATTR_NORETURN
+#else
+/* Work around: introduce non-optimizable side-effects
+ *              to every call to an error_* function. */
+#define __EXCEPT_INVOKE_THROW(expr) \
+    __XBLOCK({ __asm__ __volatile__("#%="); expr; __asm__ __volatile__("#%="); })
+#define __EXCEPT_INVOKE_THROW_T(T,expr) \
+    __XBLOCK({ register T __it_temp; __asm__ __volatile__("#%="); __it_temp = expr; __asm__ __volatile__("#%="); __XRETURN __it_temp; })
+#define __EXCEPT_INVOKE_THROW_NORETURN(expr) \
+    __XBLOCK({ __asm__ __volatile__("#%="); expr; __asm__ __volatile__("#%="); __builtin_unreachable(); })
+#define __EXCEPT_NORETURN                    /* nothing */
+#endif
+
+/* Helper functions for implementing exception handling. */
+
 
 /* Throw an error `code' at the current code location.
  * Any additional exception information is ZERO-initialized.
  * @return: true:  The error-condition should be re-checked after `error_continue(true)'
  * @return: false: Ignore the error and continue normally after `error_continue(false)' */
 __LIBC __BOOL (__FCALL error_throw_resumable)(except_t __code);
-__LIBC __ATTR_NORETURN void (__FCALL error_throw)(except_t __code);
+__LIBC __EXCEPT_NORETURN void (__FCALL error_throw)(except_t __code);
+#ifndef error_throw_resumable
+#define error_throw_resumable(code) __EXCEPT_INVOKE_THROW_T(__BOOL,(error_throw_resumable)(code))
+#define error_throw(code)  __EXCEPT_INVOKE_THROW_NORETURN((error_throw)(code))
+#endif
 
 /* Same as the functions above, but construct the error using format args.
  * Varargs are interpreted dependent on `CODE':
@@ -77,12 +155,20 @@ __LIBC __ATTR_NORETURN void (__FCALL error_throw)(except_t __code);
  * All other codes are thrown without additional arguments,
  * meaning the same way the functions above are thrown. */
 __LIBC __BOOL (__ATTR_CDECL error_throw_resumablef)(except_t __code, ...);
-__LIBC __ATTR_NORETURN void (__ATTR_CDECL error_throwf)(except_t __code, ...);
+__LIBC __EXCEPT_NORETURN void (__ATTR_CDECL error_throwf)(except_t __code, ...);
+#ifndef error_throw_resumablef
+#define error_throw_resumablef(...) __EXCEPT_INVOKE_THROW_T(__BOOL,(error_throw_resumablef)(__VA_ARGS__))
+#define error_throwf(...)  __EXCEPT_INVOKE_THROW_NORETURN((error_throwf)(__VA_ARGS__))
+#endif
 
 /* Same as the functions above, but fill in exception data as
  * a direct copy of the passed `exception_data' structure. */
 __LIBC __BOOL (__FCALL error_throw_resumable_ex)(except_t __code, struct exception_data const *__restrict __data);
-__LIBC __ATTR_NORETURN void (__FCALL error_throw_ex)(except_t __code, struct exception_data const *__restrict __data);
+__LIBC __EXCEPT_NORETURN void (__FCALL error_throw_ex)(except_t __code, struct exception_data const *__restrict __data);
+#ifndef error_throw_resumable_ex
+#define error_throw_resumable_ex(code,data) __EXCEPT_INVOKE_THROW_T(__BOOL,(error_throw_resumable_ex)(code,data))
+#define error_throw_ex(code,data)  __EXCEPT_INVOKE_THROW_NORETURN((error_throw_ex)(code,data))
+#endif
 
 /* Throw the currently set exception exception information.
  * NOTE: When the `ERR_FRESUMABLE' flag isn't set, this function never returns.
@@ -93,6 +179,9 @@ __LIBC __ATTR_NORETURN void (__FCALL error_throw_ex)(except_t __code, struct exc
  * @return: true:  The error-condition should be re-checked after `error_continue(true)'
  * @return: false: Ignore the error and continue normally after `error_continue(false)' */
 __LIBC __BOOL (__FCALL error_throw_current)(void);
+#ifndef error_throw_current
+#define error_throw_current() __EXCEPT_INVOKE_THROW_T(__BOOL,(error_throw_current)())
+#endif
 
 /* Dump information about the current error to
  * STDERR, alongside a short printf()-style message
@@ -109,7 +198,10 @@ __LIBC void (__LIBCCALL error_vfprintf)(__FILE *__fp, char const *__reason, __bu
 /* Rethrow the current exception, but don't set a new error-context.
  * This function simply continues unwinding the
  * stack in search of exception handlers. */
-__LIBC __ATTR_NORETURN void (__FCALL error_rethrow)(void);
+__LIBC __EXCEPT_NORETURN void (__FCALL error_rethrow)(void);
+#ifndef error_rethrow
+#define error_rethrow() __EXCEPT_INVOKE_THROW_NORETURN((error_rethrow)())
+#endif
 
 /* Continue execution
  * If the current exception has the `ERR_FRESUMABLE'
@@ -119,7 +211,10 @@ __LIBC __ATTR_NORETURN void (__FCALL error_rethrow)(void);
  *               `error_throw_resumable()' / `error_throw_current()' return true.
  *                Otherwise, jump to the instruction thereafter or have
  *               `error_throw_resumable()' / `error_throw_current()' return false. */
-__LIBC __ATTR_NORETURN void (__FCALL error_continue)(int __retry);
+__LIBC __EXCEPT_NORETURN void (__FCALL error_continue)(int __retry);
+#ifndef error_continue
+#define error_continue(retry) __EXCEPT_INVOKE_THROW_NORETURN((error_continue)(retry))
+#endif
 
 /* Process the exception disposition of an except-handler
  * This function does not return unless `mode > 0'.
@@ -127,6 +222,9 @@ __LIBC __ATTR_NORETURN void (__FCALL error_continue)(int __retry);
  * exception handlers by jumping to run `error_rethrow()'.
  * Otherwise, it will invoke `error_continue(mode == EXCEPT_CONTINUE_RETRY)' */
 __LIBC void (__FCALL error_except)(int __mode);
+#ifndef error_except
+#define error_except(mode) __EXCEPT_INVOKE_THROW_NORETURN((error_except)(mode))
+#endif
 
 /* Return the current exception code, or a
  * pointer to thread-local exception information. */
@@ -192,7 +290,10 @@ __LIBC int (__FCALL except_errno)(void);
  *           caused the exception. (Not at the instruction thereafter)
  * This function is invoked by `error_rethrow', using
  * a stack-allocated cpu-context of the caller. */
-__LIBC __ATTR_NORETURN void (__FCALL __error_rethrow_at)(struct cpu_context *__restrict __context);
+__LIBC __EXCEPT_NORETURN void (__FCALL __error_rethrow_at)(struct cpu_context *__restrict __context);
+#ifndef __error_rethrow_at
+#define __error_rethrow_at(context) __EXCEPT_INVOKE_THROW_NORETURN((__error_rethrow_at)(context))
+#endif
 
 /* Return a pointer to the instruction following `ip'
  * If the next instruction cannot be determined, `NULL' is returned.

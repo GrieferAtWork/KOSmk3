@@ -53,13 +53,12 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
  /* Safe the original stack-pointer. */
  uintptr_t sp = CPU_CONTEXT_SP(*context);
  assertf(context != &error_info()->e_context,
-         "Remeber how this function is allowed to modify the context? "
+         "Remember how this function is allowed to modify the context? "
          "Wouldn't make much sense if you passed the context that's supposed "
          "to represent what was going on when the exception was thrown...");
-
 #if 0
  debug_printf("%[vinfo:%f(%l,%c) : %n : __error_rethrow_at(%p)]\n",
-             (uintptr_t)CPU_CONTEXT_IP(unwind));
+             (uintptr_t)CPU_CONTEXT_IP(*context));
 #endif
  for (;;) {
   /* Account for the fact that return addresses point to the
@@ -137,8 +136,8 @@ cannot_unwind:
   }
 #if 0
   debug_printf("%[vinfo:%f(%l,%c) : %n :] Unwind %p (ebp %p; fs: %p)\n",
-               CPU_CONTEXT_IP(unwind),CPU_CONTEXT_IP(unwind),
-               unwind.c_gpregs.gp_ebp,unwind.c_segments.sg_fs);
+               CPU_CONTEXT_IP(*context),CPU_CONTEXT_IP(*context),
+               context->c_gpregs.gp_ebp,context->c_segments.sg_fs);
 #endif
  }
 no_handler:

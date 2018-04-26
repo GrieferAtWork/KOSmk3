@@ -503,6 +503,7 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
   struct exception_info old_info;
   struct task_connections cons;
   u16 EXCEPT_VAR old_state;
+  bool is_first = true;
   task_push_connections(&cons);
   old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
   memcpy(&old_info,error_info(),sizeof(struct exception_info));
@@ -513,9 +514,11 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
 #endif
    for (;;) {
     debug_printf("%[vinfo:%f(%l,%c) : %n : %p] : ESP %p, EBP %p\n",
-                (uintptr_t)dup.c_eip-1,dup.c_esp,dup.c_gpregs.gp_ebp);
-    if (!linker_findfde(dup.c_eip-1,&unwind_info)) {
-     debug_printf("Cannot unwind at %p (%p)\n",dup.c_eip-1,dup.c_eip);
+                is_first ? (uintptr_t)dup.c_eip : (uintptr_t)dup.c_eip-1,
+                dup.c_esp,dup.c_gpregs.gp_ebp);
+    if (!is_first) --dup.c_eip;
+    if (!linker_findfde(dup.c_eip,&unwind_info)) {
+     debug_printf("Cannot unwind at %p (%p)\n",dup.c_eip,is_first ? dup.c_eip : dup.c_eip+1);
      break;
     }
     if (!eh_return(&unwind_info,&dup,EH_FNORMAL)) {
@@ -533,6 +536,7 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
      break;
 #endif
     }
+    is_first = false;
    }
    //error_print_other_thread();
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {

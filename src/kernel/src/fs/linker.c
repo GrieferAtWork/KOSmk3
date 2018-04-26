@@ -951,8 +951,10 @@ got_application:
 }
 
 
-PRIVATE ATTR_NORETURN void KCALL
-throw_fs_error(u16 fs_error_code) {
+#define throw_fs_error(fs_error_code) \
+        __EXCEPT_INVOKE_THROW_NORETURN(throw_fs_error(fs_error_code))
+PRIVATE __EXCEPT_NORETURN void
+(KCALL throw_fs_error)(u16 fs_error_code) {
  struct exception_info *info;
  info = error_info();
  memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
@@ -1333,9 +1335,6 @@ again_inner:
  }
 }
 
-INTDEF ATTR_NORETURN void KCALL
-throw_segfault(VIRT void *addr, uintptr_t reason);
-
 PUBLIC ATTR_RETNONNULL REF struct application *
 KCALL vm_getapp(USER UNCHECKED void *user_handle) {
  REF struct application *COMPILER_IGNORE_UNINITIALIZED(result);
@@ -1343,7 +1342,7 @@ KCALL vm_getapp(USER UNCHECKED void *user_handle) {
  if (!user_handle) {
   result = vm_apps_primary(THIS_VM);
   if unlikely(!result)
-     throw_segfault(user_handle,SEGFAULT_BADREAD);
+     error_throwf(E_SEGFAULT,SEGFAULT_BADREAD,user_handle);
   return result;
  }
  validate_readable(user_handle,1);
@@ -1354,7 +1353,7 @@ again:
   struct vm_node *node;
   node = vm_getnode(VM_ADDR2PAGE((uintptr_t)user_handle));
   if (!node || node->vn_notify != &application_notify)
-       throw_segfault(user_handle,SEGFAULT_BADREAD);
+       error_throwf(E_SEGFAULT,SEGFAULT_BADREAD,user_handle);
   result = (REF struct application *)node->vn_closure;
   assert(result->a_refcnt != 0);
   application_incref(result);

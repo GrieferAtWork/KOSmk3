@@ -112,7 +112,7 @@ EXPORT(vsyslog,libc_vsyslog);
 INTERN ATTR_NORETURN void FCALL
 libc_error_rethrow_at(struct cpu_context *__restrict context) {
  assertf(context != &error_info()->e_context,
-         "Remeber how this function is allowed to modify the context? "
+         "Remember how this function is allowed to modify the context? "
          "Wouldn't make much sense if you passed the context that's supposed "
          "to represent what was going on when the exception was thrown...");
  /* Unwind the stack to the nearest handler.

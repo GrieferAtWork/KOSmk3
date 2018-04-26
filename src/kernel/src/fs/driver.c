@@ -492,8 +492,10 @@ again:
      *       traceback can quickly reveal which of these checks got triggered. */
     for (tag_index = 0; tags[tag_index].dt_name; ++tag_index) {
      struct driver_tag *tag = &tags[tag_index];
+#if 0
      debug_printf("TAG: %x -- %p, %p\n",
                   tag->dt_name,tag->dt_start,tag->dt_count);
+#endif
      switch (tag->dt_name) {
 
      case DRIVER_TAG_MAIN:

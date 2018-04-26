@@ -584,9 +584,6 @@ dont_map:;
 }
 
 
-INTDEF ATTR_NORETURN void KCALL
-throw_segfault(VIRT void *addr, uintptr_t reason);
-
 DEFINE_SYSCALL5(mremap,
                 VIRT void *,addr,size_t,old_len,size_t,new_len,
                 int,flags,VIRT void *,new_addr) {
@@ -636,7 +633,7 @@ DEFINE_SYSCALL5(mremap,
   if ((flags & MREMAP_FIXED) && (old_page != new_page)) {
    /* Move the mapping from `old_page...+=new_size' to `new_page...+=new_size' */
    if (!vm_remap(old_page,new_size,new_page,(vm_prot_t)~0,(vm_prot_t)0,VM_REMAP_NORMAL|VM_REMAP_FULL,NULL))
-        throw_segfault((void *)VM_PAGE2ADDR(old_page),SEGFAULT_BADREAD);
+        error_throwf(E_SEGFAULT,SEGFAULT_BADREAD,(void *)VM_PAGE2ADDR(old_page));
    result = new_page;
    vm_sync(old_page,old_size);
    vm_sync(new_page,new_size);
@@ -649,7 +646,7 @@ DEFINE_SYSCALL5(mremap,
   TRY {
    /* Move the old address range into the new one. */
    if (!vm_remap(old_page,old_size,new_page,(vm_prot_t)~0,(vm_prot_t)0,VM_REMAP_NORMAL|VM_REMAP_FULL,NULL))
-        throw_segfault((void *)VM_PAGE2ADDR(old_page),SEGFAULT_BADREAD);
+        error_throwf(E_SEGFAULT,SEGFAULT_BADREAD,(void *)VM_PAGE2ADDR(old_page));
    vm_sync(old_page,old_size);
    vm_sync(new_page,old_size);
    /* Unmap memory in the new address range. */
@@ -676,7 +673,7 @@ DEFINE_SYSCALL5(mremap,
                  (vm_prot_t)~0,(vm_prot_t)0,
                   VM_REMAP_NORMAL|VM_REMAP_FULL,
                   NULL))
-         throw_segfault((void *)VM_PAGE2ADDR(old_page),SEGFAULT_BADREAD);
+         error_throwf(E_SEGFAULT,SEGFAULT_BADREAD,(void *)VM_PAGE2ADDR(old_page));
     /* Finally, extend memory at the new location. */
     vm_extend(result+old_size,
               new_size-old_size,

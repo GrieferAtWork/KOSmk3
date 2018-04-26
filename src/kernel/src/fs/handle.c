@@ -102,8 +102,12 @@ DEFINE_HANDLE_REFERENCE_FUNCTIONS(pipewriter)
 
 
 /* ==================== Handle manager implementation ==================== */
-INTERN ATTR_NORETURN void KCALL
-throw_invalid_handle(fd_t fd, u16 reason, u16 istype, u16 rqtype, u16 rqkind) {
+#define throw_invalid_handle(fd,reason,istype,rqtype,rqkind) \
+       __EXCEPT_INVOKE_THROW_NORETURN((throw_invalid_handle)(fd,reason,istype,rqtype,rqkind))
+INTERN __EXCEPT_NORETURN void
+(KCALL throw_invalid_handle)(fd_t fd, u16 reason,
+                             u16 istype, u16 rqtype,
+                             u16 rqkind) {
  struct exception_info *info;
  info = error_info();
  info->e_error.e_code = E_INVALID_HANDLE;
@@ -118,7 +122,12 @@ throw_invalid_handle(fd_t fd, u16 reason, u16 istype, u16 rqtype, u16 rqkind) {
  __builtin_unreachable();
 }
 
-PRIVATE ATTR_NORETURN void KCALL throw_fs_error(u16 fs_error_code) {
+
+
+#define throw_fs_error(fs_error_code) \
+        __EXCEPT_INVOKE_THROW_NORETURN(throw_fs_error(fs_error_code))
+PRIVATE __EXCEPT_NORETURN void
+(KCALL throw_fs_error)(u16 fs_error_code) {
  struct exception_info *info;
  info = error_info();
  memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));

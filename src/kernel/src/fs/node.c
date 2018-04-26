@@ -44,8 +44,10 @@
 
 DECL_BEGIN
 
-PRIVATE ATTR_NORETURN void KCALL
-throw_fs_error(u16 fs_error_code) {
+#define throw_fs_error(fs_error_code) \
+        __EXCEPT_INVOKE_THROW_NORETURN(throw_fs_error(fs_error_code))
+PRIVATE __EXCEPT_NORETURN void
+(KCALL throw_fs_error)(u16 fs_error_code) {
  struct exception_info *info;
  info = error_info();
  memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
@@ -1354,11 +1356,13 @@ directory_remove(struct directory_node *__restrict self,
             throw_fs_error(ERROR_FS_DIRECTORY_NOT_EMPTY);
       /* The directory is empty except for its self and parent index.
        * Now to unlink it. */
-
       if (dir->d_node.i_nlink == 1) {
        /* Use the rmdir() operator. */
        if unlikely(!self->d_node.i_ops->io_directory.d_rmdir)
           throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
+       debug_printf("RMDIR:\n");
+       debug_printf("    self = %p\n",self);
+       debug_printf("    dir  = %p\n",dir);
        (*self->d_node.i_ops->io_directory.d_rmdir)(self,entry,dir);
        assert(dir->d_node.i_nlink == 0);
        /* Close the INode in the associated superblock. */

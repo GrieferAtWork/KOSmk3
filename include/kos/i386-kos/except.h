@@ -238,56 +238,6 @@ void (__except_returns_twice)(void) { __asm__ __volatile__(""); }
 #define __EXCEPT_CLOBBER_REGS() \
         __XBLOCK({ __asm__ __volatile__("#%=" : : : "memory", "esp"); (void)0; })
 #endif
-
-
-/* Defining `error_rethrow()' as inline assembly prevents GCC from optimizing
- * a regular call away by diverting a nearby jump to the call instruction
- * to another call to the same function, which would break exception handling:
- * >> TRY {
- * >>     TRY {
- * >>        printf("foo\n");
- * >>        error_throw(42);
- * >>     } FINALLY {
- * >>        printf("bar\n");
- * >>     }
- * >> } FINALLY {
- * >>     if (some_condition()) // Introduce a conditional jump just before `error_rethrow()' that GCC could then redirect
- * >>         printf("baz\n");
- * >>     // GCC may otherwise choose to optimize the call to `error_rethrow()'
- * >>     // that exists at the end of this scope into a jump to the call above.
- * >>     // Since it knows that `error_rethrow()' doesn't return, it thinks that
- * >>     // its return address wouldn't matter. However, it actually does, because
- * >>     // that return address is used to resolve unwind order of recursive exception
- * >>     // handlers like in this example.
- * >>     // However, that optimization may then generate a jump to the finally above,
- * >>     // causing us to falsely unwind the stack to re-execute the second finally,
- * >>     // leaving us to end up with an infinite loop...
- * >> }
- * ... By wrapping the call in inline assembly however, GCC will be forced to generate
- *     a _true_ call to the `error_rethrow()' function, whereever it appears.
- * NOTE: The same problem applies to the other functions also wrapped here in the same way.
- */
-#ifndef __INTELLISENSE__
-#if defined(__BUILDING_LIBC)
-#define error_rethrow()       __XBLOCK({ __asm__ __volatile__("call libc_error_rethrow#%=" : : : "memory"); __builtin_unreachable(); (void)0; })
-#define error_throw(code)     __XBLOCK({ __asm__ __volatile__("call libc_error_throw#%=" : : "c" ((__UINT16_TYPE__)(code)) : "memory"); __builtin_unreachable(); (void)0; })
-#define error_continue(retry) __XBLOCK({ __asm__ __volatile__("call libc_error_continue#%=" : : "c" ((int)(retry)) : "memory"); __builtin_unreachable(); (void)0; })
-#define error_except(mode)    __XBLOCK({ __asm__ __volatile__("call libc_error_except#%=" : : "c" ((int)(mode)) : "memory"); (void)0; })
-#define error_throw_current() __XBLOCK({ __BOOL __etc_res; __asm__ __volatile__("call libc_error_throw_current#%=" : "=a" (__etc_res) : : "memory"); __XRETURN __etc_res; })
-#elif defined(__KERNEL__) && defined(CONFIG_BUILDING_KERNEL_CORE)
-#define error_rethrow()       __XBLOCK({ __asm__ __volatile__("call error_rethrow#%=" : : : "memory"); __builtin_unreachable(); (void)0; })
-#define error_throw(code)     __XBLOCK({ __asm__ __volatile__("call error_throw#%=" : : "c" ((__UINT16_TYPE__)(code)) : "memory"); __builtin_unreachable(); (void)0; })
-#define error_continue(retry) __XBLOCK({ __asm__ __volatile__("call error_continue#%=" : : "c" ((int)(retry)) : "memory"); __builtin_unreachable(); (void)0; })
-#define error_except(mode)    __XBLOCK({ __asm__ __volatile__("call error_except#%=" : : "c" ((int)(mode)) : "memory"); (void)0; })
-#define error_throw_current() __XBLOCK({ __BOOL __etc_res; __asm__ __volatile__("call error_throw_current#%=" : "=a" (__etc_res) : : "memory"); __XRETURN __etc_res; })
-#elif 0 /* Doesn't work. - PLT needs register setup... */
-#define error_rethrow()       __XBLOCK({ __asm__ __volatile__("call error_rethrow@PLT#%=" : : : "memory"); __builtin_unreachable(); (void)0; })
-#define error_throw(code)     __XBLOCK({ __asm__ __volatile__("call error_throw@PLT#%=" : : "c" ((__UINT16_TYPE__)(code)) : "memory"); __builtin_unreachable(); (void)0; })
-#define error_continue(retry) __XBLOCK({ __asm__ __volatile__("call error_continue@PLT#%=" : : "c" ((int)(retry)) : "memory"); __builtin_unreachable(); (void)0; })
-#define error_except(mode)    __XBLOCK({ __asm__ __volatile__("call error_except@PLT#%=" : : "c" ((int)(mode)) : "memory"); (void)0; })
-#define error_throw_current() __XBLOCK({ __BOOL __etc_res; __asm__ __volatile__("call error_throw_current@PLT#%=" : "=a" (__etc_res) : : "memory"); __XRETURN __etc_res; })
-#endif
-#endif /* __INTELLISENSE__ */
 #endif /* __CC__ */
 
 

@@ -666,7 +666,8 @@ __os_rwlock_endwrite(struct rwlock *__restrict self) {
  debug_printf("[RWLOCK][%p] END_WRITE(%p)\n",THIS_TASK,self);
 #endif
  assertf(self->rw_mode == RWLOCK_MODE_FWRITING,
-         "Lock isn't in write-mode");
+         "Lock isn't in write-mode (%p:%p)",
+         self,self->rw_state);
  assertf(self->rw_xowner == THIS_TASK,
          "You're not the owner of this lock");
  assertf(self->rw_xind >= 1,
