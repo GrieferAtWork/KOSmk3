@@ -394,8 +394,10 @@ CRT_STDIO size_t LIBCCALL
 FileBuffer_XReadUnlocked(FileBuffer *__restrict self,
                          void *__restrict buffer,
                          size_t bufsize) {
- size_t read_size,result = 0; size_t bufavail;
- u32 old_flags; pos64_t next_data;
+ FileBuffer *EXCEPT_VAR xself = self;
+ size_t COMPILER_IGNORE_UNINITIALIZED(read_size);
+ size_t result = 0; size_t bufavail;
+ u32 EXCEPT_VAR old_flags; pos64_t next_data;
  uint8_t *new_buffer;
 again:
  bufavail = self->fb_cnt;
@@ -512,12 +514,15 @@ read_through:
  old_flags      = self->fb_flag;
  self->fb_flag |= FILE_BUFFER_FREADING;
  COMPILER_BARRIER();
- read_size = FileBuffer_SystemRead(self,
-                                   self->fb_base,
-                                   self->fb_size);
- COMPILER_BARRIER();
- self->fb_flag &= ~FILE_BUFFER_FREADING;
- self->fb_flag |= old_flags&FILE_BUFFER_FREADING;
+ LIBC_TRY {
+  read_size = FileBuffer_SystemRead(self,
+                                    self->fb_base,
+                                    self->fb_size);
+  COMPILER_BARRIER();
+ } LIBC_FINALLY {
+  xself->fb_flag &= ~FILE_BUFFER_FREADING;
+  xself->fb_flag |= old_flags&FILE_BUFFER_FREADING;
+ }
  if unlikely(read_size == 0) goto done_eof;
  self->fb_flag &= ~FILE_BUFFER_FEOF;
  self->fb_fpos = next_data+(size_t)read_size;
@@ -767,7 +772,8 @@ full_seek:
 }
 
 CRT_STDIO int LIBCCALL
-FileBuffer_XGetcUnlocked(FileBuffer *__restrict self) {
+FileBuffer_XGetcUnlocked(FileBuffer *__restrict self_) {
+ FileBuffer *EXCEPT_VAR self = self_;
 again:
  if (self->fb_cnt) {
   /* Simple case: we can read from the active buffer. */
@@ -865,8 +871,10 @@ eof:
 
 CRT_STDIO int LIBCCALL
 FileBuffer_XFillUnlocked(FileBuffer *__restrict self) {
- uint8_t *new_buffer; size_t read_size;
- u32 old_flags; pos64_t next_data;
+ FileBuffer *EXCEPT_VAR xself = self;
+ size_t COMPILER_IGNORE_UNINITIALIZED(read_size);
+ uint8_t *new_buffer; pos64_t next_data;
+ u32 EXCEPT_VAR old_flags;
 again:
  /* First off: Flush any changes that had been made. */
  FileBuffer_XFlushUnlocked(self);
@@ -932,12 +940,15 @@ again:
  old_flags  = self->fb_flag;
  self->fb_flag |= FILE_BUFFER_FREADING;
  COMPILER_BARRIER();
- read_size = FileBuffer_SystemRead(self,
-                                   self->fb_base,
-                                   self->fb_size);
- COMPILER_BARRIER();
- self->fb_flag &= ~FILE_BUFFER_FREADING;
- self->fb_flag |= old_flags&FILE_BUFFER_FREADING;
+ LIBC_TRY {
+  read_size = FileBuffer_SystemRead(self,
+                                    self->fb_base,
+                                    self->fb_size);
+  COMPILER_BARRIER();
+ } LIBC_FINALLY {
+  xself->fb_flag &= ~FILE_BUFFER_FREADING;
+  xself->fb_flag |= old_flags&FILE_BUFFER_FREADING;
+ }
  if unlikely(self->fb_cnt) return 0;
  if unlikely(self->fb_chsz) goto again;
  self->fb_fpos = next_data+(size_t)read_size;
