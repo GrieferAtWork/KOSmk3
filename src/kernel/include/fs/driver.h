@@ -27,13 +27,13 @@
 
 #if defined(__i386__) || defined(__x86_64__)
 #include <i386-kos/driver.h>
+#include <i386-kos/sections.h>
 #else
 #error "Unsupported architecture"
 #endif
 
 
 DECL_BEGIN
-
 
 /* DRIVER INITIALIZATION:
  *     TRY {
@@ -72,6 +72,44 @@ DECL_BEGIN
  */
 
 
+
+
+
+/* Driver specification tags. */
+#define DRIVER_TAG_STOP       0x0000 /* END tag (sentinel) (Must _ALWAYS_ be ZERO(0)!) */
+#define DRIVER_TAG_MAIN       0x0001 /* Pointer to the module main() function.
+                                      * Called after `DRIVER_TAG_INIT' (the last step during initialization).
+                                      * NOTE: Driver parameters already processed by `ds_parm' are not
+                                      *       passed to this function.
+                                      * NOTE: This symbol should be a function called `module_main'
+                                      * >> void KCALL module_main(int argc, char **argv) {
+                                      * >>     ...
+                                      * >> }
+                                      * NOTE: `dt_count' is undefined; may be located in `.free' memory */
+#define DRIVER_TAG_INIT       0x0002 /* Pointer to an array of `image_rva_t' with `dt_count' elements.
+                                      * Called after ELF module constructors; may be located in `.free' memory. */
+#define DRIVER_TAG_FINI       0x0004 /* Pointer to an array of `image_rva_t' with `dt_count' elements.
+                                      * Called before ELF module destructors. (executed in reverse order) */
+#define DRIVER_TAG_PARM       0x0005 /* Pointer to an array of `struct driver_param' with `dt_count' elements.
+                                      * Called after ELF module constructors; before `DRIVER_TAG_INIT'; may be located in `.free' memory. */
+#define DRIVER_TAG_FREE       0x0006 /* Starting page number of the driver's .free section. (vm_vpage_t)
+                                      * NOTE: `dt_count' is the size of the driver's .free section (in pages) */
+#define DRIVER_TAG_BIND_START 0x1000 /* Starting tag for misc. kernel binding callbacks. */
+
+#define DRIVER_TAG_FNORMAL    0x0000 /* Normal driver tag flags. */
+#define DRIVER_TAG_FOPTIONAL  0x0001 /* Normal driver tag is optional. */
+
+
+/* Enable the specified driver tag under its default location. */
+#define DEFINE_DRIVER_TAG_INIT     DEFINE_DRIVER_TAG(DRIVER_TAG_INIT,DRIVER_TAG_FNORMAL,module_init_start,module_init_count)
+#define DEFINE_DRIVER_TAG_FINI     DEFINE_DRIVER_TAG(DRIVER_TAG_FINI,DRIVER_TAG_FNORMAL,module_fini_start,module_fini_count)
+#define DEFINE_DRIVER_TAG_PARM     DEFINE_DRIVER_TAG(DRIVER_TAG_PARM,DRIVER_TAG_FNORMAL,module_parm_start,module_parm_count)
+
+
+
+
+
+/* Driver parameter types */
 #define DRIVER_PARAM_TYPE_OPTION  0x00 /* `[-[-]]dp_name=dp_hand:arg' (invoked as `driver_param_handler_t') */
 #define DRIVER_PARAM_TYPE_FLAG    0x01 /* `[-[-]]dp_name' (invoked as `driver_flag_handler_t') */
 #define DRIVER_PARAM_TYPE_MASK    0x07 /* Mask for the parameter type (other bits are served for flags) */
@@ -112,27 +150,6 @@ struct PACKED driver_param {
 #define DRIVER_PARAM_FLAGHAND(loadaddr,param) \
        ((driver_flag_handler_t)((loadaddr)+(param)->dp_hand))
 #endif /* __CC__ */
-
-
-#define DRIVER_TAG_STOP 0x0000 /* END tag (sentinel) (Must _ALWAYS_ be ZERO(0)!) */
-#define DRIVER_TAG_MAIN 0x0001 /* Pointer to the module main() function.
-                                * Called after `DRIVER_TAG_INIT' (the last step during initialization).
-                                * NOTE: Driver parameters already processed by `ds_parm' are not
-                                *       passed to this function.
-                                * NOTE: This symbol should be a function called `module_main'
-                                * >> void KCALL module_main(int argc, char **argv) {
-                                * >> }
-                                * NOTE: `dt_count' is undefined. */
-#define DRIVER_TAG_INIT 0x0002 /* Pointer to an array of `image_rva_t' with `dt_count' elements.
-                                * Called after ELF module constructors; may be located in `.free' memory. */
-#define DRIVER_TAG_FINI 0x0004 /* Pointer to an array of `image_rva_t' with `dt_count' elements.
-                                * Called before ELF module destructors. (executed in reverse order) */
-#define DRIVER_TAG_PARM 0x0005 /* Pointer to an array of `struct driver_param' with `dt_count' elements.
-                                * Called after ELF module constructors; before `DRIVER_TAG_INIT'. */
-#define DRIVER_TAG_FREE 0x0006 /* Starting page number of the driver's .free section. (vm_vpage_t)
-                                * NOTE: `dt_count' is the size of the driver's .free section (in pages) */
-#define DRIVER_TAG_FNORMAL   0x0000 /* Normal driver tag flags. */
-#define DRIVER_TAG_FOPTIONAL 0x0001 /* Normal driver tag is optional. */
 
 #ifdef __CC__
 struct PACKED driver_tag {
@@ -215,13 +232,18 @@ FUNDEF REF struct driver *KCALL kernel_getmod(struct module *__restrict mod);
 #define DEFINE_DRIVER_INIT(func)          DEFINE_ABS_CALLBACK(".rodata.core_driver.init",func)
 #define DEFINE_DRIVER_POSTINIT(func)      DEFINE_ABS_CALLBACK(".rodata.core_driver.postinit",func)
 #else
-#define DEFINE_DRIVER_PREINIT(func)       DEFINE_REL_CALLBACK(".rodata.driver.preinit",func)
-#define DEFINE_DRIVER_INIT(func)          DEFINE_REL_CALLBACK(".rodata.driver.init",func)
-#define DEFINE_DRIVER_POSTINIT(func)      DEFINE_REL_CALLBACK(".rodata.driver.postinit",func)
-#define DEFINE_DRIVER_PREFINI(func)       DEFINE_REL_CALLBACK(".rodata.driver.prefini",func)
-#define DEFINE_DRIVER_FINI(func)          DEFINE_REL_CALLBACK(".rodata.driver.fini",func)
-#define DEFINE_DRIVER_POSTFINI(func)      DEFINE_REL_CALLBACK(".rodata.driver.postfini",func)
+#define DEFINE_DRIVER_PREINIT(func)       DEFINE_DRIVER_TAG_INIT DEFINE_REL_CALLBACK(".rodata.driver.preinit",func)
+#define DEFINE_DRIVER_INIT(func)          DEFINE_DRIVER_TAG_INIT DEFINE_REL_CALLBACK(".rodata.driver.init",func)
+#define DEFINE_DRIVER_POSTINIT(func)      DEFINE_DRIVER_TAG_INIT DEFINE_REL_CALLBACK(".rodata.driver.postinit",func)
+#define DEFINE_DRIVER_PREFINI(func)       DEFINE_DRIVER_TAG_FINI DEFINE_REL_CALLBACK(".rodata.driver.prefini",func)
+#define DEFINE_DRIVER_FINI(func)          DEFINE_DRIVER_TAG_FINI DEFINE_REL_CALLBACK(".rodata.driver.fini",func)
+#define DEFINE_DRIVER_POSTFINI(func)      DEFINE_DRIVER_TAG_FINI DEFINE_REL_CALLBACK(".rodata.driver.postfini",func)
 #endif
+
+
+#define DEFINE_DRIVER_PARAM_EX(name,type,handler) \
+        DEFINE_DRIVER_TAG_PARM \
+ __IMPL_DEFINE_DRIVER_PARAM_EX(name,type,handler)
 
 
 /* Symbol name generator. */
@@ -298,7 +320,6 @@ FUNDEF REF struct driver *KCALL kernel_getmod(struct module *__restrict mod);
 #define DRIVER_FLAG_FUNC(name) \
         DEFINE_DRIVER_FLAG_FUNC(name,__DRIVER_FLAG_SYMNAME); \
         PRIVATE ATTR_FREETEXT ATTR_USED void KCALL __DRIVER_FLAG_SYMNAME(void)
-
 
 
 DECL_END

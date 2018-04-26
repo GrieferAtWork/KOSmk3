@@ -25,8 +25,9 @@
 #include <kos/safecall.h>
 #include <kos/types.h>
 #include <sched/onexit.h>
-#include <kernel/sections.h>
+#include <kernel/bind.h>
 #include <hybrid/sync/atomic-rwptr.h>
+#include <kernel/sections.h>
 #include <kernel/debug.h>
 #include <kernel/malloc.h>
 #include <sched/task.h>
@@ -97,7 +98,8 @@ PRIVATE ATTR_USED void KCALL
 exec_onexit(struct task *__restrict thread) {
  do_exec_onexit(thread,ONEXIT_REASON_DESTRUCTION);
 }
-DEFINE_PERTASK_CLEANUP(cleanup_onexit);
+
+DEFINE_ABS_CALLBACK(".rodata.callback.pertask.cleanup.onexit",cleanup_onexit);
 PRIVATE ATTR_USED void KCALL cleanup_onexit(void) {
  do_exec_onexit(THIS_TASK,ONEXIT_REASON_TERMINATION);
 }

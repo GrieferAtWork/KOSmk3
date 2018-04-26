@@ -126,6 +126,7 @@
     <ClCompile Include="..\..\src\kernel\src\fs\walk.c" />
     <ClCompile Include="..\..\src\kernel\src\fs\wordbuffer.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\async_signal.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\bind.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\boot.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\debug.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\heap.c" />
@@ -226,7 +227,9 @@
     <ClInclude Include="..\..\src\kernel\include\i386-kos\user.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\vm.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\vm86.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\bind.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\boot.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\cache.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\debug.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\environ.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\heap.h" />

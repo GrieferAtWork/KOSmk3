@@ -28,6 +28,7 @@
 #include <kernel/debug.h>
 #include <kernel/malloc.h>
 #include <kernel/user.h>
+#include <kernel/bind.h>
 #include <sys/mman.h>
 #include <linux/limits.h>
 #include <except.h>

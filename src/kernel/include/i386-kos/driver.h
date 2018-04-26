@@ -59,7 +59,7 @@ DECL_BEGIN
 
 #ifdef __ASSEMBLER__
 #ifdef __x86_64__
-#define DEFINE_DRIVER_PARAM_EX(name,type,handler) \
+#define __IMPL_DEFINE_DRIVER_PARAM_EX(name,type,handler) \
     .pushsection __DRIVER_PARAM_SECTION_NAME; \
     .section .discard; \
        991: .string name; \
@@ -79,16 +79,21 @@ DECL_BEGIN
     .endif; \
        .quad handler; \
     .popsection
-#define DEFINE_DRIVER_TAG(name,flags,start,count) \
-    .pushsection .rodata.driver_specs; \
+#define __IMPL_DEFINE_DRIVER_TAG(tag_symbol,name,flags,start,count) \
+    .ifndef tag_symbol; \
+    .pushsection .rodata.driver_specs.tag_symbol,"aG",@progbits,tag_symbol,comdat; \
+        .set tag_symbol, .; \
         .word name; \
         .word flags; \
         .int 0; \
+        .hidden start, count; \
         __DRIVER_PARAM_POINTER(start) \
         __DRIVER_PARAM_POINTER(count) \
-    .popsection
+        .size tag_symbol, . - tag_symbol; \
+    .popsection; \
+    .endif;
 #else
-#define DEFINE_DRIVER_PARAM_EX(name,type,handler) \
+#define __IMPL_DEFINE_DRIVER_PARAM_EX(name,type,handler) \
     .pushsection __DRIVER_PARAM_SECTION_NAME; \
     .section .discard; \
        991: .string name; \
@@ -108,17 +113,23 @@ DECL_BEGIN
     .endif; \
        .long handler; \
     .popsection
-#define DEFINE_DRIVER_TAG(name,flags,start,count) \
-    .pushsection .rodata.driver_specs; \
+#define __IMPL_DEFINE_DRIVER_TAG(tag_symbol,name,flags,start,count) \
+    .ifndef tag_symbol; \
+    .pushsection .rodata.driver_specs.tag_symbol,"aG",@progbits,tag_symbol,comdat; \
+        .set tag_symbol, .; \
         .word name; \
         .word flags; \
+        .hidden start, count; \
         __DRIVER_PARAM_POINTER(start) \
         __DRIVER_PARAM_POINTER(count) \
-    .popsection
+        .size tag_symbol, . - tag_symbol; \
+    .popsection; \
+    .endif;
+    
 #endif
 #else /* __ASSEMBLER__ */
 #ifdef __x86_64__
-#define DEFINE_DRIVER_PARAM_EX(name,type,handler) \
+#define __IMPL_DEFINE_DRIVER_PARAM_EX(name,type,handler) \
  __asm__(".pushsection " __DRIVER_PARAM_SECTION_NAME "\n\t" \
          ".section .discard\n\t" \
          "\t991: .string " PP_PRIVATE_STR(name) "\n\t" \
@@ -138,16 +149,22 @@ DECL_BEGIN
          ".endif\n\t" \
          "\t.quad " PP_PRIVATE_STR(handler) "\n\t" \
          ".popsection")
-#define DEFINE_DRIVER_TAG(name,flags,start,count) \
- __asm__ __volatile__(".pushsection .rodata.driver_specs\n\t" \
-                      "\t.word " PP_PRIVATE_STR(name) "\n\t" \
-                      "\t.word " PP_PRIVATE_STR(flags) "\n\t" \
-                      "\t.int 0\n\t" \
-                      "\t" __DRIVER_PARAM_POINTER(PP_PRIVATE_STR(start)) "\n\t" \
-                      "\t" __DRIVER_PARAM_POINTER(PP_PRIVATE_STR(count)) "\n\t" \
-                      ".popsection")
+#define __IMPL_DEFINE_DRIVER_TAG(tag_symbol,name,flags,start,count) \
+ __asm__(".ifndef " tag_symbol "\n\t"\
+         ".pushsection .rodata.driver_specs." tag_symbol \
+         ",\"aG\",@progbits," tag_symbol ",comdat\n\t" \
+         "\t.set " tag_symbol ", .\n\t" \
+         "\t.word " PP_PRIVATE_STR(name) "\n\t" \
+         "\t.word " PP_PRIVATE_STR(flags) "\n\t" \
+         "\t.int 0\n\t" \
+         "\t.hidden " PP_PRIVATE_STR(start) "," PP_PRIVATE_STR(count) "\n\t" \
+         "\t" __DRIVER_PARAM_POINTER(PP_PRIVATE_STR(start)) "\n\t" \
+         "\t" __DRIVER_PARAM_POINTER(PP_PRIVATE_STR(count)) "\n\t" \
+         "\t.size " tag_symbol ", . - " tag_symbol "\n\t" \
+         ".popsection\n\t" \
+         ".endif");
 #else
-#define DEFINE_DRIVER_PARAM_EX(name,type,handler) \
+#define __IMPL_DEFINE_DRIVER_PARAM_EX(name,type,handler) \
  __asm__(".pushsection " __DRIVER_PARAM_SECTION_NAME "\n\t" \
          ".section .discard\n\t" \
          "\t991: .string " PP_PRIVATE_STR(name) "\n\t" \
@@ -167,15 +184,47 @@ DECL_BEGIN
          ".endif\n\t" \
          "\t.long " PP_PRIVATE_STR(handler) "\n\t" \
          ".popsection")
-#define DEFINE_DRIVER_TAG(name,flags,start,count) \
- __asm__ __volatile__(".pushsection .rodata.driver_specs\n\t" \
-                      "\t.word " PP_PRIVATE_STR(name) "\n\t" \
-                      "\t.word " PP_PRIVATE_STR(flags) "\n\t" \
-                      "\t" __DRIVER_PARAM_POINTER(PP_PRIVATE_STR(start)) "\n\t" \
-                      "\t" __DRIVER_PARAM_POINTER(PP_PRIVATE_STR(count)) "\n\t" \
-                      ".popsection")
+#define __IMPL_DEFINE_DRIVER_TAG(tag_symbol,name,flags,start,count) \
+ __asm__(".ifndef " tag_symbol "\n\t" \
+         ".pushsection .rodata.driver_specs." tag_symbol \
+         ",\"aG\",@progbits," tag_symbol ",comdat\n\t" \
+         "\t.set " tag_symbol ", .\n\t" \
+         "\t.hidden " PP_PRIVATE_STR(start) "," PP_PRIVATE_STR(count) "\n\t" \
+         "\t.word " PP_PRIVATE_STR(name) "\n\t" \
+         "\t.word " PP_PRIVATE_STR(flags) "\n\t" \
+         "\t" __DRIVER_PARAM_POINTER(PP_PRIVATE_STR(start)) "\n\t" \
+         "\t" __DRIVER_PARAM_POINTER(PP_PRIVATE_STR(count)) "\n\t" \
+         "\t.size " tag_symbol ", . - " tag_symbol "\n\t" \
+         ".popsection\n\t" \
+         ".endif");
 #endif
 #endif /* !__ASSEMBLER__ */
+
+#ifdef CONFIG_BUILDING_KERNEL_CORE
+/* Driver tags can't appear within the kernel core. */
+#undef __IMPL_DEFINE_DRIVER_TAG
+#define __IMPL_DEFINE_DRIVER_TAG(tag_symbol,name,flags,start,count) /* nothing */
+#endif
+
+
+/* Define a driver tag that should appear within the driver's specifications.
+ * The tag will only appear once, and all driver compilation units must specify
+ * the same `flags', `start' and `count' values for the same `name'.
+ * Since the number of driver tags is unspecific, using this mechanism only
+ * functionality actually used by a driver will appear within its specifications,
+ * meaning less redundancy and overhead.
+ * @param: name:  One of `DRIVER_TAG_*' (from <kernel/driver.h>)
+ * @param: flags: Set of `DRIVER_TAG_F*' (from <kernel/driver.h>)
+ * @param: start: The starting address of the driver data block. (Must be a symbol; usually defined in `module.ld')
+ * @param: count: The number of elements within the data block. (Must be a symbol; usually defined in `module.ld') */
+#ifdef __ASSEMBLER__
+#define DEFINE_DRIVER_TAG(name,flags,start,count) \
+ __IMPL_DEFINE_DRIVER_TAG(start##_##count,name,flags,start,count)
+#else
+#define DEFINE_DRIVER_TAG(name,flags,start,count) \
+ __IMPL_DEFINE_DRIVER_TAG(#start "_" #count,name,flags,start,count)
+#endif
+
 
 
 DECL_END

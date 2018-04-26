@@ -474,6 +474,9 @@
     <ClCompile Include="..\..\src\kernel\src\sched\onexit.c">
       <Filter>kernel\src\sched</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\kernel\bind.c">
+      <Filter>kernel\src\kernel</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">
@@ -781,6 +784,12 @@
     </ClInclude>
     <ClInclude Include="..\..\src\kernel\include\sched\onexit.h">
       <Filter>kernel\include\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\bind.h">
+      <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\cache.h">
+      <Filter>kernel\include\kernel</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

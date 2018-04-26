@@ -16,32 +16,28 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
+#ifndef GUARD_KERNEL_INCLUDE_KERNEL_CACHE_H
+#define GUARD_KERNEL_INCLUDE_KERNEL_CACHE_H 1
 
 #include <hybrid/compiler.h>
-#include <hybrid/typecore.h>
-#include <fs/driver.h>
+#include <stdbool.h>
 
-/* Common module source file (contains the runtime linkage definitions for the module) */
+/* Kernel Cache Control */
 
-.hidden module_free_minpage
-.hidden module_free_num_pages
-.hidden module_main
-.weak   module_main
-.global __$$OS$driver_specs
-#undef NULL
+DECL_BEGIN
 
-DEFINE_DRIVER_TAG(DRIVER_TAG_MAIN,DRIVER_TAG_FNORMAL,module_main,NULL)
-DEFINE_DRIVER_TAG(DRIVER_TAG_FREE,DRIVER_TAG_FOPTIONAL,module_free_minpage,module_free_num_pages)
+#ifdef __CC__
+/* Returns `false' if caches have been sufficient reduced in size.
+ * Returns `true' otherwise. */
+FUNDEF ATTR_NOTHROW bool KCALL kernel_cc_continue(void);
 
-DEFINE_PUBLIC(__stack_chk_fail)
-DEFINE_PUBLIC(__stack_chk_guard)
+/* Clear global caches until `(*test)(arg)' has returned `true'.
+ * If caches are already being cleared by the calling thread, return `false' immediately.
+ * If all caches have been cleared (as best as KOS is able to), `false' is returned. */
+FUNDEF ATTR_NOTHROW bool KCALL
+kernel_cc_invoke(/*ATTR_NOTHROW*/bool (KCALL *test)(void *arg), void *arg);
+#endif
 
-.section .data
-INTERN_ENTRY(__stack_chk_fail_local)
-	jmp  __stack_chk_guard
-SYMEND(__stack_chk_fail_local)
+DECL_END
 
-
-
-
-
+#endif /* !GUARD_KERNEL_INCLUDE_KERNEL_CACHE_H */

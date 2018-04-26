@@ -28,6 +28,7 @@
 #include <kernel/malloc.h>
 #include <kernel/syscall.h>
 #include <kernel/user.h>
+#include <kernel/bind.h>
 #include <sched/signal.h>
 #include <sched/task.h>
 #include <sched/group.h>

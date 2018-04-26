@@ -29,6 +29,7 @@
 #include <kernel/debug.h>
 #include <kernel/malloc.h>
 #include <kernel/sections.h>
+#include <kernel/bind.h>
 #include <kernel/vm.h>
 #include <sched/task.h>
 #include <sched/taskref.h>

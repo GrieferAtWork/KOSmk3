@@ -68,6 +68,12 @@ DECL_BEGIN
 #endif
 #endif
 
+#ifdef CONFIG_BUILDING_KERNEL_CORE
+#define DEFINE_CALLBACK(sect,func) DEFINE_ABS_CALLBACK(sect,func)
+#else
+#define DEFINE_CALLBACK(sect,func) DEFINE_REL_CALLBACK(sect,func)
+#endif
+
 DECL_END
 
 #endif /* !GUARD_KERNEL_INCLUDE_I386_KOS_SECTIONS_H */

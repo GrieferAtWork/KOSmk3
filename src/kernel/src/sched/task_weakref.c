@@ -25,6 +25,7 @@
 #include <kos/types.h>
 #include <kernel/sections.h>
 #include <kernel/malloc.h>
+#include <kernel/bind.h>
 #include <sched/task.h>
 #include <sched/taskref.h>
 #include <except.h>

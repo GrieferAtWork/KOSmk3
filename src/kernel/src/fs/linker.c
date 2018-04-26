@@ -32,6 +32,7 @@
 #include <kernel/malloc.h>
 #include <kernel/sections.h>
 #include <kernel/user.h>
+#include <kernel/bind.h>
 #include <fs/node.h>
 #include <fs/path.h>
 #include <fs/linker.h>

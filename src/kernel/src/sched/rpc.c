@@ -27,6 +27,7 @@
 #include <kernel/debug.h>
 #include <kernel/sections.h>
 #include <kernel/malloc.h>
+#include <kernel/bind.h>
 #include <sched/task.h>
 #include <sched/pertask-arith.h>
 #include <sched/signal.h>

@@ -31,6 +31,7 @@
 #include <dev/wall.h>
 #include <kernel/debug.h>
 #include <kernel/interrupt.h>
+#include <kernel/bind.h>
 #include <sched/signal.h>
 #include <sched/task.h>
 #include <sched/pertask-arith.h>

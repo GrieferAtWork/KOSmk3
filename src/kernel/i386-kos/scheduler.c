@@ -25,38 +25,40 @@
 
 #include "scheduler.h"
 
-#include <bits/signum.h>
 #include <hybrid/align.h>
 #include <hybrid/compiler.h>
 #include <hybrid/section.h>
 #include <hybrid/sync/atomic-rwlock.h>
-#include <kos/types.h>
-#include <unwind/eh_frame.h>
-#include <unwind/linker.h>
+
+#include <fs/handle.h>
+#include <fs/linker.h>
+#include <fs/path.h>
 #include <i386-kos/gdt.h>
 #include <i386-kos/pic.h>
 #include <i386-kos/scheduler.h>
-#include <kernel/interrupt.h>
+#include <kernel/bind.h>
 #include <kernel/debug.h>
+#include <kernel/interrupt.h>
 #include <kernel/paging.h>
-#include <kernel/vm.h>
-#include <kernel/user.h>
 #include <kernel/syscall.h>
-#include <fs/linker.h>
-#include <sched/signal.h>
-#include <sched/task.h>
-#include <sched/posix_signals.h>
-#include <sched/userstack.h>
+#include <kernel/user.h>
+#include <kernel/vm.h>
+#include <kos/types.h>
+#include <sched/affinity.h>
 #include <sched/group.h>
 #include <sched/pid.h>
+#include <sched/posix_signals.h>
+#include <sched/signal.h>
 #include <sched/stat.h>
-#include <sched/affinity.h>
-#include <fs/path.h>
-#include <fs/handle.h>
-#include <sys/io.h>
-#include <bits/sigaction.h>
+#include <sched/task.h>
+#include <sched/userstack.h>
+#include <unwind/eh_frame.h>
+#include <unwind/linker.h>
 
 #include <asm/cpu-flags.h>
+#include <bits/sigaction.h>
+#include <bits/signum.h>
+#include <sys/io.h>
 #include <syscall.h>
 #include <stdint.h>
 #include <except.h>

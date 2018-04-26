@@ -218,8 +218,6 @@ DEFINE_SYSCALL4(fstatat64,fd_t,dfd,USER UNCHECKED char const *,path,
      error_throw(E_INVALID_ARGUMENT);
  /* Lookup the user-path. */
  flags = FS_ATMODE(flags);
- debug_printf("flags = %x (%x,%x)\n",flags,
-              THIS_FS->fs_atmask,THIS_FS->fs_atflag);
  p = fs_pathat(dfd,path,user_strlen(path),
               (struct inode **)&node,
                flags);

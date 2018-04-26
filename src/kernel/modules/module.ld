@@ -23,11 +23,17 @@
 #include <hybrid/limits.h>
 #include <kernel/paging.h>
 #include <fs/driver.h>
+#include <kernel/bind.h>
 #endif
 
 #define SECTION(name) \
 	name BLOCK(1) : AT(ADDR(name))
 #define IP_ALIGN(x) . = ALIGN(x)
+#define DEFINE_CALLBACK_VECTOR(name,...) \
+	IP_ALIGN(__SIZEOF_POINTER__); \
+	PROVIDE_HIDDEN(name##_start = .); \
+	__VA_ARGS__ \
+	PROVIDE_HIDDEN(name##_end = .);
 
 SECTIONS {
 
@@ -93,11 +99,10 @@ SECTIONS {
 		*(.rodata)
 		*(.rodata.str*)
 		*(.rodata.rare)
-		*(.rodata.cold)
 
 		IP_ALIGN(__SIZEOF_POINTER__);
 		PROVIDE("__$$OS$driver_specs" = .);
-		*(.rodata.driver_specs)
+		*(.rodata.driver_specs .rodata.driver_specs.*)
 		SHORT(DRIVER_TAG_STOP);
 		SHORT(DRIVER_TAG_FNORMAL);
 
@@ -108,6 +113,10 @@ SECTIONS {
 		*(.rodata.driver.prefini)
 		IP_ALIGN(__SIZEOF_POINTER__);
 		PROVIDE_HIDDEN(module_fini_end = .);
+
+		ENUMERATE_KERNEL_BINDINGS(DEFINE_CALLBACK_VECTOR,*)
+
+		*(.rodata.cold)
 	}
 
 	IP_ALIGN(__SIZEOF_POINTER__);
@@ -194,17 +203,21 @@ SECTIONS {
 		*(.text.free)
 		*(.rodata.free)
 		*(.rodata.str.free)
+
 		IP_ALIGN(__SIZEOF_POINTER__);
 		PROVIDE_HIDDEN(module_init_start = .);
 		*(.rodata.driver.preinit)
 		*(.rodata.driver.init)
 		*(.rodata.driver.postinit)
-		IP_ALIGN(__SIZEOF_POINTER__);
 		PROVIDE_HIDDEN(module_init_end = .);
+		PROVIDE_HIDDEN(module_init_size  = ABSOLUTE(ABSOLUTE(module_init_end) - ABSOLUTE(module_init_start)));
+		PROVIDE_HIDDEN(module_init_count = ABSOLUTE(module_init_size / __SIZEOF_POINTER__));
+
+		IP_ALIGN(__SIZEOF_POINTER__);
 		PROVIDE_HIDDEN(module_parm_start = .);
 		*(.rodata.driver.param)
-		IP_ALIGN(__SIZEOF_POINTER__);
 		PROVIDE_HIDDEN(module_parm_end = .);
+
 		*(.data.free)
 		*(.bss.free)
 	}
@@ -246,8 +259,6 @@ SECTIONS {
 	PROVIDE_HIDDEN(module_free_maxpage   = ABSOLUTE((module_free_end / PAGESIZE)-1));
 	PROVIDE_HIDDEN(module_free_num_pages = ABSOLUTE((module_free_maxpage - module_free_minpage)+1));
 
-	PROVIDE_HIDDEN(module_init_size  = ABSOLUTE(ABSOLUTE(module_init_end) - ABSOLUTE(module_init_start)));
-	PROVIDE_HIDDEN(module_init_count = ABSOLUTE(module_init_size / __SIZEOF_POINTER__));
 	PROVIDE_HIDDEN(module_parm_size  = ABSOLUTE(ABSOLUTE(module_parm_end) - ABSOLUTE(module_parm_start)));
 	PROVIDE_HIDDEN(module_parm_count = ABSOLUTE(module_parm_size / __SIZEOF_POINTER__));
 	PROVIDE_HIDDEN(module_fini_size  = ABSOLUTE(ABSOLUTE(module_fini_end) - ABSOLUTE(module_fini_start)));

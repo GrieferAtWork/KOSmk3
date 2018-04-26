@@ -1202,55 +1202,6 @@ DATDEF struct vm   _boot_vm   ASMNAME("boot_vm_start");
 #endif /* CONFIG_NO_SMP */
 #endif /* __CC__ */
 
-
-#ifdef CONFIG_BUILDING_KERNEL_CORE
-
-/* Register a given callback `void KCALL my_func(struct task *__restrict thread)'
- * as a finalizer that must be invoked during the destruction of a task.
- * NOTE: Both initializers and finalizers _MUST_ be NOEXCEPT. */
-#define DEFINE_PERTASK_INIT(x) \
-        DEFINE_ABS_CALLBACK(".rodata.pertask.init",x)
-#define DEFINE_PERTASK_FINI(x) \
-        DEFINE_ABS_CALLBACK(".rodata.pertask.fini",x)
-
-/* Register a callback that should be invoked in the context of a new
- * thread before that thread actually starts executing its payload:
- * >> void KCALL my_func(u32 flags);
- * @param: flags: Set of `CLONE_*' from `<bits/sched.h>' */
-#define DEFINE_PERTASK_STARTUP(x) \
-        DEFINE_ABS_CALLBACK(".rodata.pertask.startup",x)
-
-/* Register a callback that should be invoked in the context of the affected
- * thread just prior to it exiting (after `TASK_STATE_FTERMINATING' is set,
- * but before `TASK_STATE_FTERMINATED' is):
- * >> ATTR_NOTHROW void KCALL my_func(void); */
-#define DEFINE_PERTASK_CLEANUP(x) \
-        DEFINE_ABS_CALLBACK(".rodata.pertask.cleanup",x)
-
-/* Register a callback that should be invoked
- * when the calling thread should be cloned:
- * >> void KCALL my_func(struct task *__restrict new_thread, u32 flags);
- * @param: flags: Set of `CLONE_*' from `<bits/sched.h>' */
-#define DEFINE_PERTASK_CLONE(x) \
-        DEFINE_ABS_CALLBACK(".rodata.pertask.clone",x)
-
-/* Register a given callback `void KCALL my_func(struct vm *__restrict vm)'
- * as a finalizer that must be invoked during the destruction of a VM.
- * NOTE: Both initializers and finalizers _MUST_ be NOEXCEPT. */
-#define DEFINE_PERVM_INIT(x) \
-        DEFINE_ABS_CALLBACK(".rodata.pervm.init",x)
-#define DEFINE_PERVM_FINI(x) \
-        DEFINE_ABS_CALLBACK(".rodata.pervm.fini",x)
-
-/* Register a callback that should be invoked when the calling VM should be cloned:
- * >> void KCALL my_func(struct vm *__restrict new_vm); */
-#define DEFINE_PERVM_CLONE(x) \
-        DEFINE_ABS_CALLBACK(".rodata.pervm.clone",x)
-
-#endif /* CONFIG_BUILDING_KERNEL_CORE */
-
-
-
 /* Configuration option for standard synchronization primitives.
  * Before connecting to a signal, try to yield a couple of times
  * to try and get other threads to release some kind of lock,

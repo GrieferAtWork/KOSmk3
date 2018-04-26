@@ -29,6 +29,7 @@
 #include <kernel/debug.h>
 #include <kernel/malloc.h>
 #include <kernel/sections.h>
+#include <kernel/bind.h>
 #include <fs/node.h>
 #include <fs/path.h>
 #include <fs/handle.h>

@@ -22,11 +22,22 @@
 #include <hybrid/limits.h>
 #include <kernel/paging.h>
 #include <kernel/malloc.h>
+#include <kernel/bind.h>
 #include <kos/ushare.h>
 #include <proprietary/multiboot.h>
 #include <proprietary/multiboot2.h>
 #include <i386-kos/interrupt.h>
 #include <i386-kos/gdt.h>
+#else
+#define ENTRY(x)
+#define BLOCK(x)
+#define AT(x)
+#define ADDR(x)
+#define PROVIDE(x)
+#define KEEP(x)
+#define ABSOLUTE(x)
+#define PROVIDE_HIDDEN(x)
+#define SECTIONS  int foo()
 #endif
 
 #define SECTION(name) \
@@ -42,6 +53,11 @@
 	PROVIDE_HIDDEN(name##_end = ABSOLUTE(.));
 #define DEFINE_PEROBJECT_SECTION(section_name,name,sections) \
 	DEFINE_PEROBJECT_SECTION_EX(section_name,name,0,sections)
+#define DEFINE_CALLBACK_VECTOR(name,...) \
+	IP_ALIGN(__SIZEOF_POINTER__); \
+	PROVIDE_HIDDEN(name##_start = ABSOLUTE(.)); \
+	__VA_ARGS__ \
+	PROVIDE_HIDDEN(name##_end = ABSOLUTE(.));
 
 
 #define IP_ALIGN(x) . = ALIGN(x)
@@ -114,51 +130,7 @@ SECTIONS {
 		*(.rodata.kernel_symtab)
 		*(.rodata.kernel_strtab)
 
-		IP_ALIGN(__SIZEOF_POINTER__);
-		PROVIDE_HIDDEN(pertask_init_start = ABSOLUTE(.));
-		*(.rodata.pertask.init)
-		PROVIDE_HIDDEN(pertask_init_end = ABSOLUTE(.));
-
-		IP_ALIGN(__SIZEOF_POINTER__);
-		PROVIDE_HIDDEN(pertask_fini_start = ABSOLUTE(.));
-		*(.rodata.pertask.fini)
-		PROVIDE_HIDDEN(pertask_fini_end = ABSOLUTE(.));
-
-		IP_ALIGN(__SIZEOF_POINTER__);
-		PROVIDE_HIDDEN(pertask_startup_start = ABSOLUTE(.));
-		*(.rodata.pertask.startup)
-		PROVIDE_HIDDEN(pertask_startup_end = ABSOLUTE(.));
-
-		IP_ALIGN(__SIZEOF_POINTER__);
-		PROVIDE_HIDDEN(pertask_cleanup_start = ABSOLUTE(.));
-		*(.rodata.pertask.cleanup.onexit)
-		*(.rodata.pertask.cleanup)
-		PROVIDE_HIDDEN(pertask_cleanup_end = ABSOLUTE(.));
-
-		IP_ALIGN(__SIZEOF_POINTER__);
-		PROVIDE_HIDDEN(pertask_clone_start = ABSOLUTE(.));
-		*(.rodata.pertask.clone)
-		PROVIDE_HIDDEN(pertask_clone_end = ABSOLUTE(.));
-
-		IP_ALIGN(__SIZEOF_POINTER__);
-		PROVIDE_HIDDEN(pervm_init_start = ABSOLUTE(.));
-		*(.rodata.pervm.init)
-		PROVIDE_HIDDEN(pervm_init_end = ABSOLUTE(.));
-
-		IP_ALIGN(__SIZEOF_POINTER__);
-		PROVIDE_HIDDEN(pervm_fini_start = ABSOLUTE(.));
-		*(.rodata.pervm.fini)
-		PROVIDE_HIDDEN(pervm_fini_end = ABSOLUTE(.));
-
-		IP_ALIGN(__SIZEOF_POINTER__);
-		PROVIDE_HIDDEN(pervm_clone_start = ABSOLUTE(.));
-		*(.rodata.pervm.clone)
-		PROVIDE_HIDDEN(pervm_clone_end = ABSOLUTE(.));
-
-		IP_ALIGN(__SIZEOF_POINTER__);
-		PROVIDE_HIDDEN(pervm_unmapuser_start = ABSOLUTE(.));
-		*(.rodata.pervm.unmapuser)
-		PROVIDE_HIDDEN(pervm_unmapuser_end = ABSOLUTE(.));
+		ENUMERATE_KERNEL_BINDINGS(DEFINE_CALLBACK_VECTOR,*)
 
 		IP_ALIGN(CACHELINE);
 		*(.rodata.cold)

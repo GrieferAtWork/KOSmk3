@@ -26,6 +26,7 @@
 #include <kernel/debug.h>
 #include <kernel/sections.h>
 #include <kernel/heap.h>
+#include <kernel/bind.h>
 #include <sched/task.h>
 #include <sched/rwlock.h>
 #include <sched/pertask-arith.h>

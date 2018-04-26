@@ -24,6 +24,7 @@
 #include <sched/task.h>
 #include <sched/affinity.h>
 #include <sched/signal.h>
+#include <kernel/bind.h>
 #include <kernel/sections.h>
 #include <except.h>
 #include <assert.h>

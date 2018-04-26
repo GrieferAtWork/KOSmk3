@@ -23,6 +23,7 @@
 #include <hybrid/compiler.h>
 #include <hybrid/atomic.h>
 #include <kos/types.h>
+#include <kos/safecall.h>
 #include <kernel/sections.h>
 #include <kernel/malloc.h>
 #include <kernel/debug.h>
@@ -128,10 +129,18 @@ REF struct task *KCALL task_alloc(void) {
  /* Setup the task segment self-pointer. */
  result->t_segment.ts_self = &result->t_segment;
 
- /* Execute initializers. */
- for (iter = pertask_init_start;
-      iter < pertask_init_end; ++iter)
-    (*iter)(result);
+ TRY {
+  /* Execute initializers. */
+  for (iter = pertask_init_start;
+       iter < pertask_init_end; ++iter)
+       SAFECALL_KCALL_VOID_1(**iter,result);
+ } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+  iter = pertask_fini_end;
+  while (iter-- != pertask_fini_start)
+       SAFECALL_KCALL_VOID_1(**iter,result);
+  kfree(result);
+  error_rethrow();
+ }
 
  return result;
 }
@@ -381,15 +390,15 @@ task_failed(struct task *__restrict self) {
                               TASK_STATE_FTERMINATED)));
 }
 
-PUBLIC void KCALL
+PUBLIC ATTR_NOTHROW void KCALL
 task_destroy(struct task *__restrict self) {
  task_func_t *iter;
  assert(self != &_boot_task);
 
  /* Execute finalizers. */
- for (iter = pertask_fini_start;
-      iter < pertask_fini_end; ++iter)
-    (*iter)(self);
+ iter = pertask_fini_end;
+ while (iter-- != pertask_fini_start)
+      SAFECALL_KCALL_VOID_1(**iter,self);
 
  if (self->t_vm) {
   /* NOTE: Because kernel stacks are allocated in the kernel-share segment,

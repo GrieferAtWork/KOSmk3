@@ -26,6 +26,7 @@
 #include <hybrid/section.h>
 #include <kernel/sections.h>
 #include <kernel/debug.h>
+#include <kernel/bind.h>
 #include <kernel/heap.h>
 #include <kernel/malloc.h>
 #include <i386-kos/fpu.h>

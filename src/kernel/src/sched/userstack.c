@@ -29,6 +29,7 @@
 #include <kernel/vm.h>
 #include <kernel/paging.h>
 #include <kernel/memory.h>
+#include <kernel/bind.h>
 #include <sched/userstack.h>
 #include <sched/task.h>
 #include <except.h>

@@ -16,32 +16,21 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
+#ifndef GUARD_KERNEL_SRC_KERNEL_BIND_C
+#define GUARD_KERNEL_SRC_KERNEL_BIND_C 1
+#define _KOS_SOURCE 1
 
 #include <hybrid/compiler.h>
-#include <hybrid/typecore.h>
-#include <fs/driver.h>
+#include <kernel/malloc.h>
+#include <kernel/bind.h>
 
-/* Common module source file (contains the runtime linkage definitions for the module) */
+DECL_BEGIN
 
-.hidden module_free_minpage
-.hidden module_free_num_pages
-.hidden module_main
-.weak   module_main
-.global __$$OS$driver_specs
-#undef NULL
+/* TODO: Keep track of driver bindings and invoke them
+ *       before / after kernel bindings have executed.
+ *      (aka. execute them from a kernel binding registered in a `*.post'
+ *       section for initializers, and `*.pre' section for finalizers). */
 
-DEFINE_DRIVER_TAG(DRIVER_TAG_MAIN,DRIVER_TAG_FNORMAL,module_main,NULL)
-DEFINE_DRIVER_TAG(DRIVER_TAG_FREE,DRIVER_TAG_FOPTIONAL,module_free_minpage,module_free_num_pages)
+DECL_END
 
-DEFINE_PUBLIC(__stack_chk_fail)
-DEFINE_PUBLIC(__stack_chk_guard)
-
-.section .data
-INTERN_ENTRY(__stack_chk_fail_local)
-	jmp  __stack_chk_guard
-SYMEND(__stack_chk_fail_local)
-
-
-
-
-
+#endif /* !GUARD_KERNEL_SRC_KERNEL_BIND_C */

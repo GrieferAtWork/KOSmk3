@@ -29,6 +29,7 @@
 #include <hybrid/sync/atomic-rwlock.h>
 #include <kernel/debug.h>
 #include <kernel/heap.h>
+#include <kernel/bind.h>
 #include <kernel/vm.h>
 #include <kernel/malloc.h>
 #include <fs/linker.h>
@@ -47,9 +48,9 @@
 #include <kos/safecall.h>
 #if 1
 #define INVOKE_NOTIFY(vn_notify,vn_closure,command,begin,end,arg) \
-       SAFECALL_KCALL_5(vn_notify,vn_closure,command,begin,end,arg)
+       SAFECALL_KCALL_5(*vn_notify,vn_closure,command,begin,end,arg)
 #define INVOKE_NOTIFY_V(vn_notify,vn_closure,command,begin,end,arg) \
-       SAFECALL_KCALL_VOID_5(vn_notify,vn_closure,command,begin,end,arg)
+       SAFECALL_KCALL_VOID_5(*vn_notify,vn_closure,command,begin,end,arg)
 #else
 #define INVOKE_NOTIFY(vn_notify,vn_closure,command,begin,end,arg) \
        (*vn_notify)(vn_closure,command,begin,end,arg)
@@ -2289,9 +2290,15 @@ REF struct vm *KCALL vm_alloc(void) {
   pagedir_init(&result->vm_pagedir,result->vm_physdir);
 
   /* Execute initializers. */
-  for (iter = pervm_init_start;
-       iter < pervm_init_end; ++iter)
-       SAFECALL_KCALL_VOID_1(*iter,result);
+  TRY {
+   for (iter = pervm_init_start;
+        iter < pervm_init_end; ++iter)
+        SAFECALL_KCALL_VOID_1(**iter,result);
+  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+   iter = pervm_fini_end;
+   while (iter-- != pervm_fini_start)
+        SAFECALL_KCALL_VOID_1(**iter,result);
+  }
 
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   heap_free(&kernel_heaps[VM_HEAP],
@@ -2636,16 +2643,16 @@ INTERN void KCALL task_vm_clone(struct task *__restrict new_thread, u32 flags) {
 
 
 /* Destroy a previously allocated vm. */
-PUBLIC void KCALL
+PUBLIC ATTR_NOTHROW void KCALL
 vm_destroy(struct vm *__restrict self) {
  struct vm_node *next,*node;
  vm_func_t *iter;
  assert(!self->vm_tasks);
 
  /* Execute finalizers. */
- for (iter = pervm_fini_start;
-      iter < pervm_fini_end; ++iter)
-      SAFECALL_KCALL_VOID_1(*iter,self);
+ iter = pervm_fini_end;
+ while (iter-- != pervm_fini_start)
+     SAFECALL_KCALL_VOID_1(**iter,self);
 
  assertf(self->vm_size >= (size_t)(kernel_pervm_size + PAGEDIR_SIZE),
          "self                             = %p\n"

@@ -26,6 +26,7 @@
 #include <kos/types.h>
 #include <hybrid/list/list.h>
 #include <hybrid/sync/atomic-rwlock.h>
+#include <kernel/bind.h>
 #include <kernel/user.h>
 #include <kernel/debug.h>
 #include <kernel/malloc.h>

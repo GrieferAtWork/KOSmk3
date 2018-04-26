@@ -191,7 +191,6 @@ INTERN struct inode_operations Iprocfs_p_fd_dir = {};         /* /proc/[PID]/fd/
 INTERN struct inode_operations Iprocfs_p_fd_link = {};        /* /proc/[PID]/fd/xxx */
 INTERN struct inode_operations Iprocfs_p_task_dir = {};       /* /proc/[PID]/task/ */
 
-
 DECL_END
 
 #endif /* !GUARD_KERNEL_MODULES_PROCFS_INODE_TYPES_C */
