@@ -46,11 +46,10 @@ INTERN_ENTRY(libc_setjmp)
 	movl   %edi,              16(%eax)
 	movl   %ecx,              20(%eax) /* EIP */
 	movl   $0,   SAVEMASK_OFFSET(%eax)
-	xorl   %eax,                 %eax /* Return ZERO(0) the first time around. */
+	xorl   %eax, %eax /* Return ZERO(0) the first time around. */
 	jmpl  *%ecx
 	.cfi_endproc
 SYMEND(libc_setjmp)
-
 EXPORT(setjmp,libc_setjmp)
 
 
@@ -70,7 +69,7 @@ INTERN_ENTRY(libc_sigsetjmp)
 	movl   %edx,   SAVEMASK_OFFSET(%eax) /* SAFEMASK */
 	testl  %edx,                   %edx
 	jz     1f /* Skip the signal mask if if shouldn't be saved */
-#if 1
+	pushl_cfi %ecx /* Preserve ECX */
 	pushl_cfi $(__SIZEOF_SIGSET_T__)
 	leal   32(%eax), %eax
 	pushl_cfi %eax           /* oldset = &buf->__sig; */
@@ -79,23 +78,7 @@ INTERN_ENTRY(libc_sigsetjmp)
 	call   sys_sigprocmask
 	addl   $16, %esp
 	.cfi_adjust_cfa_offset -16
-#else
-	pushl_cfi_r %ebx  /* Save protected registers. */
-	pushl_cfi_r %esi
-	pushl_cfi   %ecx  /* ECX contains the return address (preserve it) */
-	.cfi_rel_offset %eip, 0
-	movl   %eax,                   %edx /* EDX = __buf; */
-	movl   $(__NR_sigprocmask),    %eax
-	movl   $(SIG_SETMASK),         %ebx /* how = SIG_SETMASK; */
-	movl   $0,                     %ecx /* set = NULL; */
-	addl   $32,                    %edx /* oldset = &__buf->__sig; */
-	movl   $(__SIZEOF_SIGSET_T__), %esi /* sigsetsize = sizeof(sigset_t); */
-	int    $0x80                        /* Restore signal mask */
-	popl_cfi %ecx  /* Restore return address */
-	.cfi_register %eip, %ecx
-	popl_cfi_r %esi
-	popl_cfi_r %ebx
-#endif
+	popl_cfi  %ecx /* Restore ECX */
 1:	xorl   %eax,    %eax  /* Return ZERO(0) the first time around. */
 	jmpl  *%ecx
 	.cfi_endproc
@@ -113,7 +96,6 @@ INTERN_ENTRY(libc_siglongjmp)
 	movl   4(%esp), %eax
 	testl  $-1,    SAVEMASK_OFFSET(%eax)
 	jz     1f /* If the signal mask wasn't saved, don't restore it. */
-#if 1
 	pushl_cfi $(__SIZEOF_SIGSET_T__)
 	pushl_cfi $0             /* oldset = NULL; */
 	leal   32(%eax), %eax
@@ -122,15 +104,6 @@ INTERN_ENTRY(libc_siglongjmp)
 	call   sys_sigprocmask
 	addl   $16, %esp
 	.cfi_adjust_cfa_offset -16
-#else
-	movl   $(__NR_sigprocmask),    %eax
-	movl   $(SIG_SETMASK),         %ebx /* how = SIG_SETMASK; */
-	movl   4(%esp),                %ecx
-	addl   $32,                    %ecx /* set = &buf->__sig; */
-	movl   $0,                     %edx /* oldset = NULL; */
-	movl   $(__SIZEOF_SIGSET_T__), %esi /* sigsetsize = sizeof(sigset_t); */
-	int    $0x80                        /* Restore signal mask */
-#endif
 INTERN_ENTRY(libc_longjmp)
 1:	movl   8(%esp), %eax
 	testl  %eax, %eax
@@ -141,11 +114,10 @@ INTERN_ENTRY(libc___longjmp2)
 	movl   8(%esp),  %eax
 1:	movl   4(%esp),  %edx /* buf */
 	movl   0(%edx),  %ebx
-	movl   4(%edx),  %ecx
 	movl   8(%edx),  %ebp
 	movl   12(%edx), %esi
 	movl   16(%edx), %edi
-	movl   %ecx,     %esp
+	movl   4(%edx),  %esp
 	jmpl   *20(%edx)
 SYMEND(libc___longjmp2)
 SYMEND(libc_longjmp)
@@ -186,7 +158,6 @@ INTERN_ENTRY(libc_alloca)
 	jmpl *%edx
 	.cfi_endproc
 SYMEND(libc_alloca)
-
 EXPORT(alloca,libc_alloca)
 
 
