@@ -79,6 +79,14 @@ DECL_BEGIN
     .endif; \
        .quad handler; \
     .popsection
+#define DEFINE_DRIVER_TAG(name,flags,start,count) \
+    .pushsection .rodata.driver_specs; \
+        .word name; \
+        .word flags; \
+        .int 0; \
+        __DRIVER_PARAM_POINTER(start) \
+        __DRIVER_PARAM_POINTER(count) \
+    .popsection
 #else
 #define DEFINE_DRIVER_PARAM_EX(name,type,handler) \
     .pushsection __DRIVER_PARAM_SECTION_NAME; \
@@ -99,6 +107,13 @@ DECL_BEGIN
        .long 0; \
     .endif; \
        .long handler; \
+    .popsection
+#define DEFINE_DRIVER_TAG(name,flags,start,count) \
+    .pushsection .rodata.driver_specs; \
+        .word name; \
+        .word flags; \
+        __DRIVER_PARAM_POINTER(start) \
+        __DRIVER_PARAM_POINTER(count) \
     .popsection
 #endif
 #else /* __ASSEMBLER__ */
@@ -123,6 +138,14 @@ DECL_BEGIN
          ".endif\n\t" \
          "\t.quad " PP_PRIVATE_STR(handler) "\n\t" \
          ".popsection")
+#define DEFINE_DRIVER_TAG(name,flags,start,count) \
+ __asm__ __volatile__(".pushsection .rodata.driver_specs\n\t" \
+                      "\t.word " PP_PRIVATE_STR(name) "\n\t" \
+                      "\t.word " PP_PRIVATE_STR(flags) "\n\t" \
+                      "\t.int 0\n\t" \
+                      "\t" __DRIVER_PARAM_POINTER(PP_PRIVATE_STR(start)) "\n\t" \
+                      "\t" __DRIVER_PARAM_POINTER(PP_PRIVATE_STR(count)) "\n\t" \
+                      ".popsection")
 #else
 #define DEFINE_DRIVER_PARAM_EX(name,type,handler) \
  __asm__(".pushsection " __DRIVER_PARAM_SECTION_NAME "\n\t" \
@@ -144,6 +167,13 @@ DECL_BEGIN
          ".endif\n\t" \
          "\t.long " PP_PRIVATE_STR(handler) "\n\t" \
          ".popsection")
+#define DEFINE_DRIVER_TAG(name,flags,start,count) \
+ __asm__ __volatile__(".pushsection .rodata.driver_specs\n\t" \
+                      "\t.word " PP_PRIVATE_STR(name) "\n\t" \
+                      "\t.word " PP_PRIVATE_STR(flags) "\n\t" \
+                      "\t" __DRIVER_PARAM_POINTER(PP_PRIVATE_STR(start)) "\n\t" \
+                      "\t" __DRIVER_PARAM_POINTER(PP_PRIVATE_STR(count)) "\n\t" \
+                      ".popsection")
 #endif
 #endif /* !__ASSEMBLER__ */
 

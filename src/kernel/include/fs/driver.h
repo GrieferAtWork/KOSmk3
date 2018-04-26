@@ -34,12 +34,47 @@
 
 DECL_BEGIN
 
+
+/* DRIVER INITIALIZATION:
+ *     TRY {
+ *         #1: Execute functions enumeratable by `application_enuminit()'
+ *         TRY {
+ *             #2: Step through elements of `DRIVER_TAG_PARM' and execute handlers
+ *                 matching arguments provided by the module commandline.
+ *             #3: Execute all elements of `DRIVER_TAG_INIT' (in ascending order)
+ *                 NOTE: At link-time, this vector is ordered to start with
+ *                      `DEFINE_DRIVER_PREINIT()', before functions registered
+ *                       by `DEFINE_DRIVER_INIT()' show up.
+ *                 Arguments that were handled by driver parameter handlers
+ *                 are removed from the driver commandline.
+ *             #4: If defined, execute `DRIVER_TAG_MAIN' with the remaining driver
+ *                 arguments. When not defined, warn about any driver
+ *                 arguments that were left unused.
+ *             #5: Unmap the `DRIVER_TAG_FREE' segment. (if defined and non-empty)
+ *         } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+ *             #2.1: Execute all functions from `DRIVER_TAG_FINI' in reverse order
+ *                   NOTE: Yes, all fini functions are executed when a single
+ *                         init fails, meaning that fini should work assume
+ *                         static pre-initialization.
+ *             error_rethrow();
+ *         } 
+ *     } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+ *         #1.1: Execute functions enumeratable by `application_enumfini()'
+ *               NOTE: Yes, all fini functions are executed when a single
+ *                     init fails, meaning that fini should work assume
+ *                     static pre-initialization.
+ *         error_rethrow();
+ *     } 
+ *
+ * DRIVER FINALIZATION:
+ *     #1: Execute all functions from `DRIVER_TAG_FINI' tags in reverse order
+ *     #2: Execute functions enumeratable by `application_enumfini()'
+ */
+
+
 #define DRIVER_PARAM_TYPE_OPTION  0x00 /* `[-[-]]dp_name=dp_hand:arg' (invoked as `driver_param_handler_t') */
 #define DRIVER_PARAM_TYPE_FLAG    0x01 /* `[-[-]]dp_name' (invoked as `driver_flag_handler_t') */
 #define DRIVER_PARAM_TYPE_MASK    0x07 /* Mask for the parameter type (other bits are served for flags) */
-
-#define DRIVER_SPECS_VERSION  0x0000 /* The current driver specs version. */
-
 
 #if __SIZEOF_POINTER__ == 4
 #define DRIVER_PARAM_SHORTNAME_MAXLEN 11
@@ -76,74 +111,52 @@ struct PACKED driver_param {
        ((driver_param_handler_t)((loadaddr)+(param)->dp_hand))
 #define DRIVER_PARAM_FLAGHAND(loadaddr,param) \
        ((driver_flag_handler_t)((loadaddr)+(param)->dp_hand))
+#endif /* __CC__ */
 
 
-struct PACKED driver_specs {
-    /* Driver specifications.
-     * INITIALIZATION:
-     *     TRY {
-     *         #1: Execute functions enumeratable by `application_enuminit()'
-     *         TRY {
-     *             #2: Step through elements of `ds_parm' and execute handlers
-     *                 matching arguments provided by the module commandline.
-     *             #3: Execute all elements of `ds_init' (in ascending order)
-     *                 NOTE: At link-time, this vector is ordered to start with
-     *                      `DEFINE_DRIVER_PREINIT()', before functions registered
-     *                       by `DEFINE_DRIVER_INIT()' show up.
-     *                 Arguments that were handled by driver parameter handlers
-     *                 are removed from the driver commandline.
-     *             #4: If defined, execute `ds_main' with the remaining driver
-     *                 arguments. When not defined, warn about any driver
-     *                 arguments that were left unused.
-     *             #5: Unmap the `ds_free...+=ds_free_sz' segment. (if non-empty)
-     *         } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-     *             #2.1: Execute all functions from `ds_fini' in reverse order
-     *                   NOTE: Yes, all fini functions are executed when a single
-     *                         init fails, meaning that fini should work assume
-     *                         static pre-initialization.
-     *             error_rethrow();
-     *         } 
-     *     } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-     *         #1.1: Execute functions enumeratable by `application_enumfini()'
-     *               NOTE: Yes, all fini functions are executed when a single
-     *                     init fails, meaning that fini should work assume
-     *                     static pre-initialization.
-     *         error_rethrow();
-     *     } 
-     * FINALIZATION:
-     *     #1: Execute all functions from `ds_fini' in reverse order
-     *     #2: Execute functions enumeratable by `application_enumfini()' */
-    uintptr_t      ds_version; /* [== DRIVER_SPECS_VERSION] Driver specifications version. */
-    image_rva_t    ds_free;    /* Starting page number of the driver's .free section. */
-    size_t         ds_free_sz; /* Size of the driver's .free section (in pages) */
-    image_rva_t    ds_init;    /* Pointer to an array of `image_rva_t' with `ds_init_sz' elements.
-                                * Called after ELF module constructors; may be located in `.free' memory. */
-    size_t         ds_init_sz; /* Number of driver initializers. */
-    image_rva_t    ds_fini;    /* Pointer to an array of `image_rva_t' with `ds_fini_sz' elements.
-                                * Called before ELF module destructors. (executed in reverse order) */
-    size_t         ds_fini_sz; /* Number of driver finalizers. */
-    image_rva_t    ds_parm;    /* Pointer to an array of `struct driver_param' with `ds_parm_sz' elements.
-                                * Called after ELF module constructors; before `ds_init'. */
-    size_t         ds_parm_sz; /* Number of driver finalizers. */
-    image_rva_t    ds_main;    /* Pointer to the module main() function, or ZERO(0) if no such function exists.
-                                * Called after `ds_init' (the last step during initialization).
+#define DRIVER_TAG_STOP 0x0000 /* END tag (sentinel) (Must _ALWAYS_ be ZERO(0)!) */
+#define DRIVER_TAG_MAIN 0x0001 /* Pointer to the module main() function.
+                                * Called after `DRIVER_TAG_INIT' (the last step during initialization).
                                 * NOTE: Driver parameters already processed by `ds_parm' are not
                                 *       passed to this function.
                                 * NOTE: This symbol should be a function called `module_main'
                                 * >> void KCALL module_main(int argc, char **argv) {
                                 * >> }
-                                */
+                                * NOTE: `dt_count' is undefined. */
+#define DRIVER_TAG_INIT 0x0002 /* Pointer to an array of `image_rva_t' with `dt_count' elements.
+                                * Called after ELF module constructors; may be located in `.free' memory. */
+#define DRIVER_TAG_FINI 0x0004 /* Pointer to an array of `image_rva_t' with `dt_count' elements.
+                                * Called before ELF module destructors. (executed in reverse order) */
+#define DRIVER_TAG_PARM 0x0005 /* Pointer to an array of `struct driver_param' with `dt_count' elements.
+                                * Called after ELF module constructors; before `DRIVER_TAG_INIT'. */
+#define DRIVER_TAG_FREE 0x0006 /* Starting page number of the driver's .free section. (vm_vpage_t)
+                                * NOTE: `dt_count' is the size of the driver's .free section (in pages) */
+#define DRIVER_TAG_FNORMAL   0x0000 /* Normal driver tag flags. */
+#define DRIVER_TAG_FOPTIONAL 0x0001 /* Normal driver tag is optional. */
+
+#ifdef __CC__
+struct PACKED driver_tag {
+    u16          dt_name;  /* Name of the tag (One of `DRIVER_TAG_*')
+                            * NOTE: Unknown tags are ignored if the `DRIVER_TAG_FOPTIONAL' flag is set,
+                            *       otherwise unknown tags cause driver initialization to fail
+                            *       with `E_NOT_IMPLEMENTED'. */
+    u16          dt_flag;  /* Driver tag flags (Set of `DRIVER_TAG_F*') */
+#if __SIZEOF_POINTER__ > 4
+    u16        __dt_pad[(sizeof(void *)-2)/2]; /* ... */
+#endif
+    image_rva_t  dt_start; /* Starting address of the tag's data block. */
+    size_t       dt_count; /* Number of elements within the tag's data block. */
 };
 
 struct driver {
-    struct application         d_app;     /* The underlying application. */
-    struct driver_specs const *d_spec;    /* [1..1][const] Driver specifications (`dlsym("__$$OS$driver_specs")') */
-    char                      *d_cmdline; /* [0..1][lock(WRITE_ONCE && creator)][owned] Driver commandline.
-                                           * Set once during driver initialization and never changed.
-                                           * NOTE: This string is split into arguments by NUL-characters,
-                                           *       followed by 2 trailing NUL characters. */
-    size_t                     d_cmdsize; /* [lock(WRITE_ONCE && creator)] The total length of the
-                                           * cmdline (including one of the 2 trailing NUL characters). */
+    struct application       d_app;     /* The underlying application. */
+    struct driver_tag const *d_spec;    /* [1..1][const] Driver specifications (`dlsym("__$$OS$driver_specs")') */
+    char                    *d_cmdline; /* [0..1][lock(WRITE_ONCE && creator)][owned] Driver commandline.
+                                         * Set once during driver initialization and never changed.
+                                         * NOTE: This string is split into arguments by NUL-characters,
+                                         *       followed by 2 trailing NUL characters. */
+    size_t                   d_cmdsize; /* [lock(WRITE_ONCE && creator)] The total length of the
+                                         * cmdline (including one of the 2 trailing NUL characters). */
 };
 
 /* Increment/decrement the reference counter of the given driver `x' */

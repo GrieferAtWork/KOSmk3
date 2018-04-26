@@ -168,10 +168,10 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                (unsigned int)regs->str_args.a_arg1);
    break;
   case SYS_lseek:
-   debug_printf("sys_lseek(%d,0x%I64x,%d)\n",
+   debug_printf("sys_lseek(%d,%I64d,%d)\n",
                (int *)regs->str_args.a_arg0,
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
-              *(s64 *)&regs->str_args.a_arg1,
+               *(u64 *)&regs->str_args.a_arg1,
                (int)regs->str_args.a_arg3
 #else
                (s64)regs->str_args.a_arg1,
@@ -204,7 +204,13 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
 #define SYS_pwrite64 __NR_pwrite64
 #define SYS_pselect6 __NR_pselect6
 #define SYS_ppoll __NR_ppoll
-#define SYS_readlinkat __NR_readlinkat
+  case SYS_readlinkat:
+   debug_printf("sys_readlinkat(%d,%q,%p,%Iu)\n",
+               (int)regs->str_args.a_arg0,
+               (char *)regs->str_args.a_arg1,
+               (void *)regs->str_args.a_arg2,
+               (size_t)regs->str_args.a_arg3);
+   break;
   case SYS_fstatat64:
    debug_printf("sys_fstatat64(%d,%q,%p,%x)\n",
                (int)regs->str_args.a_arg0,

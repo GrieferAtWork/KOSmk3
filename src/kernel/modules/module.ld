@@ -22,6 +22,7 @@
 #include <hybrid/typecore.h>
 #include <hybrid/limits.h>
 #include <kernel/paging.h>
+#include <fs/driver.h>
 #endif
 
 #define SECTION(name) \
@@ -93,7 +94,13 @@ SECTIONS {
 		*(.rodata.str*)
 		*(.rodata.rare)
 		*(.rodata.cold)
+
+		IP_ALIGN(__SIZEOF_POINTER__);
+		PROVIDE("__$$OS$driver_specs" = .);
 		*(.rodata.driver_specs)
+		SHORT(DRIVER_TAG_STOP);
+		SHORT(DRIVER_TAG_FNORMAL);
+
 		IP_ALIGN(__SIZEOF_POINTER__);
 		PROVIDE_HIDDEN(module_fini_start = .);
 		*(.rodata.driver.postfini)

@@ -23,48 +23,21 @@
 
 /* Common module source file (contains the runtime linkage definitions for the module) */
 
-#define SPECS  __$$OS$driver_specs
-
-#define EMIT_INT8(x)   .byte x;
-#define EMIT_INT16(x)  .word x;
-#define EMIT_INT32(x)  .int x;
-#define EMIT_INT64(x)  .quad x;
-#if __SIZEOF_POINTER__ == 8
-#define EMIT_PTR(x)    EMIT_INT64(x)
-#elif __SIZEOF_POINTER__ == 4
-#define EMIT_PTR(x)    EMIT_INT32(x)
-#elif __SIZEOF_POINTER__ == 2
-#define EMIT_PTR(x)    EMIT_INT16(x)
-#else
-#define EMIT_PTR(x)    EMIT_INT8(x)
-#endif
-#define EMIT_RELPTR(x) .reloc .,R_386_RELATIVE, x; EMIT_PTR(0)
-#define EMIT_SIZE      EMIT_PTR
-
 .hidden module_init_start
 .hidden module_init_count
 .hidden module_fini_start
 .hidden module_fini_count
 .hidden module_parm_start
 .hidden module_parm_count
-
 .hidden module_main
 .weak   module_main
+.global __$$OS$driver_specs
 
-.section .rodata.driver_specs
-.global SPECS
-SPECS:
-	EMIT_PTR(DRIVER_SPECS_VERSION)     /* ds_version */
-	EMIT_RELPTR(module_free_minpage)   /* ds_free */
-	EMIT_RELPTR(module_free_num_pages) /* ds_free_sz */
-	EMIT_RELPTR(module_init_start)     /* ds_init */
-	EMIT_RELPTR(module_init_count)     /* ds_init_sz */
-	EMIT_RELPTR(module_fini_start)     /* ds_fini */
-	EMIT_RELPTR(module_fini_count)     /* ds_fini_sz */
-	EMIT_RELPTR(module_parm_start)     /* ds_parm */
-	EMIT_RELPTR(module_parm_count)     /* ds_parm_sz */
-	EMIT_RELPTR(module_main)           /* ds_main */
-.size SPECS, . - SPECS
+DEFINE_DRIVER_TAG(DRIVER_TAG_MAIN,DRIVER_TAG_FNORMAL,module_main,0)
+DEFINE_DRIVER_TAG(DRIVER_TAG_INIT,DRIVER_TAG_FNORMAL,module_init_start,module_init_count)
+DEFINE_DRIVER_TAG(DRIVER_TAG_PARM,DRIVER_TAG_FNORMAL,module_parm_start,module_parm_count)
+DEFINE_DRIVER_TAG(DRIVER_TAG_FREE,DRIVER_TAG_FOPTIONAL,module_free_minpage,module_free_num_pages)
+DEFINE_DRIVER_TAG(DRIVER_TAG_FINI,DRIVER_TAG_FNORMAL,module_fini_start,module_fini_count)
 
 DEFINE_PUBLIC(__stack_chk_fail)
 DEFINE_PUBLIC(__stack_chk_guard)

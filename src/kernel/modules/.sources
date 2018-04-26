@@ -18,7 +18,7 @@
  */
 #define MODULE(name) \
 	PROJECT(name) \
-	LINKER_SCRIPT("/src/kernel/${TARGET_ARCH}-kos/module.ld") \
+	LINKER_SCRIPT("/src/kernel/modules/module.ld") \
 	L_FLAGS("-shared") \
 	C_FLAGS("-shared") \
 	C_FLAGS("-fPIC") \

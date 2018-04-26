@@ -198,15 +198,8 @@ PUBLIC struct module kernel_module = {
 };
 
 
-PRIVATE struct driver_specs const kernel_driver_specs = {
-    .ds_version = DRIVER_SPECS_VERSION,
-    .ds_init    = 0, /* XXX: Pointer to core driver initializers here? */
-    .ds_init_sz = 0,
-    .ds_fini    = 0,
-    .ds_fini_sz = 0,
-    .ds_parm    = 0, /* XXX: Implement param support within the kernel itself? */
-    .ds_parm_sz = 0,
-    .ds_main    = 0
+PRIVATE struct driver_tag const kernel_driver_specs[] = {
+    { DRIVER_TAG_STOP }
 };
 
 DEFINE_INTERN_ALIAS(this_driver,kernel_driver);
@@ -226,7 +219,7 @@ PUBLIC struct driver kernel_driver = {
         .a_type     = APPLICATION_TYPE_FDRIVER,
         .a_flags    = APPLICATION_FDIDINIT|APPLICATION_FTRUSTED,
     },
-    .d_spec = &kernel_driver_specs
+    .d_spec = kernel_driver_specs
 };
 
 /* Sanitize the given commandline:
@@ -460,8 +453,8 @@ again:
  } else {
   TRY {
    struct dl_symbol sym;
-   struct driver_specs *EXCEPT_VAR spec;
-   uintptr_t load_addr; size_t i;
+   struct driver_tag *EXCEPT_VAR tags;
+   uintptr_t load_addr; size_t i,tag_index;
    image_rva_t *vec;
    /* Copy the driver commandline. */
    if (module_commandline_length) {
@@ -489,9 +482,7 @@ again:
                            "__$$OS$driver_specs");
    if unlikely(sym.ds_type == MODULE_SYMBOL_INVALID)
       error_throw(E_INVALID_ARGUMENT);
-   result->d_spec = spec = (struct driver_specs *)sym.ds_base;
-   if unlikely(result->d_spec->ds_version != DRIVER_SPECS_VERSION)
-      error_throw(E_INVALID_ARGUMENT);
+   result->d_spec = tags = (struct driver_tag *)sym.ds_base;
    load_addr = result->d_app.a_loadaddr;
    TRY {
     char **EXCEPT_VAR argv = NULL;
@@ -499,30 +490,50 @@ again:
     /* Verify driver spec pointers (prevent system crashes due to corrupt drivers).
      * NOTE: These are split into individual calls to `error_throw()', so that a
      *       traceback can quickly reveal which of these checks got triggered. */
-    if ((spec->ds_free_sz &&
-        (spec->ds_free < FLOORDIV(mod->m_imagemin,PAGESIZE) ||
-         spec->ds_free+spec->ds_free_sz < spec->ds_free ||
-         spec->ds_free+spec->ds_free_sz > CEILDIV(mod->m_imageend,PAGESIZE))))
-         error_throw(E_INVALID_ARGUMENT);
-    if ((spec->ds_init_sz &&
-        (spec->ds_init < mod->m_imagemin ||
-         spec->ds_init+spec->ds_init_sz*sizeof(image_rva_t) < spec->ds_init ||
-         spec->ds_init+spec->ds_init_sz*sizeof(image_rva_t) > mod->m_imageend)))
-         error_throw(E_INVALID_ARGUMENT);
-    if ((spec->ds_fini_sz &&
-        (spec->ds_fini < mod->m_imagemin ||
-         spec->ds_fini+spec->ds_fini_sz*sizeof(image_rva_t) < spec->ds_fini ||
-         spec->ds_fini+spec->ds_fini_sz*sizeof(image_rva_t) > mod->m_imageend)))
-         error_throw(E_INVALID_ARGUMENT);
-    if ((spec->ds_parm_sz &&
-        (spec->ds_parm < mod->m_imagemin ||
-         spec->ds_parm+spec->ds_parm_sz*sizeof(image_rva_t) < spec->ds_parm ||
-         spec->ds_parm+spec->ds_parm_sz*sizeof(image_rva_t) > mod->m_imageend)))
-         error_throw(E_INVALID_ARGUMENT);
-    if ((spec->ds_main &&
-        (spec->ds_main < mod->m_imagemin ||
-         spec->ds_main > mod->m_imageend)))
-         error_throw(E_INVALID_ARGUMENT);
+    for (tag_index = 0; tags[tag_index].dt_name; ++tag_index) {
+     struct driver_tag *tag = &tags[tag_index];
+     debug_printf("TAG: %x -- %p, %p\n",
+                  tag->dt_name,tag->dt_start,tag->dt_count);
+     switch (tag->dt_name) {
+
+     case DRIVER_TAG_MAIN:
+      if ((tag->dt_start &&
+          (tag->dt_start < mod->m_imagemin ||
+           tag->dt_start > mod->m_imageend)))
+           error_throw(E_INVALID_ARGUMENT);
+      break;
+
+     case DRIVER_TAG_INIT:
+     case DRIVER_TAG_FINI:
+      if ((tag->dt_count &&
+          (tag->dt_start < mod->m_imagemin ||
+           tag->dt_start+tag->dt_count*sizeof(image_rva_t) < tag->dt_start ||
+           tag->dt_start+tag->dt_count*sizeof(image_rva_t) > mod->m_imageend)))
+           error_throw(E_INVALID_ARGUMENT);
+      break;
+
+     case DRIVER_TAG_PARM:
+      if ((tag->dt_count &&
+          (tag->dt_start < mod->m_imagemin ||
+           tag->dt_start+tag->dt_count*sizeof(image_rva_t) < tag->dt_start ||
+           tag->dt_start+tag->dt_count*sizeof(image_rva_t) > mod->m_imageend)))
+           error_throw(E_INVALID_ARGUMENT);
+      break;
+
+     case DRIVER_TAG_FREE:
+      if ((tag->dt_count &&
+          (tag->dt_start < FLOORDIV(mod->m_imagemin,PAGESIZE) ||
+           tag->dt_start+tag->dt_count < tag->dt_start ||
+           tag->dt_start+tag->dt_count > CEILDIV(mod->m_imageend,PAGESIZE))))
+           error_throw(E_INVALID_ARGUMENT);
+      break;
+
+     default:
+      if (!(tags[tag_index].dt_flag & DRIVER_TAG_FOPTIONAL))
+            error_throw(E_NOT_IMPLEMENTED);
+      break;
+     }
+    }
 
     /* Call ELF constructors. */
     if (mod->m_type->m_enuminit)
@@ -530,6 +541,7 @@ again:
     TRY {
      /* Evaluate the module commandline. */
      char *cmdline = result->d_cmdline;
+     struct driver_tag *driver_main_tag = NULL;
      if (cmdline) {
       format_commandline(cmdline);
       for (argc = 1; *cmdline; cmdline = strend(cmdline)+1) ++argc;
@@ -539,46 +551,52 @@ again:
       for (argc = 0; *cmdline; cmdline = strend(cmdline)+1)
            argv[argc++] = cmdline;
       /* Serve driver parameters. */
-      argc = serve_driver_params((struct driver_param *)(load_addr + spec->ds_parm),
-                                  spec->ds_parm_sz,load_addr,argc,argv);
+      for (tag_index = 0; tags[tag_index].dt_name; ++tag_index) {
+       if (tags[tag_index].dt_name != DRIVER_TAG_PARM)
+           continue;
+       argc = serve_driver_params((struct driver_param *)(load_addr + tags[tag_index].dt_start),
+                                   tags[tag_index].dt_count,load_addr,argc,argv);
+      }
       argv[argc] = NULL; /* Add a trailing NULL-argument */
      } else {
       argc = 0;
      }
 
-#if 0
-     debug_printf("spec->ds_free    = %p\n",spec->ds_free);
-     debug_printf("spec->ds_free_sz = %p\n",spec->ds_free_sz);
-     debug_printf("spec->ds_init    = %p\n",spec->ds_init);
-     debug_printf("spec->ds_init_sz = %p\n",spec->ds_init_sz);
-     debug_printf("spec->ds_fini    = %p\n",spec->ds_fini);
-     debug_printf("spec->ds_fini_sz = %p\n",spec->ds_fini_sz);
-     debug_printf("spec->ds_parm    = %p\n",spec->ds_parm);
-     debug_printf("spec->ds_parm_sz = %p\n",spec->ds_parm_sz);
-     debug_printf("spec->ds_main    = %p\n",spec->ds_main);
-#endif
-
-     vec = (image_rva_t *)(load_addr + spec->ds_init);
-     for (i = 0; i < spec->ds_init_sz; ++i)
-         SAFECALL_KCALL_VOID_0(*(driver_init_t)(load_addr + vec[i]));
-     if (spec->ds_main != 0) {
+     for (tag_index = 0; tags[tag_index].dt_name; ++tag_index) {
+      if (tags[tag_index].dt_name != DRIVER_TAG_INIT) {
+       if (tags[tag_index].dt_name == DRIVER_TAG_MAIN)
+           driver_main_tag = &tags[tag_index];
+       continue;
+      }
+      vec = (image_rva_t *)(load_addr + tags[tag_index].dt_start);
+      for (i = 0; i < tags[tag_index].dt_count; ++i)
+          SAFECALL_KCALL_VOID_0(*(driver_init_t)(load_addr + vec[i]));
+     }
+     if (driver_main_tag && driver_main_tag->dt_start != 0) {
       /* Pass the remaining arguments to the driver main() function. */
-      SAFECALL_KCALL_VOID_2(*(driver_main_t)(load_addr + spec->ds_main),
+      SAFECALL_KCALL_VOID_2(*(driver_main_t)(load_addr + driver_main_tag->dt_start),
                             argc,argv);
      }
      /* Unmap the driver's .free if it exists. */
-     if (spec->ds_free_sz != 0) {
+     for (tag_index = 0; tags[tag_index].dt_name; ++tag_index) {
+      if (tags[tag_index].dt_name != DRIVER_TAG_FREE)
+          continue;
+      if (!tags[tag_index].dt_count) continue;
       /* Make sure that the .free segment is properly aligned. */
-      vm_unmap(VM_ADDR2PAGE(load_addr)+spec->ds_free,spec->ds_free_sz,
+      vm_unmap(VM_ADDR2PAGE(load_addr)+tags[tag_index].dt_start,tags[tag_index].dt_count,
                VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT|VM_UNMAP_SYNC,&result->d_app);
      }
     } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
      if (argv) freea(argv);
      size_t i;
      driver_unbind_globals(result);
-     vec = (image_rva_t *)(load_addr + spec->ds_fini);
-     i = spec->ds_fini_sz;
-     while (i--) SAFECALL_KCALL_VOID_0(*(driver_fini_t)(load_addr + vec[i]));
+     for (tag_index = 0; tags[tag_index].dt_name; ++tag_index) {
+      if (tags[tag_index].dt_name != DRIVER_TAG_FINI)
+          continue;
+      vec = (image_rva_t *)(load_addr + tags[tag_index].dt_start);
+      i = tags[tag_index].dt_count;
+      while (i--) SAFECALL_KCALL_VOID_0(*(driver_fini_t)(load_addr + vec[i]));
+     }
      error_rethrow();
     }
    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
