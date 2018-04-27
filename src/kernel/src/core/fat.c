@@ -2186,6 +2186,7 @@ Fat_OpenSuperblock(struct superblock *__restrict self,
 
  /* Set the attribute-loaded flag of the root directory node. */
  self->s_root->d_node.i_flags |= INODE_FATTRLOADED;
+ self->s_root->d_node.i_attr.a_ino = 0;
 
  /* Allocate the metadata tables. */
  fat->f_free_pos  = 0;
