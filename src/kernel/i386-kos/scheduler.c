@@ -320,7 +320,7 @@ x86_redirect_preempted_userspace(struct task *__restrict thread) {
      return; /* Kernel jobs don't originate from user-space. */
  iret = (struct x86_irregs_user *)thread->t_stackend-1;
 #ifdef CONFIG_VM86
- if (THIS_TASK->t_state&TASK_FVM86) {
+ if (PERTASK_TESTF(this_task.t_flags,TASK_FVM86)) {
   /* Adjust for the additional fields saved by VM86 mode. */
   *(uintptr_t *)&iret -= (sizeof(struct x86_irregs_vm86)-
                           sizeof(struct x86_irregs_user));
@@ -1312,24 +1312,28 @@ errorinfo_copy_to_user(USER CHECKED struct user_task_segment *useg,
  if (info->e_error.e_code == E_NONCONTINUABLE &&
      info->e_error.e_noncont.nc_origip >= KERNEL_BASE)
      info->e_error.e_noncont.nc_origip = context->c_eip;
+ /* Delete error context flags that wouldn't make sense after the propagation. */
+ info->e_error.e_flag &= ~(ERR_FRESUMABLE|ERR_FRESUMEFUNC|ERR_FRESUMENEXT);
  memcpy(&useg->ts_xcurrent.e_error,
         &info->e_error,
         sizeof(struct exception_data));
+ useg->ts_xcurrent.e_context.c_gpregs.gp_edi  = context->c_gpregs.gp_edi;
+ useg->ts_xcurrent.e_context.c_gpregs.gp_esi  = context->c_gpregs.gp_esi;
+ useg->ts_xcurrent.e_context.c_gpregs.gp_ebp  = context->c_gpregs.gp_ebp;
+ useg->ts_xcurrent.e_context.c_gpregs.gp_esp  = context->c_iret.ir_useresp;
+ useg->ts_xcurrent.e_context.c_gpregs.gp_ebx  = context->c_gpregs.gp_ebx;
+ useg->ts_xcurrent.e_context.c_gpregs.gp_edx  = context->c_gpregs.gp_edx;
+ useg->ts_xcurrent.e_context.c_gpregs.gp_ecx  = context->c_gpregs.gp_ecx;
+ useg->ts_xcurrent.e_context.c_gpregs.gp_eax  = context->c_gpregs.gp_eax;
+ useg->ts_xcurrent.e_context.c_eip            = context->c_iret.ir_eip;
+ useg->ts_xcurrent.e_context.c_eflags         = context->c_iret.ir_eflags;
 #ifndef CONFIG_NO_X86_SEGMENTATION
- memcpy(&useg->ts_xcurrent.e_context.c_gpregs,
-        &context->c_gpregs,
-        sizeof(struct x86_gpregs)+
-        sizeof(struct x86_segments));
-#else /* !CONFIG_NO_X86_SEGMENTATION */
- memcpy(&useg->ts_xcurrent.e_context.c_gpregs,
-        &context->c_gpregs,
-        sizeof(struct x86_gpregs));
-#endif /* CONFIG_NO_X86_SEGMENTATION */
- useg->ts_xcurrent.e_context.c_eip    = context->c_iret.ir_eip;
- useg->ts_xcurrent.e_context.c_eflags = context->c_iret.ir_eflags;
-#ifndef CONFIG_NO_X86_SEGMENTATION
- useg->ts_xcurrent.e_context.c_cs     = context->c_iret.ir_cs;
- useg->ts_xcurrent.e_context.c_ss     = context->c_iret.ir_ss;
+ useg->ts_xcurrent.e_context.c_segments.sg_gs = context->c_segments.sg_gs;
+ useg->ts_xcurrent.e_context.c_segments.sg_fs = context->c_segments.sg_fs;
+ useg->ts_xcurrent.e_context.c_segments.sg_es = context->c_segments.sg_es;
+ useg->ts_xcurrent.e_context.c_segments.sg_ds = context->c_segments.sg_ds;
+ useg->ts_xcurrent.e_context.c_cs             = context->c_iret.ir_cs;
+ useg->ts_xcurrent.e_context.c_ss             = context->c_iret.ir_ss;
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 }
 
