@@ -177,13 +177,6 @@ EXPORT(error_throw_current,     libc_error_throw_current)
 
 
 .cfi_startproc
-INTERN_ENTRY(libc_error_continue)
-	/* Forward the call to a C version that does most of the work. */
-	call   private_error_continue
-	/* Throw the non-continuable error constructed by `private_error_continue()'. */
-	jmp    libc_error_throw_current
-SYMEND(libc_error_continue)
-EXPORT(error_continue,libc_error_continue)
 
 INTERN_ENTRY(libc_error_except)
 	cmpl   $0, %ecx
@@ -193,8 +186,14 @@ INTERN_ENTRY(libc_error_except)
 1:	cmpl   $(EXCEPT_CONTINUE_RETRY), %ecx
 	sete   %al       /* AL = mode == EXCEPT_CONTINUE_RETRY */
 	movzbl %al, %ecx
-	jmp    error_continue
+INTERN_ENTRY(libc_error_continue)
+	/* Forward the call to a C version that does most of the work. */
+	call   private_error_continue
+	/* Throw the non-continuable error constructed by `private_error_continue()'. */
+	jmp    libc_error_throw_current
+SYMEND(libc_error_continue)
 SYMEND(libc_error_except)
+EXPORT(error_continue,libc_error_continue)
 EXPORT(error_except,libc_error_except)
 
 INTERN_ENTRY(libc_error_code)

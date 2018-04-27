@@ -188,10 +188,19 @@ libc_error_unhandled_exception(void) {
 
 INTERN ATTR_NORETURN void FCALL
 libc_os_error_unhandled_exception(void) {
- /* NOTE: We don't call the `libc_error_unhandled_exception()' here,
-  *       thus allowing our partnered application to simply override
-  *       this function and have theirs be called instead. */
- error_unhandled_exception();
+ void (FCALL *handler)(void);
+ /* NOTE: We don't directory call `libc_error_unhandled_exception()'
+  *       here, thus allowing our partnered application to simply
+  *       override this function and have theirs be called instead.
+  *       Additionally, we use `xdlsym()' so libc doesn't get a
+  *       jump relocation table. */
+ *(void **)&handler = sys_xdlsym(NULL,"error_unhandled_exception");
+ if (!handler) handler = &libc_error_unhandled_exception;
+ (*handler)();
+ /* Shouldn't get here unless the hosted application
+  * implemented the unhandled exception handler
+  * incorrectly and made it return. */
+ libc_error_unhandled_exception();
 }
 
 /* Secret entry point for when the kernel detects
