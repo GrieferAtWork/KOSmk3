@@ -316,17 +316,19 @@ done_serving:
    (*slot.rs_fun)(slot.rs_arg);
   } FINALLY {
    assertf(PERTASK_TESTF(this_task.t_state,TASK_STATE_FINRPC),
-           "RPC callback deleted the `TASK_STATE_FINRPC' flag");
+           "%[vinfo:%f(%l,%c) : %n : %p : RPC callback deleted the `TASK_STATE_FINRPC' flag\n]",
+           slot.rs_fun);
 #ifndef NDEBUG
    assertf(PERTASK_TESTF(this_task.t_flags,TASK_FRPCRECURSION) ==
            (old_flags & TASK_FRPCRECURSION),
-           "RPC callback did not clean up `TASK_FRPCRECURSION'");
+           "%[vinfo:%f(%l,%c) : %n : %p : RPC callback did not clean up `TASK_FRPCRECURSION'\n]",
+           slot.rs_fun);
    /* Assert that the `nothrow_serve()' recursion was restored. */
    assertf(old_nothrow_serve_recursion == PERTASK_GET(this_task.t_nothrow_serve) ||
            FINALLY_WILL_RETHROW,
-           "RPC function call at %p with %p did not restore "
+           "%[vinfo:%f(%l,%c) : %n] : RPC function call at %p with %p did not restore "
            "nothrow_serve recursion (expected %I32u, but got %I32u)",
-           slot.rs_fun,slot.rs_arg,
+           slot.rs_fun,slot.rs_fun,slot.rs_arg,
            old_nothrow_serve_recursion,
            PERTASK_GET(this_task.t_nothrow_serve));
 #endif

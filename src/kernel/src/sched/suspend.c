@@ -82,7 +82,7 @@ PUBLIC bool KCALL task_suspend(jtime_t abs_timeout) {
   u16 state;
   /* Unset the RPC recursion flag if it was set before. */
   if (!(old_flags & TASK_FRPCRECURSION))
-        ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_FRPCRECURSION);
+        ATOMIC_FETCHAND(THIS_TASK->t_flags,~TASK_FRPCRECURSION);
   /* Unset the SUSPENDED flag, or re-schedule the suspend
    * command for execution prior to returning to user-space.
    * This can happen when a posix_signal raises an E_INTERRUPT
@@ -99,7 +99,7 @@ PUBLIC bool KCALL task_suspend(jtime_t abs_timeout) {
   error_rethrow();
  }
  if (!(old_flags & TASK_FRPCRECURSION))
-       ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_FRPCRECURSION);
+       ATOMIC_FETCHAND(THIS_TASK->t_flags,~TASK_FRPCRECURSION);
  return true;
 }
 
