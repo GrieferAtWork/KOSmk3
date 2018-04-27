@@ -22,6 +22,7 @@
 #include "libc.h"
 
 #define OPTION_DEBUG_HEAP 1
+//#define OPTION_CUSTOM_ALIGNMENT 1
 #endif
 #include "system.h"
 #include "vm.h"
@@ -36,14 +37,26 @@
 
 #ifndef LOCAL_HEAP_TYPE_FCURRENT
 #ifdef OPTION_DEBUG_HEAP
-#   define LOCAL_HEAP_TYPE_FCURRENT  HEAP_TYPE_FDEBUG
+#ifdef OPTION_CUSTOM_ALIGNMENT
+#   define LOCAL_HEAP_TYPE_FCURRENT  (HEAP_TYPE_FDEBUG|HEAP_TYPE_FALIGN)
+#else
+#   define LOCAL_HEAP_TYPE_FCURRENT   HEAP_TYPE_FDEBUG
+#endif
 #else /* OPTION_DEBUG_HEAP */
-#   define LOCAL_HEAP_TYPE_FCURRENT  HEAP_TYPE_FNORMAL
+#ifdef OPTION_CUSTOM_ALIGNMENT
+#   define LOCAL_HEAP_TYPE_FCURRENT   HEAP_TYPE_FALIGN
+#else
+#   define LOCAL_HEAP_TYPE_FCURRENT   HEAP_TYPE_FNORMAL
+#endif
 #endif /* !OPTION_DEBUG_HEAP */
 #endif /* !LOCAL_HEAP_TYPE_FCURRENT */
 
-#if LOCAL_HEAP_TYPE_FCURRENT == HEAP_TYPE_FDEBUG
+#if LOCAL_HEAP_TYPE_FCURRENT == (HEAP_TYPE_FDEBUG|HEAP_TYPE_FALIGN)
+#   define HSYM(x)  x##_da
+#elif LOCAL_HEAP_TYPE_FCURRENT == HEAP_TYPE_FDEBUG
 #   define HSYM(x)  x##_d
+#elif LOCAL_HEAP_TYPE_FCURRENT == HEAP_TYPE_FALIGN
+#   define HSYM(x)  x##_a
 #elif LOCAL_HEAP_TYPE_FCURRENT == HEAP_TYPE_FNORMAL
 #   define HSYM(x)  x
 #else
@@ -72,11 +85,37 @@
 #endif /* !LIBC_MFREE_TREE_ABI_DEFINED */
 
 
-#if __SIZEOF_POINTER__ == 4 && !defined(OPTION_DEBUG_HEAP)
-#   define LOCAL_HEAP_ALIGNMENT  8
+#ifdef OPTION_CUSTOM_ALIGNMENT
+#   define LOCAL_HEAP_ALIGNMENT     (self->h_almask+1)
+#   define LOCAL_HEAP_BUCKET_OFFSET  1
 #else
-#   define LOCAL_HEAP_ALIGNMENT 16
+#   define LOCAL_HEAP_ALIGNMENT      __HEAP_GET_DEFAULT_ALIGNMENT(LOCAL_HEAP_TYPE_FCURRENT)
+#if LOCAL_HEAP_ALIGNMENT == 4
+#   define LOCAL_HEAP_BUCKET_OFFSET  3 /* FFS(LOCAL_HEAP_ALIGNMENT) */
+#elif LOCAL_HEAP_ALIGNMENT == 8
+#   define LOCAL_HEAP_BUCKET_OFFSET  4 /* FFS(LOCAL_HEAP_ALIGNMENT) */
+#elif LOCAL_HEAP_ALIGNMENT == 16
+#   define LOCAL_HEAP_BUCKET_OFFSET  5 /* FFS(LOCAL_HEAP_ALIGNMENT) */
+#elif LOCAL_HEAP_ALIGNMENT == 32
+#   define LOCAL_HEAP_BUCKET_OFFSET  6 /* FFS(LOCAL_HEAP_ALIGNMENT) */
+#else
+#error "Invalid default alignment"
 #endif
+#endif
+
+#define LOCAL_HEAP_BUCKET_OF(size)   (((__SIZEOF_SIZE_T__*8)-__HEAP_CLZ(size))-LOCAL_HEAP_BUCKET_OFFSET)
+#define LOCAL_HEAP_BUCKET_COUNT       ((__SIZEOF_SIZE_T__*8)-(LOCAL_HEAP_BUCKET_OFFSET-1))
+
+
+#ifdef OPTION_CUSTOM_ALIGNMENT
+#define LOCAL_HEAP_ALIGNMENT_MASK     (self->h_almask)
+#define LOCAL_HEAP_ALIGNMENT_IMASK    (self->h_ialmask)
+#else
+#define LOCAL_HEAP_ALIGNMENT_MASK     (LOCAL_HEAP_ALIGNMENT-1)
+#define LOCAL_HEAP_ALIGNMENT_IMASK  (~(LOCAL_HEAP_ALIGNMENT-1))
+#endif
+
+#define IS_HEAP_ALIGNED(x) (!((x) & LOCAL_HEAP_ALIGNMENT_MASK))
 
 
 DECL_BEGIN
@@ -84,10 +123,14 @@ DECL_BEGIN
 #define STRUCT_MFREE  struct LOCAL_HSYM(mfree)
 
 #define LOCAL_SIZEOF_MFREE    offsetof(STRUCT_MFREE,mf_data)
-#define LOCAL_HEAP_MINSIZE    CEIL_ALIGN(LOCAL_SIZEOF_MFREE,LOCAL_HEAP_ALIGNMENT)
+#ifdef OPTION_CUSTOM_ALIGNMENT
+#define LOCAL_HEAP_MINSIZE   (self->h_minsize)
+#else
+#define LOCAL_HEAP_MINSIZE  ((LOCAL_SIZEOF_MFREE + LOCAL_HEAP_ALIGNMENT_MASK) & LOCAL_HEAP_ALIGNMENT_IMASK)
+#endif
 
 
-struct LOCAL_HSYM(mfree) {
+struct PACKED LOCAL_HSYM(mfree) {
     LIST_NODE(STRUCT_MFREE)   mf_lsize;   /* [lock(:h_lock)][sort(ASCENDING(mf_size))] List of free entries ordered by size. */
     ATREE_XNODE(STRUCT_MFREE) mf_laddr;   /* [lock(:h_lock)][sort(ASCENDING(self))] List of free entries ordered by address. */
     __size_t                  mf_size;    /* Size of this block (in bytes; aligned by `LOCAL_HEAP_ALIGNMENT'; including this header) */
@@ -107,15 +150,12 @@ struct LOCAL_HSYM(mfree) {
 };
 
 
-struct LOCAL_HSYM(heap) {
-    __UINT16_TYPE__           h_type;       /* [== HEAP_TYPE_FCURRENT][const] The type of heap. */
-    __UINT16_TYPE__           h_flags;      /* Heap flags (Set of `HEAP_F*'). */
-#if __SIZEOF_POINTER__ > 4
-    __UINT16_TYPE__         __h_pad[(sizeof(void *)-4)/2]; /* ... */
-#endif
+struct PACKED LOCAL_HSYM(heap) {
+    __UINTPTR_HALF_TYPE__     h_type;       /* [== HEAP_TYPE_FCURRENT][const] The type of heap. */
+    __UINTPTR_HALF_TYPE__     h_flags;      /* Heap flags (Set of `HEAP_F*'). */
     atomic_rwlock_t           h_lock;       /* Lock for this heap. */
     ATREE_HEAD(STRUCT_MFREE)  h_addr;       /* [lock(h_lock)][0..1] Heap sorted by address. */
-    LIST_HEAD(STRUCT_MFREE)   h_size[HEAP_BUCKET_COUNT];
+    LIST_HEAD(STRUCT_MFREE)   h_size[LOCAL_HEAP_BUCKET_COUNT];
                                             /* [lock(h_lock)][0..1][*] Heap sorted by free range size. */
     WEAK __size_t             h_overalloc;  /* Amount (in bytes) by which to over-allocate memory in heaps.
                                              * NOTE: Set to ZERO(0) to disable overallocation. */
@@ -135,6 +175,11 @@ struct LOCAL_HSYM(heap) {
 #ifdef OPTION_DEBUG_HEAP
     LIST_NODE(STRUCT_HEAP)    h_chain;      /* [lock(INTERNAL(...))] Chain of all known debug heaps (for `LIBC_HEAP_VALIDATE_ALL()') */
 #endif /* OPTION_DEBUG_HEAP */
+#ifdef OPTION_CUSTOM_ALIGNMENT
+    __size_t                  h_almask;     /* [const] Heap alignment mask (== HEAP_ALIGNMENT-1) */
+    __size_t                  h_ialmask;    /* [const] Inverse heap alignment mask (== ~(HEAP_ALIGNMENT-1)) */
+    __size_t                  h_minsize;    /* [const] Heap min size (== (sizeof(struct mfree) + HEAP_ALIGNMENT-1) & ~(HEAP_ALIGNMENT-1)) */
+#endif
 };                            
 
 
@@ -224,10 +269,20 @@ HSYM(core_page_free)(void *address_index,
 INTERN void LIBCCALL
 HSYM(libc_heap_init)(STRUCT_HEAP *__restrict self,
                      size_t overalloc, size_t free_threshold,
-                     u16 flags) {
+                     u16 flags
+#ifdef OPTION_CUSTOM_ALIGNMENT
+                     , size_t heap_alignment
+#endif
+                     ) {
  libc_memset(self,0,sizeof(STRUCT_HEAP));
- self->h_type  = LOCAL_HEAP_TYPE_FCURRENT;
- self->h_flags = flags;
+ self->h_type    = LOCAL_HEAP_TYPE_FCURRENT;
+ self->h_flags   = flags;
+#ifdef OPTION_CUSTOM_ALIGNMENT
+ /* Initialize custom heap alignment fields. */
+ self->h_almask  = heap_alignment-1;
+ self->h_ialmask = ~(heap_alignment-1);
+ self->h_minsize = (LOCAL_SIZEOF_MFREE + self->h_almask) & self->h_ialmask;
+#endif
  atomic_rwlock_cinit(&self->h_lock);
  self->h_overalloc  = overalloc;
  self->h_freethresh = free_threshold;
@@ -251,7 +306,7 @@ HSYM(heap_insert_node_unlocked)(STRUCT_HEAP *__restrict self,
  mfree_tree_insert((struct mfree **)&self->h_addr,
                    (struct mfree *)node);
  /* Figure out where the free-slot should go in the chain of free ranges. */
- pslot = &self->h_size[HEAP_BUCKET_OF(num_bytes)];
+ pslot = &self->h_size[LOCAL_HEAP_BUCKET_OF(num_bytes)];
  while ((slot = *pslot) != NULL &&
          MFREE_SIZE(slot) < num_bytes)
          pslot = &slot->mf_lsize.le_next;
@@ -285,8 +340,8 @@ HSYM(heap_free_raw)(STRUCT_HEAP *__restrict self,
 again:
 #endif /* OPTION_DEBUG_HEAP */
  assertf(num_bytes >= LOCAL_HEAP_MINSIZE,"Invalid heap_free(): Too few bytes (%Iu < %Iu)",num_bytes,LOCAL_HEAP_MINSIZE);
- assertf(IS_ALIGNED((uintptr_t)ptr,LOCAL_HEAP_ALIGNMENT),"Invalid heap_free(): Unaligned base pointer %p",ptr);
- assertf(IS_ALIGNED(num_bytes,LOCAL_HEAP_ALIGNMENT),"Invalid heap_free(): Unaligned free size %Iu (%#Ix)",num_bytes,num_bytes);
+ assertf(IS_HEAP_ALIGNED((uintptr_t)ptr),"Invalid heap_free(): Unaligned base pointer %p",ptr);
+ assertf(IS_HEAP_ALIGNED(num_bytes),"Invalid heap_free(): Unaligned free size %Iu (%#Ix)",num_bytes,num_bytes);
  assertf(((uintptr_t)ptr + num_bytes) > (uintptr_t)ptr,"Address space overflow when freeing %p...%p",ptr,(uintptr_t)ptr+num_bytes-1);
  LIBC_HEAP_VALIDATE_ALL();
  addr_semi  = ATREE_SEMI0(uintptr_t);
@@ -527,9 +582,9 @@ HSYM(libc_heap_free_untraced)(STRUCT_HEAP *__restrict self,
  assertf(num_bytes >= LOCAL_HEAP_MINSIZE,
          "Invalid heap_free(): Too few bytes (%Iu < %Iu) (ptr = %p)",
          num_bytes,LOCAL_HEAP_MINSIZE,ptr);
- assertf(IS_ALIGNED((uintptr_t)ptr,LOCAL_HEAP_ALIGNMENT),
+ assertf(IS_HEAP_ALIGNED((uintptr_t)ptr),
          "Invalid heap_free(): Unaligned base pointer %p",ptr);
- assertf(IS_ALIGNED(num_bytes,LOCAL_HEAP_ALIGNMENT),
+ assertf(IS_HEAP_ALIGNED(num_bytes),
          "Invalid heap_free(): Unaligned free size %Iu (%#Ix)",num_bytes,num_bytes);
  /* Reset debug information. */
 #ifdef OPTION_DEBUG_HEAP
@@ -547,7 +602,7 @@ HSYM(libc_heap_truncate)(STRUCT_HEAP *__restrict self,
  if (!threshold) threshold = PAGESIZE;
 again:
  /* Search all buckets for free data blocks of at least `threshold' bytes. */
- iter = &self->h_size[HEAP_BUCKET_OF(threshold)];
+ iter = &self->h_size[LOCAL_HEAP_BUCKET_OF(threshold)];
  end  =  COMPILER_ENDOF(self->h_size);
  atomic_rwlock_write(&self->h_lock);
  for (; iter != end; ++iter) {
@@ -629,8 +684,8 @@ HSYM(heap_free_overallocation)(STRUCT_HEAP *__restrict self,
                                void *overallocation_base,
                                size_t num_free_bytes,
                                gfp_t flags) {
- assert(IS_ALIGNED((uintptr_t)overallocation_base,LOCAL_HEAP_ALIGNMENT));
- assert(IS_ALIGNED(num_free_bytes,LOCAL_HEAP_ALIGNMENT));
+ assert(IS_HEAP_ALIGNED((uintptr_t)overallocation_base));
+ assert(IS_HEAP_ALIGNED(num_free_bytes));
  /* Work around lazy initialization of new memory:
   *    Since memory is default-initialized as `DEBUGHEAP_FRESH_MEMORY',
   *    if the unused portion is located in a different page than the
@@ -690,7 +745,7 @@ HSYM(heap_free_overallocation)(STRUCT_HEAP *__restrict self,
 #else
 /* Without debug initialization, this isn't a problem! */
 #define HEAP_FREE_OVERALLOCATION(self,base_pointer,overallocation_base,num_free_bytes,flags) \
-        heap_free_raw(self,overallocation_base,num_free_bytes,flags)
+        HSYM(heap_free_raw)(self,overallocation_base,num_free_bytes,flags)
 #endif
 
 
@@ -700,17 +755,17 @@ HSYM(libc_heap_alloc_untraced)(STRUCT_HEAP *__restrict self,
  STRUCT_HEAP *EXCEPT_VAR xself = self;
  gfp_t EXCEPT_VAR xflags = flags;
  struct heapptr EXCEPT_VAR result; STRUCT_MFREE **iter,**end;
- if unlikely(__builtin_add_overflow(num_bytes,LOCAL_HEAP_ALIGNMENT-1,&result.hp_siz))
+ if unlikely(__builtin_add_overflow(num_bytes,LOCAL_HEAP_ALIGNMENT_MASK,&result.hp_siz))
     libc_heap_allocation_failed(num_bytes);
- result.hp_siz &= ~(LOCAL_HEAP_ALIGNMENT-1);
+ result.hp_siz &= LOCAL_HEAP_ALIGNMENT_IMASK;
  if unlikely(result.hp_siz < LOCAL_HEAP_MINSIZE)
              result.hp_siz = LOCAL_HEAP_MINSIZE;
- iter = &self->h_size[HEAP_BUCKET_OF(result.hp_siz)];
+ iter = &self->h_size[LOCAL_HEAP_BUCKET_OF(result.hp_siz)];
  end  =  COMPILER_ENDOF(self->h_size);
  assertf(iter >= self->h_size &&
          iter <  COMPILER_ENDOF(self->h_size),
-         "HEAP_BUCKET_OF(%Iu) = %Iu/%Iu",
-         result.hp_siz,HEAP_BUCKET_OF(result.hp_siz),
+         "LOCAL_HEAP_BUCKET_OF(%Iu) = %Iu/%Iu",
+         result.hp_siz,LOCAL_HEAP_BUCKET_OF(result.hp_siz),
          COMPILER_LENOF(self->h_size));
 search_heap:
  LIBC_HEAP_VALIDATE_ALL();
@@ -748,7 +803,7 @@ search_heap:
    /* Randomize allocated memory by shifting the
     * resulting pointer somewhere up higher. */
    random_offset  = libc_rand() % unused_size;
-   random_offset &= ~(LOCAL_HEAP_ALIGNMENT-1);
+   random_offset &= LOCAL_HEAP_ALIGNMENT_IMASK;
    if (random_offset >= LOCAL_HEAP_MINSIZE) {
     /* Rather than allocating `chain...+=num_bytes', instead
      * allocate `chain+random_offset...+=num_bytes' and free
@@ -801,8 +856,8 @@ without_random:
                          result.hp_siz);
   }
 #endif
-  assert(IS_ALIGNED((uintptr_t)result.hp_ptr,LOCAL_HEAP_ALIGNMENT));
-  assert(IS_ALIGNED((uintptr_t)result.hp_siz,LOCAL_HEAP_ALIGNMENT));
+  assert(IS_HEAP_ALIGNED((uintptr_t)result.hp_ptr));
+  assert(IS_HEAP_ALIGNED((uintptr_t)result.hp_siz));
   assert(result.hp_siz >= LOCAL_HEAP_MINSIZE);
   return result;
  }
@@ -867,8 +922,8 @@ allocate_without_overalloc:
   else {
    void *unused_begin = (void *)((uintptr_t)result.hp_ptr + result.hp_siz);
    /* Free unused size. */
-   assert(IS_ALIGNED(unused_size,LOCAL_HEAP_ALIGNMENT));
-   assert(IS_ALIGNED((uintptr_t)unused_begin,LOCAL_HEAP_ALIGNMENT));
+   assert(IS_HEAP_ALIGNED(unused_size));
+   assert(IS_HEAP_ALIGNED((uintptr_t)unused_begin));
 #ifdef OPTION_DEBUG_HEAP
    if (!(flags&GFP_CALLOC))
          libc_mempatl(unused_begin,DEBUGHEAP_NO_MANS_LAND,unused_size);
@@ -877,8 +932,8 @@ allocate_without_overalloc:
    HSYM(heap_free_raw)(xself,unused_begin,unused_size,xflags);
   }
  }
- assert(IS_ALIGNED((uintptr_t)result.hp_ptr,LOCAL_HEAP_ALIGNMENT));
- assert(IS_ALIGNED((uintptr_t)result.hp_siz,LOCAL_HEAP_ALIGNMENT));
+ assert(IS_HEAP_ALIGNED((uintptr_t)result.hp_ptr));
+ assert(IS_HEAP_ALIGNED((uintptr_t)result.hp_siz));
  assert(result.hp_siz >= LOCAL_HEAP_MINSIZE);
  return result;
 }
@@ -890,7 +945,7 @@ HSYM(heap_allat_partial)(STRUCT_HEAP *__restrict self,
  ATREE_SEMI_T(uintptr_t) addr_semi;
  ATREE_LEVEL_T addr_level; gfp_t slot_flags;
  size_t result; STRUCT_MFREE **pslot,*slot;
- assert(IS_ALIGNED((uintptr_t)ptr,LOCAL_HEAP_ALIGNMENT));
+ assert(IS_HEAP_ALIGNED((uintptr_t)ptr));
 again:
  addr_semi  = ATREE_SEMI0(uintptr_t);
  addr_level = ATREE_LEVEL0(uintptr_t);
@@ -942,7 +997,7 @@ again:
 #endif
  } else {
   size_t free_offset = (uintptr_t)ptr - MFREE_BEGIN(slot);
-  assert(IS_ALIGNED(free_offset,LOCAL_HEAP_ALIGNMENT));
+  assert(IS_HEAP_ALIGNED(free_offset));
   if unlikely(free_offset < LOCAL_HEAP_MINSIZE) {
    /* The remaining part of the slot is too small.
     * Ask the core if it can allocate the the previous
@@ -1032,9 +1087,9 @@ HSYM(libc_heap_allat_untraced)(STRUCT_HEAP *__restrict self,
  gfp_t EXCEPT_VAR xflags = flags;
  size_t unused_size,alloc_size;
  size_t EXCEPT_VAR result = 0;
- if unlikely(__builtin_add_overflow(num_bytes,LOCAL_HEAP_ALIGNMENT-1,&alloc_size))
+ if unlikely(__builtin_add_overflow(num_bytes,LOCAL_HEAP_ALIGNMENT_MASK,&alloc_size))
     libc_heap_allocation_failed(num_bytes);
- alloc_size &= ~(LOCAL_HEAP_ALIGNMENT-1);
+ alloc_size &= LOCAL_HEAP_ALIGNMENT_IMASK;
  if unlikely(alloc_size < LOCAL_HEAP_MINSIZE)
              alloc_size = LOCAL_HEAP_MINSIZE;
  /* Allocate memory from the given range. */
@@ -1087,20 +1142,20 @@ HSYM(libc_heap_align_untraced)(STRUCT_HEAP *__restrict self,
  /* Forward to the regular allocator when the constraints allow it. */
  if (min_alignment <= LOCAL_HEAP_ALIGNMENT && !offset)
      return HSYM(libc_heap_alloc_untraced)(self,num_bytes,flags);
- if unlikely(__builtin_add_overflow(num_bytes,LOCAL_HEAP_ALIGNMENT-1,&alloc_bytes))
+ if unlikely(__builtin_add_overflow(num_bytes,LOCAL_HEAP_ALIGNMENT_MASK,&alloc_bytes))
     libc_heap_allocation_failed(num_bytes);
- alloc_bytes &= ~(LOCAL_HEAP_ALIGNMENT-1);
+ alloc_bytes &= LOCAL_HEAP_ALIGNMENT_IMASK;
  if unlikely(alloc_bytes < LOCAL_HEAP_MINSIZE)
              alloc_bytes = LOCAL_HEAP_MINSIZE;
 #if 1
  {
   struct heapptr result; STRUCT_MFREE **iter,**end;
-  iter = &self->h_size[HEAP_BUCKET_OF(alloc_bytes)];
+  iter = &self->h_size[LOCAL_HEAP_BUCKET_OF(alloc_bytes)];
   end  =  COMPILER_ENDOF(self->h_size);
   assertf(iter >= self->h_size &&
           iter <  COMPILER_ENDOF(self->h_size),
-          "HEAP_BUCKET_OF(%Iu) = %Iu/%Iu",
-          alloc_bytes,HEAP_BUCKET_OF(alloc_bytes),
+          "LOCAL_HEAP_BUCKET_OF(%Iu) = %Iu/%Iu",
+          alloc_bytes,LOCAL_HEAP_BUCKET_OF(alloc_bytes),
           COMPILER_LENOF(self->h_size));
   LIBC_HEAP_VALIDATE_ALL();
   atomic_rwlock_write(&self->h_lock);
@@ -1201,9 +1256,9 @@ HSYM(libc_heap_align_untraced)(STRUCT_HEAP *__restrict self,
                           result.hp_siz);
    }
 #endif
-   assert(IS_ALIGNED((uintptr_t)result.hp_ptr,LOCAL_HEAP_ALIGNMENT));
+   assert(IS_HEAP_ALIGNED((uintptr_t)result.hp_ptr));
    assert(IS_ALIGNED((uintptr_t)result.hp_ptr+offset,min_alignment));
-   assert(IS_ALIGNED((uintptr_t)result.hp_siz,LOCAL_HEAP_ALIGNMENT));
+   assert(IS_HEAP_ALIGNED((uintptr_t)result.hp_siz));
    assert(result.hp_siz >= LOCAL_HEAP_MINSIZE);
    return result;
   }
@@ -1245,7 +1300,7 @@ HSYM(libc_heap_align_untraced)(STRUCT_HEAP *__restrict self,
  assert(result_base.hp_siz >= alloc_bytes);
  assert(IS_ALIGNED((uintptr_t)result.hp_ptr+offset,min_alignment));
  result.hp_siz = result_base.hp_siz;
- assert(IS_ALIGNED((uintptr_t)result.hp_siz,LOCAL_HEAP_ALIGNMENT));
+ assert(IS_HEAP_ALIGNED((uintptr_t)result.hp_siz));
  assert(result.hp_siz >= LOCAL_HEAP_MINSIZE);
  return result;
 }
@@ -1265,11 +1320,13 @@ HSYM(libc_heap_realloc_untraced)(STRUCT_HEAP *__restrict self,
  gfp_t EXCEPT_VAR xalloc_flags = alloc_flags;
  struct heapptr EXCEPT_VAR result;
  size_t missing_bytes;
- assert(IS_ALIGNED((uintptr_t)old_ptr,LOCAL_HEAP_ALIGNMENT));
- assert(IS_ALIGNED(old_bytes,LOCAL_HEAP_ALIGNMENT));
+ assert(IS_HEAP_ALIGNED((uintptr_t)old_ptr));
+ assert(IS_HEAP_ALIGNED(old_bytes));
  if (old_bytes == 0) /* Special case: initial allocation */
      return HSYM(libc_heap_alloc_untraced)(self,new_bytes,alloc_flags);
- new_bytes = CEIL_ALIGN(new_bytes,LOCAL_HEAP_ALIGNMENT);
+ if (__builtin_add_overflow(new_bytes,LOCAL_HEAP_ALIGNMENT_MASK,&new_bytes))
+     libc_heap_allocation_failed(new_bytes-LOCAL_HEAP_ALIGNMENT_MASK);
+ new_bytes &= LOCAL_HEAP_ALIGNMENT_IMASK;
  result.hp_ptr = old_ptr;
  result.hp_siz = old_bytes;
  if (new_bytes <= old_bytes) {
@@ -1318,12 +1375,14 @@ HSYM(libc_heap_realign_untraced)(STRUCT_HEAP *__restrict self,
                                  size_t new_bytes, gfp_t alloc_flags,
                                  gfp_t free_flags) {
  struct heapptr result; size_t missing_bytes;
- assert(IS_ALIGNED((uintptr_t)old_ptr,LOCAL_HEAP_ALIGNMENT));
- assert(IS_ALIGNED(old_bytes,LOCAL_HEAP_ALIGNMENT));
+ assert(IS_HEAP_ALIGNED((uintptr_t)old_ptr));
+ assert(IS_HEAP_ALIGNED(old_bytes));
  assert(!old_bytes || old_bytes >= LOCAL_HEAP_MINSIZE);
  if (old_bytes == 0) /* Special case: initial allocation */
      return HSYM(libc_heap_align_untraced)(self,min_alignment,offset,new_bytes,alloc_flags);
- new_bytes = CEIL_ALIGN(new_bytes,LOCAL_HEAP_ALIGNMENT);
+ if (__builtin_add_overflow(new_bytes,LOCAL_HEAP_ALIGNMENT_MASK,&new_bytes))
+     libc_heap_allocation_failed(new_bytes-LOCAL_HEAP_ALIGNMENT_MASK);
+ new_bytes &= LOCAL_HEAP_ALIGNMENT_IMASK;
  result.hp_ptr = old_ptr;
  result.hp_siz = old_bytes;
  if (new_bytes <= old_bytes) {
@@ -1436,12 +1495,14 @@ HSYM(libc_heap_realloc)(STRUCT_HEAP *__restrict self,
                         size_t new_bytes, gfp_t alloc_flags,
                         gfp_t free_flags) {
  struct heapptr result; size_t missing_bytes;
- assert(IS_ALIGNED(old_bytes,LOCAL_HEAP_ALIGNMENT));
- assert(!old_bytes || IS_ALIGNED((uintptr_t)old_ptr,LOCAL_HEAP_ALIGNMENT));
+ assert(IS_HEAP_ALIGNED(old_bytes));
+ assert(!old_bytes || IS_HEAP_ALIGNED((uintptr_t)old_ptr));
  assert(!old_bytes || old_bytes >= LOCAL_HEAP_ALIGNMENT);
  if (old_bytes == 0) /* Special case: initial allocation */
      return HSYM(libc_heap_alloc)(self,new_bytes,alloc_flags);
- new_bytes = CEIL_ALIGN(new_bytes,LOCAL_HEAP_ALIGNMENT);
+ if (__builtin_add_overflow(new_bytes,LOCAL_HEAP_ALIGNMENT_MASK,&new_bytes))
+     libc_heap_allocation_failed(new_bytes-LOCAL_HEAP_ALIGNMENT_MASK);
+ new_bytes &= LOCAL_HEAP_ALIGNMENT_IMASK;
  result.hp_ptr = old_ptr;
  result.hp_siz = old_bytes;
  if (new_bytes <= old_bytes) {
@@ -1487,12 +1548,14 @@ HSYM(libc_heap_realign)(STRUCT_HEAP *__restrict self,
                         size_t new_bytes, gfp_t alloc_flags,
                         gfp_t free_flags) {
  struct heapptr result; size_t missing_bytes;
- assert(IS_ALIGNED(old_bytes,LOCAL_HEAP_ALIGNMENT));
- assert(!old_bytes || IS_ALIGNED((uintptr_t)old_ptr,LOCAL_HEAP_ALIGNMENT));
+ assert(IS_HEAP_ALIGNED(old_bytes));
+ assert(!old_bytes || IS_HEAP_ALIGNED((uintptr_t)old_ptr));
  assert(!old_bytes || old_bytes >= LOCAL_HEAP_ALIGNMENT);
  if (old_bytes == 0) /* Special case: initial allocation */
      return HSYM(libc_heap_align)(self,min_alignment,offset,new_bytes,alloc_flags);
- new_bytes = CEIL_ALIGN(new_bytes,LOCAL_HEAP_ALIGNMENT);
+ if (__builtin_add_overflow(new_bytes,LOCAL_HEAP_ALIGNMENT_MASK,&new_bytes))
+     libc_heap_allocation_failed(new_bytes-LOCAL_HEAP_ALIGNMENT_MASK);
+ new_bytes &= LOCAL_HEAP_ALIGNMENT_IMASK;
  result.hp_ptr = old_ptr;
  result.hp_siz = old_bytes;
  if (new_bytes <= old_bytes) {
@@ -1560,12 +1623,16 @@ EXPORT(HSYM(heap_realign),HSYM(libc_heap_realign_untraced));
 EXPORT(HSYM(heap_truncate),HSYM(libc_heap_truncate));
 #endif
 
-
 DECL_END
 
 #undef LOCAL_SIZEOF_MFREE
 #undef LOCAL_HEAP_MINSIZE
 #undef LOCAL_HEAP_ALIGNMENT
+#undef LOCAL_HEAP_ALIGNMENT_MASK
+#undef LOCAL_HEAP_ALIGNMENT_IMASK
+#undef LOCAL_HEAP_BUCKET_OFFSET
+#undef LOCAL_HEAP_BUCKET_OF
+#undef LOCAL_HEAP_BUCKET_COUNT
 
 #undef LIBC_HEAP_VALIDATE_ALL
 #undef STRUCT_HEAP
@@ -1573,3 +1640,4 @@ DECL_END
 #undef HSYM
 #undef LOCAL_HEAP_TYPE_FCURRENT
 #undef OPTION_DEBUG_HEAP
+#undef OPTION_CUSTOM_ALIGNMENT

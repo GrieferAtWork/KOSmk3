@@ -44,6 +44,7 @@ __SYSDECL_BEGIN
 //#define CONFIG_NO_DEBUG_HEAP             1
 //#define CONFIG_NO_HEAP_RANDOMIZE_OFFSETS 1
 //#define CONFIG_NO_HEAP_TRACE_DANGLE      1
+//#define CONFIG_HEAP_ALIGNMENT            power-of-2
 
 
 /* Enable heap memory pre-initialization, as well as special
@@ -98,18 +99,51 @@ __SYSDECL_BEGIN
 #endif
 
 
+
+#define HEAP_TYPE_FNORMAL 0x0000 /* No options enabled. */
+#define HEAP_TYPE_FDEBUG  0x0001 /* CONFIG_DEBUG_HEAP */
+#define HEAP_TYPE_FALIGN  0x0002 /* HEAP_ALIGNMENT != __DEFAULT_HEAP_ALIGNMENT */
+
+/* Figure out the heap type selected by the current configuration. */
+#ifdef CONFIG_DEBUG_HEAP
+#if HEAP_ALIGNMENT == __DEFAULT_HEAP_ALIGNMENT
+#   define HEAP_TYPE_FCURRENT  HEAP_TYPE_FDEBUG
+#else
+#   define HEAP_TYPE_FCURRENT (HEAP_TYPE_FDEBUG|HEAP_TYPE_FALIGN)
+#endif
+#else /* CONFIG_DEBUG_HEAP */
+#if HEAP_ALIGNMENT == __DEFAULT_HEAP_ALIGNMENT
+#   define HEAP_TYPE_FCURRENT  HEAP_TYPE_FNORMAL
+#else
+#   define HEAP_TYPE_FCURRENT  HEAP_TYPE_FALIGN
+#endif
+#endif /* !CONFIG_DEBUG_HEAP */
+
+
+
+#if __SIZEOF_POINTER__ == 4
+/* Using 16 allows a human to quickly notice heap pointers by realizing
+ * that the last digit in a hexadecimal representation is ZERO(0). */
+#define __HEAP_GET_DEFAULT_ALIGNMENT(heap_type) \
+      ((heap_type) & HEAP_TYPE_FDEBUG ? 16 : 8)
+#else
+#define __HEAP_GET_DEFAULT_ALIGNMENT(heap_type) 16
+#endif
+
+#define __DEFAULT_HEAP_ALIGNMENT   \
+        __HEAP_GET_DEFAULT_ALIGNMENT(HEAP_TYPE_FCURRENT)
+
+
 /* Minimum alignment of all heap pointers. */
 #ifndef HEAP_ALIGNMENT
 #ifdef CONFIG_HEAP_ALIGNMENT
 #   define HEAP_ALIGNMENT  CONFIG_HEAP_ALIGNMENT
-#elif __SIZEOF_POINTER__ == 4 && !defined(CONFIG_DEBUG_HEAP)
-#   define HEAP_ALIGNMENT  8
 #else
-/* Using 16 allows a human to quickly notice heap pointers by realizing
- * that the last digit in a hexadecimal representation is ZERO(0). */
-#   define HEAP_ALIGNMENT 16
+#   define HEAP_ALIGNMENT __DEFAULT_HEAP_ALIGNMENT
 #endif
 #endif
+
+
 #if (HEAP_ALIGNMENT & (HEAP_ALIGNMENT-1))
 #error "Invalid `HEAP_ALIGNMENT' must be a power-of-2 number"
 #endif
@@ -135,7 +169,7 @@ __SYSDECL_BEGIN
 #define HEAP_MINSIZE    CEIL_ALIGN(offsetof(struct mfree,__mf_data__),HEAP_ALIGNMENT)
 #endif
 
-struct __HEAP_MEMBER(mfree) {
+struct __ATTR_PACKED __HEAP_MEMBER(mfree) {
     LIST_NODE(struct __HEAP_MEMBER(mfree))
                               __HEAP_MEMBER(mf_lsize);   /* [lock(:h_lock)][sort(ASCENDING(mf_size))] List of free entries ordered by size. */
     ATREE_XNODE(struct __HEAP_MEMBER(mfree))
@@ -184,26 +218,18 @@ struct __HEAP_MEMBER(mfree) {
 
 /* Heap configuration:
  * Index offset for the first bucket that should be search for a given size. */
-#if HEAP_ALIGNMENT == 1
-#   define __HEAP_BUCKET_OFFSET     0 /* FFS(HEAP_ALIGNMENT) */
-#elif HEAP_ALIGNMENT == 2
-#   define __HEAP_BUCKET_OFFSET     1 /* FFS(HEAP_ALIGNMENT) */
-#elif HEAP_ALIGNMENT == 4
-#   define __HEAP_BUCKET_OFFSET     2 /* FFS(HEAP_ALIGNMENT) */
-#elif HEAP_ALIGNMENT == 8
-#   define __HEAP_BUCKET_OFFSET     4 /* FFS(HEAP_ALIGNMENT) */
-#elif HEAP_ALIGNMENT == 16
-#   define __HEAP_BUCKET_OFFSET     5 /* FFS(HEAP_ALIGNMENT) */
-#elif HEAP_ALIGNMENT == 32
-#   define __HEAP_BUCKET_OFFSET     6 /* FFS(HEAP_ALIGNMENT) */
-#elif HEAP_ALIGNMENT == 64
-#   define __HEAP_BUCKET_OFFSET     7 /* FFS(HEAP_ALIGNMENT) */
-#elif HEAP_ALIGNMENT == 128
-#   define __HEAP_BUCKET_OFFSET     8 /* FFS(HEAP_ALIGNMENT) */
-#elif HEAP_ALIGNMENT == 256
-#   define __HEAP_BUCKET_OFFSET     9 /* FFS(HEAP_ALIGNMENT) */
+#if HEAP_ALIGNMENT != __DEFAULT_HEAP_ALIGNMENT
+#define __HEAP_BUCKET_OFFSET     1
+#elif __DEFAULT_HEAP_ALIGNMENT == 4
+#define __HEAP_BUCKET_OFFSET     3 /* FFS(__DEFAULT_HEAP_ALIGNMENT) */
+#elif __DEFAULT_HEAP_ALIGNMENT == 8
+#define __HEAP_BUCKET_OFFSET     4 /* FFS(__DEFAULT_HEAP_ALIGNMENT) */
+#elif __DEFAULT_HEAP_ALIGNMENT == 16
+#define __HEAP_BUCKET_OFFSET     5 /* FFS(__DEFAULT_HEAP_ALIGNMENT) */
+#elif __DEFAULT_HEAP_ALIGNMENT == 32
+#define __HEAP_BUCKET_OFFSET     6 /* FFS(__DEFAULT_HEAP_ALIGNMENT) */
 #else
-#   define __HEAP_BUCKET_OFFSET     __HEAP_FFS(HEAP_ALIGNMENT)
+#error "Invalid default alignment"
 #endif
 
 #ifdef __EXPOSE_HEAP_INTERNALS
@@ -213,17 +239,13 @@ struct __HEAP_MEMBER(mfree) {
 #endif /* __EXPOSE_HEAP_INTERNALS */
 #define HEAP_BUCKET_COUNT       ((__SIZEOF_SIZE_T__*8)-(__HEAP_BUCKET_OFFSET-1))
 
-#define HEAP_TYPE_FNORMAL 0x0000 /* No options enabled. */
-#define HEAP_TYPE_FDEBUG  0x0001 /* CONFIG_DEBUG_HEAP */
-
-#ifdef CONFIG_DEBUG_HEAP
-#   define HEAP_TYPE_FCURRENT  HEAP_TYPE_FDEBUG
-#else /* CONFIG_DEBUG_HEAP */
-#   define HEAP_TYPE_FCURRENT  HEAP_TYPE_FNORMAL
-#endif /* !CONFIG_DEBUG_HEAP */
-
-#if HEAP_TYPE_FCURRENT == HEAP_TYPE_FDEBUG
+/* Figure out how to link against the selected heap type. */
+#if HEAP_TYPE_FCURRENT == (HEAP_TYPE_FDEBUG|HEAP_TYPE_FALIGN)
+#   define __HEAP_FUNCTION(x)  x##_da
+#elif HEAP_TYPE_FCURRENT == HEAP_TYPE_FDEBUG
 #   define __HEAP_FUNCTION(x)  x##_d
+#elif HEAP_TYPE_FCURRENT == HEAP_TYPE_FALIGN
+#   define __HEAP_FUNCTION(x)  x##_a
 #elif HEAP_TYPE_FCURRENT == HEAP_TYPE_FNORMAL
 #   define __HEAP_FUNCTION(x)  x
 #else
@@ -244,7 +266,7 @@ struct __HEAP_MEMBER(mfree) {
 #endif /* !CONFIG_HEAP_RANDOMIZE_OFFSETS */
 
 
-struct heap {
+struct __ATTR_PACKED heap {
     __UINTPTR_HALF_TYPE__     __HEAP_MEMBER(h_type);       /* [== HEAP_TYPE_FCURRENT][const] The type of heap. */
     __UINTPTR_HALF_TYPE__     __HEAP_MEMBER(h_flags);      /* Heap flags (Set of `HEAP_F*'). */
     atomic_rwlock_t           __HEAP_MEMBER(h_lock);       /* Lock for this heap. */
@@ -270,13 +292,37 @@ struct heap {
 #ifdef CONFIG_DEBUG_HEAP
     LIST_NODE(struct heap)    __HEAP_MEMBER(h_chain);      /* [lock(INTERNAL(...))] Chain of all known debug heaps (for `heap_validate_all()') */
 #endif /* CONFIG_DEBUG_HEAP */
+#if HEAP_ALIGNMENT != __DEFAULT_HEAP_ALIGNMENT
+    __size_t                  __HEAP_MEMBER(h_almask);     /* [const] Heap alignment mask (== HEAP_ALIGNMENT-1) */
+    __size_t                  __HEAP_MEMBER(h_ialmask);    /* [const] Inverse heap alignment mask (== ~(HEAP_ALIGNMENT-1)) */
+    __size_t                  __HEAP_MEMBER(h_minsize);    /* [const] Heap min size (== (offsetof(struct mfree,mf_data) + HEAP_ALIGNMENT-1) & ~(HEAP_ALIGNMENT-1)) */
+#endif
 };                            
 
 
-/* Static initializer for heaps. */
+#ifdef CONFIG_DEBUG_HEAP
+#define __HEAP_INIT_H_CHAIN  , { NULL, NULL }
+#else /* CONFIG_DEBUG_HEAP */
+#define __HEAP_INIT_H_CHAIN  /* nothing */
+#endif /* !CONFIG_DEBUG_HEAP */
+#if HEAP_ALIGNMENT != __DEFAULT_HEAP_ALIGNMENT
+#define __HEAP_INIT_H_ALMASK \
+    , HEAP_ALIGNMENT-1, ~(HEAP_ALIGNMENT-1)\
+    , (__builtin_offsetof(struct __HEAP_MEMBER(mfree),mf_data) + HEAP_ALIGNMENT-1) & ~(HEAP_ALIGNMENT-1)
+#else
+#define __HEAP_INIT_H_ALMASK /* nothing */
+#endif
+
+
+/* Static initializer for heaps:
+ * >> struct heap my_heap = HEAP_INIT(PAGESIZE*2,PAGESIZE*16);
+ */
 #define HEAP_INIT(overalloc,free_threshold) \
-   { HEAP_TYPE_FCURRENT, HEAP_FCURRENT, ATOMIC_RWLOCK_INIT, \
-     NULL, { NULL, }, (overalloc), (free_threshold), NULL }
+      { HEAP_TYPE_FCURRENT, HEAP_FCURRENT, ATOMIC_RWLOCK_INIT, \
+        NULL, { NULL, }, (overalloc), (free_threshold), NULL, 0 \
+        __HEAP_INIT_H_CHAIN __HEAP_INIT_H_ALMASK }
+
+
 
 #ifndef __heapptr_defined
 #define __heapptr_defined 1
@@ -302,7 +348,11 @@ typedef unsigned int gfp_t; /* Set of `GFP_*' */
 #endif /* !__gfp_t_defined */
 
 /* Link selected heap functions. */
+#if HEAP_ALIGNMENT != __DEFAULT_HEAP_ALIGNMENT
+__REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_heap_init,(struct heap *__restrict __self, __size_t __overalloc, __size_t __free_threshold, __UINT16_TYPE__ __flags, __size_t __heap_alignment),__HEAP_FUNCTION(heap_init),(__self,overalloc,free_threshold,__flags,__heap_alignment))
+#else
 __REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_heap_init,(struct heap *__restrict __self, __size_t __overalloc, __size_t __free_threshold, __UINT16_TYPE__ __flags),__HEAP_FUNCTION(heap_init),(__self,overalloc,free_threshold,__flags))
+#endif
 __REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_heap_fini,(struct heap *__restrict __self),__HEAP_FUNCTION(heap_fini),(__self))
 __REDIRECT(__LIBC,,struct heapptr,__LIBCCALL,__os_heap_alloc,(struct heap *__restrict __self, __size_t __num_bytes, gfp_t __flags),__HEAP_FUNCTION(heap_alloc),(__self,__num_bytes,__flags))
 __REDIRECT(__LIBC,,struct heapptr,__LIBCCALL,__os_heap_align,(struct heap *__restrict __self, __size_t __min_alignment, __ptrdiff_t __offset, __size_t __num_bytes, gfp_t __flags),__HEAP_FUNCTION(heap_align),(__self,__min_alignment,__offset,__num_bytes,__flags))
@@ -335,7 +385,11 @@ __FORCELOCAL void
 (__LIBCCALL heap_init)(struct heap *__restrict __self,
                        __size_t __overalloc,
                        __size_t __free_threshold) {
+#if HEAP_ALIGNMENT != __DEFAULT_HEAP_ALIGNMENT
+ __os_heap_init(__self,__overalloc,__free_threshold,HEAP_FCURRENT,HEAP_ALIGNMENT);
+#else
  __os_heap_init(__self,__overalloc,__free_threshold,HEAP_FCURRENT);
+#endif
 }
 __FORCELOCAL void
 (__LIBCCALL heap_fini)(struct heap *__restrict __self) {

@@ -36,6 +36,11 @@
 #define OPTION_DEBUG_HEAP 1
 #include "heap-impl.c.inl" /* Debug heaps. */
 #include "heap-impl.c.inl" /* Regular heaps. */
+#define OPTION_CUSTOM_ALIGNMENT 1
+#define OPTION_DEBUG_HEAP 1
+#include "heap-impl.c.inl" /* Debug heaps (with custom alignment). */
+#define OPTION_CUSTOM_ALIGNMENT 1
+#include "heap-impl.c.inl" /* Regular heaps (with custom alignment). */
 #endif
 
 #include <hybrid/list/list.h>

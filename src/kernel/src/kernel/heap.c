@@ -1631,7 +1631,9 @@ heap_realloc_untraced(struct heap *__restrict self,
  assert(!old_bytes || old_bytes >= HEAP_MINSIZE);
  if (old_bytes == 0) /* Special case: initial allocation */
      return heap_alloc_untraced(self,new_bytes,alloc_flags);
- new_bytes = CEIL_ALIGN(new_bytes,HEAP_ALIGNMENT);
+ if (__builtin_add_overflow(new_bytes,HEAP_ALIGNMENT-1,&new_bytes))
+     heap_allocation_overflow(new_bytes-(HEAP_ALIGNMENT-1));
+ new_bytes &= ~(HEAP_ALIGNMENT-1);
  if unlikely(new_bytes < HEAP_MINSIZE)
              new_bytes = HEAP_MINSIZE;
  result.hp_ptr = old_ptr;
@@ -1684,7 +1686,9 @@ heap_realign_untraced(struct heap *__restrict self,
  assert(!old_bytes || old_bytes >= HEAP_MINSIZE);
  if (old_bytes == 0) /* Special case: initial allocation */
      return heap_align_untraced(self,min_alignment,offset,new_bytes,alloc_flags);
- new_bytes = CEIL_ALIGN(new_bytes,HEAP_ALIGNMENT);
+ if (__builtin_add_overflow(new_bytes,HEAP_ALIGNMENT-1,&new_bytes))
+     heap_allocation_overflow(new_bytes-(HEAP_ALIGNMENT-1));
+ new_bytes &= ~(HEAP_ALIGNMENT-1);
  result.hp_ptr = old_ptr;
  result.hp_siz = old_bytes;
  if (new_bytes <= old_bytes) {

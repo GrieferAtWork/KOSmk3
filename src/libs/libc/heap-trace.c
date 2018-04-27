@@ -71,6 +71,21 @@ libc_capture_traceback(struct cpu_context *__restrict ctx,
 #endif
 
 
+#define LOCAL_HEAP_ALIGNMENT   __HEAP_GET_DEFAULT_ALIGNMENT(HEAP_TYPE_FNORMAL)
+#if LOCAL_HEAP_ALIGNMENT == 4
+#   define LOCAL_HEAP_BUCKET_OFFSET  3 /* FFS(LOCAL_HEAP_ALIGNMENT) */
+#elif LOCAL_HEAP_ALIGNMENT == 8
+#   define LOCAL_HEAP_BUCKET_OFFSET  4 /* FFS(LOCAL_HEAP_ALIGNMENT) */
+#elif LOCAL_HEAP_ALIGNMENT == 16
+#   define LOCAL_HEAP_BUCKET_OFFSET  5 /* FFS(LOCAL_HEAP_ALIGNMENT) */
+#elif LOCAL_HEAP_ALIGNMENT == 32
+#   define LOCAL_HEAP_BUCKET_OFFSET  6 /* FFS(LOCAL_HEAP_ALIGNMENT) */
+#else
+#error "Invalid default alignment"
+#endif
+#define LOCAL_HEAP_BUCKET_COUNT   ((__SIZEOF_SIZE_T__*8)-(LOCAL_HEAP_BUCKET_OFFSET-1))
+
+
 struct local_heap {
     u16                       h_type;       /* [== HEAP_TYPE_FCURRENT][const] The type of heap. */
     u16                       h_flags;      /* Heap flags (Set of `HEAP_F*'). */
@@ -79,7 +94,7 @@ struct local_heap {
 #endif
     atomic_rwlock_t           h_lock;       /* Lock for this heap. */
     ATREE_HEAD(struct mfree)  h_addr;       /* [lock(h_lock)][0..1] Heap sorted by address. */
-    LIST_HEAD(struct mfree)   h_size[HEAP_BUCKET_COUNT];
+    LIST_HEAD(struct mfree)   h_size[LOCAL_HEAP_BUCKET_COUNT];
                                             /* [lock(h_lock)][0..1][*] Heap sorted by free range size. */
     WEAK size_t               h_overalloc;  /* Amount (in bytes) by which to over-allocate memory in heaps.
                                              * NOTE: Set to ZERO(0) to disable overallocation. */
@@ -245,8 +260,8 @@ libc_heap_trace(void *base, size_t num_bytes,
  size_t num_frames,max_frames;
  libc_cpu_getcontext(&context);
  node_ptr = libc_heap_alloc_untraced(&libc_heap_trace_allocator,
-                            offsetof(struct heapnode,m_trace)+
-                            CONFIG_MALL_TRACEMIN*sizeof(void *),0);
+                                      offsetof(struct heapnode,m_trace)+
+                                      CONFIG_MALL_TRACEMIN*sizeof(void *),0);
  LIBC_TRY {
   node = (struct heapnode *)node_ptr.hp_ptr;
   node->m_tree.a_vmin = (uintptr_t)base;
