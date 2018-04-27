@@ -30,6 +30,7 @@
 #include <fs/path.h>
 #include <kernel/debug.h>
 #include <kernel/bind.h>
+#include <sched/pid.h>
 #include <kernel/sections.h>
 #include <unwind/debug_line.h>
 #include <unwind/linker.h>

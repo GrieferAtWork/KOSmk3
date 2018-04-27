@@ -146,8 +146,16 @@ path_umount(struct path *__restrict self) {
  filesystem   = mounted_node->i_super;
  
  /* Acquire required locks. */
+try_acquire_locks:
  atomic_rwlock_write(&filesystem->s_mount_lock);
- atomic_rwlock_write(&self->p_vfs->v_mount.m_lock);
+ if unlikely(!atomic_rwlock_trywrite(&self->p_vfs->v_mount.m_lock)) {
+  atomic_rwlock_endwrite(&filesystem->s_mount_lock);
+  atomic_rwlock_write(&self->p_vfs->v_mount.m_lock);
+  if unlikely(!atomic_rwlock_trywrite(&filesystem->s_mount_lock)) {
+   atomic_rwlock_endwrite(&self->p_vfs->v_mount.m_lock);
+   goto try_acquire_locks;
+  }
+ }
 
  /* Restore the original mounted node. */
  self->p_node = self->p_mount.m_rnode; /* Implicit reference transfer. */

@@ -2058,7 +2058,7 @@ again:
    node = self->s_nodesv[i];
    /* Don't just simply discard INodes that have been marked as CHANGED. */
    while (node &&
-        ((node->i_flags&INODE_FCLOSED) ||                      /* Node is closed... */
+       !((node->i_flags&INODE_FCLOSED) ||                      /* Node is closed... */
         !(node->i_flags&(INODE_FCHANGED|INODE_FPERSISTENT)) || /* or non-persistent and hasn't changed... */
          (flags&SUPERBLOCK_FCLOSED)))                          /* or the superblock was closed */
           node = node->i_nodes.le_next;
@@ -2404,6 +2404,7 @@ superblock_load(struct superblock *__restrict self,
 
  assert(self->s_root->d_node.i_ops != NULL);
  assert(self->s_root->d_node.i_nlink >= 1);
+ assert(self->s_root->d_node.i_refcnt >= 1);
 
  /* Add the filesystem root node to the nodes tracked by the superblock. */
  superblock_addnode(self,(struct inode *)self->s_root);
@@ -2833,6 +2834,9 @@ unbind_driver_filesystem_types(struct driver *__restrict d) {
 again:
   atomic_rwlock_read(&fs_filesystems.f_superlock);
   iter = fs_filesystems.f_superblocks;
+  /* In order to unbind a driver, we must unmount all
+   * filesystems that specify the given driver as their
+   * owner. */
   for (; iter; iter = iter->s_filesystems.le_next) {
    if (iter->s_driver != d) continue; /* Different driver. */
    if (ATOMIC_FETCHOR(iter->s_flags,SUPERBLOCK_FCLOSED) & SUPERBLOCK_FCLOSED)
@@ -2842,10 +2846,15 @@ again:
    atomic_rwlock_endread(&fs_filesystems.f_superlock);
    assert(PREEMPTION_ENABLED());
    /* Close this superblock. */
+   debug_printf("iter->s_root->d_node.i_refcnt = %Iu\n",iter->s_root->d_node.i_refcnt);
    superblock_close_nodes(iter);
+   debug_printf("iter->s_root->d_node.i_refcnt = %Iu\n",iter->s_root->d_node.i_refcnt);
    superblock_umount_all(iter);
+   debug_printf("iter->s_root->d_node.i_refcnt = %Iu\n",iter->s_root->d_node.i_refcnt);
    superblock_sync(iter);
+   debug_printf("iter->s_root->d_node.i_refcnt = %Iu\n",iter->s_root->d_node.i_refcnt);
    superblock_clearcache(iter,(size_t)-1);
+   debug_printf("iter->s_root->d_node.i_refcnt = %Iu\n",iter->s_root->d_node.i_refcnt);
    superblock_decref(iter);
    goto again;
   }
