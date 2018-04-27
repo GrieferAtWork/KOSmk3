@@ -25,6 +25,7 @@
 #include "unistd.h"
 #include "malloc.h"
 #include "exit.h"
+#include "exec.h"
 #include "format.h"
 #include "tty.h"
 #include "system.h"

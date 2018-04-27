@@ -24,6 +24,7 @@
 #include "malloc.h"
 #include "system.h"
 #include "errno.h"
+#include "stat.h"
 #include "widechar.h"
 #include "ctype.h"
 #include "unistd.h"

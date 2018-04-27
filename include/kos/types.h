@@ -303,6 +303,12 @@ typedef __socklen_t socklen_t;
 typedef __WCHAR_TYPE__ wchar_t;
 #endif /* !__wchar_t_defined */
 
+#ifndef __char16_t_defined
+#define __char16_t_defined 1
+typedef __CHAR16_TYPE__ char16_t;
+typedef __CHAR32_TYPE__ char32_t;
+#endif /* !__char16_t_defined */
+
 #ifndef __key_t_defined
 #define __key_t_defined 1
 typedef __key_t key_t;

@@ -25,6 +25,7 @@
 #include "errno.h"
 #include "system.h"
 #include "unistd.h"
+#include "exec.h"
 #include "exit.h"
 #include "malloc.h"
 
@@ -36,23 +37,22 @@
 
 DECL_BEGIN
 
-
 #if defined(__x86_64__)
 #error "TODO"
 #elif defined(__i386__)
 INTERN ATTR_NORETURN void FCALL
 libc_thread_entry(int (LIBCCALL *fn)(void *arg), void *arg);
 __asm__(
-".section .text\n"
-".global libc_thread_entry\n"
-".hidden libc_thread_entry\n"
-".type libc_thread_entry, @function\n"
-"libc_thread_entry:\n"
-"    pushl %edx\n"         /* arg */
-"    call *%ecx\n"         /* (*fn)(arg) */
-"    movl  %eax, (%esp)\n" /* result = ...; */
-"    call  sys_exit\n"     /* exit(result); // NOTE: Only exits the thread; not the process. */
-".size libc_thread_entry, . - libc_thread_entry\n"
+".section .text\n\t"
+".global libc_thread_entry\n\t"
+".hidden libc_thread_entry\n\t"
+".type libc_thread_entry, @function\n\t"
+"libc_thread_entry:\n\t"
+"\t"  "pushl %edx\n\t"         /* arg */
+"\t"  "call *%ecx\n\t"         /* (*fn)(arg) */
+"\t"  "movl  %eax, (%esp)\n\t" /* result = ...; */
+"\t"  "call  sys_exit\n\t"     /* exit(result); // NOTE: Only exits the thread; not the process. */
+".size libc_thread_entry, . - libc_thread_entry"
 );
 
 PRIVATE void LIBCCALL

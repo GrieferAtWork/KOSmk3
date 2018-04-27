@@ -85,6 +85,10 @@
     <ClCompile Include="..\..\src\libs\libc\dos_slib.c" />
     <ClCompile Include="..\..\src\libs\libc\stdio_api.c" />
     <ClCompile Include="..\..\src\libs\libc\stdio_wapi.c" />
+    <ClCompile Include="..\..\src\libs\libc\exec.c" />
+    <ClCompile Include="..\..\src\libs\libc\realpath.c" />
+    <ClCompile Include="..\..\src\libs\libc\chtime.c" />
+    <ClCompile Include="..\..\src\libs\libc\stat.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\libs\libc\libc.h" />
@@ -130,6 +134,10 @@
     <ClInclude Include="..\..\src\libs\libc\dos_slib.h" />
     <ClInclude Include="..\..\src\libs\libc\stdio.h" />
     <ClInclude Include="..\..\src\libs\libc\nop.h" />
+    <ClInclude Include="..\..\src\libs\libc\exec.h" />
+    <ClInclude Include="..\..\src\libs\libc\realpath.h" />
+    <ClInclude Include="..\..\src\libs\libc\chtime.h" />
+    <ClInclude Include="..\..\src\libs\libc\stat.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="i386-kos">

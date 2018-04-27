@@ -27,6 +27,7 @@
 #include "sched.h"
 #include "exit.h"
 #include "dirent.h"
+#include "stat.h"
 #include "rtl.h"
 
 #include <bits/io-file.h>

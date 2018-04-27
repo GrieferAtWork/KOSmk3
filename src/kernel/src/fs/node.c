@@ -2951,8 +2951,8 @@ perinode_clear_caches(struct inode *__restrict self) {
   assert(me->d_map);
   krealloc(me->d_map,2*sizeof(REF struct directory_entry *),
            GFP_SHARED|GFP_NOTRIM|GFP_NOMOVE); /* NOTHROW because this reduces the size. */
-  me->d_size = 0;
-  me->d_mask = 1;
+  me->d_size   = 0;
+  me->d_mask   = 1;
   me->d_map[0] = NULL;
   me->d_map[1] = NULL;
 

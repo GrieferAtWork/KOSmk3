@@ -268,22 +268,17 @@ int main(int argc, char *argv[]) {
 #endif
 
  /* Just for testing: Load a kernel driver. */
- if (kernctl(KERNEL_CONTROL_INSMOD,"/mod/procfs.mod","a 'b c'  \\'d ") >= 0) {
+ if (kernctl(KERNEL_CONTROL_INSMOD,"/mod/procfs.mod",NULL) >= 0) {
   mkdir("/proc",0755);
   mount("procfs","/proc","procfs",0,NULL);
  }
 
- Xkernctl(KERNEL_CONTROL_INSMOD,"/mod/pe.mod",NULL);
+ kernctl(KERNEL_CONTROL_INSMOD,"/mod/pe.mod",NULL);
 
 #if 0
  if (fork() == 0)
      Xexecl("/bin/hybrid-demo.exe","hybrid-demo.exe",(char *)NULL);
 #endif
-
-//  kernctl(KERNEL_CONTROL_TRACE_SYSCALLS_OFF);
- sched_yield();
- sched_yield();
- sched_yield();
 
  for (;;) {
   TRY Xexecl("/bin/terminal-vga",
