@@ -257,6 +257,20 @@ __LIBC void (__FCALL error_handled)(void);
 
 
 
+#ifndef __EXCEPT_INVOKE_DEALLOC_CONTINUE
+#define __EXCEPT_INVOKE_DEALLOC_CONTINUE(x) x
+#define __EXCEPT_INVOKE_HANDLED(x) x
+#endif
+
+#ifndef error_dealloc_continue
+#define error_dealloc_continue() \
+      __EXCEPT_INVOKE_DEALLOC_CONTINUE((error_dealloc_continue)())
+#define error_handled() \
+      __EXCEPT_INVOKE_HANDLED((error_handled)())
+#endif
+
+
+
 #ifndef __errno_t_defined
 #define __errno_t_defined 1
 typedef int errno_t;

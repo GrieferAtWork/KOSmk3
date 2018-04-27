@@ -358,6 +358,22 @@ struct __ATTR_PACKED exception_rt_data {
 
 
 
+/* Just to be safe, surrounding these calls with memory barriers
+ * and indicate to GCC that they will clobber (restore) ESP. */
+#define __EXCEPT_INVOKE_HANDLED(x) \
+   __XBLOCK({ __asm__ __volatile__("" : : : "memory", "esp"); \
+              x; \
+              __asm__ __volatile__("" : : : "memory"); \
+   })
+#define __EXCEPT_INVOKE_DEALLOC_CONTINUE(x) \
+   __XBLOCK({ __SIZE_TYPE__ __edc_result; \
+              __asm__ __volatile__("" : : : "memory", "esp"); \
+              __edc_result = x; \
+              __asm__ __volatile__("" : : : "memory"); \
+              __XRETURN __edc_result; \
+   })
+
+
 __SYSDECL_END
 
 #if defined(__COMPILER_HAVE_GCC_ASM) && !defined(__NO_XBLOCK) && !defined(__INTELLISENSE__)

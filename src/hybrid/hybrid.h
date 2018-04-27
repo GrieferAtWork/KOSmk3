@@ -33,7 +33,8 @@
 #define __error_rethrow_at(context)         __EXCEPT_INVOKE_THROW_NORETURN(libc_error_rethrow_at(context))
 #define error_code()                        libc_error_code()
 #define error_info()                        libc_error_info()
-#define error_handled()                     libc_error_handled()
+#define error_dealloc_continue()            __EXCEPT_INVOKE_DEALLOC_CONTINUE(libc_error_dealloc_continue())
+#define error_handled()                     __EXCEPT_INVOKE_HANDLED(libc_error_handled())
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
