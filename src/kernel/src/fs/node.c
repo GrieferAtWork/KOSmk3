@@ -24,6 +24,7 @@
 #include <kos/types.h>
 #include <hybrid/align.h>
 #include <kernel/bind.h>
+#include <kernel/cache.h>
 #include <kernel/vm.h>
 #include <kernel/malloc.h>
 #include <kernel/debug.h>
@@ -2846,15 +2847,10 @@ again:
    atomic_rwlock_endread(&fs_filesystems.f_superlock);
    assert(PREEMPTION_ENABLED());
    /* Close this superblock. */
-   debug_printf("iter->s_root->d_node.i_refcnt = %Iu\n",iter->s_root->d_node.i_refcnt);
    superblock_close_nodes(iter);
-   debug_printf("iter->s_root->d_node.i_refcnt = %Iu\n",iter->s_root->d_node.i_refcnt);
    superblock_umount_all(iter);
-   debug_printf("iter->s_root->d_node.i_refcnt = %Iu\n",iter->s_root->d_node.i_refcnt);
    superblock_sync(iter);
-   debug_printf("iter->s_root->d_node.i_refcnt = %Iu\n",iter->s_root->d_node.i_refcnt);
    superblock_clearcache(iter,(size_t)-1);
-   debug_printf("iter->s_root->d_node.i_refcnt = %Iu\n",iter->s_root->d_node.i_refcnt);
    superblock_decref(iter);
    goto again;
   }
@@ -2923,6 +2919,120 @@ handle_directory_entry_stat(struct directory_entry *__restrict self,
  result->st_size = self->de_namelen;
  result->st_ino  = self->de_ino;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+PRIVATE ATTR_NOTHROW void KCALL
+perinode_clear_caches(struct inode *__restrict self) {
+ if (self->i_flags & INODE_FPERSISTENT)
+     return; /* Don't touch persistent INodes */
+ rwlock_write(&self->i_lock);
+ if (INODE_ISDIR(self)) {
+  REF struct directory_entry *chain,*next;
+  struct directory_node *me = (struct directory_node *)self;
+  debug_printf("Clearing non-persistent directory INode 0x%I64x\n",self->i_attr.a_ino);
+  /* Clear the directory map (a non-persistent directory can just re-load its contents) */
+  chain           = me->d_bypos;
+  me->d_bypos     = NULL;
+  me->d_bypos_end = NULL;
+  me->d_dirend    = 0;
+
+  /* Clear the directory map. */
+  assert(me->d_map);
+  krealloc(me->d_map,2*sizeof(REF struct directory_entry *),
+           GFP_SHARED|GFP_NOTRIM|GFP_NOMOVE); /* NOTHROW because this reduces the size. */
+  me->d_size = 0;
+  me->d_mask = 1;
+  me->d_map[0] = NULL;
+  me->d_map[1] = NULL;
+
+  /* Deallocate all the directory entries. */
+  while (chain) {
+   next = chain->de_bypos.le_next;
+   directory_entry_decref(chain);
+   chain = next;
+  }
+
+  /* Unset the DIR-LOADED flag. (because it no longer is) */
+  self->i_flags &= ~(INODE_FDIRLOADED);
+ }
+ rwlock_endwrite(&self->i_lock);
+}
+
+
+PRIVATE ATTR_NOTHROW void KCALL
+persuperblock_clear_caches(struct superblock *__restrict self) {
+ size_t bucket_index;
+again:
+ atomic_rwlock_read(&self->s_nodes_lock);
+ for (bucket_index = 0;
+      bucket_index <= self->s_nodesm; ++bucket_index) {
+  struct inode *iter = self->s_nodesv[bucket_index];
+  for (; iter; iter = iter->i_nodes.le_next) {
+   if (!inode_tryincref(iter)) continue;
+   atomic_rwlock_endread(&self->s_nodes_lock);
+
+   /* Clear caches related to INodes. */
+   perinode_clear_caches(iter);
+
+   if (kernel_cc_done()) { inode_decref(iter); goto done; }
+   atomic_rwlock_read(&self->s_nodes_lock);
+   /* Drop a reference from the INode. */
+   if (!ATOMIC_DECIFNOTONE(iter->i_refcnt)) {
+    atomic_rwlock_endread(&self->s_nodes_lock);
+    inode_decref(iter);
+    goto again;
+   }
+  }
+ }
+done:
+ atomic_rwlock_endread(&self->s_nodes_lock);
+ /* Clear the INode hash-map cache. */
+ while (superblock_clearcache(self,1) &&
+       !kernel_cc_done());
+}
+
+
+/* Cache clearing functionality for superblocks. */
+DEFINE_GLOBAL_CACHE_CLEAR(clear_superblock_caches);
+PRIVATE ATTR_NOTHROW ATTR_USED void KCALL clear_superblock_caches(void) {
+ struct superblock *iter;
+again:
+ atomic_rwlock_read(&fs_filesystems.f_superlock);
+ iter = fs_filesystems.f_superblocks;
+ for (; iter; iter = iter->s_filesystems.le_next) {
+  if (!superblock_tryincref(iter)) continue;
+  atomic_rwlock_endread(&fs_filesystems.f_superlock);
+  /* Clear caches related to this superblock */
+  persuperblock_clear_caches(iter);
+  if (kernel_cc_done()) {
+   superblock_decref(iter);
+   break;
+  }
+
+  atomic_rwlock_read(&fs_filesystems.f_superlock);
+  /* Drop a reference from this superblock. */
+  if (!ATOMIC_DECIFNOTONE(iter->s_refcnt)) {
+   atomic_rwlock_endread(&fs_filesystems.f_superlock);
+   superblock_decref(iter);
+   goto again;
+  }
+ }
+ atomic_rwlock_endread(&fs_filesystems.f_superlock);
+}
+
+
+
 
 
 DECL_END
