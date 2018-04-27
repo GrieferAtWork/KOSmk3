@@ -58,6 +58,8 @@ struct exception_handler_info {
 
 };
 
+struct fde_info;
+
 /* TODO: These functions must return a `struct handle' to whatever object
  *       must be kept alive in order to ensure that FDE information remains
  *       available (struct application / struct vm_region)

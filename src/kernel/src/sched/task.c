@@ -361,7 +361,7 @@ unbind_pertask_drivers(struct task *__restrict thread,
 DEFINE_GLOBAL_UNBIND_DRIVER(global_unbind_pertask_drivers);
 PRIVATE ATTR_USED void KCALL
 global_unbind_pertask_drivers(struct driver *__restrict d) {
- task_foreach(&clear_pertask_caches,d);
+ task_foreach(&unbind_pertask_drivers,d);
 }
 
 

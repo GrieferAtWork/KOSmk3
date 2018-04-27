@@ -919,8 +919,11 @@ typedef void (KCALL *task_user_rpc_t)(void *arg,
  *                  The function will be run the next time `thread' calls `task_serve()',
  *                  or the next time the thread is interrupted while in user-space.
  * @param: mode:    Set of `TASK_RPC_*'
- * @throw: E_INTERRUPT: The given `thread' is the calling thread (_ALWAYS_ thrown when `thread == THIS_TASK')
+ * @throw: E_INTERRUPT: The given `thread' is the calling thread and `TASK_RPC_USER' is set.
+ *                     (_ALWAYS_ thrown when `thread == THIS_TASK' and `TASK_RPC_USER' is set)
+ *                      If the `TASK_RPC_USER' flag isn't set, the RPC is executed immediatly.
  * @throw: E_INTERRUPT: The calling thread was interrupted  (_NEVER_ thrown when `thread == THIS_TASK')
+ *                      In this case no RPC is scheduled.
  * @throw: E_IOERROR:   Failed to communicate with the cpu of `thread'
  * @return: true:  Successfully queued the RPC (even when `TASK_RPC_SYNC'
  *                 isn't given, you can be sure that the RPC will be executed)
@@ -993,19 +996,6 @@ task_queue_rpc_user(struct task *__restrict thread,
                                 *          actually be useful: RPC function calls in user-space. */
 
 #ifdef __CC__
-/* Same as `task_queue_rpc()': Do a remote procedure call that throws
- * an `E_INTERRUPT' error accompanied by a descriptor for `signo',
- * causing `thread' to execute the user-space signal handler for `signo'
- * before the next time it returns to user-space.
- * This function is really just a neat wrapper around `task_queue_rpc()',
- * that hides the internal RPC function used to throw the signal in the
- * other thread.
- * @throw: E_IOERROR: Failed to communicate with `new_cpu' 
- * XXX: Since we're using exceptions for this, we should probably
- *      extend `exception_info' to just include `siginfo_t'. */
-FUNDEF bool KCALL task_queue_sig(struct task *__restrict thread,
-                                 unsigned int signo, unsigned int mode);
-
 /* Terminate the calling thread immediately.
  * WARNING: Do not call this function to terminate a thread.
  *          It would work, but exception handlers would not

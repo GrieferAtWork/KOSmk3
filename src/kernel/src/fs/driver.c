@@ -32,6 +32,8 @@
 #include <kernel/bind.h>
 #include <kernel/sections.h>
 #include <unwind/debug_line.h>
+#include <unwind/linker.h>
+#include <unwind/eh_frame.h>
 #include <elf.h>
 #include <ctype.h>
 #include <string.h>
@@ -655,6 +657,161 @@ again:
  return result;
 }
 
+
+/* If after this many attempts there are still threads making use
+ * of the driver in question, just start chucking E_EXIT_THREAD at them. */
+#define UNBIND_DRIVER_MAX_ATTEMPTS  32
+
+struct unbind_driver_threads {
+    struct driver *dt_driver;      /* [1..1][const] The driver being deleted. */
+    size_t         dt_num_matched; /* The number of threads found to be using the driver. */
+    size_t         dt_num_attempt; /* The current attempt number. */
+};
+
+PRIVATE void KCALL
+unbind_driver_rpc(struct unbind_driver_threads *__restrict data) {
+ struct cpu_context context;
+ uintptr_t ip_begin,ip_end;
+ struct fde_info info;
+ bool fully_unwound;
+ bool found_driver;
+ cpu_getcontext(&context);
+ debug_printf("SCAN_THREAD(%u)\n",posix_gettid());
+ fully_unwound = false;
+ found_driver = false;
+ ip_begin = APPLICATION_MAPBEGIN(&data->dt_driver->d_app);
+ ip_end   = APPLICATION_MAPEND(&data->dt_driver->d_app);
+ for (;;) {
+  --CPU_CONTEXT_IP(context);
+  if (CPU_CONTEXT_IP(context) >= ip_begin &&
+      CPU_CONTEXT_IP(context) <  ip_end)
+      goto uses_driver;
+#if 1 /* XXX: ARCH_STACK_GROWS_DOWNWARDS */
+  if (CPU_CONTEXT_SP(context) == (uintptr_t)PERTASK_GET(this_task.t_stackend))
+      return; /* Fully unwound the kernel stack. */
+#else
+  if (CPU_CONTEXT_SP(context) == (uintptr_t)PERTASK_GET(this_task.t_stackmin))
+      return; /* Fully unwound the kernel stack. */
+#endif
+  if (!linker_findfde(CPU_CONTEXT_IP(context),&info)) break;
+  if (!eh_return(&info,&context,EH_FNORMAL)) break;
+  if (ADDR_ISUSER(CPU_CONTEXT_IP(context)) &&
+     !PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB))
+      return; /* Return to user-space. */
+  debug_printf("unwind %p\n",CPU_CONTEXT_IP(context));
+ }
+scan_stack_base:
+ fully_unwound = true;
+ /* Scan the unmapped portion of the stack. */
+ {
+  uintptr_t *base; size_t i,num_pointers;
+#if 1 /* XXX: ARCH_STACK_GROWS_DOWNWARDS */
+  base = (uintptr_t *)FLOOR_ALIGN(CPU_CONTEXT_SP(context),sizeof(void *));
+  if unlikely((uintptr_t)base < (uintptr_t)PERTASK_GET(this_task.t_stackmin) ||
+              (uintptr_t)base > (uintptr_t)PERTASK_GET(this_task.t_stackend))
+               base = (uintptr_t *)PERTASK_GET(this_task.t_stackmin);
+  num_pointers = (uintptr_t)PERTASK_GET(this_task.t_stackend)-(uintptr_t)base;
+#else
+  base = (uintptr_t *)PERTASK_GET(this_task.t_stackmin);
+  num_pointers = (uintptr_t)CEIL_ALIGN(CPU_CONTEXT_SP(context),sizeof(void *))-(uintptr_t)base;
+  if unlikely(CPU_CONTEXT_SP(context) < (uintptr_t)PERTASK_GET(this_task.t_stackmin) ||
+              CPU_CONTEXT_SP(context) > (uintptr_t)PERTASK_GET(this_task.t_stackend))
+              num_pointers = (uintptr_t)PERTASK_GET(this_task.t_stackend)-(uintptr_t)base;
+#endif
+  num_pointers = CEILDIV(num_pointers,sizeof(void *));
+  --ip_begin; /* Adjust to account to return address offsets. */
+  debug_printf("scan_stack_base(%p...%p)\n",
+               base,(uintptr_t)(base+num_pointers)-1);
+  for (i = 0; i < num_pointers; ++i) {
+   uintptr_t ptr = base[i];
+   if (ptr >= ip_begin ||
+       ptr <= ip_end)
+       goto uses_driver;
+  }
+ }
+ /* If the driver was found somewhere in-between, throw an interrupt to unwind the stack. */
+ if (found_driver)
+     goto throw_interrupt;
+ return;
+uses_driver:
+ debug_printf("uses_driver\n");
+ /* This thread is using the driver in question. */
+ if (!found_driver) {
+  found_driver = true;
+  ++data->dt_num_matched;
+ }
+ /* Simply interrupt a user-space thread. */
+ if (!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB))
+      goto throw_interrupt;
+ /* Figure out if this thread originates within the
+  * driver that is being deleted, or if the thread
+  * imply called into the driver. */
+
+ /* If we already unbound the stack completely, then
+  * we already know that the thread does originate
+  * within the driver in question (because otherwise
+  * we wouldn't have gotten here) */
+ if (fully_unwound) error_throw(E_EXIT_THREAD);
+
+ for (;;) {
+  uintptr_t base_ip;
+  base_ip = CPU_CONTEXT_IP(context);
+  if (!linker_findfde(base_ip,&info)) goto scan_stack_base;
+  if (!eh_return(&info,&context,EH_FDONT_UNWIND_SIGFRAME)) goto scan_stack_base;
+  if (CPU_CONTEXT_IP(context) == (uintptr_t)&task_exit) {
+   /* `base_ip' should now point to the last frame of execution. */
+   if (base_ip >= ip_begin &&
+       base_ip <= ip_end)
+       error_throw(E_EXIT_THREAD);
+   /* No, this thread was created elsewhere and just
+    * called into the driver at a later pointer. */
+   goto throw_interrupt;
+  }
+  debug_printf("unwind2 %p\n",CPU_CONTEXT_IP(context));
+  --CPU_CONTEXT_IP(context);
+ }
+throw_interrupt:
+ if (data->dt_num_attempt >= UNBIND_DRIVER_MAX_ATTEMPTS)
+     error_throw(E_EXIT_THREAD); /* Let's do this the hard way... */
+ error_throw(E_INTERRUPT);
+}
+
+
+PRIVATE bool KCALL
+unbind_driver_from_task(struct task *__restrict thread, void *arg) {
+ /* Exclude the calling thread because otherwise,
+  * we'd just shoot ourselves in the knee.
+  * XXX: Speaking of which, how do we want to deal with the driver
+  *      delete function being called by the driver itself?
+  *      It's quite the sane situation, but I think the best way
+  *      to deal with it would be to spawn another thread and
+  *      just have it do all the work...
+  */
+ if (thread != THIS_TASK)
+     task_queue_rpc(thread,(task_rpc_t)&unbind_driver_rpc,arg,
+                    TASK_RPC_SYNC|TASK_RPC_SINGLE);
+ return true;
+}
+
+PRIVATE void KCALL
+unbind_driver_from_threads(struct driver *__restrict app) {
+ struct unbind_driver_threads ctrl;
+ ctrl.dt_driver = app;
+ ctrl.dt_num_attempt = 0;
+ do {
+  ctrl.dt_num_matched = 0;
+  /* Keep on doing this until there all threads using the driver are gone. */
+  task_foreach_running(&unbind_driver_from_task,&ctrl);
+  /* Track the number of attempts made. */
+  ++ctrl.dt_num_attempt;
+ } while (ctrl.dt_num_matched);
+}
+
+
+
+
+
+
 PUBLIC void KCALL
 kernel_delmod(REF struct driver *__restrict app_, bool force) {
  REF struct driver *EXCEPT_VAR app = app_;
@@ -665,58 +822,107 @@ kernel_delmod(REF struct driver *__restrict app_, bool force) {
   return;
  }
  TRY {
+  debug_printf("[MOD] Start unloading driver `%[path]'\n",
+               app->d_app.a_module->m_path);
+  driver_unbind_globals(app);
+  for (spec = app->d_spec; spec->dt_name; ++spec) {
+   image_rva_t *vector; size_t i;
+   if (spec->dt_name != DRIVER_TAG_UNBIND)
+       continue;
+   /* Invoke unbind callbacks. */
+   vector = (image_rva_t *)(app->d_app.a_loadaddr + spec->dt_start);
+   for (i = 0; i < spec->dt_count; ++i)
+       SAFECALL_KCALL_VOID_0(*(void(KCALL *)(void))(app->d_app.a_loadaddr + vector[i]));
+  }
+  /* Remove the driver from kernel apps. */
   vm_acquire(&vm_kernel);
   TRY {
-   driver_unbind_globals(app);
-   spec = app->d_spec;
-   for (; spec->dt_name; ++spec) {
+   struct vmapps *kernel_apps; size_t i;
+   kernel_apps = FORVM(&vm_kernel,vm_apps);
+   atomic_rwlock_write(&kernel_apps->va_lock);
+   i = 0;
+vm_apps_remove_continue:
+   for (; i < kernel_apps->va_count; ++i) {
+    if (kernel_apps->va_apps[i] != &app->d_app) continue;
+    /* Found one! */
+    --kernel_apps->va_count;
+    memmove(&kernel_apps->va_apps[i],
+            &kernel_apps->va_apps[i+1],
+            (kernel_apps->va_count-i)*
+             sizeof(WEAK REF struct application *));
+    assert(app->d_app.a_weakcnt >= 2);
+    ATOMIC_FETCHDEC(app->d_app.a_weakcnt);
+    goto vm_apps_remove_continue;
+   }
+   atomic_rwlock_endwrite(&kernel_apps->va_lock);
+  } FINALLY {
+   vm_release(&vm_kernel);
+  }
+  TRY {
+
+   /* Unbind the driver from all running threads. */
+   unbind_driver_from_threads(app);
+
+   /* Invoke all `DRIVER_TAG_FINI' callbacks. */
+   for (spec = app->d_spec; spec->dt_name; ++spec) {
     image_rva_t *vector; size_t i;
-    if (spec->dt_name != DRIVER_TAG_UNBIND)
-        continue;
-    /* Invoke unbind callbacks. */
+    if (spec->dt_name != DRIVER_TAG_FINI) continue;
+    /* Invoke fini callbacks. */
     vector = (image_rva_t *)(app->d_app.a_loadaddr + spec->dt_start);
     for (i = 0; i < spec->dt_count; ++i)
         SAFECALL_KCALL_VOID_0(*(void(KCALL *)(void))(app->d_app.a_loadaddr + vector[i]));
    }
-   /* Remove the driver from kernel apps. */
+
+   /* Invoke ELF destructors. */
+   if (!(ATOMIC_FETCHOR(app->d_app.a_flags,APPLICATION_FDIDFINI) & APPLICATION_FDIDFINI)) {
+    if (app->d_app.a_module->m_type->m_enumfini)
+        SAFECALL_KCALL_VOID_3(*app->d_app.a_module->m_type->m_enumfini,&app->d_app,&exec_callback,NULL);
+   }
+
+   /* Check if we can now account for all remaining references. */
    {
-    struct vmapps *kernel_apps; size_t i;
-    kernel_apps = FORVM(&vm_kernel,vm_apps);
-    atomic_rwlock_write(&kernel_apps->va_lock);
-    i = 0;
-vm_apps_remove_continue:
-    for (; i < kernel_apps->va_count; ++i) {
-     if (kernel_apps->va_apps[i] != &app->d_app) continue;
-     /* Found one! */
-     --kernel_apps->va_count;
-     memmove(&kernel_apps->va_apps[i],
-             &kernel_apps->va_apps[i+1],
-             (kernel_apps->va_count-i)*
-              sizeof(WEAK REF struct application *));
-     assert(app->d_app.a_weakcnt >= 2);
-     ATOMIC_FETCHDEC(app->d_app.a_weakcnt);
-     goto vm_apps_remove_continue;
+    ref_t seen_references,known_references = 1;
+    if likely(app->d_app.a_mapcnt != 0) ++known_references;
+    seen_references = ATOMIC_READ(app->d_app.a_refcnt);
+    assert(seen_references >= known_references);
+    if unlikely(seen_references > known_references) {
+     if (!force) {
+      debug_printf("[MOD] Cannot unload driver `%[path]' with %u unassigned references\n",
+                   app->d_app.a_module->m_path,
+                   seen_references-known_references);
+      error_throw(E_WOULDBLOCK);
+     }
+     debug_printf("\n\n"
+                  "[MOD] Poisoning kernel by unload driver `%[path]' with %u unassigned references\n"
+                  "\n\n",
+                  app->d_app.a_module->m_path,
+                  seen_references-known_references);
     }
-    atomic_rwlock_endwrite(&kernel_apps->va_lock);
    }
+
+   /* Finally, unmap all of the memory occupied by the driver image. */
+   vm_unmap(VM_ADDR2PAGE(APPLICATION_MAPBEGIN(&app->d_app)),
+            CEILDIV(APPLICATION_MAPSIZE(&app->d_app),PAGESIZE),
+            VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT|VM_UNMAP_SYNC,
+           &app->d_app);
+
+  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+   /* Re-append the driver to the kernel apps vector. */
+   vm_acquire(&vm_kernel);
    TRY {
-
-    /* TODO: Steps #6-#9 are still missing */
-    error_throw(E_NOT_IMPLEMENTED);
-
-   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-    /* Re-append the driver to the kernel apps vector. */
     vm_apps_append(&vm_kernel,&app->d_app);
-    error_rethrow();
+   } FINALLY {
+    vm_release(&vm_kernel);
    }
-  } FINALLY {
-   vm_release(&vm_kernel);
+   error_rethrow();
   }
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   ATOMIC_FETCHAND(app->d_app.a_flags,~APPLICATION_FCLOSING);
   error_rethrow();
  }
  /* Drop the final reference inherited from the caller. */
+ debug_printf("[MOD] Driver `%[path]' unloaded\n",
+                app->d_app.a_module->m_path);
  driver_decref(app);
 }
 

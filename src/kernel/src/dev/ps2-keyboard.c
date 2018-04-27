@@ -93,6 +93,9 @@ Keyboard_Putc(Keyboard *__restrict self, keyboard_key_t key) {
 #if 1 /* For debugging... */
  if (key == KEYUP(KEY_F12)) {
   /* release F12 */
+#if 0
+  asm("int3");
+#else
   PREEMPTION_ENABLE();
   /* Enabling preemption here is illegal but allows tracebacks
    * to cross over into user-space. But considering that we only
@@ -101,6 +104,7 @@ Keyboard_Putc(Keyboard *__restrict self, keyboard_key_t key) {
    * fine, even if it could cause the kernel crash. */
   asm("int3");
   PREEMPTION_DISABLE();
+#endif
   debug_printf("DONE_BREAK\n");
  }
 #endif

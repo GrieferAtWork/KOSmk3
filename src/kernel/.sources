@@ -165,7 +165,9 @@ BEGIN
 			}
 			print fp: "SYMEND(kernel_symbol_table)";
 			print fp: ".section .rodata.kernel_strtab";
-			for (local i,data: util.enumerate(hash_vector)) {
+			local strings = list(util.enumerate(hash_vector));
+			strings.sort([](a,b) -> a[1][0] < b[1][0]);
+			for (local i,data: strings) {
 				if (data is none) continue;
 				print fp: ".Lname"+i+":";
 				print fp: "	.string",repr data[0];
