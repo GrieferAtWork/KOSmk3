@@ -41,7 +41,12 @@ FUNDEF ATTR_NOTHROW bool KCALL kernel_cc_done(void);
  *   - If all caches have been cleared (as best as KOS is able to), `false' is returned.
  *   - Cache clear callbacks should be careful to be non-destructive, meaning that
  *     when reallocating memory, they should make use of `GFP_NOMOVE', so-as to ensure
- *     that deallocated memory isn't actually being used by other threads. */
+ *     that deallocated memory isn't actually being used by other threads.
+ *   - Cache clear callbacks are executed with `TASK_STATE_FDONTSERVE' flag set, meaning
+ *     that blocking operations such as `mutex_get()', while still being blocking, are
+ *     also NOTHROW (except for `rwlock_read()' which can also fail for E_BADALLOC), as
+ *     RPC callbacks aren't served and `E_INTERRUPT' will not be thrown when user-rpc
+ *     callbacks are encountered. */
 FUNDEF ATTR_NOTHROW bool KCALL
 kernel_cc_invoke(/*ATTR_NOTHROW*/bool (KCALL *test)(void *arg), void *arg);
 

@@ -19,6 +19,7 @@
 #ifndef GUARD_KERNEL_SRC_KERNEL_CACHE_C
 #define GUARD_KERNEL_SRC_KERNEL_CACHE_C 1
 #define _KOS_SOURCE 1
+#define _NOSERVE_SOURCE 1 /* cache callbacks are executed without serving RPC callbacks. */
 
 #include <hybrid/compiler.h>
 #include <kernel/malloc.h>
@@ -30,6 +31,7 @@
 #include <sched/task.h>
 #include <kos/safecall.h>
 #include <assert.h>
+#include <except.h>
 
 DECL_BEGIN
 
@@ -102,19 +104,33 @@ again:
  if (!cc_done) {
   /* Invoke global cache clearing callbacks.
    * Those will then invoke per-task callbacks and go into driver bindings, etc. */
-  for (iter = global_clear_caches_start;
-       iter < global_clear_caches_end; ++iter) {
+  u16 old_state;
+  old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
+  TRY {
+   for (iter = global_clear_caches_start;
+        iter < global_clear_caches_end; ++iter) {
 #if 1
-   debug_printf("%[vinfo:%f(%l,%c) : %n : %p : CC_INVOKE\n]",*iter);
+    debug_printf("%[vinfo:%f(%l,%c) : %n : %p : CC_INVOKE\n]",*iter);
 #endif
-   SAFECALL_KCALL_VOID_0(**iter);
-   if (kernel_cc_done())
-       goto done;
+    SAFECALL_KCALL_VOID_0(**iter);
+    if (kernel_cc_done())
+        goto done;
+   }
+   /* Clear kernel heaps in the very end because the cache
+    * clear machinery probably just freed a whole bunch of
+    * memory. */
+   truncate_heap_caches();
+  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+   /* Even though we should never get here, and despite the fact that
+    * if we ever did it would mean there's a problem with the kernel,
+    * considering the fact that drivers could easily (and accidentally)
+    * do something that causes an exception, better just catch-all here
+    * and dump whatever was the cause. */
+   error_printf("Exception occurred while sweeping caches\n");
+   error_handled();
   }
-  /* Clear kernel heaps in the very end because the cache
-   * clear machinery probably just freed a whole bunch of
-   * memory. */
-  truncate_heap_caches();
+  if (!(old_state & TASK_STATE_FDONTSERVE))
+        ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
  }
 
 done:
