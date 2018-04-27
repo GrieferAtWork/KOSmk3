@@ -539,7 +539,7 @@ __FORCELOCAL __size_t
  * NOTES:
  *   - Nothing these functions do can't easily be
  *     emulated using `heap_alloc()' and `heap_allat()'
- *     In fact: these functions are allocated as a wrapper around those.
+ *     In fact: these functions are simple wrappers for them.
  *   - These functions always return a fully allocated heap data block.
  *   - Alignment arguments passed to `heap_realign()' are ignored
  *     unless the initial, or a new data block have to be allocated.

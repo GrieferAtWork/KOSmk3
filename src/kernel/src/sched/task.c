@@ -25,6 +25,8 @@
 #include <kos/types.h>
 #include <kos/safecall.h>
 #include <kernel/sections.h>
+#include <kernel/cache.h>
+#include <kernel/bind.h>
 #include <kernel/malloc.h>
 #include <kernel/debug.h>
 #include <kernel/syscall.h>
@@ -117,6 +119,257 @@ INTDEF task_func_t pertask_fini_start[];
 INTDEF task_func_t pertask_fini_end[];
 
 
+/* List of all existing threads (including those that havn't
+ * been started yet, as well as those that are about to terminate) */
+INTERN DEFINE_ATOMIC_RWLOCK(all_threads_lock);
+INTERN LIST_HEAD(struct task) all_threads_list = &_boot_task;
+INTERN ATTR_PERTASK LIST_NODE(struct task) all_threads_link = { NULL, &all_threads_list };
+
+
+/* Same as the functions above, but used to create a
+ * snapshot of all threads currently in existence.
+ * @param: buf:          A pointer to a vector of task pointers to-be filled with running threads upon success.
+ * @param: buf_length:   The number of pointers that can be written into `buf' before it has filled up.
+ * @return: * :          The required number of task buffer pointers.
+ *                       When this value is greater than `buf_length', no reference will
+ *                       have been stored in `*buf', and its contents are undefined.
+ *                       When lower than, or equal to `buf_length', `buf' will have been
+ *                       filled with the reference to all threads in existence matching
+ *                       the given argument.
+ * @throw: E_WOULDBLOCK: Preemption has been disabled. */
+FUNDEF size_t KCALL
+task_enumerate_ex(REF struct task **__restrict buf, size_t buf_length,
+                  u16 state_mask, u16 state_flag) {
+ size_t result = 0;
+ REF struct task *iter;
+ atomic_rwlock_read(&all_threads_lock);
+ iter = all_threads_list;
+ while (iter) {
+  if ((ATOMIC_READ(iter->t_state) & state_mask) != state_flag ||
+      !task_tryincref(iter)) {
+   iter = FORTASK(iter,all_threads_link).le_next;
+   continue; /* Ignored task, or dead task. */
+  }
+  /* Buffer isn't large enough. */
+  if unlikely(result == buf_length) {
+   /* Continue enumeration, then drop all references already collected. */
+   struct task *iter2 = iter;
+   do if ((ATOMIC_READ(iter2->t_state) & state_mask) == state_flag &&
+          (ATOMIC_READ(iter2->t_refcnt) != 0)) ++result;
+   while ((iter2 = FORTASK(iter2,all_threads_link).le_next) != NULL);
+   atomic_rwlock_endread(&all_threads_lock);
+   task_decref(iter);
+   while (buf_length--) task_decref(buf[buf_length]);
+   return result;
+  }
+  assert(result < buf_length);
+  buf[result++] = iter; /* Inherit reference. */
+  iter = FORTASK(iter,all_threads_link).le_next;
+ }
+ atomic_rwlock_endread(&all_threads_lock);
+ return result;
+}
+
+
+
+/* Similar to `task_foreach()' above, but doesn't give the guaranty that any
+ * thread is enumerated only once, or that no threads will be skipped during
+ * enumeration, in trade for the ability to enumerate without the need of a
+ * temporary buffer.
+ * @return: * : The total number of enumerated threads.
+ * @throw: E_WOULDBLOCK: Preemption has been disabled. */
+PUBLIC size_t KCALL
+task_foreach_weak_ex(bool (KCALL *func)(struct task *__restrict thread, void *arg),
+                     void *arg, u16 state_mask, u16 state_flag) {
+ REF struct task *EXCEPT_VAR iter;
+ size_t result = 0;
+again:
+ atomic_rwlock_read(&all_threads_lock);
+ iter = all_threads_list;
+ while (iter) {
+  if ((ATOMIC_READ(iter->t_state) & state_mask) != state_flag ||
+      !task_tryincref(iter)) {
+   iter = FORTASK(iter,all_threads_link).le_next;
+   continue; /* Ignored task, or dead task. */
+  }
+  atomic_rwlock_endread(&all_threads_lock);
+  ++result;
+  /* Invoke the given callback. */
+  TRY {
+   if (!SAFECALL_KCALL_2(*func,iter,arg))
+        goto done;
+  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+   task_decref(iter);
+   error_rethrow();
+  }
+  atomic_rwlock_read(&all_threads_lock);
+  /* Must decref() _after_ having re-acquired the lock to ensure that
+   * we can still safely read out the task's next-pointer below. */
+  if (!ATOMIC_DECIFNOTONE(iter->t_refcnt)) {
+   atomic_rwlock_endread(&all_threads_lock);
+   task_decref(iter);
+   goto again;
+  }
+  iter = FORTASK(iter,all_threads_link).le_next;
+ }
+ atomic_rwlock_endread(&all_threads_lock);
+done:
+ return result;
+}
+
+#define TASK_STACK_BUFFER_SIZE  32
+PRIVATE ATTR_NOINLINE size_t KCALL
+task_foreach_stack_ex(bool (KCALL *func)(struct task *__restrict thread, void *arg),
+                      void *arg, u16 state_mask, u16 state_flag) {
+ REF struct task *buf[TASK_STACK_BUFFER_SIZE];
+ size_t EXCEPT_VAR result;
+ result = task_enumerate_ex(buf,
+                            TASK_STACK_BUFFER_SIZE,
+                            state_mask,
+                            state_flag);
+ if (result <= TASK_STACK_BUFFER_SIZE) {
+  /* We already got all the thread! */
+  size_t EXCEPT_VAR i = 0;
+  TRY {
+   for (; i < result; ++i) {
+    if (!SAFECALL_KCALL_2(func,buf[i],arg)) {
+     /* Stop enumeration. (drop references from all remaining threads) */
+     for (; i < result; ++i) task_decref(buf[i]);
+     break;
+    }
+    task_decref(buf[i]);
+   }
+  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+   /* Drop references that hadn't been enumerated, yet. */
+   for (; i < result; ++i)
+       task_decref(buf[i]);
+   error_rethrow();
+  }
+ }
+ return result;
+}
+
+
+/* Enumerate all threads in existence, including those that haven't
+ * been started yet, as well as those that have already terminated.
+ * NOTES:
+ *   - `task_foreach_running()' is similar to `task_foreach()', but
+ *      excludes threads that haven't been started, or have already
+ *      terminated.
+ *     (NOTE: thread currently terminating are still enumerated, though)
+ *   - `task_foreach_ex()' is an extended variant that only enumerates tasks
+ *      for with the condition `(thread->t_state & state_mask) == state_flag'
+ *      applies at the time when the task is enumerated.
+ *   -  These functions are implemented using the `task_enumerate()'
+ *      API below, which is why they need the ability of dynamically
+ *      allocating heap memory when there are too many threads in
+ *      existence so-as to allocate a buffer on the stack.
+ * @return: * :          The total number of enumerated threads.
+ * @throw: E_BADALLOC:   Too many threads are running and enumeration failed
+ *                       to allocate a temporary buffer located on the heap.
+ * @throw: E_WOULDBLOCK: Preemption has been disabled. */
+PUBLIC size_t KCALL
+task_foreach_ex(bool (KCALL *func)(struct task *__restrict thread, void *arg),
+                void *arg, u16 state_mask, u16 state_flag) {
+ size_t EXCEPT_VAR result;
+ REF struct task **EXCEPT_VAR buffer;
+ result = task_foreach_stack_ex(func,arg,state_mask,state_flag);
+ if (result <= TASK_STACK_BUFFER_SIZE) goto done;
+ /* Allocate a dynamic buffer. */
+ buffer = (REF struct task **)kmalloc(result*sizeof(REF struct task *),
+                                      GFP_SHARED);
+ TRY {
+  size_t EXCEPT_VAR i;
+  size_t EXCEPT_VAR new_length;
+retry_enumeration:
+  new_length = task_enumerate_ex(buffer,result,state_mask,state_flag);
+  if unlikely(new_length > result) {
+   /* Allocate more memory and try again. */
+   buffer = (REF struct task **)krealloc(buffer,
+                                         new_length*sizeof(REF struct task *),
+                                         GFP_SHARED);
+   result = new_length;
+   goto retry_enumeration;
+  }
+  /* Got all the threads. Now to enumerate them */
+  i = 0;
+  TRY {
+   for (; i < result; ++i) {
+    if (!SAFECALL_KCALL_2(func,buffer[i],arg)) {
+     /* Stop enumeration. (drop references from all remaining threads) */
+     for (; i < result; ++i) task_decref(buffer[i]);
+     break;
+    }
+    task_decref(buffer[i]);
+   }
+  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+   /* Drop references that hadn't been enumerated, yet. */
+   for (; i < result; ++i)
+       task_decref(buffer[i]);
+   error_rethrow();
+  }
+ } FINALLY {
+  kfree(buffer);
+ }
+done:
+ return result;
+}
+
+
+
+typedef void (KCALL *pertask_clear_cache_t)(struct task *__restrict thread);
+INTDEF pertask_clear_cache_t pertask_clear_caches_start[];
+INTDEF pertask_clear_cache_t pertask_clear_caches_end[];
+
+PRIVATE bool KCALL
+clear_pertask_caches(struct task *__restrict thread,
+                     void *UNUSED(arg)) {
+ pertask_clear_cache_t *iter;
+ for (iter = pertask_clear_caches_start;
+      iter < pertask_clear_caches_end; ++iter) {
+#if 1
+  debug_printf("%[vinfo:%f(%l,%c) : %n : %p] : CC_INVOKE_PERTASK(%u)\n",
+               *iter,posix_gettid_view(thread));
+#endif
+  SAFECALL_KCALL_VOID_1(**iter,thread);
+  if (kernel_cc_done())
+      return false; /* Stop if caching is done. */
+ }
+ /* Only continue enumeration when cache clearing isn't done, yet. */
+ return !kernel_cc_done();
+}
+
+DEFINE_GLOBAL_CACHE_CLEAR(global_clear_pertask_caches);
+PRIVATE ATTR_USED void KCALL global_clear_pertask_caches(void) {
+ task_foreach_weak_running(&clear_pertask_caches,NULL);
+}
+
+
+typedef void (KCALL *pertask_unbind_driver_t)(struct task *__restrict thread, struct driver *__restrict d);
+INTDEF pertask_unbind_driver_t pertask_unbind_driver_start[];
+INTDEF pertask_unbind_driver_t pertask_unbind_driver_end[];
+PRIVATE bool KCALL
+unbind_pertask_drivers(struct task *__restrict thread,
+                       void *arg) {
+ pertask_unbind_driver_t *iter;
+ for (iter = pertask_unbind_driver_start;
+      iter < pertask_unbind_driver_end; ++iter)
+      SAFECALL_KCALL_VOID_2(**iter,thread,(struct driver *)arg);
+ return true;
+}
+
+DEFINE_GLOBAL_UNBIND_DRIVER(global_unbind_pertask_drivers);
+PRIVATE ATTR_USED void KCALL
+global_unbind_pertask_drivers(struct driver *__restrict d) {
+ task_foreach(&clear_pertask_caches,d);
+}
+
+
+
+
+
+
+
 PUBLIC ATTR_RETNONNULL ATTR_MALLOC
 REF struct task *KCALL task_alloc(void) {
  task_func_t *iter;
@@ -134,6 +387,17 @@ REF struct task *KCALL task_alloc(void) {
   for (iter = pertask_init_start;
        iter < pertask_init_end; ++iter)
        SAFECALL_KCALL_VOID_1(**iter,result);
+
+  /* Register the task. */
+  atomic_rwlock_write(&all_threads_lock);
+  assertf(FORTASK(result,all_threads_link).le_pself == &all_threads_list,
+          "This initialization should be part of the pertask template");
+  FORTASK(result,all_threads_link).le_next = all_threads_list;
+  if likely(all_threads_list)
+     FORTASK(all_threads_list,all_threads_link).le_pself = &FORTASK(result,all_threads_link).le_next;
+  all_threads_list = result;
+  atomic_rwlock_endwrite(&all_threads_lock);
+
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   iter = pertask_fini_end;
   while (iter-- != pertask_fini_start)
@@ -394,6 +658,16 @@ PUBLIC ATTR_NOTHROW void KCALL
 task_destroy(struct task *__restrict self) {
  task_func_t *iter;
  assert(self != &_boot_task);
+
+ /* Unregister the task. */
+ atomic_rwlock_write(&all_threads_lock);
+ {
+  struct task *next_task = FORTASK(self,all_threads_link).le_next;
+  if ((*FORTASK(self,all_threads_link).le_pself = next_task) != NULL)
+        FORTASK(next_task,all_threads_link).le_pself = FORTASK(self,all_threads_link).le_pself;
+ }
+ atomic_rwlock_endwrite(&all_threads_lock);
+
 
  /* Execute finalizers. */
  iter = pertask_fini_end;

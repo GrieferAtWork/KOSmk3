@@ -117,9 +117,10 @@ kernel_control(syscall_ulong_t command, syscall_ulong_t arg0,
        error_throw(E_INVALID_ARGUMENT);
     TRY {
      /* Delete this driver. */
-     kernel_delmod(driver);
-    } FINALLY {
+     kernel_delmod(driver,true);
+    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
      driver_decref(driver);
+     error_rethrow();
     }
    }
   } FINALLY {

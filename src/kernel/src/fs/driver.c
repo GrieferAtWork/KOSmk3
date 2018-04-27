@@ -525,6 +525,7 @@ again:
 
      case DRIVER_TAG_INIT:
      case DRIVER_TAG_FINI:
+     case DRIVER_TAG_UNBIND:
       if ((tag->dt_count &&
           (tag->dt_start < mod->m_imagemin ||
            tag->dt_start+tag->dt_count*sizeof(image_rva_t) < tag->dt_start ||
@@ -655,11 +656,68 @@ again:
 }
 
 PUBLIC void KCALL
-kernel_delmod(struct driver *__restrict app) {
- ATOMIC_FETCHOR(app->d_app.a_flags,APPLICATION_FCLOSING);
- driver_unbind_globals(app);
- /* TODO */
- error_throw(E_NOT_IMPLEMENTED);
+kernel_delmod(REF struct driver *__restrict app_, bool force) {
+ REF struct driver *EXCEPT_VAR app = app_;
+ struct driver_tag const *spec;
+ if (ATOMIC_FETCHOR(app->d_app.a_flags,APPLICATION_FCLOSING) & APPLICATION_FCLOSING) {
+  /* Bail to get rid of this reference. (which is probably stopping some other thread) */
+  driver_decref(app);
+  return;
+ }
+ TRY {
+  vm_acquire(&vm_kernel);
+  TRY {
+   driver_unbind_globals(app);
+   spec = app->d_spec;
+   for (; spec->dt_name; ++spec) {
+    image_rva_t *vector; size_t i;
+    if (spec->dt_name != DRIVER_TAG_UNBIND)
+        continue;
+    /* Invoke unbind callbacks. */
+    vector = (image_rva_t *)(app->d_app.a_loadaddr + spec->dt_start);
+    for (i = 0; i < spec->dt_count; ++i)
+        SAFECALL_KCALL_VOID_0(*(void(KCALL *)(void))(app->d_app.a_loadaddr + vector[i]));
+   }
+   /* Remove the driver from kernel apps. */
+   {
+    struct vmapps *kernel_apps; size_t i;
+    kernel_apps = FORVM(&vm_kernel,vm_apps);
+    atomic_rwlock_write(&kernel_apps->va_lock);
+    i = 0;
+vm_apps_remove_continue:
+    for (; i < kernel_apps->va_count; ++i) {
+     if (kernel_apps->va_apps[i] != &app->d_app) continue;
+     /* Found one! */
+     --kernel_apps->va_count;
+     memmove(&kernel_apps->va_apps[i],
+             &kernel_apps->va_apps[i+1],
+             (kernel_apps->va_count-i)*
+              sizeof(WEAK REF struct application *));
+     assert(app->d_app.a_weakcnt >= 2);
+     ATOMIC_FETCHDEC(app->d_app.a_weakcnt);
+     goto vm_apps_remove_continue;
+    }
+    atomic_rwlock_endwrite(&kernel_apps->va_lock);
+   }
+   TRY {
+
+    /* TODO: Steps #6-#9 are still missing */
+    error_throw(E_NOT_IMPLEMENTED);
+
+   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+    /* Re-append the driver to the kernel apps vector. */
+    vm_apps_append(&vm_kernel,&app->d_app);
+    error_rethrow();
+   }
+  } FINALLY {
+   vm_release(&vm_kernel);
+  }
+ } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+  ATOMIC_FETCHAND(app->d_app.a_flags,~APPLICATION_FCLOSING);
+  error_rethrow();
+ }
+ /* Drop the final reference inherited from the caller. */
+ driver_decref(app);
 }
 
 

@@ -442,8 +442,9 @@ FUNDEF void KCALL task_destroy(struct task *__restrict self);
 FUNDEF void KCALL task_failed(struct task *__restrict self);
 
 /* Increment/decrement the reference counter of the given task `x' */
-#define task_incref(x)  ATOMIC_FETCHINC((x)->t_refcnt)
-#define task_decref(x) (ATOMIC_DECFETCH((x)->t_refcnt) || (task_destroy(x),0))
+#define task_tryincref(x)  ATOMIC_INCIFNONZERO((x)->t_refcnt)
+#define task_incref(x)     ATOMIC_FETCHINC((x)->t_refcnt)
+#define task_decref(x)    (ATOMIC_DECFETCH((x)->t_refcnt) || (task_destroy(x),0))
 
 
 typedef void (KCALL *task_main_t)(void *arg);
@@ -1068,6 +1069,97 @@ FUNDEF bool KCALL task_unshare_files(void);    /* CLONE_FILES */
 FUNDEF bool KCALL task_unshare_fs(void);       /* CLONE_FS */
 FUNDEF bool KCALL task_unshare_sighand(void);  /* CLONE_SIGHAND */
 FUNDEF bool KCALL task_unshare_vm(void);       /* CLONE_FS */
+
+
+
+/* Enumerate all threads in existence, including those that haven't
+ * been started yet, as well as those that have already terminated.
+ * NOTES:
+ *   - `task_foreach_running()' is similar to `task_foreach()', but
+ *      excludes threads that haven't been started, or have already
+ *      terminated.
+ *     (NOTE: thread currently terminating are still enumerated, though)
+ *   - `task_foreach_ex()' is an extended variant that only enumerates tasks
+ *      for with the condition `(thread->t_state & state_mask) == state_flag'
+ *      applies at the time when the task is enumerated.
+ *   -  These functions are implemented using the `task_enumerate()'
+ *      API below, which is why they need the ability of dynamically
+ *      allocating heap memory when there are too many threads in
+ *      existence so-as to allocate a buffer on the stack.
+ *   -  If the given callback `func' returns `false', enumeration is aborted.
+ * @return: * :          The total number of existing threads (when `func' only returned
+ *                      `true', then this equals the number of enumerated threads).
+ * @throw: E_BADALLOC:   Too many threads are running and enumeration failed
+ *                       to allocate a temporary buffer located on the heap.
+ * @throw: E_WOULDBLOCK: Preemption has been disabled. */
+FORCELOCAL size_t KCALL task_foreach(bool (KCALL *func)(struct task *__restrict thread, void *arg), void *arg);
+FORCELOCAL size_t KCALL task_foreach_running(bool (KCALL *func)(struct task *__restrict thread, void *arg), void *arg);
+FUNDEF size_t KCALL task_foreach_ex(bool (KCALL *func)(struct task *__restrict thread, void *arg), void *arg, u16 state_mask, u16 state_flag);
+
+/* Similar to `task_foreach()' above, but doesn't give the guaranty that any
+ * thread is enumerated only once, or that no threads will be skipped during
+ * enumeration, in trade for the ability to enumerate without the need of a
+ * temporary buffer.
+ * @return: * : The total number of enumerated threads.
+ *              The behavior when `func' returns `false' differs slightly in this case,
+ *              as the number of _enumerated_ threads is returned, not _existing_!
+ * @throw: E_WOULDBLOCK: Preemption has been disabled. */
+FORCELOCAL size_t KCALL task_foreach_weak(bool (KCALL *func)(struct task *__restrict thread, void *arg), void *arg);
+FORCELOCAL size_t KCALL task_foreach_weak_running(bool (KCALL *func)(struct task *__restrict thread, void *arg), void *arg);
+FUNDEF size_t KCALL task_foreach_weak_ex(bool (KCALL *func)(struct task *__restrict thread, void *arg), void *arg, u16 state_mask, u16 state_flag);
+
+/* Same as the functions above, but used to create a
+ * snapshot of all threads currently in existence.
+ * @param: buf:          A pointer to a vector of task pointers to-be filled with running threads upon success.
+ * @param: buf_length:   The number of pointers that can be written into `buf' before it has filled up.
+ * @return: * :          The required number of task buffer pointers.
+ *                       When this value is greater than `buf_length', no reference will
+ *                       have been stored in `*buf', and its contents are undefined.
+ *                       When lower than, or equal to `buf_length', `buf' will have been
+ *                       filled with the reference to all threads in existence matching
+ *                       the given argument.
+ * @throw: E_WOULDBLOCK: Preemption has been disabled. */
+FORCELOCAL size_t KCALL task_enumerate(REF struct task **__restrict buf, size_t buf_length);
+FORCELOCAL size_t KCALL task_enumerate_running(REF struct task **__restrict buf, size_t buf_length);
+FUNDEF size_t KCALL task_enumerate_ex(REF struct task **__restrict buf, size_t buf_length, u16 state_mask, u16 state_flag);
+
+
+
+#ifndef __INTELLISENSE__
+FORCELOCAL size_t KCALL
+task_foreach(bool (KCALL *func)(struct task *__restrict thread, void *arg), void *arg) {
+ return task_foreach_ex(func,arg,0,0);
+}
+FORCELOCAL size_t KCALL
+task_foreach_running(bool (KCALL *func)(struct task *__restrict thread, void *arg), void *arg) {
+ return task_foreach_ex(func,arg,
+                        TASK_STATE_FSTARTED|TASK_STATE_FTERMINATED,
+                        TASK_STATE_FSTARTED);
+}
+FORCELOCAL size_t KCALL
+task_foreach_weak(bool (KCALL *func)(struct task *__restrict thread, void *arg), void *arg) {
+ return task_foreach_weak_ex(func,arg,0,0);
+}
+FORCELOCAL size_t KCALL
+task_foreach_weak_running(bool (KCALL *func)(struct task *__restrict thread, void *arg), void *arg) {
+ return task_foreach_weak_ex(func,arg,
+                             TASK_STATE_FSTARTED|TASK_STATE_FTERMINATED,
+                             TASK_STATE_FSTARTED);
+}
+
+FORCELOCAL size_t KCALL
+task_enumerate(REF struct task **__restrict buf, size_t buf_length) {
+ return task_enumerate_ex(buf,buf_length,0,0);
+}
+FORCELOCAL size_t KCALL
+task_enumerate_running(REF struct task **__restrict buf, size_t buf_length) {
+ return task_enumerate_ex(buf,buf_length,
+                          TASK_STATE_FSTARTED|TASK_STATE_FTERMINATED,
+                          TASK_STATE_FSTARTED);
+}
+#endif /* !__INTELLISENSE__ */
+
+
 #endif /* __CC__ */
 
 

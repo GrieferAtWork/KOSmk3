@@ -400,6 +400,27 @@ register_module_type(struct module_type *__restrict self) {
 }
 
 
+DEFINE_GLOBAL_UNBIND_DRIVER(unbind_driver_module_types);
+PRIVATE ATTR_USED void KCALL
+unbind_driver_module_types(struct driver *__restrict d) {
+ struct module_type *iter,*next;
+ atomic_rwlock_write(&module_types.mt_lock);
+ iter = module_types.mt_types;
+ while (iter) {
+  next = iter->m_types.le_next;
+  if (iter->m_driver == d) {
+   LIST_REMOVE(iter,m_types);
+   /* Remove this driver binding. */
+   iter->m_types.le_pself = NULL;
+   assert(d->d_app.a_refcnt >= 2);
+   ATOMIC_FETCHDEC(d->d_app.a_refcnt);
+  }
+  iter = next;
+ }
+ atomic_rwlock_endwrite(&module_types.mt_lock);
+}
+
+
 
 PRIVATE ATTR_RETNONNULL REF struct module *KCALL
 module_open_new(struct regular_node *__restrict node,

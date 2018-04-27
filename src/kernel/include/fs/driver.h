@@ -94,6 +94,8 @@ DECL_BEGIN
                                       * Called after ELF module constructors; before `DRIVER_TAG_INIT'; may be located in `.free' memory. */
 #define DRIVER_TAG_FREE       0x0006 /* Starting page number of the driver's .free section. (vm_vpage_t)
                                       * NOTE: `dt_count' is the size of the driver's .free section (in pages) */
+#define DRIVER_TAG_UNBIND     0x0007 /* Pointer to an array of `image_rva_t' with `dt_count' elements.
+                                      * Optional vector of callbacks that are invoked early on during driver unloading. */
 #define DRIVER_TAG_BIND_START 0x1000 /* Starting tag for misc. kernel binding callbacks. */
 
 #define DRIVER_TAG_FNORMAL    0x0000 /* Normal driver tag flags. */
@@ -209,13 +211,59 @@ KCALL kernel_insmod(struct module *__restrict mod, bool *pwas_newly_loaded,
 
 
 /* Delete the given module:
- *   #1: Set the `APPLICATION_FCLOSING' flag if it wasn't set already.
- *   #2: Get rid of all global hooks of the driver (devices, filesystem types, etc.).
- *   #3: Send `E_INTERRUPT' exceptions to all threads who's active stack portion
- *       contains pointers directed into the segment of the application.
- *  XXX: Terminate threads started by `app'?
- *  XXX: Unmap memory of `app' */
-FUNDEF void KCALL kernel_delmod(struct driver *__restrict app);
+ *   #1:  Set the `APPLICATION_FCLOSING' flag if it wasn't set already.
+ *        If it was already set, drop a reference from `app' and return immediately.
+ *   #2:  Acquire an exclusive lock to `vm_kernel', which will be kept until this function returns.
+ *   #3:  Get rid of all global hooks of the driver (devices, filesystem types, etc.).
+ *        s.a.: `DEFINE_GLOBAL_UNBIND_DRIVER()'
+ *   #4:  If defined by the driver, invoke callbacks specified by the `DRIVER_TAG_UNBIND' tag
+ *   #5:  Remove the driver from the `vm_apps' vector of the kernel itself.
+ *        NOTE: If any of the steps below fail, re-add the driver to this vector.
+ *   #6:  Send an RPC to every thread running on the system that does the following:
+ *         - Unwind the call-stack in search for PC-pointers that are apart of
+ *           the driver that is being deleted.
+ *           If unwinding fails (the last found frame doesn't have a CFA value that
+ *           is equal to the base address of the kernel stack of that thread), search
+ *           the stack manually for data words that look like pointers, then check
+ *           if those pointers are located within the driver in question.
+ *         - If no such pointers are found, do nothing.
+ *         - If such pointers _are_ found, indicate that thread exist
+ *           that are still using the driver and do the following:
+ *            - If the thread isn't a kernel job, schedule an RPC for execution
+ *              prior to returning to user-space. In that RPC broadcast a signal
+ *              that the thread that is deleting the driver will wait for.
+ *            - If the thread is a kernel job, continue unwinding the kernel
+ *              stack until the very bottom-most stack frame.
+ *              If that frame is located within the driver that is being deleted,
+ *              throw an E_EXIT_THREAD exception. Otherwise, throw an E_INTERRUPT
+ *              exception.
+ *         - This process is repeated until no drivers exist that are still using the driver.
+ *   #7:  Invoke callbacks found in `DRIVER_TAG_FINI', followed by `application_enumfini()'
+ *   #8:  Check if we can account for all remaining references held by the driver.
+ *        In other words:
+ *          - `+1' for the reference the caller wants us to inherit (`REF ... app')
+ *          - `+1' in the (highly probably) case of `app->a_mapcnt' being non-ZERO(0)
+ *        If there are any reference left for which KOS cannot account, wait
+ *        for up to 3 seconds and recheck the math. If it still doesn't check out,
+ *        throw an `E_WOULD_BLOCK' error if `force' is false, or log a warning
+ *        message and mark the kernel as having undergone poisoning (aka. the
+ *        kernel crashing then is considered not to necessarily be the core's fault)
+ *   #9:  Unmap memory mapped for the driver `vm_unmap()'
+ *        This will decrement the driver's reference counter to ONE(1), as the
+ *        second reference was held by the `a_mapcnt' field being non-ZERO(0)
+ *   #10: Drop the final reference passed by the caller and actually destroy the driver.
+ *        NOTE: If `force' was true and references other than those specified still
+ *              exist, `app' is not actually destroyed, but that task is left to
+ *              whatever component of the kernel is still holding a reference.
+ *              If no such component exists, the driver should eventually appear
+ *              as a memory leak dumpable by `mall_dump_leaks()'
+ * @param: app:   The driver that should be deleted.
+ *                A reference to this argument is inherited upon success.
+ * @param: force: Set to true if driver deletion should be forced
+ *               (still doesn't guaranty success; see above)
+ * @throw: E_WOULD_BLOCK: `force' is `false' and reference still exists which the kernel cannot account for.
+ */
+FUNDEF void KCALL kernel_delmod(REF struct driver *__restrict app, bool force);
 
 /* Lookup the driver associated with a given module, or
  * return NULL if that module hasn't been loaded as a driver. */

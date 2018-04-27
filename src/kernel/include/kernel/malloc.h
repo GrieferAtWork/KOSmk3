@@ -233,7 +233,7 @@ DECL_BEGIN
                              * NOTE: When directly used with `heap_*' functions, allocations
                              *       are restricted to ``CEIL_ALIGN(n_bytes,PAGESIZE)' */
 #define GFP_NOMOVE   0x2000 /* For `krealloc' & `krealign': Use `realloc_in_place()' semantics.
-                             * NOTE: This is flag is set and `NULL' is passed for `ptr', the return value is always `NULL' */
+                             * NOTE: When this is flag is set and `NULL' is passed for `ptr', the return value is always `NULL' */
 #define GFP_NOMAP    0x4000 /* Do not map new memory, but throw an `E_WOULDBLOCK' error when caches do not contain any memory.
                              * Additionally, do not unmap system memory when this flag is set during a free-operation (including realloc when reducing a pointer size) */
 #define GFP_NOTRIM   0x4000 /* Don't unmap memory once free blocks grow to sufficient lengths. */

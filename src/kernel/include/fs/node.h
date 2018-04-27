@@ -1241,8 +1241,9 @@ superblock_open(struct block_device *__restrict device,
 
 
 /* Increment/decrement the reference counter of the given superblock `x' */
-#define superblock_incref(x)  ATOMIC_FETCHINC((x)->s_refcnt)
-#define superblock_decref(x) (ATOMIC_DECFETCH((x)->s_refcnt) || (superblock_destroy(x),0))
+#define superblock_tryincref(x)  ATOMIC_INCIFNONZERO((x)->s_refcnt)
+#define superblock_incref(x)     ATOMIC_FETCHINC((x)->s_refcnt)
+#define superblock_decref(x)    (ATOMIC_DECFETCH((x)->s_refcnt) || (superblock_destroy(x),0))
 
 /* Destroy a previously allocated superblock. */
 FUNDEF ATTR_NOTHROW void KCALL
@@ -1336,12 +1337,6 @@ lookup_filesystem_type(USER CHECKED char const *name);
 
 /* Register a filesystem type. */
 FUNDEF void KCALL register_filesystem_type(struct superblock_type *__restrict type);
-
-#ifdef CONFIG_BUILDING_KERNEL_CORE
-/* Internally called during driver cleanup. */
-INTDEF void KCALL delete_filesystem_type(struct superblock_type *__restrict type);
-#endif
-
 
 #define DEFINE_FILESYSTEM_TYPE(x) \
    DEFINE_DRIVER_INIT(_fs_##x##_init); \

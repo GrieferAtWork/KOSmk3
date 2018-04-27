@@ -23,6 +23,7 @@
 #include <hybrid/compiler.h>
 #include <kos/types.h>
 #include <hybrid/align.h>
+#include <kernel/bind.h>
 #include <kernel/vm.h>
 #include <kernel/malloc.h>
 #include <kernel/debug.h>
@@ -2281,8 +2282,9 @@ again:
  for (; iter; iter = iter->s_filesystems.le_next) {
   if (ATOMIC_FETCHOR(iter->s_flags,SUPERBLOCK_FCLOSED) & SUPERBLOCK_FCLOSED)
       continue; /* Already closed. */
+  if (!superblock_tryincref(iter))
+      continue; /* Dangling superblock */
   ++result;
-  superblock_incref(iter);
   atomic_rwlock_endread(&fs_filesystems.f_superlock);
   /* Close this superblock. */
   TRY {
@@ -2422,7 +2424,8 @@ again:
  if (result) {
   /* Device has already been opened. */
   if (!type || result->s_type == type) {
-   superblock_incref(result);
+   if (!superblock_tryincref(result))
+        goto create_new_fs;
    atomic_rwlock_endread(&device->b_fslock);
    TRY {
     /* Wait until the superblock has been loaded. */
@@ -2446,6 +2449,7 @@ again:
   atomic_rwlock_endread(&device->b_fslock);
   throw_fs_error(ERROR_FS_CORRUPTED_FILESYSTEM);
  }
+create_new_fs:
  atomic_rwlock_endread(&device->b_fslock);
  /* Create a new filesystem. */
  if (!type) {
@@ -2459,7 +2463,7 @@ again:
                          SUPERBLOCK_TYPE_FSINGLE))
        continue;
    /* Save a reference to the driver in question.
-    * Because drivers are not allowed to call `delete_filesystem_type()',
+    * Because drivers are not allowed to unregister filesystem types,
     * we can assume that a filesystem type will remain valid if we can
     * get a reference to the driver implementing it.
     * NOTE: Filesystem types registered by some driver are automatically
@@ -2802,20 +2806,59 @@ again_locked:
 
 
 
-INTERN void KCALL
-delete_filesystem_type(struct superblock_type *__restrict type) {
- atomic_rwlock_write(&fs_filesystem_types.ft_typelock);
- LIST_REMOVE(type,st_chain);
- type->st_chain.le_pself = NULL;
- type->st_chain.le_next = NULL;
- atomic_rwlock_endwrite(&fs_filesystem_types.ft_typelock);
- driver_decref(type->st_driver);
+DEFINE_GLOBAL_UNBIND_DRIVER(unbind_driver_filesystem_types);
+PRIVATE ATTR_USED void KCALL
+unbind_driver_filesystem_types(struct driver *__restrict d) {
+ {
+  struct superblock_type *iter,*next;
+  atomic_rwlock_write(&fs_filesystem_types.ft_typelock);
+  iter = fs_filesystem_types.ft_types;
+  while (iter) {
+   next = iter->st_chain.le_next;
+   if (iter->st_driver == d) {
+    LIST_REMOVE(iter,st_chain);
+    /* Remove this driver binding. */
+    iter->st_chain.le_pself = NULL;
+    assert(d->d_app.a_refcnt >= 2);
+    ATOMIC_FETCHDEC(d->d_app.a_refcnt);
+   }
+   iter = next;
+  }
+  atomic_rwlock_endwrite(&fs_filesystem_types.ft_typelock);
+ }
+ /* With filesystem types no unbound, search for
+  * superblocks associated with the given driver. */
+ {
+  struct superblock *iter;
+again:
+  atomic_rwlock_read(&fs_filesystems.f_superlock);
+  iter = fs_filesystems.f_superblocks;
+  for (; iter; iter = iter->s_filesystems.le_next) {
+   if (iter->s_driver != d) continue; /* Different driver. */
+   if (ATOMIC_FETCHOR(iter->s_flags,SUPERBLOCK_FCLOSED) & SUPERBLOCK_FCLOSED)
+       continue; /* Already closed. */
+   if (!superblock_tryincref(iter))
+       continue; /* Dangling superblock */
+   atomic_rwlock_endread(&fs_filesystems.f_superlock);
+   assert(PREEMPTION_ENABLED());
+   /* Close this superblock. */
+   superblock_close_nodes(iter);
+   superblock_umount_all(iter);
+   superblock_sync(iter);
+   superblock_clearcache(iter,(size_t)-1);
+   superblock_decref(iter);
+   goto again;
+  }
+  atomic_rwlock_endread(&fs_filesystems.f_superlock);
+ }
 }
+
 PUBLIC void KCALL
 register_filesystem_type(struct superblock_type *__restrict type) {
  assertf(type->st_driver,"No owner defined");
  driver_incref(type->st_driver);
  atomic_rwlock_write(&fs_filesystem_types.ft_typelock);
+ assert(type->st_chain.le_pself == NULL);
  LIST_INSERT(fs_filesystem_types.ft_types,type,st_chain);
  atomic_rwlock_endwrite(&fs_filesystem_types.ft_typelock);
 }

@@ -334,11 +334,13 @@ FUNDEF void KCALL register_module_type(struct module_type *__restrict self);
 
 #ifdef __CC__
 struct application {
-    ATOMIC_DATA ref_t                 a_refcnt;   /* Application reference counter. */
+    ATOMIC_DATA ref_t                 a_refcnt;   /* Application reference counter.
+                                                   * NOTE: When non-ZERO, holds a reference to `a_weakcnt' */
     ATOMIC_DATA ref_t                 a_weakcnt;  /* Weak reference counter. */
     ATOMIC_DATA ref_t                 a_mapcnt;   /* The amount of times that this application
                                                    * is being mapped in the associated VM (when
-                                                   * ZERO(0), the application has been unmapped). */
+                                                   * ZERO(0), the application has been unmapped).
+                                                   * NOTE: When non-ZERO, holds a reference to `a_refcnt' */
     ATOMIC_DATA ref_t                 a_loadcnt;  /* Amount of times the application was opened by user-space. */
     VIRT uintptr_t                    a_loadaddr; /* [const] Application load address (in the associated VM)
                                                    * NOTE: Applications are private to VMs, so you

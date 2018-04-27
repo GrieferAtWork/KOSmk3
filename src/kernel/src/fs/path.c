@@ -172,6 +172,13 @@ path_umount(struct path *__restrict self) {
 }
 
 
+/* Unmount all bindings for a superblock or vfs.
+ * WARNING: Unless the `PATH_FCLOSED' flag for `vfs_umount_all()', or
+ *          the `SUPERBLOCK_FCLOSED' flag for `superblock_umount_all()'
+ *          have been set, new mounting mounts may have already appeared
+ *          by the time these functions return.
+ * @return: * : The number of mounting points that have been removed.
+ * @throw: E_WOULDBLOCK: Preemption has been disabled. */
 PUBLIC size_t KCALL
 vfs_umount_all(struct vfs *__restrict self) {
  size_t result = 0;
@@ -196,6 +203,13 @@ vfs_umount_all(struct vfs *__restrict self) {
  return result;
 }
 
+/* Unmount all bindings for a superblock or vfs.
+ * WARNING: Unless the `PATH_FCLOSED' flag for `vfs_umount_all()', or
+ *          the `SUPERBLOCK_FCLOSED' flag for `superblock_umount_all()'
+ *          have been set, new mounting mounts may have already appeared
+ *          by the time these functions return.
+ * @return: * : The number of mounting points that have been removed.
+ * @throw: E_WOULDBLOCK: Preemption has been disabled. */
 PUBLIC size_t KCALL
 superblock_umount_all(struct superblock *__restrict self) {
  size_t result = 0;
