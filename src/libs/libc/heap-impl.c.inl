@@ -539,6 +539,80 @@ HSYM(libc_heap_free_untraced)(STRUCT_HEAP *__restrict self,
  HSYM(heap_free_raw)(self,ptr,num_bytes,flags);
 }
 
+INTERN size_t LIBCCALL
+HSYM(libc_heap_truncate)(STRUCT_HEAP *__restrict self,
+                         size_t threshold) {
+ size_t result = 0; STRUCT_MFREE **iter,**end;
+ threshold = CEIL_ALIGN(threshold,PAGESIZE);
+ if (!threshold) threshold = PAGESIZE;
+again:
+ /* Search all buckets for free data blocks of at least `threshold' bytes. */
+ iter = &self->h_size[HEAP_BUCKET_OF(threshold)];
+ end  =  COMPILER_ENDOF(self->h_size);
+ atomic_rwlock_write(&self->h_lock);
+ for (; iter != end; ++iter) {
+  STRUCT_MFREE *chain;
+  uintptr_t free_min;
+  uintptr_t free_end;
+  uintptr_t head_keep;
+  uintptr_t tail_keep;
+  void *tail_pointer;
+  u8 free_flags;
+  /* Search this bucket. */
+  chain = *iter;
+  while (chain &&
+        (assertf(IS_ALIGNED(MFREE_SIZE(chain),HEAP_ALIGNMENT),
+                           "MFREE_SIZE(chain) = 0x%Ix",
+                            MFREE_SIZE(chain)),
+         MFREE_SIZE(chain) < threshold))
+         chain = chain->mf_lsize.le_next;
+  if (!chain) continue;
+  /* Figure out how much we can actually return to the core. */
+  free_min = MFREE_BEGIN(chain);
+  free_end = MFREE_END(chain);
+  free_min = CEIL_ALIGN(free_min,PAGESIZE);
+  free_end = FLOOR_ALIGN(free_end,PAGESIZE);
+  if unlikely(free_min >= free_end)
+     continue; /* Even though the range is large enough, due to alignment it doesn't span a whole page */
+  /* Figure out how much memory must be kept in the
+   * head and tail portions of the free data block. */
+  head_keep = free_min-MFREE_BEGIN(chain);
+  tail_keep = MFREE_END(chain)-free_end;
+  /* Make sure that data blocks that cannot be freed are still
+   * large enough to remain representable as their own blocks. */
+  if (head_keep && head_keep < HEAP_MINSIZE) continue;
+  if (tail_keep && tail_keep < HEAP_MINSIZE) continue;
+  /* Remove this chain entry. */
+  asserte(mfree_tree_remove((struct mfree **)&self->h_addr,MFREE_BEGIN(chain)) == (struct mfree *)chain);
+  LIST_REMOVE(chain,mf_lsize);
+  atomic_rwlock_endwrite(&self->h_lock);
+
+  tail_pointer = (void *)((uintptr_t)MFREE_END(chain)-tail_keep);
+  free_flags = chain->mf_flags;
+
+  /* Reset memory contained within the header of the data block we just allocated. */
+  if (free_flags & GFP_CALLOC)
+       libc_memset(chain,0,LOCAL_SIZEOF_MFREE);
+#ifdef OPTION_DEBUG_HEAP
+  else libc_mempatl(chain,DEBUGHEAP_NO_MANS_LAND,LOCAL_SIZEOF_MFREE);
+#endif
+
+  /* Re-release the unused portions of the head and tail data blocks. */
+  if (head_keep) HSYM(heap_free_raw)(self,chain,head_keep,free_flags);
+  if (tail_keep) HSYM(heap_free_raw)(self,tail_pointer,tail_keep,free_flags);
+
+  /* Release full pages in-between back to the core. */
+  HSYM(core_page_free)((void *)free_min,free_end-free_min,free_flags);
+
+  /* Keep track of how much has already been released to the core. */
+  result += free_end-free_min;
+  goto again;
+ }
+ atomic_rwlock_endwrite(&self->h_lock);
+ return result;
+}
+
+
 /* Free a high-memory overallocation of `num_free_bytes'
  * at `overallocation_base', given the associated
  * base-pointer located at `base_pointer'
@@ -1469,6 +1543,7 @@ EXPORT(HSYM(heap_allat),HSYM(libc_heap_allat));
 EXPORT(HSYM(heap_free),HSYM(libc_heap_free));
 EXPORT(HSYM(heap_realloc),HSYM(libc_heap_realloc));
 EXPORT(HSYM(heap_realign),HSYM(libc_heap_realign));
+EXPORT(HSYM(heap_truncate),HSYM(libc_heap_truncate));
 EXPORT(HSYM(heap_alloc_untraced),HSYM(libc_heap_alloc_untraced));
 EXPORT(HSYM(heap_align_untraced),HSYM(libc_heap_align_untraced));
 EXPORT(HSYM(heap_allat_untraced),HSYM(libc_heap_allat_untraced));
@@ -1482,6 +1557,7 @@ EXPORT(HSYM(heap_allat),HSYM(libc_heap_allat_untraced));
 EXPORT(HSYM(heap_free),HSYM(libc_heap_free_untraced));
 EXPORT(HSYM(heap_realloc),HSYM(libc_heap_realloc_untraced));
 EXPORT(HSYM(heap_realign),HSYM(libc_heap_realign_untraced));
+EXPORT(HSYM(heap_truncate),HSYM(libc_heap_truncate));
 #endif
 
 

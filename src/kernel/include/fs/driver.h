@@ -97,7 +97,7 @@ DECL_BEGIN
 #define DRIVER_TAG_BIND_START 0x1000 /* Starting tag for misc. kernel binding callbacks. */
 
 #define DRIVER_TAG_FNORMAL    0x0000 /* Normal driver tag flags. */
-#define DRIVER_TAG_FOPTIONAL  0x0001 /* Normal driver tag is optional. */
+#define DRIVER_TAG_FOPTIONAL  0x0001 /* The driver tag is optional. */
 
 
 /* Enable the specified driver tag under its default location. */

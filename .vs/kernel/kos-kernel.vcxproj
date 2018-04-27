@@ -128,6 +128,7 @@
     <ClCompile Include="..\..\src\kernel\src\kernel\async_signal.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\bind.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\boot.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\cache.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\debug.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\heap.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\ioport.c" />

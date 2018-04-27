@@ -32,7 +32,7 @@
 
 DECL_BEGIN
 
-FUNDEF ASYNCSAFE void KCALL debug_printf(char const *__restrict format, ...);
+FUNDEF ASYNCSAFE void ATTR_CDECL debug_printf(char const *__restrict format, ...);
 FUNDEF ASYNCSAFE void KCALL debug_vprintf(char const *__restrict format, va_list args);
 
 DECL_END

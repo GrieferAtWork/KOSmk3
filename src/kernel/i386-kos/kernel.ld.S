@@ -72,8 +72,6 @@
 .hidden pervm_fini_end
 .hidden pervm_clone_start
 .hidden pervm_clone_end
-.hidden pervm_unmapuser_start
-.hidden pervm_unmapuser_end
 .hidden kernel_except_start
 .hidden kernel_except_end
 .hidden kernel_except_size

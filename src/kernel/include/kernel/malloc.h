@@ -141,14 +141,14 @@ DECL_BEGIN
 
 
 /* Configuration option to enable/disable a debug functionality
- * of `kmalloc()', as well as make it much more robust that it
+ * of `kmalloc()', as well as make it much more robust than it
  * would otherwise be:
  *   - Enable GC-style tracing of reachable memory blocks, including the ability
  *     to dump the kernel's dynamic memory leaks using `mall_dump_leaks()', or
  *     alternatively the user-space kernel control command `KERNEL_CONTROL_DBG_DUMP_LEAKS'
  *   - Disconnect the header containing the data block's size and allocation heap
  *     from the data block itself, instead storing that information elsewhere
- *     in order to prevent it from being corrupted due to invalid use.
+ *     in order to prevent it from being corrupted as the reuslt of invalid use.
  *   - Add a small header and tail data block surrounding every allocation
  *     that can be verified for modifications to detect array overruns, or
  *     data block underflows.
@@ -240,7 +240,7 @@ DECL_BEGIN
                              * WARNING: Unless the caller is either read, or write-locking
                              *         `mman_kernel.m_lock', memory may have already been
                              *          swapped by the time `kmalloc' and friends return. */
-                     
+
 #define GFP_NOIO     (GFP_NOSWAP|GFP_NOFS) /* Don't make use of any kind of I/O when trying to free up available memory. */
 #define GFP_NOFREE   (GFP_NOSWAP|GFP_NOFS) /* Don't take any actions to free up available memory. */
 

@@ -28,6 +28,8 @@
 #include <hybrid/align.h>
 #include <kernel/malloc.h>
 #include <kernel/heap.h>
+#include <kernel/bind.h>
+#include <kernel/cache.h>
 #include <fs/iomode.h>
 #include <except.h>
 #include <string.h>
@@ -99,7 +101,6 @@ PUBLIC struct heap kernel_heaps[__GFP_HEAPCOUNT] = {
         .h_hintmode   = VM_KERNEL_KERNELHEAP_LOCKED_MODE
     },
 };
-
 
 
 
@@ -862,6 +863,79 @@ heap_free_untraced(struct heap *__restrict self,
 #endif
  heap_free_raw(self,ptr,num_bytes,flags);
 }
+
+PUBLIC size_t KCALL
+heap_truncate(struct heap *__restrict self, size_t threshold) {
+ size_t result = 0; struct mfree **iter,**end;
+ threshold = CEIL_ALIGN(threshold,PAGESIZE);
+ if (!threshold) threshold = PAGESIZE;
+again:
+ /* Search all buckets for free data blocks of at least `threshold' bytes. */
+ iter = &self->h_size[HEAP_BUCKET_OF(threshold)];
+ end  =  COMPILER_ENDOF(self->h_size);
+ atomic_rwlock_write(&self->h_lock);
+ for (; iter != end; ++iter) {
+  struct mfree *chain;
+  uintptr_t free_min;
+  uintptr_t free_end;
+  uintptr_t head_keep;
+  uintptr_t tail_keep;
+  void *tail_pointer;
+  u8 free_flags;
+  /* Search this bucket. */
+  chain = *iter;
+  while (chain &&
+        (assertf(IS_ALIGNED(MFREE_SIZE(chain),HEAP_ALIGNMENT),
+                           "MFREE_SIZE(chain) = 0x%Ix",
+                            MFREE_SIZE(chain)),
+         MFREE_SIZE(chain) < threshold))
+         chain = chain->mf_lsize.le_next;
+  if (!chain) continue;
+  /* Figure out how much we can actually return to the core. */
+  free_min = MFREE_BEGIN(chain);
+  free_end = MFREE_END(chain);
+  free_min = CEILDIV(free_min,PAGESIZE);
+  free_end = FLOORDIV(free_end,PAGESIZE);
+  if unlikely(free_min >= free_end)
+     continue; /* Even though the range is large enough, due to alignment it doesn't span a whole page */
+  /* Figure out how much memory must be kept in the
+   * head and tail portions of the free data block. */
+  head_keep = (free_min*PAGESIZE)-MFREE_BEGIN(chain);
+  tail_keep = MFREE_END(chain)-(free_end*PAGESIZE);
+  /* Make sure that data blocks that cannot be freed are still
+   * large enough to remain representable as their own blocks. */
+  if (head_keep && head_keep < HEAP_MINSIZE) continue;
+  if (tail_keep && tail_keep < HEAP_MINSIZE) continue;
+  /* Remove this chain entry. */
+  asserte(mfree_tree_remove(&self->h_addr,MFREE_BEGIN(chain)) == chain);
+  LIST_REMOVE(chain,mf_lsize);
+  atomic_rwlock_endwrite(&self->h_lock);
+
+  tail_pointer = (void *)((uintptr_t)MFREE_END(chain)-tail_keep);
+  free_flags = chain->mf_flags;
+
+  /* Reset memory contained within the header of the data block we just allocated. */
+  if (free_flags & GFP_CALLOC)
+       memset(chain,0,SIZEOF_MFREE);
+#ifdef CONFIG_DEBUG_HEAP
+  else mempatl(chain,DEBUGHEAP_NO_MANS_LAND,SIZEOF_MFREE);
+#endif
+
+  /* Re-release the unused portions of the head and tail data blocks. */
+  if (head_keep) heap_free_raw(self,chain,head_keep,free_flags);
+  if (tail_keep) heap_free_raw(self,tail_pointer,tail_keep,free_flags);
+
+  /* Release full pages in-between back to the core. */
+  core_page_free(free_min,free_end-free_min,free_flags);
+
+  /* Keep track of how much has already been released to the core. */
+  result += (free_end-free_min)*PAGESIZE;
+  goto again;
+ }
+ atomic_rwlock_endwrite(&self->h_lock);
+ return result;
+}
+
 
 
 /* Free a high-memory overallocation of `num_free_bytes'

@@ -23,6 +23,7 @@
 #include <kos/types.h>
 #include <hybrid/atomic.h>
 #include <kernel/vm.h>
+#include <kernel/bind.h>
 #include <kernel/sections.h>
 #include <kernel/user.h>
 #include <kernel/syscall.h>

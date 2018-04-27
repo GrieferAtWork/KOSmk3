@@ -520,7 +520,15 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
                (unsigned int)regs->str_args.a_arg3);
    break;
 
-#define SYS_xfreadlinkat __NR_xfreadlinkat
+  case SYS_xfreadlinkat:
+   debug_printf("sys_xfreadlinkat(%d,%q,%p,%Iu,%x)\n",
+               (int)regs->str_args.a_arg0,
+               (char *)regs->str_args.a_arg1,
+               (char *)regs->str_args.a_arg2,
+               (size_t)regs->str_args.a_arg3,
+               (unsigned int)regs->str_args.a_arg4);
+   break;
+
 #define SYS_xfsmask __NR_xfsmask
 #define SYS_xfmknodat __NR_xfmknodat
 #define SYS_xfmkdirat __NR_xfmkdirat
@@ -546,14 +554,6 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
 #define SYS_xdlfini __NR_xdlfini
 #define SYS_xdlmodule_info __NR_xdlmodule_info
 
-  case SYS_xfreadlinkat:
-   debug_printf("sys_xfreadlinkat(%d,%q,%p,%Iu,%x)\n",
-               (int)regs->str_args.a_arg0,
-               (char *)regs->str_args.a_arg1,
-               (char *)regs->str_args.a_arg2,
-               (size_t)regs->str_args.a_arg3,
-               (unsigned int)regs->str_args.a_arg4);
-   break;
 
   {
    char const *name;

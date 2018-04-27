@@ -310,6 +310,7 @@ __REDIRECT(__LIBC,,__size_t,__LIBCCALL,__os_heap_allat,(struct heap *__restrict 
 __REDIRECT(__LIBC,,void,__LIBCCALL,__os_heap_free,(struct heap *__restrict __self, void *__ptr, __size_t __num_bytes, gfp_t __flags),__HEAP_FUNCTION(heap_free),(__self,__ptr,__num_bytes,__flags))
 __REDIRECT(__LIBC,,struct heapptr,__LIBCCALL,__os_heap_realloc,(struct heap *__restrict __self, void *__old_ptr, __size_t __old_bytes, __size_t __new_bytes, gfp_t __alloc_flags, gfp_t __free_flags),__HEAP_FUNCTION(heap_realloc),(__self,__old_ptr,__old_bytes,__new_bytes,__alloc_flags,__free_flags))
 __REDIRECT(__LIBC,,struct heapptr,__LIBCCALL,__os_heap_realign,(struct heap *__restrict __self, void *__old_ptr, __size_t __old_bytes, __size_t __min_alignment, __ptrdiff_t __offset, __size_t __new_bytes, gfp_t __alloc_flags, gfp_t __free_flags),__HEAP_FUNCTION(heap_realign),(__self,__old_ptr,__old_bytes,__min_alignment,__offset,__new_bytes,__alloc_flags,__free_flags))
+__REDIRECT(__LIBC,,__size_t,__LIBCCALL,__os_heap_truncate,(struct heap *__restrict __self, __size_t __threshold),__HEAP_FUNCTION(heap_truncate),(__self,__threshold))
 #if (HEAP_TYPE_FCURRENT & HEAP_TYPE_FDEBUG)
 __REDIRECT(__LIBC,,struct heapptr,__LIBCCALL,__os_heap_alloc_untraced,(struct heap *__restrict __self, __size_t __num_bytes, gfp_t __flags),__HEAP_FUNCTION(heap_alloc_untraced),(__self,__num_bytes,__flags))
 __REDIRECT(__LIBC,,struct heapptr,__LIBCCALL,__os_heap_align_untraced,(struct heap *__restrict __self, __size_t __min_alignment, __ptrdiff_t __offset, __size_t __num_bytes, gfp_t __flags),__HEAP_FUNCTION(heap_align_untraced),(__self,__min_alignment,__offset,__num_bytes,__flags))
@@ -600,6 +601,16 @@ __FORCELOCAL __ATTR_NOTHROW void
                                 void *__ptr, __size_t __num_bytes, gfp_t __flags) {
  __os_heap_free_untraced(__self,__ptr,__num_bytes,__flags);
 }
+
+
+/* Truncate the given heap, releasing unmapping free memory chunks
+ * that are greater than, or equal to `CEIL_ALIGN(threshold,PAGESIZE)'
+ * @return: * : The total number of bytes released back to the core (a multiple of PAGESIZE) */
+__FORCELOCAL __size_t
+(__LIBCCALL heap_truncate)(struct heap *__restrict __self, __size_t __threshold) {
+ return __os_heap_truncate(__self,__threshold);
+}
+
 
 
 #ifndef __pfindleakscallback_defined

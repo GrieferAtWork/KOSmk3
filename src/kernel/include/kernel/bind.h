@@ -49,7 +49,6 @@ DECL_BEGIN
     BINDING(pervm_init,           SECTION(.rodata.callback.pervm.init)) \
     BINDING(pervm_fini,           SECTION(.rodata.callback.pervm.fini)) \
     BINDING(pervm_clone,          SECTION(.rodata.callback.pervm.clone)) \
-    BINDING(pervm_unmapuser,      SECTION(.rodata.callback.pervm.unmapuser)) \
     BINDING(global_clear_caches,  SECTION(.rodata.callback.global.clear_caches)) \
     BINDING(pertask_clear_caches, SECTION(.rodata.callback.pertask.clear_caches)) \
     BINDING(pervm_clear_caches,   SECTION(.rodata.callback.pervm.clear_caches)) \
@@ -75,20 +74,21 @@ DECL_BEGIN
 #define DRIVER_TAG_BPERVM_INIT            (DRIVER_TAG_BIND_START+5)  /* `DEFINE_PERVM_INIT()' */
 #define DRIVER_TAG_BPERVM_FINI            (DRIVER_TAG_BIND_START+6)  /* `DEFINE_PERVM_FINI()' */
 #define DRIVER_TAG_BPERVM_CLONE           (DRIVER_TAG_BIND_START+7)  /* `DEFINE_PERVM_CLONE()' */
-#define DRIVER_TAG_BPERVM_UNMAPUSER       (DRIVER_TAG_BIND_START+8)  /* `DEFINE_PERVM_UNMAPUSER()' */
-#define DRIVER_TAG_BGLOBAL_CLEAR_CACHES   (DRIVER_TAG_BIND_START+9)  /* `DEFINE_GLOBAL_CACHE_CLEAR()' */
-#define DRIVER_TAG_BPERTASK_CLEAR_CACHES  (DRIVER_TAG_BIND_START+10) /* `DEFINE_PERTASK_CACHE_CLEAR()' */
-#define DRIVER_TAG_BPERVM_CLEAR_CACHES    (DRIVER_TAG_BIND_START+11) /* `DEFINE_PERVM_CACHE_CLEAR()' */
-#define DRIVER_TAG_BGLOBAL_UNBIND_DRIVER  (DRIVER_TAG_BIND_START+12) /* `DEFINE_GLOBAL_UNBIND_DRIVER()' */
-#define DRIVER_TAG_BPERTASK_UNBIND_DRIVER (DRIVER_TAG_BIND_START+13) /* `DEFINE_PERTASK_UNBIND_DRIVER()' */
-#define DRIVER_TAG_BPERVM_UNBIND_DRIVER   (DRIVER_TAG_BIND_START+14) /* `DEFINE_PERVM_UNBIND_DRIVER()' */
+#define DRIVER_TAG_BGLOBAL_CLEAR_CACHES   (DRIVER_TAG_BIND_START+8)  /* `DEFINE_GLOBAL_CACHE_CLEAR()' */
+#define DRIVER_TAG_BPERTASK_CLEAR_CACHES  (DRIVER_TAG_BIND_START+9)  /* `DEFINE_PERTASK_CACHE_CLEAR()' */
+#define DRIVER_TAG_BPERVM_CLEAR_CACHES    (DRIVER_TAG_BIND_START+10) /* `DEFINE_PERVM_CACHE_CLEAR()' */
+#define DRIVER_TAG_BGLOBAL_UNBIND_DRIVER  (DRIVER_TAG_BIND_START+11) /* `DEFINE_GLOBAL_UNBIND_DRIVER()' */
+#define DRIVER_TAG_BPERTASK_UNBIND_DRIVER (DRIVER_TAG_BIND_START+12) /* `DEFINE_PERTASK_UNBIND_DRIVER()' */
+#define DRIVER_TAG_BPERVM_UNBIND_DRIVER   (DRIVER_TAG_BIND_START+13) /* `DEFINE_PERVM_UNBIND_DRIVER()' */
+#define DRIVER_TAG_BMIN                    DRIVER_TAG_BPERTASK_INIT
+#define DRIVER_TAG_BMAX                    DRIVER_TAG_BPERVM_UNBIND_DRIVER
 
 #define DEFINE_DRIVER_CALLBACK_TAG(tag,name) \
         DEFINE_DRIVER_TAG(tag,DRIVER_TAG_FOPTIONAL,name##_start,name##_count)
 
 
 /* >> void KCALL my_func(struct task *__restrict thread);
- * Register a finalizer that should be invoked during the initializatino of a task. */
+ * Register a finalizer that should be invoked during the initialization of a task. */
 #define DEFINE_PERTASK_INIT(x) \
         DEFINE_DRIVER_CALLBACK_TAG(DRIVER_TAG_BPERTASK_INIT,pertask_init) \
         DEFINE_ABS_CALLBACK(".rodata.callback.pertask.init",x)

@@ -72,6 +72,9 @@ INTDEF size_t LIBCCALL libc_heap_allat_d(struct local_heap_d *__restrict self, v
 INTDEF struct heapptr LIBCCALL libc_heap_realloc_d(struct local_heap_d *__restrict self, void *old_ptr, size_t old_bytes, size_t new_bytes, gfp_t alloc_flags, gfp_t free_flags);
 INTDEF struct heapptr LIBCCALL libc_heap_realign_d(struct local_heap_d *__restrict self, void *old_ptr, size_t old_bytes, size_t min_alignment, ptrdiff_t offset, size_t new_bytes, gfp_t alloc_flags, gfp_t free_flags);
 INTDEF void LIBCCALL libc_heap_free_d(struct local_heap_d *__restrict self, void *ptr, size_t num_bytes, gfp_t flags);
+INTDEF size_t LIBCCALL libc_heap_truncate(struct local_heap *__restrict self, size_t threshold);
+INTDEF size_t LIBCCALL libc_heap_truncate_d(struct local_heap_d *__restrict self, size_t threshold);
+
 /* Default heaps */
 /* Heap used for allocating tracing points for `libc_heap_trace*'
  * This heap is usually placed far away from regular heap locations

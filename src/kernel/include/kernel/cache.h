@@ -27,15 +27,24 @@
 DECL_BEGIN
 
 #ifdef __CC__
-/* Returns `false' if caches have been sufficient reduced in size.
- * Returns `true' otherwise. */
-FUNDEF ATTR_NOTHROW bool KCALL kernel_cc_continue(void);
+
+/* Returns `true' if caches have been sufficient reduced in size.
+ * Returns `false' otherwise.
+ * NOTE: This function must only ever be called from cache clear callbacks. */
+FUNDEF ATTR_NOTHROW bool KCALL kernel_cc_done(void);
 
 /* Clear global caches until `(*test)(arg)' has returned `true'.
- * If caches are already being cleared by the calling thread, return `false' immediately.
- * If all caches have been cleared (as best as KOS is able to), `false' is returned. */
+ * NOTES:
+ *   - If caches are already being cleared by the calling thread, return `false' immediately.
+ *   - If caches are already being cleared by the another thread, wait for
+ *     it to finish before starting to clear caches in the calling thread.
+ *   - If all caches have been cleared (as best as KOS is able to), `false' is returned.
+ *   - Cache clear callbacks should be careful to be non-destructive, meaning that
+ *     when reallocating memory, they should make use of `GFP_NOMOVE', so-as to ensure
+ *     that deallocated memory isn't actually being used by other threads. */
 FUNDEF ATTR_NOTHROW bool KCALL
 kernel_cc_invoke(/*ATTR_NOTHROW*/bool (KCALL *test)(void *arg), void *arg);
+
 #endif
 
 DECL_END

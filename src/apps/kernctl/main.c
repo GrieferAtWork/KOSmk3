@@ -46,6 +46,7 @@ PRIVATE struct ctl const ctls[] = {
     { "toff",   KERNEL_CONTROL_TRACE_SYSCALLS_OFF },
     { "insmod", KERNEL_CONTROL_INSMOD },
     { "delmod", KERNEL_CONTROL_DELMOD },
+    { "cc",     KERNEL_CONTROL_CLEARCACHES },
 };
 
 

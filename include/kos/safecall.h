@@ -85,7 +85,49 @@ __SYSDECL_BEGIN
 #define __SAFECALL_MISSMATCH    "x86_stdcall_missmatch@PLT"
 #endif /* !CONFIG_BUILDING_KERNEL_CORE */
 #endif /* !__ASSEMBLER__ */
-#ifndef __INTELLISENSE__
+
+/* NOTE: Disabled because of a problem related to
+ *       inline assembly that I do no know how to fix:
+ *       By specifying "esp" as a clobber register, we can
+ *       prevent GCC from passing argument operands as memory
+ *       locations that are relative to ESP.
+ *       Makes sense: After all ESP changes when we start pushing values.
+ *       However, GCC also interprets an ESP clobber operand as a sign
+ *       that the assembly will change ESP. Yet that is exactly what we
+ *       are trying to prevent: Any change being made to ESP, as we try
+ *       to assert that the stack pointer is restored properly after a
+ *       call to an STDCALL function was made.
+ *       Yet because GCC things we are changing ESP, it will generate code
+ *       that omits argument cleanup code as the result of calling a function
+ *       immediately prior to the safecall, if that call was a CDECL function:
+ *       >> debug_printf("foo = %d, bar = %d\n",10,20);
+ *       >> SAFECALL_KCALL_VOID_0(*function_pointer);
+ *       ASSEMBLY:
+ *       >> .section .rodata.str
+ *       >> .Lstring:
+ *       >>     .string "foo = %d, bar = %d\n"
+ *       >> .section .text
+ *       >>     pushl $20
+ *       >>     pushl $10
+ *       >>     pushl $.Lstring
+ *       >>     call  debug_printf
+ *       >> #   addl  $12, %esp              // This instruction right here is missing because GCC things it doesn't matter
+ *       >>     movl  function_pointer, %edi // GCC, loading registers for our assembly
+ *       >>     movl  %esp, %esi             // This is where our SAFECALL macro starts
+ *       >>     call  *%edi
+ *       >>     cmpl  %esi, %esp
+ *       >>     je    1f
+ *       >>     call  x86_stdcall_missmatch
+ *       >> 1:
+ *       The problem here arises from the fact that GCC will even do this
+ *       in a tightly packed loop. So you can imaging the consequences, and
+ *       if you can't: the result is the same as calling `alloca()' in a loop.
+ *       In other words: Because GCC does this, we'd run into a stack overflow
+ *       sooner or later, or even worse: because GCC things that ESP has changed,
+ *       it will make a bunch of other (false) assumptions and generate completely
+ *       broken assembly...
+ */
+#if !defined(__INTELLISENSE__) && 0
 #define __SAFECALL_KCALL_VOID(push_text,...) \
  __XBLOCK({ __asm__ __volatile__("movl %%esp, %%" __SAFECALL_SAFED_ESP "\n\t" \
                                   push_text \

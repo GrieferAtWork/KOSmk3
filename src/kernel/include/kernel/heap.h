@@ -421,6 +421,17 @@ FUNDEF ATTR_NOTHROW void KCALL
 heap_free_untraced(struct heap *__restrict self,
                    VIRT void *ptr, size_t num_bytes, gfp_t flags);
 
+
+/* Truncate the given heap, releasing unmapping free memory chunks
+ * that are greater than, or equal to `CEIL_ALIGN(threshold,PAGESIZE)'
+ * This function is automatically invoked for kernel heaps as part of
+ * the clear-cache machinery, though regular should never feel moved
+ * to invoke this function manually, as all it really does is slow down
+ * future calls to allocating heap functions.
+ * @return: * : The total number of bytes released back to the core (a multiple of PAGESIZE) */
+FUNDEF size_t KCALL heap_truncate(struct heap *__restrict self, size_t threshold);
+
+
 #ifdef CONFIG_DEBUG_HEAP
 /* Validate the memory of the given heap for
  * consistency, checking for invalid use-after-free.

@@ -29,6 +29,7 @@
 #include <fs/node.h>
 #include <fs/path.h>
 #include <kernel/debug.h>
+#include <kernel/bind.h>
 #include <kernel/sections.h>
 #include <unwind/debug_line.h>
 #include <elf.h>
@@ -372,9 +373,20 @@ next_arg:
 }
 
 
+typedef void (KCALL *driver_unbind_t)(struct driver *__restrict d);
+INTDEF driver_unbind_t global_unbind_driver_start[];
+INTDEF driver_unbind_t global_unbind_driver_end[];
+
 PRIVATE void KCALL
 driver_unbind_globals(struct driver *__restrict self) {
- /* TODO */
+ driver_unbind_t *iter;
+ /* Invoke global driver unbind callbacks.
+  * These in turn will invoke all other callbacks, including
+  * those invoked for every existing thread and VM, as well as
+  * callbacks registered by other drivers. */
+ for (iter = global_unbind_driver_start;
+      iter < global_unbind_driver_end; ++iter)
+      SAFECALL_KCALL_VOID_1(**iter,self);
 }
 
 PUBLIC REF struct driver *KCALL
@@ -407,6 +419,12 @@ exec_callback(module_callback_t func,
               void *UNUSED(arg)) {
  SAFECALL_KCALL_VOID_0(*func);
 }
+
+
+INTDEF void KCALL
+register_driver_binding(struct driver *__restrict d,
+                        struct driver_tag const *__restrict tag);
+
 
 
 PRIVATE char const *module_runpath = "/mod";
@@ -530,6 +548,16 @@ again:
            error_throw(E_INVALID_ARGUMENT);
       break;
 
+     case DRIVER_TAG_BMIN ... DRIVER_TAG_BMAX:
+      if (!tag->dt_count) break;
+      if (tag->dt_start < mod->m_imagemin ||
+          tag->dt_start+tag->dt_count*sizeof(image_rva_t) < tag->dt_start ||
+          tag->dt_start+tag->dt_count*sizeof(image_rva_t) > mod->m_imageend)
+          error_throw(E_INVALID_ARGUMENT);
+      /* Register a driver kernel binding. */
+      register_driver_binding(result,tag);
+      break;
+
      default:
       if (!(tags[tag_index].dt_flag & DRIVER_TAG_FOPTIONAL))
             error_throw(E_NOT_IMPLEMENTED);
@@ -591,6 +619,7 @@ again:
     } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
      if (argv) freea(argv);
      size_t i;
+     ATOMIC_FETCHOR(result->d_app.a_flags,APPLICATION_FCLOSING);
      driver_unbind_globals(result);
      for (tag_index = 0; tags[tag_index].dt_name; ++tag_index) {
       if (tags[tag_index].dt_name != DRIVER_TAG_FINI)
@@ -602,6 +631,7 @@ again:
      error_rethrow();
     }
    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+    ATOMIC_FETCHOR(result->d_app.a_flags,APPLICATION_FCLOSING);
     driver_unbind_globals(result);
     if (!(ATOMIC_FETCHOR(result->d_app.a_flags,APPLICATION_FDIDFINI) & APPLICATION_FDIDFINI)) {
      /* Call ELF destructors. */
@@ -611,6 +641,7 @@ again:
     error_rethrow();
    }
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+   ATOMIC_FETCHOR(result->d_app.a_flags,APPLICATION_FCLOSING);
    driver_unbind_globals(result);
    vm_unmap(VM_ADDR2PAGE(APPLICATION_MAPBEGIN(&result->d_app)),
             VM_SIZE2PAGES(APPLICATION_MAPSIZE(&result->d_app)),
@@ -625,6 +656,7 @@ again:
 
 PUBLIC void KCALL
 kernel_delmod(struct driver *__restrict app) {
+ ATOMIC_FETCHOR(app->d_app.a_flags,APPLICATION_FCLOSING);
  driver_unbind_globals(app);
  /* TODO */
  error_throw(E_NOT_IMPLEMENTED);

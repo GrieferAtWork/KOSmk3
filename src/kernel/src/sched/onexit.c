@@ -61,6 +61,75 @@ LOCAL size_t KCALL ONEXIT_SIZE(struct thread_onexit *x) {
 INTERN ATTR_PERTASK DEFINE_ATOMIC_RWPTR(_this_onexit,NULL);
 
 
+DEFINE_PERTASK_UNBIND_DRIVER(unbind_on_exit);
+PRIVATE ATTR_USED void KCALL
+unbind_on_exit(struct task *__restrict thread,
+               struct driver *__restrict d) {
+ struct thread_onexit *onexit; size_t i,count;
+ atomic_rwptr_t *ptr = &FORTASK(thread,_this_onexit);
+ bool has_write_lock = false;
+ task_onexit_t func; void *arg;
+ if (!ATOMIC_RWPTR_GET(*ptr)) return;
+ atomic_rwptr_read(ptr);
+again:
+ COMPILER_READ_BARRIER();
+ onexit = (struct thread_onexit *)ATOMIC_RWPTR_GET(*ptr);
+ count = ONEXIT_SIZE(onexit);
+ for (i = 0; i < count; ++i) {
+  if (onexit->te_entries[i].oe_owner != d) continue;
+  if (!onexit->te_entries[i].oe_func) break; /* Sentinel */
+  /* Found one! */
+  if (!has_write_lock) {
+   has_write_lock = true;
+   if (!atomic_rwptr_upgrade(ptr))
+        goto again;
+  }
+  /* Capture the function so we can invoke it. */
+  func = onexit->te_entries[i].oe_func;
+  arg  = onexit->te_entries[i].oe_arg;
+  /* Move other entires. */
+  memmove(&onexit->te_entries[i],
+          &onexit->te_entries[i+1],
+         ((count-1)-i)*sizeof(struct onexit_entry));
+  memset(&onexit->te_entries[count-1],0,
+          sizeof(struct onexit_entry));
+  atomic_rwptr_endwrite(ptr);
+  /* Invoke the callback under the pretense of a driver close. */
+  SAFECALL_KCALL_VOID_3(*func,thread,ONEXIT_REASON_DRIVERCLOSE,arg);
+  assert(d->d_app.a_refcnt >= 2);
+  ATOMIC_FETCHDEC(d->d_app.a_refcnt); /* The reference previously stored in `oe_owner' */
+  goto again;
+ }
+ if (has_write_lock)
+      atomic_rwptr_endwrite(ptr);
+ else atomic_rwptr_endread(ptr);
+}
+
+
+DEFINE_PERTASK_CACHE_CLEAR(free_unused_onexit);
+PRIVATE ATTR_USED void KCALL
+free_unused_onexit(struct task *__restrict thread) {
+ struct thread_onexit *onexit; size_t i,count;
+ atomic_rwptr_t *ptr = &FORTASK(thread,_this_onexit);
+ /* Quick (weak) check: are there any callbacks? */
+ if (!ATOMIC_RWPTR_GET(*ptr)) return;
+ COMPILER_READ_BARRIER();
+ atomic_rwptr_write(ptr);
+ onexit = (struct thread_onexit *)ATOMIC_RWPTR_GET(*ptr);
+ count = ONEXIT_SIZE(onexit);
+ for (i = 0; i < count; ++i)
+    if (!onexit->te_entries[i].oe_func) break;
+ if (i < count) {
+  /* Since this operation only ever reduces the size, it's NOTHROW.
+   * (The GFP_NOMOVE isn't actually necessary here...) */
+  krealloc(onexit,
+           offsetof(struct thread_onexit,te_entries)+
+           i*sizeof(struct onexit_entry),
+           GFP_CALLOC|GFP_NOMOVE|GFP_NOTRIM);
+ }
+}
+
+
 PRIVATE ATTR_USED void KCALL
 do_exec_onexit(struct task *__restrict thread, unsigned int reason) {
  struct thread_onexit *onexit; size_t i,count;

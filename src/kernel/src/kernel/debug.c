@@ -30,7 +30,7 @@ PUBLIC void KCALL
 debug_vprintf(char const *__restrict format, va_list args) {
  format_vprintf(&debug_printer,NULL,format,args);
 }
-PUBLIC void KCALL
+PUBLIC void ATTR_CDECL
 debug_printf(char const *__restrict format, ...) {
  va_list args;
  va_start(args,format);

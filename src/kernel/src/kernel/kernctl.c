@@ -27,6 +27,7 @@
 #include <kernel/heap.h>
 #include <kernel/malloc.h>
 #include <kernel/user.h>
+#include <kernel/cache.h>
 #include <fs/driver.h>
 #include <fs/path.h>
 #include <fs/node.h>
@@ -34,6 +35,11 @@
 #include <except.h>
 
 DECL_BEGIN
+
+PRIVATE ATTR_NOTHROW bool KCALL test_fail(void *UNUSED(arg)) {
+ return false;
+}
+
 
 PUBLIC syscall_slong_t KCALL
 kernel_control(syscall_ulong_t command, syscall_ulong_t arg0,
@@ -61,6 +67,11 @@ kernel_control(syscall_ulong_t command, syscall_ulong_t arg0,
 
  case KERNEL_CONTROL_TRACE_SYSCALLS_OFF:
   disable_syscall_tracing();
+  break;
+
+ case KERNEL_CONTROL_CLEARCACHES:
+  /* Clear all caches by passing a callback that always returns `false' */
+  kernel_cc_invoke(&test_fail,NULL);
   break;
 
  case KERNEL_CONTROL_INSMOD:
