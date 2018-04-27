@@ -229,6 +229,12 @@ typedef ssize_t (KCALL *pregionctl)(struct vm_region *__restrict self,
                                         *  stack frames through the X86 USHARE SYSENTER segment.
                                         *  @return: 0:    No FDE found.
                                         *  @return: != 0: Managed to find an FDE. */
+#define REGION_CTL_FADDR2LINE   0x0002 /* [TYPE(struct dl_addr2line *arg)]
+                                        *  Find addr2line information for `address' and store then in `arg'
+                                        *  NOTE: The `d_begin' and `d_end' fields should be filled as pointers
+                                        *        relative to the start of the region.
+                                        *  @return: 0:    No debug information found.
+                                        *  @return: != 0: Managed to find debug information. */
 #endif
 
 

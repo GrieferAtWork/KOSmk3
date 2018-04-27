@@ -137,9 +137,9 @@ module_debug_open(struct application *__restrict app) {
 
 
 
-/* Lookup an application at `ip' and invoke `module_debug_query()'.
- * @return: true:  Successfully found debug information.
- * @return: false: No application found, or application didn't contain debug information. */
+/* Lookup an application at `ip' (an absolute address) and invoke `module_debug_query()'.
+ * @return: * :            The load address of the application containing addr2line information.
+ * @return: (uintptr_t)-1: No application found, or application didn't contain debug information. */
 FUNDEF uintptr_t KCALL
 linker_debug_query(uintptr_t ip,
                    struct dl_addr2line *__restrict result) {
@@ -147,13 +147,24 @@ linker_debug_query(uintptr_t ip,
  uintptr_t return_value = (uintptr_t)-1;
  struct vm *EXCEPT_VAR effective_vm;
  struct vm_node *node;
+ REF struct vm_region *region;
  effective_vm = ip >= KERNEL_BASE ? &vm_kernel : THIS_VM;
  vm_acquire(effective_vm);
  TRY {
   node = vm_getnode(VM_ADDR2PAGE(ip));
-  if (node && node->vn_notify == &application_notify) {
-   app = (REF struct application *)node->vn_closure;
-   application_incref(app);
+  if (node) {
+   if (node->vn_notify == &application_notify) {
+    app = (REF struct application *)node->vn_closure;
+    application_incref(app);
+   } else if (node->vn_region->vr_ctl) {
+    /* Calculate the effective load address of the region. */
+    return_value = VM_PAGE2ADDR(node->vn_node.a_vmin-
+                                node->vn_start);
+    region = node->vn_region;
+    vm_region_incref(region);
+    vm_release(effective_vm);
+    goto do_region; /* XXX: Skip across FINALLY is intended. */
+   }
   }
  } FINALLY {
   vm_release(effective_vm);
@@ -168,6 +179,17 @@ linker_debug_query(uintptr_t ip,
   }
  }
  return return_value;
+do_region:
+ TRY {
+  /* Query address2line information in the mapped region. */
+  if (!(*region->vr_ctl)(region,REGION_CTL_FADDR2LINE,
+                         ip-return_value,result))
+         return_value = (uintptr_t)-1;
+ } FINALLY {
+  vm_region_decref(region);
+ }
+ return return_value;
+ ;
 }
 
 

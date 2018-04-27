@@ -28,6 +28,8 @@
 #include <except.h>
 #include <unwind/eh_frame.h>
 #include <i386-kos/vm86.h>
+#include <kos/addr2line.h>
+#include <string.h>
 
 DECL_BEGIN
 
@@ -38,23 +40,62 @@ INTDEF byte_t kernel_ehframe_end[];
 INTDEF byte_t kernel_ehframe_size[];
 
 
+PRIVATE char const
+sysenter_names[USHARE_X86_SYSCALL_SYSENTER_COUNT][10] = {
+    "sysenter0",
+    "sysenter1",
+    "sysenter2",
+    "sysenter3",
+    "sysenter4",
+    "sysenter5",
+    "sysenter6",
+};
+
 PRIVATE ssize_t KCALL
 sysenter_pregion_ctl(struct vm_region *__restrict UNUSED(self),
                      unsigned int command,
                      uintptr_t address, void *arg) {
- bool result;
- if (command != REGION_CTL_FFIND_FDE)
-     return 0;
- /* Find FDE information for the effectively mapped text. */
- result = eh_findfde(kernel_ehframe_start,
-                    (size_t)kernel_ehframe_size,
-                    (uintptr_t)x86_sysenter_ushare_base+address,
-                    (struct fde_info *)arg,NULL);
- if (result) {
-  ((struct fde_info *)arg)->fi_pcbegin -= (uintptr_t)x86_sysenter_ushare_base;
-  ((struct fde_info *)arg)->fi_pcend   -= (uintptr_t)x86_sysenter_ushare_base;
+ switch (command) {
+
+ {
+  bool result;
+ case REGION_CTL_FFIND_FDE:
+  /* Find FDE information for the effectively mapped text. */
+  result = eh_findfde(kernel_ehframe_start,
+                     (size_t)kernel_ehframe_size,
+                     (uintptr_t)x86_sysenter_ushare_base+address,
+                     (struct fde_info *)arg,NULL);
+  if (result) {
+   ((struct fde_info *)arg)->fi_pcbegin -= (uintptr_t)x86_sysenter_ushare_base;
+   ((struct fde_info *)arg)->fi_pcend   -= (uintptr_t)x86_sysenter_ushare_base;
+  }
+  return result;
+ } break;
+
+ {
+  struct dl_addr2line *result;
+ case REGION_CTL_FADDR2LINE:
+  result = (struct dl_addr2line *)arg;
+  memset(result,0,sizeof(struct dl_addr2line));
+  result->d_file = "$$(KERNEL)";
+  if (address < (USHARE_X86_SYSCALL_SYSENTER_COUNT*
+                 USHARE_X86_SYSCALL_SYSENTER_STRIDE)) {
+   unsigned int index;
+   index = address / USHARE_X86_SYSCALL_SYSENTER_STRIDE;
+   result->d_begin = (void *)(index * USHARE_X86_SYSCALL_SYSENTER_STRIDE);
+   result->d_end   = (void *)((index+1) * USHARE_X86_SYSCALL_SYSENTER_STRIDE);
+   result->d_name  = sysenter_names[index];
+  } else {
+   result->d_name  = "syscall";
+   result->d_begin = (void *)USHARE_X86_SYSCALL_OFFSETOF_SYSCALL;
+   result->d_end   = (void *)USHARE_X86_SYSCALL_FSIZE;
+  }
+  return true;
+ } break;
+
+ default: break;
  }
- return result;
+ return 0;
 }
 
 INTDEF byte_t x86_ushare_sysenter_pageno[];
