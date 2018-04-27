@@ -1160,6 +1160,7 @@ PUBLIC VIRT void *(KCALL krealloc)(VIRT void *ptr, size_t n_bytes, gfp_t flags) 
  /* Special case: When `ptr' is NULL, allocate new memory. */
  if (!ptr) {
   struct cpu_context context;
+  if (flags & GFP_NOMOVE) return NULL;
   cpu_getcontext(&context);
   return mall_alloc(HEAP_ALIGNMENT,0,n_bytes,flags,&context);
  }
@@ -1170,6 +1171,7 @@ PUBLIC VIRT void *(KCALL krealign)(VIRT void *ptr,
                                    size_t n_bytes, gfp_t flags) {
  if (!ptr) {
   struct cpu_context context;
+  if (flags & GFP_NOMOVE) return NULL;
   cpu_getcontext(&context);
   return mall_alloc(min_alignment,0,n_bytes,flags,&context);
  }
@@ -1179,6 +1181,7 @@ PUBLIC VIRT void *(KCALL krealign_offset)(VIRT void *ptr, size_t min_alignment,
                                           ptrdiff_t offset, size_t n_bytes, gfp_t flags) {
  if (!ptr) {
   struct cpu_context context;
+  if (flags & GFP_NOMOVE) return NULL;
   cpu_getcontext(&context);
   return mall_alloc(min_alignment,offset,n_bytes,flags,&context);
  }

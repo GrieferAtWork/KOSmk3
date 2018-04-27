@@ -115,7 +115,10 @@ VIRT void *(KCALL krealloc)(VIRT void *ptr,
                             size_t n_bytes, gfp_t flags) {
  struct heapptr hptr; struct mptr *result;
  struct heap *heap; size_t more_size;
- if (!ptr) return kmalloc(n_bytes,flags);
+ if (!ptr) {
+  if (flags & GFP_NOMOVE) return NULL;
+  return kmalloc(n_bytes,flags);
+ }
  assert(IS_ALIGNED((uintptr_t)ptr,HEAP_ALIGNMENT));
  /* Align the given n_bytes and add the overhead caused by the mptr. */
  n_bytes = get_realloc_size(n_bytes);
@@ -168,7 +171,10 @@ VIRT void *(KCALL krealign)(VIRT void *ptr, size_t min_alignment,
                             size_t n_bytes, gfp_t flags) {
  struct heapptr hptr; struct mptr *result;
  struct heap *heap; size_t more_size;
- if (!ptr) return kmemalign(min_alignment,n_bytes,flags);
+ if (!ptr) {
+  if (flags & GFP_NOMOVE) return NULL;
+  return kmemalign(min_alignment,n_bytes,flags);
+ }
  assert(IS_ALIGNED((uintptr_t)ptr,HEAP_ALIGNMENT));
  /* Align the given n_bytes and add the overhead caused by the mptr. */
  n_bytes = get_realloc_size(n_bytes);
@@ -223,7 +229,10 @@ VIRT void *(KCALL krealign_offset)(VIRT void *ptr, size_t min_alignment,
                                    ptrdiff_t offset, size_t n_bytes, gfp_t flags) {
  struct heapptr hptr; struct mptr *result;
  struct heap *heap; size_t more_size;
- if (!ptr) return kmemalign_offset(min_alignment,offset,n_bytes,flags);
+ if (!ptr) {
+  if (flags & GFP_NOMOVE) return NULL;
+  return kmemalign_offset(min_alignment,offset,n_bytes,flags);
+ }
  assert(IS_ALIGNED((uintptr_t)ptr,HEAP_ALIGNMENT));
  /* Align the given n_bytes and add the overhead caused by the mptr. */
  n_bytes = get_realloc_size(n_bytes);

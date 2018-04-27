@@ -258,7 +258,7 @@ INTERN void *LIBCCALL
 libc_Xrealloc_in_place_d(void *ptr, size_t num_bytes) {
  struct mptr *result;
  size_t total;
- if (!ptr) return libc_malloc_d(num_bytes);
+ if (!ptr) return NULL;
  if (__builtin_add_overflow(num_bytes,sizeof(struct mptr),&total))
      Xmalloc_failed(num_bytes);
  result = ((struct mptr *)ptr)-1;
@@ -289,7 +289,7 @@ INTERN ATTR_RETNONNULL void *LIBCCALL
 libc_Xrecalloc_in_place_d(void *ptr, size_t num_bytes) {
  struct mptr *result;
  size_t total;
- if (!ptr) return libc_Xmalloc_d(num_bytes);
+ if (!ptr) return NULL;
  if (__builtin_add_overflow(num_bytes,sizeof(struct mptr),&total))
      Xmalloc_failed(num_bytes);
  result = ((struct mptr *)ptr)-1;
@@ -633,7 +633,7 @@ INTERN void *LIBCCALL
 libc_realloc_in_place_d(void *ptr, size_t num_bytes) {
  struct mptr *result;
  size_t total;
- if (!ptr) return libc_malloc_d(num_bytes);
+ if (!ptr) return NULL;
  if (__builtin_add_overflow(num_bytes,sizeof(struct mptr),&total))
      return malloc_failed();
  result = ((struct mptr *)ptr)-1;
@@ -668,7 +668,7 @@ INTERN void *LIBCCALL
 libc_recalloc_in_place_d(void *ptr, size_t num_bytes) {
  struct mptr *result;
  size_t total;
- if (!ptr) return libc_malloc_d(num_bytes);
+ if (!ptr) return NULL;
  if (__builtin_add_overflow(num_bytes,sizeof(struct mptr),&total))
      return malloc_failed();
  result = ((struct mptr *)ptr)-1;
