@@ -258,6 +258,7 @@ libc_heap_trace(void *base, size_t num_bytes,
  struct heapnode *node;
  struct heapptr node_ptr;
  size_t num_frames,max_frames;
+ if (!num_bytes) return; /* Empty trace region. */
  libc_cpu_getcontext(&context);
  node_ptr = libc_heap_alloc_untraced(&libc_heap_trace_allocator,
                                       offsetof(struct heapnode,m_trace)+
