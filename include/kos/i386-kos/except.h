@@ -280,8 +280,8 @@ struct __ATTR_PACKED exception_data_system {
 #define ERROR_ILLEGAL_INSTRUCTION_PRIVILEGED   0x0001 /* The instruction/operand/flag is privileged and not available to the caller. */
 #define ERROR_ILLEGAL_INSTRUCTION_RESTRICTED   0x0002 /* Execution of the instruction has been restricted for the caller. */
 #define ERROR_ILLEGAL_INSTRUCTION_FINSTRUCTION 0x0000 /* The error was caused by the instruction itself being unknown/privileged or restricted. */
-#define ERROR_ILLEGAL_INSTRUCTION_FADDRESS     0x0010 /* The error was caused by the addressing mode used/specified (e.g.: Memory access with an invalid segment).
-                                                       * NOTE: This flag is set when attempting to clone() a thread using invalid segment registers on X86. */
+#define ERROR_ILLEGAL_INSTRUCTION_FADDRESS     0x0010 /* The error was caused by the addressing mode used/specified.
+                                                       * (On X86 this flag is set when e.g. using a register operand in an instruction that requires a memory operand). */
 #define ERROR_ILLEGAL_INSTRUCTION_FTRAP        0x0020 /* (Unused in X86) The error was caused by a trap. */
 #define ERROR_ILLEGAL_INSTRUCTION_FOPERAND     0x0100 /* The error was caused by one of the instruction's operands. */
 #define ERROR_ILLEGAL_INSTRUCTION_FREGISTER    0x0200 /* The error was thrown when attempting to modify a privileged/missing or restricted register. */

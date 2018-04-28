@@ -26,15 +26,95 @@
 #include <kos/registers.h>
 #include <kernel/interrupt.h>
 #include <kernel/debug.h>
+#include <kernel/user.h>
 #include <i386-kos/vm86.h>
+#include <i386-kos/gdt.h>
 #include <asm/cpu-flags.h>
+#include <sched/task.h>
 #include <except.h>
 #include <string.h>
 #include <stdbool.h>
+#include <syscall.h>
+#include <kernel/syscall.h>
 
 #include "emulator.h"
 
 DECL_BEGIN
+
+
+#ifdef __x86_64__
+#define CONTEXT_IP(x)    ((x).c_rip)
+#define CONTEXT_FLAGS(x) ((x).c_rflags)
+#define CONTEXT_AREG(x)  ((x).c_gpregs.gp_rax)
+#define CONTEXT_CREG(x)  ((x).c_gpregs.gp_rcx)
+#define CONTEXT_DREG(x)  ((x).c_gpregs.gp_rdx)
+#define CONTEXT_BREG(x)  ((x).c_gpregs.gp_rbx)
+#else
+#define CONTEXT_IP(x)    ((x).c_eip)
+#define CONTEXT_FLAGS(x) ((x).c_eflags)
+#define CONTEXT_AREG(x)  ((x).c_gpregs.gp_eax)
+#define CONTEXT_CREG(x)  ((x).c_gpregs.gp_ecx)
+#define CONTEXT_DREG(x)  ((x).c_gpregs.gp_edx)
+#define CONTEXT_BREG(x)  ((x).c_gpregs.gp_ebx)
+#endif
+#define X86_GPREG(no)  ((uintptr_t *)&context->c_gpregs)[7-(no)]
+#define X86_GPREG8(no) ((u8 *)&context->c_gpregs+32)[7-(no)]
+#define modrm_getreg(modrm)  X86_GPREG((modrm).mi_rm)
+#define modrm_getreg8(modrm) X86_GPREG8((modrm).mi_rm)
+
+
+LOCAL register_t KCALL __cmpb(u8 a, u8 b) {
+ register_t result;
+ __asm__("cmpb %b2, %b1\n\r"
+         "pushfl\n\r"
+         "popl %0"
+         : "=g" (result)
+         : "q" (a)
+         , "q" (b)
+         : "cc");
+ return result;
+}
+LOCAL register_t KCALL __cmpw(u16 a, u16 b) {
+ register_t result;
+ __asm__("cmpw %w2, %w1\n\r"
+         "pushfl\n\r"
+         "popl %0"
+         : "=g" (result)
+         : "q" (a)
+         , "q" (b)
+         : "cc");
+ return result;
+}
+LOCAL register_t KCALL __cmpl(u32 a, u32 b) {
+ register_t result;
+ __asm__("cmpl %2, %1\n\r"
+         "pushfl\n\r"
+         "popl %0"
+         : "=g" (result)
+         : "r" (a)
+         , "r" (b)
+         : "cc");
+ return result;
+}
+
+#define CF       EFLAGS_CF
+#define PF       EFLAGS_PF
+#define AF       EFLAGS_AF
+#define ZF       EFLAGS_ZF
+#define SF       EFLAGS_SF
+#define TF       EFLAGS_TF
+#define IF       EFLAGS_IF
+#define DF       EFLAGS_DF
+#define OF       EFLAGS_OF
+#define IOPL     EFLAGS_IOPL
+#define NT       EFLAGS_NT
+#define RF       EFLAGS_RF
+#define VM       EFLAGS_VM
+#define AC       EFLAGS_AC
+#define VIF      EFLAGS_VIF
+#define VIP      EFLAGS_VIP
+#define ID       EFLAGS_ID
+
 
 #ifdef __x86_64__
 #define fix_user_context(context) (void)0
@@ -58,28 +138,326 @@ vm86_gpf(struct cpu_context_vm86 *__restrict context,
 #endif
 
 
+#ifndef __x86_64__
+#ifdef CONFIG_NO_SMP
+#define BUS_ACQUIRE() do{ COMPILER_BARRIER(); PREEMPTION_DISABLE(); }__WHILE0
+#define BUS_RELEASE() do{ PREEMPTION_POP(context->c_eflags); COMPILER_BARRIER(); }__WHILE0
+#else
+#define BUS_ACQUIRE() COMPILER_BARRIER(); impl_bus_acquire(); TRY
+#define BUS_RELEASE() FINALLY { impl_bus_release(context->c_eflags); COMPILER_BARRIER(); }
+
+PRIVATE ATTR_USED u32 bus_cpu = 0;
+PRIVATE ATTR_USED u32 bus_recursion = 0;
+
+LOCAL ATTR_NOTHROW void KCALL impl_bus_acquire(void) {
+ register u32 lock,my_cpuid;
+ PREEMPTION_DISABLE();
+ my_cpuid = THIS_CPU->cpu_id;
+ for (;;) {
+  lock = my_cpuid;
+  __asm__ __volatile__("xchgl bus_cpu, %0"
+                       : "+r" (lock)
+                       :
+                       : "memory");
+  if (!lock) break;
+  if (lock == my_cpuid) { ++bus_recursion; break; }
+#if 0 /* Machines on which we need to emulate some lock-instruction
+       * usually don't have SSE, which implemented `pause'... */
+  __asm__ __volatile__("pause");
+#endif
+ }
+}
+LOCAL ATTR_NOTHROW void KCALL
+impl_bus_release(register_t old_eflags) {
+ register u32 temp;
+ if (bus_recursion)
+   --bus_recursion;
+ else {
+  __asm__ __volatile__("xchgl bus_cpu, %0"
+                       : "=r" (temp)
+                       : "0" (0)
+                       : "memory");
+  PREEMPTION_POP(old_eflags);
+ }
+}
+#endif
+#endif /* !__x86_64__ */
+
+
+
+
+
 INTERN NOIRQ void FCALL
 x86_handle_illegal_instruction(struct x86_anycontext *__restrict context) {
- struct exception_info *info;
- /* Emulate some instructions that may not be supported natively. */
- if (x86_emulate_instruction(context))
-     return;
- /* TODO: Besides emulating instruction, we should also deal with invalid operands:
-  *       e.g.: `lgdt' or `lidt' being used with a register modrm
-  */
+ struct x86_anycontext *EXCEPT_VAR xcontext = context;
+ struct exception_info *info; u16 flags;
+ byte_t *EXCEPT_VAR text; u32 opcode;
+ bool is_user;
 
+ flags = 0;
+ text = (byte_t *)context->c_eip;
+ is_user = ((xcontext->c_eflags & EFLAGS_VM) ||
+            (xcontext->c_iret.ir_cs & 3));
+
+next_byte:
+ opcode = 0;
+extend_instruction:
+ TRY {
+  opcode |= *text++;
+  switch (opcode) {
+
+   /* Prefix bytes */
+  case 0x66: flags |= F_OP16; goto next_byte;
+  case 0x67: flags |= F_AD16; goto next_byte;
+  case 0xf0: flags |= F_LOCK; goto next_byte;
+  case 0xf2: flags |= F_REPNE; goto next_byte;
+  case 0xf3: flags |= F_REP; goto next_byte;
+  case 0x26: flags = (flags & ~F_SEGMASK) | F_SEGES; goto next_byte;
+  case 0x2e: flags = (flags & ~F_SEGMASK) | F_SEGCS; goto next_byte;
+  case 0x36: flags = (flags & ~F_SEGMASK) | F_SEGSS; goto next_byte;
+  case 0x3e: flags = (flags & ~F_SEGMASK) | F_SEGDS; goto next_byte;
+  case 0x64: flags = (flags & ~F_SEGMASK) | F_SEGFS; goto next_byte;
+  case 0x65: flags = (flags & ~F_SEGMASK) | F_SEGGS; goto next_byte;
+  case 0x0f: opcode <<= 8; goto extend_instruction;
+
+#ifndef __x86_64__
+   /* Emulate atomic instruction that were only added later */
+  case 0x0fb0: {
+   struct modrm_info modrm;
+   uintptr_t addr;
+   u8 COMPILER_IGNORE_UNINITIALIZED(real_old_value);
+   u8 old_value,new_value;
+   /* EMULATOR: cmpxchg r/m8,r8 */
+   text = x86_decode_modrm(text,&modrm);
+   addr = x86_modrm_getmem(context,&modrm,flags);
+   if (is_user) validate_writable((void *)addr,1);
+   old_value = (u8)CONTEXT_AREG(*context);
+   new_value = modrm_getreg8(modrm);
+   if (flags & F_LOCK) {
+    BUS_ACQUIRE() {
+     real_old_value = *(u8 volatile *)addr;
+     if (old_value == real_old_value)
+         *(u8 volatile *)addr = new_value;
+    }
+    BUS_RELEASE();
+   } else {
+    real_old_value = *(u8 volatile *)addr;
+    if (old_value == real_old_value)
+        *(u8 volatile *)addr = new_value;
+   }
+   *(u8 *)&CONTEXT_AREG(*context) = real_old_value;
+   context->c_eflags &= (ZF|CF|PF|AF|SF|OF);
+   context->c_eflags |= __cmpb(old_value,real_old_value) & (ZF|CF|PF|AF|SF|OF);
+  } break;
+
+  {
+   struct modrm_info modrm;
+   uintptr_t addr;
+  case 0x0fb1:
+   /* cmpxchg r/m16,r16 */
+   /* cmpxchg r/m32,r32 */
+   text = x86_decode_modrm(text,&modrm);
+   addr = x86_modrm_getmem(context,&modrm,flags);
+   if (flags & F_OP16) {
+    u16 COMPILER_IGNORE_UNINITIALIZED(real_old_value);
+    u16 old_value,new_value;
+    if (is_user) validate_writable((void *)addr,2);
+    old_value = (u16)CONTEXT_AREG(*context);
+    new_value = (u16)modrm_getreg(modrm);
+    if (flags & F_LOCK) {
+     BUS_ACQUIRE() {
+      real_old_value = *(u16 volatile *)addr;
+      if (old_value == real_old_value)
+          *(u16 volatile *)addr = new_value;
+     }
+     BUS_RELEASE();
+    } else {
+     real_old_value = *(u16 volatile *)addr;
+     if (old_value == real_old_value)
+         *(u16 volatile *)addr = new_value;
+    }
+    *(u16 *)&CONTEXT_AREG(*context) = real_old_value;
+    context->c_eflags &= (ZF|CF|PF|AF|SF|OF);
+    context->c_eflags |= __cmpw(old_value,real_old_value) & (ZF|CF|PF|AF|SF|OF);
+   } else {
+    u32 COMPILER_IGNORE_UNINITIALIZED(real_old_value);
+    u32 old_value,new_value;
+    if (is_user) validate_writable((void *)addr,4);
+    old_value = (u32)CONTEXT_AREG(*context);
+    new_value = (u32)modrm_getreg(modrm);
+    if (flags & F_LOCK) {
+     BUS_ACQUIRE() {
+      real_old_value = *(u32 volatile *)addr;
+      if (old_value == real_old_value)
+          *(u32 volatile *)addr = new_value;
+     }
+     BUS_RELEASE();
+    } else {
+     real_old_value = *(u32 volatile *)addr;
+     if (old_value == real_old_value)
+         *(u32 volatile *)addr = new_value;
+    }
+    *(u32 *)&CONTEXT_AREG(*context) = real_old_value;
+    context->c_eflags &= (ZF|CF|PF|AF|SF|OF);
+    context->c_eflags |= __cmpl(old_value,real_old_value) & (ZF|CF|PF|AF|SF|OF);
+   }
+  } break;
+
+  case 0x0fc0: {
+   struct modrm_info modrm;
+   uintptr_t addr; u8 add_value;
+   u8 COMPILER_IGNORE_UNINITIALIZED(old_value);
+   /* xadd r/m8, r8 */
+   text = x86_decode_modrm(text,&modrm);
+   addr = x86_modrm_getmem(context,&modrm,flags);
+   if (is_user) validate_writable((void *)addr,1);
+   add_value = modrm_getreg8(modrm);
+   if (flags & F_LOCK) {
+    BUS_ACQUIRE() {
+     old_value = *(u8 volatile *)addr;
+     *(u8 volatile *)addr = old_value + add_value;
+    }
+    BUS_RELEASE();
+   } else {
+    old_value = *(u8 volatile *)addr;
+    *(u8 volatile *)addr = old_value + add_value;
+   }
+   modrm_getreg8(modrm) = old_value;
+   context->c_eflags &= ~(CF|PF|AF|SF|ZF|OF);
+   context->c_eflags |= __cmpb(old_value,0) & (CF|PF|AF|SF|ZF|OF);
+  } break;
+
+  {
+   struct modrm_info modrm;
+   uintptr_t addr;
+  case 0x0fc1:
+   /* xadd r/m16, r16 */
+   /* xadd r/m32, r32 */
+   text = x86_decode_modrm(text,&modrm);
+   addr = x86_modrm_getmem(context,&modrm,flags);
+   if (flags & F_OP16) {
+    u16 COMPILER_IGNORE_UNINITIALIZED(old_value);
+    u16 add_value;
+    if (is_user) validate_writable((void *)addr,2);
+    add_value = (u16)modrm_getreg(modrm);
+    if (flags & F_LOCK) {
+     BUS_ACQUIRE() {
+      old_value = *(u16 volatile *)addr;
+      *(u16 volatile *)addr = old_value + add_value;
+     }
+     BUS_RELEASE();
+    } else {
+     old_value = *(u16 volatile *)addr;
+     *(u16 volatile *)addr = old_value + add_value;
+    }
+    *(u16 *)&modrm_getreg(modrm) = old_value;
+    context->c_eflags &= ~(CF|PF|AF|SF|ZF|OF);
+    context->c_eflags |= __cmpw(old_value,0) & (CF|PF|AF|SF|ZF|OF);
+   } else {
+    u32 COMPILER_IGNORE_UNINITIALIZED(old_value);
+    u32 add_value;
+    if (is_user) validate_writable((void *)addr,4);
+    add_value = (u32)modrm_getreg(modrm);
+    if (flags & F_LOCK) {
+     BUS_ACQUIRE() {
+      old_value = *(u32 volatile *)addr;
+      *(u32 volatile *)addr = old_value + add_value;
+     }
+     BUS_RELEASE();
+    } else {
+     old_value = *(u32 volatile *)addr;
+     *(u32 volatile *)addr = old_value + add_value;
+    }
+    *(u32 *)&modrm_getreg(modrm) = old_value;
+    context->c_eflags &= ~(CF|PF|AF|SF|ZF|OF);
+    context->c_eflags |= __cmpl(old_value,0) & (CF|PF|AF|SF|ZF|OF);
+   }
+  } break;
+
+  {
+   struct modrm_info modrm;
+  case 0x0fc7:
+   text = x86_decode_modrm(text,&modrm);
+   if (modrm.mi_rm == 1) {
+    u32 value[2];
+    /* cmpxchg8b m64 */
+    uintptr_t addr;
+    if (modrm.mi_type != MODRM_MEMORY)
+        goto illegal_addressing_mode;
+    addr = x86_modrm_getmem(context,&modrm,flags);
+    if (is_user) validate_writable((void *)addr,8);
+    if (flags & F_LOCK) {
+     BUS_ACQUIRE() {
+      value[0] = ((u32 *)addr)[0];
+      value[1] = ((u32 *)addr)[1];
+      if (value[0] == CONTEXT_AREG(*context) &&
+          value[1] == CONTEXT_DREG(*context)) {
+       ((u32 *)addr)[0] = CONTEXT_BREG(*context);
+       ((u32 *)addr)[1] = CONTEXT_CREG(*context);
+       CONTEXT_FLAGS(*context) |= EFLAGS_ZF;
+      } else {
+       CONTEXT_AREG(*context)   = value[0];
+       CONTEXT_DREG(*context)   = value[1];
+       CONTEXT_FLAGS(*context) &= ~EFLAGS_ZF;
+      }
+     }
+     BUS_RELEASE();
+    } else {
+     value[0] = ((u32 *)addr)[0];
+     value[1] = ((u32 *)addr)[1];
+     if (value[0] == CONTEXT_AREG(*context) &&
+         value[1] == CONTEXT_DREG(*context)) {
+      ((u32 *)addr)[0] = CONTEXT_BREG(*context);
+      ((u32 *)addr)[1] = CONTEXT_CREG(*context);
+      CONTEXT_FLAGS(*context) |= EFLAGS_ZF;
+     } else {
+      CONTEXT_AREG(*context)   = value[0];
+      CONTEXT_DREG(*context)   = value[1];
+      CONTEXT_FLAGS(*context) &= ~EFLAGS_ZF;
+     }
+    }
+    break;
+   }
+   goto generic_illegal_instruction;
+  } break;
+
+#endif /* !__x86_64__ */
+
+
+
+
+  default: goto generic_illegal_instruction;
+  }
+ } CATCH (E_SEGFAULT) {
+  COMPILER_READ_BARRIER();
+  if ((xcontext->c_eflags & EFLAGS_VM) ||
+      (xcontext->c_iret.ir_cs & 3))
+       error_info()->e_error.e_segfault.sf_reason |= X86_SEGFAULT_FUSER;
+  error_rethrow();
+ }
+ return; /* Emulated instruction. */
+generic_illegal_instruction:
  /* Construct and emit a illegal-instruction exception. */
  info                 = error_info();
  info->e_error.e_code = E_ILLEGAL_INSTRUCTION;
  info->e_error.e_flag = ERR_FRESUMABLE|ERR_FRESUMENEXT;
  memset(&info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
- info->e_error.e_illegal_instruction.ii_type;
+ info->e_error.e_illegal_instruction.ii_type = ERROR_ILLEGAL_INSTRUCTION_UNDEFINED;
+throw_exception:
  /* Copy the CPU context at the time of the exception. */
- fix_user_context(context);
- memcpy(&info->e_context,&context->c_host,
+ fix_user_context(xcontext);
+ memcpy(&info->e_context,&xcontext->c_host,
          sizeof(struct cpu_context));
  /* Throw the error. */
- error_rethrow_atuser((struct cpu_context *)context);
+ error_rethrow_atuser((struct cpu_context *)xcontext);
+illegal_addressing_mode:
+ info                 = error_info();
+ info->e_error.e_code = E_ILLEGAL_INSTRUCTION;
+ info->e_error.e_flag = ERR_FRESUMABLE|ERR_FRESUMENEXT;
+ memset(&info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
+ info->e_error.e_illegal_instruction.ii_type = (ERROR_ILLEGAL_INSTRUCTION_FOPERAND|
+                                                ERROR_ILLEGAL_INSTRUCTION_FADDRESS);
+ goto throw_exception;
 }
 
 

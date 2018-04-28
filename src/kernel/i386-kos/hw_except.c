@@ -618,30 +618,44 @@ x86_handle_bound(struct x86_anycontext *__restrict context) {
  /* Try to retrieve information on the index that was out-of-bounds. */
  TRY {
   u8 *ptext = (u8 *)CONTEXT_IP(*context);
-  struct modrm_info modrm; bool is16 = false;
+  struct modrm_info modrm;
   uintptr_t bounds_struct;
-  if (ptext[0] == 0x66) is16 = true,++ptext;
+  u16 flags = 0;
+check_flag:
+  switch (ptext[0]) {
+
+   /* Prefix bytes */
+  case 0x66: flags |= F_OP16; goto next_flag;
+  case 0x67: flags |= F_AD16; goto next_flag;
+  case 0xf0: flags |= F_LOCK; goto next_flag;
+  case 0xf2: flags |= F_REPNE; goto next_flag;
+  case 0xf3: flags |= F_REP; goto next_flag;
+  case 0x26: flags = (flags & ~F_SEGMASK) | F_SEGES; goto next_flag;
+  case 0x2e: flags = (flags & ~F_SEGMASK) | F_SEGCS; goto next_flag;
+  case 0x36: flags = (flags & ~F_SEGMASK) | F_SEGSS; goto next_flag;
+  case 0x3e: flags = (flags & ~F_SEGMASK) | F_SEGDS; goto next_flag;
+  case 0x64: flags = (flags & ~F_SEGMASK) | F_SEGFS; goto next_flag;
+  case 0x65: flags = (flags & ~F_SEGMASK) | F_SEGGS; /*goto next_flag;*/
+next_flag: ++ptext; goto check_flag;
+
+  default: break;
+  }
   if unlikely(ptext[0] != 0x62)
      goto do_throw_error; /* Shouldn't happen (ensure `bound' instruction) */
   x86_decode_modrm(ptext+1,&modrm);
   if unlikely(modrm.mi_type != MODRM_MEMORY)
      goto do_throw_error; /* Shouldn't happen (ensure memory operand) */
-
   /* Determine the effective address of the bounds structure. */
-  bounds_struct = modrm.mi_offset;
-  if (modrm.mi_rm != 0xff)
-      bounds_struct += X86_GPREG(*context,modrm.mi_rm);
-  if (modrm.mi_index != 0xff)
-      bounds_struct += X86_GPREG(*context,modrm.mi_index) << modrm.mi_shift;
-
+  bounds_struct = x86_modrm_getmem(context,&modrm,flags);
   /* Read data from the bounds structure. */
-  if (is16) {
+  if (flags & F_OP16) {
    u16 low,high;
    low  = ((u16 *)bounds_struct)[0];
    high = ((u16 *)bounds_struct)[1];
    COMPILER_BARRIER();
    info->e_error.e_index_error.b_boundmin = low;
    info->e_error.e_index_error.b_boundmax = high;
+   info->e_error.e_index_error.b_index = (u16)X86_GPREG(*context,modrm.mi_reg);
   } else {
    u32 low,high;
    low  = ((u32 *)bounds_struct)[0];
@@ -649,8 +663,8 @@ x86_handle_bound(struct x86_anycontext *__restrict context) {
    COMPILER_BARRIER();
    info->e_error.e_index_error.b_boundmin = low;
    info->e_error.e_index_error.b_boundmax = high;
+   info->e_error.e_index_error.b_index = (u32)X86_GPREG(*context,modrm.mi_reg);
   }
-  info->e_error.e_index_error.b_index = X86_GPREG(*context,modrm.mi_reg);
  } CATCH_HANDLED (E_SEGFAULT) {
  }
 

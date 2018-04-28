@@ -87,11 +87,6 @@ INTDEF u32 KCALL x86_modrm_getl(struct cpu_anycontext *__restrict context, struc
 #define F_SEGFS   0x4000 /* FS override. */
 #define F_SEGGS   0x5000 /* GS override. */
 
-/* Called by the #UD interrupt to emulate instruction not supported natively.
- * When `true' is returned, the instruction has been emulated and registers were updated. */
-INTDEF bool KCALL
-x86_emulate_instruction(struct cpu_anycontext *__restrict context);
-
 DECL_END
 
 #endif /* !GUARD_KERNEL_I386_KOS_EMULATOR_H */
