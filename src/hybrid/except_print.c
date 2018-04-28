@@ -814,9 +814,10 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
            context.c_eip,
            context.c_esp,context.c_gpregs.gp_ebp);
    }
+   if (!is_first || !(INFO->e_error.e_flag&ERR_FRESUMENEXT))
+        --context.c_eip;
    last_eip = context.c_eip;
-   if (!linker_findfde_consafe(is_first && (INFO->e_error.e_flag&ERR_FRESUMENEXT) ?
-                               context.c_eip : context.c_eip-1,&finfo)) {
+   if (!linker_findfde_consafe(context.c_eip,&finfo)) {
  #if 0
     /* For the first entry, assume a standard unwind which can be used
      * to properly display tracebacks when execution tries to call a
