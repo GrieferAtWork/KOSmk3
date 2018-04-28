@@ -2061,9 +2061,9 @@ vm_split_before(struct vm *__restrict effective_vm,
    new_node->vn_closure = INVOKE_NOTIFY(new_node->vn_notify,
                                         node->vn_closure,
                                         VM_NOTIFY_SPLIT,
-                                        VM_NODE_BEGIN(new_node),
-                                        VM_NODE_SIZE(new_node),
-                                        NULL);
+                                        VM_NODE_BEGIN(node),
+                                        split_offset,
+                               (void *)(VM_NODE_SIZE(node)-split_offset));
    if (new_node->vn_closure == VM_NOTIFY_SPLIT_FINCREF)
 #endif
    {
