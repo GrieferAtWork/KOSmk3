@@ -277,7 +277,6 @@ typedef __UINT16_TYPE__ except_t;
 /* Kernel-specific exception codes. */
 #define E_DRIVER_CLOSED          0x0800          /* Attempted to register a new global hook using a closed driver. */
 #define E_USER_RESUME            0xf800          /* Resume execution in user-space (weakened form of `E_INTERRUPT') */
-#define E_RESTART_SYSCALL        0xf801          /* Restart the current system call. */
 #define E_RETRY_RWLOCK           0xf810          /* The thread should re-attempt to acquire an R/W-lock. */
 #endif
 
