@@ -538,8 +538,100 @@ restart_sysenter_syscall:
    goto throw_exception;
   } break;
 
+  {
+   u16 frame_size;
+   u8  nesting_level;
+   uintptr_t frame_temp;
+   uintptr_t new_esp;
+   uintptr_t new_ebp;
+  case 0xc8:
+   /* ENTER imm16,imm8 */
+   frame_size     = *(u16 *)text,text += 2;
+   nesting_level  = *(u8 *)text,text += 1;
+   nesting_level %= 32;
+   /* Seeing how we're currently _on_ the stack we're trying to modify,
+    * emulating this one might be possible, but would be unnecessary
+    * and complicated. (especially unnecessary because we don't
+    * actually use this instruction) */
+   if (!is_user)
+        goto generic_illegal_instruction;
+   new_esp = context->c_useresp;
+   new_ebp = context->c_gpregs.gp_ebp;
+   /* I don't really understand the purpose of this nesting-level, but
+    * this emulation should be identical to Intel's documentation... */
+   if (!(flags & F_AD16)) {
+    new_esp -= 4;
+    validate_writable((void *)new_esp,4);
+    *(u32 *)new_esp = new_ebp;
+    frame_temp = new_esp;
+   } else {
+    new_esp -= 2;
+    *(u16 *)new_esp = (u16)new_ebp;
+    frame_temp = new_esp & 0xffff;
+   }
+   if (nesting_level != 0) {
+    while (--nesting_level) {
+     if (!(flags & F_OP16)) {
+      new_ebp -= 4;
+     } else {
+      new_ebp -= 2;
+     }
+     if (flags & F_AD16)
+         new_ebp &= 0xffff;
+     new_esp -= 4;
+     validate_writable((void *)new_esp,4);
+     *(u32 *)new_esp = new_ebp;
+    }
+    if (!(flags & F_OP16)) {
+     new_esp -= 4;
+     validate_writable((void *)new_esp,4);
+     *(u32 *)new_esp = frame_temp;
+    } else {
+     new_esp -= 2;
+     validate_writable((void *)new_esp,2);
+     *(u16 *)new_esp = (u16)frame_temp;
+    }
+   }
+   if (!(flags & F_AD16)) {
+    new_ebp = frame_temp;
+    new_esp = new_ebp - frame_size;
+   } else {
+    new_ebp = frame_temp & 0xffff;
+    new_esp = (new_ebp - frame_size) & 0xffff;
+   }
+   context->c_useresp       = new_esp;
+   context->c_gpregs.gp_ebp = new_ebp;
+  } break;
+
+  {
+  case 0xc9:
+   /* LEAVE */
+   if (is_user) {
+    validate_readable((void *)((flags & F_AD16
+                              ? context->c_gpregs.gp_ebp & 0xffff
+                              : context->c_gpregs.gp_ebp)-4),4);
+    context->c_useresp = context->c_gpregs.gp_ebp;
+    if (flags & F_AD16) context->c_useresp &= 0xffff;
+    context->c_useresp -= 4;
+    context->c_gpregs.gp_ebp = *(u32 *)context->c_useresp;
+    if (flags & F_OP16) context->c_gpregs.gp_ebp &= 0xffff;
+   } else {
+    context->c_hostesp = (uintptr_t)(&context->c_host+1);
+    if (flags & F_AD16) context->c_hostesp &= 0xffff;
+    context->c_hostesp -= 4;
+    context->c_gpregs.gp_ebp = *(u32 *)context->c_hostesp;
+    if (flags & F_OP16) context->c_gpregs.gp_ebp &= 0xffff;
+    /* Manually load the host-portion of the CPU context,
+     * because the `iret' used to re-load the updated
+     * context if we were to return normally wouldn't
+     * do that. */
+    cpu_setcontext(&context->c_host);
+   }
+  } break;
   default: goto generic_illegal_instruction;
   }
+  /* Update the instruction pointer to point after the emulated instruction. */
+  context->c_eip = (uintptr_t)text;
  } CATCH (E_SEGFAULT) {
   COMPILER_READ_BARRIER();
   if ((xcontext->c_eflags & EFLAGS_VM) ||
