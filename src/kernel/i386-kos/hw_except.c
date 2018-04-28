@@ -365,11 +365,8 @@ restart_syscall:
 
 INTERN void FCALL
 x86_handle_divide_by_zero(struct x86_anycontext *__restrict context) {
- struct exception_info *info; u64 arg; u16 type;
- /* Re-enable interrupts if they were enabled before. */
- if (context->c_eflags&EFLAGS_IF)
-     x86_interrupt_enable();
- arg = 0,type = ERROR_DIVIDE_BY_ZERO_INT;
+ struct exception_info *info; u64 arg = 0;
+ u16 type = ERROR_DIVIDE_BY_ZERO_INT;
  TRY {
   /* Decode source instructions (differentiate between `div' and `idiv'). */
   byte_t *text = (byte_t *)context->c_eip;
@@ -463,9 +460,6 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
 #endif
  debug_printf("THIS_TASK = %p (%u)\n",THIS_TASK,posix_gettid());
 #endif
- /* Re-enable interrupts if they were enabled before. */
- if (context->c_eflags&EFLAGS_IF)
-     x86_interrupt_enable();
 #if defined(__KERNEL__) && 1
  //context->c_esp = X86_ANYCONTEXT32_ESP(*INFO->e_context);
  if (context->c_iret.ir_cs & 3) {
@@ -555,10 +549,6 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
 #else
  {
   struct exception_info *info;
-  /* Re-enable interrupts if they were enabled before. */
-  if (context->c_eflags&EFLAGS_IF)
-      x86_interrupt_enable();
-
   /* Construct and emit a BREAKPOINT exception. */
   info                 = error_info();
   info->e_error.e_code = E_BREAKPOINT;
@@ -579,10 +569,6 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
 INTERN void FCALL
 x86_handle_overflow(struct x86_anycontext *__restrict context) {
  struct exception_info *info;
- /* Re-enable interrupts if they were enabled before. */
- if (context->c_eflags&EFLAGS_IF)
-     x86_interrupt_enable();
-
  /* Construct and emit an OVERFLOW exception. */
  info                 = error_info();
  info->e_error.e_code = E_OVERFLOW;
@@ -623,10 +609,6 @@ x86_handle_overflow(struct x86_anycontext *__restrict context) {
 INTERN void FCALL
 x86_handle_bound(struct x86_anycontext *__restrict context) {
  struct exception_info *info;
- /* Re-enable interrupts if they were enabled before. */
- if (context->c_eflags&EFLAGS_IF)
-     x86_interrupt_enable();
-
  /* Construct and emit an INDEX_ERROR exception. */
  info                 = error_info();
  info->e_error.e_code = E_INDEX_ERROR;
@@ -716,6 +698,10 @@ x86_interrupt_handler(struct cpu_anycontext *__restrict context,
  }
  //for (;;) __asm__("hlt");
 #endif
+
+ /* Re-enable interrupts if they were enabled before. */
+ if (context->c_eflags & EFLAGS_IF)
+     x86_interrupt_enable();
 
  /* Throw an unhandled-interrupt error. */
  info                 = error_info();

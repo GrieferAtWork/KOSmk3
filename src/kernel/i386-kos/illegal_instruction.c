@@ -61,9 +61,6 @@ vm86_gpf(struct cpu_context_vm86 *__restrict context,
 INTERN NOIRQ void FCALL
 x86_handle_illegal_instruction(struct x86_anycontext *__restrict context) {
  struct exception_info *info;
- /* Re-enable interrupts if they were enabled before. */
- if (context->c_eflags&EFLAGS_IF)
-     x86_interrupt_enable();
  /* Emulate some instructions that may not be supported natively. */
  if (x86_emulate_instruction(context))
      return;

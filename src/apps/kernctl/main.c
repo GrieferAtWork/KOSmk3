@@ -92,6 +92,7 @@ int main(int argc, char *argv[]) {
  if (!strcmp(cmd,"fault")) {
   int *ptr = (int *)42;
   while (++(*ptr++));
+  return 0;
  }
  if (!strcmp(cmd,"alloc")) {
   TRY {
@@ -104,6 +105,10 @@ int main(int argc, char *argv[]) {
                 "Thrown from here:\n");
    return 0;
   }
+ }
+ if (!strcmp(cmd,"ill")) {
+  asm("hlt");
+  return 0;
  }
 
  fprintf(stderr,"Unknown command %q\n",cmd);
