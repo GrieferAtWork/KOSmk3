@@ -108,10 +108,6 @@ vm_user_mapnewat(struct vm *__restrict myvm, vm_vpage_t page_index,
   TRY {
    /* Insert the new node into the VM and activate (map) it. */
    vm_insert_and_activate_node(myvm,node);
-
-   /* Try to merge the new mapping with surrounding nodes. */
-   vm_merge_before(myvm,VM_NODE_BEGIN(node));
-   vm_merge_before(myvm,VM_NODE_END(node));
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
    vm_region_decref(xregion);
    vm_region_decref_range(xregion,region_start,xnum_pages);
@@ -131,6 +127,7 @@ do_xmmap(struct mmap_info *__restrict info) {
  REF struct vm_region *EXCEPT_VAR region;
  REF struct vm_region *EXCEPT_VAR guard_region;
  bool is_extenal_region = false;
+ bool EXCEPT_VAR has_vm_lock = false;
  struct vm *EXCEPT_VAR user_vm = THIS_VM;
  vm_vpage_t EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
  vm_vpage_t EXCEPT_VAR hint;
@@ -421,164 +418,169 @@ cannot_mmap_handle:
 got_regions:
   /* Regions have been crated. Now to actually map them. */
   vm_acquire(user_vm);
-  TRY {
-   if (info->mi_flags & MAP_FIXED) {
-    vm_vpage_t page_end;
-    if (__builtin_add_overflow(hint,num_pages,&page_end) ||
-        page_end > X86_KERNEL_BASE_PAGE)
-        error_throw(E_INVALID_ARGUMENT); /* Bad address range. */
-    result = hint;
-    if (info->mi_xflag & XMAP_NOREMAP &&
-        vm_getanynode(result,page_end-1) != NULL) {
-     /* Check if something's already there. */
-     if (vm_getanynode(result,page_end-1)) {
-      result        = VM_ADDR2PAGE((uintptr_t)-1);
-      result_offset = ((uintptr_t)-1 & (PAGESIZE-1));
-      goto dont_map;
-     }
+  has_vm_lock = true;
+  if (info->mi_flags & MAP_FIXED) {
+   vm_vpage_t page_end;
+   if (__builtin_add_overflow(hint,num_pages,&page_end) ||
+       page_end > X86_KERNEL_BASE_PAGE)
+       error_throw(E_INVALID_ARGUMENT); /* Bad address range. */
+   result = hint;
+   if (info->mi_xflag & XMAP_NOREMAP &&
+       vm_getanynode(result,page_end-1) != NULL) {
+    /* Check if something's already there. */
+    if (vm_getanynode(result,page_end-1)) {
+     result        = VM_ADDR2PAGE((uintptr_t)-1);
+     result_offset = ((uintptr_t)-1 & (PAGESIZE-1));
+     goto dont_map;
     }
-    /* Map the regular and the guard region at the given address.
-     * NOTE: We use `vm_mapat()' when `MAP_FIXED' was set, so we
-     *       can safely deal with mappings already existing. */
-    if (info->mi_flags & MAP_GROWSUP) {
-     if (region) {
-      vm_mapat(hint,region->vr_size,region_start,
-               region,info->mi_prot,NULL,info->mi_tag);
-      hint += region->vr_size;
-     }
-     if (guard_region)
-         vm_mapat(hint,guard_region->vr_size,0,
-                  guard_region,info->mi_prot,
-                  NULL,info->mi_tag);
-    } else {
-     if (guard_region) {
-      vm_mapat(hint,guard_region->vr_size,0,guard_region,
-               info->mi_prot,NULL,info->mi_tag);
-      hint += guard_region->vr_size;
-     }
-     if (region)
-         vm_mapat(hint,region->vr_size,region_start,
-                  region,info->mi_prot,NULL,info->mi_tag);
+   }
+   /* Map the regular and the guard region at the given address.
+    * NOTE: We use `vm_mapat()' when `MAP_FIXED' was set, so we
+    *       can safely deal with mappings already existing. */
+   if (info->mi_flags & MAP_GROWSUP) {
+    if (region) {
+     vm_mapat(hint,region->vr_size,region_start,
+              region,info->mi_prot,NULL,info->mi_tag);
+     hint += region->vr_size;
     }
+    if (guard_region)
+        vm_mapat(hint,guard_region->vr_size,0,
+                 guard_region,info->mi_prot,
+                 NULL,info->mi_tag);
    } else {
-    unsigned int EXCEPT_VAR mode;
-    vm_vpage_t EXCEPT_VAR gap_pages;
-    size_t EXCEPT_VAR page_alignment;
-    if (info->mi_align & (info->mi_align-1))
-        error_throw(E_INVALID_ARGUMENT);
-    if (info->mi_align < PAGEALIGN)
-        info->mi_align = PAGEALIGN;
-    page_alignment = CEILDIV(info->mi_align,PAGESIZE);
+    if (guard_region) {
+     vm_mapat(hint,guard_region->vr_size,0,guard_region,
+              info->mi_prot,NULL,info->mi_tag);
+     hint += guard_region->vr_size;
+    }
+    if (region)
+        vm_mapat(hint,region->vr_size,region_start,
+                 region,info->mi_prot,NULL,info->mi_tag);
+   }
+  } else {
+   unsigned int EXCEPT_VAR mode;
+   vm_vpage_t EXCEPT_VAR gap_pages;
+   size_t EXCEPT_VAR page_alignment;
+   if (info->mi_align & (info->mi_align-1))
+       error_throw(E_INVALID_ARGUMENT);
+   if (info->mi_align < PAGEALIGN)
+       info->mi_align = PAGEALIGN;
+   page_alignment = CEILDIV(info->mi_align,PAGESIZE);
 
-    /* Automatically assign  */
-    if (hint != 0 || 
-        info->mi_xflag&(XMAP_FINDBELOW|XMAP_FINDABOVE)) {
-     if (!(info->mi_xflag&(XMAP_FINDBELOW|XMAP_FINDABOVE)))
-           info->mi_xflag |= (XMAP_FINDBELOW|XMAP_FINDABOVE);
-     /* Use the user-given hint and mode. */
-     mode      = VM_GETFREE_FABOVE;
-     gap_pages = CEILDIV(info->mi_gap,PAGESIZE);
-     if (info->mi_xflag & XMAP_NOTRYNGAP)
-         mode |= VM_GETFREE_FFORCEGAP;
-     if (info->mi_xflag & XMAP_FORCEGAP)
-         mode |= VM_GETFREE_FNOSMARTGAP;
-     if (info->mi_xflag & XMAP_FINDABOVE) {
-      if (info->mi_xflag & XMAP_FINDBELOW) {
-       vm_vpage_t result_low;
-       vm_vpage_t EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result_high);
-       TRY {
-        result_high = vm_getfree(hint,num_pages,page_alignment,
-                                 gap_pages,mode);
-       } CATCH_HANDLED (E_BADALLOC) {
-        /* If there is no high-location, still check for one in lower memory. */
-        result = vm_getfree(hint,num_pages,page_alignment,
-                            gap_pages,mode|VM_GETFREE_FBELOW);
-        goto do_map_at_result;
-       }
-       if (result_high == hint ||
-           result_high == hint+1)
-        /* If we already got the perfect match (or near perfect),
-         * no need to search for a better one. */
-        result = result_high;
-       else {
-        TRY {
-         size_t low_diff,high_diff;
-         result_low = vm_getfree(hint,num_pages,page_alignment,
-                                 gap_pages,mode|VM_GETFREE_FBELOW);
-         /* Both a high and a low-memory location was found.
-          * Check which one is closer to the given hint. */
-#define DIFF_TO(x) (((x)+num_pages <= (hint)) ? ((hint)-((x)+num_pages)) : ((x)-(hint)))
-         low_diff  = DIFF_TO(result_low);
-         high_diff = DIFF_TO(result_high);
-#undef DIFF_TO
-         /* Choose the mapping with the smaller distance. */
-         result = low_diff <= high_diff ? result_low : result_high;
-        } CATCH_HANDLED (E_BADALLOC) {
-         result = result_high; /* Use the high-memory location. */
-        }
-       }
-      } else {
+   /* Automatically assign  */
+   if (hint != 0 || 
+       info->mi_xflag&(XMAP_FINDBELOW|XMAP_FINDABOVE)) {
+    if (!(info->mi_xflag&(XMAP_FINDBELOW|XMAP_FINDABOVE)))
+          info->mi_xflag |= (XMAP_FINDBELOW|XMAP_FINDABOVE);
+    /* Use the user-given hint and mode. */
+    mode      = VM_GETFREE_FABOVE;
+    gap_pages = CEILDIV(info->mi_gap,PAGESIZE);
+    if (info->mi_xflag & XMAP_NOTRYNGAP)
+        mode |= VM_GETFREE_FFORCEGAP;
+    if (info->mi_xflag & XMAP_FORCEGAP)
+        mode |= VM_GETFREE_FNOSMARTGAP;
+    if (info->mi_xflag & XMAP_FINDABOVE) {
+     if (info->mi_xflag & XMAP_FINDBELOW) {
+      vm_vpage_t result_low;
+      vm_vpage_t EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result_high);
+      TRY {
+       result_high = vm_getfree(hint,num_pages,page_alignment,
+                                gap_pages,mode);
+      } CATCH_HANDLED (E_BADALLOC) {
+       /* If there is no high-location, still check for one in lower memory. */
        result = vm_getfree(hint,num_pages,page_alignment,
-                           gap_pages,mode);
+                           gap_pages,mode|VM_GETFREE_FBELOW);
+       goto do_map_at_result;
+      }
+      if (result_high == hint ||
+          result_high == hint+1)
+       /* If we already got the perfect match (or near perfect),
+        * no need to search for a better one. */
+       result = result_high;
+      else {
+       TRY {
+        size_t low_diff,high_diff;
+        result_low = vm_getfree(hint,num_pages,page_alignment,
+                                gap_pages,mode|VM_GETFREE_FBELOW);
+        /* Both a high and a low-memory location was found.
+         * Check which one is closer to the given hint. */
+#define DIFF_TO(x) (((x)+num_pages <= (hint)) ? ((hint)-((x)+num_pages)) : ((x)-(hint)))
+        low_diff  = DIFF_TO(result_low);
+        high_diff = DIFF_TO(result_high);
+#undef DIFF_TO
+        /* Choose the mapping with the smaller distance. */
+        result = low_diff <= high_diff ? result_low : result_high;
+       } CATCH_HANDLED (E_BADALLOC) {
+        result = result_high; /* Use the high-memory location. */
+       }
       }
      } else {
       result = vm_getfree(hint,num_pages,page_alignment,
-                          gap_pages,mode|VM_GETFREE_FBELOW);
+                          gap_pages,mode);
      }
     } else {
-     /* Automatically search for a free stack/heap location. */
-     if (info->mi_flags & MAP_STACK) {
-      result = vm_getfree(VM_USERSTACK_HINT,num_pages,page_alignment,
-                          VM_USERSTACK_GAP,VM_USERSTACK_MODE);
-     } else {
-      result = vm_getfree(VM_USERHEAP_HINT,num_pages,page_alignment,
-                          0,VM_USERHEAP_MODE);
-     }
+     result = vm_getfree(hint,num_pages,page_alignment,
+                         gap_pages,mode|VM_GETFREE_FBELOW);
     }
+   } else {
+    /* Automatically search for a free stack/heap location. */
+    if (info->mi_flags & MAP_STACK) {
+     result = vm_getfree(VM_USERSTACK_HINT,num_pages,page_alignment,
+                         VM_USERSTACK_GAP,VM_USERSTACK_MODE);
+    } else {
+     result = vm_getfree(VM_USERHEAP_HINT,num_pages,page_alignment,
+                         0,VM_USERHEAP_MODE);
+    }
+   }
 
 do_map_at_result:
-    hint = result;
-    /* Map the regular and the guard region at their respective addresses. */
-    if (info->mi_flags & MAP_GROWSUP) {
-     if (region) {
-      if (is_extenal_region) {
-       vm_user_mapnewat(user_vm,hint,region_start,num_pages,
-                        region,info->mi_prot,info->mi_tag);
-      } else {
-       vm_user_mapnewat_fast(user_vm,hint,region,
-                             info->mi_prot,info->mi_tag);
-      }
-      hint += region->vr_size;
-     }
-     if (guard_region)
-         vm_user_mapnewat_fast(user_vm,hint,guard_region,
-                               info->mi_prot,info->mi_tag);
-    } else {
-     if (guard_region) {
-      vm_user_mapnewat_fast(user_vm,hint,guard_region,
+   hint = result;
+   /* Map the regular and the guard region at their respective addresses. */
+   if (info->mi_flags & MAP_GROWSUP) {
+    if (region) {
+     if (is_extenal_region) {
+      vm_user_mapnewat(user_vm,hint,region_start,num_pages,
+                       region,info->mi_prot,info->mi_tag);
+     } else {
+      vm_user_mapnewat_fast(user_vm,hint,region,
                             info->mi_prot,info->mi_tag);
-      hint += guard_region->vr_size;
      }
-     if (region) {
-      if (is_extenal_region) {
-       vm_user_mapnewat(user_vm,hint,region_start,num_pages,
-                        region,info->mi_prot,info->mi_tag);
-      } else {
-       vm_user_mapnewat_fast(user_vm,hint,region,
-                             info->mi_prot,info->mi_tag);
-      }
+     hint += region->vr_size;
+    }
+    if (guard_region)
+        vm_user_mapnewat_fast(user_vm,hint,guard_region,
+                              info->mi_prot,info->mi_tag);
+   } else {
+    if (guard_region) {
+     vm_user_mapnewat_fast(user_vm,hint,guard_region,
+                           info->mi_prot,info->mi_tag);
+     hint += guard_region->vr_size;
+    }
+    if (region) {
+     if (is_extenal_region) {
+      vm_user_mapnewat(user_vm,hint,region_start,num_pages,
+                       region,info->mi_prot,info->mi_tag);
+     } else {
+      vm_user_mapnewat_fast(user_vm,hint,region,
+                            info->mi_prot,info->mi_tag);
      }
     }
    }
-dont_map:;
-  } FINALLY {
-   vm_release(user_vm);
   }
+dont_map:;
  } FINALLY {
   if (region)
       vm_region_decref(region);
   if (guard_region)
       vm_region_decref(guard_region);
+  if (has_vm_lock) {
+   if (num_pages) {
+    /* Try to merge the new mapping with surrounding nodes. */
+    vm_merge_before(user_vm,result);
+    vm_merge_before(user_vm,result+num_pages);
+   }
+   vm_release(user_vm);
+  }
  }
  return (VIRT void *)(VM_PAGE2ADDR(result) + result_offset);
 }

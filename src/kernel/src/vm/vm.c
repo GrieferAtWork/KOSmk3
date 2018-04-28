@@ -32,6 +32,7 @@
 #include <kernel/bind.h>
 #include <kernel/vm.h>
 #include <kernel/malloc.h>
+#include <fs/node.h>
 #include <fs/linker.h>
 #include <sched/userstack.h>
 #include <bits/sched.h>
@@ -1792,8 +1793,13 @@ vm_region_split_before(struct vm_region *__restrict self,
 
 
 
-/* TODO: This doesn't fully work, yet (needs some debugging...) */
-#define CONFIG_NO_VM_MERGING
+/* XXX: This might not fully work, yet (needs some debugging...) */
+//#define CONFIG_NO_VM_MERGING
+
+#undef CONFIG_LOG_VM_MERGING
+#if !defined(NDEBUG) && 0
+#define CONFIG_LOG_VM_MERGING 1
+#endif
 
 /* Allow merging of adjacent VM nodes that point to the same underlying region.
  * This configuration option has an extension `CONFIG_VM_MERGING_COMPLEX', which
@@ -1822,6 +1828,11 @@ INTDEF ATTR_NOTHROW ATTR_RETNONNULL struct vm_part *KCALL
 vm_region_mergenext(struct vm_region *__restrict region,
                     struct vm_part *__restrict part);
 
+#ifdef CONFIG_VM_MERGING
+PRIVATE bool vm_disable_merging = false;
+DEFINE_DRIVER_BOOL(vm_disable_merging,"nomerge");
+#endif
+
 
 PUBLIC ATTR_NOTHROW void KCALL
 vm_merge_before(struct vm *__restrict effective_vm,
@@ -1840,6 +1851,10 @@ vm_merge_before(struct vm *__restrict effective_vm,
   * the additional allocations when merging complex VM regions. */
  PRIVATE ATTR_PERVM bool vm_is_merging = false;
 #endif
+ /* Check if VM merging has been disabled via the kernel commandline. */
+ if (vm_disable_merging)
+     return;
+
  assert(vm_holding(effective_vm));
  pnext = vm_node_tree_plocate_at(&effective_vm->vm_map,
                                   page_address,
@@ -1872,9 +1887,11 @@ vm_merge_before(struct vm *__restrict effective_vm,
   if (self->vn_region->vr_flags & VM_REGION_FDONTMERGE)
       return; /* Mappings of this region aren't supposed to be merged. */
 
+#ifdef CONFIG_LOG_VM_MERGING
   debug_printf("[VM] Merge adjacent nodes at %p...%p and %p...%p\n",
                VM_NODE_MINADDR(self),VM_NODE_MAXADDR(self),
                VM_NODE_MINADDR(next),VM_NODE_MAXADDR(next));
+#endif
 
   /* Remove `self' and `next', then re-insert `self'. */
   asserte(vm_node_tree_pop_at(pnext,next_addr_level,next_addr_level) == next);
@@ -1928,7 +1945,8 @@ vm_merge_before(struct vm *__restrict effective_vm,
   FORVM(effective_vm,vm_is_merging) = true;
 
   TRY {
-#if 0
+
+#ifdef CONFIG_LOG_VM_MERGING
    debug_printf("[VM] Comparing virtual regions %p,%p at %p...%p and %p...%p\n",
                 self_region,next_region,
                 VM_NODE_MINADDR(self),VM_NODE_MAXADDR(self),
@@ -1959,16 +1977,198 @@ vm_merge_before(struct vm *__restrict effective_vm,
     case VM_REGION_INIT_FRANDOM:
      break;
 
+    {
+     bool self_is_empty;      /* All bytes mapped by `self' are filled with the filler. */
+     bool next_is_empty;      /* All bytes mapped by `next' are filled with the filler. */
+     bool self_is_full;       /* No byte mapped by `self' in `self_region' doesn't originate from the file */
+     bool next_is_full;       /* No byte mapped by `next' in `next_region' doesn't originate from the file */
+     bool self_padding_back;  /* `self' maps data near the end that is filled with the filler */
+     bool next_padding_front; /* `next' maps data near the end that is filled with the filler */
     case VM_REGION_INIT_FFILE:
     case VM_REGION_INIT_FFILE_RO:
-     /* TODO: Compare effective initialization of mapped region area.
-      * NOTE: If the effective mapping is such that one of the nodes
-      *       merely maps to the out-of-bounds portion of the file,
-      *       then we don't need to check if the files actually match! */
+     /* Compare effective initialization of mapped region area. */
+     self_is_empty = ((/* File mapping ends before the portion mapped by the node */
+                       self_region->vr_setup.s_file.f_begin+
+                       self_region->vr_setup.s_file.f_size) <=
+                       self->vn_start * PAGESIZE) ||
+                      (/* File mapping starts after the portion mapped by the node */
+                       self_region->vr_setup.s_file.f_begin >=
+                      (self->vn_start+self_size) * PAGESIZE);
+     next_is_empty = ((/* File mapping ends before the portion mapped by the node */
+                       next_region->vr_setup.s_file.f_begin+
+                       next_region->vr_setup.s_file.f_size) <=
+                       next->vn_start * PAGESIZE) ||
+                      (/* File mapping starts after the portion mapped by the node */
+                       next_region->vr_setup.s_file.f_begin >=
+                      (next->vn_start+next_size) * PAGESIZE);
+     self_padding_back = !(self_region->vr_setup.s_file.f_begin+
+                           self_region->vr_setup.s_file.f_size <=
+                          (self->vn_start+self_size) * PAGESIZE);
+     next_padding_front = !(next_region->vr_setup.s_file.f_begin >=
+                            next->vn_start * PAGESIZE);
+     self_is_full  = (/* No padding exists at the front */
+                      (self_region->vr_setup.s_file.f_begin >=
+                       self->vn_start * PAGESIZE) &&
+                      /* No padding exists at the back */
+                      !self_padding_back);
+     next_is_full  = (/* No padding exists at the front */
+                      !next_padding_front &&
+                      /* No padding exists at the back */
+                      (next_region->vr_setup.s_file.f_begin+
+                       next_region->vr_setup.s_file.f_size <=
+                      (next->vn_start+next_size) * PAGESIZE));
+     assert(!(self_is_full && self_is_empty));
+     assert(!(next_is_full && next_is_empty));
+     assert(self_is_full ? !self_padding_back : 1);
+     assert(next_is_full ? !next_padding_front : 1);
+     if (self_is_empty && next_is_empty) {
+      /* Special case: The merged region isn't actually a file mapping, but only
+       *               consists of filler data. -> Create the mapping as a FILLER,
+       *               but check that both file mappings use the same filler. */
+      if (self_region->vr_setup.s_file.f_filler !=
+          next_region->vr_setup.s_file.f_filler)
+          goto dont_merge;
+      new_region                    = vm_region_alloc(self_size+next_size);
+      new_region->vr_init           = VM_REGION_INIT_FFILLER;
+      new_region->vr_flags          = self_region->vr_flags & VM_REGION_FCOMPAREMASK;
+      new_region->vr_setup.s_filler = self_region->vr_setup.s_file.f_filler;
+      goto merge_region_parts;
+     }
+     if (self_is_full && next_is_full) {
+      /* Special case: Both regions contain no unmapped portions. */
+      if (self_region->vr_setup.s_file.f_node !=
+          next_region->vr_setup.s_file.f_node)
+          goto dont_merge;
+      if (self_region->vr_setup.s_file.f_start -
+         (self_region->vr_setup.s_file.f_begin + self->vn_start * PAGESIZE) +
+         (self_size * PAGESIZE) !=
+         (next_region->vr_setup.s_file.f_start -
+         (next_region->vr_setup.s_file.f_begin + next->vn_start * PAGESIZE)))
+          goto dont_merge; /* Different file portions are being mapped. */
+      new_region                           = vm_region_alloc(self_size+next_size);
+      new_region->vr_init                  = self_region->vr_init;
+      new_region->vr_flags                 = self_region->vr_flags & VM_REGION_FCOMPAREMASK;
+      new_region->vr_setup.s_file.f_node   = self_region->vr_setup.s_file.f_node;
+      new_region->vr_setup.s_file.f_begin  = 0;
+      new_region->vr_setup.s_file.f_size   = self_size+next_size;
+      new_region->vr_setup.s_file.f_start  = self_region->vr_setup.s_file.f_start;
+      new_region->vr_setup.s_file.f_start += self_region->vr_setup.s_file.f_begin;
+      new_region->vr_setup.s_file.f_filler = 0;
+      inode_incref(new_region->vr_setup.s_file.f_node);
+      goto merge_region_parts;
+     }
+     if (self_is_empty) {
+      uintptr_t next_start_offset;
+      /* Special case: Nothing is mapped from the left file. */
+      if (!next_is_full &&
+          (self_region->vr_setup.s_file.f_filler !=
+           next_region->vr_setup.s_file.f_filler))
+           goto dont_merge; /* Different fillers */
+      new_region                           = vm_region_alloc(self_size+next_size);
+      new_region->vr_init                  = self_region->vr_init;
+      new_region->vr_flags                 = self_region->vr_flags & VM_REGION_FCOMPAREMASK;
+      new_region->vr_setup.s_file.f_node   = next_region->vr_setup.s_file.f_node;
+      new_region->vr_setup.s_file.f_begin  = next_region->vr_setup.s_file.f_begin;
+      new_region->vr_setup.s_file.f_begin += self_size * PAGESIZE;
+      new_region->vr_setup.s_file.f_size   = MIN(next_region->vr_setup.s_file.f_size,
+                                               ((next->vn_start + next_size) * PAGESIZE)-
+                                                 next_region->vr_setup.s_file.f_begin);
+      new_region->vr_setup.s_file.f_start  = next_region->vr_setup.s_file.f_start;
+      new_region->vr_setup.s_file.f_start += self_size * PAGESIZE;
+      new_region->vr_setup.s_file.f_filler = self_region->vr_setup.s_file.f_filler;
+      next_start_offset = next->vn_start * PAGESIZE;
+      if (new_region->vr_setup.s_file.f_begin >= next_start_offset)
+          new_region->vr_setup.s_file.f_begin -= next_start_offset;
+      else {
+       uintptr_t diff;
+       /* Deal with address truncation. */
+       diff = next_start_offset-new_region->vr_setup.s_file.f_begin;
+       assertf(new_region->vr_setup.s_file.f_size > diff,
+               "If this wasn't the case, then `next_is_empty' should have been true, "
+               "and since this branch is dealing with `self_is_empty', and the branch "
+               "for `self_is_empty' and `next_is_empty' has already been passed, the "
+               "effective mapping of the next region can't be empty!");
+       new_region->vr_setup.s_file.f_begin  = 0;
+       new_region->vr_setup.s_file.f_start += diff;
+       new_region->vr_setup.s_file.f_size  -= diff;
+      }
+      inode_incref(new_region->vr_setup.s_file.f_node);
+      goto merge_region_parts;
+     }
+     if (next_is_empty) {
+      uintptr_t self_start_offset;
+      /* Special case: Nothing is mapped from the right file. */
+      if (!self_is_full &&
+          (self_region->vr_setup.s_file.f_filler !=
+           next_region->vr_setup.s_file.f_filler))
+           goto dont_merge; /* Different fillers */
+      new_region                           = vm_region_alloc(self_size+next_size);
+      new_region->vr_init                  = self_region->vr_init;
+      new_region->vr_flags                 = self_region->vr_flags & VM_REGION_FCOMPAREMASK;
+      new_region->vr_setup.s_file.f_node   = self_region->vr_setup.s_file.f_node;
+      new_region->vr_setup.s_file.f_begin  = self_region->vr_setup.s_file.f_begin;
+      new_region->vr_setup.s_file.f_size   = MIN(self_region->vr_setup.s_file.f_size,
+                                               ((self->vn_start + self_size) * PAGESIZE)-
+                                                 self_region->vr_setup.s_file.f_begin);
+      new_region->vr_setup.s_file.f_start  = self_region->vr_setup.s_file.f_start;
+      new_region->vr_setup.s_file.f_filler = next_region->vr_setup.s_file.f_filler;
+      self_start_offset = self->vn_start * PAGESIZE;
+      if (self_start_offset >= new_region->vr_setup.s_file.f_begin)
+          new_region->vr_setup.s_file.f_begin -= self_start_offset;
+      else {
+       uintptr_t diff;
+       /* Deal with address truncation. */
+       diff = new_region->vr_setup.s_file.f_begin - self_start_offset;
+       assertf(new_region->vr_setup.s_file.f_size > diff,
+               "If this wasn't the case, then `self_is_empty' should "
+               "have been true, a case that was already handled above!");
+       new_region->vr_setup.s_file.f_size  -= diff;
+       new_region->vr_setup.s_file.f_begin  = 0;
+       new_region->vr_setup.s_file.f_start += diff;
+      }
+      inode_incref(new_region->vr_setup.s_file.f_node);
+      goto merge_region_parts;
+     }
+
+     /* With the special cases of empty mappings out of the way,
+      * if there still exists padding data between the 2 regions,
+      * then we can't actually map any memory. */
+     if (self_padding_back)
+         goto dont_merge;
+     if (next_padding_front)
+         goto dont_merge;
+
+     /* With neither nodes empty, do a general
+      * check to see if both files map the same node. */
      if (self_region->vr_setup.s_file.f_node !=
          next_region->vr_setup.s_file.f_node)
          goto dont_merge; /* Different files */
-     goto dont_merge;
+
+     /* Now that we know that both nodes must map at least ~some~ file
+      * data, check to ensure that they map file file offsets whose
+      * relative file positions are equal to their relative memory
+      * addresses. */
+     if (self_region->vr_setup.s_file.f_start -
+        (self_region->vr_setup.s_file.f_begin + self->vn_start * PAGESIZE) +
+        (self_size * PAGESIZE) !=
+        (next_region->vr_setup.s_file.f_start -
+        (next_region->vr_setup.s_file.f_begin + next->vn_start * PAGESIZE)))
+         goto dont_merge; /* Different file portions are being mapped. */
+     new_region                           = vm_region_alloc(self_size+next_size);
+     new_region->vr_init                  = self_region->vr_init;
+     new_region->vr_flags                 = self_region->vr_flags & VM_REGION_FCOMPAREMASK;
+     new_region->vr_setup.s_file.f_node   = self_region->vr_setup.s_file.f_node;
+     new_region->vr_setup.s_file.f_start  = self_region->vr_setup.s_file.f_start;
+     new_region->vr_setup.s_file.f_size   = MIN(self_region->vr_setup.s_file.f_size,
+                                              ((self->vn_start + self_size) * PAGESIZE)-
+                                                self_region->vr_setup.s_file.f_begin);
+     new_region->vr_setup.s_file.f_size  += MIN(next_region->vr_setup.s_file.f_size,
+                                              ((next->vn_start + next_size) * PAGESIZE)-
+                                                next_region->vr_setup.s_file.f_begin);
+     new_region->vr_setup.s_file.f_begin  = self_region->vr_setup.s_file.f_begin;
+     new_region->vr_setup.s_file.f_filler = self_region->vr_setup.s_file.f_filler;
+     goto merge_region_parts;
+    }
 
     case VM_REGION_INIT_FUSER:
      /* Compare the effective user-callback, as well as the associated delta. */
@@ -1978,8 +2178,8 @@ vm_merge_before(struct vm *__restrict effective_vm,
      if (self_region->vr_setup.s_user.u_closure !=
          next_region->vr_setup.s_user.u_closure)
          goto dont_merge; /* Different user-closures. */
-     if (self_region->vr_setup.s_user.u_delta + (vm_sraddr_t)self_size !=
-         next_region->vr_setup.s_user.u_delta)
+     if ((self_region->vr_setup.s_user.u_delta - self->vn_start) + (vm_sraddr_t)self_size !=
+         (next_region->vr_setup.s_user.u_delta - next->vn_start))
          goto dont_merge; /* Different delta offsets. */
      break;
 
@@ -1988,24 +2188,44 @@ vm_merge_before(struct vm *__restrict effective_vm,
      goto dont_merge;
     }
 
-    goto dont_merge; /* TODO */
-
     /* Create the new, combined region. */
-    new_region = vm_region_alloc(self_size+next_size);
+    new_region           = vm_region_alloc(self_size+next_size);
     new_region->vr_init  = self_region->vr_init;
     new_region->vr_flags = self_region->vr_flags & VM_REGION_FCOMPAREMASK;
-
-    /* TODO: Copy region initializers. */
-
+    TRY {
+     /* Copy region initializers. */
+     switch (self_region->vr_init) {
+     case VM_REGION_INIT_FNORMAL:
+     case VM_REGION_INIT_FRANDOM:
+      break;
+     case VM_REGION_INIT_FFILLER:
+      new_region->vr_setup.s_filler = self_region->vr_setup.s_filler;
+      break;
+     case VM_REGION_INIT_FUSER:
+      new_region->vr_setup.s_user.u_delta = self_region->vr_setup.s_user.u_delta-self->vn_start;
+      new_region->vr_setup.s_user.u_closure = (*self_region->vr_setup.s_user.u_func)(self_region->vr_setup.s_user.u_closure,
+                                                                                     VM_REGION_USERCOMMAND_INCREF,
+                                                                                     new_region->vr_setup.s_user.u_delta,
+                                                                                     NULL,new_region->vr_size);
+      COMPILER_WRITE_BARRIER();
+      new_region->vr_setup.s_user.u_func = self_region->vr_setup.s_user.u_func;
+      COMPILER_WRITE_BARRIER();
+      break;
+     default: __builtin_unreachable();
+     }
+    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+     vm_region_decref(new_region);
+     error_rethrow();
+    }
     /* Finally, merge the parts of both input regions into the merged region. */
     goto merge_region_parts;
 
+   case VM_REGION_PHYSICAL:
    {
-    struct vm_part *self_parts;
-    struct vm_part *next_parts;
+    struct vm_part *COMPILER_IGNORE_UNINITIALIZED(self_parts);
+    struct vm_part *COMPILER_IGNORE_UNINITIALIZED(next_parts);
     struct vm_part *last_part,*iter;
     vm_raddr_t self_end,next_end;
-   case VM_REGION_PHYSICAL:
     /* Can only merge physical memory regions that
      * aren't being shared with other processes. */
     if (self_region->vr_refcnt > 1) goto dont_merge;
@@ -2019,7 +2239,7 @@ vm_merge_before(struct vm *__restrict effective_vm,
                  VM_NODE_MINADDR(self),VM_NODE_MAXADDR(self),
                  VM_NODE_MINADDR(next),VM_NODE_MAXADDR(next));
 #endif
-#if 0
+#ifdef CONFIG_LOG_VM_MERGING
     goto dont_merge;
 #endif
     new_region = vm_region_alloc(self_size+next_size);
@@ -2192,10 +2412,12 @@ dont_merge:
        error_code() == E_BADALLOC)
        return; /* Ignore failure to allocate a combining region. */
   }
+#ifdef CONFIG_LOG_VM_MERGING
   debug_printf("[VM] Merging regions %p,%p at %p...%p and %p...%p\n",
                self_region,next_region,
                VM_NODE_MINADDR(self),VM_NODE_MAXADDR(self),
                VM_NODE_MINADDR(next),VM_NODE_MAXADDR(next));
+#endif
 
   /* Remove `self' and `next', then re-insert `self'. */
   asserte(vm_node_tree_pop_at(pnext,next_addr_semi,next_addr_level) == next);

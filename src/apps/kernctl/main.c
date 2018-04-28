@@ -27,8 +27,10 @@
 #include <kos/types.h>
 #include <err.h>
 #include <errno.h>
+#include <malloc.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/mman.h>
 
 DECL_BEGIN
 
@@ -88,6 +90,13 @@ int main(int argc, char *argv[]) {
  if (!strcmp(cmd,"fault")) {
   int *ptr = (int *)42;
   while (++(*ptr++));
+ }
+ if (!strcmp(cmd,"alloc")) {
+  for (;;) {
+   void *p;
+   p = Xmmap(NULL,16*PAGESIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0);
+   /*printf("%p\n",p);*/
+  }
  }
 
  fprintf(stderr,"Unknown command %q\n",cmd);
