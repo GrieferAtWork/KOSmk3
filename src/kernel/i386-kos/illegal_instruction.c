@@ -424,6 +424,15 @@ extend_instruction:
 #endif /* !__x86_64__ */
 
 
+  {
+   struct modrm_info modrm;
+  case 0x0f01:
+   text = x86_decode_modrm(text,&modrm);
+   /* LGDT and LIDT throw an #UD when a register operand is used. */
+   if (modrm.mi_rm == 2) goto illegal_addressing_mode; /* LGDT m16&32 */
+   if (modrm.mi_rm == 3) goto illegal_addressing_mode; /* LIDT m16&32 */
+   goto generic_illegal_instruction;
+  } break;
 
   {
    syscall_ulong_t EXCEPT_VAR sysno;
