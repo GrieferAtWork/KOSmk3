@@ -834,6 +834,15 @@ restart_sysenter_syscall:
 #endif /* !__x86_64__ */
 #endif
 
+  case 0x0f31:
+   /* RDTSC */
+   /* TODO: This can be emulated by combining jiffies with the remainder
+    *       of the current quantum, which can be read from the LAPIC
+    *       CURRENT register, as well as the length of a quantum.
+    *       The PIT also has a way of reading out the remaining number
+    *       of ~ticks~ until the quantum ends. */
+
+   break;
 
   default: goto generic_illegal_instruction;
   }

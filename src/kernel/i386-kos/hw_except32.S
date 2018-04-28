@@ -129,7 +129,7 @@ define_hardware_exception_handler 00, x86_handle_divide_by_zero
 define_hardware_exception_handler 03, x86_handle_breakpoint
 define_hardware_exception_handler 04, x86_handle_overflow
 define_hardware_exception_handler 05, x86_handle_bound
-#if 0 /* ... No situation exists where we don't have popal... */
+#if 0 /* ... No situation exists where we don't have popal on i386+... */
 define_hardware_exception_handler 06, x86_handle_illegal_instruction, 0, 0
 #else
 define_hardware_exception_handler 06, x86_handle_illegal_instruction
