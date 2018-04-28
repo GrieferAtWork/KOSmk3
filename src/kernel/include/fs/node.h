@@ -123,6 +123,10 @@ struct inode_operations {
      * supports attributes only partially. */
     void (KCALL *io_maskattr)(struct inode *__restrict self);
 
+    /* [0..1][locked(WRITE(self->i_lock))]
+     * An optional callback that is invoked when kernel caches are being cleared. */
+    /*ATTR_NOTHROW*/void (KCALL *io_clearcache)(struct inode *__restrict self);
+
     /* [0..1]
      * Query information about hard limits on various filesystem objects.
      * @param: name: One of `_PC_*' from `<bits/confname.h>'
@@ -1154,6 +1158,10 @@ struct superblock_type {
          *  NOTE: This function is called when `superblock_sync()'
          *        finishes flushing the data of all changed INodes. */
         void (KCALL *f_sync)(struct superblock *__restrict self);
+
+        /* [0..1][const]
+         * An optional callback that is invoked when kernel caches are being cleared. */
+        /*ATTR_NOTHROW*/void (KCALL *f_clearcache)(struct superblock *__restrict self);
 
     } st_functions;
 };

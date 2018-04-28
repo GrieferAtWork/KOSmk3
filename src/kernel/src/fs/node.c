@@ -2966,6 +2966,8 @@ perinode_clear_caches(struct inode *__restrict self) {
   /* Unset the DIR-LOADED flag. (because it no longer is) */
   self->i_flags &= ~(INODE_FDIRLOADED);
  }
+ if (self->i_ops->io_clearcache && !kernel_cc_done())
+     SAFECALL_KCALL_VOID_1(*self->i_ops->io_clearcache,self);
  rwlock_endwrite(&self->i_lock);
 }
 
@@ -2998,8 +3000,11 @@ again:
 done:
  atomic_rwlock_endread(&self->s_nodes_lock);
  /* Clear the INode hash-map cache. */
- while (superblock_clearcache(self,1) &&
-       !kernel_cc_done());
+ while (superblock_clearcache(self,1))
+     if (kernel_cc_done()) return;
+ /* Invoke the superblock's clear-cache operator (if defined). */
+ if (self->s_type->st_functions.f_clearcache)
+     SAFECALL_KCALL_VOID_1(*self->s_type->st_functions.f_clearcache,self);
 }
 
 
