@@ -36,6 +36,7 @@
 #include <stdbool.h>
 #include <syscall.h>
 #include <kernel/syscall.h>
+#include <sys/io.h>
 
 #include "emulator.h"
 
@@ -628,6 +629,95 @@ restart_sysenter_syscall:
     cpu_setcontext(&context->c_host);
    }
   } break;
+
+  {
+  case 0x6c:
+   /* INSB */
+   if (is_user) goto privileged_instruction;
+   if (!(flags & F_REP)) {
+    *(u8 *)context->c_gpregs.gp_edi = inb((u16)context->c_gpregs.gp_edx);
+    context->c_gpregs.gp_edi += (context->c_eflags & DF) ? -1 : +1;
+   } else while (context->c_gpregs.gp_ecx) {
+    if ((flags & F_AD16) && !(context->c_gpregs.gp_ecx & 0xffff)) break;
+    *(u8 *)context->c_gpregs.gp_edi = inb((u16)context->c_gpregs.gp_edx);
+    context->c_gpregs.gp_edi += (context->c_eflags & DF) ? -1 : +1;
+    --context->c_gpregs.gp_ecx;
+   }
+  } break;
+
+  {
+  case 0x6d:
+   /* INSW */
+   /* INSD */
+   if (is_user) goto privileged_instruction;
+   if (!(flags & F_REP)) {
+    if (flags & F_OP16) {
+     *(u16 *)context->c_gpregs.gp_edi = inw((u16)context->c_gpregs.gp_edx);
+     context->c_gpregs.gp_edi += (context->c_eflags & DF) ? -2 : +2;
+    } else {
+     *(u32 *)context->c_gpregs.gp_edi = inl((u16)context->c_gpregs.gp_edx);
+     context->c_gpregs.gp_edi += (context->c_eflags & DF) ? -4 : +4;
+    }
+   } else while (context->c_gpregs.gp_ecx) {
+    if ((flags & F_AD16) && !(context->c_gpregs.gp_ecx & 0xffff)) break;
+    if (flags & F_OP16) {
+     *(u16 *)context->c_gpregs.gp_edi = inw((u16)context->c_gpregs.gp_edx);
+     context->c_gpregs.gp_edi += (context->c_eflags & DF) ? -2 : +2;
+    } else {
+     *(u32 *)context->c_gpregs.gp_edi = inl((u16)context->c_gpregs.gp_edx);
+     context->c_gpregs.gp_edi += (context->c_eflags & DF) ? -4 : +4;
+    }
+    --context->c_gpregs.gp_ecx;
+   }
+  } break;
+
+  {
+  case 0x6e:
+   /* OUTSB */
+   if (is_user) goto privileged_instruction;
+   if (!(flags & F_REP)) {
+    outb((u16)context->c_gpregs.gp_edx,
+        *(u8 *)context->c_gpregs.gp_esi);
+    context->c_gpregs.gp_esi += (context->c_eflags & DF) ? -1 : +1;
+   } else while (context->c_gpregs.gp_ecx) {
+    if ((flags & F_AD16) && !(context->c_gpregs.gp_ecx & 0xffff)) break;
+    outb((u16)context->c_gpregs.gp_edx,
+        *(u8 *)context->c_gpregs.gp_esi);
+    context->c_gpregs.gp_esi += (context->c_eflags & DF) ? -1 : +1;
+    --context->c_gpregs.gp_ecx;
+   }
+  } break;
+
+  {
+  case 0x6f:
+   /* OUTSW */
+   /* OUTSD */
+   if (is_user) goto privileged_instruction;
+   if (!(flags & F_REP)) {
+    if (flags & F_OP16) {
+     outw((u16)context->c_gpregs.gp_edx,
+         *(u16 *)context->c_gpregs.gp_esi);
+     context->c_gpregs.gp_esi += (context->c_eflags & DF) ? -2 : +2;
+    } else {
+     outl((u16)context->c_gpregs.gp_edx,
+         *(u32 *)context->c_gpregs.gp_esi);
+     context->c_gpregs.gp_esi += (context->c_eflags & DF) ? -4 : +4;
+    }
+   } else while (context->c_gpregs.gp_ecx) {
+    if ((flags & F_AD16) && !(context->c_gpregs.gp_ecx & 0xffff)) break;
+    if (flags & F_OP16) {
+     outw((u16)context->c_gpregs.gp_edx,
+         *(u16 *)context->c_gpregs.gp_esi);
+     context->c_gpregs.gp_esi += (context->c_eflags & DF) ? -2 : +2;
+    } else {
+     outl((u16)context->c_gpregs.gp_edx,
+         *(u32 *)context->c_gpregs.gp_esi);
+     context->c_gpregs.gp_esi += (context->c_eflags & DF) ? -4 : +4;
+    }
+    --context->c_gpregs.gp_ecx;
+   }
+  } break;
+
   default: goto generic_illegal_instruction;
   }
   /* Update the instruction pointer to point after the emulated instruction. */
