@@ -2057,15 +2057,18 @@ vm_split_before(struct vm *__restrict effective_vm,
  if (new_node->vn_notify) {
   TRY {
    /* Invoke the incref() notification. */
+#if 1
    new_node->vn_closure = INVOKE_NOTIFY(new_node->vn_notify,
-                                        new_node->vn_closure,
+                                        node->vn_closure,
                                         VM_NOTIFY_SPLIT,
                                         VM_NODE_BEGIN(new_node),
                                         VM_NODE_SIZE(new_node),
                                         NULL);
-   if (new_node->vn_closure == VM_NOTIFY_SPLIT_FINCREF) {
+   if (new_node->vn_closure == VM_NOTIFY_SPLIT_FINCREF)
+#endif
+   {
     new_node->vn_closure = INVOKE_NOTIFY(new_node->vn_notify,
-                                         new_node->vn_closure,
+                                         node->vn_closure,
                                          VM_NOTIFY_INCREF,
                                          VM_NODE_BEGIN(new_node),
                                          VM_NODE_SIZE(new_node),
