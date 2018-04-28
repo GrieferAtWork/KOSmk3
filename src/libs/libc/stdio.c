@@ -50,7 +50,7 @@ FileBuffer_SetError(FileBuffer *__restrict self) {
  LIBC_TRY {
   self->fb_flag |= __IO_FILE_IOERR;
   COMPILER_WRITE_BARRIER();
- } LIBC_EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+ } LIBC_EXCEPT_HANDLED (EXCEPT_EXECUTE_HANDLER) {
  }
 }
 
@@ -259,7 +259,7 @@ FileBuffer_Destroy(FileBuffer *__restrict self) {
   result = FileBuffer_SystemClose(self);
   if (!(self->fb_flag & FILE_BUFFER_FSTATIC))
         FileBuffer_Free(self);
- } LIBC_EXCEPT(libc_except_errno()) {
+ } LIBC_EXCEPT_HANDLED (libc_except_errno()) {
   result = -1;
  }
  return result;
@@ -786,9 +786,10 @@ again:
       return EOF;
  } LIBC_EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   pos64_t next_data; char result;
-  if (libc_error_code() != E_BUFFER_TOO_SMALL ||
-      libc_error_code() != E_BADALLOC)
-      libc_error_rethrow();
+  if (error_code() != E_BUFFER_TOO_SMALL ||
+      error_code() != E_BADALLOC)
+      error_rethrow();
+  error_handled();
   /* Use read-through if we couldn't read using a buffer. */
   next_data = self->fb_fblk+(self->fb_ptr-self->fb_base);
   /* Dynamic scaling is disabled. Must forward the getc() to the underlying file. */
@@ -1034,46 +1035,50 @@ CRT_STDIO size_t LIBCCALL
 FileBuffer_ReadUnlocked(FileBuffer *__restrict self,
                       void *__restrict buffer,
                       size_t bufsize) {
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  LIBC_TRY {
-  return FileBuffer_XReadUnlocked(self,buffer,bufsize);
- } LIBC_EXCEPT(libc_except_errno()) {
+  result = FileBuffer_XReadUnlocked(self,buffer,bufsize);
+ } LIBC_EXCEPT_HANDLED(libc_except_errno()) {
   FileBuffer_SetError(self);
+  result = 0;
  }
- return 0;
+ return result;
 }
 
 CRT_STDIO size_t LIBCCALL
 FileBuffer_WriteUnlocked(FileBuffer *__restrict self,
                        void const *__restrict buffer,
                        size_t bufsize) {
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
  LIBC_TRY {
-  return FileBuffer_XWriteUnlocked(self,buffer,bufsize);
- } LIBC_EXCEPT(libc_except_errno()) {
+  result = FileBuffer_XWriteUnlocked(self,buffer,bufsize);
+ } LIBC_EXCEPT_HANDLED(libc_except_errno()) {
   FileBuffer_SetError(self);
+  result = 0;
  }
- return 0;
+ return result;
 }
 
 CRT_STDIO int LIBCCALL
 FileBuffer_FlushUnlocked(FileBuffer *__restrict self) {
  LIBC_TRY {
   FileBuffer_XFlushUnlocked(self);
-  return 0;
- } LIBC_EXCEPT(libc_except_errno()) {
+ } LIBC_EXCEPT_HANDLED(libc_except_errno()) {
   FileBuffer_SetError(self);
+  return -1;
  }
- return -1;
+ return 0;
 }
 
 CRT_STDIO int LIBCCALL
 FileBuffer_SeekUnlocked(FileBuffer *__restrict self, off64_t off, int whence) {
  LIBC_TRY {
   FileBuffer_XSeekUnlocked(self,off,whence);
-  return 0;
- } LIBC_EXCEPT(libc_except_errno()) {
+ } LIBC_EXCEPT_HANDLED(libc_except_errno()) {
   FileBuffer_SetError(self);
+  return -1;
  }
- return -1;
+ return 0;
 }
 
 CRT_STDIO int LIBCCALL
@@ -1082,41 +1087,45 @@ FileBuffer_SetvbufUnlocked(FileBuffer *__restrict self,
                          int modes, size_t n) {
  LIBC_TRY {
   FileBuffer_XSetvbufUnlocked(self,buffer,modes,n);
-  return 0;
- } LIBC_EXCEPT(libc_except_errno()) {
+ } LIBC_EXCEPT_HANDLED(libc_except_errno()) {
   FileBuffer_SetError(self);
+  return -1;
  }
- return -1;
+ return 0;
 }
 
 CRT_STDIO int LIBCCALL
 FileBuffer_GetcUnlocked(FileBuffer *__restrict self) {
+ int COMPILER_IGNORE_UNINITIALIZED(result);
  LIBC_TRY {
-  return FileBuffer_XGetcUnlocked(self);
- } LIBC_EXCEPT(libc_except_errno()) {
+  result = FileBuffer_XGetcUnlocked(self);
+ } LIBC_EXCEPT_HANDLED(libc_except_errno()) {
   FileBuffer_SetError(self);
+  result = EOF;
  }
- return EOF;
+ return result;
 }
 CRT_STDIO int LIBCCALL
 FileBuffer_UngetcUnlocked(FileBuffer *__restrict self, int ch) {
+ int COMPILER_IGNORE_UNINITIALIZED(result);
  LIBC_TRY {
-  return FileBuffer_XUngetcUnlocked(self,ch);
- } LIBC_EXCEPT(libc_except_errno()) {
+  result = FileBuffer_XUngetcUnlocked(self,ch);
+ } LIBC_EXCEPT_HANDLED(libc_except_errno()) {
   FileBuffer_SetError(self);
+  result = EOF;
  }
- return -1;
+ return result;
 }
 
 CRT_STDIO int LIBCCALL
 FileBuffer_FillUnlocked(FileBuffer *__restrict self) {
  LIBC_TRY {
   FileBuffer_XFillUnlocked(self);
-  return 0;
- } LIBC_EXCEPT(libc_except_errno()) {
+ } LIBC_EXCEPT_HANDLED(libc_except_errno()) {
   FileBuffer_SetError(self);
+  return -1;
  }
- return -1;
+ return 0;
 }
 
 CRT_STDIO size_t LIBCCALL
