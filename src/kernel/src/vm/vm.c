@@ -897,7 +897,13 @@ impl_vm_getfree(struct vm *__restrict effective_vm,
    if (candidate > VM_NODE_BEGIN(iter)) break; /* Stop on overflow. */
    if ((candidate -= num_pages) > VM_NODE_BEGIN(iter)) break; /* Stop on overflow. */
    candidate = FLOOR_ALIGN(candidate,min_alignment_in_pages);
-   if (candidate >= prev_end) {
+   if (candidate >= prev_end
+#ifdef CONFIG_LOW_KERNEL
+       &&
+      (effective_vm == &vm_kernel ||
+       candidate >= KERNEL_END_PAGE)
+#endif
+       ) {
     assertf(!vm_getanynode(candidate,candidate+num_pages-1),
             "vm_getfree() is borken!\n"
             "Already in use: %p...%p\n"
@@ -938,7 +944,13 @@ impl_vm_getfree(struct vm *__restrict effective_vm,
        candidate += min_gap_size;
    candidate = CEIL_ALIGN(candidate,min_alignment_in_pages);
    next_begin -= candidate;
-   if (num_pages <= next_begin) {
+   if (num_pages <= next_begin
+#ifdef CONFIG_HIGH_KERNEL
+       &&
+      (effective_vm == &vm_kernel ||
+       candidate+num_pages <= X86_KERNEL_BASE_PAGE)
+#endif
+       ) {
     assertf(!vm_getanynode(candidate,candidate+num_pages-1),
             "vm_getfree() is borken!\n"
             "Already in use: %p...%p\n"
@@ -2233,13 +2245,13 @@ vm_merge_before(struct vm *__restrict effective_vm,
     /* physical memory mappings can easily be merged,
      * since we simply combine the scatter vectors
      * and associated parts. */
-#if 0
+#ifdef CONFIG_LOG_VM_MERGING
     debug_printf("[VM] Comparing physical regions %p,%p at %p...%p and %p...%p\n",
                  self_region,next_region,
                  VM_NODE_MINADDR(self),VM_NODE_MAXADDR(self),
                  VM_NODE_MINADDR(next),VM_NODE_MAXADDR(next));
 #endif
-#ifdef CONFIG_LOG_VM_MERGING
+#if 0
     goto dont_merge;
 #endif
     new_region = vm_region_alloc(self_size+next_size);
