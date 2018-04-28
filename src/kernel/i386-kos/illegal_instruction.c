@@ -425,6 +425,109 @@ extend_instruction:
 
 
 
+  {
+   syscall_ulong_t EXCEPT_VAR sysno;
+   syscall_ulong_t EXCEPT_VAR orig_eax;
+   syscall_ulong_t EXCEPT_VAR orig_eip;
+   syscall_ulong_t EXCEPT_VAR orig_ebp;
+   syscall_ulong_t EXCEPT_VAR orig_edi;
+   syscall_ulong_t EXCEPT_VAR orig_esp;
+  case 0x0f34:
+   /* SYSENTER */
+#if 0
+   if unlikely(!is_user) goto generic_illegal_instruction;
+#endif
+   orig_eax = context->c_gpregs.gp_eax;
+   orig_eip = context->c_eip;
+   orig_ebp = context->c_gpregs.gp_ebp;
+   orig_edi = context->c_gpregs.gp_edi;
+   orig_esp = context->c_iret.ir_useresp;
+restart_sysenter_syscall:
+   TRY {
+    /* Convert the user-space register context to become `int $0x80'-compatible */
+    syscall_ulong_t masked_sysno; u8 argc = 6;
+    sysno                       = xcontext->c_gpregs.gp_eax;
+    masked_sysno                = sysno & ~0x80000000;
+    xcontext->c_eip             = orig_edi; /* CLEANUP: return.%eip = %edi */
+    xcontext->c_iret.ir_useresp = orig_ebp; /* CLEANUP: return.%esp = %ebp */
+    /* Figure out how many arguments this syscall takes. */
+    if (masked_sysno <= __NR_syscall_max)
+     argc = x86_syscall_argc[masked_sysno];
+    else if (masked_sysno >= __NR_xsyscall_min &&
+             masked_sysno <= __NR_xsyscall_max) {
+     argc = x86_xsyscall_argc[masked_sysno-__NR_xsyscall_min];
+    }
+    /* Load additional arguments from user-space. */
+    if (argc >= 4)
+        xcontext->c_gpregs.gp_edi = *((u32 *)(orig_ebp + 0));
+    if (argc >= 5)
+        xcontext->c_gpregs.gp_ebp = *((u32 *)(orig_ebp + 4));
+    COMPILER_READ_BARRIER();
+    /* Actually execute the system call (using the `int $0x80'-compatible register set). */
+    x86_syscall_exec80();
+   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+    /* Set the FSYSCALL flag so that exceptions are propagated accordingly. */
+    error_info()->e_error.e_flag |= X86_INTERRUPT_GUARD_FSYSCALL;
+    if (error_code() == E_INTERRUPT) {
+     /* Restore the original user-space CPU xcontext. */
+     xcontext->c_gpregs.gp_eax   = orig_eax;
+     xcontext->c_eip             = orig_eip;
+     xcontext->c_gpregs.gp_ebp   = orig_ebp;
+     xcontext->c_gpregs.gp_edi   = orig_edi;
+     xcontext->c_iret.ir_useresp = orig_esp;
+     COMPILER_WRITE_BARRIER();
+     /* Deal with system call restarts. */
+     task_restart_syscall((struct cpu_hostcontext_user *)xcontext,
+                           TASK_USERCTX_TYPE_WITHINUSERCODE|
+                           X86_SYSCALL_TYPE_FPF,
+                           sysno);
+     COMPILER_BARRIER();
+     goto restart_sysenter_syscall;
+    }
+    error_rethrow();
+   }
+  } break;
+
+  case 0x0f35:
+   /* SYSEXIT */
+   if (is_user) goto privileged_instruction;
+   context->c_iret.ir_cs      = X86_USER_CS;
+   context->c_iret.ir_ss      = X86_USER_DS;
+   context->c_iret.ir_useresp = context->c_gpregs.gp_ecx;
+   context->c_iret.ir_eip     = context->c_gpregs.gp_edx;
+   break;
+
+  {
+   struct modrm_info modrm;
+   uintptr_t bounds_struct;
+   u32 low,high,index;
+  case 0x62:
+   /* BOUND r16, m16&16     (Added with 80186/80188) */
+   /* BOUND r32, m32&32     (Added with 80186/80188) */
+   text = x86_decode_modrm(text,&modrm);
+   bounds_struct = x86_modrm_getmem(context,&modrm,flags);
+   if (flags & F_OP16) {
+    low   = ((u16 *)bounds_struct)[0];
+    high  = ((u16 *)bounds_struct)[1];
+    index = (u16)modrm_getreg(modrm);
+   } else {
+    low  = ((u32 *)bounds_struct)[0];
+    high = ((u32 *)bounds_struct)[1];
+    index = (u32)modrm_getreg(modrm);
+   }
+   /* Do the actual bounds check. */
+   if (index >= low && index <= high)
+       break; /* Check was OK. */
+   /* The check failed. - Throw an `E_INDEX_ERROR', like we do for this case. */
+   info                 = error_info();
+   info->e_error.e_code = E_INDEX_ERROR;
+   info->e_error.e_flag = ERR_FRESUMABLE|ERR_FRESUMENEXT;
+   memset(&info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
+   info->e_error.e_index_error.b_boundmin = low;
+   info->e_error.e_index_error.b_boundmax = high;
+   info->e_error.e_index_error.b_index    = index;
+   goto throw_exception;
+  } break;
 
   default: goto generic_illegal_instruction;
   }
@@ -457,6 +560,14 @@ illegal_addressing_mode:
  memset(&info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
  info->e_error.e_illegal_instruction.ii_type = (ERROR_ILLEGAL_INSTRUCTION_FOPERAND|
                                                 ERROR_ILLEGAL_INSTRUCTION_FADDRESS);
+ goto throw_exception;
+privileged_instruction:
+ info                 = error_info();
+ info->e_error.e_code = E_ILLEGAL_INSTRUCTION;
+ info->e_error.e_flag = ERR_FRESUMABLE|ERR_FRESUMENEXT;
+ memset(&info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
+ info->e_error.e_illegal_instruction.ii_type = (ERROR_ILLEGAL_INSTRUCTION_PRIVILEGED|
+                                                ERROR_ILLEGAL_INSTRUCTION_FINSTRUCTION);
  goto throw_exception;
 }
 
