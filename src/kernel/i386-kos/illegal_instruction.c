@@ -539,6 +539,12 @@ restart_sysenter_syscall:
    goto throw_exception;
   } break;
 
+
+#if 0 /* Ups... I read the wikipedia article wrong.
+       * These instructions may not have been present on the first CPU in the x86 line,
+       * however that first CPU didn't have protected mode either, so there's really no
+       * point in trying to emulate these, considering that if ever were to run on hardware
+       * where we had to emulate them, we would have never gotten this far. */
   {
    u16 frame_size;
    u8  nesting_level;
@@ -717,6 +723,117 @@ restart_sysenter_syscall:
     --context->c_gpregs.gp_ecx;
    }
   } break;
+
+#ifndef __x86_64__
+  {
+  case 0x60:
+   /* pushal */
+   if (!is_user) {
+    /* Special case for kernel-space emulation, because IRET wouldn't restore ESP */
+    struct cpu_context return_context;
+    memcpy(&return_context,
+           &context->c_host,
+           sizeof(struct cpu_context));
+    /* Since we're about to destroy the IRET tail that got us here,
+     * we must be sure that we won't get preempted before the
+     * `cpu_setcontext()' below will actually restore the caller's context. */
+    PREEMPTION_DISABLE();
+    return_context.c_gpregs.gp_esp = (uintptr_t)(&context->c_host+1);
+    /* Our `struct x86_gpregs' is compatible with pushal! */
+    if (flags & F_OP16) {
+     ((u16 *)return_context.c_gpregs.gp_esp)[-1] = (u16)return_context.c_gpregs.gp_edi;
+     ((u16 *)return_context.c_gpregs.gp_esp)[-2] = (u16)return_context.c_gpregs.gp_esi;
+     ((u16 *)return_context.c_gpregs.gp_esp)[-3] = (u16)return_context.c_gpregs.gp_ebp;
+     ((u16 *)return_context.c_gpregs.gp_esp)[-4] = (u16)return_context.c_gpregs.gp_esp;
+     ((u16 *)return_context.c_gpregs.gp_esp)[-5] = (u16)return_context.c_gpregs.gp_ebx;
+     ((u16 *)return_context.c_gpregs.gp_esp)[-6] = (u16)return_context.c_gpregs.gp_edx;
+     ((u16 *)return_context.c_gpregs.gp_esp)[-7] = (u16)return_context.c_gpregs.gp_ecx;
+     ((u16 *)return_context.c_gpregs.gp_esp)[-8] = (u16)return_context.c_gpregs.gp_eax;
+     return_context.c_gpregs.gp_esp -= 2*8;
+    } else {
+     memcpy((void *)(return_context.c_gpregs.gp_esp-(4*8)),
+                    &return_context.c_gpregs,4*8);
+     return_context.c_gpregs.gp_esp -= 4*8;
+    }
+    cpu_setcontext(&return_context);
+   }
+   if (flags & F_OP16) {
+    ((u16 *)context->c_useresp)[-1] = (u16)context->c_gpregs.gp_edi;
+    ((u16 *)context->c_useresp)[-2] = (u16)context->c_gpregs.gp_esi;
+    ((u16 *)context->c_useresp)[-3] = (u16)context->c_gpregs.gp_ebp;
+    ((u16 *)context->c_useresp)[-4] = (u16)context->c_useresp;
+    ((u16 *)context->c_useresp)[-5] = (u16)context->c_gpregs.gp_ebx;
+    ((u16 *)context->c_useresp)[-6] = (u16)context->c_gpregs.gp_edx;
+    ((u16 *)context->c_useresp)[-7] = (u16)context->c_gpregs.gp_ecx;
+    ((u16 *)context->c_useresp)[-8] = (u16)context->c_gpregs.gp_eax;
+    context->c_useresp -= 2*8;
+   } else {
+    ((u32 *)context->c_useresp)[-1] = (u32)context->c_gpregs.gp_edi;
+    ((u32 *)context->c_useresp)[-2] = (u32)context->c_gpregs.gp_esi;
+    ((u32 *)context->c_useresp)[-3] = (u32)context->c_gpregs.gp_ebp;
+    ((u32 *)context->c_useresp)[-4] = (u32)context->c_useresp;
+    ((u32 *)context->c_useresp)[-5] = (u32)context->c_gpregs.gp_ebx;
+    ((u32 *)context->c_useresp)[-6] = (u32)context->c_gpregs.gp_edx;
+    ((u32 *)context->c_useresp)[-7] = (u32)context->c_gpregs.gp_ecx;
+    ((u32 *)context->c_useresp)[-8] = (u32)context->c_gpregs.gp_eax;
+    context->c_useresp -= 4*8;
+   }
+  } break;
+
+  {
+  case 0x61:
+   if (!is_user) {
+    /* Special case for kernel-space emulation, because IRET wouldn't restore ESP */
+    context->c_host.c_esp = (uintptr_t)(&context->c_host+1);
+    if (flags & F_OP16) {
+     context->c_gpregs.gp_edi  = ((u16 *)context->c_host.c_esp)[0];
+     context->c_gpregs.gp_esi  = ((u16 *)context->c_host.c_esp)[1];
+     context->c_gpregs.gp_ebp  = ((u16 *)context->c_host.c_esp)[2];
+  /* context->c_gpregs.gp_esp  = ((u16 *)context->c_host.c_esp)[3]; */
+     context->c_gpregs.gp_ebx  = ((u16 *)context->c_host.c_esp)[4];
+     context->c_gpregs.gp_edx  = ((u16 *)context->c_host.c_esp)[5];
+     context->c_gpregs.gp_ecx  = ((u16 *)context->c_host.c_esp)[6];
+     context->c_gpregs.gp_eax  = ((u16 *)context->c_host.c_esp)[7];
+     context->c_gpregs.gp_esp += 2*8;
+    } else {
+     context->c_gpregs.gp_edi  = ((u32 *)context->c_host.c_esp)[0];
+     context->c_gpregs.gp_esi  = ((u32 *)context->c_host.c_esp)[1];
+     context->c_gpregs.gp_ebp  = ((u32 *)context->c_host.c_esp)[2];
+  /* context->c_gpregs.gp_esp  = ((u32 *)context->c_host.c_esp)[3]; */
+     context->c_gpregs.gp_ebx  = ((u32 *)context->c_host.c_esp)[4];
+     context->c_gpregs.gp_edx  = ((u32 *)context->c_host.c_esp)[5];
+     context->c_gpregs.gp_ecx  = ((u32 *)context->c_host.c_esp)[6];
+     context->c_gpregs.gp_eax  = ((u32 *)context->c_host.c_esp)[7];
+     context->c_gpregs.gp_esp += 4*8;
+    }
+    cpu_setcontext(&context->c_host);
+   }
+   if (flags & F_OP16) {
+    context->c_gpregs.gp_edi  = ((u16 *)context->c_useresp)[0];
+    context->c_gpregs.gp_esi  = ((u16 *)context->c_useresp)[1];
+    context->c_gpregs.gp_ebp  = ((u16 *)context->c_useresp)[2];
+ /* context->c_gpregs.gp_esp  = ((u16 *)context->c_useresp)[3]; */
+    context->c_gpregs.gp_ebx  = ((u16 *)context->c_useresp)[4];
+    context->c_gpregs.gp_edx  = ((u16 *)context->c_useresp)[5];
+    context->c_gpregs.gp_ecx  = ((u16 *)context->c_useresp)[6];
+    context->c_gpregs.gp_eax  = ((u16 *)context->c_useresp)[7];
+    context->c_useresp += 2*8;
+   } else {
+    context->c_gpregs.gp_edi  = ((u32 *)context->c_useresp)[0];
+    context->c_gpregs.gp_esi  = ((u32 *)context->c_useresp)[1];
+    context->c_gpregs.gp_ebp  = ((u32 *)context->c_useresp)[2];
+ /* context->c_gpregs.gp_esp  = ((u32 *)context->c_useresp)[3]; */
+    context->c_gpregs.gp_ebx  = ((u32 *)context->c_useresp)[4];
+    context->c_gpregs.gp_edx  = ((u32 *)context->c_useresp)[5];
+    context->c_gpregs.gp_ecx  = ((u32 *)context->c_useresp)[6];
+    context->c_gpregs.gp_eax  = ((u32 *)context->c_useresp)[7];
+    context->c_useresp += 4*8;
+   }
+  } break;
+
+#endif /* !__x86_64__ */
+#endif
+
 
   default: goto generic_illegal_instruction;
   }
