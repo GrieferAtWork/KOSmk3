@@ -649,6 +649,52 @@ struct sig *KCALL task_wait(void) {
 
 
 
+PUBLIC ATTR_HOTTEXT struct sig *
+KCALL __os_task_waitfor_noserve(jtime_t abs_timeout) {
+ struct task_connections *mycon;
+ struct sig *COMPILER_IGNORE_UNINITIALIZED(result);
+ bool sleep_ok;
+ mycon = &PERTASK(my_connections);
+ TRY {
+  /* We require that the caller have preemption enable. */
+  if (!PREEMPTION_ENABLED())
+      error_throw(E_WOULDBLOCK);
+  for (;;) {
+   /* Disable preemption to ensure that no task
+    * for the current CPU could send the signal.
+    * Additionally, no other CPU will be able to
+    * interrupt us while we check for signals, meaning
+    * that any task_wake IPIs will only be received once
+    * `task_sleep()' gets around to re-enable interrupts. */
+   PREEMPTION_DISABLE();
+   result = ATOMIC_READ(mycon->tcs_sig);
+   if (result) { PREEMPTION_ENABLE(); break; }
+
+   /* Sleep for a bit, or until we're interrupted. */
+   sleep_ok = task_sleep(abs_timeout);
+
+   result = ATOMIC_READ(mycon->tcs_sig);
+   /* A signal was received in the mean time. */
+   if (result) break;
+   if (!sleep_ok) break; /* Timeout */
+   /* Continue spinning */
+  }
+ } FINALLY {
+  /* Always disconnect all connected signals,
+   * thus resetting the connections list. */
+  task_disconnect();
+ }
+ return result;
+}
+PUBLIC ATTR_HOTTEXT ATTR_RETNONNULL
+struct sig *KCALL task_wait_noserve(void) {
+ return __os_task_waitfor_noserve(JTIME_INFINITE);
+}
+
+
+
+
+
 
 PRIVATE ATTR_HOTTEXT ATTR_NOTHROW bool KCALL
 sig_sendone_locked(struct sig *__restrict self, bool unlock) {

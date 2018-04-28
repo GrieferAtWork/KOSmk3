@@ -86,6 +86,10 @@ FUNDEF struct sig *KCALL task_disconnect_async(void);
  * @return: NULL:        The given timeout has expired. */
 FUNDEF ATTR_RETNONNULL struct sig *KCALL task_wait_async(void);
 FUNDEF struct sig *KCALL task_waitfor_async(jtime_t abs_timeout);
+#ifdef _NOSERVE_SOURCE
+FUNDEF ATTR_RETNONNULL struct sig *KCALL task_wait_async_noserve(void);
+FUNDEF struct sig *KCALL task_waitfor_async_noserve(jtime_t abs_timeout);
+#endif
 
 /* Wake a task waiting for the given async-signal.
  * NOTE: This function is ASYNC-SAFE, meaning it can safely be used from interrupt handlers.

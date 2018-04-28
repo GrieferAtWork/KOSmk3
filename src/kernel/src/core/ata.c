@@ -20,6 +20,10 @@
 #define GUARD_KERNEL_SRC_CORE_ATA_C 1
 #define _KOS_SOURCE 1
 
+/* Required because we can't be interrupted
+ * once a disk operation is started. */
+#define _NOSERVE_SOURCE 1
+
 #include <hybrid/compiler.h>
 #include <kos/types.h>
 #include <hybrid/section.h>
@@ -46,15 +50,6 @@
 
 DECL_BEGIN
 
-/* TODO: ATA devices don't like aborting their current operation
- *       when `task_serve()' causes some error to be thrown.
- *       To fix this, we must call `task_serve()' immediatly
- *       after acquiring `Ata_SubSystemLock', but before any
- *       operation has actually been started.
- */
-
-
-
 #define Ata_ResetBusInterruptCounter() \
  (Ata_BusInterruptCounter[0] = Ata_BusInterruptCounter[1] = 0)
 INTERN volatile unsigned int Ata_BusInterruptCounter[2] = { 0, 0 };
@@ -63,6 +58,8 @@ INTERN DEFINE_MUTEX(Ata_SubSystemLock);
 
 /* The max amount of time to wait when expecting an interrupt. */
 INTERN WEAK jtime_t Ata_InterruptTimeout = JIFFIES_FROM_SECONDS(2);
+INTERN WEAK jtime_t Ata_BusyTimeout = JIFFIES_FROM_SECONDS(2);
+INTERN WEAK jtime_t Ata_DrqTimeout = JIFFIES_FROM_SECONDS(2);
 
 /* The max number of times to reset the ATA before giving up.
  * HINT: The number of attempts made as a result of this is `Ata_MaxResetCount+1' */
@@ -79,7 +76,6 @@ Ata_WaitForBusInterrupt(u16 bus, jtime_t timeout) {
  volatile unsigned int *counter;
  assert(bus == ATA_BUS_PRIMARY ||
         bus == ATA_BUS_SECONDARY);
- task_serve();
  counter = &Ata_BusInterruptCounter[!(bus&ATA_BUS_FPRIMARY)];
  abs_timeout = jiffies + timeout;
  while (!ATOMIC_READ(*counter)) {
@@ -87,7 +83,7 @@ Ata_WaitForBusInterrupt(u16 bus, jtime_t timeout) {
   task_connect_async(&con,&Ata_BusInterruptSignal[!(bus&ATA_BUS_FPRIMARY)]);
   /* Check the counter once again. (The counter may have been incremented while we were connecting) */
   if (ATOMIC_READ(*counter)) { task_disconnect_async(); break; }
-  if (!task_waitfor_async(abs_timeout)) {
+  if (!task_waitfor_async_noserve(abs_timeout)) {
    debug_printf("*counter = %u\n",ATOMIC_READ(*counter));
    return false;
   }
@@ -96,9 +92,16 @@ Ata_WaitForBusInterrupt(u16 bus, jtime_t timeout) {
  return true;
 }
 PRIVATE void KCALL Ata_WaitForBusy(u16 bus) {
- u8 status;
- while ((status = inb(ATA_DCR(bus))) & ATA_DCR_BSY)
-     task_yield();
+ u8 status; jtime_t abs_timeout;
+ if (!(inb(ATA_DCR(bus)) & ATA_DCR_BSY))
+       return;
+ abs_timeout = jiffies + Ata_BusyTimeout;
+ while ((status = inb(ATA_DCR(bus))) & ATA_DCR_BSY) {
+  if unlikely((jiffies >= abs_timeout) ||
+              (status & ATA_DCR_ERR))
+     error_throw(E_IOERROR);
+  task_yield();
+ }
 }
 PRIVATE void KCALL Ata_ResetBus(u16 bus) {
  outb(ATA_DCR(bus),ATA_CTRL_SRST);
@@ -108,14 +111,28 @@ PRIVATE void KCALL Ata_ResetBus(u16 bus) {
 }
 
 PRIVATE void KCALL Ata_WaitForDrq(u16 bus) {
- u8 status;
- while ((status = inb(ATA_DCR(bus))) & ATA_DCR_BSY)
-     task_yield();
+ u8 status; jtime_t abs_timeout;
+ if (((status = inb(ATA_DCR(bus))) & ATA_DCR_BSY) == 0) {
+  abs_timeout = jiffies + Ata_BusyTimeout;
+  while ((status = inb(ATA_DCR(bus))) & ATA_DCR_BSY) {
+   if unlikely((jiffies >= abs_timeout) ||
+               (status & ATA_DCR_ERR))
+      error_throw(E_IOERROR);
+   task_yield();
+  }
+ }
+ if (status & ATA_DCR_ERR)
+     error_throw(E_IOERROR);
+ if (status & ATA_DCR_DRQ)
+     return;
+ abs_timeout = jiffies + Ata_DrqTimeout;
  for (;;) {
-  if (status & ATA_DCR_ERR) error_throw(E_IOERROR);
-  if (status & ATA_DCR_DRQ) break;
-  status = inb(ATA_DCR(bus));
   task_yield();
+  status = inb(ATA_DCR(bus));
+  if unlikely((jiffies >= abs_timeout) ||
+              (status & ATA_DCR_ERR))
+     error_throw(E_IOERROR);
+  if (status & ATA_DCR_DRQ) break;
  }
 }
 
@@ -162,6 +179,7 @@ Ata_FlushBuffers(u16 bus, u8 command) {
 }
 LOCAL void KCALL
 Ata_ReadDataUsing48BitLBA(u16 bus, u8 drive, u64 lba, void *buffer, u16 num_blocks) {
+ task_serve();
  mutex_get(&Ata_SubSystemLock);
  TRY {
   Ata_WaitForBusy(bus);
@@ -185,6 +203,7 @@ Ata_ReadDataUsing48BitLBA(u16 bus, u8 drive, u64 lba, void *buffer, u16 num_bloc
 }
 LOCAL void KCALL
 Ata_WriteDataUsing48BitLBA(u16 bus, u8 drive, u64 lba, void const *buffer, u16 num_blocks) {
+ task_serve();
  mutex_get(&Ata_SubSystemLock);
  TRY {
   Ata_WaitForBusy(bus);
@@ -209,6 +228,7 @@ Ata_WriteDataUsing48BitLBA(u16 bus, u8 drive, u64 lba, void const *buffer, u16 n
 }
 LOCAL void KCALL
 Ata_ReadDataUsing28BitLBA(u16 bus, u8 drive, u32 lba, void *buffer, u8 num_blocks) {
+ task_serve();
  mutex_get(&Ata_SubSystemLock);
  TRY {
   Ata_WaitForBusy(bus);
@@ -230,6 +250,7 @@ Ata_ReadDataUsing28BitLBA(u16 bus, u8 drive, u32 lba, void *buffer, u8 num_block
 }
 LOCAL void KCALL
 Ata_WriteDataUsing28BitLBA(u16 bus, u8 drive, u32 lba, void const *buffer, u8 num_blocks) {
+ task_serve();
  mutex_get(&Ata_SubSystemLock);
  TRY {
   Ata_WaitForBusy(bus);
@@ -253,6 +274,7 @@ Ata_WriteDataUsing28BitLBA(u16 bus, u8 drive, u32 lba, void const *buffer, u8 nu
 LOCAL void KCALL
 Ata_ReadDataUsingCHSAddressing(u16 bus, u8 drive, u8 sector, u8 head,
                                u16 cylinder, void *buffer, u8 num_blocks) {
+ task_serve();
  mutex_get(&Ata_SubSystemLock);
  TRY {
   Ata_WaitForBusy(bus);
@@ -275,6 +297,7 @@ Ata_ReadDataUsingCHSAddressing(u16 bus, u8 drive, u8 sector, u8 head,
 LOCAL void KCALL
 Ata_WriteDataUsingCHSAddressing(u16 bus, u8 drive, u8 sector, u8 head,
                                 u16 cylinder, void const *buffer, u8 num_blocks) {
+ task_serve();
  mutex_get(&Ata_SubSystemLock);
  TRY {
   Ata_WaitForBusy(bus);
@@ -574,6 +597,7 @@ PRIVATE void KCALL
 AtaPI_ReadDataFromSector(u16 bus, u8 drive, u32 lba, void *buffer) {
  u8 status; size_t size;
  u8 read_cmd[12] = { 0xA8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+ task_serve();
  mutex_get(&Ata_SubSystemLock);
  TRY {
   Ata_ResetBusInterruptCounter();

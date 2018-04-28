@@ -766,8 +766,14 @@ FUNDEF ATTR_NOTHROW struct sig *KCALL task_trywait(void);
  *          before returning (there would be no point to. These functions represent
  *          the core idea of what preemption even means!) */
 FUNDEF ATTR_RETNONNULL struct sig *KCALL task_wait(void);
+#ifdef _NOSERVE_SOURCE
+FUNDEF ATTR_RETNONNULL struct sig *KCALL task_wait_noserve(void);
+#endif
 #ifdef __INTELLISENSE__
 FUNDEF struct sig *KCALL task_waitfor(jtime_t abs_timeout);
+#ifdef _NOSERVE_SOURCE
+FUNDEF struct sig *KCALL task_waitfor_noserve(jtime_t abs_timeout);
+#endif
 #else
 FUNDEF struct sig *KCALL __os_task_waitfor(jtime_t abs_timeout) ASMNAME("task_waitfor");
 FORCELOCAL struct sig *KCALL task_waitfor(jtime_t abs_timeout) {
@@ -780,6 +786,19 @@ FORCELOCAL struct sig *KCALL task_waitfor(jtime_t abs_timeout) {
  }
  return __os_task_waitfor(abs_timeout);
 }
+#ifdef _NOSERVE_SOURCE
+FUNDEF struct sig *KCALL __os_task_waitfor_noserve(jtime_t abs_timeout) ASMNAME("task_waitfor_noserve");
+FORCELOCAL struct sig *KCALL task_waitfor_noserve(jtime_t abs_timeout) {
+ COMPILER_BARRIER();
+ if (__builtin_constant_p(abs_timeout)) {
+  if (abs_timeout == JTIME_DONTWAIT)
+      return task_trywait();
+  if (abs_timeout == JTIME_INFINITE)
+      return task_wait_noserve();
+ }
+ return __os_task_waitfor_noserve(abs_timeout);
+}
+#endif
 #endif
 
 

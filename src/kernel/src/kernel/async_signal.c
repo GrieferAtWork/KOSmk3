@@ -98,6 +98,7 @@ PUBLIC struct sig *KCALL task_disconnect_async(void) {
 
 
 INTDEF ATTR_PERTASK struct task_connections my_connections;
+
 /* Wait for async-signals to be boardcast and disconnect all remaining connections.
  * @throw: * :           This error was thrown by an RPC function call.
  * @throw: E_INTERRUPT:  The calling thread was interrupted.
@@ -163,6 +164,71 @@ got_signal:;
 }
 PUBLIC ATTR_RETNONNULL struct sig *KCALL task_wait_async(void) {
  return task_waitfor_async(JTIME_INFINITE);
+}
+
+
+/* Wait for async-signals to be boardcast and disconnect all remaining connections.
+ * @throw: * :           This error was thrown by an RPC function call.
+ * @throw: E_INTERRUPT:  The calling thread was interrupted.
+ * @throw: E_WOULDBLOCK: Preemption has been disabled and a lock couldn't be acquired immediately.
+ * @return: * :          Randomly, one of the signals that were delivered.
+ * @return: NULL:        The given timeout has expired. */
+PUBLIC struct sig *KCALL
+task_waitfor_async_noserve(jtime_t abs_timeout) {
+ struct task_connections *mycon;
+ struct async_task_connection *chain;
+ struct sig *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
+ struct sig *EXCEPT_VAR new_result;
+ bool sleep_ok;
+ mycon = &PERTASK(my_connections);
+ TRY {
+  /* We require that the caller have preemption enable. */
+  if (!PREEMPTION_ENABLED())
+      error_throw(E_WOULDBLOCK);
+  for (;;) {
+   /* Disable preemption to ensure that no task
+    * for the current CPU could send the signal.
+    * Additionally, no other CPU will be able to
+    * interrupt us while we check for signals, meaning
+    * that any task_wake IPIs will only be received once
+    * `task_sleep()' gets around to re-enable interrupts. */
+   PREEMPTION_DISABLE();
+   COMPILER_READ_BARRIER();
+
+   /* Check for synchronous signals. */
+   result = mycon->tcs_sig;
+   if (result) { PREEMPTION_ENABLE(); break; }
+
+   /* Check for asynchronous signals. */
+   chain = PERTASK_GET(async_connections);
+   for (; chain; chain = chain->atc_thrnext) {
+    if (ATOMIC_READ(chain->atc_delivered) != ASYNC_SIG_STATUS_WAITING) {
+     result = (struct sig *)chain->atc_signal;
+     PREEMPTION_ENABLE();
+     goto got_signal;
+    }
+   }
+
+   /* Sleep for a bit, or until we're interrupted. */
+   sleep_ok = task_sleep(abs_timeout);
+
+   COMPILER_READ_BARRIER();
+   result = mycon->tcs_sig;
+   /* A signal was received in the mean time. */
+   if (result) break;
+   if (!sleep_ok) break; /* Timeout */
+   /* Continue spinning */
+  }
+got_signal:;
+ } FINALLY {
+  /* Always disconnect all connected signals (synchronous + asynchronous). */
+  new_result = (struct sig *)task_disconnect_async();
+  if (!result) result = new_result;
+ }
+ return result;
+}
+PUBLIC ATTR_RETNONNULL struct sig *KCALL task_wait_async_noserve(void) {
+ return task_waitfor_async_noserve(JTIME_INFINITE);
 }
 
 /* Wake a task waiting for the given async-signal.

@@ -54,6 +54,7 @@ INTDEF int LIBCCALL libc_brk(void *addr);
 INTDEF void *LIBCCALL libc_sbrk(intptr_t delta);
 INTDEF int LIBCCALL libc_swapon(char const *specialfile, int flags);
 INTDEF int LIBCCALL libc_swapoff(char const *specialfile);
+
 INTDEF void *LIBCCALL libc_Xmmap(void *addr, size_t len, int prot, int flags, fd_t fd, pos32_t offset);
 INTDEF void *LIBCCALL libc_Xmmap64(void *addr, size_t len, int prot, int flags, fd_t fd, pos64_t offset);
 INTDEF void *ATTR_CDECL libc_Xmremap(void *addr, size_t old_len, size_t new_len, int flags, ...);
