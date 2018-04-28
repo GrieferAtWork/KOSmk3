@@ -432,6 +432,17 @@ extend_instruction:
    /* LGDT and LIDT throw an #UD when a register operand is used. */
    if (modrm.mi_rm == 2) goto illegal_addressing_mode; /* LGDT m16&32 */
    if (modrm.mi_rm == 3) goto illegal_addressing_mode; /* LIDT m16&32 */
+
+   if (modrm.mi_rm == 7) {
+    /* INVLPG m */
+    if (modrm.mi_type != MODRM_MEMORY)
+        goto illegal_addressing_mode;
+    if (is_user) goto privileged_instruction;
+    /* Without INVLPG, we can only flush the entire page directory. */
+    pagedir_syncall();
+    break;
+   }
+
    goto generic_illegal_instruction;
   } break;
 
@@ -834,15 +845,49 @@ restart_sysenter_syscall:
 #endif /* !__x86_64__ */
 #endif
 
+  {
+   u32 value; register u16 temp;
+  case 0x0fc8 ... 0x0fcf:
+   /* BSWAP r32  -- Added with 80486 */
+   value = X86_GPREG(opcode - 0x0fc8);
+   /* Use inline assembly so GCC doesn't optimize by
+    * using the instruction we're trying to emulate. */
+   __asm__ __volatile__("movw  0+%0, %1\n\t"  /* x = lo; */
+                        "xchgb %b1, %h1\n\t"  /* x = x << 8 | x >> 8; */
+                        "xchgw 2+%0, %1\n\t"  /* temp = hi,hi = x,x = temp; */
+                        "xchgb %b1, %h1\n\t"  /* x = x << 8 | x >> 8; */
+                        "movw  %1, 0+%0"      /* lo = x; */
+                        : "+m" (value)
+                        , "=q" (temp));
+   X86_GPREG(opcode - 0x0fc8) = value;
+  } break;
+
+  case 0x0f08: /* INVD */
+  case 0x0f09: /* WBINVD */
+   if (is_user) goto privileged_instruction;
+   pagedir_syncall(); /* What other instruction caches are there? */
+   break;
+
+  {
+   struct modrm_info modrm;
+  case 0x0f1f:
+   /* NOP r/m16  -- Added with SSE */
+   /* NOP r/m32  -- Added with SSE */
+   text = x86_decode_modrm(text,&modrm);
+  } break;
+
+#if 0
   case 0x0f31:
    /* RDTSC */
    /* TODO: This can be emulated by combining jiffies with the remainder
     *       of the current quantum, which can be read from the LAPIC
     *       CURRENT register, as well as the length of a quantum.
     *       The PIT also has a way of reading out the remaining number
-    *       of ~ticks~ until the quantum ends. */
-
+    *       of ~ticks~ until the quantum ends.
+    * XXX:  By emulating this one, we 
+    */
    break;
+#endif
 
   default: goto generic_illegal_instruction;
   }
@@ -1159,7 +1204,7 @@ extend_instruction:
    info->e_error.e_illegal_instruction.ii_register_type = X86_REGISTER_MSR;
    if (opcode == 0x0f31) {
     if (X86_ANYCONTEXT32_ISUSER(*context)) {
-     /* rdtsc can be enabled for user-space, but aparently it isn't. */
+     /* rdtsc can be enabled for user-space, but apparently it isn't. */
      info->e_error.e_illegal_instruction.ii_type &= ~ERROR_ILLEGAL_INSTRUCTION_PRIVILEGED;
      info->e_error.e_illegal_instruction.ii_type |= ERROR_ILLEGAL_INSTRUCTION_RESTRICTED;
     }
