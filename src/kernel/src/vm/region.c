@@ -327,7 +327,7 @@ vm_region_split_before(struct vm_region *__restrict self,
 }
 
 
-/* Try to merge `part' with its successor, or doing so is at all possible. */
+/* Try to merge `part' with its successor, if doing so is at all possible. */
 INTERN ATTR_NOTHROW ATTR_RETNONNULL struct vm_part *KCALL
 vm_region_mergenext(struct vm_region *__restrict region,
                     struct vm_part *__restrict self) {

@@ -20,6 +20,7 @@
 #define GUARD_KERNEL_SRC_VM_VM_C 1
 #define _GNU_SOURCE 1
 #define _KOS_SOURCE 1
+#define _NOSERVE_SOURCE 1 /* Needed to implement `VM_UNMAP_NOEXCEPT' and `vm_deallocate_pages()' */
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
@@ -160,6 +161,18 @@
 
 
 DECL_BEGIN
+
+
+INTDEF ATTR_RETNONNULL struct vm_part *KCALL
+vm_region_split_before(struct vm_region *__restrict self,
+                       vm_raddr_t part_address);
+INTDEF ATTR_NOTHROW ATTR_RETNONNULL struct vm_part *KCALL
+vm_region_mergenext(struct vm_region *__restrict region,
+                    struct vm_part *__restrict part);
+
+
+
+
 
 PUBLIC ATTR_WEAK void KCALL
 pagedir_mapone(VIRT vm_vpage_t virt_page,
@@ -1090,7 +1103,7 @@ PUBLIC size_t KCALL
 vm_unmap(vm_vpage_t page, size_t num_pages,
          unsigned int mode, void *tag) {
  unsigned int EXCEPT_VAR xmode = mode;
- size_t result = 0;
+ size_t result = 0; u16 EXCEPT_VAR old_state;
  struct vm *EXCEPT_VAR effective_vm;
  struct vm_node *EXCEPT_VAR nodes = NULL;
  vm_vpage_t unmap_min = (vm_vpage_t)-1;
@@ -1100,7 +1113,7 @@ vm_unmap(vm_vpage_t page, size_t num_pages,
  assert(page+num_pages <= VM_VPAGE_MAX+1);
  effective_vm = page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
  if (mode & VM_UNMAP_NOEXCEPT)
-     task_nothrow_serve();
+     old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
  vm_acquire(effective_vm);
  TRY {
   struct vm_node *iter;
@@ -1181,8 +1194,8 @@ done_unlock:;
    vm_node_free(nodes);
    nodes = next;
   }
-  if (xmode & VM_UNMAP_NOEXCEPT)
-      task_nothrow_end();
+  if ((xmode & VM_UNMAP_NOEXCEPT) && !(old_state & TASK_STATE_FDONTSERVE))
+       ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
  }
 done:
  return result;
@@ -1482,6 +1495,291 @@ vm_restore(VIRT vm_vpage_t page_index,
 
 
 
+struct vm_dealloc_later_data {
+    size_t                  dld_count;          /* Amount of free-later entries. */
+    struct vm_phys_scatter *dld_vector;         /* Vector of free-later memory scatter. */
+    bool                    dld_should_restart; /* The deallocate_pages() function should be restarted. */
+    unsigned int            dld_mode;           /* The mode in which to operate. */
+    void                   *dld_tag;            /* The node tag to look out for. */
+    vm_vpage_t              dld_minpage;        /* Lowest virtual page that got deallocated. */
+    vm_vpage_t              dld_maxpage;        /* Greatest virtual page that got deallocated. */
+};
+
+
+PRIVATE ATTR_NOINLINE ATTR_NOTHROW size_t KCALL
+impl_vm_region_deallocate_pages(struct vm_region *__restrict self,
+                                VIRT vm_vpage_t region_base_vpage,
+                                VIRT vm_raddr_t region_start,
+                                VIRT size_t region_size,
+                                struct vm_dealloc_later_data *__restrict data) {
+ struct vm_dealloc_later_data *EXCEPT_VAR xdata = data;
+ struct vm_region *EXCEPT_VAR xself = self;
+ size_t EXCEPT_VAR result = 0;
+ struct vm_part *part;
+ struct vm_part *EXCEPT_VAR first_part;
+ assert(region_start+region_size > region_start);
+ assert(region_start+region_size <= self->vr_size);
+ if (self->vr_type != VM_REGION_MEM)
+     goto done; /* Can only deallocate from dynamic regions. */
+ if (self->vr_flags & VM_REGION_FIMMUTABLE)
+     goto done; /* Can't deallocate pages from immutable regions. */
+ mutex_get(&self->vr_lock);
+ TRY {
+  vm_region_split_before(self,region_start+region_size);
+  first_part = vm_region_split_before(self,region_start);
+ } EXCEPT_HANDLED (EXCEPT_EXECUTE_HANDLER) {
+  /* Deal with exception (NOTE: The caller has disabled RPC
+   * serving, so this won't ever accidentally discard something
+   * important like an E_INTERRUPT, or even more important:
+   * something like E_EXIT_THREAD)
+   * No: we should only ever get here because of `E_BADALLOC'. */
+  mutex_put(&xself->vr_lock);
+  return 0;
+ }
+ for (part = first_part; part; part = part->vp_chain.le_next) {
+  vm_raddr_t part_end;
+  assertf(part->vp_start >= region_start,"That's why we did the split above!");
+  part_end = part->vp_chain.le_next ? part->vp_chain.le_next->vp_start : self->vr_size;
+  if (part_end >= region_start+region_size) break;
+  if (part->vp_flags & (VM_PART_FKEEP|VM_PART_FWEAKREF))
+      continue; /* Don't touch this part. */
+  if (part->vp_refcnt > 1)
+      continue; /* This part is being mapped elsewhere. */
+  if (part->vp_locked > 0)
+      continue; /* This part has been locked into memory. */
+  switch (part->vp_state) {
+
+  case VM_PART_INCORE:
+   TRY {
+    size_t size_avail;
+    size_t EXCEPT_VAR size_required;
+    vm_vpage_t unmap_minpage,unmap_maxpage;
+    size_avail    = kmalloc_usable_size(data->dld_vector) / sizeof(struct vm_phys_scatter);
+    size_required = data->dld_count+part->vp_phys.py_num_scatter;
+    /* Increase the buffer size if it isn't sufficient. */
+    if (size_required > size_avail) {
+     TRY {
+      /* NOTE: Pass `GFP_LOCKED' so we don't run into any troubles related to ALOA.
+       *       Also pass `GFP_NOMAP' so we don't accidentally change something about
+       *       the memory portions we're currently working on unloading. */
+      data->dld_vector = (struct vm_phys_scatter *)krealloc(data->dld_vector,
+                                                            size_required*
+                                                            sizeof(struct vm_phys_scatter),
+                                                            GFP_SHARED|GFP_LOCKED|GFP_NOMAP);
+     } CATCH (E_WOULDBLOCK) {
+      /* Allocate a hard, new vector and return to the caller,
+       * indicating that we wish to start over. */
+      xdata->dld_vector = (struct vm_phys_scatter *)krealloc(xdata->dld_vector,
+                                                             size_required*
+                                                             sizeof(struct vm_phys_scatter),
+                                                             GFP_SHARED|GFP_LOCKED);
+      /* Indicate that we wish to start over, considering that
+       * data structures may have changed in the mean time. */
+      xdata->dld_should_restart = true;
+      goto done_parts;
+     }
+    }
+
+    /* Unmap the memory and keep track of everything that got unmapped. */
+    unmap_minpage = region_base_vpage+part->vp_start;
+    unmap_maxpage = part_end-1;
+    if (data->dld_minpage > unmap_minpage)
+        data->dld_minpage = unmap_minpage;
+    if (data->dld_maxpage < unmap_maxpage)
+        data->dld_maxpage = unmap_maxpage;
+    /* Actually do the unmap() */
+    pagedir_map(unmap_minpage,
+                part_end-part->vp_start,
+                0,
+                PAGEDIR_MAP_FUNMAP);
+   } EXCEPT_HANDLED (EXCEPT_EXECUTE_HANDLER) {
+    data->dld_should_restart = true;
+    goto done_parts;
+   }
+   /* Copy app the scattered memory parts. */
+   memcpy(&data->dld_vector[data->dld_count],
+          &part->vp_phys.py_iscatter[0],
+           part->vp_phys.py_num_scatter*
+           sizeof(struct vm_phys_scatter));
+   data->dld_count += part->vp_phys.py_num_scatter;
+   /* Mark the part as missing. */
+   part->vp_state = VM_PART_MISSING;
+   break;
+
+  case VM_PART_INSWAP:
+   /* XXX: Swap? */
+   continue;
+
+  default: continue; /* Not allocated. */
+  }
+  if (part != self->vr_parts) {
+   struct vm_part *merged_part;
+   /* Try to merge the predecessor of the part we just deallocated. */
+   merged_part = vm_region_mergenext(self,
+                                     COMPILER_CONTAINER_OF(part->vp_chain.le_pself,
+                                                           struct vm_part,
+                                                           vp_chain.le_next));
+   if (part == first_part) first_part = merged_part;
+   part = merged_part;
+  }
+ }
+done_parts:
+
+ /* Try to re-merge the region parts which we split above. */
+ first_part = vm_region_mergenext(xself,first_part);
+ while (first_part->vp_chain.le_next &&
+        first_part->vp_chain.le_next->vp_start < region_start+region_size)
+        first_part = first_part->vp_chain.le_next;
+ vm_region_mergenext(xself,first_part);
+ mutex_put(&xself->vr_lock);
+done:
+ return result;
+}
+
+
+PRIVATE ATTR_NOTHROW size_t KCALL
+impl_vm_deallocate_pages(struct vm_node *__restrict node,
+                         VIRT vm_vpage_t page_min,
+                         VIRT vm_vpage_t page_max,
+                         ATREE_SEMI_T(VIRT vm_vpage_t) page_semi,
+                         ATREE_LEVEL_T page_level,
+                         struct vm_dealloc_later_data *__restrict data) {
+ size_t result = 0;
+ bool walk_min,walk_max;
+ struct vm_node *min_branch;
+ struct vm_node *max_branch;
+again:
+ assert(page_min <= page_max);
+ min_branch = node->vn_node.a_min;
+ max_branch = node->vn_node.a_max;
+ walk_min = page_min <  page_semi && min_branch != NULL;
+ walk_max = page_max >= page_semi && max_branch != NULL;
+
+ if ((page_min <= node->vn_node.a_vmax &&
+      page_max >= node->vn_node.a_vmin) &&
+   (!(data->dld_mode & VM_DEALLOCATE_PAGES_TAG) ||
+      node->vn_closure == data->dld_tag)) {
+  vm_raddr_t region_begin,region_end;
+  size_t region_size;
+  /* Found a matching entry!
+   * >> Figure out how much of this must be loaded into the core. */
+  assert(page_min >= node->vn_node.a_vmin);
+  assert(page_max <= node->vn_node.a_vmax);
+  region_begin = node->vn_start+(page_min-node->vn_node.a_vmin);
+  region_end   = node->vn_start+((page_max+1)-node->vn_node.a_vmin);
+  region_size  = region_end-region_begin;
+  /* Deallocate the affected portion of this mapping. */
+  result = impl_vm_region_deallocate_pages(node->vn_region,
+                                           node->vn_node.a_vmin-node->vn_start,
+                                           region_begin,
+                                           region_size,
+                                           data);
+  /* If we're only deallocating a single page, return to the caller. */
+  if (page_min == page_max || data->dld_should_restart)
+      goto end;
+ }
+
+ if (walk_min) {
+  /* Recursively continue searching left. */
+  if (walk_max) {
+   result += impl_vm_deallocate_pages(max_branch,page_min,page_max,
+                                      ATREE_NEXTMAX(VIRT vm_vpage_t,page_semi,page_level),
+                                      ATREE_NEXTLEVEL(page_level),data);
+   if (data->dld_should_restart) goto end;
+  }
+  ATREE_WALKMIN(VIRT vm_vpage_t,page_semi,page_level);
+  node = min_branch;
+  goto again;
+ } else if (walk_max) {
+  /* Recursively continue searching right. */
+  ATREE_WALKMAX(VIRT vm_vpage_t,page_semi,page_level);
+  node = max_branch;
+  goto again;
+ }
+end:
+ return result;
+}
+
+
+PUBLIC ATTR_NOTHROW size_t KCALL
+vm_deallocate_pages(VIRT vm_vpage_t page_index, size_t num_pages,
+                    unsigned int mode, void *tag) {
+ u16 old_state; size_t result = 0;
+ struct vm *EXCEPT_VAR effective_vm;
+ struct vm_dealloc_later_data data;
+ if unlikely(!num_pages) goto done;
+ assert(page_index+num_pages > page_index);
+ assert(page_index+num_pages <= VM_VPAGE_MAX+1);
+ effective_vm = page_index >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
+ /* By setting the DONTSERVE flag, we can ensure that RPC
+  * functions will not interrupt us while we are operating. */
+ old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
+ error_pushinfo();
+ vm_acquire(effective_vm);
+ if (effective_vm->vm_map) {
+  size_t failed_passes = 0;
+  data.dld_vector = NULL;
+  for (;;) {
+   size_t new_pages;
+   /* Search for mappings located within the given address range. */
+   data.dld_count          = 0;
+   data.dld_should_restart = false;
+   data.dld_mode           = mode;
+   data.dld_tag            = tag;
+   data.dld_minpage        = (vm_vpage_t)-1;
+   data.dld_maxpage        = 0;
+
+   /* Scan for pages that should be deallocated. */
+   new_pages = impl_vm_deallocate_pages(effective_vm->vm_map,
+                                        page_index,
+                                        page_index+num_pages-1,
+                                        VM_SEMI0,
+                                        VM_LEVEL0,
+                                       &data);
+   result += new_pages;
+   if (!new_pages) {
+    assert(!data.dld_count);
+    /* If we're not getting any results, but the function keeps on wanting us to
+     * start over, give up after a couple of attempts (shouldn't really happen...) */
+    if (failed_passes > 3)
+        break;
+   } else {
+    failed_passes = 0;
+
+    /* Synchronize the deallocated address range _before_ freeing
+     * pages mapped by the related VM parts. If we did it in a
+     * different order, we'd end up with a race condition caused
+     * by the hardware still having mapped the related memory. */
+    if (data.dld_minpage <= data.dld_maxpage)
+        vm_sync(data.dld_minpage,(data.dld_maxpage-data.dld_minpage)+1);
+    COMPILER_BARRIER();
+
+    /* Finally, actually free all the associated pages. */
+    while (data.dld_count--) {
+     page_free(data.dld_vector[data.dld_count].ps_addr,
+               data.dld_vector[data.dld_count].ps_size);
+    }
+    COMPILER_BARRIER();
+   }
+   /*  Check if we should loop back and deallocate more pages
+    * (can happen if the (re-)allocation of the free-later buffer failed) */
+   if (!data.dld_should_restart) break;
+   ++failed_passes;
+  }
+  /* Free the lazily allocated buffer vector used for storing unmapped parts. */
+  kfree(data.dld_vector);
+ }
+ vm_release(effective_vm);
+ error_popinfo();
+ if (!(old_state & TASK_STATE_FDONTSERVE))
+       ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
+done:
+ return result;
+}
+
+
+
+
 #define VM_LOADNODE_UNCHANGED 0 /* Nothing changed */
 #define VM_LOADNODE_CHANGED   1 /* The node has been loaded */
 #define VM_LOADNODE_REMAPPED  2 /* The node has been loaded, and the VM layout may have changed */
@@ -1757,15 +2055,22 @@ vm_split_before(struct vm *__restrict effective_vm,
  new_node->vn_closure     = node->vn_closure;
  new_node->vn_notify      = node->vn_notify;
  if (new_node->vn_notify) {
-  /* TODO: VM_NOTIFY_SPLIT */
   TRY {
    /* Invoke the incref() notification. */
    new_node->vn_closure = INVOKE_NOTIFY(new_node->vn_notify,
                                         new_node->vn_closure,
-                                        VM_NOTIFY_INCREF,
+                                        VM_NOTIFY_SPLIT,
                                         VM_NODE_BEGIN(new_node),
                                         VM_NODE_SIZE(new_node),
                                         NULL);
+   if (new_node->vn_closure == VM_NOTIFY_SPLIT_FINCREF) {
+    new_node->vn_closure = INVOKE_NOTIFY(new_node->vn_notify,
+                                         new_node->vn_closure,
+                                         VM_NOTIFY_INCREF,
+                                         VM_NODE_BEGIN(new_node),
+                                         VM_NODE_SIZE(new_node),
+                                         NULL);
+   }
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
    kfree(new_node);
    error_rethrow();
@@ -1799,11 +2104,6 @@ vm_split_before(struct vm *__restrict effective_vm,
 }
 
 
-INTDEF ATTR_RETNONNULL struct vm_part *KCALL
-vm_region_split_before(struct vm_region *__restrict self,
-                       vm_raddr_t part_address);
-
-
 
 /* XXX: This might not fully work, yet (needs some debugging...) */
 //#define CONFIG_NO_VM_MERGING
@@ -1835,10 +2135,6 @@ vm_region_split_before(struct vm_region *__restrict self,
 #ifndef CONFIG_VM_MERGING
 #undef CONFIG_VM_MERGING_COMPLEX
 #endif
-
-INTDEF ATTR_NOTHROW ATTR_RETNONNULL struct vm_part *KCALL
-vm_region_mergenext(struct vm_region *__restrict region,
-                    struct vm_part *__restrict part);
 
 #ifdef CONFIG_VM_MERGING
 PRIVATE bool vm_disable_merging = false;

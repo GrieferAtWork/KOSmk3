@@ -563,10 +563,8 @@ typedef void *(KCALL *vm_notify_t)(void *closure, unsigned int command,
                                      *               Now, it is being split into 2 parts: `addr...+=num_pages'
                                      *               and `addr+num_pages...+=(size_t)arg'.
                                      * @return: * :  The new closure argument to-be used for the high part.
-                                     * @return: VM_NOTIFY_SPLIT_FINCREF:  Invoke `VM_NOTIFY_INCREF' and use its return value for the high part.
-                                     * @return: VM_NOTIFY_SPLIT_FPREVENT: Don't allow the split. - Memory operations only partially overlapping the node will affect it in its entirety. */
+                                     * @return: VM_NOTIFY_SPLIT_FINCREF:  Invoke `VM_NOTIFY_INCREF' and use its return value for the high part. */
 #define VM_NOTIFY_SPLIT_FINCREF  ((void *)0)
-#define VM_NOTIFY_SPLIT_FPREVENT ((void *)-1)
 
 
 
@@ -821,6 +819,44 @@ FUNDEF size_t KCALL vm_restore(VIRT vm_vpage_t page_index,
 
 
 #ifdef __CC__
+/* Enumerate VM region parts contained within the given page-range and
+ * deallocate physical memory, or swap tickets associated with the memory
+ * contained within, so-long as the regions aren't being shared, and contain
+ * automatically managed memory (i.e. don't have `VM_PART_FKEEP' set).
+ *  - Memory regions that will be deallocated this way are automatically
+ *    reloaded (vm_sync()-ed) before they are released to the physical
+ *    memory allocator, and region parts that are shared (i.e. are mapped
+ *    more than once) will never be deallocated, either.
+ *    Also: any region parts that have been locked in-code will not be deallocated either.
+ *  - The behavior of this function is similar to that of linux's `MADV_FREE'.
+ *  - Once deallocated memory is accessed again, ALOA (loadcore) will
+ *    once again allocate physical memory for the affected parts.
+ *  - If the region contained a file memory, or some other kind of custom
+ *    initializer, memory will be re-initialized during the next access.
+ *  - If the region has the `VM_REGION_FIMMUTABLE' flag set, memory is
+ *    never deallocate from it, either.
+ *  - If this function fails to split regions in accordance to the exact
+ *    page locations specified, the exception that cause this failure
+ *    is ignored. Related to this, this function temporarily disables
+ *    serving of RPC functions in order to ensure that no interrupts
+ *    are handled (s.a. E_INTERRUPT).
+ * @return: * : The total number of pages of physical memory that have
+ *              been released back to the physical memory allocator.
+ *        NOTE: This could potentially be larger than `num_pages'
+ *              in situations where deallocation has to be restarted
+ *              a number of times, while pages that had already been
+ *              deallocated once are allocated again during the
+ *              down-time. */
+FUNDEF ATTR_NOTHROW size_t KCALL
+vm_deallocate_pages(VIRT vm_vpage_t page_index, size_t num_pages,
+                    unsigned int mode, void *tag);
+#endif /* __CC__ */
+#define VM_DEALLOCATE_PAGES_NORMAL   0x0000 /* Remap any mapping. */
+#define VM_DEALLOCATE_PAGES_TAG      0x0001 /* Only deallocate pages of nodes who's tag equals `tag' */
+
+
+
+#ifdef __CC__
 /* Remap all memory mappings with the given address range to another.
  * The caller must invoke `vm_sync()' after changes have been made.
  * Existing mappings at the new address will be overwritten.
@@ -933,6 +969,7 @@ vm_getfree(vm_vpage_t hint, size_t num_pages,
 /* Return the node at a given page, or NULL if none is mapped there.
  * WARNING: The caller must be holding a lock to the effective VM (either vm_kernel, or THIS_VM). */
 FUNDEF struct vm_node *KCALL vm_getnode(vm_vpage_t page);
+
 /* Return any node within the given address range, or NULL if none is mapped within.
  * WARNING: The caller must be holding a lock to the effective VM (either vm_kernel, or THIS_VM).
  * WARNING: The caller must also ensure that `min_page' and
