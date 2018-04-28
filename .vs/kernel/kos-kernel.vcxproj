@@ -172,6 +172,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\src\hybrid\hybrid.h" />
     <ClInclude Include="..\..\src\kernel\i386-kos\emulator.h" />
+    <ClInclude Include="..\..\src\kernel\i386-kos\except.h" />
     <ClInclude Include="..\..\src\kernel\i386-kos\posix_signals.h" />
     <ClInclude Include="..\..\src\kernel\i386-kos\scheduler.h" />
     <ClInclude Include="..\..\src\kernel\include\dev\devconfig.h" />

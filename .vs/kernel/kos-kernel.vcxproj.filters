@@ -794,5 +794,8 @@
     <ClInclude Include="..\..\src\kernel\include\kernel\cache.h">
       <Filter>kernel\include\kernel</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\kernel\i386-kos\except.h">
+      <Filter>kernel\i386-kos</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

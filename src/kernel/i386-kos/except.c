@@ -41,6 +41,7 @@
 #include <kernel/debug.h> /* TODO: Get rid of this. */
 
 #include "posix_signals.h"
+#include "except.h"
 
 DECL_BEGIN
 
@@ -145,12 +146,7 @@ no_handler:
 }
 DEFINE_PUBLIC_ALIAS(__error_rethrow_at,libc_error_rethrow_at);
 
-struct cpu_context_ss {
-    struct cpu_context c_context;
-    uintptr_t          c_ss;
-};
-
-PRIVATE bool FCALL
+INTERN bool FCALL
 unwind_check_signal_frame(struct cpu_context_ss *__restrict context,
                           USER CHECKED sigset_t *signal_set,
                           size_t signal_set_size) {
@@ -160,6 +156,7 @@ unwind_check_signal_frame(struct cpu_context_ss *__restrict context,
  frame = (struct signal_frame *)(context->c_context.c_esp -
                                  COMPILER_OFFSETAFTER(struct signal_frame,sf_sigreturn));
  validate_readable(frame,sizeof(*frame));
+ /* XXX: FPU Context? */
  /* Copy the signal mask that would be restored into userspace. */
  if (signal_set_size)
      memcpy(signal_set,&frame->sf_sigmask,signal_set_size);

@@ -31,6 +31,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <except.h>
+#include <syslog.h>
 
 DECL_BEGIN
 
@@ -92,10 +94,16 @@ int main(int argc, char *argv[]) {
   while (++(*ptr++));
  }
  if (!strcmp(cmd,"alloc")) {
-  for (;;) {
-   void *p;
-   p = Xmmap(NULL,16*PAGESIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0);
-   /*printf("%p\n",p);*/
+  TRY {
+   for (;;) {
+    void *p;
+    p = Xmmap(NULL,16*PAGESIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0);
+    /*printf("%p\n",p);*/
+   }
+  } CATCH (E_BADALLOC) {
+   error_printf("Catch E_BADALLOC caused by mmap()\n"
+                "Thrown from here:\n");
+   return 0;
   }
  }
 

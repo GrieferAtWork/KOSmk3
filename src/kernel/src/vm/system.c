@@ -164,6 +164,7 @@ do_xmmap(struct mmap_info *__restrict info) {
  case XMAP_PHYSICAL:
   /* Extend the physical address to 64 bits. */
   info->mi_phys.mp_addr64 = (__UINT64_TYPE__)(uintptr_t)info->mi_phys.mp_addr;
+  ATTR_FALLTHROUGH;
  case XMAP_PHYSICAL64:
   /* TODO: Check permissions. */
   result_offset = (uintptr_t)info->mi_addr & (PAGESIZE-1);
@@ -190,8 +191,8 @@ do_xmmap(struct mmap_info *__restrict info) {
  if (((uintptr_t)info->mi_addr & (PAGESIZE-1)) &&
       (info->mi_flags & MAP_FIXED))
        error_throw(E_INVALID_ARGUMENT); /* Improperly aligned fixed-memory pointer. */
- hint           = (uintptr_t)info->mi_addr / PAGESIZE;
- num_pages      = CEILDIV(info->mi_size,PAGESIZE);
+ hint      = (uintptr_t)info->mi_addr / PAGESIZE;
+ num_pages = CEILDIV(info->mi_size,PAGESIZE);
  if unlikely(!num_pages)
     error_throw(E_INVALID_ARGUMENT); /* Empty mapping. */
 

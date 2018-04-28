@@ -83,11 +83,6 @@ FUNDEF bool KCALL linker_findexcept(uintptr_t ip, u16 exception_code,
 FUNDEF bool KCALL linker_findexcept_consafe(uintptr_t ip, u16 exception_code,
                                             struct exception_handler_info *__restrict result);
 
-
-/* Unwind the given user-space CPU context.
- * NOTE: This function also handles unwinding of signal frames. */
-FUNDEF bool KCALL linker_unwind_user(struct cpu_hostcontext_user *__restrict context);
-
 DECL_END
 
 #endif /* !GUARD_KERNEL_INCLUDE_UNWIND_LINKER_H */

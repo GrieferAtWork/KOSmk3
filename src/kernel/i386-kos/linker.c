@@ -67,50 +67,6 @@ application_loaduserfini(struct application *__restrict app,
  context->c_esp = (uintptr_t)esp;
 }
 
-
-
-PUBLIC bool KCALL
-linker_unwind_user(struct cpu_hostcontext_user *__restrict context) {
- /* TODO: FPU support? */
- struct fde_info fde;
- if (!linker_findfde(context->c_eip,&fde))
-      return false;
- context->c_gpregs.gp_esp = context->c_esp;
- if (!eh_return(&fde,(struct cpu_context *)context,
-                EH_FRESTRICT_USERSPACE|
-                EH_FDONT_UNWIND_SIGFRAME))
-      return false;
- context->c_esp = context->c_gpregs.gp_esp;
- /* Special case: unwind a signal frame. */
- if (context->c_eip ==
-    (PERTASK_GET(x86_sysbase)+X86_ENCODE_PFSYSCALL(SYS_sigreturn))) {
-  struct signal_frame *frame;
-  frame = (struct signal_frame *)(context->c_esp-4);
-  /* XXX: Restore signal mask during exception unwind? */
-  memcpy(&context->c_gpregs,
-         &frame->sf_return.m_context.c_gpregs,
-         sizeof(struct x86_gpregs32)
-#ifndef CONFIG_NO_X86_SEGMENTATION
-         +
-         sizeof(struct x86_segments32)
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
-         );
-  context->c_iret.ir_eflags = frame->sf_return.m_context.c_eflags;
-  context->c_iret.ir_eip    = frame->sf_return.m_context.c_eip;
-  context->c_esp            = context->c_gpregs.gp_esp;
-#ifndef CONFIG_NO_X86_SEGMENTATION
-  context->c_iret.ir_cs     = frame->sf_return.m_context.c_cs;
-  context->c_iret.ir_ss     = frame->sf_return.m_context.c_ss;
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
-  /* XXX: Restore FPU context? */
- }
- return true;
-}
-
-
-
-
-
 DECL_END
 
 #endif /* !GUARD_KERNEL_I386_KOS_LINKER_C */

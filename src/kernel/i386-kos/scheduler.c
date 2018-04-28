@@ -72,6 +72,8 @@
 #include <i386-kos/ipi.h>
 #endif
 
+#include "except.h"
+
 DECL_BEGIN
 
 STATIC_ASSERT(offsetof(struct cpu,c_running) == CPU_OFFSETOF_RUNNING);
@@ -1415,23 +1417,26 @@ serve_rpc:
   }
 
   if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG|TASK_FUSEREXCEPT)) {
-   struct cpu_context unwind;
-   unwind.c_gpregs = context->c_gpregs;
+   struct cpu_context_ss unwind;
 #ifndef CONFIG_NO_X86_SEGMENTATION
-   memcpy(&unwind.c_gpregs,&context->c_gpregs,
+   memcpy(&unwind.c_context.c_gpregs,&context->c_gpregs,
           sizeof(struct x86_gpregs)+
           sizeof(struct x86_segments));
 #else /* !CONFIG_NO_X86_SEGMENTATION */
-   memcpy(&unwind.c_gpregs,&context->c_gpregs,
+   memcpy(&unwind.c_context.c_gpregs,&context->c_gpregs,
           sizeof(struct x86_gpregs));
 #endif /* CONFIG_NO_X86_SEGMENTATION */
-   unwind.c_esp            = context->c_iret.ir_useresp;
-   unwind.c_iret.ir_eip    = context->c_iret.ir_eip;
-   unwind.c_iret.ir_cs     = context->c_iret.ir_cs;
-   unwind.c_iret.ir_eflags = context->c_iret.ir_eflags;
-   if (info.e_error.e_flag & ERR_FRESUMENEXT) ++unwind.c_iret.ir_eip;
+   unwind.c_context.c_esp            = context->c_iret.ir_useresp;
+   unwind.c_context.c_iret.ir_eip    = context->c_iret.ir_eip;
+   unwind.c_context.c_iret.ir_cs     = context->c_iret.ir_cs;
+   unwind.c_context.c_iret.ir_eflags = context->c_iret.ir_eflags;
+   unwind.c_ss                       = context->c_iret.ir_ss;
+   if (info.e_error.e_flag & ERR_FRESUMENEXT)
+       ++unwind.c_context.c_iret.ir_eip;
    TRY {
     USER CHECKED struct user_task_segment *useg;
+    sigset_t user_signal_set;
+    bool has_user_signal_set = false;
     /* NOTE: Dereference the user-space segment's self-pointer, so
      *       user-space is able to quickly re-direct exception storage
      *       by overriding the thread-local TLS self-pointer. */
@@ -1440,74 +1445,90 @@ serve_rpc:
     useg = useg->ts_self;
     validate_writable(useg,COMPILER_OFFSETAFTER(struct user_task_segment,ts_xcurrent));
     /* Unwind the stack and search for user-space exception handlers. */
-    while (unwind.c_iret.ir_eip < KERNEL_BASE) {
+    while (unwind.c_context.c_iret.ir_eip < KERNEL_BASE) {
      struct fde_info fde;
      struct exception_handler_info hand;
-     if (!linker_findfde(unwind.c_iret.ir_eip-1,&fde))
+     --unwind.c_context.c_iret.ir_eip;
+     if (!linker_findfde(unwind.c_context.c_iret.ir_eip,&fde))
           goto cannot_unwind;
-     if (linker_findexcept(unwind.c_iret.ir_eip-1,info.e_error.e_code,&hand)) {
+     if (linker_findexcept(unwind.c_context.c_iret.ir_eip,info.e_error.e_code,&hand)) {
       /* Found a user-space exception handler! */
       if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS)
           info.e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK;
-      useg->ts_xcurrent.e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(unwind);
+      useg->ts_xcurrent.e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(unwind.c_context);
       if (hand.ehi_flag & EXCEPTION_HANDLER_FDESCRIPTOR) {
        /* Unwind the stack to the caller-site. */
-       if (!eh_return(&fde,&unwind,EH_FRESTRICT_USERSPACE|EH_FDONT_UNWIND_SIGFRAME))
+       if (!eh_return(&fde,&unwind.c_context,EH_FRESTRICT_USERSPACE|EH_FDONT_UNWIND_SIGFRAME))
             goto cannot_unwind;
        /* Override the IP to use the entry point.  */
-       unwind.c_eip = (uintptr_t)hand.ehi_entry;
+       unwind.c_context.c_eip = (uintptr_t)hand.ehi_entry;
        assert(hand.ehi_desc.ed_type == EXCEPT_DESC_TYPE_BYPASS); /* XXX: What should we do here? */
 
        /* Allocate the stack-save area. */
-       CPU_CONTEXT_SP(unwind) -= hand.ehi_desc.ed_safe;
+       CPU_CONTEXT_SP(unwind.c_context) -= hand.ehi_desc.ed_safe;
        if (!(hand.ehi_desc.ed_flags&EXCEPT_DESC_FDEALLOC_CONTINUE)) {
         uintptr_t sp = context->c_iret.ir_useresp;
         /* Must allocate stack memory at the back and copy data there. */
         sp -= hand.ehi_desc.ed_safe;
         validate_writable((void *)sp,hand.ehi_desc.ed_safe);
         COMPILER_WRITE_BARRIER();
-        memcpy((void *)sp,(void *)CPU_CONTEXT_SP(unwind),
+        memcpy((void *)sp,(void *)CPU_CONTEXT_SP(unwind.c_context),
                 hand.ehi_desc.ed_safe);
-        CPU_CONTEXT_SP(unwind) = sp;
+        CPU_CONTEXT_SP(unwind.c_context) = sp;
        }
       } else {
        /* Jump to the entry point of this exception handler. */
-       if (!eh_jmp(&fde,&unwind,(uintptr_t)hand.ehi_entry,
+       if (!eh_jmp(&fde,&unwind.c_context,(uintptr_t)hand.ehi_entry,
                     EH_FRESTRICT_USERSPACE))
             goto cannot_unwind;
        /* Restore the original SP to restore the stack as
         * it was when the exception originally occurred.
         * Without this, it would be impossible to continue
         * execution after an exception occurred. */
-       CPU_CONTEXT_SP(unwind) = context->c_iret.ir_useresp;
+       CPU_CONTEXT_SP(unwind.c_context) = context->c_iret.ir_useresp;
       }
 
       /* Force user-space target. */
-      unwind.c_iret.ir_cs     |= 3;
-      unwind.c_iret.ir_eflags |= EFLAGS_IF;
-      unwind.c_iret.ir_eflags &= ~(EFLAGS_TF|EFLAGS_IOPL(3)|
-                                   EFLAGS_NT|EFLAGS_RF|EFLAGS_VM|
-                                   EFLAGS_AC|EFLAGS_VIF|EFLAGS_VIP|
-                                   EFLAGS_ID);
+      unwind.c_context.c_iret.ir_cs     |= 3;
+      unwind.c_context.c_iret.ir_eflags |= EFLAGS_IF;
+      unwind.c_context.c_iret.ir_eflags &= ~(EFLAGS_TF|EFLAGS_IOPL(3)|
+                                             /* XXX: `EFLAGS_VM' based on `TASK_FVM86'? */
+                                             EFLAGS_NT|EFLAGS_RF|EFLAGS_VM|
+                                             EFLAGS_AC|EFLAGS_VIF|EFLAGS_VIP|
+                                             EFLAGS_ID);
       /* Now copy the exception context to user-space. */
       errorinfo_copy_to_user(useg,(struct exception_info *)&info,context);
       /* Set the unwound context as what should be returned to for user-space. */
 #ifndef CONFIG_NO_X86_SEGMENTATION
-      memcpy(&context->c_gpregs,&unwind.c_gpregs,
+      memcpy(&context->c_gpregs,&unwind.c_context.c_gpregs,
              sizeof(struct x86_gpregs)+
              sizeof(struct x86_segments));
 #else /* !CONFIG_NO_X86_SEGMENTATION */
-      memcpy(&context->c_gpregs,&unwind.c_gpregs,
+      memcpy(&context->c_gpregs,&unwind.c_context.c_gpregs,
              sizeof(struct x86_gpregs));
 #endif /* CONFIG_NO_X86_SEGMENTATION */
-      context->c_iret.ir_useresp = unwind.c_esp;
-      context->c_iret.ir_eip     = unwind.c_iret.ir_eip;
-      context->c_iret.ir_cs      = unwind.c_iret.ir_cs;
-      context->c_iret.ir_eflags  = unwind.c_iret.ir_eflags;
+      context->c_iret.ir_useresp = unwind.c_context.c_esp;
+      context->c_iret.ir_eip     = unwind.c_context.c_iret.ir_eip;
+      context->c_iret.ir_cs      = unwind.c_context.c_iret.ir_cs;
+      context->c_iret.ir_eflags  = unwind.c_context.c_iret.ir_eflags;
+      context->c_iret.ir_ss      = unwind.c_ss;
+      /* Restore the signal mask if it was loaded from user-space. */
+      if (has_user_signal_set) {
+       signal_chmask(&user_signal_set,NULL,
+                      sizeof(sigset_t),
+                      SIGNAL_CHMASK_FSETMASK);
+      }
+      /* Return to user-space (the caller will load the updated context) */
       return;
      }
-     if (!eh_return(&fde,&unwind,EH_FRESTRICT_USERSPACE|EH_FDONT_UNWIND_SIGFRAME))
+     if (!eh_return(&fde,&unwind.c_context,
+                     EH_FRESTRICT_USERSPACE|
+                     EH_FDONT_UNWIND_SIGFRAME))
           goto cannot_unwind;
+     /* Check for unwinding user-space signal frames. */
+     has_user_signal_set |= unwind_check_signal_frame(&unwind,
+                                                      &user_signal_set,
+                                                      sizeof(sigset_t));
     }
    } CATCH_HANDLED (E_SEGFAULT) {
    }

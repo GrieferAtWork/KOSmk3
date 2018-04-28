@@ -337,9 +337,13 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
  u16 code;
  struct exception_info *INFO;
  PRINTF("Unhandled exception:\n");
+ code = error_code();
+ PRINTF("\tcode:  %I16u (%I16x)\n",code,code);
+ INFO = error_info();
 #else
 #define INFO   (&info_struct)
  struct exception_info info_struct; u16 code;
+ libc_memcpy(&info_struct,libc_error_info(),sizeof(struct exception_info));
  if (!fp) fp = libc_stderr;
  TTY_PRINTF("\e[31;100m"); /* Red on dark gray */
  if (reason)
@@ -348,13 +352,8 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
   PRINTF("Unhandled exception:\n");
  }
  TTY_PRINTF("\e[0m"); /* Reset */
-#endif
- code = error_code();
+ code = INFO->e_error.e_code;
  PRINTF("\tcode:  %I16u (%I16x)\n",code,code);
-#ifdef __KERNEL__
- INFO = error_info();
-#else
- libc_memcpy(&info_struct,libc_error_info(),sizeof(struct exception_info));
 #endif
  PRINTF("\tflags: %I16x (%s,%s)\n",
         INFO->e_error.e_flag,
@@ -868,7 +867,8 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
           CPU_CONTEXT_IP(context) : CPU_CONTEXT_IP(context)-1,
           CPU_CONTEXT_IP(context),
           CPU_CONTEXT_SP(context));
-   if (!is_first || !(INFO->e_error.e_flag&ERR_FRESUMENEXT)) --context.c_eip;
+   if (!is_first || !(INFO->e_error.e_flag&ERR_FRESUMENEXT))
+       --CPU_CONTEXT_IP(context);
    if (sys_xunwind(&context,NULL,NULL,0) != -EOK)
        break;
    is_first = false;
