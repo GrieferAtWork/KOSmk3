@@ -160,7 +160,16 @@ tty_dowrite_echo2(struct tty *__restrict self,
  end = iter+bufsize;
  for (; iter < end; ++iter) {
   char ch = *iter;
-  if (ch < 0x20) {
+  if (ch < 0x20 &&
+      /* UNIX specifies a whitelist of control
+       * characters that should not be escaped here.
+       * s.a.: http://man7.org/linux/man-pages/man3/termios.3.html
+       */
+      ch != '\t' && ch != '\n' &&
+      ch != self->t_ios.c_cc[VEOL] &&
+      ch != self->t_ios.c_cc[VEOL2] &&
+      ch != self->t_ios.c_cc[VSTART] &&
+      ch != self->t_ios.c_cc[VSTOP]) {
    char escape[2];
    temp2   = (size_t)(iter-flush_start);
    temp    = tty_dowrite_display_impl(self,flush_start,temp2,flags);
@@ -307,7 +316,16 @@ erase_char:
             ATOMIC_FETCHOR(self->t_ios.c_lflag,__IERASING);
        } else {
         PRIVATE char const delete_sequence[3] = { '\b', ' ', '\b' };
+#if 1
+        /* Even though UNIX doesn't specify, at least my SSH terminal
+         * doesn't seem to escape backspace entered by the user.
+         * Also, it wouldn't make much sense if we backspace would
+         * print `^H ^H' instead of erasing the previously written
+         * character... */
+        tty_dowrite_display_impl(self,delete_sequence,3,flags);
+#else
         tty_dowrite_echo2(self,delete_sequence,3,flags,lflags & ~(ECHOPRT|ECHOKE));
+#endif
        }
       }
       if (erase_mode == 1) {
@@ -1032,7 +1050,7 @@ FUNDEF ATTR_RETNONNULL REF struct tty *
  /* Pre-initialize TTY configuration to ~sane~ values. */
  result->t_ios.c_iflag      = (ICRNL|BRKINT|IMAXBEL);
  result->t_ios.c_oflag      = (ONLCR|OPOST);
- result->t_ios.c_lflag      = (ECHO|ECHOE|ECHOK|ICANON|ISIG|IEXTEN);
+ result->t_ios.c_lflag      = (ECHO|ECHOE|ECHOK|ICANON|ISIG|IEXTEN|ECHOCTL);
  result->t_ios.c_cflag      = (CREAD);
 #define CTRL_CODE(x) ((x)-64) /* ^x */
  result->t_ios.c_cc[VMIN]     = 1; /* Read at least one character by default. */
