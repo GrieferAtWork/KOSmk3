@@ -24,6 +24,7 @@
 #include <sys/ucontext.h>
 #include <i386-kos/syscall.h>
 #include <signal.h>
+#include <except.h>
 
 DECL_BEGIN
 
@@ -35,6 +36,7 @@ struct PACKED signal_frame {
                                                   * binary compatibility when unwinding `signal_frame_ex') */
     uintptr_t                      sf_mode;      /* The signal handler return mode (One of `TASK_USERCTX_F*',
                                                   * or one of `X86_SYSCALL_TYPE_F*'). */
+    struct user_exception_info     sf_except;    /* Return exception information. */
     mcontext_t                     sf_return;    /* Return context. */
     sigset_t                       sf_sigmask;   /* Return signal mask. */
 };
@@ -49,6 +51,7 @@ struct PACKED signal_frame_ex {
             ucontext_t            *sf_contextp;  /* [== &sf_return] Signal context argument. */
             uintptr_t              sf_mode;      /* The signal handler return mode (One of `TASK_USERCTX_F*',
                                                   * or one of `X86_SYSCALL_TYPE_F*'). */
+            struct user_exception_info sf_except;/* Return exception information. */
             ucontext_t             sf_return;    /* Signal return context. */
             siginfo_t              sf_info;      /* Signal information. */
         };

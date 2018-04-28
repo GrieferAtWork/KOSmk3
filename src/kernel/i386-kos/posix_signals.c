@@ -91,6 +91,19 @@ x86_sigreturn_impl(void *UNUSED(arg),
  context->c_iret.ir_useresp = context->c_gpregs.gp_esp;
  frame_mode = frame->sf_mode;
 
+ if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG|TASK_FUSEREXCEPT) &&
+     frame->sf_except.e_context.c_eip != (uintptr_t)-1) {
+  /* Copy user-space exception information. */
+  USER CHECKED struct user_task_segment *useg;
+  useg = PERTASK_GET(this_task.t_userseg);
+  validate_readable(&useg->ts_self,sizeof(useg->ts_self));
+  useg = useg->ts_self;
+  validate_writable(&useg->ts_xcurrent,sizeof(useg->ts_xcurrent));
+  /* Restore user-space exception information during a regular sigreturn().
+   * This behavior is by `EXCEPTIONS AND POSIX SIGNAL HANDLERS' in `<except.h>' */
+  memcpy(&useg->ts_xcurrent,&frame->sf_except,sizeof(struct user_exception_info));
+ }
+
 #ifndef CONFIG_NO_FPU
  if (frame->sf_return.m_flags & __MCONTEXT_FHAVEFPU) {
   /* Restore the saved FPU state. */
@@ -324,6 +337,20 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
   }
  }
 
+ if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG|TASK_FUSEREXCEPT)) {
+  /* Copy user-space exception information. */
+  USER CHECKED struct user_task_segment *useg;
+  useg = PERTASK_GET(this_task.t_userseg);
+  validate_readable(&useg->ts_self,sizeof(useg->ts_self));
+  useg = useg->ts_self;
+  validate_readable(&useg->ts_xcurrent,sizeof(useg->ts_xcurrent));
+  memcpy(&frame->sf_except,&useg->ts_xcurrent,sizeof(struct user_exception_info));
+ } else {
+  /* sys_sigreturn() uses the exception context EIP
+   * value to identify the presence of a context. */
+  frame->sf_except.e_context.c_eip = (uintptr_t)-1;
+ }
+
  /* Construct the return CPU context. */
 #ifndef CONFIG_NO_X86_SEGMENTATION
  memcpy(&frame->sf_return.m_context.c_segments,
@@ -391,7 +418,6 @@ sigreturn_noexcept:
   frame->sf_sigreturn = (void *)(PERTASK_GET(x86_sysbase)+
                                  X86_ENCODE_PFSYSCALL(SYS_sigreturn));
  }
-
 
  /* With the signal frame now generated, update context registers to execute the signal action. */
  context->c_esp = (uintptr_t)frame;
