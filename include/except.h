@@ -21,6 +21,7 @@
 
 #include "__stdinc.h"
 #include <hybrid/typecore.h>
+#include <hybrid/string.h>
 #include <kos/except.h>
 
 #ifndef __CRT_KOS
@@ -254,6 +255,27 @@ __LIBC __SIZE_TYPE__ (__FCALL error_dealloc_continue)(void);
 /* Same as `error_dealloc_continue()', but carrying a slightly
  * more obvious name that should easily imply its meaning.... */
 __LIBC void (__FCALL error_handled)(void);
+
+
+
+/* push/pop the current error information context.
+ * Useful if you wish to preserve exception information across
+ * a section of code that may cause, and then handle other exceptions:
+ * >>    error_pushinfo();
+ * >>again:
+ * >>    TRY {
+ * >>        some_interruptible_system_call();
+ * >>    } CATCH (E_INTERRUPT) {
+ * >>        goto again;
+ * >>    }
+ * >>    error_popinfo();
+ */
+#define error_pushinfo() \
+do{ struct exception_info __push_info; \
+    __hybrid_memcpy(&__push_info,error_info(),sizeof(struct exception_info))
+#define error_popinfo() \
+    __hybrid_memcpy(error_info(),&__push_info,sizeof(struct exception_info)); \
+}__WHILE0
 
 
 
