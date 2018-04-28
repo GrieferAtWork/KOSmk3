@@ -60,9 +60,9 @@ __REDIRECT_EXCEPT(__LIBC,__XATTR_RETNONNULL __WUNUSED __MALL_DEFAULT_ALIGNED __A
 __REDIRECT_EXCEPT(__LIBC,__XATTR_RETNONNULL __WUNUSED __MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((1,2)) __ATTR_MALLOC,void *,__LIBCCALL,calloc,(size_t __count, size_t __n_bytes),(__count,__n_bytes))
 __REDIRECT_EXCEPT(__LIBC,__XATTR_RETNONNULL __WUNUSED __MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((2)),void *,__LIBCCALL,realloc,(void *__restrict __mallptr, size_t __n_bytes),(__mallptr,__n_bytes))
 #ifdef __KERNEL__
-__REDIRECT_VOID(__LIBC,,__LIBCCALL,free,(void *__restrict __mallptr),kfree,(__mallptr))
+__REDIRECT_VOID(__LIBC,__CLEANUP,__LIBCCALL,free,(void *__restrict __mallptr),kfree,(__mallptr))
 #else /* __KERNEL__ */
-__LIBC void (__LIBCCALL free)(void *__restrict __mallptr);
+__LIBC __CLEANUP void (__LIBCCALL free)(void *__restrict __mallptr);
 #endif /* !__KERNEL__ */
 __NAMESPACE_STD_END
 #ifndef __CXX_SYSTEM_HEADER
@@ -101,9 +101,9 @@ __LIBC __WUNUSED __MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((1)) __ATTR_MALLOC voi
 __LIBC __WUNUSED __MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((1,2)) __ATTR_MALLOC void *(__LIBCCALL _calloc_d)(size_t __count, size_t __n_bytes, __DEBUGINFO);
 __LIBC __WUNUSED __MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((2)) void *(__LIBCCALL _realloc_d)(void *__restrict __mallptr, size_t __n_bytes, __DEBUGINFO);
 #ifdef __KERNEL__
-__REDIRECT_VOID(__LIBC,,__LIBCCALL,_free_d,(void *__restrict __mallptr, __DEBUGINFO),_kfree_d,(__mallptr,__DEBUGINFO_FWD))
+__REDIRECT_VOID(__LIBC,__CLEANUP,__LIBCCALL,_free_d,(void *__restrict __mallptr, __DEBUGINFO),_kfree_d,(__mallptr,__DEBUGINFO_FWD))
 #else /* __KERNEL__ */
-__LIBC void (__LIBCCALL _free_d)(void *__restrict __mallptr, __DEBUGINFO);
+__LIBC __CLEANUP void (__LIBCCALL _free_d)(void *__restrict __mallptr, __DEBUGINFO);
 #endif /* !__KERNEL__ */
 __NAMESPACE_STD_END
 #endif /* !__std_malloc_calloc_d_defined */

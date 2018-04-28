@@ -655,6 +655,8 @@
  *        Functions affected by this are what I like to call "cleanup"-functions, often
  *        found in finalizers that are better left as NOEXCEPT, as they're usually called
  *        from exception cleanup code, or more precisely: `FINALLY' blocks.
+ *        Cleanup functions also have special meaning in other contexts and
+ *        are tagged as `__CLEANUP' when they appear in headers.
  * Also note that some APIs, such as KOS's heap API in <kos/heap.h> _ALWAYS_ use
  * exceptions, rather than errno & some kind of special error-return-value,
  * irregardless of what this option has been defined as. */

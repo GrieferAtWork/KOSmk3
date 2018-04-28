@@ -351,7 +351,7 @@ __REDIRECT_EXCEPT_DPA(__LIBC,__WUNUSED,__fd_t,__LIBCCALL,dup,(__fd_t __fd),(__fd
 #endif /* !__dup_defined */
 #ifndef __close_defined
 #define __close_defined 1
-__REDIRECT_DPA(__LIBC,,int,__LIBCCALL,close,(__fd_t __fd),(__fd))
+__REDIRECT_DPA(__LIBC,__CLEANUP,int,__LIBCCALL,close,(__fd_t __fd),(__fd))
 #endif /* !__close_defined */
 #ifndef __access_defined
 #define __access_defined 1

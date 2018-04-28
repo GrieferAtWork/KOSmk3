@@ -528,6 +528,7 @@ __NAMESPACE_STD_END
 #define __ASMCALL      /* Annotation for functions that are implemented in assembly and require a custom calling convention. */
 #define __INITDATA     /* Annotation for data that apart of .free sections, meaning that accessing it is illegal after some specific point in time. */
 #define __INITCALL     /* Annotation for functions that apart of .free sections, meaning that calling it is illegal after some specific point in time. */
+#define __CLEANUP      /* Annotation for so-called cleanup functions (as already defined by the documentation of `_EXCEPT_API' in `<features.h>'). */
 #if __KOS_VERSION__ < 300
 #define __CRIT         /* Annotation for functions that require `TASK_ISCRIT()' (When called from within the kernel). */
 #define         /* Annotation for functions that require `TASK_ISSAFE()' (When called from within the kernel). */

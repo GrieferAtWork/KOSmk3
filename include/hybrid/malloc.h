@@ -39,7 +39,7 @@ __REDIRECT(__LIBC,__WUNUSED __MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((1)) __ATTR
 __REDIRECT(__LIBC,__WUNUSED __MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((1,2)) __ATTR_MALLOC,void *,__LIBCCALL,__hybrid_calloc,(__SIZE_TYPE__ __count, __SIZE_TYPE__ __n_bytes),libc_calloc,(__count,__n_bytes))
 __REDIRECT(__LIBC,__WUNUSED __MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((2)),void *,__LIBCCALL,__hybrid_realloc,(void *__restrict __mallptr, __SIZE_TYPE__ __n_bytes),libc_realloc,(__mallptr,__n_bytes))
 __REDIRECT(__LIBC,__MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((2)),void *,__LIBCCALL,__hybrid_realloc_in_place,(void *__restrict __mallptr, __SIZE_TYPE__ __n_bytes),libc_realloc_in_place,(__mallptr,__n_bytes))
-__REDIRECT_VOID(__LIBC,,__LIBCCALL,__hybrid_free,(void *__restrict __mallptr),libc_free,(__mallptr))
+__REDIRECT_VOID(__LIBC,__CLEANUP,__LIBCCALL,__hybrid_free,(void *__restrict __mallptr),libc_free,(__mallptr))
 
 __SYSDECL_END
 
@@ -74,7 +74,7 @@ __REDIRECT(__LIBC,__MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((2)),void *,__LIBCCAL
            __libc_realloc_in_place,(void *__restrict __mallptr, __SIZE_TYPE__ __n_bytes),
            realloc_in_place,(__mallptr,__n_bytes))
 #endif
-__REDIRECT_VOID(__LIBC,,__LIBCCALL,__libc_free,(void *__restrict __mallptr),free,(__mallptr))
+__REDIRECT_VOID(__LIBC,__CLEANUP,__LIBCCALL,__libc_free,(void *__restrict __mallptr),free,(__mallptr))
 #ifdef __USE_DEBUG
 #if __USE_DEBUG != 0 && defined(__CRT_KOS) && \
   (!defined(__DOS_COMPAT__) && !defined(__GLC_COMPAT__))
@@ -91,9 +91,9 @@ __REDIRECT(__LIBC,__WUNUSED __MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((2)),
            void *,__LIBCCALL,__libc_realloc_in_place_d,(void *__restrict __mallptr, __SIZE_TYPE__ __n_bytes, __DEBUGINFO),
            _realloc_in_place_d,(__mallptr,__n_bytes,__DEBUGINFO_FWD))
 #ifdef __KERNEL__
-__REDIRECT_VOID(__LIBC,,__LIBCCALL,__libc_free_d,(void *__restrict __mallptr, __DEBUGINFO),_kfree_d,(__mallptr,__DEBUGINFO_FWD))
+__REDIRECT_VOID(__LIBC,__CLEANUP,__LIBCCALL,__libc_free_d,(void *__restrict __mallptr, __DEBUGINFO),_kfree_d,(__mallptr,__DEBUGINFO_FWD))
 #else /* __KERNEL__ */
-__REDIRECT_VOID(__LIBC,,__LIBCCALL,__libc_free_d,(void *__restrict __mallptr, __DEBUGINFO),_free_d,(__mallptr,__DEBUGINFO_FWD))
+__REDIRECT_VOID(__LIBC,__CLEANUP,__LIBCCALL,__libc_free_d,(void *__restrict __mallptr, __DEBUGINFO),_free_d,(__mallptr,__DEBUGINFO_FWD))
 #endif /* !__KERNEL__ */
 #else /* __USE_DEBUG != 0 */
 #define __libc_malloc_d(n_bytes,...)                   __libc_malloc(n_bytes)

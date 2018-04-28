@@ -107,7 +107,7 @@
               __hybrid_memset(__res,0,__s-__AMALLOC_ALIGN); \
             } \
             __XRETURN (void *)__res; })
-#define __freea(p) \
+#define /*__CLEANUP*/__freea(p) \
  __XBLOCK({ void *const __p = (p); \
             if (__AMALLOC_MUSTFREE(__p)) \
                 __hybrid_free((void *)((__BYTE_TYPE__ *)__p-__AMALLOC_ALIGN)); \

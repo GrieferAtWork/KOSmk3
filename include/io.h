@@ -113,7 +113,7 @@ __REDIRECT_EXCEPT_UFSDPA_XVOID(__LIBC,__NONNULL((1)),int,__LIBCCALL,chmod,(char 
 #endif /* !__chmod_defined */
 #ifndef __close_defined
 #define __close_defined 1
-__REDIRECT_DPA(__LIBC,,int,__LIBCCALL,close,(__fd_t __fd),(__fd))
+__REDIRECT_DPA(__LIBC,__CLEANUP,int,__LIBCCALL,close,(__fd_t __fd),(__fd))
 #endif /* !__close_defined */
 #ifndef __dup_defined
 #define __dup_defined 1

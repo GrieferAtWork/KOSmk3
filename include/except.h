@@ -256,6 +256,18 @@ __LIBC __SIZE_TYPE__ (__FCALL error_dealloc_continue)(void);
  * more obvious name that should easily imply its meaning.... */
 __LIBC void (__FCALL error_handled)(void);
 
+#ifndef __EXCEPT_INVOKE_DEALLOC_CONTINUE
+#define __EXCEPT_INVOKE_DEALLOC_CONTINUE(x) x
+#define __EXCEPT_INVOKE_HANDLED(x) x
+#endif
+
+#ifndef error_dealloc_continue
+#define error_dealloc_continue() \
+      __EXCEPT_INVOKE_DEALLOC_CONTINUE((error_dealloc_continue)())
+#define error_handled() \
+      __EXCEPT_INVOKE_HANDLED((error_handled)())
+#endif
+
 
 
 /* push/pop the current error information context.
@@ -269,6 +281,7 @@ __LIBC void (__FCALL error_handled)(void);
  * >>        goto again;
  * >>    }
  * >>    error_popinfo();
+ * For more information, see `NOTES ON CLOBBERING EXCEPTIONS'
  */
 #define error_pushinfo() \
 do{ struct exception_info __push_info; \
@@ -278,18 +291,77 @@ do{ struct exception_info __push_info; \
 }__WHILE0
 
 
+/*  === NOTES ON CLOBBERING EXCEPTIONS === 
+ * 
+ * - These notes only refer to ~current~ exception information,
+ *   as addressible by the return value of `error_info()'.
+ * - Generally speaking, thread-local exception information should
+ *   be treated like a caller-safe/scratch register, that is a
+ *   register which any function is allowed to modify without it
+ *   also needing to restore its contents prior to returning.
+ * - At first glance this might seem like a bad idea, but due to
+ *   the fact that nobody is really perfect, any programmer using
+ *   exceptions should realize that whenever they do something
+ *   wrong, KOS might come around and throw an exception into
+ *   their face.
+ *   Considering that, it should become clear that making exception
+ *   information callee-safe is a bad idea because in most situations
+ *   an exception isn't even supposed to arise in the first place,
+ *   which would also mean that having a library function such as
+ *  `fwrite()' (which calls into `Xfwrite()' and translates exceptions
+ *   thrown into `errno' values; s.a. `except_errno()'), would have
+ *   to copy all data from `error_info()' _every_ _time_.
+ *   That would be really slow.
+ * - However, considering that some functions are likely to-be called
+ *   from FINALLY-blocks, it also wouldn't make much sense to force
+ *   users of FINALLY to have to preserve exception information every
+ *   time their block is entered.
+ *   And that is why so-called ~cleanup~ functions (as already defined
+ *   by the documentation of `_EXCEPT_API' in `<features.h>') will not
+ *   clobber active exception information.
+ *   This includes functions such as `free()', `close()' or `unmap()',
+ *   meaning that is will always be safe to call such functions from
+ *   finally handlers.
+ * - WARNING: Don't assume that a function marked as `ATTR_NOTHROW' will
+ *            not clobber exceptions. In fact, it may just be implemented
+ *            as a wrapper around another function to translate exceptions
+ *            into errno values.
+ *
+ * Example:
+ * >> TRY {
+ * >>     for (;;) Xmalloc(0x87654321);
+ * >> } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+ * >>     printf("Why isn't this working!?!?\n");    // WRONG (`printf()' might clobber exception information)
+ * >>     error_printf(NULL);
+ * >> }
+ *
+ * >> TRY {
+ * >>     for (;;) Xmalloc(0x87654321);
+ * >> } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+ * >>     error_pushinfo();                          // Must preserve exception information across a call to `printf()'
+ * >>     printf("Why isn't this working!?!?\n");
+ * >>     error_popinfo();
+ * >>     error_printf(NULL);
+ * >> }
+ *
+ *  === EXCEPTIONS AND POSIX SIGNAL HANDLERS === 
+ *
+ * - The kernel will push the old `error_info()' onto the stack prior
+ *   to entering the signal handler, and will restore it before when
+ *   it returns. This way, signal handlers can happily invoke library
+ *   functions that may clobber error information without the need to
+ *   manually preserve exception information, and without having to
+ *   worry about what it is that the signal handler return location
+ *   will see in case it is currently using signal handlers.
+ * - Note however that posix signal handlers are allowed to throw
+ *   exceptions, and those exception will in fact be propagated to
+ *   the signal handler return site.
+ *   If a signal handler is left by use of an exception, the previously
+ *   push error information will in fact _not_ be restored.
+ *
+ */
 
-#ifndef __EXCEPT_INVOKE_DEALLOC_CONTINUE
-#define __EXCEPT_INVOKE_DEALLOC_CONTINUE(x) x
-#define __EXCEPT_INVOKE_HANDLED(x) x
-#endif
 
-#ifndef error_dealloc_continue
-#define error_dealloc_continue() \
-      __EXCEPT_INVOKE_DEALLOC_CONTINUE((error_dealloc_continue)())
-#define error_handled() \
-      __EXCEPT_INVOKE_HANDLED((error_handled)())
-#endif
 
 
 

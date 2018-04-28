@@ -319,9 +319,9 @@ __LIBC __PORT_NODOS_ALT(rand) __NONNULL((1)) int (__LIBCCALL rand_r)(unsigned in
 #ifndef __cfree_defined
 #define __cfree_defined 1
 #ifdef __KERNEL__
-__REDIRECT_VOID(__LIBC,,__LIBCCALL,cfree,(void *__restrict __mallptr),kfree,(__mallptr))
+__REDIRECT_VOID(__LIBC,__CLEANUP,__LIBCCALL,cfree,(void *__restrict __mallptr),kfree,(__mallptr))
 #else /* __KERNEL__ */
-__REDIRECT_VOID(__LIBC,,__LIBCCALL,cfree,(void *__restrict __mallptr),free,(__mallptr))
+__REDIRECT_VOID(__LIBC,__CLEANUP,__LIBCCALL,cfree,(void *__restrict __mallptr),free,(__mallptr))
 #endif /* !__KERNEL__ */
 #endif /* !__cfree_defined */
 #ifdef __CRT_GLC

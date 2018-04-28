@@ -264,7 +264,7 @@ FUNDEF VIRT void *(KCALL __os_realign)(VIRT void *ptr, size_t min_alignment, siz
 FUNDEF VIRT void *(KCALL __os_realign_offset)(VIRT void *ptr, size_t min_alignment, ptrdiff_t offset, size_t n_bytes, gfp_t flags) ASMNAME("krealign_offset");
 FUNDEF ATTR_NOTHROW WUNUSED size_t (KCALL __os_malloc_usable_size)(VIRT void *ptr) ASMNAME("kmalloc_usable_size");
 /* NOTE: `kffree' is NOTHROW unless `GFP_ATOMIC' is given. */
-FUNDEF ATTR_NOTHROW void (KCALL __os_free)(VIRT void *ptr) ASMNAME("kfree");
+FUNDEF ATTR_NOTHROW __CLEANUP void (KCALL __os_free)(VIRT void *ptr) ASMNAME("kfree");
 FUNDEF void (KCALL __os_ffree)(VIRT void *ptr, gfp_t flags) ASMNAME("kffree");
 
 
@@ -334,7 +334,7 @@ size_t (KCALL kmalloc_usable_size)(VIRT void *ptr) {
 }
 
 /* NOTE: `kffree' is NOTHROW unless `GFP_ATOMIC' is given. */
-FORCELOCAL ATTR_NOTHROW void (KCALL kfree)(VIRT void *ptr) {
+FORCELOCAL ATTR_NOTHROW __CLEANUP void (KCALL kfree)(VIRT void *ptr) {
  if (!__builtin_constant_p(ptr) || ptr != NULL)
       __os_free(ptr);
 }

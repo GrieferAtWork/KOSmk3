@@ -31,8 +31,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <except.h>
 #include <syslog.h>
+#include <except.h>
 
 DECL_BEGIN
 
@@ -96,8 +96,7 @@ int main(int argc, char *argv[]) {
  if (!strcmp(cmd,"alloc")) {
   TRY {
    for (;;) {
-    void *p;
-    p = Xmmap(NULL,16*PAGESIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0);
+    Xmmap(NULL,16*PAGESIZE,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,-1,0);
     /*printf("%p\n",p);*/
    }
   } CATCH (E_BADALLOC) {
