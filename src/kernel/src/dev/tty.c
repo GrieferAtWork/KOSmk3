@@ -24,6 +24,7 @@
 #include <hybrid/timespec.h>
 #include <kernel/sections.h>
 #include <kernel/user.h>
+#include <kernel/debug.h>
 #include <dev/tty.h>
 #include <sched/taskref.h>
 #include <sched/group.h>
@@ -272,19 +273,34 @@ tty_dowrite_input(struct tty *__restrict self,
    for (; iter < end; ++iter) {
     int erase_mode = 0;
     char ch = *iter;
-    if (lflags & ISIG)
-        tty_check_sigchar(self,ch);
+    if ((lflags & ISIG) &&
+        (ch == self->t_ios.c_cc[VINTR] ||
+         ch == self->t_ios.c_cc[VQUIT] ||
+         ch == self->t_ios.c_cc[VSUSP])) {
+     if (lflags & ECHO) {
+      if (flush_start != iter) {
+       tty_dowrite_echo(self,flush_start,
+                       (size_t)(iter-flush_start),
+                        flags,lflags);
+      }
+      flush_start = iter+1;
+     }
+     tty_check_sigchar(self,ch);
+     continue;
+    }
     if ((lflags & ECHOE) && (ch == self->t_ios.c_cc[VERASE])) {
      byte_t unput_ch;
 erase_char:
+     if (lflags & ECHO) {
+      if (flush_start < iter) {
+       tty_dowrite_echo(self,flush_start,
+                       (size_t)(iter-flush_start),
+                        flags,lflags);
+      }
+      flush_start = iter+1;
+     }
      if (canonbuffer_unputc(&self->t_can,&unput_ch)) {
       if (lflags & ECHO) {
-       if (flush_start != iter) {
-        tty_dowrite_echo(self,flush_start,
-                        (size_t)(iter-flush_start),
-                         flags,lflags);
-        flush_start = iter+1;
-       }
        if ((lflags & ECHOPRT) && (erase_mode < 3 || (lflags & ECHOKE))) {
         char delete_sequence[2] = { '\\', (char)unput_ch };
         if (tty_dowrite_display_impl(self,delete_sequence,2,flags))
@@ -296,15 +312,15 @@ erase_char:
       }
       if (erase_mode == 1) {
        /* while (isspace(last)) erase(); */
-       if (isspace(ch)) goto erase_char;
+       if (isspace(unput_ch)) goto erase_char;
        erase_mode = 2;
       }
       if (erase_mode == 2) {
        /* while (!isspace(last)) erase(); */
-       if (!isspace(ch)) goto erase_char;
+       if (!isspace(unput_ch)) goto erase_char;
       }
-      if (erase_mode == 3) /* Erase line. */
-          goto erase_char;
+      if (erase_mode == 3)
+          goto erase_char; /* Erase line. */
      }
     } else if ((lflags & ECHOE) && (ch == self->t_ios.c_cc[VWERASE])) {
      erase_mode = 1; /* Erase word */
@@ -375,7 +391,9 @@ erase_char:
   result = (size_t)(iter-(char *)buf);
  } else if (lflags & (ISIG|IEXTEN)) {
   /* Deal with character escape and signal characters. */
-  char *flush_start,*iter,*end;
+  char *EXCEPT_VAR flush_start;
+  char *EXCEPT_VAR iter;
+  char *end;
   size_t temp,temp2;
   result = 0;
   flush_start = iter = (char *)buf;
@@ -383,8 +401,19 @@ erase_char:
   TRY {
    for (; iter < end; ++iter) {
     char ch = *iter;
-    if (lflags & ISIG)
-        tty_check_sigchar(self,ch);
+    if ((lflags & ISIG) &&
+        (ch == self->t_ios.c_cc[VINTR] ||
+         ch == self->t_ios.c_cc[VQUIT] ||
+         ch == self->t_ios.c_cc[VSUSP])) {
+     temp2 = (size_t)(iter-flush_start);
+     temp  = ringbuffer_write(&self->t_input,flush_start,temp2,flags);
+     if (lflags & ECHO)
+         tty_dowrite_echo(self,flush_start,temp,flags,lflags);
+     result += temp;
+     if (temp < temp2) break;
+     flush_start = iter+1;
+     tty_check_sigchar(self,ch);
+    }
     if ((lflags & IEXTEN) &&
         (ch == self->t_ios.c_cc[VLNEXT])) {
      /* Escape the next character. */
@@ -1006,17 +1035,22 @@ FUNDEF ATTR_RETNONNULL REF struct tty *
  result->t_ios.c_lflag      = (ECHO|ECHOE|ECHOK|ICANON|ISIG|IEXTEN);
  result->t_ios.c_cflag      = (CREAD);
 #define CTRL_CODE(x) ((x)-64) /* ^x */
- result->t_ios.c_cc[VMIN]   = 1; /* Read at least one character by default. */
- result->t_ios.c_cc[VEOF]   = CTRL_CODE('D'); /* ^D. */
- result->t_ios.c_cc[VEOL]   = 0; /* Not set. */
- result->t_ios.c_cc[VERASE] = '\b';
- result->t_ios.c_cc[VINTR]  = CTRL_CODE('C'); /* ^C. */
- result->t_ios.c_cc[VKILL]  = CTRL_CODE('U'); /* ^U. */
- result->t_ios.c_cc[VQUIT]  = CTRL_CODE('^'); /* Might supposed to be '\\'? */
- result->t_ios.c_cc[VSTART] = CTRL_CODE('Q'); /* ^Q. */
- result->t_ios.c_cc[VSTOP]  = CTRL_CODE('S'); /* ^S. */
- result->t_ios.c_cc[VSUSP]  = CTRL_CODE('Z'); /* ^Z. */
- result->t_ios.c_cc[VTIME]  = 0;
+ result->t_ios.c_cc[VMIN]     = 1; /* Read at least one character by default. */
+ result->t_ios.c_cc[VEOF]     = CTRL_CODE('D'); /* ^D. */
+ result->t_ios.c_cc[VEOL]     = 0; /* Not set. */
+ result->t_ios.c_cc[VEOL2]    = 0; /* Not set. */
+ result->t_ios.c_cc[VDISCARD] = CTRL_CODE('O'); /* ^O. */
+ result->t_ios.c_cc[VERASE]   = '\b';
+ result->t_ios.c_cc[VWERASE]  = CTRL_CODE('W'); /* ^W. */
+ result->t_ios.c_cc[VINTR]    = CTRL_CODE('C'); /* ^C. */
+ result->t_ios.c_cc[VKILL]    = CTRL_CODE('U'); /* ^U. */
+ result->t_ios.c_cc[VLNEXT]   = CTRL_CODE('V'); /* ^V. */
+ result->t_ios.c_cc[VQUIT]    = CTRL_CODE('^'); /* Might supposed to be '\\'? */
+ result->t_ios.c_cc[VREPRINT] = CTRL_CODE('R'); /* ^R. */
+ result->t_ios.c_cc[VSTART]   = CTRL_CODE('Q'); /* ^Q. */
+ result->t_ios.c_cc[VSTOP]    = CTRL_CODE('S'); /* ^S. */
+ result->t_ios.c_cc[VSUSP]    = CTRL_CODE('Z'); /* ^Z. */
+ result->t_ios.c_cc[VTIME]    = 0;
 #undef CTRL_CODE
  result->t_size.ws_xpixel = result->t_size.ws_col = 80;
  result->t_size.ws_ypixel = result->t_size.ws_row = 25;

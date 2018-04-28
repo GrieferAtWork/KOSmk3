@@ -195,8 +195,8 @@ canonbuffer_clone(struct canonbuffer *__restrict self) {
   for (;;) {
    /* Allocate a data block of sufficient size. */
    buffer = heap_realloc_untraced(CANON_HEAP,buffer.hp_ptr,buffer.hp_siz,
-                         ATOMIC_READ(self->cb_written),
-                         CANON_GFP,CANON_GFP);
+                                  ATOMIC_READ(self->cb_written),
+                                  CANON_GFP,CANON_GFP);
    atomic_rwlock_write(&self->cb_lock);
    result.c_size = self->cb_written;
    if unlikely(buffer.hp_siz < result.c_size) {
@@ -206,6 +206,7 @@ canonbuffer_clone(struct canonbuffer *__restrict self) {
    /* Copy canon data. */
    memcpy(buffer.hp_ptr,self->cb_buffer,result.c_size);
    atomic_rwlock_endwrite(&self->cb_lock);
+   break;
   }
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   if (buffer.hp_siz)

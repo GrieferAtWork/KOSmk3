@@ -432,7 +432,8 @@ again:
  is_full = false;
  TRY {
   bufend = self->r_base+self->r_size;
-  assert(self->r_wptr != bufend || !self->r_size);
+  assert(self->r_wptr >= self->r_base);
+  assert(self->r_wptr < bufend || !self->r_size);
   if (self->r_wptr < self->r_rptr) {
    /* Write to the remaining buffer memory before the read-pointer. */
    was_empty = (self->r_wptr == self->r_base &&
