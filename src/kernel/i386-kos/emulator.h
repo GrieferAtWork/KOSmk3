@@ -72,6 +72,9 @@ x86_modrm_getmem(struct cpu_anycontext *__restrict context,
 INTDEF u8  KCALL x86_modrm_getb(struct cpu_anycontext *__restrict context, struct modrm_info *__restrict modrm, u16 flags);
 INTDEF u16 KCALL x86_modrm_getw(struct cpu_anycontext *__restrict context, struct modrm_info *__restrict modrm, u16 flags);
 INTDEF u32 KCALL x86_modrm_getl(struct cpu_anycontext *__restrict context, struct modrm_info *__restrict modrm, u16 flags);
+INTDEF void KCALL x86_modrm_setb(struct cpu_anycontext *__restrict context, struct modrm_info *__restrict modrm, u16 flags, u8  value);
+INTDEF void KCALL x86_modrm_setw(struct cpu_anycontext *__restrict context, struct modrm_info *__restrict modrm, u16 flags, u16 value);
+INTDEF void KCALL x86_modrm_setl(struct cpu_anycontext *__restrict context, struct modrm_info *__restrict modrm, u16 flags, u32 value);
 
 
 #define F_OP16    0x0001 /* The 0x66 prefix is being used. */

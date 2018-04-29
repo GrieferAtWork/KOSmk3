@@ -29,6 +29,7 @@
 #include <kernel/user.h>
 #include <i386-kos/vm86.h>
 #include <i386-kos/gdt.h>
+#include <i386-kos/cpuid.h>
 #include <asm/cpu-flags.h>
 #include <sched/task.h>
 #include <except.h>
@@ -60,8 +61,8 @@ DECL_BEGIN
 #endif
 #define X86_GPREG(no)  ((uintptr_t *)&context->c_gpregs)[7-(no)]
 #define X86_GPREG8(no) ((u8 *)&context->c_gpregs+32)[7-(no)]
-#define modrm_getreg(modrm)  X86_GPREG((modrm).mi_rm)
-#define modrm_getreg8(modrm) X86_GPREG8((modrm).mi_rm)
+#define modrm_getreg(modrm)  X86_GPREG((modrm).mi_reg)
+#define modrm_getreg8(modrm) X86_GPREG8((modrm).mi_reg)
 
 
 LOCAL register_t KCALL __cmpb(u8 a, u8 b) {
@@ -162,8 +163,10 @@ LOCAL ATTR_NOTHROW void KCALL impl_bus_acquire(void) {
                        : "memory");
   if (!lock) break;
   if (lock == my_cpuid) { ++bus_recursion; break; }
-#if 0 /* Machines on which we need to emulate some lock-instruction
-       * usually don't have SSE, which implemented `pause'... */
+#if 1 /* Machines on which we need to emulate some lock-instruction
+       * usually don't have SSE, which implemented `pause'...
+       * XXX: Not true! `pause' is actually `rep nop',
+       *      which is a no-op on previous processors! */
   __asm__ __volatile__("pause");
 #endif
  }
@@ -183,6 +186,15 @@ impl_bus_release(register_t old_eflags) {
 }
 #endif
 #endif /* !__x86_64__ */
+
+
+
+PRIVATE u32 fence_word = 0;
+#define ATOMIC_FENCE() \
+ __asm__ __volatile__("lock; xchgl %0, %1" \
+                      : "+m" (fence_word) \
+                      : "r" (0) \
+                      : "memory")
 
 
 
@@ -876,18 +888,284 @@ restart_sysenter_syscall:
    text = x86_decode_modrm(text,&modrm);
   } break;
 
-#if 0
+  {
+   struct modrm_info modrm;
+  case 0x0f40:
+   /* CMOVO r16, r/m16 */
+   /* CMOVO r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if (context->c_eflags & OF) {
+do_cmov:
+    if (flags & F_OP16)
+         modrm_getreg(modrm) = x86_modrm_getw(context,&modrm,flags);
+    else modrm_getreg(modrm) = x86_modrm_getl(context,&modrm,flags);
+   }
+   break;
+  case 0x0f41:
+   /* CMOVNO r16, r/m16 */
+   /* CMOVNO r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if (!(context->c_eflags & OF))
+       goto do_cmov;
+   break;
+  case 0x0f42:
+   /* CMOVB r16, r/m16 */
+   /* CMOVB r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if (context->c_eflags & CF)
+       goto do_cmov;
+   break;
+  case 0x0f43:
+   /* CMOVAE r16, r/m16 */
+   /* CMOVAE r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if (!(context->c_eflags & CF))
+       goto do_cmov;
+   break;
+  case 0x0f44:
+   /* CMOVE r16, r/m16 */
+   /* CMOVE r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if (context->c_eflags & ZF)
+       goto do_cmov;
+   break;
+  case 0x0f45:
+   /* CMOVNE r16, r/m16 */
+   /* CMOVNE r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if (!(context->c_eflags & ZF))
+       goto do_cmov;
+   break;
+  case 0x0f46:
+   /* CMOVBE r16, r/m16 */
+   /* CMOVBE r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if ((context->c_eflags & (CF|ZF)) == (CF|ZF))
+       goto do_cmov;
+   break;
+  case 0x0f47:
+   /* CMOVA r16, r/m16 */
+   /* CMOVA r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if (!(context->c_eflags & (CF|ZF)))
+       goto do_cmov;
+   break;
+  case 0x0f48:
+   /* CMOVS r16, r/m16 */
+   /* CMOVS r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if (context->c_eflags & SF)
+       goto do_cmov;
+   break;
+  case 0x0f49:
+   /* CMOVNS r16, r/m16 */
+   /* CMOVNS r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if (!(context->c_eflags & SF))
+       goto do_cmov;
+   break;
+  case 0x0f4a:
+   /* CMOVP r16, r/m16 */
+   /* CMOVP r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if (context->c_eflags & PF)
+       goto do_cmov;
+   break;
+  case 0x0f4b:
+   /* CMOVNP r16, r/m16 */
+   /* CMOVNP r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if (!(context->c_eflags & PF))
+       goto do_cmov;
+   break;
+  case 0x0f4c:
+   /* CMOVL r16, r/m16 */
+   /* CMOVL r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if (!!(context->c_eflags & SF) != !!(context->c_eflags & OF))
+       goto do_cmov;
+   break;
+  case 0x0f4d:
+   /* CMOVGE r16, r/m16 */
+   /* CMOVGE r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if (!!(context->c_eflags & SF) == !!(context->c_eflags & OF))
+       goto do_cmov;
+   break;
+  case 0x0f4e:
+   /* CMOVLE r16, r/m16 */
+   /* CMOVLE r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if ((context->c_eflags & ZF) ||
+     !!(context->c_eflags & SF) != !!(context->c_eflags & OF))
+       goto do_cmov;
+   break;
+  case 0x0f4f:
+   /* CMOVG r16, r/m16 */
+   /* CMOVG r32, r/m32 */
+   text = x86_decode_modrm(text,&modrm);
+   if (!(context->c_eflags & ZF) &&
+      !!(context->c_eflags & SF) == !!(context->c_eflags & OF))
+       goto do_cmov;
+   break;
+  }
+
+  {
+   struct cpu_cpuid const *features;
+  case 0x0fa2:
+   /* CPUID */
+   features = &CPU_FEATURES;
+   switch (context->c_gpregs.gp_eax) {
+
+   case 0:
+    context->c_gpregs.gp_eax = features->ci_0a;
+    context->c_gpregs.gp_ecx = features->ci_0c;
+    context->c_gpregs.gp_edx = features->ci_0d;
+    context->c_gpregs.gp_ebx = features->ci_0b;
+    break;
+
+   case 1:
+    context->c_gpregs.gp_eax = features->ci_1a;
+    context->c_gpregs.gp_ecx = features->ci_1c;
+    context->c_gpregs.gp_edx = features->ci_1d;
+    context->c_gpregs.gp_ebx = features->ci_1b;
+    break;
+
+   case 2: /* Cache information... (ZERO indicates unavailable information) */
+   case 3: /* Processor serial number (guess that's zero for our's) */
+   case 4:
+    context->c_gpregs.gp_eax = 0;
+    context->c_gpregs.gp_ecx = 0;
+    context->c_gpregs.gp_edx = 0;
+    context->c_gpregs.gp_ebx = 0;
+    break;
+
+   case 7:
+    context->c_gpregs.gp_ecx = features->ci_7c;
+    context->c_gpregs.gp_edx = features->ci_7d;
+    context->c_gpregs.gp_ebx = features->ci_7b;
+    break;
+
+   case 0x80000000:
+    context->c_gpregs.gp_eax = features->ci_80000000a;
+    break;
+
+   case 0x80000001:
+    context->c_gpregs.gp_ecx = features->ci_80000001c;
+    context->c_gpregs.gp_edx = features->ci_80000001d;
+    break;
+
+   case 0x80000002:
+    context->c_gpregs.gp_eax = features->ci_80000002a;
+    context->c_gpregs.gp_ecx = features->ci_80000002c;
+    context->c_gpregs.gp_edx = features->ci_80000002d;
+    context->c_gpregs.gp_ebx = features->ci_80000002b;
+    break;
+
+   case 0x80000003:
+    context->c_gpregs.gp_eax = features->ci_80000003a;
+    context->c_gpregs.gp_ecx = features->ci_80000003c;
+    context->c_gpregs.gp_edx = features->ci_80000003d;
+    context->c_gpregs.gp_ebx = features->ci_80000003b;
+    break;
+
+   case 0x80000004:
+    context->c_gpregs.gp_eax = features->ci_80000004a;
+    context->c_gpregs.gp_ecx = features->ci_80000004c;
+    context->c_gpregs.gp_edx = features->ci_80000004d;
+    context->c_gpregs.gp_ebx = features->ci_80000004b;
+    break;
+
+#if 1
+   case 0x8FFFFFFF:
+    context->c_gpregs.gp_eax = 'I' | 'T' << 8 | '\'' << 16 | 'S' << 24;
+    context->c_gpregs.gp_ebx = ' ' | 'H' << 8 | 'A' << 16 | 'M' << 24;
+    context->c_gpregs.gp_ecx = 'M' | 'E' << 8 | 'R' << 16 | ' ' << 24;
+    context->c_gpregs.gp_edx = 'T' | 'I' << 8 | 'M' << 16 | 'E' << 24;
+    break;
+#endif
+
+   default:
+    break;
+   }
+  } break;
+
+  case 0x0f32: /* RDMSR */
+   if (context->c_gpregs.gp_ecx == IA32_TIME_STAMP_COUNTER)
+       goto do_rdtsc;
+   ATTR_FALLTHROUGH
+  case 0x0f30: /* WRMSR */
+   if (is_user) goto privileged_instruction;
+   info = error_info();
+   info->e_error.e_code = E_ILLEGAL_INSTRUCTION;
+   info->e_error.e_flag = ERR_FRESUMABLE|ERR_FRESUMENEXT;
+   memset(&info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
+   info->e_error.e_illegal_instruction.ii_type = (ERROR_ILLEGAL_INSTRUCTION_UNDEFINED|
+                                                  ERROR_ILLEGAL_INSTRUCTION_FREGISTER);
+   info->e_error.e_illegal_instruction.ii_register_type   = X86_REGISTER_MSR;
+   info->e_error.e_illegal_instruction.ii_register_number = context->c_gpregs.gp_ecx;
+   goto throw_exception;
+
   case 0x0f31:
+do_rdtsc:
    /* RDTSC */
    /* TODO: This can be emulated by combining jiffies with the remainder
     *       of the current quantum, which can be read from the LAPIC
     *       CURRENT register, as well as the length of a quantum.
     *       The PIT also has a way of reading out the remaining number
-    *       of ~ticks~ until the quantum ends.
-    * XXX:  By emulating this one, we 
-    */
+    *       of ~ticks~ until the quantum ends. */
+   goto generic_illegal_instruction;
    break;
-#endif
+
+  case 0x0fae: {
+   struct modrm_info modrm;
+   if (*text == 0xf8 || /* sfence */
+       *text == 0xe8 || /* lfence */
+       *text == 0xf0) { /* mfence */
+    /* Serialize memory by executing an atomic instruction. */
+    ATOMIC_FENCE();
+    break;
+   }
+   text = x86_decode_modrm(text,&modrm);
+   if (modrm.mi_rm == 7) {
+    if (modrm.mi_type != MODRM_MEMORY)
+        goto illegal_addressing_mode;
+    (void)x86_modrm_getb(context,&modrm,flags);
+    ATOMIC_FENCE();
+    break;
+   }
+  } break;
+
+
+  {
+   struct modrm_info modrm;
+   uintptr_t addr;
+  case 0x0fc3:
+   /* MOVNTI m32, r32 */
+   text = x86_decode_modrm(text,&modrm);
+   if (modrm.mi_type != MODRM_MEMORY)
+       goto illegal_addressing_mode;
+   addr = x86_modrm_getmem(context,&modrm,flags);
+   if (is_user) validate_writable((void *)addr,4);
+   *(u32 volatile *)addr = modrm_getreg(modrm);
+  } break;
+
+
+  {
+   struct modrm_info modrm;
+   uintptr_t addr;
+  case 0x0f18:
+   text = x86_decode_modrm(text,&modrm);
+   if (modrm.mi_type != MODRM_MEMORY)
+       goto illegal_addressing_mode;
+   if (modrm.mi_rm > 3)
+       goto generic_illegal_instruction;
+   /* PREFETCHT0 m8 */
+   /* PREFETCHT1 m8 */
+   /* PREFETCHT2 m8 */
+   /* PREFETCHNTA m8 */
+  } break;
+
 
   default: goto generic_illegal_instruction;
   }

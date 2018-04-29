@@ -184,23 +184,84 @@ x86_modrm_getmem(struct cpu_anycontext *__restrict context,
 INTERN u8 KCALL
 x86_modrm_getb(struct cpu_anycontext *__restrict context,
                struct modrm_info *__restrict modrm, u16 flags) {
+ uintptr_t addr;
  if (modrm->mi_type == MODRM_REGISTER)
      return modrm_getreg8(context,modrm);
- return *(u8 *)x86_modrm_getmem(context,modrm,flags);
+ addr = x86_modrm_getmem(context,modrm,flags);
+ if ((context->c_iret.ir_cs & 3) ||
+     (context->c_eflags & EFLAGS_VM))
+      validate_readable((void *)addr,1);
+ return *(u8 *)addr;
 }
 INTERN u16 KCALL
 x86_modrm_getw(struct cpu_anycontext *__restrict context,
                struct modrm_info *__restrict modrm, u16 flags) {
+ uintptr_t addr;
  if (modrm->mi_type == MODRM_REGISTER)
      return (u16)modrm_getreg(context,modrm);
- return *(u16 *)x86_modrm_getmem(context,modrm,flags);
+ addr = x86_modrm_getmem(context,modrm,flags);
+ if ((context->c_iret.ir_cs & 3) ||
+     (context->c_eflags & EFLAGS_VM))
+      validate_readable((void *)addr,2);
+ return *(u16 *)addr;
 }
 INTERN u32 KCALL
 x86_modrm_getl(struct cpu_anycontext *__restrict context,
                struct modrm_info *__restrict modrm, u16 flags) {
+ uintptr_t addr;
  if (modrm->mi_type == MODRM_REGISTER)
      return (u32)modrm_getreg(context,modrm);
- return *(u32 *)x86_modrm_getmem(context,modrm,flags);
+ addr = x86_modrm_getmem(context,modrm,flags);
+ if ((context->c_iret.ir_cs & 3) ||
+     (context->c_eflags & EFLAGS_VM))
+      validate_readable((void *)addr,4);
+ return *(u32 *)addr;
+}
+
+INTERN void KCALL
+x86_modrm_setb(struct cpu_anycontext *__restrict context,
+               struct modrm_info *__restrict modrm,
+               u16 flags, u8 value) {
+ if (modrm->mi_type == MODRM_REGISTER)
+     modrm_getreg8(context,modrm) = value;
+ else {
+  uintptr_t addr;
+  addr = x86_modrm_getmem(context,modrm,flags);
+  if ((context->c_iret.ir_cs & 3) ||
+      (context->c_eflags & EFLAGS_VM))
+       validate_writable((void *)addr,1);
+  *(u8 *)addr = value;
+ }
+}
+INTERN void KCALL
+x86_modrm_setw(struct cpu_anycontext *__restrict context,
+               struct modrm_info *__restrict modrm,
+               u16 flags, u16 value) {
+ if (modrm->mi_type == MODRM_REGISTER)
+     modrm_getreg(context,modrm) = value;
+ else {
+  uintptr_t addr;
+  addr = x86_modrm_getmem(context,modrm,flags);
+  if ((context->c_iret.ir_cs & 3) ||
+      (context->c_eflags & EFLAGS_VM))
+       validate_writable((void *)addr,2);
+  *(u16 *)addr = value;
+ }
+}
+INTERN void KCALL
+x86_modrm_setl(struct cpu_anycontext *__restrict context,
+               struct modrm_info *__restrict modrm,
+               u16 flags, u32 value) {
+ if (modrm->mi_type == MODRM_REGISTER)
+     modrm_getreg(context,modrm) = value;
+ else {
+  uintptr_t addr;
+  addr = x86_modrm_getmem(context,modrm,flags);
+  if ((context->c_iret.ir_cs & 3) ||
+      (context->c_eflags & EFLAGS_VM))
+       validate_writable((void *)addr,4);
+  *(u32 *)addr = value;
+ }
 }
 
 
