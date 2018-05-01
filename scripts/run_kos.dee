@@ -157,7 +157,7 @@ function run_qemu(bin,tap) {
 		              : ["-kernel",bin,
 #if 1
 		                 "-drive","file=bin/disk-i386-kos.img,format=raw,index=0,media=disk",
-		                 "-drive","file=bin/disk-i386-kos2.img,format=raw,index=2,media=disk",
+		                 "-drive","file=bin/test/ext2.img,format=raw,index=2,media=disk",
 		                 //"-drive","file=disk/kos.img2,format=raw,index=3,media=disk",
 #endif
 		                 ])...,

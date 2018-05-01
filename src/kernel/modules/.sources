@@ -48,6 +48,14 @@ BEGIN MODULE("kernel.pe")
 END
 
 
+BEGIN MODULE("kernel.ext2fs")
+	SET_OUTPUT("/bin/ext2fs.mod")
+	SET_DISKFILE("/mod/ext2fs.mod")
+
+	SOURCE("ext2fs/*.c")
+END
+
+
 
 
 

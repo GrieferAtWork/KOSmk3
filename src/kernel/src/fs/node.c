@@ -440,6 +440,8 @@ inode_stat(struct inode *__restrict self_,
 again:
  rwlock_read(&self->i_lock);
  TRY {
+  /* Make sure that attributes have been loaded. */
+  inode_loadattr(self);
   superdev = self->i_super->s_device;
   /* CAUTION: SEGFAULT */
   COMPILER_WRITE_BARRIER();
@@ -1339,9 +1341,11 @@ directory_remove(struct directory_node *__restrict self,
    self->d_dirend        = 0;
   } else {
    node = superblock_opennode(self->d_node.i_super,self,entry);
-   assert(node->i_nlink != 0);
-   assert(node->i_super == self->d_node.i_super);
    TRY {
+    /* Make sure to load attributes associated with the INode. */
+    inode_loadattr(node);
+    assert(node->i_nlink != 0);
+    assert(node->i_super == self->d_node.i_super);
     if (INODE_ISDIR(node)) {
      struct directory_node *EXCEPT_VAR dir;
      if (!(mode&DIRECTORY_REMOVE_FDIRECTORY))
@@ -1362,9 +1366,6 @@ directory_remove(struct directory_node *__restrict self,
        /* Use the rmdir() operator. */
        if unlikely(!self->d_node.i_ops->io_directory.d_rmdir)
           throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
-       debug_printf("RMDIR:\n");
-       debug_printf("    self = %p\n",self);
-       debug_printf("    dir  = %p\n",dir);
        (*self->d_node.i_ops->io_directory.d_rmdir)(self,entry,dir);
        assert(dir->d_node.i_nlink == 0);
        /* Close the INode in the associated superblock. */
@@ -1512,6 +1513,7 @@ directory_rename(struct directory_node *__restrict EXCEPT_VAR source_directory,
                                       source_directory,
                                       source_dirent);
     TRY {
+     inode_loadattr(source_node);
      assert(source_node->i_nlink != 0);
      /* Set the default target directory entry type according to the mode of the source node. */
      target_dirent->de_type = IFTODT(source_node->i_attr.a_mode);
@@ -2406,7 +2408,9 @@ superblock_load(struct superblock *__restrict self,
  assertf(self->s_root->d_node.i_ops != NULL,
          "FILESYSTEM(%p:%p,%q).st_open: Forgot to initialize `self->s_root->d_node.i_ops'",
          self->s_type,self,self->s_type->st_name);
- assertf(self->s_root->d_node.i_nlink >= 1,
+ assertf((self->s_root->d_node.i_flags & INODE_FATTRLOADED)
+         ? (self->s_root->d_node.i_nlink >= 1)
+         : (self->s_root->d_node.i_ops->io_loadattr != NULL),
          "FILESYSTEM(%p:%p,%q).st_open: Forgot to initialize `self->s_root->d_node.i_nlink'",
          self->s_type,self,self->s_type->st_name);
  assert(self->s_root->d_node.i_refcnt >= 1);

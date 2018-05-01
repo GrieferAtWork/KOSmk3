@@ -1072,7 +1072,7 @@ Fat32_PRead(struct inode *__restrict self,
  /* Truncate the effective read-size. */
  if (pos + result > self->i_attr.a_size)
      result = self->i_attr.a_size - pos;
- Fat32_ReadFromINode(self,(byte_t *)buf,result,pos,flags);
+ result = Fat32_ReadFromINode(self,(byte_t *)buf,result,pos,flags);
  return result;
 }
 
@@ -1098,7 +1098,7 @@ Fat32_PWrite(struct inode *__restrict self,
   self->i_attr.a_size = new_size;
   /* Update the file's size. */
   TRY {
-   Fat32_WriteToINode(self,(byte_t *)buf,bufsize,pos,flags);
+   bufsize = Fat32_WriteToINode(self,(byte_t *)buf,bufsize,pos,flags);
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
    xself->i_attr.a_size = old_size;
    error_rethrow();
@@ -1107,8 +1107,7 @@ Fat32_PWrite(struct inode *__restrict self,
   return bufsize;
  }
 do_write:
- Fat32_WriteToINode(self,(byte_t *)buf,bufsize,pos,flags);
- return bufsize;
+ return Fat32_WriteToINode(self,(byte_t *)buf,bufsize,pos,flags);
 }
 
 DEFINE_MONTH_STARTING_DAY_OF_YEAR;
@@ -1858,11 +1857,12 @@ Fat_GetFatIndirection(struct superblock *__restrict self,
   mutex_getf(&fat->f_fat_lock,flags);
   TRY {
    /* Lazily load the fat table sector that hasn't been loaded yet. */
-   block_device_read(self->s_device,
-                    (void *)((uintptr_t)fat->f_fat_table+(table_sector*fat->f_sectorsize)),
-                     fat->f_sectorsize,
-                     FAT_SECTORADDR(fat,fat->f_fat_start+table_sector),
-                     flags);
+   if (block_device_read(self->s_device,
+                        (void *)((uintptr_t)fat->f_fat_table+(table_sector*fat->f_sectorsize)),
+                         fat->f_sectorsize,
+                         FAT_SECTORADDR(fat,fat->f_fat_start+table_sector),
+                         flags) != fat->f_sectorsize)
+       error_throw(E_WOULDBLOCK);
   } FINALLY {
    mutex_put(&fat->f_fat_lock);
   }
@@ -1887,11 +1887,12 @@ Fat_SetFatIndirection(struct superblock *__restrict self,
          table_sector,fat->f_sec4fat);
  if (!FAT_META_GTLOAD(fat,table_sector)) {
   /* Must load missing table sectors. */
-  block_device_read(self->s_device,
-                   (void *)((uintptr_t)fat->f_fat_table+(table_sector*fat->f_sectorsize)),
-                    fat->f_sectorsize,
-                    FAT_SECTORADDR(fat,fat->f_fat_start+table_sector),
-                     flags);
+  if (block_device_read(self->s_device,
+                       (void *)((uintptr_t)fat->f_fat_table+(table_sector*fat->f_sectorsize)),
+                        fat->f_sectorsize,
+                        FAT_SECTORADDR(fat,fat->f_fat_start+table_sector),
+                        flags) != fat->f_sectorsize)
+      error_throw(E_WOULDBLOCK);
   FAT_META_STLOAD(fat,table_sector);
  }
  /* Now just override the FAT entry. */

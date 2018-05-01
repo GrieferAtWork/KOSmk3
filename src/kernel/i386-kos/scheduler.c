@@ -1401,6 +1401,14 @@ serve_rpc:
       goto unhandled_exception;
 #endif
 
+#if 0
+  if (info.e_error.e_code == E_FILESYSTEM_ERROR &&
+      TASK_USERCTX_TYPE(mode) == TASK_USERCTX_TYPE_INTR_SYSCALL &&
+     (context->c_gpregs.gp_eax & 0x80000000) &&
+      info.e_error.e_filesystem_error.fs_errcode == ERROR_FS_FILE_NOT_FOUND)
+      goto unhandled_exception;
+#endif
+
 #if 1
   assertf(!(mode & X86_SYSCALL_TYPE_FPF),
           "Exception propagation cannot be done for #PF system calls. "

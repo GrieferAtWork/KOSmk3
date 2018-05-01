@@ -79,7 +79,7 @@ struct superblock_data;
 #define INODE_FDIRLOADED        0x8000     /* [lock(i_lock)][valid_if(S_ISDIR(a_mode))]
                                             *  The directory map of the INode has been fully loaded. */
 
-#define INODE_ISCLOSED(x) (!(x)->i_nlink || ((x)->i_flags&INODE_FCLOSED))
+#define INODE_ISCLOSED(x) (((x)->i_flags&INODE_FCLOSED) || (((x)->i_flags&INODE_FATTRLOADED) && !(x)->i_nlink))
 
 
 /* The callback invoked by directory enumerators. */
@@ -92,11 +92,13 @@ struct inode_operations {
     /* [0..1] Called during `inode_destroy'. */
     /*ATTR_NOTHROW*/ void (KCALL *io_fini)(struct inode *__restrict self);
 
-    /* [1..1][locked(READ(self->i_lock))] Load INode attributes.
+    /* [1..1][locked(WRITE(self->i_lock))] Load INode attributes.
      * Upon success, the caller will set `INODE_FATTRLOADED'.
      * NOTE: Nodes that are only ever constructed with the `INODE_FATTRLOADED'
      *       flag already set (often such nodes are filesystem root nodes),
-     *       do not need to implement this operator. */
+     *       do not need to implement this operator.
+     * REMINDER: This operator is also responsible to load the `i_nlink' field!
+     */
     void (KCALL *io_loadattr)(struct inode *__restrict self);
 
     /* [0..1][locked(WRITE(self->i_lock))] Save INode attributes.
@@ -1107,7 +1109,6 @@ struct superblock_type {
          *  This function must initialize the following members of `self':
          *    - s_root->d_node.i_attr.a_ino
          *    - s_root->d_node.i_ops
-         *    - s_root->d_node.i_nlink (To `>= 1')
          *    - s_root->d_node.i_fsdata (Optionally; pre-initialized to `NULL')
          *    - s_fsdata (Optionally; pre-initialized to `NULL')
          *  Upon success, the caller will add `self->s_root' to the nodes
@@ -1144,7 +1145,6 @@ struct superblock_type {
          *    - ... (Generic inode attributes except for `i_ops')
          * This function must then initialize the following members of `node':
          *    - i_ops
-         *    - i_nlink (To something `>= 1')
          *    - i_fsdata (Optionally; pre-initialized to `NULL')
          * Optionally, INode attributes may be initialized, as would also be
          * done with a call to `io_loadattr()'. If this is done, this operator
