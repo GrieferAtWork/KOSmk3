@@ -207,7 +207,7 @@ INTDEF void LIBCCALL FileBuffer_AddChangedTTY(FileBuffer *__restrict self);
 INTDEF void LIBCCALL FileBuffer_RemoveChangedTTY(FileBuffer *__restrict self);
 INTDEF void LIBCCALL FileBuffer_Register(FileBuffer *__restrict self);
 INTDEF void LIBCCALL FileBuffer_Unregister(FileBuffer *__restrict self);
-INTDEF bool LIBCCALL FileBuffer_IsATTY(FileBuffer *__restrict self);
+INTDEF int  LIBCCALL FileBuffer_IsATTY(FileBuffer *__restrict self); /* 1: yes; 0: no */
 
 /* FileBuffer I/O Core functions. */
 INTDEF size_t LIBCCALL FileBuffer_ReadUnlocked(FileBuffer *__restrict self, void *__restrict buffer, size_t bufsize);
@@ -266,7 +266,9 @@ INTDEF size_t LIBCCALL libc_Xfread(void *__restrict buf, size_t size, size_t n, 
 INTDEF size_t LIBCCALL libc_fwrite(void const *__restrict buf, size_t size, size_t n, FILE *__restrict self);
 INTDEF size_t LIBCCALL libc_Xfwrite(void const *__restrict buf, size_t size, size_t n, FILE *__restrict self);
 INTDEF ssize_t LIBCCALL libc_file_printer(char const *__restrict data, size_t datalen, void *closure);
+INTDEF ssize_t LIBCCALL libc_file_printer_unlocked(char const *__restrict data, size_t datalen, void *closure);
 INTDEF ssize_t LIBCCALL libc_Xfile_printer(char const *__restrict data, size_t datalen, void *closure);
+INTDEF ssize_t LIBCCALL libc_Xfile_printer_unlocked(char const *__restrict data, size_t datalen, void *closure);
 INTDEF void LIBCCALL libc_flockfile(FILE *__restrict self);
 INTDEF void LIBCCALL libc_Xflockfile(FILE *__restrict self);
 INTDEF int LIBCCALL libc_ftrylockfile(FILE *__restrict self);

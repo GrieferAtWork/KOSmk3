@@ -28,7 +28,7 @@
 __SYSDECL_BEGIN
 
 #ifdef __CRT_KOS
-#ifdef __USE_KOS
+#ifdef __USE_KOS_STDEXT
 #define __PRINTF_RETURN_TYPE  __ssize_t
 #else
 #define __PRINTF_RETURN_TYPE  int

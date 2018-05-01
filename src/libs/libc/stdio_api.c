@@ -168,12 +168,24 @@ libc_Xfwrite(void const *__restrict buf, size_t size,
 EXPORT(file_printer,libc_file_printer);
 CRT_STDIO_API ssize_t LIBCCALL
 libc_file_printer(char const *__restrict data, size_t datalen, void *closure) {
- return FileBuffer_WriteUnlocked((FileBuffer *)closure,data,datalen);
+ return FileBuffer_Write((FileBuffer *)closure,data,datalen);
 }
 
 EXPORT(Xfile_printer,libc_Xfile_printer);
 CRT_STDIO_XAPI ssize_t LIBCCALL
 libc_Xfile_printer(char const *__restrict data, size_t datalen, void *closure) {
+ return (ssize_t)FileBuffer_XWrite((FileBuffer *)closure,data,datalen);
+}
+
+EXPORT(file_printer_unlocked,libc_file_printer_unlocked);
+CRT_STDIO_API ssize_t LIBCCALL
+libc_file_printer_unlocked(char const *__restrict data, size_t datalen, void *closure) {
+ return FileBuffer_WriteUnlocked((FileBuffer *)closure,data,datalen);
+}
+
+EXPORT(Xfile_printer_unlocked,libc_Xfile_printer_unlocked);
+CRT_STDIO_XAPI ssize_t LIBCCALL
+libc_Xfile_printer_unlocked(char const *__restrict data, size_t datalen, void *closure) {
  return (ssize_t)FileBuffer_XWriteUnlocked((FileBuffer *)closure,data,datalen);
 }
 

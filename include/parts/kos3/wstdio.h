@@ -22,12 +22,13 @@
 #include "__stdinc.h"
 #include <features.h>
 #include <hybrid/typecore.h>
+#include <bits/types.h>
 #include <xlocale.h>
 
 #if defined(__CC__) && !defined(__KERNEL__)
 __SYSDECL_BEGIN
 
-#ifdef __USE_KOS
+#ifdef __USE_KOS_STDEXT
 #define __PRINTF_RETURN_TYPE  __ssize_t
 #else
 #define __PRINTF_RETURN_TYPE  int
@@ -106,9 +107,82 @@ __LIBC __PORT_KOSONLY __ATTR_LIBC_WPRINTF_P(2,3) __NONNULL((1,2)) __PRINTF_RETUR
 __LIBC __PORT_KOSONLY __ATTR_LIBC_WPRINTF_P(2,0) __NONNULL((1,2)) __PRINTF_RETURN_TYPE (__LIBCCALL vfwprintf_p)(__FILE *__restrict __stream, wchar_t const *__restrict __format, __builtin_va_list __arg);
 __LIBC __PORT_KOSONLY __ATTR_LIBC_WPRINTF_P(1,2) __NONNULL((1)) __PRINTF_RETURN_TYPE (__ATTR_CDECL wprintf_p)(wchar_t const *__restrict __format, ...);
 __LIBC __PORT_KOSONLY __ATTR_LIBC_WPRINTF_P(1,0) __NONNULL((1)) __PRINTF_RETURN_TYPE (__LIBCCALL vwprintf_p)(wchar_t const *__restrict __format, __builtin_va_list __arg);
-__LIBC __PORT_KOSONLY __ATTR_LIBC_WPRINTF_P(3,4) __NONNULL((1,3)) __PRINTF_RETURN_TYPE (__ATTR_CDECL swprintf_p)(wchar_t *__restrict __buf, size_t __buflen, wchar_t const *__restrict __format, ...);
-__LIBC __PORT_KOSONLY __ATTR_LIBC_WPRINTF_P(3,0) __NONNULL((1,3)) __PRINTF_RETURN_TYPE (__LIBCCALL vswprintf_p)(wchar_t *__restrict __buf, size_t __buflen, wchar_t const *__restrict __format, __builtin_va_list __args);
+__LIBC __PORT_KOSONLY __ATTR_LIBC_WPRINTF_P(3,4) __NONNULL((1,3)) __PRINTF_RETURN_TYPE (__ATTR_CDECL swprintf_p)(wchar_t *__restrict __buf, __size_t __buflen, wchar_t const *__restrict __format, ...);
+__LIBC __PORT_KOSONLY __ATTR_LIBC_WPRINTF_P(3,0) __NONNULL((1,3)) __PRINTF_RETURN_TYPE (__LIBCCALL vswprintf_p)(wchar_t *__restrict __buf, __size_t __buflen, wchar_t const *__restrict __format, __builtin_va_list __args);
 #endif /* __CRT_KOS */
+
+#if 0 /* TODO */
+/* Wide character STDIO support */
+__LIBC wint_t __LIBCCALL getwchar16(void);
+__LIBC wint_t __LIBCCALL getwchar32(void);
+__LIBC wint_t __LIBCCALL Xgetwchar16(void);
+__LIBC wint_t __LIBCCALL Xgetwchar32(void);
+__LIBC wint_t __LIBCCALL getwchar16_unlocked(void);
+__LIBC wint_t __LIBCCALL getwchar32_unlocked(void);
+__LIBC wint_t __LIBCCALL Xgetwchar16_unlocked(void);
+__LIBC wint_t __LIBCCALL Xgetwchar32_unlocked(void);
+__LIBC wint_t __LIBCCALL fgetwc16(__FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL fgetwc32(__FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL Xfgetwc16(__FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL Xfgetwc32(__FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL fgetwc16_unlocked(__FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL fgetwc32_unlocked(__FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL Xfgetwc16_unlocked(__FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL Xfgetwc32_unlocked(__FILE *__restrict stream);
+
+__LIBC wint_t __LIBCCALL fputwc16(char16_t wc, __FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL fputwc32(char32_t wc, __FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL Xfputwc16(char16_t wc, __FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL Xfputwc32(char32_t wc, __FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL fputwc16_unlocked(char16_t wc, __FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL fputwc32_unlocked(char32_t wc, __FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL Xfputwc16_unlocked(char16_t wc, __FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL Xfputwc32_unlocked(char32_t wc, __FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL putwchar16(char16_t wc);
+__LIBC wint_t __LIBCCALL putwchar32(char32_t wc);
+__LIBC wint_t __LIBCCALL Xputwchar16(char16_t wc);
+__LIBC wint_t __LIBCCALL Xputwchar32(char32_t wc);
+__LIBC wint_t __LIBCCALL putwchar16_unlocked(char16_t wc);
+__LIBC wint_t __LIBCCALL putwchar32_unlocked(char32_t wc);
+__LIBC wint_t __LIBCCALL Xputwchar16_unlocked(char16_t wc);
+__LIBC wint_t __LIBCCALL Xputwchar32_unlocked(char32_t wc);
+
+__LIBC wint_t __LIBCCALL ungetwc16(wint_t wc, __FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL ungetwc32(wint_t wc, __FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL ungetwc16_unlocked(wint_t wc, __FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL ungetwc32_unlocked(wint_t wc, __FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL Xungetwc16(wint_t wc, __FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL Xungetwc32(wint_t wc, __FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL Xungetwc16_unlocked(wint_t wc, __FILE *__restrict stream);
+__LIBC wint_t __LIBCCALL Xungetwc32_unlocked(wint_t wc, __FILE *__restrict stream);
+
+__LIBC char16_t *__LIBCCALL fgetws16(char16_t *__restrict ws, __size_t __count, __FILE *__restrict stream);
+__LIBC char32_t *__LIBCCALL fgetws32(char32_t *__restrict ws, __size_t __count, __FILE *__restrict stream);
+__LIBC char16_t *__LIBCCALL fgetws16_int(char16_t *__restrict ws, int __count, __FILE *__restrict stream);
+__LIBC char32_t *__LIBCCALL fgetws32_int(char32_t *__restrict ws, int __count, __FILE *__restrict stream);
+__LIBC char16_t *__LIBCCALL fgetws16_unlocked(char16_t *__restrict ws, __size_t __count, __FILE *__restrict stream);
+__LIBC char32_t *__LIBCCALL fgetws32_unlocked(char32_t *__restrict ws, __size_t __count, __FILE *__restrict stream);
+__LIBC char16_t *__LIBCCALL fgetws16_int_unlocked(char16_t *__restrict ws, int __count, __FILE *__restrict stream);
+__LIBC char32_t *__LIBCCALL fgetws32_int_unlocked(char32_t *__restrict ws, int __count, __FILE *__restrict stream);
+__LIBC __ATTR_RETNONNULL char16_t *__LIBCCALL Xfgetws16(char16_t *__restrict ws, __size_t __count, __FILE *__restrict stream);
+__LIBC __ATTR_RETNONNULL char32_t *__LIBCCALL Xfgetws32(char32_t *__restrict ws, __size_t __count, __FILE *__restrict stream);
+__LIBC __ATTR_RETNONNULL char16_t *__LIBCCALL Xfgetws16_int(char16_t *__restrict ws, int __count, __FILE *__restrict stream);
+__LIBC __ATTR_RETNONNULL char32_t *__LIBCCALL Xfgetws32_int(char32_t *__restrict ws, int __count, __FILE *__restrict stream);
+__LIBC __ATTR_RETNONNULL char16_t *__LIBCCALL Xfgetws16_unlocked(char16_t *__restrict ws, __size_t __count, __FILE *__restrict stream);
+__LIBC __ATTR_RETNONNULL char32_t *__LIBCCALL Xfgetws32_unlocked(char32_t *__restrict ws, __size_t __count, __FILE *__restrict stream);
+__LIBC __ATTR_RETNONNULL char16_t *__LIBCCALL Xfgetws16_int_unlocked(char16_t *__restrict ws, int __count, __FILE *__restrict stream);
+__LIBC __ATTR_RETNONNULL char32_t *__LIBCCALL Xfgetws32_int_unlocked(char32_t *__restrict ws, int __count, __FILE *__restrict stream);
+
+__LIBC __ssize_t __LIBCCALL fputws16(char16_t const *__restrict ws, __FILE *__restrict stream);
+__LIBC __ssize_t __LIBCCALL fputws32(char32_t const *__restrict ws, __FILE *__restrict stream);
+__LIBC __ssize_t __LIBCCALL fputws16_unlocked(char16_t const *__restrict ws, __FILE *__restrict stream);
+__LIBC __ssize_t __LIBCCALL fputws32_unlocked(char32_t const *__restrict ws, __FILE *__restrict stream);
+__LIBC __size_t __LIBCCALL Xfputws16(char16_t const *__restrict ws, __FILE *__restrict stream);
+__LIBC __size_t __LIBCCALL Xfputws32(char32_t const *__restrict ws, __FILE *__restrict stream);
+__LIBC __size_t __LIBCCALL Xfputws16_unlocked(char16_t const *__restrict ws, __FILE *__restrict stream);
+__LIBC __size_t __LIBCCALL Xfputws32_unlocked(char32_t const *__restrict ws, __FILE *__restrict stream);
+
+#endif
 
 #undef __PRINTF_RETURN_TYPE
 

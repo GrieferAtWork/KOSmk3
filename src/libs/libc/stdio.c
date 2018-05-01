@@ -180,11 +180,24 @@ FileBuffer_Unregister(FileBuffer *__restrict self) {
 }
 
 
-EXPORT(fisatty,FileBuffer_IsATTY); /* KOS extension function (isatty() for `FILE *') */
-CRT_STDIO bool LIBCCALL
+/* KOS extension function (isatty() for `FILE *') */
+EXPORT(Xfisatty,FileBuffer_IsATTY);
+CRT_STDIO int LIBCCALL
 FileBuffer_IsATTY(FileBuffer *__restrict self) {
  FileBuffer_XCheckTTY(self);
  return !!(self->fb_flag & FILE_BUFFER_FISATTY);
+}
+
+EXPORT(fisatty,libc_fisatty);
+CRT_STDIO int LIBCCALL
+libc_fisatty(FILE *__restrict self) {
+ int COMPILER_IGNORE_UNINITIALIZED(result);
+ LIBC_TRY {
+  result = FileBuffer_IsATTY(self);
+ } LIBC_EXCEPT(libc_except_errno()) {
+  return -1;
+ }
+ return result;
 }
 
 

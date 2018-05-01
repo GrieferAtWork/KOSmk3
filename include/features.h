@@ -1268,7 +1268,7 @@
 #define __REDIRECT_EXCEPT_                __REDIRECT
 #define __REDIRECT_EXCEPT_XVOID(decl,attr,Treturn,cc,name,param,args)                            __NOREDIRECT(decl,attr,Treturn,cc,name,param,...,args)
 #define __REDIRECT_EXCEPT_XVOID_          __REDIRECT
-#define __REDIRECT_EXCEPT_VOID(decl,attr,cc,name,param,args)                                     __NOREDIRECT_VOID(decl,attr,Treturn,cc,name,param,...,args)
+#define __REDIRECT_EXCEPT_VOID(decl,attr,cc,name,param,args)                                     __NOREDIRECT_VOID(decl,attr,cc,name,param,...,args)
 #define __REDIRECT_EXCEPT_VOID_           __REDIRECT_VOID
 #define __VREDIRECT_EXCEPT(decl,attr,Treturn,cc,name,param,vasmnamef,args,before_va_start)       __VNOREDIRECT(decl,attr,Treturn,cc,name,param,...,vasmnamef,args,before_va_start)
 #define __VREDIRECT_EXCEPT_               __VREDIRECT
