@@ -1350,7 +1350,7 @@ FUNDEF void KCALL register_filesystem_type(struct superblock_type *__restrict ty
 
 #define DEFINE_FILESYSTEM_TYPE(x) \
    DEFINE_DRIVER_INIT(_fs_##x##_init); \
-   INTERN ATTR_FREETEXT void KCALL _fs_##x##_init(void) \
+   PRIVATE ATTR_USED ATTR_FREETEXT void KCALL _fs_##x##_init(void) \
    { \
      register_filesystem_type(&x); \
    }

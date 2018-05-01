@@ -34,6 +34,7 @@
 #include <stdbool.h>
 #include <sys-generic/mman.h>
 #include <kernel/memory.h>
+#include <fs/iomode.h>
 
 #if defined(__i386__) || defined(__x86_64__)
 #include <i386-kos/vm.h>
@@ -505,6 +506,65 @@ vm_region_declck_range(struct vm_region *__restrict self,
  *          The caller is responsible to perform initialization once the
  *          region has been mapped somewhere. */
 FUNDEF void KCALL vm_region_prefault(struct vm_region *__restrict self);
+
+
+/* Read/write data to/from the given VM region.
+ * @param: self:            The region to read data from / write data to.
+ * @param: addr:            The byte-based offset from the start of the region where the access should be performed.
+ * @param: buf:             A checked buffer from which / into which data is copied.
+ * @param: bufsize:         The max number of bytes to transfer into / out of `buf'
+ * @param: mode:            A standard I/O buffer mode used to access the region.
+ * @param: allow_if_shared: Specifies how the function is supposed to deal with shared
+ *                          region parts (aka. parts that are either apart of some sort
+ *                          of region cache, or are otherwise mapped in more than one VM)
+ *                          When true, write access is allowed to such parts, which changes
+ *                          then appearing in all locations where the region is mapped.
+ *                          An exception to this is a region with the `VM_REGION_WRITE_ISSHARED'
+ *                          flag set, inside of which a shared part will abort the write operation
+ *                          and return the number of bytes already written, or either ZERO(0)
+ *                          when this argument is `true', or `VM_REGION_WRITE_ISSHARED' when
+ *                          it is `false'.
+ *                          If the argument is `false', the number of bytes already written will
+ *                          be returned upon encounter of the first shared part, or alternatively
+ *                          `VM_REGION_WRITE_ISSHARED' when nothing had been written thus far.
+ * @return: 0 :                       Either `IO_NONBLOCK' was passed and a lock to region
+ *                                    couldn't be acquired immediately, or uninitialized
+ *                                    parts of the region could not be initialized without
+ *                                    blocking (as far as that can be implemented; mainly
+ *                                    done for files, while custom initializers may still
+ *                                    block irregardless of IO_NON_BLOCK)..., or the specified
+ *                                    `addr' is greater than, or equal to `self->vr_size * PAGESIZE'
+ * @return: * :                       The actual number of bytes read / written
+ *                                    Attempts of accessing data that is located outside
+ *                                    of the bounds of the region are truncated in that
+ *                                    fully out-of-bounds accesses always return ZERO(0),
+ *                                    while partially out-of-bounds accesses always
+ *                                    return the number of bytes that could be accessed.
+ * @return: VM_REGION_WRITE_ISSHARED: [vm_region_write]
+ *                                    Returned when `allow_if_shared' is false and no data
+ *                                    was written before a vm_part was encountered that had
+ *                                    a reference counter greater than ONE(1)
+ *                                    If data was written before this point, the number of
+ *                                    bytes written until then would have been returned instead.
+ *                                    To deal with this return value, the caller should re-invoke
+ *                                    the function with `allow_if_shared' set to `false', or
+ *                                    should implement a copy-on-write mechanism of for the field
+ *                                    they are using to address the region.
+ *                              NOTE: If the `VM_REGION_FCANTSHARE' flag is set and a shared
+ *                                    region part is encountered while `allow_if_shared' is `true',
+ *                                    ZERO(0) is returned instead of `VM_REGION_WRITE_ISSHARED'.
+ * @throw: E_SEGFAULT: The given user-space `buf' is faulty.
+ * @throw: E_BADALLOC: Failed to allocate missing parts of the region.
+ * HINT: These functions are used to implement `/proc/[PID]/mem', `/proc/kcore',
+ *       as well as SHM files created by `shm_open()', and stored under `/dev/shm' */
+FUNDEF size_t KCALL vm_region_read(struct vm_region *__restrict self,
+                                   uintptr_t addr, USER CHECKED void *buf,
+                                   size_t bufsize, iomode_t mode);
+FUNDEF size_t KCALL vm_region_write(struct vm_region *__restrict self,
+                                    uintptr_t addr, USER CHECKED void *buf,
+                                    size_t bufsize, iomode_t mode,
+                                    bool allow_if_shared);
+#define VM_REGION_WRITE_ISSHARED  ((size_t)-1)
 
 #endif /* __CC__ */
 

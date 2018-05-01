@@ -316,7 +316,7 @@ FUNDEF void KCALL register_module_type(struct module_type *__restrict self);
 
 #define DEFINE_MODULE_TYPE(x) \
    DEFINE_DRIVER_INIT(_module_##x##_init); \
-   INTERN ATTR_FREETEXT void KCALL _module_##x##_init(void) \
+   PRIVATE ATTR_USED ATTR_FREETEXT void KCALL _module_##x##_init(void) \
    { \
      register_module_type(&x); \
    }

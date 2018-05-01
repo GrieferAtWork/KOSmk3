@@ -480,6 +480,9 @@
     <ClCompile Include="..\..\src\kernel\src\kernel\cache.c">
       <Filter>kernel\src\kernel</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\vm\region-io.c">
+      <Filter>kernel\src\vm</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">
