@@ -793,6 +793,37 @@ extern bool FINALLY_WILL_RETHROW;
 #endif
 
 
+/* Turn off `__builtin_expect()' to prevent GCC from re-arranging code:
+ * >> TRY {
+ * >>     // Despite all efforts, while `__builtin_expect()' remains available
+ * >>     // in code using exception handlers, GCC may decide to re-arrange
+ * >>     // assembly in a way that will break exception handlers, as it would
+ * >>     // otherwise be allowed to move the call to `allocate_data()' outside
+ * >>     // of the guarded code section.
+ * >>     // We are able to prohibit it from doing this without branch prediction
+ * >>     // hints by passing `-fno-reorder-blocks' on the commandline, and for
+ * >>     // the longest time I thought that's all that's actually required, but
+ * >>     // after having no problems for the longest time, some exception handlers
+ * >>     // suddenly stopped being invoked, at which point I noticed that GCC
+ * >>     // was still re-arranging code that was manually tagged.
+ * >>     // NOTE:
+ * >>     //   - Tagging branches as likely, or unlikely is still a very
+ * >>     //     good thing to do, if only to mean reading the code easier.
+ * >>     //   - However once code starts using exception handlers, sadly
+ * >>     //     we have to turn off branch hints.
+ * >>     if unlikely(!data_is_allocated())
+ * >>        data = allocate_data();
+ * >> } CATCH (E_BADALLOC) {
+ * >>     error_printf("Cannot allocate data\n");
+ * >>     error_handled();
+ * >> }
+ */
+#ifndef __NO_builtin_expect
+#undef __builtin_expect
+#define __builtin_expect(x,y) x
+#endif
+
+
 __SYSDECL_END
 
 #endif /* !_EXCEPT_H */

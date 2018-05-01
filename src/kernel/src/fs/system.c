@@ -492,10 +492,17 @@ DEFINE_SYSCALL5(xfreadlinkat,fd_t,dfd,
     memcpy(buf,node->sl_text,result*sizeof(char));
    }
   } else {
-   /* Read the text of a dynamic symlink. */
-   result = (*node->sl_node.i_ops->io_symlink.sl_readlink_dynamic)(node,
-                                                                   buf,
-                                                                   bufsize);
+read_dynamic_again:
+   rwlock_read(&node->sl_node.i_lock);
+   TRY {
+    /* Read the text of a dynamic symlink. */
+    result = (*node->sl_node.i_ops->io_symlink.sl_readlink_dynamic)(node,
+                                                                    buf,
+                                                                    bufsize);
+   } FINALLY {
+    if (rwlock_endread(&node->sl_node.i_lock))
+        goto read_dynamic_again;
+   }
    if (flags & AT_READLINK_REQSIZE) {
     /* Append a trailing NUL-character. */
     if (result < bufsize)
@@ -511,8 +518,11 @@ DEFINE_SYSCALL5(xfreadlinkat,fd_t,dfd,
    }
   }
  } FINALLY {
+  if (FINALLY_WILL_RETHROW)
+      error_printf("READLINK FAILED\n");
   inode_decref(&node->sl_node);
  }
+ debug_printf("READLINK -> %Id\n",result);
  return result;
 }
 

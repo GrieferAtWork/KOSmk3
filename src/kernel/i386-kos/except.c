@@ -129,6 +129,12 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
    cpu_setcontext(context);
    /* Never get here... */
   }
+#if 0
+  else {
+   debug_printf("%[vinfo:%f(%l,%c) : %n : Missing except %p\n]",
+                CPU_CONTEXT_IP(*context));
+  }
+#endif
   /* Continue unwinding the stack. */
   if (!eh_return(&info,context,EH_FDONT_UNWIND_SIGFRAME)) {
 cannot_unwind:

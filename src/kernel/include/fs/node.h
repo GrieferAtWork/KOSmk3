@@ -720,13 +720,15 @@ struct directory_node {
 
 struct symlink_node {
     /* Symbolic link INode (When `S_ISLNK(a_mode)' is true) */
-    struct inode                      sl_node;    /* [OVERRIDE(i_attr.a_size,[const])]
-                                                   * [OVERRIDE(i_attr.a_blocks,[const])]
-                                                   * [OVERRIDE(i_attr.a_rdev,[== 0])]
-                                                   * [OVERRIDE(i_attr.a_mode,[S_ISLNK(this)])]
+    struct inode                      sl_node;    /* [OVERRIDE(.i_attr.a_size,[const])]
+                                                   * [OVERRIDE(.i_attr.a_blocks,[const])]
+                                                   * [OVERRIDE(.i_attr.a_rdev,[== 0])]
+                                                   * [OVERRIDE(.i_attr.a_mode,[S_ISLNK(this)])]
                                                    * The underlying node. */
-    HOST char                        *sl_text;    /* [0..i_attr.a_size][valid_if(INODE_FLNKLOADED)]
-                                                   * Symbolic link text. */
+    HOST char                        *sl_text;    /* [0..sl_node.i_attr.a_size][valid_if(INODE_FLNKLOADED)]
+                                                   * Symbolic link text.
+                                                   * NOTE: Not required to be NUL-terminated!
+                                                   */
 };
 
 

@@ -641,14 +641,15 @@ inode_syncatttr(struct inode *__restrict self) {
  * @throw: ERROR_FS_FILE_NOT_FOUND: [...] */
 PUBLIC bool KCALL
 symlink_node_load(struct symlink_node *__restrict self) {
- struct symlink_node *EXCEPT_VAR xself = self;
  assert(INODE_ISLNK(&self->sl_node));
  /* Check if the symbolic link has already been loaded. */
  if (self->sl_text == NULL) {
+  struct symlink_node *EXCEPT_VAR xself;
   assert(self->sl_node.i_ops->io_symlink.sl_readlink ||
          self->sl_node.i_ops->io_symlink.sl_readlink_dynamic);
   if (!self->sl_node.i_ops->io_symlink.sl_readlink)
        return false; /* Dynamic, symbolic link. */
+  xself = self;
   rwlock_write(&self->sl_node.i_lock);
   TRY {
    COMPILER_READ_BARRIER();

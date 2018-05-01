@@ -91,49 +91,56 @@ symlink_walk_dynamic(struct path *__restrict root,
  REF struct path *COMPILER_IGNORE_UNINITIALIZED(result);
  char pathbuf[64]; size_t pathlen;
  char *EXCEPT_VAR link_path = pathbuf;
- pathlen = (*link->sl_node.i_ops->io_symlink.sl_readlink_dynamic)(link,
-                                                                  pathbuf,
-                                                                  sizeof(pathbuf));
+read_dynamic_again:
+ rwlock_read(&link->sl_node.i_lock);
  TRY {
-  if unlikely(pathlen > sizeof(pathbuf)) {
-   size_t new_pathlen;
-   /* Allocate dynamic memory for a link text buffer. */
-   link_path = (char *)malloca(pathlen);
-   new_pathlen = (*link->sl_node.i_ops->io_symlink.sl_readlink_dynamic)(link,
-                                                                        link_path,
-                                                                        pathlen);
-   while unlikely(new_pathlen > pathlen) {
-    /* Well... This sucks... (but we have to get there eventually) */
-    /* NOTE: Force allocate to use the heap at this point, since
-     *       there's no way to safely use malloca() inside a loop. */
-    freea(link_path);
-    link_path = (char *)__malloca_heap(new_pathlen);
-    pathlen = new_pathlen;
+  pathlen = (*link->sl_node.i_ops->io_symlink.sl_readlink_dynamic)(link,
+                                                                   pathbuf,
+                                                                   sizeof(pathbuf));
+  TRY {
+   if unlikely(pathlen > sizeof(pathbuf)) {
+    size_t new_pathlen;
+    /* Allocate dynamic memory for a link text buffer. */
+    link_path = (char *)malloca(pathlen);
     new_pathlen = (*link->sl_node.i_ops->io_symlink.sl_readlink_dynamic)(link,
                                                                          link_path,
                                                                          pathlen);
+    while unlikely(new_pathlen > pathlen) {
+     /* Well... This sucks... (but we have to get there eventually) */
+     /* NOTE: Force allocate to use the heap at this point, since
+      *       there's no way to safely use malloca() inside a loop. */
+     freea(link_path);
+     link_path = (char *)__malloca_heap(new_pathlen);
+     pathlen = new_pathlen;
+     new_pathlen = (*link->sl_node.i_ops->io_symlink.sl_readlink_dynamic)(link,
+                                                                          link_path,
+                                                                          pathlen);
+    }
+    pathlen = new_pathlen;
    }
-   pathlen = new_pathlen;
-  }
-  /* Walk the read symlink text. */
-  if (flags & FS_MODE_FDOSPATH) {
-   result = dosfs_walk_path_all(root,
-                                pwd,
-                                link_path,
-                                pathlen,
-                                premaining_links,
-                                flags);
-  } else {
-   result = fs_walk_path_all(root,
-                             pwd,
-                             link_path,
-                             pathlen,
-                             premaining_links,
-                             flags);
+   /* Walk the read symlink text. */
+   if (flags & FS_MODE_FDOSPATH) {
+    result = dosfs_walk_path_all(root,
+                                 pwd,
+                                 link_path,
+                                 pathlen,
+                                 premaining_links,
+                                 flags);
+   } else {
+    result = fs_walk_path_all(root,
+                              pwd,
+                              link_path,
+                              pathlen,
+                              premaining_links,
+                              flags);
+   }
+  } FINALLY {
+   if (link_path != pathbuf)
+       freea(link_path);
   }
  } FINALLY {
-  if (link_path != pathbuf)
-      freea(link_path);
+  if (rwlock_endread(&link->sl_node.i_lock))
+      goto read_dynamic_again;
  }
  return result;
 }
