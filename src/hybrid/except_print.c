@@ -562,7 +562,7 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
   break;
 
  case E_NO_DATA:
-  PRINTF("\tIndexed or named object or data block does not exist\n");
+  PRINTF("\tThe indexed or named object or data block does not exist\n");
   break;
 
  case E_NOT_EXECUTABLE:

@@ -95,7 +95,9 @@ Ext2_ReadINode(struct superblock *__restrict fs,
                Ext2INode *__restrict node,
                iomode_t mode) {
  pos_t addr = Ext2_InoAddr(fs,ino,mode);
- debug_printf("READ_INODE: %I64u at %I64u\n",ino,addr);
+#if 0
+ debug_printf("READ_INODE: %I32u at %I64u\n",ino,addr);
+#endif
  if (block_device_read(fs->s_device,node,128,addr,mode) != 128)
      error_throw(E_WOULDBLOCK);
 }
@@ -410,6 +412,13 @@ Ext_ReadFromINode(struct inode *__restrict self,
   offset   = (size_t)pos & ext->sd_blockmask;
   max_read = ext->sd_blocksize - offset;
   block    = Ext_GetINodeBlockAtIndex(self,block_id,flags);
+  if (block >= ext->sd_total_blocks) {
+   unsigned int i;
+   debug_printf("BAD_BLOCK\n");
+   for (i = 0; i < 12; ++i)
+       debug_printf("\tDBLOCK[%d] = %I32u (%I32x)\n",i,
+                     self->i_fsdata->i_dblock[i],self->i_fsdata->i_dblock[i]);
+  }
   if (!block) {
    /* Optimize for contingency */
    while (max_read < bufsize &&
@@ -516,6 +525,7 @@ ExtDirectory_ReadDir(struct directory_node *__restrict self,
  Ext2Dirent entry; u16 entsize,namlen;
  REF struct directory_entry *result;
  unsigned char entry_type; pos_t entry_pos;
+ inode_loadattr(&self->d_node);
 again:
  entry_pos = *pentry_pos;
  if (Ext_ReadFromINode(&self->d_node,&entry,sizeof(Ext2Dirent),
@@ -604,6 +614,49 @@ again:
 
 
 
+PRIVATE void KCALL
+ExtINode_ReadLink(struct symlink_node *__restrict self) {
+ char *text; size_t textlen;
+ /* Make sure that INode attributes have been loaded.
+  * -> Required for the `a_size' field. */
+ inode_loadattr(&self->sl_node);
+ textlen = (size_t)self->sl_node.i_attr.a_size;
+ text = (char *)kmalloc(textlen*sizeof(char),GFP_SHARED);
+ TRY {
+  struct inode_data *node;
+  node = self->sl_node.i_fsdata;
+  if (textlen*sizeof(char) <= (EXT2_DIRECT_BLOCK_COUNT+3)*4
+#if 0 /* XXX: ASCII data is usually written in a way that causes this check to succeed,
+       *      but what about 1 or 2-character links? This is little endian after all,
+       *      so that would end up with a really small number that might be lower
+       *      that the actual number block blocks...
+       * LATER: From what little I can gather, at some point Ext2 just started placing
+       *        symlink data that was small enough within the INode itself.
+       *        Although sources state that prior to this data was written in actual
+       *        blocks, what isn't stated is anything about how to differenciate
+       *        these two cases other than the link size. */
+      &&
+      node->i_dblock[0] >= self->sl_node.i_super->s_fsdata->sd_total_blocks
+#endif
+      ) {
+   /* XXX: Is this really how we discern between the 2 methods?
+    *      Shouldn't there be some kind of flag somewhere? */
+   memcpy(text,&node->i_dblock,textlen*sizeof(char));
+  } else {
+   /* Read the symlink text. */
+   Ext_ReadFromINode(&self->sl_node,
+                      text,
+                      textlen,
+                      0,
+                      IO_RDONLY);
+  }
+  /* Save the symlink text in its designated location. */
+  self->sl_text = text;
+ } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+  kfree(text);
+  error_rethrow();
+ }
+}
 
 
 
@@ -624,6 +677,21 @@ PRIVATE struct inode_operations Ext2_RegularOps = {
     .io_file = {
         .f_pread  = &ExtINode_PRead,
         .f_pwrite = &ExtINode_PWrite,
+    }
+};
+
+PRIVATE struct inode_operations Ext2_DeviceOps = {
+    .io_fini     = &ExtINode_Fini,
+    .io_loadattr = &ExtINode_LoadAttr,
+    .io_saveattr = &ExtINode_SaveAttr,
+};
+
+PRIVATE struct inode_operations Ext2_SymlinkOps = {
+    .io_fini     = &ExtINode_Fini,
+    .io_loadattr = &ExtINode_LoadAttr,
+    .io_saveattr = &ExtINode_SaveAttr,
+    .io_symlink  = {
+        .sl_readlink = &ExtINode_ReadLink,
     }
 };
 
@@ -757,8 +825,17 @@ Ext2FS_OpenNode(struct inode *__restrict node,
   node->i_ops = &Ext2_RegularOps;
   break;
 
+ case S_IFCHR:
+ case S_IFBLK:
+  node->i_ops = &Ext2_DeviceOps;
+  break;
+
  case S_IFDIR:
   node->i_ops = &Ext2_DirectoryOps;
+  break;
+
+ case S_IFLNK:
+  node->i_ops = &Ext2_SymlinkOps;
   break;
 
  default:

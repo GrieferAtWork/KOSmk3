@@ -570,6 +570,7 @@ task_wake_ex(struct task *__restrict thread,
  return result;
 #else
  volatile int status;
+again:
  for (;;) {
   struct cpu *hosting_cpu;
   struct x86_ipi ipi;
@@ -585,10 +586,20 @@ task_wake_ex(struct task *__restrict thread,
   x86_ipi_send(hosting_cpu,&ipi);
 
   /* Wait for the IPI to be processed. */
-  while (status == X86_IPI_WAKETASK_PENDING) {
-   /* Use `tryyield()' here because we can't be sure
-    * if the caller has left interrupts enabled for us. */
-   task_tryyield();
+  if (status == X86_IPI_WAKETASK_PENDING) {
+   jtime_t abs_timeout = jiffies + JIFFIES_FROM_MILLI(100);
+   while (status == X86_IPI_WAKETASK_PENDING) {
+    /* Use `tryyield()' here because we can't be sure
+     * if the caller has left interrupts enabled for us. */
+    task_tryyield();
+    if unlikely(jiffies >= abs_timeout) {
+     debug_printf("\n\n\n");
+     debug_printf("TIMEOUT DURING IPI TARGETING %u\n",
+                  hosting_cpu->cpu_id);
+     debug_printf("\n\n\n");
+     goto again;
+    }
+   }
   }
 
   /* Check if the IPI succeeded. */
