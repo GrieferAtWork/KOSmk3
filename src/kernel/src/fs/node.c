@@ -2403,8 +2403,12 @@ superblock_load(struct superblock *__restrict self,
   error_rethrow();
  }
 
- assert(self->s_root->d_node.i_ops != NULL);
- assert(self->s_root->d_node.i_nlink >= 1);
+ assertf(self->s_root->d_node.i_ops != NULL,
+         "FILESYSTEM(%p:%p,%q).st_open: Forgot to initialize `self->s_root->d_node.i_ops'",
+         self->s_type,self,self->s_type->st_name);
+ assertf(self->s_root->d_node.i_nlink >= 1,
+         "FILESYSTEM(%p:%p,%q).st_open: Forgot to initialize `self->s_root->d_node.i_nlink'",
+         self->s_type,self,self->s_type->st_name);
  assert(self->s_root->d_node.i_refcnt >= 1);
 
  /* Add the filesystem root node to the nodes tracked by the superblock. */
@@ -2416,9 +2420,12 @@ superblock_load(struct superblock *__restrict self,
 
 
 PUBLIC REF struct superblock *KCALL
-superblock_open(struct block_device *__restrict EXCEPT_VAR device,
-                struct superblock_type *EXCEPT_VAR type,
-                UNCHECKED USER char *args) {
+superblock_open(struct block_device *__restrict device_,
+                struct superblock_type *type_,
+                UNCHECKED USER char *args_) {
+ struct block_device *EXCEPT_VAR device = device_;
+ struct superblock_type *EXCEPT_VAR type = type_;
+ UNCHECKED USER char *EXCEPT_VAR args = args_;
  REF struct superblock *EXCEPT_VAR result;
 again:
  atomic_rwlock_read(&device->b_fslock);

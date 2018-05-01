@@ -98,6 +98,8 @@ block_device_do_autopart(struct block_device *__restrict self,
      continue;
   TRY {
    REF struct block_device *part;
+   if (__builtin_mul_overflow(lba_start,self->b_blocksize,&lba_start))
+       error_throw(E_INVALID_ARGUMENT);
    if (mbr.mbr_part[i].pt.pt_sysid == 0xee) {
     /* Special case: EFI partition */
     xpartition_id = efi_autopart(self,lba_start,xpartition_id);
