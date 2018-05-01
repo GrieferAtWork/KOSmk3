@@ -265,6 +265,11 @@ struct __ATTR_PACKED __HEAP_MEMBER(mfree) {
 #   define HEAP_FCURRENT   HEAP_FNORMAL
 #endif /* !CONFIG_HEAP_RANDOMIZE_OFFSETS */
 
+struct __ATTR_PACKED __HEAP_MEMBER(heapstat) {
+    WEAK __size_t             __HEAP_MEMBER(hs_alloc);     /* Total number of bytes currently allocated. */
+    WEAK __size_t             __HEAP_MEMBER(hs_mmap);      /* Total number of bytes currently mapped for the heap. */
+    WEAK __size_t             __HEAP_MEMBER(hs_mmap_peak); /* The greatest number of bytes ever allocated from the system. */
+};
 
 struct __ATTR_PACKED heap {
     __UINTPTR_HALF_TYPE__     __HEAP_MEMBER(h_type);       /* [== HEAP_TYPE_FCURRENT][const] The type of heap. */
@@ -289,6 +294,7 @@ struct __ATTR_PACKED heap {
                                                             * allocate that larger data block. Another thread allocating memory at the
                                                             * same time could otherwise decide that the cache has grown too small for
                                                             * its allocation and unnecessarily request more memory from the core. */
+    struct __HEAP_MEMBER(heapstat) __HEAP_MEMBER(h_stat);  /* [lock(h_lock)] Heap statistics. */
 #ifdef CONFIG_DEBUG_HEAP
     LIST_NODE(struct heap)    __HEAP_MEMBER(h_chain);      /* [lock(INTERNAL(...))] Chain of all known debug heaps (for `heap_validate_all()') */
 #endif /* CONFIG_DEBUG_HEAP */
@@ -319,9 +325,8 @@ struct __ATTR_PACKED heap {
  */
 #define HEAP_INIT(overalloc,free_threshold) \
       { HEAP_TYPE_FCURRENT, HEAP_FCURRENT, ATOMIC_RWLOCK_INIT, \
-        NULL, { NULL, }, (overalloc), (free_threshold), NULL, 0 \
-        __HEAP_INIT_H_CHAIN __HEAP_INIT_H_ALMASK }
-
+        NULL, { NULL, }, (overalloc), (free_threshold), NULL, 0, \
+      { 0, 0, 0 } __HEAP_INIT_H_CHAIN __HEAP_INIT_H_ALMASK }
 
 
 #ifndef __heapptr_defined
@@ -331,6 +336,22 @@ struct heapptr {
     __size_t  hp_siz; /* [!0] Size of the pointer. */
 };
 #endif /* !__heapptr_defined */
+
+
+#ifndef __heapinfo_defined
+#define __heapinfo_defined 1
+struct heapinfo {
+    __size_t    hi_trimable;   /* Total amount of memory that could be heap_trim()-ed (in bytes). */
+    __size_t    hi_free;       /* Total size of currently free memory. */
+    __size_t    hi_free_z;     /* [<= hi_free] Amount of ZERO-initialized free memory. */
+    __size_t    hi_free_min;   /* [<= hi_free_max] Size of the smallest free heap node, or ZERO if there are none. */
+    __size_t    hi_free_max;   /* [>= hi_free_min] Size of the largest free heap node, or ZERO if there are none. */
+    __size_t    hi_free_cnt;   /* Amount of free heap nodes available for allocation. */
+    __size_t    hi_alloc;      /* Total number of bytes allocated using the heap. */
+    __size_t    hi_mmap;       /* Total number of bytes currently mapped for the heap. */
+    __size_t    hi_mmap_peak;  /* The greatest number of bytes ever allocated at the same time. */
+};
+#endif /* !__heapinfo_defined */
 
 
 
@@ -360,7 +381,8 @@ __REDIRECT(__LIBC,,__size_t,__LIBCCALL,__os_heap_allat,(struct heap *__restrict 
 __REDIRECT(__LIBC,,void,__LIBCCALL,__os_heap_free,(struct heap *__restrict __self, void *__ptr, __size_t __num_bytes, gfp_t __flags),__HEAP_FUNCTION(heap_free),(__self,__ptr,__num_bytes,__flags))
 __REDIRECT(__LIBC,,struct heapptr,__LIBCCALL,__os_heap_realloc,(struct heap *__restrict __self, void *__old_ptr, __size_t __old_bytes, __size_t __new_bytes, gfp_t __alloc_flags, gfp_t __free_flags),__HEAP_FUNCTION(heap_realloc),(__self,__old_ptr,__old_bytes,__new_bytes,__alloc_flags,__free_flags))
 __REDIRECT(__LIBC,,struct heapptr,__LIBCCALL,__os_heap_realign,(struct heap *__restrict __self, void *__old_ptr, __size_t __old_bytes, __size_t __min_alignment, __ptrdiff_t __offset, __size_t __new_bytes, gfp_t __alloc_flags, gfp_t __free_flags),__HEAP_FUNCTION(heap_realign),(__self,__old_ptr,__old_bytes,__min_alignment,__offset,__new_bytes,__alloc_flags,__free_flags))
-__REDIRECT(__LIBC,,__size_t,__LIBCCALL,__os_heap_truncate,(struct heap *__restrict __self, __size_t __threshold),__HEAP_FUNCTION(heap_truncate),(__self,__threshold))
+__REDIRECT(__LIBC,,__size_t,__LIBCCALL,__os_heap_trim,(struct heap *__restrict __self, __size_t __threshold),__HEAP_FUNCTION(heap_trim),(__self,__threshold))
+__REDIRECT(__LIBC,,struct heapinfo,__LIBCCALL,__os_heap_info,(struct heap *__restrict __self),__HEAP_FUNCTION(heap_info),(__self))
 #if (HEAP_TYPE_FCURRENT & HEAP_TYPE_FDEBUG)
 __REDIRECT(__LIBC,,struct heapptr,__LIBCCALL,__os_heap_alloc_untraced,(struct heap *__restrict __self, __size_t __num_bytes, gfp_t __flags),__HEAP_FUNCTION(heap_alloc_untraced),(__self,__num_bytes,__flags))
 __REDIRECT(__LIBC,,struct heapptr,__LIBCCALL,__os_heap_align_untraced,(struct heap *__restrict __self, __size_t __min_alignment, __ptrdiff_t __offset, __size_t __num_bytes, gfp_t __flags),__HEAP_FUNCTION(heap_align_untraced),(__self,__min_alignment,__offset,__num_bytes,__flags))
@@ -661,10 +683,17 @@ __FORCELOCAL __ATTR_NOTHROW void
  * that are greater than, or equal to `CEIL_ALIGN(threshold,PAGESIZE)'
  * @return: * : The total number of bytes released back to the core (a multiple of PAGESIZE) */
 __FORCELOCAL __size_t
-(__LIBCCALL heap_truncate)(struct heap *__restrict __self, __size_t __threshold) {
- return __os_heap_truncate(__self,__threshold);
+(__LIBCCALL heap_trim)(struct heap *__restrict __self, __size_t __threshold) {
+ return __os_heap_trim(__self,__threshold);
 }
 
+
+/* Collect various statistical information about
+ * the given heap, packed together as a snapshot. */
+__FORCELOCAL struct heapinfo
+(__LIBCCALL heap_info)(struct heap *__restrict __self) {
+ return __os_heap_info(__self);
+}
 
 
 #ifndef __pfindleakscallback_defined

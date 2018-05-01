@@ -865,7 +865,7 @@ heap_free_untraced(struct heap *__restrict self,
 }
 
 PUBLIC size_t KCALL
-heap_truncate(struct heap *__restrict self, size_t threshold) {
+heap_trim(struct heap *__restrict self, size_t threshold) {
  size_t result = 0; struct mfree **iter,**end;
  threshold = CEIL_ALIGN(threshold,PAGESIZE);
  if (!threshold) threshold = PAGESIZE;

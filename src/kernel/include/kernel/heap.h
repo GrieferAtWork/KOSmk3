@@ -429,7 +429,7 @@ heap_free_untraced(struct heap *__restrict self,
  * to invoke this function manually, as all it really does is slow down
  * future calls to allocating heap functions.
  * @return: * : The total number of bytes released back to the core (a multiple of PAGESIZE) */
-FUNDEF size_t KCALL heap_truncate(struct heap *__restrict self, size_t threshold);
+FUNDEF size_t KCALL heap_trim(struct heap *__restrict self, size_t threshold);
 
 
 #ifdef CONFIG_DEBUG_HEAP

@@ -111,6 +111,7 @@ struct local_heap {
                                              * allocate that larger data block. Another thread allocating memory at the
                                              * same time may then think that the cache has grown too small for the allocation
                                              * and unnecessarily request more memory from the core. */
+    struct heapstat           h_stat;       /* [lock(h_lock)] Heap statistics. */
 };                            
 
 #ifdef __x86_64__

@@ -29,6 +29,7 @@
 #include "heap.h"
 #include "rtl.h"
 
+#include <hybrid/section.h>
 #include <hybrid/minmax.h>
 #include <hybrid/align.h>
 #include <kos/heap.h>
@@ -172,6 +173,7 @@ struct PACKED LOCAL_HSYM(heap) {
                                              * allocate that larger data block. Another thread allocating memory at the
                                              * same time may then think that the cache has grown too small for the allocation
                                              * and unnecessarily request more memory from the core. */
+    struct heapstat           h_stat;       /* [lock(h_lock)] Heap statistics. */
 #ifdef OPTION_DEBUG_HEAP
     LIST_NODE(STRUCT_HEAP)    h_chain;      /* [lock(INTERNAL(...))] Chain of all known debug heaps (for `LIBC_HEAP_VALIDATE_ALL()') */
 #endif /* OPTION_DEBUG_HEAP */
@@ -222,10 +224,11 @@ HSYM(core_page_alloc)(STRUCT_HEAP *__restrict self,
 #endif
  if (self->h_flags & HEAP_FUSEHINTS)
      ATOMIC_CMPXCH(self->h_corehint,vmreq.mi_addr,result);
+ ATOMIC_FETCHADD(self->h_stat.hs_mmap,num_bytes);
  return result;
 }
 PRIVATE bool KCALL
-HSYM(core_page_allocat)(void *address,
+HSYM(core_page_allocat)(STRUCT_HEAP *__restrict self, void *address,
                         size_t num_bytes, gfp_t flags) {
  void *result;
  struct mmap_info_v1 vmreq;
@@ -249,14 +252,22 @@ HSYM(core_page_allocat)(void *address,
  }
  vmreq.mi_virt.mv_guard = 0;
  result = libc_xmmap1(&vmreq);
- return result != MAP_FAILED;
+ if (result == MAP_FAILED)
+     return false;
+ {
+  size_t new_total;
+  new_total = ATOMIC_ADDFETCH(self->h_stat.hs_mmap,num_bytes);
+  if (self->h_stat.hs_mmap_peak < new_total)
+      self->h_stat.hs_mmap_peak = new_total;
+ }
+ return true;
 }
 
 PRIVATE ATTR_NOTHROW void KCALL
-HSYM(core_page_free)(void *address_index,
-                     size_t num_bytes,
-                     gfp_t UNUSED(flags)) {
+HSYM(core_page_free)(STRUCT_HEAP *__restrict self, void *address_index,
+                     size_t num_bytes, gfp_t UNUSED(flags)) {
  /* Use `sys_munmap()' to not clobber `errno' if something goes wrong. */
+ ATOMIC_FETCHSUB(self->h_stat.hs_mmap,num_bytes);
  sys_munmap(address_index,num_bytes);
 }
 
@@ -545,7 +556,8 @@ load_new_slot:
    if (tkeep_size) HSYM(heap_free_raw)(self,(void *)tkeep,tkeep_size,flags);
 
    /* Release full pages back to the system. */
-   HSYM(core_page_free)((void *)free_minaddr,
+   HSYM(core_page_free)(self,
+                       (void *)free_minaddr,
                         free_endaddr-free_minaddr,
                         flags);
 
@@ -591,12 +603,13 @@ HSYM(libc_heap_free_untraced)(STRUCT_HEAP *__restrict self,
  if (!(flags & GFP_CALLOC))
      sys_xreset_debug_data(ptr,DEBUGHEAP_NO_MANS_LAND,num_bytes);
 #endif
+ ATOMIC_FETCHSUB(self->h_stat.hs_alloc,num_bytes);
  HSYM(heap_free_raw)(self,ptr,num_bytes,flags);
 }
 
 INTERN size_t LIBCCALL
-HSYM(libc_heap_truncate)(STRUCT_HEAP *__restrict self,
-                         size_t threshold) {
+HSYM(libc_heap_trim)(STRUCT_HEAP *__restrict self,
+                     size_t threshold) {
  size_t result = 0; STRUCT_MFREE **iter,**end;
  threshold = CEIL_ALIGN(threshold,PAGESIZE);
  if (!threshold) threshold = PAGESIZE;
@@ -627,7 +640,7 @@ again:
   free_end = MFREE_END(chain);
   free_min = CEIL_ALIGN(free_min,PAGESIZE);
   free_end = FLOOR_ALIGN(free_end,PAGESIZE);
-  if unlikely(free_min >= free_end)
+  if unlikely(free_min+threshold > free_end)
      continue; /* Even though the range is large enough, due to alignment it doesn't span a whole page */
   /* Figure out how much memory must be kept in the
    * head and tail portions of the free data block. */
@@ -657,7 +670,10 @@ again:
   if (tail_keep) HSYM(heap_free_raw)(self,tail_pointer,tail_keep,free_flags);
 
   /* Release full pages in-between back to the core. */
-  HSYM(core_page_free)((void *)free_min,free_end-free_min,free_flags);
+  HSYM(core_page_free)(self,
+                      (void *)free_min,
+                       free_end-free_min,
+                       free_flags);
 
   /* Keep track of how much has already been released to the core. */
   result += free_end-free_min;
@@ -859,6 +875,8 @@ without_random:
   assert(IS_HEAP_ALIGNED((uintptr_t)result.hp_ptr));
   assert(IS_HEAP_ALIGNED((uintptr_t)result.hp_siz));
   assert(result.hp_siz >= LOCAL_HEAP_MINSIZE);
+  assert(result.hp_siz >= num_bytes);
+  ATOMIC_FETCHADD(self->h_stat.hs_alloc,result.hp_siz);
   return result;
  }
  /* Check for dangling data and don't allocate new memory if enough exists. */
@@ -935,6 +953,8 @@ allocate_without_overalloc:
  assert(IS_HEAP_ALIGNED((uintptr_t)result.hp_ptr));
  assert(IS_HEAP_ALIGNED((uintptr_t)result.hp_siz));
  assert(result.hp_siz >= LOCAL_HEAP_MINSIZE);
+ assert(result.hp_siz >= num_bytes);
+ ATOMIC_FETCHADD(self->h_stat.hs_alloc,result.hp_siz);
  return result;
 }
 
@@ -965,7 +985,7 @@ again:
 #endif
   /* Not in cache. Try to allocate associated core memory. */
   ptr_page = (void *)FLOOR_ALIGN((uintptr_t)ptr,PAGESIZE);
-  if (!HSYM(core_page_allocat)(ptr_page,1,flags))
+  if (!HSYM(core_page_allocat)(self,ptr_page,1,flags))
        return 0;
 #ifdef OPTION_DEBUG_HEAP
   libc_memsetl(ptr_page,
@@ -1020,7 +1040,7 @@ again:
         libc_heap_register_d((struct heap *)self);
 #endif
    *(uintptr_t *)&slot_page -= PAGESIZE;
-   if (!HSYM(core_page_allocat)(slot_page,PAGESIZE,0 /*flags & __GFP_HEAPMASK*/))
+   if (!HSYM(core_page_allocat)(self,slot_page,PAGESIZE,0 /*flags & __GFP_HEAPMASK*/))
        return 0; /* Failed to allocate the associated core-page. */
 #ifdef OPTION_DEBUG_HEAP
    libc_memsetl(slot_page,
@@ -1039,7 +1059,7 @@ again:
    atomic_rwlock_endwrite(&self->h_lock);
    if (slot_end & (PAGESIZE-1))
        return 0; /* Not page-aligned. */
-   if (!HSYM(core_page_allocat)((void *)slot_end,PAGESIZE,0 /*flags & __GFP_HEAPMASK*/))
+   if (!HSYM(core_page_allocat)(self,(void *)slot_end,PAGESIZE,0 /*flags & __GFP_HEAPMASK*/))
        return 0; /* Failed to allocate the associated core-page. */
 #ifdef OPTION_DEBUG_HEAP
    libc_memsetl((void *)slot_end,DEBUGHEAP_NO_MANS_LAND,PAGESIZE/4);
@@ -1075,6 +1095,7 @@ again:
  if ((flags & GFP_CALLOC) && !(slot_flags & GFP_CALLOC))
       libc_memset(ptr,0,result);
  assert(result >= LOCAL_HEAP_MINSIZE);
+ ATOMIC_FETCHADD(self->h_stat.hs_alloc,result);
  return result;
 }
 
@@ -1260,6 +1281,8 @@ HSYM(libc_heap_align_untraced)(STRUCT_HEAP *__restrict self,
    assert(IS_ALIGNED((uintptr_t)result.hp_ptr+offset,min_alignment));
    assert(IS_HEAP_ALIGNED((uintptr_t)result.hp_siz));
    assert(result.hp_siz >= LOCAL_HEAP_MINSIZE);
+   assert(result.hp_siz >= num_bytes);
+   ATOMIC_FETCHADD(self->h_stat.hs_alloc,result.hp_siz);
    return result;
   }
   atomic_rwlock_endwrite(&self->h_lock);
@@ -1302,6 +1325,7 @@ HSYM(libc_heap_align_untraced)(STRUCT_HEAP *__restrict self,
  result.hp_siz = result_base.hp_siz;
  assert(IS_HEAP_ALIGNED((uintptr_t)result.hp_siz));
  assert(result.hp_siz >= LOCAL_HEAP_MINSIZE);
+ assert(result.hp_siz >= num_bytes);
  return result;
 }
 
@@ -1598,7 +1622,68 @@ HSYM(libc_heap_realign)(STRUCT_HEAP *__restrict self,
 #endif
 
 
+INTERN ATTR_RARETEXT struct heapinfo LIBCCALL
+HSYM(libc_heap_info)(STRUCT_HEAP *__restrict self) {
+ struct heapinfo result;
+ unsigned int bucket;
+ STRUCT_MFREE *iter;
+ result.hi_trimable  = 0;
+ result.hi_free      = 0;
+ result.hi_free_z    = 0;
+ result.hi_free_min  = (__size_t)-1;
+ result.hi_free_max  = 0;
+ result.hi_free_cnt  = 0;
+ result.hi_alloc     = self->h_stat.hs_alloc;
+ result.hi_mmap      = self->h_stat.hs_mmap;
+ result.hi_mmap_peak = self->h_stat.hs_mmap_peak;
+ COMPILER_READ_BARRIER();
+ /* Due to race conditions, other code may not have updated the
+  * the peak field yet. Do it in our own stat copy manually. */
+ if unlikely(result.hi_mmap_peak < result.hi_mmap)
+             result.hi_mmap_peak = result.hi_mmap;
+ atomic_rwlock_read(&self->h_lock);
+ for (bucket = 0;
+      bucket < COMPILER_LENOF(self->h_size); ++bucket) {
+  iter = self->h_size[bucket];
+  for (; iter; iter = iter->mf_lsize.le_next) {
+   uintptr_t free_min,free_end;
+   uintptr_t head_keep,tail_keep;
+   result.hi_free += iter->mf_size;
+   if (iter->mf_flags & MFREE_FZERO)
+       result.hi_free_z += iter->mf_size;
+   if (result.hi_free_min > iter->mf_size)
+       result.hi_free_min = iter->mf_size;
+   if (result.hi_free_max < iter->mf_size)
+       result.hi_free_max = iter->mf_size;
+   ++result.hi_free_cnt;
+   /* Figure out how much we can actually return to the core. */
+   free_min = MFREE_BEGIN(iter);
+   free_end = MFREE_END(iter);
+   free_min = CEIL_ALIGN(free_min,PAGESIZE);
+   free_end = FLOOR_ALIGN(free_end,PAGESIZE);
+   if unlikely(free_min >= free_end)
+      continue; /* Even though the range is large enough, due to alignment it doesn't span a whole page */
+   /* Figure out how much memory must be kept in the
+    * head and tail portions of the free data block. */
+   head_keep = free_min-MFREE_BEGIN(iter);
+   tail_keep = MFREE_END(iter)-free_end;
+   /* Make sure that data blocks that cannot be freed are still
+    * large enough to remain representable as their own blocks. */
+   if (head_keep && head_keep < HEAP_MINSIZE) continue;
+   if (tail_keep && tail_keep < HEAP_MINSIZE) continue;
+   /* This block can be trimmed. */
+   result.hi_trimable += free_end-free_min;
+  }
+ }
+ atomic_rwlock_endread(&self->h_lock);
+ if (result.hi_free_min > result.hi_free_max)
+     result.hi_free_min = result.hi_free_max = 0;
+ return result;
+}
 
+
+
+EXPORT(HSYM(heap_info),HSYM(libc_heap_info));
 #ifdef OPTION_DEBUG_HEAP
 EXPORT(HSYM(heap_alloc),HSYM(libc_heap_alloc));
 EXPORT(HSYM(heap_align),HSYM(libc_heap_align));
@@ -1606,7 +1691,7 @@ EXPORT(HSYM(heap_allat),HSYM(libc_heap_allat));
 EXPORT(HSYM(heap_free),HSYM(libc_heap_free));
 EXPORT(HSYM(heap_realloc),HSYM(libc_heap_realloc));
 EXPORT(HSYM(heap_realign),HSYM(libc_heap_realign));
-EXPORT(HSYM(heap_truncate),HSYM(libc_heap_truncate));
+EXPORT(HSYM(heap_trim),HSYM(libc_heap_trim));
 EXPORT(HSYM(heap_alloc_untraced),HSYM(libc_heap_alloc_untraced));
 EXPORT(HSYM(heap_align_untraced),HSYM(libc_heap_align_untraced));
 EXPORT(HSYM(heap_allat_untraced),HSYM(libc_heap_allat_untraced));
@@ -1620,7 +1705,7 @@ EXPORT(HSYM(heap_allat),HSYM(libc_heap_allat_untraced));
 EXPORT(HSYM(heap_free),HSYM(libc_heap_free_untraced));
 EXPORT(HSYM(heap_realloc),HSYM(libc_heap_realloc_untraced));
 EXPORT(HSYM(heap_realign),HSYM(libc_heap_realign_untraced));
-EXPORT(HSYM(heap_truncate),HSYM(libc_heap_truncate));
+EXPORT(HSYM(heap_trim),HSYM(libc_heap_trim));
 #endif
 
 DECL_END

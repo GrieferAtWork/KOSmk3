@@ -22,8 +22,14 @@
 #include "libc.h"
 #include "malloc.h"
 #include "errno.h"
+#include "stdio.h"
+#include "format.h"
 
+#include <hybrid/section.h>
+#include <kos/heap.h>
+#include <limits.h>
 #include <errno.h>
+#include <malloc.h>
 
 DECL_BEGIN
 
@@ -247,6 +253,32 @@ _Check_return_wat_ _CRTIMP errno_t __cdecl _wdupenv_s_dbg(
         _In_ int _LineNumber
         );
 */
+
+
+
+INTERN ATTR_RARETEXT WUNUSED struct mallinfo
+LIBCCALL libc_mallinfo_impl(struct heapinfo info) {
+ struct mallinfo result;
+ result.arena    = 0;
+ result.ordblks  = (int)info.hi_free_cnt;
+ result.smblks   = 0;
+ result.hblks    = (int)(info.hi_mmap / PAGESIZE);
+ result.hblkhd   = (int)info.hi_mmap;
+ result.usmblks  = (int)info.hi_mmap_peak;
+ result.fsmblks  = 0;
+ result.uordblks = (int)info.hi_alloc;
+ result.fordblks = (int)info.hi_free;
+ result.keepcost = (int)info.hi_trimable;
+ return result;
+}
+
+INTERN ATTR_RARETEXT void LIBCCALL
+libc_malloc_stats_impl(struct heapinfo info) {
+ libc_fprintf(libc_stderr,RARESTR("max system bytes = %10Iu\n"),info.hi_mmap_peak);
+ libc_fprintf(libc_stderr,RARESTR("system bytes     = %10Iu\n"),info.hi_mmap);
+ libc_fprintf(libc_stderr,RARESTR("in use bytes     = %10Iu\n"),info.hi_alloc);
+}
+
 
 DECL_END
 

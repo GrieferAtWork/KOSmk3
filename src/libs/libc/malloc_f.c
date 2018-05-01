@@ -737,7 +737,7 @@ libc_mallopt_f(int parameter_number,
 
 INTERN int LIBCCALL
 libc_malloc_trim_f(size_t pad) {
- return libc_heap_truncate(&mheap,pad) != 0;
+ return libc_heap_trim(&mheap,pad) != 0;
 }
 
 
@@ -813,6 +813,12 @@ libc_w32ndup_f(char32_t const *__restrict str, size_t max_chars) {
  return result;
 }
 
+INTERN WUNUSED struct mallinfo LIBCCALL libc_mallinfo_f(void) {
+ return libc_mallinfo_impl(libc_heap_info(&mheap));
+}
+INTERN void LIBCCALL libc_malloc_stats_f(void) {
+ libc_malloc_stats_impl(libc_heap_info(&mheap));
+}
 
 
 DECL_END

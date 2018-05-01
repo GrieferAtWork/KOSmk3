@@ -104,6 +104,34 @@ __REDIRECT_EXCEPT(__LIBC,__MALL_DEFAULT_ALIGNED __ATTR_ALLOC_SIZE((1)),void *,__
  * debug-alternatives, essentially enabling the debug functionality of malloc(). */
 __LIBC void (__LIBCCALL __set_debug_malloc)(void);
 
+
+#ifndef __mallinfo_defined
+#define __mallinfo_defined 1
+#ifdef __USE_KOS_STDEXT
+#define __MALLINFO_FIELD_TYPE unsigned int
+#else
+#define __MALLINFO_FIELD_TYPE int
+#endif
+struct mallinfo {
+    __MALLINFO_FIELD_TYPE arena;     /* Non-mmapped space allocated (bytes) */
+    __MALLINFO_FIELD_TYPE ordblks;   /* Number of free chunks */
+    __MALLINFO_FIELD_TYPE smblks;    /* Number of free fastbin blocks */
+    __MALLINFO_FIELD_TYPE hblks;     /* Number of mmapped regions */
+    __MALLINFO_FIELD_TYPE hblkhd;    /* Space allocated in mmapped regions (bytes) */
+    __MALLINFO_FIELD_TYPE usmblks;   /* Maximum total allocated space (bytes) */
+    __MALLINFO_FIELD_TYPE fsmblks;   /* Space in freed fastbin blocks (bytes) */
+    __MALLINFO_FIELD_TYPE uordblks;  /* Total allocated space (bytes) */
+    __MALLINFO_FIELD_TYPE fordblks;  /* Total free space (bytes) */
+    __MALLINFO_FIELD_TYPE keepcost;  /* Top-most, releasable space (bytes) */
+};
+#undef __MALLINFO_FIELD_TYPE
+#endif /* !__mallinfo_defined */
+
+__LIBC __WUNUSED struct mallinfo (__LIBCCALL mallinfo)(void);
+__LIBC void (__LIBCCALL malloc_stats)(void);
+
+
+
 __SYSDECL_END
 #endif
 

@@ -100,7 +100,10 @@ DECL_BEGIN
     LIBC_ENUMERATE_MALLOC_EXT(callback(w16dup)) \
     LIBC_ENUMERATE_MALLOC_EXT(callback(w32dup)) \
     LIBC_ENUMERATE_MALLOC_EXT(callback(w16ndup)) \
-    LIBC_ENUMERATE_MALLOC_EXT(callback(w32ndup))
+    LIBC_ENUMERATE_MALLOC_EXT(callback(w32ndup)) \
+    callback(mallinfo) \
+    callback(malloc_stats) \
+/**/
 
 
 #define CRT_COLD             INTERN ATTR_SECTION(".text.crt.cold")        /* Rarely used CRT functions (usually for very specific purposes). */

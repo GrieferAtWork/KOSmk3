@@ -21,6 +21,7 @@
 
 #include "libc.h"
 #include <kos/types.h>
+#include <malloc.h>
 
 #ifdef __CC__
 DECL_BEGIN
@@ -81,6 +82,8 @@ INTDEF ATTR_MALLOC char16_t *(LIBCCALL libc_w16dup)(char16_t const *__restrict s
 INTDEF ATTR_MALLOC char32_t *(LIBCCALL libc_w32dup)(char32_t const *__restrict str);
 INTDEF ATTR_MALLOC char16_t *(LIBCCALL libc_w16ndup)(char16_t const *__restrict str, size_t max_chars);
 INTDEF ATTR_MALLOC char32_t *(LIBCCALL libc_w32ndup)(char32_t const *__restrict str, size_t max_chars);
+INTDEF WUNUSED struct mallinfo (LIBCCALL libc_mallinfo)(void);
+INTDEF void (LIBCCALL libc_malloc_stats)(void);
 INTDEF ATTR_RETNONNULL ATTR_MALLOC void *LIBCCALL libc_Xmalloc_f(size_t num_bytes);
 INTDEF ATTR_RETNONNULL ATTR_MALLOC void *LIBCCALL libc_Xmalloc_d(size_t num_bytes);
 INTDEF ATTR_RETNONNULL ATTR_MALLOC void *LIBCCALL libc_Xcalloc_f(size_t count, size_t num_bytes);
@@ -187,6 +190,14 @@ INTDEF ATTR_MALLOC char16_t *LIBCCALL libc_w16ndup_f(char16_t const *__restrict 
 INTDEF ATTR_MALLOC char32_t *LIBCCALL libc_w32ndup_f(char32_t const *__restrict str, size_t max_chars);
 INTDEF ATTR_MALLOC char16_t *LIBCCALL libc_w16ndup_d(char16_t const *__restrict str, size_t max_chars);
 INTDEF ATTR_MALLOC char32_t *LIBCCALL libc_w32ndup_d(char32_t const *__restrict str, size_t max_chars);
+INTDEF WUNUSED struct mallinfo LIBCCALL libc_mallinfo_f(void);
+INTDEF WUNUSED struct mallinfo LIBCCALL libc_mallinfo_d(void);
+INTDEF void LIBCCALL libc_malloc_stats_f(void);
+INTDEF void LIBCCALL libc_malloc_stats_d(void);
+
+struct heapinfo;
+INTDEF WUNUSED struct mallinfo LIBCCALL libc_mallinfo_impl(struct heapinfo info);
+INTDEF void LIBCCALL libc_malloc_stats_impl(struct heapinfo info);
 
 /* DOS-specific functions. */
 INTDEF ATTR_MALLOC void *(LIBCCALL libd_aligned_malloc)(size_t num_bytes, size_t min_alignment);

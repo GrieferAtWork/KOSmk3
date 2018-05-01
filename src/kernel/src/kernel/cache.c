@@ -62,7 +62,7 @@ PRIVATE void KCALL truncate_heap_caches(void) {
  if (THIS_VM != &vm_kernel) mask &= ~GFP_KERNEL;
  for (i = 0; i < mask; ++i) {
   /* Truncate kernel heaps. */
-  if (heap_truncate(&kernel_heaps[i],0) &&
+  if (heap_trim(&kernel_heaps[i],0) &&
       kernel_cc_done())
       break;
  }
