@@ -24,6 +24,7 @@
 #include <hybrid/limits.h>
 #include <hybrid/align.h>
 #include <hybrid/host.h>
+#include <hybrid/minmax.h>
 #include <fs/path.h>
 #include <fs/driver.h>
 #include <fs/linker.h>
@@ -567,10 +568,33 @@ restart_rel_iter:
 PRIVATE struct dl_symbol KCALL
 Pe_GetSymbol(struct application *__restrict app,
              USER CHECKED char const *__restrict name,
-             u32 hash) {
+             u32 UNUSED(hash)) {
  struct dl_symbol result;
- /* XXX: Lazily fill in a symbol table cache. */
- /* TODO */
+ PE_MODULE *pPeModule = app->a_module->m_data;
+ /* TODO: Lazily fill in a symbol table cache. */
+ if (pPeModule->pm_Export.Size >= sizeof(IMAGE_EXPORT_DIRECTORY)) {
+  IMAGE_EXPORT_DIRECTORY *iter,*end;
+  iter = (IMAGE_EXPORT_DIRECTORY *)(app->a_loadaddr + pPeModule->pm_Export.VirtualAddress);
+  end  = (IMAGE_EXPORT_DIRECTORY *)((uintptr_t)iter + pPeModule->pm_Export.Size);
+  for (; iter < end; ++iter) {
+   DWORD i,dwNumSymbols = MIN(iter->NumberOfFunctions,iter->NumberOfNames);
+   void **funcp = (void **)(app->a_loadaddr + iter->AddressOfFunctions);
+   char **namep = (char **)(app->a_loadaddr + iter->AddressOfNames);
+   ASSERT_BOUNDS(app->a_bounds,(uintptr_t)funcp);
+   ASSERT_BOUNDS(app->a_bounds,(uintptr_t)namep);
+   for (i = 0; i < dwNumSymbols; ++i) {
+    char *symname = (char *)(app->a_loadaddr + (uintptr_t)namep[i]);
+    ASSERT_BOUNDS(app->a_bounds,(uintptr_t)symname);
+    /* Check if this is the requested symbol. */
+    if (strcmp(symname,name) == 0) {
+     result.ds_base = (void *)(app->a_loadaddr + (intptr_t)funcp[i]);
+     result.ds_type = MODULE_SYMBOL_NORMAL;
+     result.ds_size = 0; /* PE doesn't tell you about this... */
+     return result;
+    }
+   }
+  }
+ }
  result.ds_type = MODULE_SYMBOL_INVALID;
  return result;
 }
