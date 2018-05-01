@@ -2484,13 +2484,15 @@ create_new_fs:
    } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
     driver_decref(d);
     /* Propagate anything that isn't a corrupt-filesystem error. */
-    if (error_code()                                != E_FILESYSTEM_ERROR ||
+    if (error_code()                                        != E_FILESYSTEM_ERROR ||
         error_info()->e_error.e_filesystem_error.fs_errcode != ERROR_FS_CORRUPTED_FILESYSTEM)
         error_rethrow();
+    error_handled();
    }
    atomic_rwlock_read(&fs_filesystem_types.ft_typelock);
   }
   atomic_rwlock_endread(&fs_filesystem_types.ft_typelock);
+  throw_fs_error(ERROR_FS_CORRUPTED_FILESYSTEM);
  }
  /* Deal with singleton superblocks */
  if (type->st_flags & SUPERBLOCK_TYPE_FSINGLE) {

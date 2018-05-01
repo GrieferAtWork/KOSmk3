@@ -1153,7 +1153,6 @@ do_rdtsc:
 
   {
    struct modrm_info modrm;
-   uintptr_t addr;
   case 0x0f18:
    text = x86_decode_modrm(text,&modrm);
    if (modrm.mi_type != MODRM_MEMORY)

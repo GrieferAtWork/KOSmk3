@@ -65,7 +65,7 @@ struct read_locks {
                                 * As hash-index, use `RWLOCK_HASH()' */
 };
 
-INTERN ATTR_PERTASK struct read_locks my_readlocks = {
+PRIVATE ATTR_PERTASK struct read_locks my_readlocks = {
     .rls_use = 0,
     .rls_cnt = 0,
     .rls_msk = CONFIG_TASK_STATIC_READLOCKS-1
@@ -73,13 +73,13 @@ INTERN ATTR_PERTASK struct read_locks my_readlocks = {
 
 DEFINE_PERTASK_INIT(readlocks_init);
 DEFINE_PERTASK_FINI(readlocks_fini);
-INTERN void KCALL
+PRIVATE ATTR_USED void KCALL
 readlocks_init(struct task *__restrict thread) {
  struct read_locks *locks;
  locks = &FORTASK(thread,my_readlocks);
  locks->rls_vec = locks->rls_sbuf;
 }
-INTERN void KCALL
+PRIVATE ATTR_USED void KCALL
 readlocks_fini(struct task *__restrict thread) {
  struct read_locks *locks;
  locks = &FORTASK(thread,my_readlocks);
@@ -88,7 +88,7 @@ readlocks_fini(struct task *__restrict thread) {
 }
 
 /* Find an existing read-lock descriptor for `lock', or return NULL. */
-INTERN struct read_lock *KCALL
+PRIVATE struct read_lock *KCALL
 find_readlock(struct rwlock *__restrict lock) {
  uintptr_t i,perturb;
  struct read_locks *locks;
@@ -735,15 +735,17 @@ __os_rwlock_end(struct rwlock *__restrict self) {
  } else {
   struct read_lock *desc;
   /* Drop a read-lock. */
-  assertf(self->rw_scnt >= 1,
-          "Noone is holding read-locks");
   desc = find_readlock(self);
   assertf(desc,
           "You're not holding any read-locks\n"
+          "self                          = %p\n"
           "PERTASK(my_readlocks).rls_use = %Iu\n"
           "PERTASK(my_readlocks).rls_cnt = %Iu",
+          self,
           PERTASK_GET(my_readlocks.rls_use),
           PERTASK_GET(my_readlocks.rls_cnt));
+  assertf(self->rw_scnt >= 1,
+          "Noone is holding read-locks");
   assert(desc->rl_recursion != 0);
   if (desc->rl_recursion == 1) {
    u32 control_word;

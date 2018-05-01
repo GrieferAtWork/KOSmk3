@@ -984,7 +984,7 @@ PUBLIC size_t KCALL
 block_device_read(struct block_device *__restrict self,
                   CHECKED USER void *buf, size_t num_bytes,
                   pos_t device_position, iomode_t flags) {
- struct block_device *EXCEPT_VAR xself = self;
+ struct block_device *EXCEPT_VAR xself;
  size_t EXCEPT_VAR xnum_bytes = num_bytes;
  size_t EXCEPT_VAR result = num_bytes;
  if unlikely(!num_bytes) goto done;
@@ -995,6 +995,7 @@ block_device_read(struct block_device *__restrict self,
  self = self->b_master;
  assertf(self == self->b_master,
          "Recursive partitions must be resolved during creation");
+ xself = self;
 again:
  rwlock_readf(&self->b_pagebuf.ps_lock,flags);
  TRY {
@@ -1028,7 +1029,7 @@ PUBLIC size_t KCALL
 block_device_write(struct block_device *__restrict self,
                    CHECKED USER void const *buf, size_t num_bytes,
                    pos_t device_position, iomode_t flags) {
- struct block_device *EXCEPT_VAR xself = self;
+ struct block_device *EXCEPT_VAR xself;
  size_t EXCEPT_VAR xnum_bytes = num_bytes;
  size_t EXCEPT_VAR result = num_bytes;
  if unlikely(!num_bytes) goto done;
@@ -1039,6 +1040,7 @@ block_device_write(struct block_device *__restrict self,
  self = self->b_master;
  assertf(self == self->b_master,
          "Recursive partitions must be resolved during creation");
+ xself = self;
 again:
  rwlock_readf(&self->b_pagebuf.ps_lock,flags);
  TRY {
@@ -1087,7 +1089,11 @@ done:
 
 PUBLIC void KCALL
 block_device_sync(struct block_device *__restrict self) {
- struct block_device *EXCEPT_VAR xself = self;
+ struct block_device *EXCEPT_VAR xself;
+ self = self->b_master;
+ assertf(self == self->b_master,
+         "Recursive partitions must be resolved during creation");
+ xself = self;
  rwlock_write(&self->b_pagebuf.ps_lock);
  TRY {
   if (self->b_pagebuf.ps_mapv) {

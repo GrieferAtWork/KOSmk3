@@ -28,6 +28,7 @@ DECL_BEGIN
 #ifdef __x86_64__
 #error TODO
 #else /* __x86_64__ */
+
 /*
 General Purpose Register EAX                0            %eax
 General Purpose Register ECX                1            %ecx
@@ -37,7 +38,7 @@ Stack Pointer Register ESP                  4            %esp
 Frame Pointer Register EBP                  5            %ebp
 General Purpose Register ESI                6            %esi
 General Purpose Register EDI                7            %edi
-Return Address RA                           8
+Return Address RA                           8            %eip
 Flag Register                               9            %EFLAGS
 Reserved                                    10
 Floating Point Registers 0–7                11-18        %st0–%st7
