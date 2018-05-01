@@ -737,8 +737,7 @@ libc_mallopt_f(int parameter_number,
 
 INTERN int LIBCCALL
 libc_malloc_trim_f(size_t pad) {
- /* TODO: add a heap function for this. */
- return 0;
+ return libc_heap_truncate(&mheap,pad) != 0;
 }
 
 
