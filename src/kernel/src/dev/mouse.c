@@ -53,6 +53,7 @@ cd_mouse_read(struct mouse *__restrict self,
  if (!mouse_read(self,&packet,flags))
       return 0;
  COMPILER_READ_BARRIER();
+ packet.__mp_pad = 0; /* Don't leak kernel data! */
  /* Copy the packet back into user-space. */
  memcpy(buf,&packet,sizeof(struct mouse_packet));
  /* Return the size of a mouse packet. */
@@ -235,11 +236,13 @@ again_locked:
     if (!down) continue;
     /* Return a button-press packet. */
     if (up_buttons) break;
+    assert(self->m_down_late[i]);
     --self->m_down_late[i];
     down_buttons |= 1 << i;
    } else {
     /* Return a button-release packet. */
     if (down_buttons) break;
+    assert(self->m_up_late[i]);
     --self->m_up_late[i];
     up_buttons |= 1 << i;
    }
@@ -283,13 +286,17 @@ again:
  }
  memset(&data,0,sizeof(struct mouse_overflow));
  do {
-  u16 rptr = (u16)(actst.as_wptr-actst.as_rcnt) % MOUSE_ACTION_BACKLOG_SIZE;
+  u16 rptr;
+  assert(actst.as_rcnt != 0);
+  rptr = (u16)(actst.as_wptr-actst.as_rcnt) % MOUSE_ACTION_BACKLOG_SIZE;
   if (self->m_act[rptr] == MOUSE_ACTION_FOVERFL) {
    if (actst.as_rcnt != old_actst.as_rcnt) break;
    /* Load the overflow packet. */
    memcpy(&data,
           &self->m_overflow,
            sizeof(struct mouse_overflow));
+   /* Consume the overflow instruction. */
+   --actst.as_rcnt;
    /* Check if the overflow packet contains multiple down operations. */
    for (i = 0; i < MOUSE_BUTTON_COUNT; ++i) {
     if (data.ms_down[i]+data.ms_up[i] <= 1) continue;
@@ -304,21 +311,25 @@ again:
     /* Consume the late button operation which we will be returning. */
     if (self->m_down_late[i])
          --self->m_down_late[i];
-    else --self->m_up_late[i];
+    else {
+     assert(self->m_up_late[i]);
+     --self->m_up_late[i];
+    }
     goto done_endread;
    }
-   /* Consume the overflow instruction. */
-   --actst.as_rcnt;
    break;
   }
   /* Process mouse packet data. */
   count = mouse_parse_action(self->m_act,
                              rptr,
                             &data,
-                             data.ms_time == 0);
+                             /* Only allow time actions if we haven't reached
+                              * the end of the current packet yet, or if the
+                              * mouse has been configured to merge packets. */
+                             data.ms_time == 0 ||
+                            (self->m_flags & MOUSE_FMERGEONREAD));
   actst.as_rcnt -= count;
- } while (actst.as_rcnt && count &&
-         (self->m_flags & MOUSE_FMERGEONREAD));
+ } while (actst.as_rcnt && count);
  if (!ATOMIC_CMPXCH(self->m_act_state.as_word,
                     old_actst.as_word,actst.as_word))
       goto again;
