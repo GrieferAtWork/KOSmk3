@@ -55,7 +55,14 @@ BEGIN MODULE("kernel.ext2fs")
 	SOURCE("ext2fs/*.c")
 END
 
+#if 1
+BEGIN MODULE("kernel.a.out")
+	SET_OUTPUT("/bin/a.out.mod")
+	SET_DISKFILE("/mod/a.out.mod")
 
+	SOURCE("a.out/*.c")
+END
+#endif
 
 
 
