@@ -102,8 +102,32 @@ Mouse_Fini(Mouse *__restrict self) {
                      self);
 }
 
+PRIVATE void KCALL
+Mouse_EnableReports(Mouse *__restrict self) {
+ if (!ps2_runprogram(self->pm_port,NULL,NULL,
+      PS2_PROGRAM(
+      ps2_send  PS2_MOUSE_FENABLE_REPORTING;
+      ps2_wait  PS2_ACK;
+      ps2_stop;
+      )))
+      error_throw(E_IOERROR);
+}
+
+PRIVATE void KCALL
+Mouse_DisableReports(Mouse *__restrict self) {
+ if (!ps2_runprogram(self->pm_port,NULL,NULL,
+      PS2_PROGRAM(
+      ps2_send  PS2_MOUSE_FDISABLE_REPORTING;
+      ps2_wait  PS2_ACK;
+      ps2_stop;
+      )))
+      error_throw(E_IOERROR);
+}
+
 PRIVATE struct mouse_ops MouseOps = {
-    .mo_fini = (void(KCALL *)(struct mouse *__restrict))&Mouse_Fini,
+    .mo_fini            = (void(KCALL *)(struct mouse *__restrict))&Mouse_Fini,
+    .mo_enable_reports  = (void(KCALL *)(struct mouse *__restrict self))&Mouse_EnableReports,
+    .mo_disable_reports = (void(KCALL *)(struct mouse *__restrict self))&Mouse_DisableReports,
 };
 
 
