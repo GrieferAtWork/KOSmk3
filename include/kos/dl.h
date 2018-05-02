@@ -142,7 +142,7 @@ struct dl_section {
     void         *ds_base;      /* [1..ds_size][valid_if(ds_size && ds_flags & SHF_ALLOC)]
                                  * Image-relative section base address. */
     size_t        ds_size;      /* Section size in bytes. */
-    pos_t         ds_offset;    /* [valid_if(ds_size)] Absolute offset into the associated file where section data starts.
+    pos64_t       ds_offset;    /* [valid_if(ds_size)] Absolute offset into the associated file where section data starts.
                                  * NOTE: In special sections, if the associated module has no file, this field is undefined. */
     u16           ds_type;      /* [valid_if(ds_size)] Section type (One of `SHT_*' from <elf.h>) */
     u16           ds_flags;     /* [valid_if(ds_size)] Section Flags (Set of `SHF_*' from <elf.h>) */

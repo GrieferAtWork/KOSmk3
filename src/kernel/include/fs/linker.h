@@ -134,7 +134,6 @@ struct module_type {
      *   - m_entry
      *   - m_flags (Optionally; pre-initialized to `MODULE_FNORMAL')
      *   - m_data (Optionally; pre-initialized to `NULL')
-     *   - m_got (Optionally; Allowed to be initialized during the first use of `m_loadapp'; pre-initialized to `0')
      * @assume(mod->m_type   == self);
      * @assume(mod->m_driver == self->m_driver);
      * @assume(mod->m_path   != NULL);
@@ -153,9 +152,6 @@ struct module_type {
 
     union PACKED {
         /* [1..1] Load the given application (map segments and load dependencies)
-         * NOTE: If not already done by `m_loadmodule', this function
-         *       must also initialize the following members.
-         *   - self->mp_app->a_module->m_got  (originally initialized to ZERO(0))
          * @throw: E_NOT_EXECUTABLE: The module is corrupted or malicious.
          * @throw: E_SEGFAULT:       Same as `E_NOT_EXECUTABLE'
          * @throw: E_NO_DATA:        Same as `E_NOT_EXECUTABLE'

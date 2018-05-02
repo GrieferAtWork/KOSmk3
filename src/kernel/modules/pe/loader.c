@@ -189,7 +189,17 @@ nope:
 
 PRIVATE ATTR_NOTHROW void KCALL
 Pe_FiniModule(struct module *__restrict mod) {
- kfree(mod->m_data);
+ PE_MODULE *pe = mod->m_data;
+ if (pe) {
+  if (pe->pm_Regions) {
+   DWORD i;
+   for (i = 0; i < pe->pm_NumSections; ++i)
+       if (pe->pm_Regions[i])
+           vm_region_decref(pe->pm_Regions[i]);
+   kfree(pe->pm_Regions);
+  }
+  kfree(pe);
+ }
 }
 
 LOCAL ATTR_RETNONNULL REF struct vm_region **KCALL
@@ -605,6 +615,7 @@ Pe_GetSection(struct application *__restrict app,
               USER CHECKED char const *__restrict name) {
  struct dl_section result; WORD i;
  PE_MODULE *pPeModule = app->a_module->m_data;
+again:
  for (i = 0; i < pPeModule->pm_NumSections; ++i) {
   DWORD dwSectionFlags;
   if (strcmp((char *)pPeModule->pm_Sections[i].Name,name) != 0)
@@ -638,13 +649,17 @@ Pe_GetSection(struct application *__restrict app,
   }
   return result;
  }
+ if (!strcmp(name,".text")) {
+  /* Some compilers used to call the `.text' section as `CODE' in PE binaries. */
+  name = "CODE";
+  goto again;
+ }
  result.ds_size  = 0;
  result.ds_flags = 0;
  return result;
 }
 
 
-DEFINE_MODULE_TYPE(Pe_ModuleType);
 INTERN struct module_type Pe_ModuleType = {
     .m_flags      = MODULE_TYPE_FPAGEALIGNED,
     .m_magsz      = 2,
@@ -657,6 +672,8 @@ INTERN struct module_type Pe_ModuleType = {
     .m_symbol     = &Pe_GetSymbol,
     .m_section    = &Pe_GetSection,
 };
+
+DEFINE_MODULE_TYPE(Pe_ModuleType);
 
 DECL_END
 

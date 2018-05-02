@@ -220,7 +220,7 @@ got_result:;
 PUBLIC void KCALL
 vm_apps_append(struct vm *__restrict effective_vm,
                struct application *__restrict app) {
- struct vmapps *apps;
+ struct vmapps *EXCEPT_VAR apps;
  assert(vm_holding(effective_vm));
 again:
  apps = FORVM(effective_vm,vm_apps);
@@ -267,13 +267,13 @@ again:
   atomic_rwlock_endwrite(&apps->va_lock);
   TRY {
    new_apps = (struct vmapps *)kmalloc(offsetof(struct vmapps,va_apps)+
-                                       new_alloc*sizeof(WEAK REF struct application *),
+                                      (new_alloc*sizeof(WEAK REF struct application *)),
                                        GFP_SHARED);
   } CATCH_HANDLED (E_BADALLOC) {
    /* Try again with a minimal buffer increment. */
    new_alloc = count+1;
    new_apps = (struct vmapps *)kmalloc(offsetof(struct vmapps,va_apps)+
-                                       new_alloc*sizeof(WEAK REF struct application *),
+                                      (new_alloc*sizeof(WEAK REF struct application *)),
                                        GFP_SHARED);
   }
   /* Re-acquire a read lock. */
@@ -289,7 +289,7 @@ again:
   new_apps->va_alloc  = kmalloc_usable_size(new_apps);
   new_apps->va_alloc -= offsetof(struct vmapps,va_apps);
   new_apps->va_alloc /= sizeof(WEAK REF struct application *);
-  assert(apps->va_alloc >= new_alloc);
+  assert(new_apps->va_alloc >= new_alloc);
   new_apps->va_count  = 0;
   /* Copy references to all real applications. */
   for (i = 0; i < count; ++i) {
@@ -455,6 +455,8 @@ again:
    TRY {
     /* Try to load the module. */
     if (!module_load(result)) {
+     assert(result->m_driver == type->m_driver);
+     result->m_driver = NULL; /* Steal back reference. */
      module_destroy(result);
      goto continue_searching;
     }

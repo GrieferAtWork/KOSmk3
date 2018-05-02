@@ -107,11 +107,38 @@ __LIBC void (__LIBCCALL __set_debug_malloc)(void);
 
 #ifndef __mallinfo_defined
 #define __mallinfo_defined 1
+#ifndef _STRUCT_MALLINFO
+#define _STRUCT_MALLINFO 1 /* As seen in dlmalloc */
 #ifdef __USE_KOS_STDEXT
 #define __MALLINFO_FIELD_TYPE unsigned int
 #else
 #define __MALLINFO_FIELD_TYPE int
 #endif
+
+#ifdef __COMPILER_HAVE_PRAGMA_PUSHMACRO
+#pragma push_macro("arena")
+#pragma push_macro("ordblks")
+#pragma push_macro("smblks")
+#pragma push_macro("hblks")
+#pragma push_macro("hblkhd")
+#pragma push_macro("usmblks")
+#pragma push_macro("fsmblks")
+#pragma push_macro("uordblks")
+#pragma push_macro("fordblks")
+#pragma push_macro("keepcost")
+#endif /* __COMPILER_HAVE_PRAGMA_PUSHMACRO */
+
+#undef arena
+#undef ordblks
+#undef smblks
+#undef hblks
+#undef hblkhd
+#undef usmblks
+#undef fsmblks
+#undef uordblks
+#undef fordblks
+#undef keepcost
+
 struct mallinfo {
     __MALLINFO_FIELD_TYPE arena;     /* Non-mmapped space allocated (bytes) */
     __MALLINFO_FIELD_TYPE ordblks;   /* Number of free chunks */
@@ -124,7 +151,22 @@ struct mallinfo {
     __MALLINFO_FIELD_TYPE fordblks;  /* Total free space (bytes) */
     __MALLINFO_FIELD_TYPE keepcost;  /* Top-most, releasable space (bytes) */
 };
+
+#ifdef __COMPILER_HAVE_PRAGMA_PUSHMACRO
+#pragma pop_macro("keepcost")
+#pragma pop_macro("fordblks")
+#pragma pop_macro("uordblks")
+#pragma pop_macro("fsmblks")
+#pragma pop_macro("usmblks")
+#pragma pop_macro("hblkhd")
+#pragma pop_macro("hblks")
+#pragma pop_macro("smblks")
+#pragma pop_macro("ordblks")
+#pragma pop_macro("arena")
+#endif /* __COMPILER_HAVE_PRAGMA_PUSHMACRO */
+
 #undef __MALLINFO_FIELD_TYPE
+#endif /* !_STRUCT_MALLINFO */
 #endif /* !__mallinfo_defined */
 
 __LIBC __WUNUSED struct mallinfo (__LIBCCALL mallinfo)(void);
