@@ -2292,6 +2292,7 @@ again:
   atomic_rwlock_endread(&fs_filesystems.f_superlock);
   /* Close this superblock. */
   TRY {
+   superblock_close(iter);
    superblock_close_nodes(iter);
    superblock_umount_all(iter);
    superblock_sync(iter);
@@ -2853,7 +2854,8 @@ again:
    * filesystems that specify the given driver as their
    * owner. */
   for (; iter; iter = iter->s_filesystems.le_next) {
-   if (iter->s_driver != d) continue; /* Different driver. */
+   if (!SUPERBLOCK_USES_DRIVER(iter,d))
+       continue; /* Isn't using the driver. */
    if (ATOMIC_FETCHOR(iter->s_flags,SUPERBLOCK_FCLOSED) & SUPERBLOCK_FCLOSED)
        continue; /* Already closed. */
    if (!superblock_tryincref(iter))
@@ -2861,6 +2863,7 @@ again:
    atomic_rwlock_endread(&fs_filesystems.f_superlock);
    assert(PREEMPTION_ENABLED());
    /* Close this superblock. */
+   superblock_close(iter);
    superblock_close_nodes(iter);
    superblock_umount_all(iter);
    superblock_sync(iter);

@@ -288,6 +288,7 @@ device_ioctl(struct device *__restrict self,
 unsupported:
  error_throw(E_NOT_IMPLEMENTED);
 }
+
 /* @throw: E_NOT_IMPLEMENTED: Stat information cannot be gathered about the given device. */
 PUBLIC void KCALL
 device_stat(struct device *__restrict self,
@@ -324,6 +325,7 @@ device_sync(struct device *__restrict self) {
      (*me->c_ops->c_file.f_sync)(me);
  }
 }
+
 /* Tries to invoke the `c_open' operator of character devices,
  * or simply re-returns a handle to the given device as-is. */
 FUNDEF REF struct handle KCALL
@@ -369,6 +371,7 @@ device_write(struct device *__restrict self,
               ((struct character_device *)self,buf,bufsize,flags);
  error_throw(E_NOT_IMPLEMENTED);
 }
+
 /* @return: 0: No signals are available, or polling isn't supported. */
 FUNDEF unsigned int KCALL
 device_poll(struct device *__restrict self, unsigned int mode) {
@@ -380,6 +383,7 @@ device_poll(struct device *__restrict self, unsigned int mode) {
                 ((struct character_device *)self,mode);
  return 0;
 }
+
 /* @throw: E_NOT_IMPLEMENTED: Seeking is not supported. */
 FUNDEF pos_t KCALL
 device_seek(struct device *__restrict self, off_t offset, int whence) {
@@ -388,6 +392,7 @@ device_seek(struct device *__restrict self, off_t offset, int whence) {
                 ((struct character_device *)self,offset,whence);
  error_throw(E_NOT_IMPLEMENTED);
 }
+
 /* @throw: E_NOT_IMPLEMENTED: Absolute-position reading isn't supported. */
 FUNDEF size_t KCALL
 device_pread(struct device *__restrict self,
@@ -401,6 +406,7 @@ device_pread(struct device *__restrict self,
                 ((struct character_device *)self,buf,bufsize,offset,flags);
  error_throw(E_NOT_IMPLEMENTED);
 }
+
 /* @throw: E_NOT_IMPLEMENTED: Absolute-position writing isn't supported. */
 FUNDEF size_t KCALL
 device_pwrite(struct device *__restrict self,

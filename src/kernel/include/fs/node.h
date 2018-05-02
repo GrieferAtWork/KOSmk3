@@ -1214,6 +1214,9 @@ struct superblock {
     struct superblock_data      *s_fsdata;       /* [0..?] File-system specific superblock data. */
 };
 
+#define SUPERBLOCK_USES_DRIVER(self,d) \
+    ((self)->s_driver == (d) || (self)->s_device->b_device.d_driver == (d))
+
 /* Returns non-ZERO if the given superblock has been loaded.
  * This macro is called when a superblock is bound to a block-device. */
 #define SUPERBLOCK_LOADED(x) ((x)->s_nodesc != 0)

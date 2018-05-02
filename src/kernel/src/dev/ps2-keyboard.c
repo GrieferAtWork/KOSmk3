@@ -436,8 +436,8 @@ INTERN ATTR_FREETEXT void KCALL ps2_register_keyboard(u8 port) {
  kbd = KEYBOARD_ALLOC(Keyboard,&KeyboardOps);
  TRY {
   /* Initialize the device number and name fields. */
-  kbd->p_keyboard.k_dev.c_device.d_devno = MKDEV(MINOR(DV_PS2_KEYBOARD),
-                                                 port);
+  kbd->p_keyboard.k_dev.c_device.d_devno = MKDEV(MAJOR(DV_PS2_KEYBOARD),
+                                                 MINOR(DV_PS2_KEYBOARD)+port);
   sprintf(kbd->p_keyboard.k_dev.c_device.d_namebuf,
           "ps2_kbd%c",'a'+port);
   /* Setup port and initial keyboard state. */

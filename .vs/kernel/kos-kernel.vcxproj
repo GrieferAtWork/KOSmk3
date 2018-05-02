@@ -101,6 +101,7 @@
     <ClCompile Include="..\..\src\kernel\src\dev\keyboard.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\keymap.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\keymap_default.c" />
+    <ClCompile Include="..\..\src\kernel\src\dev\mouse.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\pci.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\ps2-keyboard.c" />
     <ClCompile Include="..\..\src\kernel\src\dev\ps2-mouse.c" />

@@ -35,11 +35,12 @@ __SYSDECL_BEGIN
 #define MOUSE_BUTTON_F5      0x0020 /* 5th mouse button is held down */
 
 struct mouse_packet {
-    __jtime64_t     mp_time; /* Timestamp of this packet (in jiffies) */
-    __INT32_TYPE__  mp_relx; /* Relative X distance traveled. (may be merged between multiple packets) */
-    __INT32_TYPE__  mp_rely; /* Relative Y distance traveled. (may be merged between multiple packets) */
-    __INT32_TYPE__  mp_relz; /* Relative wheel motion. */
-    __UINT32_TYPE__ mp_keys; /* Mouse buttons currently held down. (Set of `MOUSE_BUTTON_F*') */
+    __jtime64_t       mp_time; /* Timestamp of this packet (in jiffies) */
+    __INT64_TYPE__    mp_relx; /* Relative X distance traveled. (may be merged between multiple packets) */
+    __INT64_TYPE__    mp_rely; /* Relative Y distance traveled. (may be merged between multiple packets) */
+    __INT64_TYPE__    mp_relz; /* Relative wheel motion. */
+    __UINT16_TYPE__   mp_keys; /* Mouse buttons currently held down. (Set of `MOUSE_BUTTON_F*') */
+    __UINT16_TYPE__   mp_chng; /* Bitset of changed mouse buttons when compared to the previous mouse packet. */
 };
 
 

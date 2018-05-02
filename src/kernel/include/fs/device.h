@@ -490,7 +490,6 @@ struct character_device_ops {
                                  USER CHECKED void const *buf, size_t bufsize,
                                  pos_t offset, iomode_t flags);
         /* [0..1]
-         * [locked(READ(self->i_lock))]
          * Return a memory region containing data detailing
          * the memory for the given `page_index'.
          * If `page_index' isn't located at the start of the region,

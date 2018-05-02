@@ -483,6 +483,9 @@
     <ClCompile Include="..\..\src\kernel\src\vm\region-io.c">
       <Filter>kernel\src\vm</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\dev\mouse.c">
+      <Filter>kernel\src\dev</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">

@@ -22,6 +22,7 @@
 
 #include <hybrid/compiler.h>
 #include <dev/ps2.h>
+#include <dev/mouse.h>
 
 #ifdef CONFIG_HAVE_DEV_PS2
 DECL_BEGIN
@@ -45,6 +46,15 @@ DECL_BEGIN
 #define PS2_MOUSE_TYPE_FNORMAL   0x00 /* Normal mouse */
 #define PS2_MOUSE_TYPE_FWHEEL    0x03 /* Mouse with scroll-wheel */
 #define PS2_MOUSE_TYPE_F5BUTTON  0x04 /* 5-button mouse */
+
+
+struct ps2_mouse {
+    struct mouse  pm_mouse;       /* The underlying mouse. */
+    u8            pm_old_buttons; /* The old mouse button state (during the previous interrupt); set of `MOUSE_BUTTON_F*' */
+    u8            pm_port;        /* [const] The PS/2 port of this mouse. */
+    u8            pm_type;        /* [const] The type of mouse (One of `PS2_MOUSE_TYPE_F*'). */
+};
+
 
 DECL_END
 #endif /* CONFIG_HAVE_DEV_PS2 */
