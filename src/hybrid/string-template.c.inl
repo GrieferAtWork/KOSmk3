@@ -269,6 +269,33 @@ EXPORT_SYMBOL(ncasecmp);
 
 #ifndef CONFIG_LIBC_LIMITED_API
 
+CRT_STRING size_t LIBCCALL
+libc_strX(lcat)(T_char *__restrict dst,
+                T_char *__restrict src,
+                size_t dst_size) {
+ size_t result = libc_strX(len)(src);
+ T_char *new_dst = dst + libc_strX(nlen)(dst,dst_size);
+ size_t copy_size = (dst_size -= (new_dst-dst),
+                     result < dst_size ? result : dst_size-1);
+ libc_memcpystr(new_dst,src,copy_size);
+ new_dst[copy_size] = T_NUL;
+ return result + (new_dst-dst);
+}
+EXPORT_SYMBOL(lcat);
+
+CRT_STRING size_t LIBCCALL
+libc_strX(lcpy)(T_char *__restrict dst,
+                T_char *__restrict src,
+                size_t dst_size) {
+ size_t result = libc_strX(len)(src);
+ size_t copy_size = result < dst_size ? result : dst_size-1;
+ libc_memcpystr(dst,src,copy_size);
+ dst[copy_size] = T_NUL;
+ return result;
+}
+EXPORT_SYMBOL(lcpy);
+
+
 CRT_STRING int LIBCCALL
 libc_strX(casecmp_l)(T_char *a, T_char *b, locale_t locale) {
  T_char ca,cb;

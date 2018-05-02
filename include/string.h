@@ -629,6 +629,37 @@ __LIBC __ATTR_LIBC_PRINTF(1,0) __WUNUSED __MALL_DEFAULT_ALIGNED __ATTR_MALLOC ch
 #endif /* __USE_DEBUG_HOOK */
 #endif /* __USE_DEBUG */
 
+#ifdef __USE_MISC
+#if (defined(__CRT_KOS) && __KOS_VERSION__ >= 300) && \
+    !defined(__ANY_COMPAT__)
+__LIBC size_t (__LIBCCALL strlcat)(char *__restrict __dst, char const *__restrict __src, size_t __dst_size);
+__LIBC size_t (__LIBCCALL strlcpy)(char *__restrict __dst, char const *__restrict __src, size_t __dst_size);
+#else
+#ifdef __USE_XOPEN2K8
+#define __impl_strnlen(str,max_chars) strnlen(str,max_chars)
+#else
+__REDIRECT(__LIBC,__WUNUSED __ATTR_PURE __NONNULL((1)),size_t,__LIBCCALL,__impl_strnlen,(char const *__str, size_t __max_chars),strnlen,(__str,__max_chars))
+#endif
+__LOCAL size_t (__LIBCCALL strlcat)(char *__restrict __dst, char const *__restrict __src, size_t __dst_size) {
+ size_t __result = __NAMESPACE_STD_SYM strlen(__src);
+ char *__new_dst = __dst + __impl_strnlen(__dst,__dst_size);
+ size_t __copy_size = (__dst_size -= (__new_dst-__dst),
+                       __result < __dst_size ? __result : __dst_size-1);
+ __NAMESPACE_STD_SYM memcpy(__new_dst,__src,__copy_size*sizeof(char));
+ __new_dst[__copy_size] = '\0';
+ return __result + (__new_dst-__dst);
+}
+__LOCAL size_t (__LIBCCALL strlcpy)(char *__restrict __dst, char const *__restrict __src, size_t __dst_size) {
+ size_t __result = __NAMESPACE_STD_SYM strlen(__src);
+ size_t __copy_size = __result < __dst_size ? __result : __dst_size-1;
+ __NAMESPACE_STD_SYM memcpy(__dst,__src,__copy_size*sizeof(char));
+ __dst[__copy_size] = '\0';
+ return __result;
+}
+#undef __impl_strnlen
+#endif
+#endif
+
 
 __SYSDECL_END
 

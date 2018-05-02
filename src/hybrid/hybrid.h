@@ -622,6 +622,12 @@ INTDEF int LIBCCALL libc_w32casecmp_l(char32_t const *a, char32_t const *b, loca
 INTDEF int LIBCCALL libc_strncasecmp_l(char const *a, char const *b, size_t max_chars, locale_t locale);
 INTDEF int LIBCCALL libc_w16ncasecmp_l(char16_t const *a, char16_t const *b, size_t max_chars, locale_t locale);
 INTDEF int LIBCCALL libc_w32ncasecmp_l(char32_t const *a, char32_t const *b, size_t max_chars, locale_t locale);
+INTDEF size_t LIBCCALL libc_strlcpy(char *__restrict dst, char const *__restrict src, size_t dst_size);
+INTDEF size_t LIBCCALL libc_strlcat(char *__restrict dst, char const *__restrict src, size_t dst_size);
+INTDEF size_t LIBCCALL libc_w16lcpy(char16_t *__restrict dst, char16_t const *__restrict src, size_t dst_size);
+INTDEF size_t LIBCCALL libc_w32lcpy(char32_t *__restrict dst, char32_t const *__restrict src, size_t dst_size);
+INTDEF size_t LIBCCALL libc_w16lcat(char16_t *__restrict dst, char16_t const *__restrict src, size_t dst_size);
+INTDEF size_t LIBCCALL libc_w32lcat(char32_t *__restrict dst, char32_t const *__restrict src, size_t dst_size);
 INTDEF char *LIBCCALL libc_strnchr(char const *__restrict haystack, int needle, size_t maxlen);
 INTDEF char16_t *LIBCCALL libc_w16nchr(char16_t const *__restrict haystack, wint_t needle, size_t maxlen);
 INTDEF char32_t *LIBCCALL libc_w32nchr(char32_t const *__restrict haystack, wint_t needle, size_t maxlen);
