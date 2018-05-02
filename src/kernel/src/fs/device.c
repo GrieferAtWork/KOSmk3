@@ -783,6 +783,7 @@ new_page(struct block_device *__restrict self, blkaddr_t addr,
  size_t i,perturb,hash = BLKADDR_HASH(addr);
  assert(self->b_pagebuf.ps_mapc <= self->b_pagebuf.ps_mapm);
  assert(self->b_pagebuf.ps_mapu <= self->b_pagebuf.ps_mapc);
+ assert(!(self->b_device.d_flags & DEVICE_BLOCK_FLINEAR));
  if unlikely(addr >= self->b_blockcount)
     error_throw(E_NO_DATA);
  if unlikely(!self->b_pagebuf.ps_mapu) {
@@ -1005,19 +1006,24 @@ block_device_read(struct block_device *__restrict self,
 again:
  rwlock_readf(&self->b_pagebuf.ps_lock,flags);
  TRY {
-  if (self->b_device.d_flags & (DEVICE_FCLOSED))
-      throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
-  for (;;) {
+  if (self->b_device.d_flags & (DEVICE_FCLOSED|DEVICE_BLOCK_FLINEAR)) {
+   if (self->b_device.d_flags & DEVICE_FCLOSED)
+       throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
+   /* Use the linear read operator. */
+   result = (*self->b_io.io_linear.l_read)(self,buf,xnum_bytes,device_position,flags);
+   if unlikely(result < num_bytes && !(flags&IO_NONBLOCK))
+      error_throw(E_NO_DATA);
+  } else for (;;) {
    blkaddr_t pageno = (blkaddr_t)(device_position / self->b_blocksize);
    blksize_t pageof = (blksize_t)(device_position % self->b_blocksize);
    size_t max_read  = self->b_blocksize - (size_t)pageof;
    struct block_page *page;
    page = new_page(self,pageno,NULL,flags);
-   if (max_read > num_bytes)
-       max_read = num_bytes;
+   if (max_read > xnum_bytes)
+       max_read = xnum_bytes;
    memcpy(buf,(void *)((uintptr_t)page->bp_data + pageof),max_read);
-   num_bytes          -= max_read;
-   if (!num_bytes) break;
+   xnum_bytes         -= max_read;
+   if (!xnum_bytes) break;
    device_position    += max_read;
    *(uintptr_t *)&buf += max_read;
   }
@@ -1050,15 +1056,20 @@ block_device_write(struct block_device *__restrict self,
 again:
  rwlock_readf(&self->b_pagebuf.ps_lock,flags);
  TRY {
-  if (self->b_device.d_flags & (DEVICE_FREADONLY|DEVICE_FCLOSED))
-      throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
-  for (;;) {
+  if (self->b_device.d_flags & (DEVICE_FREADONLY|DEVICE_FCLOSED|DEVICE_BLOCK_FLINEAR)) {
+   if (self->b_device.d_flags & (DEVICE_FREADONLY|DEVICE_FCLOSED))
+       throw_fs_error(ERROR_FS_READONLY_FILESYSTEM);
+   /* Use the linear write operator. */
+   result = (*self->b_io.io_linear.l_write)(self,buf,num_bytes,device_position,flags);
+   if unlikely(result < num_bytes && !(flags&IO_NONBLOCK))
+      error_throw(E_NO_DATA);
+  } else for (;;) {
    blkaddr_t pageno = (blkaddr_t)(device_position / self->b_blocksize);
    blksize_t pageof = (blksize_t)(device_position % self->b_blocksize);
    size_t max_write  = self->b_blocksize - (size_t)pageof;
    struct block_page *page;
-   if (max_write > num_bytes)
-       max_write = num_bytes;
+   if (max_write > xnum_bytes)
+       max_write = xnum_bytes;
    if (max_write == self->b_blocksize) {
     assert(pageof == 0);
     /* Force a segfault if the user-buffer is NULL. */
@@ -1073,13 +1084,21 @@ again:
    } else {
     /* Do a partial write to a page. */
     page = new_page(self,pageno,NULL,flags);
+    /* Mark the page as modified. */
+    page->bp_flags |= BLOCK_PAGE_FCHANGED;
     memcpy((void *)((uintptr_t)page->bp_data + pageof),buf,max_write);
    }
    if (flags & IO_SYNC) {
-    /* TODO: Sync changed pages. */
+    /* Sync changed pages immediately. */
+    (*self->b_io.io_write)(self,
+                           page->bp_data,
+                           1,
+                           page->bp_addr);
+    COMPILER_BARRIER();
+    page->bp_flags &= ~BLOCK_PAGE_FCHANGED;
    }
-   num_bytes          -= max_write;
-   if (!num_bytes) break;
+   xnum_bytes         -= max_write;
+   if (!xnum_bytes) break;
    *(uintptr_t *)&buf += max_write;
    device_position    += max_write;
   }
@@ -1104,6 +1123,8 @@ block_device_sync(struct block_device *__restrict self) {
  TRY {
   if (self->b_pagebuf.ps_mapv) {
    struct block_page *iter,*end;
+   assertf(!(self->b_device.d_flags & DEVICE_BLOCK_FLINEAR),
+           "Linear block device with non-empty page buffer");
    end = (iter = self->b_pagebuf.ps_mapv)+
                 (self->b_pagebuf.ps_mapm+1);
    for (; iter != end; ++iter) {
@@ -1116,6 +1137,9 @@ block_device_sync(struct block_device *__restrict self) {
     iter->bp_flags &= ~BLOCK_PAGE_FCHANGED;
    }
   }
+  /* Invoke an optional, device-specific synchronization callback. */
+  if (self->b_io.io_sync)
+    (*self->b_io.io_sync)(self);
  } FINALLY {
   rwlock_endwrite(&xself->b_pagebuf.ps_lock);
  }

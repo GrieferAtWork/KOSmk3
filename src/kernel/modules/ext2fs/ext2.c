@@ -797,6 +797,8 @@ Ext2FS_Open(struct superblock *__restrict self,
  self->s_root->d_node.i_attr.a_ino = EXT2_ROOT_DIRECTORY_INO;
  self->s_root->d_node.i_ops        = &Ext2_DirectoryOps;
 
+ (void)must_mount_ro; /* TODO */
+
 }
 
 PRIVATE void KCALL

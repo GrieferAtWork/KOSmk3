@@ -48,6 +48,8 @@ struct stat64;
                                       * Write operations are not forwarded to operators
                                       * and dismissed immediately by throwing an
                                       * `ERROR_FS_READONLY_FILESYSTEM' error. */
+#define DEVICE_BLOCK_FLINEAR  0x0002 /* [const] The block device is operating in linear mode.
+                                      *         Mainly used for loopback devices. */
 #define DEVICE_FCLOSED        0x4000 /* [lock(WRITE_ONCE && block_pages::ps_lock)]
                                       * Disable I/O for block devices (set
                                       * for old partitions during autopart) */
@@ -264,29 +266,64 @@ struct block_device {
                                                        * Chain of partitions of this block-device. */
         }                               b_partition;  /* [b_master != self] partition data. */
         struct {                                      /* [b_master == self] */
-            struct block_pages          b_pagebuf;    /* Block page buffer. */
+            struct block_pages          b_pagebuf;    /* Block page buffer.
+                                                       * NOTE: Blocks devices operating in linear mode
+                                                       *       must always have this buffer be empty!
+                                                       * Aka.: A loopback device's block-page buffer
+                                                       *       is assumed to always be empty! */
             atomic_rwlock_t             b_partlock;   /* Lock for `b_partitions' */
             WEAK LIST_HEAD(struct block_device)
                                         b_partitions; /* [0..1][->b_device.d_flags&DEVICE_FPARTITION]
                                                        * [lock(b_partlock)] Chain of partitions of this block-device. */
             minor_t                     b_partmaxcnt; /* [const] The max number of partitions. */
             struct PACKED {
-                /* [1..1][const]
-                 *  Disk-level read-block operator (for synchronous reading)
-                 * @assume((first_block + num_blocks) <= self->b_blockcount)
-                 * @throw E_SEGFAULT: The given user-buffer is faulty. */
-                void (KCALL *io_read)(struct block_device *__restrict self,
-                                      CHECKED USER void *buf, size_t num_blocks,
-                                      blkaddr_t first_block);
-                /* [1..1][const]
-                 *  Disk-level write-block operator (for synchronous writing)
-                 * @assume((first_block + num_blocks) <= self->b_blockcount)
-                 * @throw E_SEGFAULT: The given user-buffer is faulty. */
-                void (KCALL *io_write)(struct block_device *__restrict self,
-                                       CHECKED USER void const *buf, size_t num_blocks,
-                                       blkaddr_t first_block);
+                union PACKED {
+                    struct PACKED {
+                        /* [1..1][const]
+                         * @return: * : The actual number of read bytes.
+                         *        NOTE: When less than `num_bytes', and the `IO_NONBLOCK' flag
+                         *              isn't set, the caller must throw an `E_NO_DATA' error.
+                         * @throw: E_SEGFAULT: The given user-buffer is faulty.
+                         * @throw: E_IOERROR:  [...] */
+                        size_t (KCALL *l_read)(struct block_device *__restrict self,
+                                               CHECKED USER void *buf, size_t num_bytes,
+                                               pos_t pos, iomode_t mode);
+                        /* [1..1][const]
+                         * @return: * : The actual number of written bytes.
+                         *        NOTE: When less than `num_bytes', and the `IO_NONBLOCK' flag
+                         *              isn't set, the caller must throw an `E_NO_DATA' error.
+                         * @throw: E_SEGFAULT: The given user-buffer is faulty.
+                         * @throw: E_IOERROR:  [...] */
+                        size_t (KCALL *l_write)(struct block_device *__restrict self,
+                                                CHECKED USER void const *buf, size_t num_bytes,
+                                                pos_t pos, iomode_t mode);
+                    }  io_linear; /* [valid_if(DEVICE_BLOCK_FLINEAR)] */
+                    struct PACKED {
+                        /* [1..1][const][lock(WRITE(b_pagebuf.ps_lock))]
+                         *  Disk-level read-block operator (for synchronous reading)
+                         * @assume((first_block + num_blocks) <= self->b_blockcount)
+                         * @throw: E_SEGFAULT: The given user-buffer is faulty.
+                         * @throw: E_IOERROR:  [...] */
+                        void (KCALL *io_read)(struct block_device *__restrict self,
+                                              CHECKED USER void *buf, size_t num_blocks,
+                                              blkaddr_t first_block);
+                        /* [1..1][const][lock(WRITE(b_pagebuf.ps_lock))]
+                         *  Disk-level write-block operator (for synchronous writing)
+                         * @assume((first_block + num_blocks) <= self->b_blockcount)
+                         * @throw: E_SEGFAULT: The given user-buffer is faulty.
+                         * @throw: E_IOERROR:  [...] */
+                        void (KCALL *io_write)(struct block_device *__restrict self,
+                                               CHECKED USER void const *buf, size_t num_blocks,
+                                               blkaddr_t first_block);
+                    };
+                };
+
                 /* [0..1][const] Finalizer. - Called during `device_destroy' */
                 /*ATTR_NOTHROW*/void (KCALL *io_fini)(struct block_device *__restrict self);
+
+                /* [0..1][const][lock(WRITE(b_pagebuf.ps_lock))]
+                 * Synchronication callback (invoked by `block_device_sync()') */
+                void (KCALL *io_sync)(struct block_device *__restrict self);
 
                 /* [0..1][const] I/O control callback.
                  * @throw: E_NOT_IMPLEMENTED: Same as not implementing this operator.
