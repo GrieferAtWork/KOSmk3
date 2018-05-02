@@ -262,8 +262,8 @@ int main(int argc, char *argv[]) {
   /* Create a symbolic link for the default keyboard and mouse device. */
   /* */if (stat("/dev/ps2_kbda",&buf) == 0) Xsymlink("ps2_kbda","/dev/keyboard");
   else if (stat("/dev/ps2_kbdb",&buf) == 0) Xsymlink("ps2_kbdb","/dev/keyboard");
-  /* */if (stat("/dev/ps2_mousea",&buf) == 0) Xsymlink("ps2_mousea","/dev/mouse");
-  else if (stat("/dev/ps2_mouseb",&buf) == 0) Xsymlink("ps2_mouseb","/dev/mouse");
+  /* */if (stat("/dev/ps2_mouseb",&buf) == 0) Xsymlink("ps2_mouseb","/dev/mouse");
+  else if (stat("/dev/ps2_mousea",&buf) == 0) Xsymlink("ps2_mousea","/dev/mouse");
  }
 #endif
 
