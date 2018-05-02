@@ -83,16 +83,10 @@ DECL_BEGIN
 
 #ifdef __CC__
 
-/* [!0][*] Size of a single packet on the associated PS/2 port.
- * HINT: Keyboard usually have a packet size of 1
- * HINT: Mice usually have a packet size of 3
- * NOTE: The packet size is pre-initialized to { 1, 1 } */
-DATDEF u8 ps2_packet_size[PS2_PORTCOUNT];
-
 /* [*] The type of device connected to the specified PS/2 port (One of `PS2_PORT_DEVICE_F*') */
 DATDEF u8 ps2_port_device[PS2_PORTCOUNT];
 
-typedef ASYNCSAFE void (KCALL *ps2_callback_t)(void *arg, byte_t *__restrict ps2_bytes);
+typedef ASYNCSAFE void (KCALL *ps2_callback_t)(void *arg, byte_t byte);
 
 /* Install/delete a PS/2 interrupt data callback.
  * WARNING: The callback is executed with preemption disabled, and must

@@ -25,6 +25,7 @@
 #include <dev/ps2-mouse.h>
 #include <dev/ps2-program.h>
 #include <kos/mouse-ioctl.h>
+#include <kernel/debug.h>
 #include <hybrid/section.h>
 #include <except.h>
 #include <kos/kdev_t.h>
@@ -43,45 +44,48 @@ typedef struct ps2_mouse Mouse;
  */
 #define PS2_MOUSE_PACKET_MAXSIZE  32 /* 26 */
 
-struct ps2_mouse_packet {
-#define MOUSE_PACKET_FYO 0x80 /* Y-Axis Overflow */
-#define MOUSE_PACKET_FXO 0x40 /* X-Axis Overflow */
-#define MOUSE_PACKET_FYS 0x20 /* Y-Axis Sign Bit (9-Bit Y-Axis Relative Offset) */
-#define MOUSE_PACKET_FXS 0x10 /* X-Axis Sign Bit (9-Bit X-Axis Relative Offset) */
-#define MOUSE_PACKET_FAO 0x08 /* Always One */
-#define MOUSE_PACKET_FBM 0x04 /* Button Middle (Normally Off = 0) */
-#define MOUSE_PACKET_FBR 0x02 /* Button Right (Normally Off = 0) */
-#define MOUSE_PACKET_FBL 0x01 /* Button Left (Normally Off = 0) */
-    u8 flags;                 /* Set of `MOUSE_PACKET_F*' */
-    u8 xm;                    /* X-Axis Movement Value  */
-    u8 ym;                    /* Y-Axis Movement Value  */
-};
-
-STATIC_ASSERT(MOUSE_BUTTON_FLEFT   == MOUSE_PACKET_FBL);
-STATIC_ASSERT(MOUSE_BUTTON_FRIGHT  == MOUSE_PACKET_FBR);
-STATIC_ASSERT(MOUSE_BUTTON_FMIDDLE == MOUSE_PACKET_FBM);
+STATIC_ASSERT(MOUSE_BUTTON_FLEFT   == PS2_MOUSE_PACKET_FBL);
+STATIC_ASSERT(MOUSE_BUTTON_FRIGHT  == PS2_MOUSE_PACKET_FBR);
+STATIC_ASSERT(MOUSE_BUTTON_FMIDDLE == PS2_MOUSE_PACKET_FBM);
 
 PRIVATE ASYNCSAFE void KCALL
-Mouse_Interrupt(Mouse *__restrict self,
-                struct ps2_mouse_packet *__restrict pck) {
+Mouse_Interrupt(Mouse *__restrict self, byte_t byte) {
  byte_t buf[PS2_MOUSE_PACKET_MAXSIZE];
  byte_t *ptr = buf; s16 relx,rely;
+ jtime_t now = jiffies;
+ if (self->pm_pack_cnt  != 0 &&
+     /* If a pause of at least 50 milliseconds interrupted mouse packet
+      * complection, assume that it's due to a miss-aligned data stream */
+     self->pm_last_part <= now-(1+JIFFIES_FROM_MILLI(50))) {
+  /* Long pause on a part other than the first.
+   * Assume that our data stream got miss-aligned and try to fix it.
+   * -> Since the current byte arrived after a considerable delay,
+   *    assume that _it_ is the first of a new packet. */
+  debug_printf("[PS2] WARNING: Trying to realign miss-aligned mouse data stream (faulty hardware?)\n");
+  self->pm_pack_cnt = 0;
+ }
+ self->pm_last_part = now;
+ self->pm_pack[self->pm_pack_cnt++] = byte;
+ if (self->pm_pack_cnt < self->pm_pack_sz)
+     return; /* Incomplete packet */
+ self->pm_pack_cnt = 0;
 
  /* Check for button changes. */
- if ((self->pm_old_buttons & MOUSE_BUTTON_FLEFT) != (pck->flags & MOUSE_PACKET_FBL))
-      ptr = mouse_encode_updown(ptr,0,!!(pck->flags & MOUSE_PACKET_FBL));
- if ((self->pm_old_buttons & MOUSE_BUTTON_FRIGHT) != (pck->flags & MOUSE_PACKET_FBR))
-      ptr = mouse_encode_updown(ptr,1,!!(pck->flags & MOUSE_PACKET_FBR));
- if ((self->pm_old_buttons & MOUSE_BUTTON_FMIDDLE) != (pck->flags & MOUSE_PACKET_FBM))
-      ptr = mouse_encode_updown(ptr,2,!!(pck->flags & MOUSE_PACKET_FBM));
+ if ((self->pm_old_buttons & PS2_MOUSE_PACKET_FBL) != (self->pm_pck.flags & PS2_MOUSE_PACKET_FBL))
+      ptr = mouse_encode_updown(ptr,0,!!(self->pm_pck.flags & PS2_MOUSE_PACKET_FBL));
+ if ((self->pm_old_buttons & PS2_MOUSE_PACKET_FBR) != (self->pm_pck.flags & PS2_MOUSE_PACKET_FBR))
+      ptr = mouse_encode_updown(ptr,1,!!(self->pm_pck.flags & PS2_MOUSE_PACKET_FBR));
+ if ((self->pm_old_buttons & PS2_MOUSE_PACKET_FBM) != (self->pm_pck.flags & PS2_MOUSE_PACKET_FBM))
+      ptr = mouse_encode_updown(ptr,2,!!(self->pm_pck.flags & PS2_MOUSE_PACKET_FBM));
  /* Save the new button state. */
- self->pm_old_buttons = pck->flags & (MOUSE_PACKET_FBL|MOUSE_PACKET_FBR|MOUSE_PACKET_FBM);
+ self->pm_old_buttons = self->pm_pck.flags & (PS2_MOUSE_PACKET_FBL|PS2_MOUSE_PACKET_FBR|PS2_MOUSE_PACKET_FBM);
+ COMPILER_WRITE_BARRIER();
 
  /* Extract and encode relative mouse motion. */
- relx = pck->xm;
- rely = pck->ym;
- if (pck->flags & MOUSE_PACKET_FXS) relx = -relx;
- if (pck->flags & MOUSE_PACKET_FYS) rely = -rely;
+ relx = self->pm_pck.xm;
+ rely = self->pm_pck.ym;
+ if (self->pm_pck.flags & PS2_MOUSE_PACKET_FXS) relx = -relx;
+ if (self->pm_pck.flags & PS2_MOUSE_PACKET_FYS) rely = -rely;
  ptr = mouse_encode_movxy(ptr,relx,rely);
 
  /* Encode the current system time. */
@@ -166,6 +170,10 @@ ps2_register_mouse(u8 port, u8 type) {
   /* Setup port and initial keyboard state. */
   m->pm_port = port;
   m->pm_type = type;
+
+  /* Currently, we only initialize the mouse as a 3-button device. */
+  m->pm_pack_sz = 3;
+
   /* The code about configured the mouse to already enable reporting. */
   m->pm_mouse.m_flags |= MOUSE_FREPORTING;
   /* Hook the PS/2 interrupt callback for the keyboard. */
@@ -179,7 +187,6 @@ ps2_register_mouse(u8 port, u8 type) {
  }
  /* It's a mouse! (remember that) */
  ps2_port_device[port] = PS2_PORT_DEVICE_FMOUSE;
- ps2_packet_size[port] = 3;
 }
 
 

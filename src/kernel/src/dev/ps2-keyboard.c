@@ -114,10 +114,8 @@ Keyboard_Putc(Keyboard *__restrict self, keyboard_key_t key) {
 }
 
 PRIVATE ASYNCSAFE void KCALL
-Keyboard_Interrupt(Keyboard *__restrict self,
-                   byte_t *__restrict packet) {
+Keyboard_Interrupt(Keyboard *__restrict self, byte_t keycode) {
  keyboard_key_t key;
- byte_t keycode = packet[0];
 again:
  switch (self->p_state) {
 

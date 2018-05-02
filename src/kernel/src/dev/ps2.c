@@ -137,22 +137,21 @@ struct ps2_inputdata {
 
 /* PS/2 input state for the primary and secondary ports. */
 PRIVATE struct ps2_inputdata ps2_input[PS2_PORTCOUNT];
-PUBLIC u8 ps2_packet_size[PS2_PORTCOUNT] = { [0 ... PS2_PORTCOUNT-1] = 1 };
 PUBLIC u8 ps2_port_device[PS2_PORTCOUNT] = { [0 ... PS2_PORTCOUNT-1] = PS2_PORT_DEVICE_FUNKNOWN };
 
 /* Operate with PS/2 input data. */
-PRIVATE ASYNCSAFE void KCALL ps2_inputdata_putword(struct ps2_inputdata *__restrict self, byte_t *__restrict ps2_bytes);
+PRIVATE ASYNCSAFE void KCALL ps2_inputdata_putword(struct ps2_inputdata *__restrict self, byte_t byte);
 PRIVATE void KCALL ps2_inputdata_addfunc(struct ps2_inputdata *__restrict self, ps2_callback_t func, void *arg);
 PRIVATE bool KCALL ps2_inputdata_delfunc(struct ps2_inputdata *__restrict self, ps2_callback_t func, void *arg);
 
 
 PRIVATE ASYNCSAFE void KCALL
 ps2_inputdata_putword(struct ps2_inputdata *__restrict self,
-                      byte_t *__restrict ps2_bytes) {
+                      byte_t byte) {
  struct ps2_callback *vec; size_t i,count;
  assert(!PREEMPTION_ENABLED());
 #if 0
- debug_printf("PS2 %$q\n",ps2_packet_size[self-ps2_input],ps2_bytes);
+ debug_printf("PS2 0x%.2I8x\n",byte);
 #endif
 
 again:
@@ -171,15 +170,14 @@ again:
  }
 #if 1
  if unlikely(!count) {
-  debug_printf("Untargeted interrupt: %$q (port #%u)\n",
-               ps2_packet_size[self-ps2_input],ps2_bytes,
-               1+(self-ps2_input));
+  debug_printf("Untargeted interrupt: 0x%.2I8x (port #%u)\n",
+               byte,1+(self-ps2_input));
  }
 #endif
 
  /* Add the key to every connected buffer. */
  for (i = 0; i < count; ++i)
-     (*vec[i].c_func)(vec[i].c_arg,ps2_bytes);
+     (*vec[i].c_func)(vec[i].c_arg,byte);
  ATOMIC_WRITE(self->bv_bufv,vec);
 }
 
@@ -502,10 +500,26 @@ do_jcc:
 }
 
 
+#undef CONFIG_PS2_CHECK_FOR_DATA
+
+/* This might seem like a smart idea, but it seems to cause miss-alignments in the
+ * PS/2 data stream (especially when both PS/2 devices are generating interrupts).
+ * If it wasn't for those problems, this could be a great thing to do in order to
+ * improve performace, but sadly that isn't meant to be. */
+#if 0
+#define CONFIG_PS2_CHECK_FOR_DATA  1
+#endif
+
 
 INTERN void KCALL ps2_interrupt(u8 port) {
  struct ps2_progreq *prog;
- u8 data = inb(PS2_DATA);
+ u8 data;
+#ifdef CONFIG_PS2_CHECK_FOR_DATA
+again:
+ if (!(inb(PS2_STATUS) & PS2_STATUS_OUTFULL))
+       return;
+#endif
+ data = inb(PS2_DATA);
  prog = ATOMIC_READ(current_program[port]);
  if (prog != PS2_PROGREQ_FINISHED &&
      prog != PS2_PROGREQ_PENDING) {
@@ -546,21 +560,13 @@ program_finished:
         goto program_finished;
   }
  } else {
-  u8 size = ps2_packet_size[port];
-  if (size <= 1) {
-   /* Broadcast the raw PS/2 data byte. */
-   ps2_inputdata_putword(&ps2_input[port],&data);
-  } else {
-   /* Read the remainder of the packet. */
-   byte_t *iter,*packet;
-   iter = packet = (byte_t *)alloca(size);
-   *iter++ = data,--size;
-   do *iter++ = inb(PS2_DATA);
-   while (--size);
-   /* Broadcast the raw PS/2 packet. */
-   ps2_inputdata_putword(&ps2_input[port],packet);
-  }
+  /* Broadcast the raw PS/2 data byte. */
+  ps2_inputdata_putword(&ps2_input[port],data);
  }
+#ifdef CONFIG_PS2_CHECK_FOR_DATA
+ /* Check for more data? */
+ goto again;
+#endif
 }
 
 

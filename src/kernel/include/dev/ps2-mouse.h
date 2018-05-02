@@ -48,11 +48,34 @@ DECL_BEGIN
 #define PS2_MOUSE_TYPE_F5BUTTON  0x04 /* 5-button mouse */
 
 
+
+struct ps2_mouse_packet {
+#define PS2_MOUSE_PACKET_FYO 0x80 /* Y-Axis Overflow */
+#define PS2_MOUSE_PACKET_FXO 0x40 /* X-Axis Overflow */
+#define PS2_MOUSE_PACKET_FYS 0x20 /* Y-Axis Sign Bit (9-Bit Y-Axis Relative Offset) */
+#define PS2_MOUSE_PACKET_FXS 0x10 /* X-Axis Sign Bit (9-Bit X-Axis Relative Offset) */
+#define PS2_MOUSE_PACKET_FAO 0x08 /* Always One */
+#define PS2_MOUSE_PACKET_FBM 0x04 /* Button Middle (Normally Off = 0) */
+#define PS2_MOUSE_PACKET_FBR 0x02 /* Button Right (Normally Off = 0) */
+#define PS2_MOUSE_PACKET_FBL 0x01 /* Button Left (Normally Off = 0) */
+    u8 flags;                 /* Set of `MOUSE_PACKET_F*' */
+    u8 xm;                    /* X-Axis Movement Value  */
+    u8 ym;                    /* Y-Axis Movement Value  */
+};
+
+
 struct ps2_mouse {
-    struct mouse  pm_mouse;       /* The underlying mouse. */
-    u8            pm_old_buttons; /* The old mouse button state (during the previous interrupt); set of `MOUSE_BUTTON_F*' */
-    u8            pm_port;        /* [const] The PS/2 port of this mouse. */
-    u8            pm_type;        /* [const] The type of mouse (One of `PS2_MOUSE_TYPE_F*'). */
+    struct mouse                pm_mouse;       /* The underlying mouse. */
+    jtime_t                     pm_last_part;   /* Jiffies at the time of the last received packet part (to deal with lost mouse packages) */
+    u8                          pm_port;        /* [const] The PS/2 port of this mouse. */
+    u8                          pm_type;        /* [const] The type of mouse (One of `PS2_MOUSE_TYPE_F*'). */
+    u8                          pm_pack_sz;     /* [const] Total size of a mouse packet. */
+    u8                          pm_pack_cnt;    /* Number of bytes read for the current mouse packet. */
+    union PACKED {
+        struct ps2_mouse_packet pm_pck;         /* Current mouse packet. */
+        u8                      pm_pack[4];     /* Current mouse packet data. */
+    };
+    u8                          pm_old_buttons; /* The old mouse button state (during the previous interrupt); set of `MOUSE_BUTTON_F*' */
 };
 
 
