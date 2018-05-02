@@ -88,6 +88,11 @@ Mouse_Interrupt(Mouse *__restrict self, byte_t byte) {
  if (self->pm_pck.flags & PS2_MOUSE_PACKET_FYS) rely = -rely;
  ptr = mouse_encode_movxy(ptr,relx,rely);
 
+ /* If nothing actually happened (which shouldn't
+  * actually happen), don't trigger a mouse action. */
+ if (ptr == buf)
+     return;
+
  /* Encode the current system time. */
  ptr = mouse_encode_pack(ptr,&self->pm_mouse);
 

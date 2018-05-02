@@ -40,7 +40,11 @@ struct mouse_packet {
     __INT64_TYPE__    mp_relx;    /* Relative X distance traveled. (may be merged between multiple packets) */
     __INT64_TYPE__    mp_rely;    /* Relative Y distance traveled. (may be merged between multiple packets) */
     __INT64_TYPE__    mp_relz;    /* Relative wheel motion. */
-    __UINT16_TYPE__   mp_keys;    /* Mouse buttons currently held down. (Set of `MOUSE_BUTTON_F*') */
+    __UINT16_TYPE__   mp_keys;    /* Mouse buttons currently held down. (Set of `MOUSE_BUTTON_F*')
+                                   * NOTE: If buttons changed while the mouse was moved, the new button
+                                   *       state became active _AFTER_ the mouse was moved, meaning that
+                                   *       a click event should be triggered _AFTER_ relative mouse movement
+                                   *       is added to its previous absolute position. */
     __UINT16_TYPE__   mp_chng;    /* Bitset of changed mouse buttons when compared to the previous mouse packet. */
     __UINT32_TYPE__ __mp_pad;     /* ... */
 #ifndef __KERNEL__

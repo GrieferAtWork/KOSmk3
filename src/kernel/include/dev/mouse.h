@@ -73,7 +73,7 @@ struct mouse_overflow {
 };
 
 
-#define MOUSE_ACTION_BACKLOG_SIZE  1024
+#define MOUSE_ACTION_BACKLOG_SIZE  2048
 
 union PACKED mouse_action_state {
    ATOMIC_DATA u32        as_word; /* Action state control word. */
@@ -84,6 +84,22 @@ union PACKED mouse_action_state {
 };
 
 struct mouse {
+    /* Mouse packet buffering is implemented to be as smart as possible,
+     * while still ensuring that even in a scenario of absolutely horrendous
+     * lag, no mouse button presses, or mouse motion will ever become lost.
+     * How is this done? Well... I didn't say that the order in which the
+     * user did those things was kept...
+     * Essentially, this means that when the mouse action backlog has filled
+     * up, we start updating the `m_overflow' field to contain the sum of all
+     * motion data, and button press counts for mouse events which happened
+     * after the buffer filled up. Once mouse data is eventually read again,
+     * all backed up data from the full backlog will be read, following which
+     * a packet containing all motion data from `m_overflow' is send, before
+     * whatever number of packets it takes to describe all the mouse button
+     * presses the user did is sent.
+     * Note however, that this mechanism only takes effect when either no one
+     * is reading from the mouse device, or when there is some extreme lag
+     * going on. */
     struct character_device    m_dev;       /* Underlying character device. */
     struct mouse_ops          *m_ops;       /* [1..1][const] Mouse operators. */
     mutex_t                    m_lock;      /* Lock for mouse properties. */
