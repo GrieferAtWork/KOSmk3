@@ -17,6 +17,30 @@
  * 3. This notice may not be removed or altered from any source distribution. *
  */
 #define __GCC_VERSION(a,b,c) 0
+#ifndef __has_builtin
+#define __has_builtin(x) 0
+#endif
+#ifndef __has_feature
+#define __has_feature(x) 0
+#endif
+#ifndef __has_extension
+#define __has_extension  __has_feature
+#endif
+#ifndef __has_attribute
+#define __has_attribute(x) 0
+#endif
+#ifndef __has_declspec_attribute
+#define __has_declspec_attribute(x) 0
+#endif
+#ifndef __has_cpp_attribute
+#define __has_cpp_attribute(x) 0
+#endif
+#ifndef __has_include
+#define __has_include(x) 0
+#endif
+#ifndef __has_include_next
+#define __has_include_next(x) 0
+#endif
 
 #define __builtin_expect(x,y) (x)
 #define __NO_builtin_expect    1

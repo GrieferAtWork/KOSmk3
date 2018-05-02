@@ -224,17 +224,27 @@ enum {
 
 
 #ifndef __OPTIMIZE_SIZE__
-#if __GCC_VERSION(4,0,0) || \
-   (__has_builtin(__builtin_signbitf) && __has_builtin(__builtin_signbit) && \
-    __has_builtin(__builtin_signbitl))
+#if __has_builtin(__builtin_signbitf) && \
+    __has_builtin(__builtin_signbit) && \
+    __has_builtin(__builtin_signbitl)
 #define signbit(x) __FPFUNC(x,__builtin_signbitf,__builtin_signbit,__builtin_signbitl)
 #endif
-#if __GCC_VERSION(4,4,0) && !defined(__SUPPORT_SNAN__)
+#ifndef __SUPPORT_SNAN__
+#if __has_builtin(__builtin_fpclassify)
 #define fpclassify(x) __builtin_fpclassify(FP_NAN,FP_INFINITE,FP_NORMAL,FP_SUBNORMAL,FP_ZERO,x)
+#endif
+#if __has_builtin(__builtin_isfinite)
 #define isfinite(x)   __builtin_isfinite(x)
+#endif
+#if __has_builtin(__builtin_isnormal)
 #define isnormal(x)   __builtin_isnormal(x)
+#endif
+#if __has_builtin(__builtin_isnan)
 #define isnan(x)      __builtin_isnan(x)
+#endif
+#if __has_builtin(__builtin_isinf_sign)
 #define isinf(x)      __builtin_isinf_sign(x)
+#endif
 #endif
 #endif /* !__OPTIMIZE_SIZE__ */
 
@@ -270,7 +280,8 @@ enum {
 #endif /* !isinf */
 
 #ifdef __USE_ISOC99
-#if __GCC_VERSION(2,97,0) && (!defined(__DOS_COMPAT__) || !defined(__OPTIMIZE_SIZE__))
+#if __has_builtin(__builtin_isunordered) && \
+   (!defined(__DOS_COMPAT__) || !defined(__OPTIMIZE_SIZE__))
 #define isunordered(u,v)    __builtin_isunordered(u,v)
 #define isgreater(x,y)      __builtin_isgreater(x,y)
 #define isgreaterequal(x,y) __builtin_isgreaterequal(x,y)

@@ -17,6 +17,31 @@
  * 3. This notice may not be removed or altered from any source distribution. *
  */
 
+#ifndef __has_builtin
+#define __has_builtin(x) 0
+#endif
+#ifndef __has_feature
+#define __has_feature(x) 0
+#endif
+#ifndef __has_extension
+#define __has_extension  __has_feature
+#endif
+#ifndef __has_attribute
+#define __has_attribute(x) 0
+#endif
+#ifndef __has_declspec_attribute
+#define __has_declspec_attribute(x) 0
+#endif
+#ifndef __has_cpp_attribute
+#define __has_cpp_attribute(x) 0
+#endif
+#ifndef __has_include
+#define __has_include(x) 0
+#endif
+#ifndef __has_include_next
+#define __has_include_next(x) 0
+#endif
+
 #ifdef __ASSEMBLY__
 #if __ASSEMBLY__+0 == 0
 #undef __ASSEMBLY__

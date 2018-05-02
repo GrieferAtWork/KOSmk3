@@ -16,25 +16,12 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-
-#ifndef __has_builtin
-#define __has_builtin(x) 0
-#endif
-#ifndef __has_feature
-#define __has_feature(x) 0
-#endif
-#ifndef __GNUC_MINOR__
-#   define __GNUC_MINOR__ 0
-#endif
-#ifndef __GNUC_PATCH__
-#ifdef __GNUC_PATCHLEVEL__
-#   define __GNUC_PATCH__ __GNUC_PATCHLEVEL__
-#else
-#   define __GNUC_PATCH__ 0
-#endif
-#endif
-#define __GCC_VERSION_NUM    (__GNUC__*10000+__GNUC_MINOR__*100+__GNUC_PATCH__)
-#define __GCC_VERSION(a,b,c) (__GCC_VERSION_NUM >= ((a)*10000+(b)*100+(c)))
+#define __GCC_PRIVATE_ARG_PLACEHOLDER_  ,
+#define __GCC_PRIVATE_TAKE_SECOND_ARG_IMPL(x,val,...) val
+#define __GCC_PRIVATE_TAKE_SECOND_ARG(x) __GCC_PRIVATE_TAKE_SECOND_ARG_IMPL x
+#define __GCC_PRIVATE_IS_DEFINED3(x) __GCC_PRIVATE_TAKE_SECOND_ARG((x 1,0))
+#define __GCC_PRIVATE_IS_DEFINED2(x) __GCC_PRIVATE_IS_DEFINED3(__GCC_PRIVATE_ARG_PLACEHOLDER_##x)
+#define __GCC_PRIVATE_IS_DEFINED(x) __GCC_PRIVATE_IS_DEFINED2(x)
 
 #ifdef __STDC__
 #   define __P(x) x
@@ -60,9 +47,161 @@
 #endif /* !__INTEL_VERSION__ */
 
 
+#ifndef __GNUC_MINOR__
+#   define __GNUC_MINOR__ 0
+#endif
+#ifndef __GNUC_PATCH__
+#ifdef __GNUC_PATCHLEVEL__
+#   define __GNUC_PATCH__ __GNUC_PATCHLEVEL__
+#else
+#   define __GNUC_PATCH__ 0
+#endif
+#endif
+#define __GCC_VERSION_NUM    (__GNUC__*10000+__GNUC_MINOR__*100+__GNUC_PATCH__)
+#define __GCC_VERSION(a,b,c) (__GCC_VERSION_NUM >= ((a)*10000+(b)*100+(c)))
+
+
+#ifndef __has_attribute
+#if (defined(__i386__) || defined(__i386)) && \
+    !defined(__x86_64__) && !defined(__x86_64)
+#define __GCC_HAS_ATTRIBUTE___fastcall__
+#define __GCC_HAS_ATTRIBUTE___stdcall__
+#define __GCC_HAS_ATTRIBUTE___cdecl__
+#endif
+#if defined(__x86_64__) || defined(__x86_64)
+#define __GCC_HAS_ATTRIBUTE___ms_abi__
+#define __GCC_HAS_ATTRIBUTE___sysv_abi__
+#endif
+#if !defined(__ELF__) && (defined(__PE__) || defined(_WIN32) || defined(__CYGWIN__))
+#define __GCC_HAS_ATTRIBUTE___dllimport__
+#define __GCC_HAS_ATTRIBUTE___dllexport__
+#endif
+#define __GCC_HAS_ATTRIBUTE___warning__
+#define __GCC_HAS_ATTRIBUTE___error__
+#define __GCC_HAS_ATTRIBUTE___section__
+#define __GCC_HAS_ATTRIBUTE___returns_nonnull__
+#define __GCC_HAS_ATTRIBUTE___packed__
+#define __GCC_HAS_ATTRIBUTE___alias__
+#define __GCC_HAS_ATTRIBUTE___aligned__
+#define __GCC_HAS_ATTRIBUTE___weak__
+#define __GCC_HAS_ATTRIBUTE___returns_twice__
+#define __GCC_HAS_ATTRIBUTE___externally_visible__
+#define __GCC_HAS_ATTRIBUTE___visibility__
+#if __GCC_VERSION(2,0,0) && !defined(__cplusplus)
+#define __GCC_HAS_ATTRIBUTE___transparent_union__
+#endif
+#if __GCC_VERSION(2,3,0)
+#define __GCC_HAS_ATTRIBUTE___format__
+#endif
+#if __GCC_VERSION(2,5,0)
+#define __GCC_HAS_ATTRIBUTE___noreturn__
+#define __GCC_HAS_ATTRIBUTE___const__
+#endif
+#if __GCC_VERSION(2,7,0)
+#define __GCC_HAS_ATTRIBUTE___unused__
+#endif
+#if __GCC_VERSION(2,96,0)
+#define __GCC_HAS_ATTRIBUTE___pure__
+#endif
+#if __GCC_VERSION(3,0,0) /* __GCC_VERSION(2,96,0) */
+#define __GCC_HAS_ATTRIBUTE___malloc__
+#endif
+#if __GCC_VERSION(3,1,0)
+#define __GCC_HAS_ATTRIBUTE___noinline__
+#define __GCC_HAS_ATTRIBUTE___used__
+#define __GCC_HAS_ATTRIBUTE___deprecated__ /*  - __GCC_VERSION(3,1,0)
+                                            *  - __GCC_VERSION(3,2,0)
+                                            *  - __GCC_VERSION(3,5,0)
+                                            * The internet isn't unanimous about this one... */
+
+#endif
+#if __GCC_VERSION(3,3,0)
+#define __GCC_HAS_ATTRIBUTE___nothrow__
+#define __GCC_HAS_ATTRIBUTE___nonnull__
+#define __GCC_HAS_ATTRIBUTE___warn_unused_result__ /* __GCC_VERSION(3,3,0) / __GCC_VERSION(3,4,0) */
+#endif
+#if __GCC_VERSION(3,5,0)
+#define __GCC_HAS_ATTRIBUTE___sentinel__
+#endif
+#if __GCC_VERSION(4,3,0)
+#define __GCC_HAS_ATTRIBUTE___alloc_size__
+#define __GCC_HAS_ATTRIBUTE___hot__
+#define __GCC_HAS_ATTRIBUTE___cold__
+#endif
+#if __GCC_VERSION(4,4,0)
+#define __GCC_HAS_ATTRIBUTE___optimize__
+#endif
+#if __GCC_VERSION(4,5,0)
+#define __GCC_HAS_ATTRIBUTE___noclone__
+#endif
+#if __GCC_VERSION(4,9,0)
+#define __GCC_HAS_ATTRIBUTE___assume_aligned__
+#endif
+#if __GCC_VERSION(5,4,0)
+#define __GCC_HAS_ATTRIBUTE___alloc_align__
+#endif
+#define __has_attribute(x) __GCC_PRIVATE_IS_DEFINED(__GCC_HAS_ATTRIBUTE_##x)
+#endif
+#ifndef __has_declspec_attribute
+#define __has_declspec_attribute(x) 0
+#endif
+#ifndef __has_cpp_attribute
+#define __has_cpp_attribute(x) 0
+#endif
+#ifndef __has_include
+#define __has_include(x) 0
+#endif
+#ifndef __has_include_next
+#define __has_include_next(x) 0
+#endif
+#ifndef __has_feature
+#define __has_feature(x) 0
+#endif
+#ifndef __has_extension
+#define __has_extension  __has_feature
+#endif
+#ifndef __has_builtin
+#define __GCC_HAS_BUILTIN___builtin_unreachable
+#define __GCC_HAS_BUILTIN___builtin_choose_expr
+#define __GCC_HAS_BUILTIN___builtin_va_list
+#define __GCC_HAS_BUILTIN___builtin_va_start
+#define __GCC_HAS_BUILTIN___builtin_va_end
+#define __GCC_HAS_BUILTIN___builtin_va_arg
+#define __GCC_HAS_BUILTIN___builtin_va_copy
+#define __GCC_HAS_BUILTIN___builtin_FUNCTION
+#define __GCC_HAS_BUILTIN___builtin_FILE
+#define __GCC_HAS_BUILTIN___builtin_LINE
+#define __GCC_HAS_BUILTIN___builtin_constant_p
+#define __GCC_HAS_BUILTIN___builtin_offsetof
+#if !defined(__clang__) && (!defined(__INTEL_VERSION__) || __INTEL_VERSION__ >= 800)
+#define __GCC_HAS_BUILTIN___builtin_expect
+#endif
+#if __GCC_VERSION(2,97,0)
+#define __GCC_HAS_BUILTIN___builtin_isunordered
+#define __GCC_HAS_BUILTIN___builtin_isgreater
+#define __GCC_HAS_BUILTIN___builtin_isgreaterequal
+#define __GCC_HAS_BUILTIN___builtin_isless
+#define __GCC_HAS_BUILTIN___builtin_islessequal
+#define __GCC_HAS_BUILTIN___builtin_islessgreater
+#endif
+#if __GCC_VERSION(4,0,0)
+#define __GCC_HAS_BUILTIN___builtin_signbitf
+#define __GCC_HAS_BUILTIN___builtin_signbit
+#define __GCC_HAS_BUILTIN___builtin_signbitl
+#endif
+#if __GCC_VERSION(4,4,0)
+#define __GCC_HAS_BUILTIN___builtin_fpclassify
+#define __GCC_HAS_BUILTIN___builtin_isfinite
+#define __GCC_HAS_BUILTIN___builtin_isnormal
+#define __GCC_HAS_BUILTIN___builtin_isnan
+#define __GCC_HAS_BUILTIN___builtin_isinf_sign
+#endif
+/* Emulate `__has_builtin()' for older GCC versions. */
+#define __has_builtin(x) __GCC_PRIVATE_IS_DEFINED(__GCC_HAS_BUILTIN_##x)
+#endif /* !__has_builtin */
+
 #ifndef __likely
-#if __has_builtin(__builtin_expect) || \
-  (!defined(__clang__) && (!defined(__INTEL_VERSION__) || __INTEL_VERSION__ >= 800))
+#if __has_builtin(__builtin_expect)
 #   define __likely(x)   (__builtin_expect(!!(x),1))
 #   define __unlikely(x) (__builtin_expect(!!(x),0))
 #else
@@ -186,37 +325,37 @@
 #   define __NO_ATTR_SYSVABI       1
 #   define __ATTR_SYSVABI          /* Nothing */
 #endif
-#if __GCC_VERSION(2,96,0)
+#if __has_attribute(__pure__)
 #   define __ATTR_PURE             __attribute__((__pure__))
 #else
 #   define __NO_ATTR_PURE          1
 #   define __ATTR_PURE             /* Nothing */
 #endif
-#if __GCC_VERSION(2,5,0)
+#if __has_attribute(__const__)
 #   define __ATTR_CONST            __attribute__ ((__const__))
 #else
 #   define __NO_ATTR_CONST         1
 #   define __ATTR_CONST            /* Nothing */
 #endif
-#if __GCC_VERSION(3,0,0) /* __GCC_VERSION(2,96,0) */
+#if __has_attribute(__malloc__)
 #   define __ATTR_MALLOC           __attribute__((__malloc__))
 #else
 #   define __NO_ATTR_MALLOC        1
 #   define __ATTR_MALLOC           /* Nothing */
 #endif
-#if __GCC_VERSION(4,3,0)
+#if __has_attribute(__alloc_size__)
 #   define __ATTR_ALLOC_SIZE(ppars) __attribute__((__alloc_size__ ppars))
 #else
 #   define __NO_ATTR_ALLOC_SIZE     1
 #   define __ATTR_ALLOC_SIZE(ppars) /* Nothing */
 #endif
-#if   __GCC_VERSION(2,7,0)
+#if __has_attribute(__unused__)
 #   define __ATTR_UNUSED           __attribute__((__unused__))
 #else
 #   define __NO_ATTR_UNUSED        1
 #   define __ATTR_UNUSED           /* Nothing */
 #endif
-#if   __GCC_VERSION(3,1,0)
+#if __has_attribute(__used__)
 #   define __ATTR_USED             __attribute__((__used__))
 #else
 #   define __NO_ATTR_USED          1
@@ -225,10 +364,7 @@
 #ifdef __INTELLISENSE__
 #   define __ATTR_DEPRECATED_      __declspec(deprecated)
 #   define __ATTR_DEPRECATED(text) __declspec(deprecated(text))
-#elif __GCC_VERSION(3,1,0)
-/*  - __GCC_VERSION(3,2,0)
- *  - __GCC_VERSION(3,5,0)
- * The internet isn't unanimous about this one... */
+#elif __has_attribute(__deprecated__)
 #   define __ATTR_DEPRECATED_      __attribute__((__deprecated__))
 #if __GCC_VERSION(4,5,0)
 #   define __ATTR_DEPRECATED(text) __attribute__((__deprecated__(text)))
@@ -240,7 +376,7 @@
 #   define __ATTR_DEPRECATED_      /* Nothing */
 #   define __ATTR_DEPRECATED(text) /* Nothing */
 #endif
-#if __GCC_VERSION(3,5,0)
+#if __has_attribute(__sentinel__)
 #   define __ATTR_SENTINEL         __attribute__((__sentinel__))
 #ifdef __INTELLISENSE__
 #   define __ATTR_SENTINEL_O(x)    __attribute__((__sentinel__))
@@ -253,16 +389,19 @@
 #   define __ATTR_SENTINEL         /* Nothing */
 #   define __ATTR_SENTINEL_O(x)    /* Nothing */
 #endif
-#if __GCC_VERSION(4,3,0)
+#if __has_attribute(__hot__)
 #   define __ATTR_HOT              __attribute__((__hot__))
-#   define __ATTR_COLD             __attribute__((__cold__))
 #else
 #   define __NO_ATTR_HOT           1
 #   define __ATTR_HOT              /* Nothing */
+#endif
+#if __has_attribute(__cold__)
+#   define __ATTR_COLD             __attribute__((__cold__))
+#else
 #   define __NO_ATTR_COLD          1
 #   define __ATTR_COLD             /* Nothing */
 #endif
-#if __GCC_VERSION(4,5,0)
+#if __has_attribute(__noclone__)
 #   define __ATTR_NOCLONE          __attribute__((__noclone__))
 #else
 #   define __NO_ATTR_NOCLONE       1
@@ -274,38 +413,38 @@
 #   define __NO_ATTR_THREAD        1
 #   define __ATTR_THREAD           /* Nothing */
 #endif
-#if __GCC_VERSION(4,9,0)
+#if __has_attribute(__assume_aligned__)
 #   define __ATTR_ASSUME_ALIGNED(n) __attribute__((__assume_aligned__(n)))
 #else
 #   define __NO_ATTR_ASSUME_ALIGNED 1
 #   define __ATTR_ASSUME_ALIGNED(n) /* Nothing */
 #endif
-#if __GCC_VERSION(5,4,0)
+#if __has_attribute(__alloc_align__)
 #   define __ATTR_ALLOC_ALIGN(pari) __attribute__((__alloc_align__(pari)))
 #else
 #   define __NO_ATTR_ALLOC_ALIGN   1
 #   define __ATTR_ALLOC_ALIGN(pari) /* Nothing */
 #endif
-#if __GCC_VERSION(3,3,0)
+#if __has_attribute(__nothrow__)
 #   define __ATTR_NOTHROW        __attribute__((__nothrow__))
 #else
 #   define __NO_ATTR_NOTHROW     1
 #   define __ATTR_NOTHROW        /* Nothing */
 #endif
-#if __GCC_VERSION(4,4,0)
+#if __has_attribute(__optimize__)
 #   define __ATTR_OPTIMIZE(opt)  __attribute__((__optimize__(opt)))
 #else
 #   define __NO_ATTR_OPTIMIZE    1
 #   define __ATTR_OPTIMIZE(opt)  /* Nothing */
 #endif
-#if __GCC_VERSION(2,0,0) && !defined(__cplusplus)
+#if __has_attribute(__transparent_union__) && !defined(__cplusplus)
 #   define __ATTR_TRANSPARENT_UNION __attribute__((__transparent_union__))
 #else
 #   define __NO_ATTR_TRANSPARENT_UNION 1
 #   define __ATTR_TRANSPARENT_UNION    /* Nothing */
 #endif
 /* format-printer attributes. */
-#if __GCC_VERSION(2,3,0)
+#if __has_attribute(__format__)
 #   define __ATTR_FORMAT_PRINTF(fmt,args) __attribute__((__format__(__printf__,fmt,args)))
 #else
 #   define __NO_ATTR_FORMAT_PRINTF        1
@@ -333,13 +472,13 @@
 #   define __NO_ATTR_DLLEXPORT   1
 #   define __ATTR_DLLEXPORT      /* Nothing */
 #endif
-#if __GCC_VERSION(3,3,0)
+#if __has_attribute(__nonnull__)
 #   define __NONNULL(ppars)      __attribute__((__nonnull__ ppars))
 #else
 #   define __NO_NONNULL          1
 #   define __NONNULL(ppars)      /* Nothing */
 #endif
-#if __GCC_VERSION(3,3,0) /* __GCC_VERSION(3,4,0) */
+#if __has_attribute(__warn_unused_result__)
 #   define __WUNUSED             __attribute__((__warn_unused_result__))
 #else
 #   define __NO_WUNUSED          1
@@ -372,7 +511,7 @@
 #endif
 #   define __XBLOCK              __extension__
 #   define __XRETURN             /* Nothing */
-#if !__has_builtin(__builtin_unreachable)
+#if !__has_builtin(__builtin_assume)
 #   define __NO_builtin_assume   1
 #   define __builtin_assume(x)  (void)0
 #endif
