@@ -30,8 +30,8 @@
 #if defined(__CC__) && !defined(__KERNEL__) && defined(__USE_EXCEPT)
 __SYSDECL_BEGIN
 
-__LIBC __PORT_KOSONLY int (__LIBCCALL Xsocket)(int __domain, int __type, int __protocol);
-__LIBC __PORT_KOSONLY void (__LIBCCALL Xsocketpair)(int __domain, int __type, int __protocol, int __fds[2]);
+__LIBC __PORT_KOSONLY __fd_t (__LIBCCALL Xsocket)(int __domain, int __type, int __protocol);
+__LIBC __PORT_KOSONLY void (__LIBCCALL Xsocketpair)(int __domain, int __type, int __protocol, __fd_t __fds[2]);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xbind)(__fd_t __fd, __CONST_SOCKADDR_ARG __addr, socklen_t __len);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xgetsockname)(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t *__restrict __len);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xconnect)(__fd_t __fd, __CONST_SOCKADDR_ARG __addr, socklen_t __len);

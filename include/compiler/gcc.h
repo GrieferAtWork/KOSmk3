@@ -163,6 +163,7 @@
 #ifndef __has_builtin
 #define __GCC_HAS_BUILTIN___builtin_unreachable
 #define __GCC_HAS_BUILTIN___builtin_choose_expr
+#define __GCC_HAS_BUILTIN___builtin_types_compatible_p
 #define __GCC_HAS_BUILTIN___builtin_va_list
 #define __GCC_HAS_BUILTIN___builtin_va_start
 #define __GCC_HAS_BUILTIN___builtin_va_end

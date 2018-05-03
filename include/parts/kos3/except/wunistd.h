@@ -76,10 +76,10 @@ __LIBC __PORT_KOSONLY __NONNULL((1,2)) void (__LIBCCALL Xwlink)(wchar_t const *_
 #ifdef __USE_ATFILE
 __LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xwfaccessat)(__fd_t __dfd, wchar_t const *__file, int __type, __atflag_t __flags);
 __LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xwfchownat)(__fd_t __dfd, wchar_t const *__file, __uid_t __owner, __gid_t __group, __atflag_t __flags);
-__LIBC __PORT_KOSONLY __NONNULL((2,4)) void (__LIBCCALL Xwlinkat)(__fd_t __fromfd, wchar_t const *__from, __fd_t __tofd, wchar_t const *__to, int __flags);
+__LIBC __PORT_KOSONLY __NONNULL((2,4)) void (__LIBCCALL Xwlinkat)(__fd_t __fromfd, wchar_t const *__from, __fd_t __tofd, wchar_t const *__to, __atflag_t __flags);
 __LIBC __PORT_KOSONLY __NONNULL((1,3)) void (__LIBCCALL Xwsymlinkat)(wchar_t const *__from, __fd_t __tofd, wchar_t const *__to);
 __LIBC __PORT_KOSONLY __NONNULL((2,3)) size_t (__LIBCCALL Xwreadlinkat)(__fd_t __dfd, wchar_t const *__restrict __path, wchar_t *__restrict __buf, size_t __buflen);
-__LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xwunlinkat)(__fd_t __dfd, wchar_t const *__name, int __flag);
+__LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xwunlinkat)(__fd_t __dfd, wchar_t const *__name, __atflag_t __flags);
 #endif /* __USE_ATFILE */
 
 #if defined(__USE_XOPEN_EXTENDED) || defined(__USE_XOPEN2K8)

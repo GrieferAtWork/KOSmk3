@@ -52,7 +52,7 @@ __LIBC __PORT_KOSONLY void (__LIBCCALL Xmlock)(void const *__addr, size_t __len)
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xmunlock)(void const *__addr, size_t __len);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xmlockall)(int __flags);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xmunlockall)(void);
-__LIBC __PORT_KOSONLY int (__LIBCCALL Xshm_open)(char const *__name, int __oflag, mode_t __mode);
+__LIBC __PORT_KOSONLY __fd_t (__LIBCCALL Xshm_open)(char const *__name, __oflag_t __oflag, mode_t __mode);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xshm_unlink)(char const *__name);
 #ifdef __USE_MISC
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xmadvise)(void *__addr, size_t __len, int __advice);

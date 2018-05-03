@@ -112,8 +112,8 @@ __REDIRECT_EXCEPT(__LIBC,__WUNUSED_SUGGESTED,int,__LIBCCALL,getw_unlocked,(__FIL
 __REDIRECT_EXCEPT(__LIBC,,int,__LIBCCALL,putw_unlocked,(int __w, __FILE *__restrict __stream),(__w,__stream))
 __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,setvbuf_unlocked,(__FILE *__restrict __stream, char *__restrict __buf, int __modes, __size_t __count),(__stream,__buf,__modes,__count))
 __REDIRECT_EXCEPT(__LIBC,,int,__LIBCCALL,ungetc_unlocked,(int __c, __FILE *__restrict __stream),(__c,__stream))
-__REDIRECT_EXCEPT(__LIBC,,__ssize_t,__LIBCCALL,getdelim_unlocked,(char **__restrict lineptr, __size_t *__restrict __count, int delimiter, __FILE *__restrict __stream),(lineptr,__count,delimiter,__stream))
-__REDIRECT_EXCEPT(__LIBC,,__ssize_t,__LIBCCALL,getline_unlocked,(char **__restrict lineptr, __size_t *__restrict __count, __FILE *__restrict __stream),(lineptr,__count,__stream))
+__REDIRECT_EXCEPT(__LIBC,,__ssize_t,__LIBCCALL,getdelim_unlocked,(char **__restrict __lineptr, __size_t *__restrict __count, int __delimiter, __FILE *__restrict __stream),(__lineptr,__count,__delimiter,__stream))
+__REDIRECT_EXCEPT(__LIBC,,__ssize_t,__LIBCCALL,getline_unlocked,(char **__restrict __lineptr, __size_t *__restrict __count, __FILE *__restrict __stream),(__lineptr,__count,__stream))
 __LIBC void __LIBCCALL rewind_unlocked(__FILE *__restrict __stream);
 __REDIRECT_EXCEPT(__LIBC,__WUNUSED,int,__LIBCCALL,fisatty,(__FILE *__restrict __stream),(__stream))
 #ifdef __USE_KOS_STDEXT
@@ -153,7 +153,7 @@ __LIBC __ATTR_MALLOC __ATTR_RETNONNULL __FILE *(__LIBCCALL Xfdopen)(__fd_t fd, c
 __REDIRECT_FS64(__LIBC,__ATTR_MALLOC __ATTR_RETNONNULL,__FILE *,__LIBCCALL,Xfopenat,(__fd_t __dfd, char const *__restrict __filename, char const *__restrict __modes, __atflag_t __flags),(__dfd,__filename,__modes,__flags))
 __REDIRECT_FS64(__LIBC,__ATTR_MALLOC __ATTR_RETNONNULL,__FILE *,__LIBCCALL,Xfopen,(char const *__restrict __filename, char const *__restrict __modes),(__filename,__modes))
 __REDIRECT_FS64(__LIBC,__ATTR_RETNONNULL,__FILE *,__LIBCCALL,Xfreopenat,(__fd_t __dfd, char const *__restrict __filename, char const *__restrict __modes, __atflag_t __flags, __FILE *__restrict __stream),(__dfd,__filename,__modes,__flags,__stream))
-__LIBC __ATTR_RETNONNULL __FILE *(__LIBCCALL Xfdreopen)(__fd_t fd, char const *__restrict __modes, __FILE *__restrict __stream, int mode);
+__LIBC __ATTR_RETNONNULL __FILE *(__LIBCCALL Xfdreopen)(__fd_t fd, char const *__restrict __modes, __FILE *__restrict __stream, int __mode);
 __REDIRECT_FS64(__LIBC,__ATTR_RETNONNULL,__FILE *,__LIBCCALL,Xfreopen,(char const *__restrict __filename, char const *__restrict __modes, __FILE *__restrict __stream),(__filename,__modes,__stream))
 __LIBC __ATTR_MALLOC __ATTR_RETNONNULL __FILE *(__LIBCCALL Xfmemopen)(void *__s, __size_t __len, char const *__modes);
 __LIBC __ATTR_MALLOC __ATTR_RETNONNULL __FILE *(__LIBCCALL Xopen_memstream)(char **__bufloc, __size_t *__sizeloc);
@@ -180,10 +180,10 @@ __LIBC void (__LIBCCALL Xsetvbuf)(__FILE *__restrict __stream, char *__restrict 
 __LIBC void (__LIBCCALL Xsetvbuf_unlocked)(__FILE *__restrict __stream, char *__restrict __buf, int __modes, __size_t __count);
 __LIBC int (__LIBCCALL Xungetc)(int __c, __FILE *__restrict __stream);
 __LIBC int (__LIBCCALL Xungetc_unlocked)(int __c, __FILE *__restrict __stream);
-__LIBC __size_t (__LIBCCALL Xgetdelim)(char **__restrict lineptr, __size_t *__restrict __count, int delimiter, __FILE *__restrict __stream);
-__LIBC __size_t (__LIBCCALL Xgetdelim_unlocked)(char **__restrict lineptr, __size_t *__restrict __count, int delimiter, __FILE *__restrict __stream);
-__LIBC __size_t (__LIBCCALL Xgetline)(char **__restrict lineptr, __size_t *__restrict __count, __FILE *__restrict __stream);
-__LIBC __size_t (__LIBCCALL Xgetline_unlocked)(char **__restrict lineptr, __size_t *__restrict __count, __FILE *__restrict __stream);
+__LIBC __size_t (__LIBCCALL Xgetdelim)(char **__restrict __lineptr, __size_t *__restrict __count, int __delimiter, __FILE *__restrict __stream);
+__LIBC __size_t (__LIBCCALL Xgetdelim_unlocked)(char **__restrict __lineptr, __size_t *__restrict __count, int __delimiter, __FILE *__restrict __stream);
+__LIBC __size_t (__LIBCCALL Xgetline)(char **__restrict __lineptr, __size_t *__restrict __count, __FILE *__restrict __stream);
+__LIBC __size_t (__LIBCCALL Xgetline_unlocked)(char **__restrict __lineptr, __size_t *__restrict __count, __FILE *__restrict __stream);
 #ifdef __USE_KOS_STDEXT
 #if __SIZEOF_INT__ == __SIZEOF_SIZE_T__
 __LIBC char *(__LIBCCALL Xfgets)(char *__restrict __s, __size_t __count, __FILE *__restrict __stream);

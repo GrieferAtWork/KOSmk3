@@ -63,7 +63,7 @@ __LIBC __PORT_KOSONLY __WUNUSED __fd_t (__LIBCCALL Xdup)(__fd_t __fd);
 #endif /* !__Xdup_defined */
 #ifndef __Xdup2_defined
 #define __Xdup2_defined 1
-__LIBC __PORT_KOSONLY __fd_t (__LIBCCALL Xdup2)(__fd_t __ofd, __fd_t __nfd);
+__LIBC __PORT_KOSONLY __fd_t (__LIBCCALL Xdup2)(__fd_t __oldfd, __fd_t __newfd);
 #endif /* !__Xdup2_defined */
 #ifndef __Xgetcwd_defined
 #define __Xgetcwd_defined 1
@@ -123,7 +123,7 @@ __LIBC __PORT_KOSONLY size_t (__LIBCCALL Xpwrite64)(__fd_t __fd, void const *__b
 
 #ifdef __USE_GNU
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xpipe2)(__fd_t __pipedes[2], __oflag_t __flags);
-__LIBC __PORT_KOSONLY __fd_t (__LIBCCALL Xdup3)(__fd_t __ofd, __fd_t __nfd, __oflag_t __flags);
+__LIBC __PORT_KOSONLY __fd_t (__LIBCCALL Xdup3)(__fd_t __oldfd, __fd_t __newfd, __oflag_t __flags);
 __LIBC __WUNUSED char *(__LIBCCALL Xget_current_dir_name)(void);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xsyncfs)(__fd_t __fd);
 __LIBC __PORT_KOSONLY int (__LIBCCALL Xgroup_member)(__gid_t __gid);

@@ -343,7 +343,7 @@ __REDIRECT_DPA(__LIBC,__WUNUSED,int,__LIBCCALL,isatty,(__fd_t __fd),(__fd))
 #endif /* !__isatty_defined */
 #ifndef __dup2_defined
 #define __dup2_defined 1
-__REDIRECT_EXCEPT_DPA(__LIBC,,__fd_t,__LIBCCALL,dup2,(__fd_t __ofd, __fd_t __nfd),(__ofd,__nfd))
+__REDIRECT_EXCEPT_DPA(__LIBC,,__fd_t,__LIBCCALL,dup2,(__fd_t __oldfd, __fd_t __newfd),(__oldfd,__newfd))
 #endif /* !__dup2_defined */
 #ifndef __dup_defined
 #define __dup_defined 1
@@ -465,12 +465,12 @@ __LIBC char **environ;
 
 #ifdef __DOS_COMPAT__
 __LOCAL int (__LIBCCALL pipe2)(__fd_t __pipedes[2], __oflag_t __flags) { return __dos_pipe(__pipedes,4096,0x8000|__flags); }
-__LOCAL int (__LIBCCALL dup3)(__fd_t __ofd, __fd_t __nfd, __oflag_t __UNUSED(__flags)) { return __nfd != __ofd ? dup2(__ofd,__nfd) : -1; }
+__LOCAL __fd_t (__LIBCCALL dup3)(__fd_t __oldfd, __fd_t __newfd, __oflag_t __UNUSED(__flags)) { return __newfd != __oldfd ? dup2(__oldfd,__newfd) : -1; }
 __LOCAL __WUNUSED char *(__LIBCCALL get_current_dir_name)(void) { return getcwd(NULL,0); }
 __LOCAL int (__LIBCCALL syncfs)(__fd_t __UNUSED(__fd)) {}
 #else /* __DOS_COMPAT__ */
 __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,pipe2,(__fd_t __pipedes[2], __oflag_t __flags),(__pipedes,__flags))
-__REDIRECT_EXCEPT(__LIBC,,__fd_t,__LIBCCALL,dup3,(__fd_t __ofd, __fd_t __nfd, __oflag_t __flags),(__ofd,__nfd,__flags))
+__REDIRECT_EXCEPT(__LIBC,,__fd_t,__LIBCCALL,dup3,(__fd_t __oldfd, __fd_t __newfd, __oflag_t __flags),(__oldfd,__newfd,__flags))
 __REDIRECT_EXCEPT_UFS(__LIBC,__WUNUSED,char *,__LIBCCALL,get_current_dir_name,(void),())
 __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,syncfs,(__fd_t __fd),(__fd))
 #endif /* !__DOS_COMPAT__ */

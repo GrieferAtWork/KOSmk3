@@ -201,14 +201,14 @@ typedef __blksize_t blksize_t;
  * >> int CDECL kfstat64(fd_t fd, struct __kos_stat64 *buf);
  * >> int CDECL kstat(char const *kos_file, struct __kos_stat *buf);
  * >> int CDECL kstat64(char const *kos_file, struct __kos_stat64 *buf);
- * >> int CDECL kfstatat(fd_t fd, char const *kos_file, struct __kos_stat *buf, int flag);
- * >> int CDECL kfstatat64(fd_t fd, char const *kos_file, struct __kos_stat64 *buf, int flag);
+ * >> int CDECL kfstatat(fd_t fd, char const *kos_file, struct __kos_stat *buf, atflag_t flag);
+ * >> int CDECL kfstatat64(fd_t fd, char const *kos_file, struct __kos_stat64 *buf, atflag_t flag);
  * >> int CDECL klstat(char const *kos_file, struct __kos_stat *buf);
  * >> int CDECL klstat64(char const *kos_file, struct __kos_stat64 *buf);
  * >> int CDECL DOS$kstat(char const *dos_file, struct __kos_stat *buf);
  * >> int CDECL DOS$kstat64(char const *dos_file, struct __kos_stat64 *buf);
- * >> int CDECL DOS$kfstatat(fd_t fd, char const *dos_file, struct __kos_stat *buf, int flag);
- * >> int CDECL DOS$kfstatat64(fd_t fd, char const *dos_file, struct __kos_stat64 *buf, int flag);
+ * >> int CDECL DOS$kfstatat(fd_t fd, char const *dos_file, struct __kos_stat *buf, atflag_t flag);
+ * >> int CDECL DOS$kfstatat64(fd_t fd, char const *dos_file, struct __kos_stat64 *buf, atflag_t flag);
  * >> int CDECL DOS$klstat(char const *dos_file, struct __kos_stat *buf);
  * >> int CDECL DOS$klstat64(char const *dos_file, struct __kos_stat64 *buf);
  *
@@ -217,8 +217,8 @@ typedef __blksize_t blksize_t;
  * >> int CDECL fstat64(fd_t fd, struct __glc_stat64 *buf);
  * >> int CDECL stat(char const *kos_file, struct __glc_stat *buf);
  * >> int CDECL stat64(char const *kos_file, struct __glc_stat64 *buf);
- * >> int CDECL fstatat(fd_t fd, char const *kos_file, struct __glc_stat *buf, int flag);
- * >> int CDECL fstatat64(fd_t fd, char const *kos_file, struct __glc_stat64 *buf, int flag);
+ * >> int CDECL fstatat(fd_t fd, char const *kos_file, struct __glc_stat *buf, atflag_t flag);
+ * >> int CDECL fstatat64(fd_t fd, char const *kos_file, struct __glc_stat64 *buf, atflag_t flag);
  * >> int CDECL lstat(char const *kos_file, struct __glc_stat *buf);
  * >> int CDECL lstat64(char const *kos_file, struct __glc_stat64 *buf);
  * 
@@ -323,12 +323,12 @@ __LIBC __NONNULL((2)) int (__LIBCCALL fstat64)(__fd_t __fd, struct stat64 *__buf
 #endif /* __USE_LARGEFILE64 */
 #ifdef __USE_ATFILE
 __REDIRECT_UFS64(__LIBC,__PORT_NODOS_ALT(stat) __NONNULL((2,3)),int,__LIBCCALL,fstatat,
-                (__fd_t __fd, char const *__restrict __file, struct stat *__restrict __buf, int __flags),
+                (__fd_t __fd, char const *__restrict __file, struct stat *__restrict __buf, __atflag_t __flags),
                 (__fd,__file,__buf,__flags))
 #ifdef __USE_LARGEFILE64
 __LIBC __PORT_NODOS_ALT(stat64) __NONNULL((2,3))
 int (__LIBCCALL fstatat64)(__fd_t __fd, char const *__restrict __file,
-                           struct stat64 *__restrict __buf, int __flags);
+                           struct stat64 *__restrict __buf, __atflag_t __flags);
 #endif /* __USE_LARGEFILE64 */
 #endif /* __USE_ATFILE */
 #if defined(__USE_XOPEN_EXTENDED) || defined(__USE_XOPEN2K)
@@ -353,13 +353,13 @@ __REDIRECT_EXCEPT_XVOID_(__LIBC,__NONNULL((2)),int,__LIBCCALL,fstat64,(__fd_t __
 #endif /* __USE_LARGEFILE64 */
 #ifdef __USE_ATFILE
 #ifdef __USE_FILE_OFFSET64
-__REDIRECT_EXCEPT_UFS_XVOID_(__LIBC,__PORT_NODOS_ALT(stat) __NONNULL((2,3)),int,__LIBCCALL,fstatat,(__fd_t __fd, char const *__restrict __file, struct stat *__restrict __buf, int __flags),kfstatat64,(__fd,__file,__buf,__flags))
+__REDIRECT_EXCEPT_UFS_XVOID_(__LIBC,__PORT_NODOS_ALT(stat) __NONNULL((2,3)),int,__LIBCCALL,fstatat,(__fd_t __fd, char const *__restrict __file, struct stat *__restrict __buf, __atflag_t __flags),kfstatat64,(__fd,__file,__buf,__flags))
 #else
-__REDIRECT_EXCEPT_UFS_XVOID_(__LIBC,__PORT_NODOS_ALT(stat) __NONNULL((2,3)),int,__LIBCCALL,fstatat,(__fd_t __fd, char const *__restrict __file, struct stat *__restrict __buf, int __flags),kfstatat,(__fd,__file,__buf,__flags))
+__REDIRECT_EXCEPT_UFS_XVOID_(__LIBC,__PORT_NODOS_ALT(stat) __NONNULL((2,3)),int,__LIBCCALL,fstatat,(__fd_t __fd, char const *__restrict __file, struct stat *__restrict __buf, __atflag_t __flags),kfstatat,(__fd,__file,__buf,__flags))
 #endif
 #ifdef __USE_LARGEFILE64
 __REDIRECT_EXCEPT_UFS_XVOID_(__LIBC,__PORT_NODOS_ALT(stat) __NONNULL((2,3)),int,__LIBCCALL,fstatat64,
-                            (__fd_t __fd, char const *__restrict __file, struct stat64 *__restrict __buf, int __flags),
+                            (__fd_t __fd, char const *__restrict __file, struct stat64 *__restrict __buf, __atflag_t __flags),
                              kfstatat64,(__fd,__file,__buf,__flags))
 #endif /* __USE_LARGEFILE64 */
 #endif /* __USE_ATFILE */
@@ -388,7 +388,7 @@ __LOCAL __WARN_NOKOSFS __NONNULL((1)) int (__LIBCCALL mkdir)(char const *__path,
 
 #ifndef __chmod_defined
 #define __chmod_defined 1
-__REDIRECT_EXCEPT_UFSDPA_XVOID(__LIBC,__NONNULL((1)),int,__LIBCCALL,chmod,(char const *__file, int __mode),(__file,__mode))
+__REDIRECT_EXCEPT_UFSDPA_XVOID(__LIBC,__NONNULL((1)),int,__LIBCCALL,chmod,(char const *__file, __mode_t __mode),(__file,__mode))
 #endif /* !__chmod_defined */
 
 #ifdef __USE_MISC
@@ -413,14 +413,14 @@ __LIBC __WUNUSED __mode_t (__LIBCCALL getumask)(void);
 #endif /* __USE_GNU */
 
 #if defined(__CRT_KOS) && defined(__USE_KOS) && defined(__USE_ATFILE)
-__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(mkdirat) __NONNULL((2)),int,__LIBCCALL,fmkdirat,(__fd_t __dfd, char const *__path, __mode_t __mode, int __flags),(__dfd,__path,__mode,__flags))
-__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(mknodat) __NONNULL((2)),int,__LIBCCALL,fmknodat,(__fd_t __dfd, char const *__path, __mode_t __mode, __dev_t __dev, int __flags),(__dfd,__path,__mode,__dev,__flags))
+__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(mkdirat) __NONNULL((2)),int,__LIBCCALL,fmkdirat,(__fd_t __dfd, char const *__path, __mode_t __mode, __atflag_t __flags),(__dfd,__path,__mode,__flags))
+__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(mknodat) __NONNULL((2)),int,__LIBCCALL,fmknodat,(__fd_t __dfd, char const *__path, __mode_t __mode, __dev_t __dev, __atflag_t __flags),(__dfd,__path,__mode,__dev,__flags))
 #endif
 
 #ifdef __CRT_GLC
 __REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_NODOS __NONNULL((1)),int,__LIBCCALL,mkfifo,(char const *__path, __mode_t __mode),(__path,__mode))
 #ifdef __USE_ATFILE
-__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_NODOS_ALT(chmod) __NONNULL((2)),int,__LIBCCALL,fchmodat,(__fd_t __dfd, char const *__file, __mode_t __mode, int __flags),(__dfd,__file,__mode,__flags))
+__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_NODOS_ALT(chmod) __NONNULL((2)),int,__LIBCCALL,fchmodat,(__fd_t __dfd, char const *__file, __mode_t __mode, __atflag_t __flags),(__dfd,__file,__mode,__flags))
 __REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_NODOS_ALT(mkdir) __NONNULL((2)),int,__LIBCCALL,mkdirat,(__fd_t __dfd, char const *__path, __mode_t __mode),(__dfd,__path,__mode))
 __REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_NODOS __NONNULL((2)),int,__LIBCCALL,mkfifoat,(__fd_t __dfd, char const *__path, __mode_t __mode),(__dfd,__path,__mode))
 #endif /* __USE_ATFILE */
@@ -437,14 +437,14 @@ __REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_NODOS __NONNULL((2)),int,__LIBCCALL,mk
 #ifdef __USE_ATFILE
 #ifdef __GLC_COMPAT__
 /* TODO: GLibc compatibility. */
-__REDIRECT_UFSTM64(__LIBC,__PORT_NODOS_ALT(utime) __NONNULL((2)),int,__LIBCCALL,utimensat,(__fd_t __dfd, char const *__path, struct timespec const __times[2], int __flags),(__dfd,__path,__times,__flags))
+__REDIRECT_UFSTM64(__LIBC,__PORT_NODOS_ALT(utime) __NONNULL((2)),int,__LIBCCALL,utimensat,(__fd_t __dfd, char const *__path, struct timespec const __times[2], __atflag_t __flags),(__dfd,__path,__times,__flags))
 #ifdef __USE_TIME64
-__REDIRECT_UFS(__LIBC,__PORT_NODOS_ALT(utime64) __NONNULL((2)),int,__LIBCCALL,utimensat64,(__fd_t __dfd, char const *__path, struct __timespec64 const __times[2], int __flags),(__dfd,__path,__times,__flags))
+__REDIRECT_UFS(__LIBC,__PORT_NODOS_ALT(utime64) __NONNULL((2)),int,__LIBCCALL,utimensat64,(__fd_t __dfd, char const *__path, struct __timespec64 const __times[2], __atflag_t __flags),(__dfd,__path,__times,__flags))
 #endif /* __USE_TIME64 */
 #else /* __GLC_COMPAT__ */
-__REDIRECT_EXCEPT_UFSTM64_XVOID(__LIBC,__PORT_NODOS_ALT(utime) __NONNULL((2)),int,__LIBCCALL,utimensat,(__fd_t __dfd, char const *__path, struct timespec const __times[2], int __flags),(__dfd,__path,__times,__flags))
+__REDIRECT_EXCEPT_UFSTM64_XVOID(__LIBC,__PORT_NODOS_ALT(utime) __NONNULL((2)),int,__LIBCCALL,utimensat,(__fd_t __dfd, char const *__path, struct timespec const __times[2], __atflag_t __flags),(__dfd,__path,__times,__flags))
 #ifdef __USE_TIME64
-__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_NODOS_ALT(utime64) __NONNULL((2)),int,__LIBCCALL,utimensat64,(__fd_t __dfd, char const *__path, struct __timespec64 const __times[2], int __flags),(__dfd,__path,__times,__flags))
+__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_NODOS_ALT(utime64) __NONNULL((2)),int,__LIBCCALL,utimensat64,(__fd_t __dfd, char const *__path, struct __timespec64 const __times[2], __atflag_t __flags),(__dfd,__path,__times,__flags))
 #endif /* __USE_TIME64 */
 #endif /* !__GLC_COMPAT__ */
 #endif /* __USE_ATFILE */

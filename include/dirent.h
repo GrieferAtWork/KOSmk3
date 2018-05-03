@@ -207,28 +207,28 @@ __LIBC __PORT_NODOS __ATTR_PURE __NONNULL((1,2)) int (__LIBCCALL versionsort64)
  * @return: -1: Failed to read a directory entry for some reason (s.a.: `errno') */
 __REDIRECT_EXCEPT(__LIBC,__PORT_KOSONLY_ALT(readdir) __NONNULL((2)) __WUNUSED,
                   __EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xreaddir,
-                 (__fd_t __fd, struct dirent *__buf, size_t __bufsize, int __mode),
+                 (__fd_t __fd, struct dirent *__buf, size_t __bufsize, unsigned int __mode),
                  (__fd,__buf,__bufsize,__mode))
 #if __KOS_VERSION__ >= 300
 __REDIRECT_EXCEPT(__LIBC,__PORT_KOSONLY_ALT(readdir) __NONNULL((2)) __WUNUSED,
                   __EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xreaddirf,
-                 (__fd_t __fd, struct dirent *__buf, size_t __bufsize, int __mode, __oflag_t __flags),
+                 (__fd_t __fd, struct dirent *__buf, size_t __bufsize, unsigned int __mode, __oflag_t __flags),
                  (__fd,__buf,__bufsize,__mode,__flags))
 #ifdef __USE_LARGEFILE64
 __REDIRECT_EXCEPT(__LIBC,__PORT_KOSONLY_ALT(readdir) __NONNULL((2)) __WUNUSED,
                   __EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xreaddir64,
-                 (__fd_t __fd, struct dirent64 *__buf, size_t __bufsize, int __mode),
+                 (__fd_t __fd, struct dirent64 *__buf, size_t __bufsize, unsigned int __mode),
                  (__fd,__buf,__bufsize,__mode))
 __REDIRECT_EXCEPT(__LIBC,__PORT_KOSONLY_ALT(readdir) __NONNULL((2)) __WUNUSED,
                   __EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xreaddirf64,
-                 (__fd_t __fd, struct dirent64 *__buf, size_t __bufsize, int __mode, __oflag_t __flags),
+                 (__fd_t __fd, struct dirent64 *__buf, size_t __bufsize, unsigned int __mode, __oflag_t __flags),
                  (__fd,__buf,__bufsize,__mode,__flags))
 #endif /* __USE_LARGEFILE64 */
 #else /* __KOS_VERSION__ >= 300 */
 #ifdef __USE_LARGEFILE64
 __REDIRECT_EXCEPT_(__LIBC,__PORT_KOSONLY_ALT(readdir) __NONNULL((2)) __WUNUSED,
                    __EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xreaddir64,
-                  (__fd_t __fd, struct dirent64 *__buf, size_t __bufsize, int __mode),
+                  (__fd_t __fd, struct dirent64 *__buf, size_t __bufsize, unsigned int __mode),
                    xreaddir,(__fd,__buf,__bufsize,__mode))
 #endif /* __USE_LARGEFILE64 */
 #endif /* __KOS_VERSION__ < 300 */

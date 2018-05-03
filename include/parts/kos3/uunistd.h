@@ -45,44 +45,44 @@ typedef __SIZE_TYPE__ size_t;
 #ifndef __KERNEL__
 #ifdef __CRT_KOS
 
-__REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w16fchdirat,(__fd_t __dfd, char16_t const *__path, int __flags),wfchdirat,(__dfd,__path,__flags))
-__REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w32fchdirat,(__fd_t __dfd, char32_t const *__path, int __flags),wfchdirat,(__dfd,__path,__flags))
+__REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w16fchdirat,(__fd_t __dfd, char16_t const *__path, __atflag_t __flags),wfchdirat,(__dfd,__path,__flags))
+__REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w32fchdirat,(__fd_t __dfd, char32_t const *__path, __atflag_t __flags),wfchdirat,(__dfd,__path,__flags))
 __REDIRECT_EXCEPT_UFSW16(__LIBC,__PORT_KOSONLY __NONNULL((2,3)),__EXCEPT_SELECT(size_t,ssize_t),__LIBCCALL,w16freadlinkat,(__fd_t __dfd, char16_t const *__restrict __path, char16_t *__restrict __buf, size_t __buflen, int __flags),wfreadlinkat,(__dfd,__path,__buf,__buflen,__flags))
 __REDIRECT_EXCEPT_UFSW32(__LIBC,__PORT_KOSONLY __NONNULL((2,3)),__EXCEPT_SELECT(size_t,ssize_t),__LIBCCALL,w32freadlinkat,(__fd_t __dfd, char32_t const *__restrict __path, char32_t *__restrict __buf, size_t __buflen, int __flags),wfreadlinkat,(__dfd,__path,__buf,__buflen,__flags))
-__REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((1,3)),int,__LIBCCALL,w16fsymlinkat,(char16_t const *__from, __fd_t __tofd, char16_t const *__to, int __flags),wfsymlinkat,(__from,__tofd,__to,__flags))
-__REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((1,3)),int,__LIBCCALL,w32fsymlinkat,(char32_t const *__from, __fd_t __tofd, char32_t const *__to, int __flags),wfsymlinkat,(__from,__tofd,__to,__flags))
+__REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((1,3)),int,__LIBCCALL,w16fsymlinkat,(char16_t const *__from, __fd_t __tofd, char16_t const *__to, __atflag_t __flags),wfsymlinkat,(__from,__tofd,__to,__flags))
+__REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((1,3)),int,__LIBCCALL,w32fsymlinkat,(char32_t const *__from, __fd_t __tofd, char32_t const *__to, __atflag_t __flags),wfsymlinkat,(__from,__tofd,__to,__flags))
 __REDIRECT_EXCEPT_W16(__LIBC,__PORT_KOSONLY __NONNULL((2)),__EXCEPT_SELECT(size_t,ssize_t),__LIBCCALL,w16freadlink,(__fd_t __fd, char16_t *__restrict __buf, size_t __buflen),wfreadlink,(__fd,__buf,__buflen))
 __REDIRECT_EXCEPT_W32(__LIBC,__PORT_KOSONLY __NONNULL((2)),__EXCEPT_SELECT(size_t,ssize_t),__LIBCCALL,w32freadlink,(__fd_t __fd, char32_t *__restrict __buf, size_t __buflen),wfreadlink,(__fd,__buf,__buflen))
 #ifdef __USE_FILE_OFFSET64
-__REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w16ftruncateat,(__fd_t __dfd, char16_t const *__file, __FS_TYPE(off) __length, int __flags),wftruncateat64,(__dfd,__file,__length,__flags))
-__REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w32ftruncateat,(__fd_t __dfd, char32_t const *__file, __FS_TYPE(off) __length, int __flags),wftruncateat64,(__dfd,__file,__length,__flags))
+__REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w16ftruncateat,(__fd_t __dfd, char16_t const *__file, __FS_TYPE(off) __length, __atflag_t __flags),wftruncateat64,(__dfd,__file,__length,__flags))
+__REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w32ftruncateat,(__fd_t __dfd, char32_t const *__file, __FS_TYPE(off) __length, __atflag_t __flags),wftruncateat64,(__dfd,__file,__length,__flags))
 #else
-__REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w16ftruncateat,(__fd_t __dfd, char16_t const *__file, __FS_TYPE(off) __length, int __flags),wftruncateat,(__dfd,__file,__length,__flags))
-__REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w32ftruncateat,(__fd_t __dfd, char32_t const *__file, __FS_TYPE(off) __length, int __flags),wftruncateat,(__dfd,__file,__length,__flags))
+__REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w16ftruncateat,(__fd_t __dfd, char16_t const *__file, __FS_TYPE(off) __length, __atflag_t __flags),wftruncateat,(__dfd,__file,__length,__flags))
+__REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w32ftruncateat,(__fd_t __dfd, char32_t const *__file, __FS_TYPE(off) __length, __atflag_t __flags),wftruncateat,(__dfd,__file,__length,__flags))
 #endif
 #ifdef __USE_LARGEFILE64
-__REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w16ftruncateat64,(__fd_t __dfd, char16_t const *__file, __FS_TYPE(off) __length, int __flags),wftruncateat64,(__dfd,__file,__length,__flags))
-__REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w32ftruncateat64,(__fd_t __dfd, char32_t const *__file, __FS_TYPE(off) __length, int __flags),wftruncateat64,(__dfd,__file,__length,__flags))
+__REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w16ftruncateat64,(__fd_t __dfd, char16_t const *__file, __FS_TYPE(off) __length, __atflag_t __flags),wftruncateat64,(__dfd,__file,__length,__flags))
+__REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),int,__LIBCCALL,w32ftruncateat64,(__fd_t __dfd, char32_t const *__file, __FS_TYPE(off) __length, __atflag_t __flags),wftruncateat64,(__dfd,__file,__length,__flags))
 #endif
 #ifdef __USE_EXCEPT
-__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw16fchdirat,(__fd_t __dfd, char16_t const *__path, int __flags),Xwfchdirat,(__dfd,__path,__flags))
-__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw32fchdirat,(__fd_t __dfd, char32_t const *__path, int __flags),Xwfchdirat,(__dfd,__path,__flags))
-__REDIRECT_W16(__LIBC,__PORT_KOSONLY __NONNULL((2,3)),size_t,__LIBCCALL,Xw16freadlinkat,(__fd_t __dfd, char16_t const *__restrict __path, char16_t *__restrict __buf, size_t __buflen, int __flags),Xwfreadlinkat,(__dfd,__path,__buf,__buflen,__flags))
-__REDIRECT_W32(__LIBC,__PORT_KOSONLY __NONNULL((2,3)),size_t,__LIBCCALL,Xw32freadlinkat,(__fd_t __dfd, char32_t const *__restrict __path, char32_t *__restrict __buf, size_t __buflen, int __flags),Xwfreadlinkat,(__dfd,__path,__buf,__buflen,__flags))
-__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY __NONNULL((1,3)),__LIBCCALL,Xw16fsymlinkat,(char16_t const *__from, __fd_t __tofd, char16_t const *__to, int __flags),Xwfsymlinkat,(__from,__tofd,__to,__flags))
-__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY __NONNULL((1,3)),__LIBCCALL,Xw32fsymlinkat,(char32_t const *__from, __fd_t __tofd, char32_t const *__to, int __flags),Xwfsymlinkat,(__from,__tofd,__to,__flags))
+__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw16fchdirat,(__fd_t __dfd, char16_t const *__path, __atflag_t __flags),Xwfchdirat,(__dfd,__path,__flags))
+__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw32fchdirat,(__fd_t __dfd, char32_t const *__path, __atflag_t __flags),Xwfchdirat,(__dfd,__path,__flags))
+__REDIRECT_W16(__LIBC,__PORT_KOSONLY __NONNULL((2,3)),size_t,__LIBCCALL,Xw16freadlinkat,(__fd_t __dfd, char16_t const *__restrict __path, char16_t *__restrict __buf, size_t __buflen, __atflag_t __flags),Xwfreadlinkat,(__dfd,__path,__buf,__buflen,__flags))
+__REDIRECT_W32(__LIBC,__PORT_KOSONLY __NONNULL((2,3)),size_t,__LIBCCALL,Xw32freadlinkat,(__fd_t __dfd, char32_t const *__restrict __path, char32_t *__restrict __buf, size_t __buflen, __atflag_t __flags),Xwfreadlinkat,(__dfd,__path,__buf,__buflen,__flags))
+__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY __NONNULL((1,3)),__LIBCCALL,Xw16fsymlinkat,(char16_t const *__from, __fd_t __tofd, char16_t const *__to, __atflag_t __flags),Xwfsymlinkat,(__from,__tofd,__to,__flags))
+__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY __NONNULL((1,3)),__LIBCCALL,Xw32fsymlinkat,(char32_t const *__from, __fd_t __tofd, char32_t const *__to, __atflag_t __flags),Xwfsymlinkat,(__from,__tofd,__to,__flags))
 __REDIRECT_W16(__LIBC,__PORT_KOSONLY __NONNULL((2)),size_t,__LIBCCALL,Xw16freadlink,(__fd_t __fd, char16_t *__restrict __buf, size_t __buflen),Xwfreadlink,(__fd,__buf,__buflen))
 __REDIRECT_W32(__LIBC,__PORT_KOSONLY __NONNULL((2)),size_t,__LIBCCALL,Xw32freadlink,(__fd_t __fd, char32_t *__restrict __buf, size_t __buflen),Xwfreadlink,(__fd,__buf,__buflen))
 #ifdef __USE_FILE_OFFSET64
-__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw16ftruncateat,(__fd_t __dfd, char16_t const *__file, __FS_TYPE(off) __length, int __flags),Xwftruncateat64,(__dfd,__file,__length,__flags))
-__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw32ftruncateat,(__fd_t __dfd, char32_t const *__file, __FS_TYPE(off) __length, int __flags),Xwftruncateat64,(__dfd,__file,__length,__flags))
+__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw16ftruncateat,(__fd_t __dfd, char16_t const *__file, __FS_TYPE(off) __length, __atflag_t __flags),Xwftruncateat64,(__dfd,__file,__length,__flags))
+__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw32ftruncateat,(__fd_t __dfd, char32_t const *__file, __FS_TYPE(off) __length, __atflag_t __flags),Xwftruncateat64,(__dfd,__file,__length,__flags))
 #else
-__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw16ftruncateat,(__fd_t __dfd, char16_t const *__file, __FS_TYPE(off) __length, int __flags),Xwftruncateat,(__dfd,__file,__length,__flags))
-__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw32ftruncateat,(__fd_t __dfd, char32_t const *__file, __FS_TYPE(off) __length, int __flags),Xwftruncateat,(__dfd,__file,__length,__flags))
+__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw16ftruncateat,(__fd_t __dfd, char16_t const *__file, __FS_TYPE(off) __length, __atflag_t __flags),Xwftruncateat,(__dfd,__file,__length,__flags))
+__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw32ftruncateat,(__fd_t __dfd, char32_t const *__file, __FS_TYPE(off) __length, __atflag_t __flags),Xwftruncateat,(__dfd,__file,__length,__flags))
 #endif
 #ifdef __USE_LARGEFILE64
-__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw16ftruncateat64,(__fd_t __dfd, char16_t const *__file, __FS_TYPE(off) __length, int __flags),Xwftruncateat64,(__dfd,__file,__length,__flags))
-__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw32ftruncateat64,(__fd_t __dfd, char32_t const *__file, __FS_TYPE(off) __length, int __flags),Xwftruncateat64,(__dfd,__file,__length,__flags))
+__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw16ftruncateat64,(__fd_t __dfd, char16_t const *__file, __FS_TYPE(off) __length, __atflag_t __flags),Xwftruncateat64,(__dfd,__file,__length,__flags))
+__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xw32ftruncateat64,(__fd_t __dfd, char32_t const *__file, __FS_TYPE(off) __length, __atflag_t __flags),Xwftruncateat64,(__dfd,__file,__length,__flags))
 #endif
 #endif /* __USE_EXCEPT */
 
@@ -107,27 +107,27 @@ __REDIRECT_EXCEPT_W16(__LIBC,__XATTR_RETNONNULL __PORT_KOSONLY,char16_t *,__LIBC
 __REDIRECT_EXCEPT_W32(__LIBC,__XATTR_RETNONNULL __PORT_KOSONLY,char32_t *,__LIBCCALL,xw32frealpath,(__fd_t __fd, char32_t *__buf, __size_t __bufsize, unsigned int __type),xwfrealpath,(__dfd,__buf,__bufsize,__type))
 __REDIRECT_EXCEPT_UFSW16(__LIBC,__XATTR_RETNONNULL __PORT_KOSONLY,char16_t *,__LIBCCALL,xw16realpath,(char16_t const *__path, char16_t *__buf, __size_t __bufsize, unsigned int __type),xwrealpath,(__path,__buf,__bufsize,__type))
 __REDIRECT_EXCEPT_UFSW32(__LIBC,__XATTR_RETNONNULL __PORT_KOSONLY,char32_t *,__LIBCCALL,xw32realpath,(char32_t const *__path, char32_t *__buf, __size_t __bufsize, unsigned int __type),xwrealpath,(__path,__buf,__bufsize,__type))
-__REDIRECT_EXCEPT_UFSW16(__LIBC,__XATTR_RETNONNULL __PORT_KOSONLY,char16_t *,__LIBCCALL,xw16frealpathat,(__fd_t __dfd, char16_t const *__path, int __flags, char16_t *__buf, __size_t __bufsize, unsigned int __type),xwfrealpathat,(__dfd,__path,__flags,__buf,__bufsize,__type))
-__REDIRECT_EXCEPT_UFSW32(__LIBC,__XATTR_RETNONNULL __PORT_KOSONLY,char32_t *,__LIBCCALL,xw32frealpathat,(__fd_t __dfd, char32_t const *__path, int __flags, char32_t *__buf, __size_t __bufsize, unsigned int __type),xwfrealpathat,(__dfd,__path,__flags,__buf,__bufsize,__type))
+__REDIRECT_EXCEPT_UFSW16(__LIBC,__XATTR_RETNONNULL __PORT_KOSONLY,char16_t *,__LIBCCALL,xw16frealpathat,(__fd_t __dfd, char16_t const *__path, __atflag_t __flags, char16_t *__buf, __size_t __bufsize, unsigned int __type),xwfrealpathat,(__dfd,__path,__flags,__buf,__bufsize,__type))
+__REDIRECT_EXCEPT_UFSW32(__LIBC,__XATTR_RETNONNULL __PORT_KOSONLY,char32_t *,__LIBCCALL,xw32frealpathat,(__fd_t __dfd, char32_t const *__path, __atflag_t __flags, char32_t *__buf, __size_t __bufsize, unsigned int __type),xwfrealpathat,(__dfd,__path,__flags,__buf,__bufsize,__type))
 __REDIRECT_EXCEPT_W16(__LIBC,__PORT_KOSONLY,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xw16frealpath2,(__fd_t __fd, char16_t *__buf, __size_t __bufsize, unsigned int __type),xwfrealpath2,(__dfd,__buf,__bufsize,__type))
 __REDIRECT_EXCEPT_W32(__LIBC,__PORT_KOSONLY,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xw32frealpath2,(__fd_t __fd, char32_t *__buf, __size_t __bufsize, unsigned int __type),xwfrealpath2,(__dfd,__buf,__bufsize,__type))
 __REDIRECT_EXCEPT_UFSW16(__LIBC,__PORT_KOSONLY,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xw16realpath2,(char16_t const *__path, char16_t *__buf, __size_t __bufsize, unsigned int __type),xwrealpath2,(__path,__buf,__bufsize,__type))
 __REDIRECT_EXCEPT_UFSW32(__LIBC,__PORT_KOSONLY,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xw32realpath2,(char32_t const *__path, char32_t *__buf, __size_t __bufsize, unsigned int __type),xwrealpath2,(__path,__buf,__bufsize,__type))
-__REDIRECT_EXCEPT_UFSW16(__LIBC,__PORT_KOSONLY,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xw16frealpathat2,(__fd_t __dfd, char16_t const *__path, int __flags, char16_t *__buf, __size_t __bufsize, unsigned int __type),xwfrealpathat2,(__dfd,__path,__flags,__buf,__bufsize,__type))
-__REDIRECT_EXCEPT_UFSW32(__LIBC,__PORT_KOSONLY,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xw32frealpathat2,(__fd_t __dfd, char32_t const *__path, int __flags, char32_t *__buf, __size_t __bufsize, unsigned int __type),xwfrealpathat2,(__dfd,__path,__flags,__buf,__bufsize,__type))
+__REDIRECT_EXCEPT_UFSW16(__LIBC,__PORT_KOSONLY,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xw16frealpathat2,(__fd_t __dfd, char16_t const *__path, __atflag_t __flags, char16_t *__buf, __size_t __bufsize, unsigned int __type),xwfrealpathat2,(__dfd,__path,__flags,__buf,__bufsize,__type))
+__REDIRECT_EXCEPT_UFSW32(__LIBC,__PORT_KOSONLY,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xw32frealpathat2,(__fd_t __dfd, char32_t const *__path, __atflag_t __flags, char32_t *__buf, __size_t __bufsize, unsigned int __type),xwfrealpathat2,(__dfd,__path,__flags,__buf,__bufsize,__type))
 #ifdef __USE_EXCEPT
 __REDIRECT_W16(__LIBC,__ATTR_RETNONNULL __PORT_KOSONLY,char16_t *,__LIBCCALL,Xxw16frealpath,(__fd_t __fd, char16_t *__buf, __size_t __bufsize, unsigned int __type),Xxwfrealpath,(__dfd,__buf,__bufsize,__type))
 __REDIRECT_W32(__LIBC,__ATTR_RETNONNULL __PORT_KOSONLY,char32_t *,__LIBCCALL,Xxw32frealpath,(__fd_t __fd, char32_t *__buf, __size_t __bufsize, unsigned int __type),Xxwfrealpath,(__dfd,__buf,__bufsize,__type))
 __REDIRECT_W16(__LIBC,__ATTR_RETNONNULL __PORT_KOSONLY,char16_t *,__LIBCCALL,Xxw16realpath,(char16_t const *__path, char16_t *__buf, __size_t __bufsize, unsigned int __type),Xxwrealpath,(__path,__buf,__bufsize,__type))
 __REDIRECT_W32(__LIBC,__ATTR_RETNONNULL __PORT_KOSONLY,char32_t *,__LIBCCALL,Xxw32realpath,(char32_t const *__path, char32_t *__buf, __size_t __bufsize, unsigned int __type),Xxwrealpath,(__path,__buf,__bufsize,__type))
-__REDIRECT_W16(__LIBC,__ATTR_RETNONNULL __PORT_KOSONLY,char16_t *,__LIBCCALL,Xxw16frealpathat,(__fd_t __dfd, char16_t const *__path, int __flags, char16_t *__buf, __size_t __bufsize, unsigned int __type),Xxwfrealpathat,(__dfd,__path,__flags,__buf,__bufsize,__type))
-__REDIRECT_W32(__LIBC,__ATTR_RETNONNULL __PORT_KOSONLY,char32_t *,__LIBCCALL,Xxw32frealpathat,(__fd_t __dfd, char32_t const *__path, int __flags, char32_t *__buf, __size_t __bufsize, unsigned int __type),Xxwfrealpathat,(__dfd,__path,__flags,__buf,__bufsize,__type))
+__REDIRECT_W16(__LIBC,__ATTR_RETNONNULL __PORT_KOSONLY,char16_t *,__LIBCCALL,Xxw16frealpathat,(__fd_t __dfd, char16_t const *__path, __atflag_t __flags, char16_t *__buf, __size_t __bufsize, unsigned int __type),Xxwfrealpathat,(__dfd,__path,__flags,__buf,__bufsize,__type))
+__REDIRECT_W32(__LIBC,__ATTR_RETNONNULL __PORT_KOSONLY,char32_t *,__LIBCCALL,Xxw32frealpathat,(__fd_t __dfd, char32_t const *__path, __atflag_t __flags, char32_t *__buf, __size_t __bufsize, unsigned int __type),Xxwfrealpathat,(__dfd,__path,__flags,__buf,__bufsize,__type))
 __REDIRECT_W16(__LIBC,__PORT_KOSONLY,__size_t,__LIBCCALL,Xxw16frealpath2,(__fd_t __fd, char16_t *__buf, __size_t __bufsize, unsigned int __type),Xxwfrealpath2,(__dfd,__buf,__bufsize,__type))
 __REDIRECT_W32(__LIBC,__PORT_KOSONLY,__size_t,__LIBCCALL,Xxw32frealpath2,(__fd_t __fd, char32_t *__buf, __size_t __bufsize, unsigned int __type),Xxwfrealpath2,(__dfd,__buf,__bufsize,__type))
 __REDIRECT_W16(__LIBC,__PORT_KOSONLY,__size_t,__LIBCCALL,Xxw16realpath2,(char16_t const *__path, char16_t *__buf, __size_t __bufsize, unsigned int __type),Xxwrealpath2,(__path,__buf,__bufsize,__type))
 __REDIRECT_W32(__LIBC,__PORT_KOSONLY,__size_t,__LIBCCALL,Xxw32realpath2,(char32_t const *__path, char32_t *__buf, __size_t __bufsize, unsigned int __type),Xxwrealpath2,(__path,__buf,__bufsize,__type))
-__REDIRECT_W16(__LIBC,__PORT_KOSONLY,__size_t,__LIBCCALL,Xxw16frealpathat2,(__fd_t __dfd, char16_t const *__path, int __flags, char16_t *__buf, __size_t __bufsize, unsigned int __type),Xxwfrealpathat2,(__dfd,__path,__flags,__buf,__bufsize,__type))
-__REDIRECT_W32(__LIBC,__PORT_KOSONLY,__size_t,__LIBCCALL,Xxw32frealpathat2,(__fd_t __dfd, char32_t const *__path, int __flags, char32_t *__buf, __size_t __bufsize, unsigned int __type),Xxwfrealpathat2,(__dfd,__path,__flags,__buf,__bufsize,__type))
+__REDIRECT_W16(__LIBC,__PORT_KOSONLY,__size_t,__LIBCCALL,Xxw16frealpathat2,(__fd_t __dfd, char16_t const *__path, __atflag_t __flags, char16_t *__buf, __size_t __bufsize, unsigned int __type),Xxwfrealpathat2,(__dfd,__path,__flags,__buf,__bufsize,__type))
+__REDIRECT_W32(__LIBC,__PORT_KOSONLY,__size_t,__LIBCCALL,Xxw32frealpathat2,(__fd_t __dfd, char32_t const *__path, __atflag_t __flags, char32_t *__buf, __size_t __bufsize, unsigned int __type),Xxwfrealpathat2,(__dfd,__path,__flags,__buf,__bufsize,__type))
 #endif /* __USE_EXCEPT */
 #endif /* __CRT_KOS */
 #endif /* !__KERNEL__ */

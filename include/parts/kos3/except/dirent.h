@@ -115,13 +115,13 @@ __LIBC __PORT_KOSONLY __NONNULL((2,4)) __size_t (__LIBCCALL Xgetdirentries64)
  * @return: 0 : The end of the directory has been reached.
  * @EXCPET: Failed to read a directory entry for some reason */
 __LIBC __PORT_KOSONLY __NONNULL((2)) __WUNUSED
-__size_t (__LIBCCALL Xxreaddir)(__fd_t __fd, struct dirent *__buf, size_t __bufsize, int __mode);
+__size_t (__LIBCCALL Xxreaddir)(__fd_t __fd, struct dirent *__buf, size_t __bufsize, unsigned int __mode);
 __LIBC __PORT_KOSONLY __NONNULL((2)) __WUNUSED
-__size_t (__LIBCCALL Xxreaddirf)(__fd_t __fd, struct dirent *__buf, size_t __bufsize, int __mode, __oflag_t __flags);
+__size_t (__LIBCCALL Xxreaddirf)(__fd_t __fd, struct dirent *__buf, size_t __bufsize, unsigned int __mode, __oflag_t __flags);
 __LIBC __PORT_KOSONLY __NONNULL((2)) __WUNUSED
-__size_t (__LIBCCALL Xxreaddir64)(__fd_t __fd, struct dirent64 *__buf, size_t __bufsize, int __mode);
+__size_t (__LIBCCALL Xxreaddir64)(__fd_t __fd, struct dirent64 *__buf, size_t __bufsize, unsigned int __mode);
 __LIBC __PORT_KOSONLY __NONNULL((2)) __WUNUSED
-__size_t (__LIBCCALL Xxreaddirf64)(__fd_t __fd, struct dirent64 *__buf, size_t __bufsize, int __mode, __oflag_t __flags);
+__size_t (__LIBCCALL Xxreaddirf64)(__fd_t __fd, struct dirent64 *__buf, size_t __bufsize, unsigned int __mode, __oflag_t __flags);
 
 __SYSDECL_END
 #endif

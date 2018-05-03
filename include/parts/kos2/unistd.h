@@ -76,21 +76,21 @@ __LIBC __PORT_KOSONLY __ATTR_NORETURN __ATTR_SENTINEL void (__ATTR_CDECL Xfexecl
 
 #ifdef __CRT_KOS
 __REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(chdir) __NONNULL((2)),int,__LIBCCALL,fchdirat,(__fd_t __dfd, char const *__path, __atflag_t __flags),(__dfd,__path,__flags))
-__REDIRECT_EXCEPT_UFS(__LIBC,__PORT_KOSONLY_ALT(readlinkat) __NONNULL((2,3)),__EXCEPT_SELECT(size_t,ssize_t),__LIBCCALL,freadlinkat,(__fd_t __dfd, char const *__restrict __path, char *__restrict __buf, size_t __buflen, int __flags),(__dfd,__path,__buf,__buflen,__flags))
+__REDIRECT_EXCEPT_UFS(__LIBC,__PORT_KOSONLY_ALT(readlinkat) __NONNULL((2,3)),__EXCEPT_SELECT(size_t,ssize_t),__LIBCCALL,freadlinkat,(__fd_t __dfd, char const *__restrict __path, char *__restrict __buf, size_t __buflen, __atflag_t __flags),(__dfd,__path,__buf,__buflen,__flags))
 __REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(symlinkat) __NONNULL((1,3)),int,__LIBCCALL,fsymlinkat,(char const *__from, __fd_t __tofd, char const *__to, __atflag_t __flags),(__from,__tofd,__to,__flags))
-__REDIRECT_EXCEPT_UFS64_XVOID(__LIBC,__PORT_KOSONLY_ALT(truncate) __NONNULL((2)),int,__LIBCCALL,ftruncateat,(__fd_t __dfd, char const *__file, __FS_TYPE(off) __length, int __flags),(__dfd,__file,__length,__flags))
+__REDIRECT_EXCEPT_UFS64_XVOID(__LIBC,__PORT_KOSONLY_ALT(truncate) __NONNULL((2)),int,__LIBCCALL,ftruncateat,(__fd_t __dfd, char const *__file, __FS_TYPE(off) __length, __atflag_t __flags),(__dfd,__file,__length,__flags))
 __REDIRECT_EXCEPT(__LIBC,__PORT_KOSONLY_ALT(readlink) __NONNULL((2)),__EXCEPT_SELECT(size_t,ssize_t),__LIBCCALL,freadlink,(__fd_t __fd, char *__restrict __buf, size_t __buflen),(__fd,__buf,__buflen))
 #ifdef __USE_LARGEFILE64
-__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(truncate64) __NONNULL((2)),int,__LIBCCALL,ftruncateat64,(__fd_t __dfd, char const *__file, __off64_t __length, int __flags),(__dfd,__file,__length,__flags))
+__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(truncate64) __NONNULL((2)),int,__LIBCCALL,ftruncateat64,(__fd_t __dfd, char const *__file, __off64_t __length, __atflag_t __flags),(__dfd,__file,__length,__flags))
 #endif /* __USE_LARGEFILE64 */
 #ifdef __USE_EXCEPT
 __LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xfchdirat)(__fd_t __dfd, char const *__path, __atflag_t __flags);
-__LIBC __PORT_KOSONLY __NONNULL((2,3)) size_t (__LIBCCALL Xfreadlinkat)(__fd_t __dfd, char const *__restrict __path, char *__restrict __buf, size_t __buflen, int __flags);
+__LIBC __PORT_KOSONLY __NONNULL((2,3)) size_t (__LIBCCALL Xfreadlinkat)(__fd_t __dfd, char const *__restrict __path, char *__restrict __buf, size_t __buflen, __atflag_t __flags);
 __LIBC __PORT_KOSONLY __NONNULL((1,3)) void (__LIBCCALL Xfsymlinkat)(char const *__from, __fd_t __tofd, char const *__to, __atflag_t __flags);
-__REDIRECT_FS64_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xftruncateat,(__fd_t __dfd, char const *__file, __FS_TYPE(off) __length, int __flags),(__dfd,__file,__length,__flags))
+__REDIRECT_FS64_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xftruncateat,(__fd_t __dfd, char const *__file, __FS_TYPE(off) __length, __atflag_t __flags),(__dfd,__file,__length,__flags))
 __LIBC __PORT_KOSONLY __NONNULL((2)) size_t (__LIBCCALL Xfreadlink)(__fd_t __fd, char *__restrict __buf, size_t __buflen);
 #ifdef __USE_LARGEFILE64
-__LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xftruncateat64)(__fd_t __dfd, char const *__file, __off64_t __length, int __flags);
+__LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xftruncateat64)(__fd_t __dfd, char const *__file, __off64_t __length, __atflag_t __flags);
 #endif /* __USE_LARGEFILE64 */
 #endif /* __USE_EXCEPT */
 
@@ -99,23 +99,23 @@ __LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xftruncateat64)(__fd_t __d
 /* At-file style exec functions. */
 #ifndef __fexecvat_defined
 #define __fexecvat_defined 1
-__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execv) __XATTR_NORETURN __NONNULL((3)),int,__LIBCCALL,fexecvat,(__fd_t __dfd, char const *__path, __TARGV, int __flags),(__dfd,__path,___argv,__flags))
-__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execve) __XATTR_NORETURN __NONNULL((3)),int,__LIBCCALL,fexecveat,(__fd_t __dfd, char const *__path, __TARGV, __TENVP, int __flags),(__dfd,__path,___argv,__flags))
-__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execvp) __XATTR_NORETURN __NONNULL((1,2)),int,__LIBCCALL,fexecvpat,(char const *__restrict __file, __TARGV, int __flags),(__dfd,__file,___argv,__flags))
-__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execvpe) __XATTR_NORETURN __NONNULL((1,2,3)),int,__LIBCCALL,fexecvpeat,(char const *__restrict __file, __TARGV, __TENVP, int __flags),(__dfd,__file,___argv,__flags))
-__XREDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execl) __XATTR_NORETURN __NONNULL((2)) __ATTR_SENTINEL_O(1),int,__ATTR_CDECL,fexeclat,(__fd_t __dfd, char const *__path, char const *__args, ... /*, int __flags*/),__REDIRECT_FEXECLAT(char,fexecvat,__dfd,__path,__args))
-__XREDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execle) __XATTR_NORETURN __NONNULL((2)) __ATTR_SENTINEL_O(2),int,__ATTR_CDECL,fexecleat,(__fd_t __dfd, char const *__path, char const *__args, ... /*, char *const ___envp[], int __flags*/),__REDIRECT_FEXECLEAT(char,fexecveat,__dfd,__path,__args))
-__XREDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execlp) __XATTR_NORETURN __NONNULL((1)) __ATTR_SENTINEL_O(1),int,__ATTR_CDECL,fexeclpat,(char const *__restrict __file, char const *__args, ... /*, int __flags*/),__REDIRECT_FEXECLPAT(char,fexecvpat,__file,__args))
-__XREDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execlpe) __XATTR_NORETURN __NONNULL((1)) __ATTR_SENTINEL_O(2),int,__ATTR_CDECL,fexeclpeat,(char const *__restrict __file, char const *__args, ... /*, char *const ___envp[], int __flags*/),__REDIRECT_FEXECLPEAT(char,fexecvpeat,__file,__args))
+__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execv) __XATTR_NORETURN __NONNULL((3)),int,__LIBCCALL,fexecvat,(__fd_t __dfd, char const *__path, __TARGV, __atflag_t __flags),(__dfd,__path,___argv,__flags))
+__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execve) __XATTR_NORETURN __NONNULL((3)),int,__LIBCCALL,fexecveat,(__fd_t __dfd, char const *__path, __TARGV, __TENVP, __atflag_t __flags),(__dfd,__path,___argv,__flags))
+__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execvp) __XATTR_NORETURN __NONNULL((1,2)),int,__LIBCCALL,fexecvpat,(char const *__restrict __file, __TARGV, __atflag_t __flags),(__dfd,__file,___argv,__flags))
+__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execvpe) __XATTR_NORETURN __NONNULL((1,2,3)),int,__LIBCCALL,fexecvpeat,(char const *__restrict __file, __TARGV, __TENVP, __atflag_t __flags),(__dfd,__file,___argv,__flags))
+__XREDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execl) __XATTR_NORETURN __NONNULL((2)) __ATTR_SENTINEL_O(1),int,__ATTR_CDECL,fexeclat,(__fd_t __dfd, char const *__path, char const *__args, ... /*, __atflag_t __flags*/),__REDIRECT_FEXECLAT(char,fexecvat,__dfd,__path,__args))
+__XREDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execle) __XATTR_NORETURN __NONNULL((2)) __ATTR_SENTINEL_O(2),int,__ATTR_CDECL,fexecleat,(__fd_t __dfd, char const *__path, char const *__args, ... /*, char *const ___envp[], __atflag_t __flags*/),__REDIRECT_FEXECLEAT(char,fexecveat,__dfd,__path,__args))
+__XREDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execlp) __XATTR_NORETURN __NONNULL((1)) __ATTR_SENTINEL_O(1),int,__ATTR_CDECL,fexeclpat,(char const *__restrict __file, char const *__args, ... /*, __atflag_t __flags*/),__REDIRECT_FEXECLPAT(char,fexecvpat,__file,__args))
+__XREDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(execlpe) __XATTR_NORETURN __NONNULL((1)) __ATTR_SENTINEL_O(2),int,__ATTR_CDECL,fexeclpeat,(char const *__restrict __file, char const *__args, ... /*, char *const ___envp[], __atflag_t __flags*/),__REDIRECT_FEXECLPEAT(char,fexecvpeat,__file,__args))
 #ifdef __USE_EXCEPT
-__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((3)) void (__LIBCCALL Xfexecvat)(__fd_t __dfd, char const *__path, __TARGV, int __flags);
-__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((3)) void (__LIBCCALL Xfexecveat)(__fd_t __dfd, char const *__path, __TARGV, __TENVP, int __flags);
-__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((1,2)) void (__LIBCCALL Xfexecvpat)(char const *__restrict __file, __TARGV, int __flags);
-__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((1,2,3)) void (__LIBCCALL Xfexecvpeat)(char const *__restrict __file, __TARGV, __TENVP, int __flags);
-__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((2)) __ATTR_SENTINEL_O(1) void (__ATTR_CDECL Xfexeclat)(__fd_t __dfd, char const *__path, char const *__args, ... /*, int __flags*/);
-__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((2)) __ATTR_SENTINEL_O(2) void (__ATTR_CDECL Xfexecleat)(__fd_t __dfd, char const *__path, char const *__args, ... /*, char *const ___envp[], int __flags*/);
-__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((1)) __ATTR_SENTINEL_O(1) void (__ATTR_CDECL Xfexeclpat)(char const *__restrict __file, char const *__args, ... /*, int __flags*/);
-__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((1)) __ATTR_SENTINEL_O(2) void (__ATTR_CDECL Xfexeclpeat)(char const *__restrict __file, char const *__args, ... /*, char *const ___envp[], int __flags*/);
+__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((3)) void (__LIBCCALL Xfexecvat)(__fd_t __dfd, char const *__path, __TARGV, __atflag_t __flags);
+__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((3)) void (__LIBCCALL Xfexecveat)(__fd_t __dfd, char const *__path, __TARGV, __TENVP, __atflag_t __flags);
+__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((1,2)) void (__LIBCCALL Xfexecvpat)(char const *__restrict __file, __TARGV, __atflag_t __flags);
+__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((1,2,3)) void (__LIBCCALL Xfexecvpeat)(char const *__restrict __file, __TARGV, __TENVP, __atflag_t __flags);
+__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((2)) __ATTR_SENTINEL_O(1) void (__ATTR_CDECL Xfexeclat)(__fd_t __dfd, char const *__path, char const *__args, ... /*, __atflag_t __flags*/);
+__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((2)) __ATTR_SENTINEL_O(2) void (__ATTR_CDECL Xfexecleat)(__fd_t __dfd, char const *__path, char const *__args, ... /*, char *const ___envp[], __atflag_t __flags*/);
+__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((1)) __ATTR_SENTINEL_O(1) void (__ATTR_CDECL Xfexeclpat)(char const *__restrict __file, char const *__args, ... /*, __atflag_t __flags*/);
+__LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((1)) __ATTR_SENTINEL_O(2) void (__ATTR_CDECL Xfexeclpeat)(char const *__restrict __file, char const *__args, ... /*, char *const ___envp[], __atflag_t __flags*/);
 #endif /* __USE_EXCEPT */
 #endif /* !__fexecvat_defined */
 #endif /* __USE_ATFILE */

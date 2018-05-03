@@ -22,6 +22,7 @@
 #include "__stdinc.h"
 #include <features.h>
 #include <hybrid/typecore.h>
+#include <bits/types.h>
 #ifndef _DIRECT_H
 #include <direct.h>
 #endif
@@ -29,13 +30,13 @@
 #if defined(__CC__) && !defined(__KERNEL__) && defined(__USE_EXCEPT)
 __SYSDECL_BEGIN
 
-__REDIRECT(__LIBC,__ATTR_RETNONNULL __PORT_KOSONLY __WUNUSED_SUGGESTED,char *,__LIBCCALL,_Xgetcwd,(char *__buf, size_t __size),Xgetcwd,(__buf,__size))
+__REDIRECT(__LIBC,__ATTR_RETNONNULL __PORT_KOSONLY __WUNUSED_SUGGESTED,char *,__LIBCCALL,_Xgetcwd,(char *__buf, __size_t __size),Xgetcwd,(__buf,__size))
 __REDIRECT_VOID(__LIBC,__PORT_KOSONLY __NONNULL((1)),__LIBCCALL,_Xchdir,(char const *__path),Xchdir,(__path))
 __REDIRECT_VOID(__LIBC,__PORT_KOSONLY __NONNULL((1)),__LIBCCALL,_Xrmdir,(char const *__path),Xrmdir,(__path))
 
 #ifdef __CRT_DOS
 #define _Xgetdcwd_nolock _Xgetdcwd
-__REDIRECT(__LIBC,__ATTR_RETNONNULL __PORT_KOSONLY __WUNUSED_SUGGESTED,char *,__LIBCCALL,_Xgetdcwd,(int __drive, char *__buf, size_t __size),Xgetdcwd,(__drive,__buf,__size))
+__REDIRECT(__LIBC,__ATTR_RETNONNULL __PORT_KOSONLY __WUNUSED_SUGGESTED,char *,__LIBCCALL,_Xgetdcwd,(int __drive, char *__buf, __size_t __size),Xgetdcwd,(__drive,__buf,__size))
 __REDIRECT_VOID(__LIBC,__PORT_KOSONLY,__LIBCCALL,_Xchdrive,(int __drive),Xchdrive,(__drive))
 __REDIRECT(__LIBC,__WUNUSED __PORT_KOSONLY,int,__LIBCCALL,_Xgetdrive,(void),Xgetdrive,())
 #endif /* __CRT_DOS */
@@ -43,7 +44,7 @@ __REDIRECT(__LIBC,__WUNUSED __PORT_KOSONLY,int,__LIBCCALL,_Xgetdrive,(void),Xget
 /* A small hand full of functions defined in '<direct.h>' */
 #ifndef __Xgetcwd_defined
 #define __Xgetcwd_defined 1
-__LIBC __PORT_KOSONLY __ATTR_RETNONNULL __WUNUSED_SUGGESTED char *(__LIBCCALL Xgetcwd)(char *__buf, size_t __size);
+__LIBC __PORT_KOSONLY __ATTR_RETNONNULL __WUNUSED_SUGGESTED char *(__LIBCCALL Xgetcwd)(char *__buf, __size_t __size);
 #endif /* !__Xgetcwd_defined */
 #ifndef __Xchdir_defined
 #define __Xchdir_defined 1
@@ -53,7 +54,7 @@ __LIBC __PORT_KOSONLY __NONNULL((1)) void (__LIBCCALL Xchdir)(char const *__path
 #define __Xrmdir_defined 1
 __LIBC __PORT_KOSONLY __NONNULL((1)) void (__LIBCCALL Xrmdir)(char const *__path);
 #endif /* !__Xrmdir_defined */
-__REDIRECT_VOID(__LIBC,__NONNULL((1)),__LIBCCALL,__kos_Xmkdir,(char const *__path, int __mode),Xmkdir,(__path,__mode))
+__REDIRECT_VOID(__LIBC,__NONNULL((1)),__LIBCCALL,__kos_Xmkdir,(char const *__path, __mode_t __mode),Xmkdir,(__path,__mode))
 __LOCAL __NONNULL((1)) void (__LIBCCALL _Xmkdir)(char const *__path) { __kos_Xmkdir(__path,0755); }
 
 #ifndef __Xmkdir_defined

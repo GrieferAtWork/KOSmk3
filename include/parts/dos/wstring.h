@@ -56,8 +56,8 @@ __REDIRECT(__LIBC,__NONNULL((1,2,3)),wchar_t *,__LIBCCALL,wcstok_s,(wchar_t *__r
 #endif
 
 #ifdef __CRT_DOS
-__REDIRECT_DPB(__LIBC,__WUNUSED __PORT_DOSONLY_ALT(strerror),wchar_t *,__LIBCCALL,wcserror,(int __errnum),(__errnum))
-__REDIRECT_DPB(__LIBC,__NONNULL((1)) __PORT_DOSONLY_ALT(strerror),errno_t,__LIBCCALL,wcserror_s,(wchar_t *__restrict __buf, size_t __max_chars, int __errnum),(__buf,__max_chars,__errnum))
+__REDIRECT_DPB(__LIBC,__WUNUSED __PORT_DOSONLY_ALT(strerror),wchar_t *,__LIBCCALL,wcserror,(errno_t __errnum),(__errnum))
+__REDIRECT_DPB(__LIBC,__NONNULL((1)) __PORT_DOSONLY_ALT(strerror),errno_t,__LIBCCALL,wcserror_s,(wchar_t *__restrict __buf, size_t __max_chars, errno_t __errnum),(__buf,__max_chars,__errnum))
 __LIBC __WUNUSED __PORT_DOSONLY_ALT(strerror) wchar_t *(__LIBCCALL __wcserror)(wchar_t const *__errmsg);
 __LIBC __NONNULL((1)) __PORT_DOSONLY_ALT(strerror) errno_t (__LIBCCALL __wcserror_s)(wchar_t *__restrict __buf, size_t __max_chars, wchar_t const *__errmsg);
 

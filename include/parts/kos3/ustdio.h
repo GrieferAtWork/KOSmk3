@@ -52,11 +52,11 @@ __REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,w16removeat,
 __REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,w32removeat,(__fd_t __dfd, char32_t const *__filename),wremoveat,(__fd,__filename))
 #endif /* __USE_KOS */
 #ifdef __USE_ATFILE
-__REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,w16renameat,(int __oldfd, char16_t const *__old, int __newfd, char16_t const *__new),wrenameat,(__oldfd,__old,__newfd,__new))
-__REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,w32renameat,(int __oldfd, char32_t const *__old, int __newfd, char32_t const *__new),wrenameat,(__oldfd,__old,__newfd,__new))
+__REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,w16renameat,(__fd_t __oldfd, char16_t const *__old, __fd_t __newfd, char16_t const *__new),wrenameat,(__oldfd,__old,__newfd,__new))
+__REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,w32renameat,(__fd_t __oldfd, char32_t const *__old, __fd_t __newfd, char32_t const *__new),wrenameat,(__oldfd,__old,__newfd,__new))
 #ifdef __USE_KOS
-__REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,w16frenameat,(int __oldfd, char16_t const *__old, int __newfd, char16_t const *__new, int __flags),wfrenameat,(__oldfd,__old,__newfd,__new,__flags))
-__REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,w32frenameat,(int __oldfd, char32_t const *__old, int __newfd, char32_t const *__new, int __flags),wfrenameat,(__oldfd,__old,__newfd,__new,__flags))
+__REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,w16frenameat,(__fd_t __oldfd, char16_t const *__old, __fd_t __newfd, char16_t const *__new, __atflag_t __flags),wfrenameat,(__oldfd,__old,__newfd,__new,__flags))
+__REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,w32frenameat,(__fd_t __oldfd, char32_t const *__old, __fd_t __newfd, char32_t const *__new, __atflag_t __flags),wfrenameat,(__oldfd,__old,__newfd,__new,__flags))
 #endif /* __USE_KOS */
 #endif /* __USE_ATFILE */
 #endif /* __CRT_KOS */
@@ -71,11 +71,11 @@ __REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY,__LIBCCALL,Xw16removeat,(__fd_t __dfd,
 __REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY,__LIBCCALL,Xw32removeat,(__fd_t __dfd, char32_t const *__filename),Xwremoveat,(__dfd,__filename))
 #endif /* __USE_KOS */
 #ifdef __USE_ATFILE
-__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY,__LIBCCALL,Xw16renameat,(int __oldfd, char16_t const *__old, int __newfd, char16_t const *__new),Xwrenameat,(__oldfd,__old,__newfd,__new))
-__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY,__LIBCCALL,Xw32renameat,(int __oldfd, char32_t const *__old, int __newfd, char32_t const *__new),Xwrenameat,(__oldfd,__old,__newfd,__new))
+__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY,__LIBCCALL,Xw16renameat,(__fd_t __oldfd, char16_t const *__old, __fd_t __newfd, char16_t const *__new),Xwrenameat,(__oldfd,__old,__newfd,__new))
+__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY,__LIBCCALL,Xw32renameat,(__fd_t __oldfd, char32_t const *__old, __fd_t __newfd, char32_t const *__new),Xwrenameat,(__oldfd,__old,__newfd,__new))
 #ifdef __USE_KOS
-__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY,__LIBCCALL,Xw16frenameat,(int __oldfd, char16_t const *__old, int __newfd, char16_t const *__new, int __flags),Xwfrenameat,(__oldfd,__old,__newfd,__new,__flags))
-__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY,__LIBCCALL,Xw32frenameat,(int __oldfd, char32_t const *__old, int __newfd, char32_t const *__new, int __flags),Xwfrenameat,(__oldfd,__old,__newfd,__new,__flags))
+__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY,__LIBCCALL,Xw16frenameat,(__fd_t __oldfd, char16_t const *__old, __fd_t __newfd, char16_t const *__new, __atflag_t __flags),Xwfrenameat,(__oldfd,__old,__newfd,__new,__flags))
+__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY,__LIBCCALL,Xw32frenameat,(__fd_t __oldfd, char32_t const *__old, __fd_t __newfd, char32_t const *__new, __atflag_t __flags),Xwfrenameat,(__oldfd,__old,__newfd,__new,__flags))
 #endif /* __USE_KOS */
 #endif /* __USE_ATFILE */
 #endif /* __USE_EXCEPT */

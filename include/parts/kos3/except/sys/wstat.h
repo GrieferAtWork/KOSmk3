@@ -44,13 +44,13 @@ __REDIRECT_VOID(__LIBC,__PORT_KOSONLY __NONNULL((1,2)),__LIBCCALL,Xwstat64,(wcha
 #endif /* __USE_LARGEFILE64 */
 #ifdef __USE_ATFILE
 #ifdef __USE_FILE_OFFSET64
-__REDIRECT_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2,3)),__LIBCCALL,Xwfstatat,(__fd_t __fd, wchar_t const *__restrict __file, struct stat *__restrict __buf, int __flags),Xkwfstatat64,(__fd,__file,__buf,__flags))
+__REDIRECT_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2,3)),__LIBCCALL,Xwfstatat,(__fd_t __fd, wchar_t const *__restrict __file, struct stat *__restrict __buf, __atflag_t __flags),Xkwfstatat64,(__fd,__file,__buf,__flags))
 #else
-__REDIRECT_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2,3)),__LIBCCALL,Xwfstatat,(__fd_t __fd, wchar_t const *__restrict __file, struct stat *__restrict __buf, int __flags),Xkwfstatat,(__fd,__file,__buf,__flags))
+__REDIRECT_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2,3)),__LIBCCALL,Xwfstatat,(__fd_t __fd, wchar_t const *__restrict __file, struct stat *__restrict __buf, __atflag_t __flags),Xkwfstatat,(__fd,__file,__buf,__flags))
 #endif
 #ifdef __USE_LARGEFILE64
 __REDIRECT_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2,3)),__LIBCCALL,Xwfstatat64,
-               (__fd_t __fd, wchar_t const *__restrict __file, struct stat64 *__restrict __buf, int __flags),
+               (__fd_t __fd, wchar_t const *__restrict __file, struct stat64 *__restrict __buf, __atflag_t __flags),
                 Xkwfstatat64,(__fd,__file,__buf,__flags))
 #endif /* __USE_LARGEFILE64 */
 #endif /* __USE_ATFILE */
@@ -72,7 +72,7 @@ __LIBC __PORT_KOSONLY __NONNULL((1)) void (__LIBCCALL Xwmkdir)(wchar_t const *__
 
 #ifndef __Xwchmod_defined
 #define __Xwchmod_defined 1
-__LIBC __PORT_KOSONLY __NONNULL((1)) void (__LIBCCALL Xwchmod)(wchar_t const *__file, int __mode);
+__LIBC __PORT_KOSONLY __NONNULL((1)) void (__LIBCCALL Xwchmod)(wchar_t const *__file, __mode_t __mode);
 #endif /* !__Xwchmod_defined */
 
 #ifdef __USE_MISC
@@ -80,12 +80,12 @@ __LIBC __PORT_KOSONLY __NONNULL((1)) void (__LIBCCALL Xwlchmod)(wchar_t const *_
 #endif /* __USE_MISC */
 
 #if defined(__USE_KOS) && defined(__USE_ATFILE)
-__LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xwfmkdirat)(__fd_t __dfd, wchar_t const *__path, __mode_t __mode, int __flags);
-__LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xwfmknodat)(__fd_t __dfd, wchar_t const *__path, __mode_t __mode, __dev_t __dev, int __flags);
+__LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xwfmkdirat)(__fd_t __dfd, wchar_t const *__path, __mode_t __mode, __atflag_t __flags);
+__LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xwfmknodat)(__fd_t __dfd, wchar_t const *__path, __mode_t __mode, __dev_t __dev, __atflag_t __flags);
 #endif
 __LIBC __PORT_KOSONLY __NONNULL((1)) void (__LIBCCALL Xwmkfifo)(wchar_t const *__path, __mode_t __mode);
 #ifdef __USE_ATFILE
-__LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xwfchmodat)(__fd_t __dfd, wchar_t const *__file, __mode_t __mode, int __flags);
+__LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xwfchmodat)(__fd_t __dfd, wchar_t const *__file, __mode_t __mode, __atflag_t __flags);
 __LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xwmkdirat)(__fd_t __dfd, wchar_t const *__path, __mode_t __mode);
 __LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xwmkfifoat)(__fd_t __dfd, wchar_t const *__path, __mode_t __mode);
 #endif /* __USE_ATFILE */
@@ -97,9 +97,9 @@ __LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xwmknodat)(__fd_t __dfd, w
 #endif /* __USE_MISC || __USE_XOPEN_EXTENDED */
 
 #ifdef __USE_ATFILE
-__REDIRECT_TM64_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xwutimensat,(__fd_t __dfd, wchar_t const *__path, struct timespec const __times[2], int __flags),(__dfd,__path,__times,__flags))
+__REDIRECT_TM64_VOID(__LIBC,__PORT_KOSONLY __NONNULL((2)),__LIBCCALL,Xwutimensat,(__fd_t __dfd, wchar_t const *__path, struct timespec const __times[2], __atflag_t __flags),(__dfd,__path,__times,__flags))
 #ifdef __USE_TIME64
-__LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xwutimensat64)(__fd_t __dfd, wchar_t const *__path, struct __timespec64 const __times[2], int __flags);
+__LIBC __PORT_KOSONLY __NONNULL((2)) void (__LIBCCALL Xwutimensat64)(__fd_t __dfd, wchar_t const *__path, struct __timespec64 const __times[2], __atflag_t __flags);
 #endif /* __USE_TIME64 */
 #endif /* __USE_ATFILE */
 

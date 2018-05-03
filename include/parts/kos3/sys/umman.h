@@ -34,13 +34,13 @@ typedef __CHAR32_TYPE__ char32_t;
 #ifndef __KERNEL__
 #ifdef __CRT_KOS
 
-__REDIRECT_EXCEPT_UFSW16(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,shm_w16open,(char16_t const *__name, int __oflag, __mode_t __mode),shm_wopen,(__name,__oflag,__mode))
-__REDIRECT_EXCEPT_UFSW32(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,shm_w32open,(char32_t const *__name, int __oflag, __mode_t __mode),shm_wopen,(__name,__oflag,__mode))
+__REDIRECT_EXCEPT_UFSW16(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,shm_w16open,(char16_t const *__name, __oflag_t __oflag, __mode_t __mode),shm_wopen,(__name,__oflag,__mode))
+__REDIRECT_EXCEPT_UFSW32(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,shm_w32open,(char32_t const *__name, __oflag_t __oflag, __mode_t __mode),shm_wopen,(__name,__oflag,__mode))
 __REDIRECT_EXCEPT_UFSW16_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,shm_w16unlink,(char16_t const *__name),shm_wunlink,(__name))
 __REDIRECT_EXCEPT_UFSW32_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,shm_w32unlink,(char32_t const *__name),shm_wunlink,(__name))
 #ifdef __USE_EXCEPT
-__REDIRECT_W16(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,Xshm_w16open,(char16_t const *__name, int __oflag, __mode_t __mode),Xshm_wopen,(__name,__oflag,__mode))
-__REDIRECT_W32(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,Xshm_w32open,(char32_t const *__name, int __oflag, __mode_t __mode),Xshm_wopen,(__name,__oflag,__mode))
+__REDIRECT_W16(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,Xshm_w16open,(char16_t const *__name, __oflag_t __oflag, __mode_t __mode),Xshm_wopen,(__name,__oflag,__mode))
+__REDIRECT_W32(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,Xshm_w32open,(char32_t const *__name, __oflag_t __oflag, __mode_t __mode),Xshm_wopen,(__name,__oflag,__mode))
 __REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY,__LIBCCALL,Xshm_w16unlink,(char16_t const *__name),Xshm_wunlink,(__name))
 __REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY,__LIBCCALL,Xshm_w32unlink,(char32_t const *__name),Xshm_wunlink,(__name))
 #endif /* __USE_EXCEPT */

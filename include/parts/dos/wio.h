@@ -132,13 +132,13 @@ struct _wfinddata64_t {
 
 #ifndef _WIO_DEFINED
 #define _WIO_DEFINED 1
-__VREDIRECT_EXCEPT_UFSDPB(__LIBC,__PORT_DOSONLY __WUNUSED_SUGGESTED __NONNULL((1)),int,__ATTR_CDECL,wopen,(wchar_t const *__restrict __file, int __oflag, ...),TODO,(__file,__oflag),__oflag)
-__VREDIRECT_EXCEPT_UFSDPB(__LIBC,__PORT_DOSONLY __WUNUSED_SUGGESTED __NONNULL((1)),int,__ATTR_CDECL,wsopen,(wchar_t const *__restrict __file, int __oflag, int __sflag, ...),TODO,(__file,__oflag,__sflag),__sflag)
-__REDIRECT_EXCEPT_UFSDPB(__LIBC,__WUNUSED __PORT_DOSONLY __NONNULL((1)),int,__LIBCCALL,wcreat,(wchar_t const *__restrict __file, int __pmode),(__file,__pmode))
-__REDIRECT_UFSDPB(__LIBC,__PORT_DOSONLY __WUNUSED_SUGGESTED __NONNULL((1,2)),errno_t,__LIBCCALL,wsopen_s,(int *__restrict __fd, wchar_t const *__restrict __file, int __oflag, int __sflag, int __pflags),(__fd,__file,__oflag,__sflag,__pflags))
+__VREDIRECT_EXCEPT_UFSDPB(__LIBC,__PORT_DOSONLY __WUNUSED_SUGGESTED __NONNULL((1)),__fd_t,__ATTR_CDECL,wopen,(wchar_t const *__restrict __file, __oflag_t __oflag, ...),TODO,(__file,__oflag),__oflag)
+__VREDIRECT_EXCEPT_UFSDPB(__LIBC,__PORT_DOSONLY __WUNUSED_SUGGESTED __NONNULL((1)),__fd_t,__ATTR_CDECL,wsopen,(wchar_t const *__restrict __file, __oflag_t __oflag, int __sflag, ...),TODO,(__file,__oflag,__sflag),__sflag)
+__REDIRECT_EXCEPT_UFSDPB(__LIBC,__WUNUSED __PORT_DOSONLY __NONNULL((1)),__fd_t,__LIBCCALL,wcreat,(wchar_t const *__restrict __file, __mode_t __mode),(__file,__mode))
+__REDIRECT_UFSDPB(__LIBC,__PORT_DOSONLY __WUNUSED_SUGGESTED __NONNULL((1,2)),errno_t,__LIBCCALL,wsopen_s,(__fd_t *__restrict __fd, wchar_t const *__restrict __file, __oflag_t __oflag, int __sflag, __mode_t __mode),(__fd,__file,__oflag,__sflag,__mode))
 __REDIRECT_EXCEPT_UFSDPB_XVOID(__LIBC,__IF_NUSE_EXCEPT(__WUNUSED) __PORT_DOSONLY __NONNULL((1)),int,__LIBCCALL,waccess,(wchar_t const *__restrict __file, int __type),(__file,__type))
 __REDIRECT_UFSDPB(__LIBC,__WUNUSED __PORT_DOSONLY __NONNULL((1)),errno_t,__LIBCCALL,waccess_s,(wchar_t const *__restrict __file, int __type),(__file,__type))
-__REDIRECT_EXCEPT_UFSDPB_XVOID(__LIBC,__PORT_DOSONLY __NONNULL((1)),int,__LIBCCALL,wchmod,(wchar_t const *__restrict __file, int __mode),(__file,__mode))
+__REDIRECT_EXCEPT_UFSDPB_XVOID(__LIBC,__PORT_DOSONLY __NONNULL((1)),int,__LIBCCALL,wchmod,(wchar_t const *__restrict __file, __mode_t __mode),(__file,__mode))
 __REDIRECT_EXCEPT_UFSDPB_XVOID(__LIBC,__PORT_DOSONLY __NONNULL((1)),int,__LIBCCALL,wunlink,(wchar_t const *__restrict __file),(__file))
 __REDIRECT_EXCEPT_UFSDPB_XVOID(__LIBC,__PORT_DOSONLY __NONNULL((1,2)),int,__LIBCCALL,wrename,(wchar_t const *__oldname, wchar_t const *__newname),(__oldname,__newname))
 __REDIRECT_UFSDPB(__LIBC,__PORT_DOSONLY __WUNUSED_SUGGESTED __NONNULL((1)),errno_t,__LIBCCALL,wmktemp_s,(wchar_t *__restrict __templatename, size_t __sizeinwords),(__templatename,__sizeinwords))

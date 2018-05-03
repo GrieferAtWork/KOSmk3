@@ -22,6 +22,7 @@
 #include "__stdinc.h"
 #include <features.h>
 #include <hybrid/typecore.h>
+#include <bits/byteswap.h>
 #ifndef _STDLIB_H
 #include <stdlib.h>
 #endif

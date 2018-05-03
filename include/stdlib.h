@@ -23,6 +23,7 @@
 #include "parts/kos2/malldefs.h"
 #include <features.h>
 #include <hybrid/typecore.h>
+#include <bits/types.h>
 
 #ifdef __USE_MISC
 #include <alloca.h>
@@ -106,6 +107,13 @@ typedef union {
 #endif /* __USE_XOPEN || __USE_XOPEN2K8 */
 
 __NAMESPACE_STD_BEGIN
+#ifdef __COMPILER_HAVE_PRAGMA_PUSHMACRO
+#pragma push_macro("quot")
+#pragma push_macro("rem")
+#endif
+#undef quot
+#undef rem
+
 #ifndef __std_div_t_defined
 #define __std_div_t_defined 1
 typedef struct { int quot,rem; } div_t;
@@ -120,6 +128,11 @@ typedef struct { long quot,rem; } ldiv_t;
 typedef struct { __LONGLONG quot,rem; } lldiv_t;
 #endif /* !__std_lldiv_t_defined */
 #endif /* __USE_ISOC99 */
+
+#ifdef __COMPILER_HAVE_PRAGMA_PUSHMACRO
+#pragma pop_macro("rem")
+#pragma pop_macro("quot")
+#endif
 __NAMESPACE_STD_END
 
 #ifndef __CXX_SYSTEM_HEADER
@@ -515,6 +528,22 @@ __LIBC __PORT_NODOS __NONNULL((2))   int (__LIBCCALL srand48_r)(long __seedval, 
 __LIBC __PORT_NODOS __NONNULL((1,2)) int (__LIBCCALL seed48_r)(unsigned short __seed16v[3], struct drand48_data *__buffer);
 __LIBC __PORT_NODOS __NONNULL((1,2)) int (__LIBCCALL lcong48_r)(unsigned short __param[7], struct drand48_data *__buffer);
 
+#ifdef __COMPILER_HAVE_PRAGMA_PUSHMACRO
+#pragma push_macro("fptr")
+#pragma push_macro("rptr")
+#pragma push_macro("state")
+#pragma push_macro("rand_type")
+#pragma push_macro("rand_deg")
+#pragma push_macro("rand_sep")
+#pragma push_macro("end_ptr")
+#endif
+#undef fptr
+#undef rptr
+#undef state
+#undef rand_type
+#undef rand_deg
+#undef rand_sep
+#undef end_ptr
 struct random_data {
     __INT32_TYPE__ *fptr;
     __INT32_TYPE__ *rptr;
@@ -524,6 +553,16 @@ struct random_data {
     int             rand_sep;
     __INT32_TYPE__ *end_ptr;
 };
+#ifdef __COMPILER_HAVE_PRAGMA_PUSHMACRO
+#pragma pop_macro("end_ptr")
+#pragma pop_macro("rand_sep")
+#pragma pop_macro("rand_deg")
+#pragma pop_macro("rand_type")
+#pragma pop_macro("state")
+#pragma pop_macro("rptr")
+#pragma pop_macro("fptr")
+#endif
+
 __LIBC __PORT_NODOS __NONNULL((1,2)) int (__LIBCCALL random_r)(struct random_data *__restrict __buf, __INT32_TYPE__ *__restrict __result);
 __LIBC __PORT_NODOS __NONNULL((2)) int (__LIBCCALL srandom_r)(unsigned int __seed, struct random_data *__buf);
 __LIBC __PORT_NODOS __NONNULL((2,4)) int (__LIBCCALL initstate_r)(unsigned int __seed, char *__restrict __statebuf, size_t __statelen, struct random_data *__restrict __buf);
@@ -673,7 +712,7 @@ __LIBC __PORT_NODOS __WUNUSED char *(__LIBCCALL ptsname)(__fd_t __fd);
 #endif /* __USE_XOPEN */
 
 #ifdef __USE_XOPEN2KXSI
-__LIBC __PORT_NODOS __WUNUSED int (__LIBCCALL posix_openpt)(int __oflag);
+__LIBC __PORT_NODOS __WUNUSED int (__LIBCCALL posix_openpt)(__oflag_t __oflag);
 #endif /* __USE_XOPEN2KXSI */
 #endif /* __CRT_GLC */
 #endif /* !__KERNEL__ */

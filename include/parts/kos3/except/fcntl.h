@@ -38,22 +38,22 @@ __LIBC __PORT_KOSONLY int (__ATTR_CDECL Xfcntl)(__fd_t __fd, int __cmd, ...);
 
 #ifndef __Xopen_defined
 #define __Xopen_defined 1
-__VREDIRECT_FS64(__LIBC,__PORT_KOSONLY __NONNULL((1)),int,__ATTR_CDECL,Xopen,(char const *__file, int __oflag, ...),TODO,(__file,__oflag),__oflag)
+__VREDIRECT_FS64(__LIBC,__PORT_KOSONLY __NONNULL((1)),__fd_t,__ATTR_CDECL,Xopen,(char const *__file, __oflag_t __oflag, ...),TODO,(__file,__oflag),__oflag)
 #endif /* !__Xopen_defined */
 #ifndef __Xcreat_defined
 #define __Xcreat_defined 1
-__REDIRECT_FS64(__LIBC,__PORT_KOSONLY __NONNULL((1)),int,__LIBCCALL,Xcreat,(char const *__file, __mode_t __mode),(__file,__mode))
+__REDIRECT_FS64(__LIBC,__PORT_KOSONLY __NONNULL((1)),__fd_t,__LIBCCALL,Xcreat,(char const *__file, __mode_t __mode),(__file,__mode))
 #endif /* !__Xcreat_defined */
 
 #ifdef __USE_LARGEFILE64
-__LIBC __PORT_KOSONLY __NONNULL((1)) int (__ATTR_CDECL Xopen64)(char const *__file, int __oflag, ...);
-__LIBC __PORT_KOSONLY __NONNULL((1)) int (__LIBCCALL Xcreat64)(char const *__file, __mode_t __mode);
+__LIBC __PORT_KOSONLY __NONNULL((1)) __fd_t (__ATTR_CDECL Xopen64)(char const *__file, __oflag_t __oflag, ...);
+__LIBC __PORT_KOSONLY __NONNULL((1)) __fd_t (__LIBCCALL Xcreat64)(char const *__file, __mode_t __mode);
 #endif /* __USE_LARGEFILE64 */
 
 #ifdef __USE_ATFILE
-__VREDIRECT_FS64(__LIBC,__NONNULL((2)),int,__ATTR_CDECL,Xopenat,(__fd_t __dfd, char const *__file, int __oflag, ...),TODO,(__file,__oflag),__oflag)
+__VREDIRECT_FS64(__LIBC,__NONNULL((2)),__fd_t,__ATTR_CDECL,Xopenat,(__fd_t __dfd, char const *__file, __oflag_t __oflag, ...),TODO,(__file,__oflag),__oflag)
 #ifdef __USE_LARGEFILE64
-__LIBC __PORT_KOSONLY __NONNULL((2)) int (__ATTR_CDECL Xopenat64)(__fd_t __dfd, char const *__file, int __oflag, ...);
+__LIBC __PORT_KOSONLY __NONNULL((2)) __fd_t (__ATTR_CDECL Xopenat64)(__fd_t __dfd, char const *__file, __oflag_t __oflag, ...);
 #endif /* __USE_LARGEFILE64 */
 #endif /* __USE_ATFILE */
 #ifdef __USE_XOPEN2K

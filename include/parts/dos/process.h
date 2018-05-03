@@ -108,7 +108,7 @@ __LIBC __ATTR_NORETURN void (__LIBCCALL _exit)(int __status);
 __LIBC __PORT_DOSONLY void (__LIBCCALL _cexit)(void);
 __LIBC __PORT_DOSONLY void (__LIBCCALL _c_exit)(void);
 #endif /* __CRT_DOS */
-__REDIRECT_DPB(__LIBC,__WUNUSED,int,__LIBCCALL,getpid,(void),())
+__REDIRECT_DPB(__LIBC,__WUNUSED,__pid_t,__LIBCCALL,getpid,(void),())
 
 __REDIRECT_EXCEPT_UFSDPB_XVOID(__LIBC,__NONNULL((1,2)),intptr_t,__LIBCCALL,execv,(char const *__path, __TARGV),(__path,___argv))
 __REDIRECT_EXCEPT_UFSDPB_XVOID(__LIBC,__NONNULL((1,2,3)),intptr_t,__LIBCCALL,execve,(char const *__path, __TARGV, __TENVP),(__path,___argv,___envp))
@@ -146,7 +146,7 @@ __NAMESPACE_STD_USING(system)
 
 #ifndef __getpid_defined
 #define __getpid_defined 1
-__REDIRECT_DPA(__LIBC,__WUNUSED,int,__LIBCCALL,getpid,(void),())
+__REDIRECT_DPA(__LIBC,__WUNUSED,__pid_t,__LIBCCALL,getpid,(void),())
 #endif /* !__getpid_defined */
 
 #ifndef __execl_defined

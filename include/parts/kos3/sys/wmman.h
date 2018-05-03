@@ -34,10 +34,10 @@ typedef __WCHAR_TYPE__ wchar_t;
 #ifndef __KERNEL__
 #ifdef __CRT_KOS
 
-__REDIRECT_EXCEPT_UFS(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,shm_wopen,(wchar_t const *__name, int __oflag, __mode_t __mode),(__name,__oflag,__mode))
+__REDIRECT_EXCEPT_UFS(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,shm_wopen,(wchar_t const *__name, __oflag_t __oflag, __mode_t __mode),(__name,__oflag,__mode))
 __REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,shm_wunlink,(wchar_t const *__name),(__name))
 #ifdef __USE_EXCEPT
-__LIBC __PORT_KOSONLY int (__LIBCCALL Xshm_wopen)(wchar_t const *__name, int __oflag, __mode_t __mode);
+__LIBC __PORT_KOSONLY int (__LIBCCALL Xshm_wopen)(wchar_t const *__name, __oflag_t __oflag, __mode_t __mode);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xshm_wunlink)(wchar_t const *__name);
 #endif /* __USE_EXCEPT */
 

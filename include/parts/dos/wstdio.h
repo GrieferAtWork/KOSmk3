@@ -108,7 +108,7 @@ __NAMESPACE_STD_USING(vswscanf)
 #endif /* !__CXX_SYSTEM_HEADER */
 
 #ifdef __CRT_DOS
-__REDIRECT_UFSDPB(__LIBC,__PORT_DOSONLY,__FILE *,__LIBCCALL,wfsopen,(wchar_t const *__file, wchar_t const *__mode, int __shflag),(__file,__mode,__shflag))
+__REDIRECT_UFSDPB(__LIBC,__PORT_DOSONLY,__FILE *,__LIBCCALL,wfsopen,(wchar_t const *__file, wchar_t const *__mode, int __sflag),(__file,__mode,__sflag))
 __REDIRECT_UFSDPB(__LIBC,__PORT_DOSONLY,__FILE *,__LIBCCALL,wfopen,(wchar_t const *__file, wchar_t const *__mode),(__file,__mode))
 __REDIRECT_UFSDPB(__LIBC,__PORT_DOSONLY,__FILE *,__LIBCCALL,wfreopen,(wchar_t const *__file, wchar_t const *__mode, __FILE *__oldfile),(__file,__mode,__oldfile))
 __REDIRECT_UFSDPB(__LIBC,__PORT_DOSONLY,errno_t,__LIBCCALL,wfopen_s,(__FILE **__pfile, wchar_t const *__file, wchar_t const *__mode),(__pfile,__file,__mode))

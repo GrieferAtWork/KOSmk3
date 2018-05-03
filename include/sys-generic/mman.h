@@ -433,7 +433,7 @@ __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,mlock,(void const *__addr, size_t
 __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,munlock,(void const *__addr, size_t __len),(__addr,__len))
 __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,mlockall,(int __flags),(__flags))
 __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,munlockall,(void),())
-__REDIRECT_EXCEPT_UFS(__LIBC,,int,__LIBCCALL,shm_open,(char const *__name, int __oflag, mode_t __mode),(__name,__oflag,__mode))
+__REDIRECT_EXCEPT_UFS(__LIBC,,int,__LIBCCALL,shm_open,(char const *__name, __oflag_t __oflag, mode_t __mode),(__name,__oflag,__mode))
 __REDIRECT_EXCEPT_UFS_XVOID(__LIBC,,int,__LIBCCALL,shm_unlink,(char const *__name),(__name))
 #ifdef __USE_MISC
 __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,madvise,(void *__addr, size_t __len, int __advice),(__addr,__len,__advice))

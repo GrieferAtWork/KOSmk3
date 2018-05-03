@@ -125,35 +125,35 @@ __VREDIRECT_EXCEPT(__LIBC,__PORT_NODOS,int,__ATTR_CDECL,fcntl,(__fd_t __fd, int 
 #ifndef __open_defined
 #define __open_defined 1
 #if defined(__USE_FILE_OFFSET64) && !defined(__DOS_COMPAT__)
-__VREDIRECT_EXCEPT_UFS64(__LIBC,__NONNULL((1)),int,__ATTR_CDECL,open,(char const *__file, int __oflag, ...),TODO,(__file,__oflag),__oflag)
+__VREDIRECT_EXCEPT_UFS64(__LIBC,__NONNULL((1)),__fd_t,__ATTR_CDECL,open,(char const *__file, __oflag_t __oflag, ...),TODO,(__file,__oflag),__oflag)
 #else
-__VREDIRECT_EXCEPT_UFSDPA(__LIBC,__NONNULL((1)),int,__ATTR_CDECL,open,(char const *__file, int __oflag, ...),TODO,(__file,__oflag),__oflag)
+__VREDIRECT_EXCEPT_UFSDPA(__LIBC,__NONNULL((1)),__fd_t,__ATTR_CDECL,open,(char const *__file, __oflag_t __oflag, ...),TODO,(__file,__oflag),__oflag)
 #endif
 #endif /* !__open_defined */
 #ifndef __creat_defined
 #define __creat_defined 1
 #if defined(__USE_FILE_OFFSET64) && !defined(__DOS_COMPAT__)
-__REDIRECT_EXCEPT_UFS64(__LIBC,__NONNULL((1)),int,__LIBCCALL,creat,(char const *__file, __mode_t __mode),(__file,__mode))
+__REDIRECT_EXCEPT_UFS64(__LIBC,__NONNULL((1)),__fd_t,__LIBCCALL,creat,(char const *__file, __mode_t __mode),(__file,__mode))
 #else
-__REDIRECT_EXCEPT_UFSDPA(__LIBC,__NONNULL((1)),int,__LIBCCALL,creat,(char const *__file, __mode_t __mode),(__file,__mode))
+__REDIRECT_EXCEPT_UFSDPA(__LIBC,__NONNULL((1)),__fd_t,__LIBCCALL,creat,(char const *__file, __mode_t __mode),(__file,__mode))
 #endif
 #endif /* !__creat_defined */
 
 #ifdef __USE_LARGEFILE64
 #ifdef __DOS_COMPAT__
-__VREDIRECT_EXCEPT_UFS_(__LIBC,__WUNUSED __NONNULL((1)),int,__ATTR_CDECL,open64,(char const *__file, int __oflag, ...),_open,TODO,(__file,__oflag),__oflag)
-__REDIRECT_EXCEPT_UFS_(__LIBC,__WUNUSED __NONNULL((1)),int,__LIBCCALL,creat64,(char const *__file, mode_t __mode),_creat,(__file,__mode))
+__VREDIRECT_EXCEPT_UFS_(__LIBC,__WUNUSED __NONNULL((1)),__fd_t,__ATTR_CDECL,open64,(char const *__file, __oflag_t __oflag, ...),_open,TODO,(__file,__oflag),__oflag)
+__REDIRECT_EXCEPT_UFS_(__LIBC,__WUNUSED __NONNULL((1)),__fd_t,__LIBCCALL,creat64,(char const *__file, mode_t __mode),_creat,(__file,__mode))
 #else /* __DOS_COMPAT__ */
-__VREDIRECT_EXCEPT_UFS(__LIBC,__WUNUSED __NONNULL((1)),int,__ATTR_CDECL,open64,(char const *__file, int __oflag, ...),TODO,(__file,__oflag),__oflag)
+__VREDIRECT_EXCEPT_UFS(__LIBC,__WUNUSED __NONNULL((1)),int,__ATTR_CDECL,open64,(char const *__file, __oflag_t __oflag, ...),TODO,(__file,__oflag),__oflag)
 __REDIRECT_EXCEPT_UFS(__LIBC,__WUNUSED __NONNULL((1)),int,__LIBCCALL,creat64,(char const *__file, mode_t __mode),(__file,__mode))
 #endif /* !__DOS_COMPAT__ */
 #endif /* __USE_LARGEFILE64 */
 
 #ifdef __CRT_GLC
 #ifdef __USE_ATFILE
-__VREDIRECT_EXCEPT_UFS64(__LIBC,__WUNUSED __PORT_NODOS_ALT(open) __NONNULL((2)),int,__ATTR_CDECL,openat,(__fd_t __dfd, char const *__file, int __oflag, ...),TODO,(__fd,__file,__oflag),__oflag)
+__VREDIRECT_EXCEPT_UFS64(__LIBC,__WUNUSED __PORT_NODOS_ALT(open) __NONNULL((2)),__fd_t,__ATTR_CDECL,openat,(__fd_t __dfd, char const *__file, __oflag_t __oflag, ...),TODO,(__fd,__file,__oflag),__oflag)
 #ifdef __USE_LARGEFILE64
-__VREDIRECT_EXCEPT_UFS(__LIBC,__WUNUSED __PORT_NODOS_ALT(open) __NONNULL((2)),int,__ATTR_CDECL,openat64,(__fd_t __dfd, char const *__file, int __oflag, ...),TODO,(__fd,__file,__oflag),__oflag)
+__VREDIRECT_EXCEPT_UFS(__LIBC,__WUNUSED __PORT_NODOS_ALT(open) __NONNULL((2)),__fd_t,__ATTR_CDECL,openat64,(__fd_t __dfd, char const *__file, __oflag_t __oflag, ...),TODO,(__fd,__file,__oflag),__oflag)
 #endif /* __USE_LARGEFILE64 */
 #endif /* __USE_ATFILE */
 #ifdef __USE_XOPEN2K
@@ -166,11 +166,11 @@ __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,posix_fallocate64,(__fd_t __fd, _
 #endif /* __USE_XOPEN2K */
 #else /* __CRT_GLC */
 #ifdef __USE_XOPEN2K
-__LOCAL int (__LIBCCALL posix_fadvise)(int __UNUSED(__fd), __FS_TYPE(off) __UNUSED(__offset), __FS_TYPE(off) __UNUSED(__len), int __UNUSED(__advise)) { return 0; }
-__LOCAL int (__LIBCCALL posix_fallocate)(int __UNUSED(__fd), __FS_TYPE(off) __UNUSED(__offset), __FS_TYPE(off) __UNUSED(__len)) { return 0; }
+__LOCAL int (__LIBCCALL posix_fadvise)(__fd_t __UNUSED(__fd), __FS_TYPE(off) __UNUSED(__offset), __FS_TYPE(off) __UNUSED(__len), int __UNUSED(__advise)) { return 0; }
+__LOCAL int (__LIBCCALL posix_fallocate)(__fd_t __UNUSED(__fd), __FS_TYPE(off) __UNUSED(__offset), __FS_TYPE(off) __UNUSED(__len)) { return 0; }
 #ifdef __USE_LARGEFILE64
-__LOCAL int (__LIBCCALL posix_fadvise64)(int __UNUSED(__fd), __off64_t __UNUSED(__offset), __off64_t __UNUSED(__len), int __UNUSED(__advise)) { return 0; }
-__LOCAL int (__LIBCCALL posix_fallocate64)(int __UNUSED(__fd), __off64_t __UNUSED(__offset), __off64_t __UNUSED(__len)) { return 0; }
+__LOCAL int (__LIBCCALL posix_fadvise64)(__fd_t __UNUSED(__fd), __off64_t __UNUSED(__offset), __off64_t __UNUSED(__len), int __UNUSED(__advise)) { return 0; }
+__LOCAL int (__LIBCCALL posix_fallocate64)(__fd_t __UNUSED(__fd), __off64_t __UNUSED(__offset), __off64_t __UNUSED(__len)) { return 0; }
 #endif /* __USE_LARGEFILE64 */
 #endif /* __USE_XOPEN2K */
 #endif /* !__CRT_GLC */

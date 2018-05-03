@@ -35,16 +35,16 @@ typedef __WCHAR_TYPE__ wchar_t;
 #ifdef __CRT_DOS
 
 #if defined(__USE_FILE_OFFSET64) && !defined(__DOS_COMPAT__)
-__VREDIRECT_EXCEPT_UFS64(__LIBC,__PORT_DOSONLY __NONNULL((1)),int,__ATTR_CDECL,wopen,(wchar_t const *__file, int __oflag, ...),TODO,(__file,__oflag),__oflag)
-__REDIRECT_EXCEPT_UFS64(__LIBC,__PORT_DOSONLY __NONNULL((1)),int,__LIBCCALL,wcreat,(wchar_t const *__file, __mode_t __mode),(__file,__mode))
+__VREDIRECT_EXCEPT_UFS64(__LIBC,__PORT_DOSONLY __NONNULL((1)),__fd_t,__ATTR_CDECL,wopen,(wchar_t const *__file, __oflag_t __oflag, ...),TODO,(__file,__oflag),__oflag)
+__REDIRECT_EXCEPT_UFS64(__LIBC,__PORT_DOSONLY __NONNULL((1)),__fd_t,__LIBCCALL,wcreat,(wchar_t const *__file, __mode_t __mode),(__file,__mode))
 #else
-__VREDIRECT_EXCEPT_UFSDPA(__LIBC,__PORT_DOSONLY __NONNULL((1)),int,__ATTR_CDECL,wopen,(wchar_t const *__file, int __oflag, ...),TODO,(__file,__oflag),__oflag)
-__REDIRECT_EXCEPT_UFSDPA(__LIBC,__PORT_DOSONLY __NONNULL((1)),int,__LIBCCALL,wcreat,(wchar_t const *__file, __mode_t __mode),(__file,__mode))
+__VREDIRECT_EXCEPT_UFSDPA(__LIBC,__PORT_DOSONLY __NONNULL((1)),__fd_t,__ATTR_CDECL,wopen,(wchar_t const *__file, __oflag_t __oflag, ...),TODO,(__file,__oflag),__oflag)
+__REDIRECT_EXCEPT_UFSDPA(__LIBC,__PORT_DOSONLY __NONNULL((1)),__fd_t,__LIBCCALL,wcreat,(wchar_t const *__file, __mode_t __mode),(__file,__mode))
 #endif
 
 #ifdef __USE_EXCEPT
-__VREDIRECT_FS64(__LIBC,__PORT_KOSONLY __NONNULL((1)),int,__ATTR_CDECL,Xwopen,(wchar_t const *__file, int __oflag, ...),TODO,(__file,__oflag),__oflag)
-__REDIRECT_FS64(__LIBC,__PORT_KOSONLY __NONNULL((1)),int,__LIBCCALL,Xwcreat,(wchar_t const *__file, __mode_t __mode),(__file,__mode))
+__VREDIRECT_FS64(__LIBC,__PORT_KOSONLY __NONNULL((1)),__fd_t,__ATTR_CDECL,Xwopen,(wchar_t const *__file, __oflag_t __oflag, ...),TODO,(__file,__oflag),__oflag)
+__REDIRECT_FS64(__LIBC,__PORT_KOSONLY __NONNULL((1)),__fd_t,__LIBCCALL,Xwcreat,(wchar_t const *__file, __mode_t __mode),(__file,__mode))
 #endif /* __USE_EXCEPT */
 
 #endif /* __CRT_DOS */

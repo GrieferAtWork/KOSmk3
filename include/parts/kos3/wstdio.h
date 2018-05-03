@@ -47,9 +47,9 @@ __REDIRECT_UFSDPA(__LIBC,__PORT_DOSONLY,wchar_t *,__LIBCCALL,wtmpnam,(wchar_t *_
 __REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,wremoveat,(__fd_t __dfd, wchar_t const *__filename),(__fd,__filename))
 #endif /* __USE_KOS */
 #ifdef __USE_ATFILE
-__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,wrenameat,(int __oldfd, wchar_t const *__old, int __newfd, wchar_t const *__new),(__oldfd,__old,__newfd,__new))
+__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,wrenameat,(__fd_t __oldfd, wchar_t const *__old, __fd_t __newfd, wchar_t const *__new),(__oldfd,__old,__newfd,__new))
 #ifdef __USE_KOS
-__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,wfrenameat,(int __oldfd, wchar_t const *__old, int __newfd, wchar_t const *__new, int __flags),(__oldfd,__old,__newfd,__new,__flags))
+__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY,int,__LIBCCALL,wfrenameat,(__fd_t __oldfd, wchar_t const *__old, __fd_t __newfd, wchar_t const *__new, __atflag_t __flags),(__oldfd,__old,__newfd,__new,__flags))
 #endif /* __USE_KOS */
 #endif /* __USE_ATFILE */
 #endif /* __CRT_KOS */
@@ -61,9 +61,9 @@ __LIBC __PORT_KOSONLY __NONNULL((1,2)) void (__LIBCCALL Xwrename)(wchar_t const 
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xwremoveat)(__fd_t __dfd, wchar_t const *__filename);
 #endif /* __USE_KOS */
 #ifdef __USE_ATFILE
-__LIBC __PORT_KOSONLY void (__LIBCCALL Xwrenameat)(int __oldfd, wchar_t const *__old, int __newfd, wchar_t const *__new);
+__LIBC __PORT_KOSONLY void (__LIBCCALL Xwrenameat)(__fd_t __oldfd, wchar_t const *__old, __fd_t __newfd, wchar_t const *__new);
 #ifdef __USE_KOS
-__LIBC __PORT_KOSONLY void (__LIBCCALL Xwfrenameat)(int __oldfd, wchar_t const *__old, int __newfd, wchar_t const *__new, int __flags);
+__LIBC __PORT_KOSONLY void (__LIBCCALL Xwfrenameat)(__fd_t __oldfd, wchar_t const *__old, __fd_t __newfd, wchar_t const *__new, __atflag_t __flags);
 #endif /* __USE_KOS */
 #endif /* __USE_ATFILE */
 #endif /* __USE_EXCEPT */

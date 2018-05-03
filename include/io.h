@@ -90,17 +90,17 @@ __REDIRECT_EXCEPT_UFSDPA_XVOID(__LIBC,__NONNULL((1)),int,__LIBCCALL,unlink,(char
 #ifndef __open_defined
 #define __open_defined 1
 #if defined(__USE_FILE_OFFSET64) && !defined(__DOS_COMPAT__)
-__VREDIRECT_EXCEPT_UFS64(__LIBC,__NONNULL((1)),int,__ATTR_CDECL,open,(char const *__file, int __oflag, ...),TODO,(__file,__oflag),__oflag)
+__VREDIRECT_EXCEPT_UFS64(__LIBC,__NONNULL((1)),__fd_t,__ATTR_CDECL,open,(char const *__file, __oflag_t __oflag, ...),TODO,(__file,__oflag),__oflag)
 #else
-__VREDIRECT_EXCEPT_UFSDPA(__LIBC,__NONNULL((1)),int,__ATTR_CDECL,open,(char const *__file, int __oflag, ...),TODO,(__file,__oflag),__oflag)
+__VREDIRECT_EXCEPT_UFSDPA(__LIBC,__NONNULL((1)),__fd_t,__ATTR_CDECL,open,(char const *__file, __oflag_t __oflag, ...),TODO,(__file,__oflag),__oflag)
 #endif
 #endif /* !__open_defined */
 #ifndef __creat_defined
 #define __creat_defined 1
 #if defined(__USE_FILE_OFFSET64) && !defined(__DOS_COMPAT__)
-__REDIRECT_EXCEPT_UFS64(__LIBC,__NONNULL((1)),int,__LIBCCALL,creat,(char const *__file, __mode_t __mode),(__file,__mode))
+__REDIRECT_EXCEPT_UFS64(__LIBC,__NONNULL((1)),__fd_t,__LIBCCALL,creat,(char const *__file, __mode_t __mode),(__file,__mode))
 #else
-__REDIRECT_EXCEPT_UFSDPA(__LIBC,__NONNULL((1)),int,__LIBCCALL,creat,(char const *__file, __mode_t __mode),(__file,__mode))
+__REDIRECT_EXCEPT_UFSDPA(__LIBC,__NONNULL((1)),__fd_t,__LIBCCALL,creat,(char const *__file, __mode_t __mode),(__file,__mode))
 #endif
 #endif /* !__creat_defined */
 #ifndef __access_defined
@@ -109,7 +109,7 @@ __REDIRECT_EXCEPT_UFSDPA_XVOID(__LIBC,__IF_NUSE_EXCEPT(__WUNUSED) __NONNULL((1))
 #endif /* !__access_defined */
 #ifndef __chmod_defined
 #define __chmod_defined 1
-__REDIRECT_EXCEPT_UFSDPA_XVOID(__LIBC,__NONNULL((1)),int,__LIBCCALL,chmod,(char const *__file, int __mode),(__file,__mode))
+__REDIRECT_EXCEPT_UFSDPA_XVOID(__LIBC,__NONNULL((1)),int,__LIBCCALL,chmod,(char const *__file, __mode_t __mode),(__file,__mode))
 #endif /* !__chmod_defined */
 #ifndef __close_defined
 #define __close_defined 1
@@ -121,7 +121,7 @@ __REDIRECT_EXCEPT_DPA(__LIBC,__WUNUSED,__fd_t,__LIBCCALL,dup,(__fd_t __fd),(__fd
 #endif /* !__dup_defined */
 #ifndef __dup2_defined
 #define __dup2_defined 1
-__REDIRECT_EXCEPT_DPA(__LIBC,,__fd_t,__LIBCCALL,dup2,(__fd_t __ofd, __fd_t __nfd),(__ofd,__nfd))
+__REDIRECT_EXCEPT_DPA(__LIBC,,__fd_t,__LIBCCALL,dup2,(__fd_t __oldfd, __fd_t __newfd),(__oldfd,__newfd))
 #endif /* !__dup2_defined */
 #ifndef __isatty_defined
 #define __isatty_defined 1
@@ -168,8 +168,8 @@ __REDIRECT_EXCEPT(__LIBC,__NONNULL((2)),__EXCEPT_SELECT(size_t,__ssize_t),__LIBC
 
 
 __REDIRECT_EXCEPT_UFSDPB_XVOID(__LIBC,__NONNULL((1)),int,__LIBCCALL,access,(char const *__file, int __type),(__file,__type))
-__REDIRECT_EXCEPT_UFSDPB(__LIBC,__WUNUSED __NONNULL((1)),int,__LIBCCALL,creat,(char const *__file, int __pmode),(__file,__pmode))
-__REDIRECT_EXCEPT_UFSDPB_XVOID(__LIBC,__NONNULL((1)),int,__LIBCCALL,chmod,(char const *__file, int __mode),(__file,__mode))
+__REDIRECT_EXCEPT_UFSDPB(__LIBC,__WUNUSED __NONNULL((1)),__fd_t,__LIBCCALL,creat,(char const *__file, __mode_t __mode),(__file,__mode))
+__REDIRECT_EXCEPT_UFSDPB_XVOID(__LIBC,__NONNULL((1)),int,__LIBCCALL,chmod,(char const *__file, __mode_t __mode),(__file,__mode))
 __REDIRECT_UFSDPB(__LIBC,__NONNULL((1)),errno_t,__LIBCCALL,access_s,(char const *__file, int __type),(__file,__type))
 #ifdef __DOS_COMPAT__
 __LIBC int (__LIBCCALL _chsize)(__fd_t __fd, __LONG32_TYPE__ __size);
@@ -192,8 +192,8 @@ __REDIRECT_EXCEPT_XVOID_(__LIBC,,int,__LIBCCALL,_locking,(__fd_t __fd, int __loc
 __REDIRECT_EXCEPT_UFSDPB_XVOID(__LIBC,__NONNULL((1)),int,__LIBCCALL,unlink,(char const *__name),(__name))
 #endif /* !___unlink_defined */
 __REDIRECT_DPB(__LIBC,,int,__LIBCCALL,close,(__fd_t __fd),(__fd))
-__REDIRECT_EXCEPT_DPB(__LIBC,,int,__LIBCCALL,dup,(__fd_t __fd),(__fd))
-__REDIRECT_EXCEPT_DPB(__LIBC,,int,__LIBCCALL,dup2,(int __ofd, int __nfd),(__ofd,__nfd))
+__REDIRECT_EXCEPT_DPB(__LIBC,,__fd_t,__LIBCCALL,dup,(__fd_t __fd),(__fd))
+__REDIRECT_EXCEPT_DPB(__LIBC,,__fd_t,__LIBCCALL,dup2,(__fd_t __oldfd, __fd_t __newfd),(__oldfd,__newfd))
 
 #if __SIZEOF_SIZE_T__ <= 4 || defined(__DOS_COMPAT__)
 __REDIRECT_EXCEPT_DPB(__LIBC,__WUNUSED_SUGGESTED __NONNULL((2)),__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,read,(__fd_t __fd, void *__dstbuf, __size_t __bufsize),(__fd,__dstbuf,__bufsize))
@@ -205,8 +205,8 @@ __LOCAL __WUNUSED_SUGGESTED __NONNULL((2)) __EXCEPT_SELECT(__UINT32_TYPE__,__INT
 __LOCAL __NONNULL((2)) __EXCEPT_SELECT(__UINT32_TYPE__,__INT32_TYPE__) (__LIBCCALL _write)(__fd_t __fd, void const *__buf, __UINT32_TYPE__ __bufsize) { return (__EXCEPT_SELECT(__UINT32_TYPE__,__INT32_TYPE__))__write_sz(__fd,__dstbuf,(size_t)__bufsize); }
 #endif
 
-__VREDIRECT_EXCEPT_UFSDPB(__LIBC,__WUNUSED,int,__ATTR_CDECL,open,(char const *__file, int __oflag, ...),TODO,(__file,__oflag),__oflag)
-__REDIRECT_DPB(__LIBC,,int,__LIBCCALL,setmode,(__fd_t __fd, int __mode),(__fd,__mode))
+__VREDIRECT_EXCEPT_UFSDPB(__LIBC,__WUNUSED,__fd_t,__ATTR_CDECL,open,(char const *__file, __oflag_t __oflag, ...),TODO,(__file,__oflag),__oflag)
+__REDIRECT_DPB(__LIBC,,__oflag_t,__LIBCCALL,setmode,(__fd_t __fd, __oflag_t __mode),(__fd,__mode))
 __REDIRECT_DPB(__LIBC,,__mode_t,__LIBCCALL,umask,(__mode_t __mode),(__mode))
 __REDIRECT_DPB(__LIBC,__WUNUSED,int,__LIBCCALL,isatty,(__fd_t __fd),(__fd))
 
@@ -228,29 +228,29 @@ __REDIRECT_UFS(__LIBC,__WUNUSED __PORT_DOSONLY_ALT(opendir) __NONNULL((1,2)),int
 __LIBC __WUNUSED_SUGGESTED __PORT_DOSONLY_ALT(readdir) __NONNULL((2)) int (__LIBCCALL _findnext64)(intptr_t __findfd, struct __finddata64_t *__restrict __finddata);
 __REDIRECT(__LIBC,__WUNUSED_SUGGESTED __PORT_DOSONLY_ALT(readdir) __NONNULL((2)),int,__LIBCCALL,_findnext64i32,(intptr_t __findfd, struct _finddata64i32_t *__restrict __finddata),_findnext64,(__findfd,__finddata))
 
-__REDIRECT_UFSDPB(__LIBC,__WUNUSED_SUGGESTED __PORT_DOSONLY_ALT(open) __NONNULL((1,2)),errno_t,__LIBCCALL,sopen_s,(int *__fd, char const *__file, int __oflag, int __sflag, int __pmode),(__fd,__file,__oflag,__sflag,__pmode))
+__REDIRECT_UFSDPB(__LIBC,__WUNUSED_SUGGESTED __PORT_DOSONLY_ALT(open) __NONNULL((1,2)),errno_t,__LIBCCALL,sopen_s,(__fd_t *__fd, char const *__file, __oflag_t __oflag, int __sflag, __mode_t __mode),(__fd,__file,__oflag,__sflag,__mode))
 #ifdef __USE_DOSFS
-__REDIRECT(__LIBC,__WUNUSED_SUGGESTED __PORT_DOSONLY_ALT(open) __NONNULL((1,2)),errno_t,__LIBCCALL,_sopen_s_nolock,(int *__fd, char const *__file, int __oflag, int __sflag, int __pmode),__SYMNAME_DOSDP(sopen_s),(__fd,__file,__oflag,__sflag,__pmode))
+__REDIRECT(__LIBC,__WUNUSED_SUGGESTED __PORT_DOSONLY_ALT(open) __NONNULL((1,2)),errno_t,__LIBCCALL,_sopen_s_nolock,(__fd_t *__fd, char const *__file, __oflag_t __oflag, int __sflag, __mode_t __mode),__SYMNAME_DOSDP(sopen_s),(__fd,__file,__oflag,__sflag,__mode))
 #else
-__REDIRECT(__LIBC,__WUNUSED_SUGGESTED __PORT_DOSONLY_ALT(open) __NONNULL((1,2)),errno_t,__LIBCCALL,_sopen_s_nolock,(int *__fd, char const *__file, int __oflag, int __sflag, int __pmode),__SYMNAME_KOS(sopen_s),(__fd,__file,__oflag,__sflag,__pmode))
+__REDIRECT(__LIBC,__WUNUSED_SUGGESTED __PORT_DOSONLY_ALT(open) __NONNULL((1,2)),errno_t,__LIBCCALL,_sopen_s_nolock,(__fd_t *__fd, char const *__file, __oflag_t __oflag, int __sflag, __mode_t __mode),__SYMNAME_KOS(sopen_s),(__fd,__file,__oflag,__sflag,__mode))
 #endif
 __REDIRECT_UFSDPB(__LIBC,__PORT_DOSONLY_ALT(mktemp) __NONNULL((1)),errno_t,__LIBCCALL,mktemp_s,(char *__templatename, size_t __size),(__templatename,__size))
-__VREDIRECT_UFSDPB(__LIBC,__WUNUSED __PORT_DOSONLY_ALT(open),int,__ATTR_CDECL,sopen,(char const *__file, int __oflag, int __sflag, ...),TODO,(__file,__oflag,__sflag),__sflag)
+__VREDIRECT_UFSDPB(__LIBC,__WUNUSED __PORT_DOSONLY_ALT(open),__fd_t,__ATTR_CDECL,sopen,(char const *__file, __oflag_t __oflag, int __sflag, ...),TODO,(__file,__oflag,__sflag),__sflag)
 
-__LIBC __WUNUSED_SUGGESTED __NONNULL((1)) int (__LIBCCALL _pipe)(int __pipedes[2], __UINT32_TYPE__ __pipesize, int __textmode);
+__LIBC __WUNUSED_SUGGESTED __NONNULL((1)) int (__LIBCCALL _pipe)(__fd_t __pipedes[2], __UINT32_TYPE__ __pipesize, __oflag_t __textmode);
 __LIBC __WUNUSED int (__LIBCCALL _eof)(__fd_t __fd);
 __LIBC __WUNUSED __LONG32_TYPE__ (__LIBCCALL _filelength)(__fd_t __fd);
 __LIBC __WUNUSED __INT64_TYPE__ (__LIBCCALL _filelengthi64)(__fd_t __fd);
 __LIBC __WUNUSED __LONG32_TYPE__ (__LIBCCALL _tell)(__fd_t __fd);
 __LIBC __WUNUSED __INT64_TYPE__ (__LIBCCALL _telli64)(__fd_t __fd);
-__REDIRECT_DPB(__LIBC,,errno_t,__LIBCCALL,umask_s,(int __newmode, int *__oldmode),(__newmode,__oldmode))
+__REDIRECT_DPB(__LIBC,,errno_t,__LIBCCALL,umask_s,(__mode_t __newmode, __mode_t *__oldmode),(__newmode,__oldmode))
 __LIBC int (__LIBCCALL __lock_fhandle)(__fd_t __fd);
 __LIBC void (__LIBCCALL _unlock_fhandle)(__fd_t __fd);
 __LIBC __WUNUSED intptr_t (__LIBCCALL _get_osfhandle)(__fd_t __fd);
-__LIBC __WUNUSED int (__LIBCCALL _open_osfhandle)(intptr_t __osfd, int __flags);
+__LIBC __WUNUSED __fd_t (__LIBCCALL _open_osfhandle)(intptr_t __osfd, __oflag_t __flags);
 #else /* __CRT_DOS */
-__REDIRECT(__LIBC,__WUNUSED_SUGGESTED __NONNULL((1)),int,__LIBCCALL,__os_pipe,(int __pipedes[2]),pipe,(__pipedes))
-__LOCAL __WUNUSED_SUGGESTED __NONNULL((1)) int (__LIBCCALL _pipe)(int __pipedes[2], __UINT32_TYPE__ __UNUSED(__pipesize), int __UNUSED(__textmode)) { return __os_pipe(__pipedes); }
+__REDIRECT(__LIBC,__WUNUSED_SUGGESTED __NONNULL((1)),int,__LIBCCALL,__os_pipe,(__fd_t __pipedes[2]),pipe,(__pipedes))
+__LOCAL __WUNUSED_SUGGESTED __NONNULL((1)) int (__LIBCCALL _pipe)(__fd_t __pipedes[2], __UINT32_TYPE__ __UNUSED(__pipesize), __oflag_t __UNUSED(__textmode)) { return __os_pipe(__pipedes); }
 __LOCAL __WUNUSED __INT64_TYPE__ (__LIBCCALL _filelengthi64)(__fd_t __fd) {
  __INT64_TYPE__ __oldpos = _lseeki64(__fd,0,1);
  __INT64_TYPE__ __length = __oldpos >= 0 ? _lseeki64(__fd,0,2) : -1;
@@ -267,16 +267,16 @@ __LOCAL __WUNUSED int (__LIBCCALL _eof)(__fd_t __fd) {
 __LOCAL __WUNUSED __LONG32_TYPE__ (__LIBCCALL _filelength)(__fd_t __fd) { return (__LONG32_TYPE__)_filelengthi64(__fd); }
 __LOCAL __WUNUSED __LONG32_TYPE__ (__LIBCCALL _tell)(__fd_t __fd) { return _lseek(__fd,0,1); }
 __LOCAL __WUNUSED __INT64_TYPE__ (__LIBCCALL _telli64)(__fd_t __fd) { return _lseeki64(__fd,0,1); }
-__LOCAL errno_t (__LIBCCALL _umask_s)(int __newmode, int *__oldmode) { *__oldmode = _umask(__newmode); return 0; }
-__LOCAL int (__LIBCCALL __lock_fhandle)(int __UNUSED(__fd)) { return 0; }
-__LOCAL void (__LIBCCALL _unlock_fhandle)(int __UNUSED(__fd)) { }
+__LOCAL errno_t (__LIBCCALL _umask_s)(__mode_t __newmode, __mode_t *__oldmode) { *__oldmode = _umask(__newmode); return 0; }
+__LOCAL int (__LIBCCALL __lock_fhandle)(__fd_t __UNUSED(__fd)) { return 0; }
+__LOCAL void (__LIBCCALL _unlock_fhandle)(__fd_t __UNUSED(__fd)) { }
 __LOCAL __WUNUSED intptr_t (__LIBCCALL _get_osfhandle)(__fd_t __fd) { return __fd; }
-__LOCAL int (__LIBCCALL _open_osfhandle)(intptr_t __osfd, int __UNUSED(__flags)) { return _dup((int)__osfd); }
+__LOCAL __fd_t (__LIBCCALL _open_osfhandle)(intptr_t __osfd, __oflag_t __UNUSED(__flags)) { return _dup((int)__osfd); }
 #endif /* __CRT_DOS */
 
 /* Weird, new functions not apart of any standard. */
 #ifdef __DOS_COMPAT__
-__REDIRECT_DPA(__LIBC,,int,__LIBCCALL,setmode,(__fd_t __fd, int __mode),(__fd,__mode)) /* F_SETFL */
+__REDIRECT_DPA(__LIBC,,__oflag_t,__LIBCCALL,setmode,(__fd_t __fd, __oflag_t __mode),(__fd,__mode)) /* F_SETFL */
 __REDIRECT_DPA(__LIBC,,int,__LIBCCALL,chsize,(__fd_t __fd, __LONG32_TYPE__ __size),(__fd,__size))
 __REDIRECT_DPA(__LIBC,,int,__LIBCCALL,locking,(__fd_t __fd, int __lockmode, __LONG32_TYPE__ __numofbytes),(__fd,__lockmode,__numofbytes))
 #else
@@ -289,15 +289,15 @@ __VREDIRECT_EXCEPT(__LIBC,__PORT_NODOS,int,__ATTR_CDECL,fcntl,(__fd_t __fd, int 
 #endif /* !__USE_KOS */
 #endif /* !__fcntl_defined */
 #ifdef __USE_KOS
-__LOCAL int (__LIBCCALL setmode)(__fd_t __fd, int __mode) { return fcntl(__fd,__mode,5163); }
+__LOCAL __oflag_t (__LIBCCALL setmode)(__fd_t __fd, __oflag_t __mode) { return fcntl(__fd,5163,__mode); }
 #else
-__LOCAL int (__LIBCCALL setmode)(__fd_t __fd, int __mode) { fcntl(__fd,__mode,4); return fcntl(__fd,__mode,3); }
+__LOCAL __oflag_t (__LIBCCALL setmode)(__fd_t __fd, __oflag_t __mode) { __oflag_t __result = fcntl(__fd,3,__mode); return __result >= 0 && fcntl(__fd,4,__mode) >= 0 ? __result : -1; }
 #endif
 __REDIRECT(__LIBC,,int,__LIBCCALL,chsize,(__fd_t __fd, __LONG32_TYPE__ __size),ftruncate,(__fd,__size))
 __REDIRECT(__LIBC,,int,__LIBCCALL,locking,(__fd_t __fd, int __lockmode, __LONG32_TYPE__ __numofbytes),lockf,(__fd,__lockmode,__numofbytes))
 #endif
 #ifdef __CRT_DOS
-__VREDIRECT_UFSDPA(__LIBC,__WUNUSED __PORT_DOSONLY_ALT(open),int,__ATTR_CDECL,sopen,(char const *__file, int __oflag, int __sflag, ...),TODO,(__file,__oflag,__sflag),__sflag);
+__VREDIRECT_UFSDPA(__LIBC,__WUNUSED __PORT_DOSONLY_ALT(open),__fd_t,__ATTR_CDECL,sopen,(char const *__file, __oflag_t __oflag, int __sflag, ...),TODO,(__file,__oflag,__sflag),__sflag);
 __REDIRECT(__LIBC,__WUNUSED,__LONG32_TYPE__,__LIBCCALL,filelength,(__fd_t __fd),_filelength,(__fd)) /* lseek(fd,SEEK_END,0) */
 __REDIRECT(__LIBC,__WUNUSED,__LONG32_TYPE__,__LIBCCALL,tell,(__fd_t __fd),_tell,(__fd)) /* lseek(fd,SEEK_CUR,0) */
 __REDIRECT(__LIBC,__WUNUSED,int,__LIBCCALL,eof,(__fd_t __fd),_eof,(__fd)) /* lseek(fd,SEEK_CUR,0) == lseek(fd,SEEK_END,0) */

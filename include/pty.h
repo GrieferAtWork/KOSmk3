@@ -34,8 +34,8 @@ struct termios;
 struct winsize;
 
 #ifndef __KERNEL__
-__REDIRECT_EXCEPT_XVOID(__LIBC,__PORT_NODOS,int,__LIBCCALL,openpty,(int *__amaster, int *__aslave, char *__name, struct termios const *__termp, struct winsize const *__winp),(__amaster,__aslave,__name,__termp,__winp))
-__REDIRECT_EXCEPT_XVOID(__LIBC,__PORT_NODOS,__pid_t,__LIBCCALL,forkpty,(int *__amaster, char *__name, struct termios const *__termp, struct winsize const *__winp),(__amaster,__name,__termp,__winp))
+__REDIRECT_EXCEPT_XVOID(__LIBC,__PORT_NODOS,int,__LIBCCALL,openpty,(__fd_t *__amaster, __fd_t *__aslave, char *__name, struct termios const *__termp, struct winsize const *__winp),(__amaster,__aslave,__name,__termp,__winp))
+__REDIRECT_EXCEPT_XVOID(__LIBC,__PORT_NODOS,__pid_t,__LIBCCALL,forkpty,(__fd_t *__amaster, char *__name, struct termios const *__termp, struct winsize const *__winp),(__amaster,__name,__termp,__winp))
 #endif /* !__KERNEL__ */
 
 __SYSDECL_END

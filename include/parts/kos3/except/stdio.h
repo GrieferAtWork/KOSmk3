@@ -41,9 +41,9 @@ __LIBC __PORT_KOSONLY __NONNULL((1)) void (__LIBCCALL Xrename)(char const *__old
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xremoveat)(__fd_t __dfd, char const *__filename);
 #endif /* __USE_KOS */
 #ifdef __USE_ATFILE
-__LIBC __PORT_KOSONLY void (__LIBCCALL Xrenameat)(int __oldfd, char const *__old, int __newfd, char const *__new);
+__LIBC __PORT_KOSONLY void (__LIBCCALL Xrenameat)(__fd_t __oldfd, char const *__old, __fd_t __newfd, char const *__new);
 #ifdef __USE_KOS
-__LIBC __PORT_KOSONLY void (__LIBCCALL Xfrenameat)(int __oldfd, char const *__old, int __newfd, char const *__new, int __flags);
+__LIBC __PORT_KOSONLY void (__LIBCCALL Xfrenameat)(__fd_t __oldfd, char const *__old, __fd_t __newfd, char const *__new, __atflag_t __flags);
 #endif /* __USE_KOS */
 #endif /* __USE_ATFILE */
 

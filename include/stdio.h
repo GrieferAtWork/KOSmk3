@@ -333,7 +333,7 @@ __NAMESPACE_STD_USING(gets)
  * @return: STREAM: Successfully re-opened the given file.
  * @return: NULL:   Failed to re-open the file (see `errno' for details) */
 __REDIRECT_EXCEPT_UFS(__LIBC,__PORT_KOSONLY __WUNUSED __XATTR_RETNONNULL,__FILE *,__LIBCCALL,fdreopen,
-                     (__fd_t __fd, char const *__restrict __modes, __FILE *__restrict __stream, int __mode),
+                     (__fd_t __fd, char const *__restrict __modes, __FILE *__restrict __stream, unsigned int __mode),
                      (__fd,__modes,__stream,__mode))
 #define FDREOPEN_DUP            0x0 /* Duplicate the given descriptor, creating a private copy for the stream. */
 #define FDREOPEN_INHERIT        0x1 /* Inherit the given `fd' on success, using that same number for the stream. */
@@ -350,9 +350,9 @@ __LIBC __ATTR_LIBC_PRINTF(2,3) __PORT_NODOS_ALT(fdopen+fprintf)  __PRINTF_RETURN
 __REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_NODOS_ALT(remove),int,__LIBCCALL,removeat,(__fd_t __dfd, char const *__filename),(__fd,__filename))
 #endif /* __USE_KOS */
 #ifdef __USE_ATFILE
-__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_NODOS_ALT(rename),int,__LIBCCALL,renameat,(int __oldfd, char const *__old, int __newfd, char const *__new),(__oldfd,__old,__newfd,__new))
+__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_NODOS_ALT(rename),int,__LIBCCALL,renameat,(__fd_t __oldfd, char const *__old, __fd_t __newfd, char const *__new),(__oldfd,__old,__newfd,__new))
 #ifdef __USE_KOS
-__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(renameat),int,__LIBCCALL,frenameat,(int __oldfd, char const *__old, int __newfd, char const *__new, int __flags),(__oldfd,__old,__newfd,__new,__flags))
+__REDIRECT_EXCEPT_UFS_XVOID(__LIBC,__PORT_KOSONLY_ALT(renameat),int,__LIBCCALL,frenameat,(__fd_t __oldfd, char const *__old, __fd_t __newfd, char const *__new, __atflag_t __flags),(__oldfd,__old,__newfd,__new,__flags))
 #endif /* __USE_KOS */
 #endif /* __USE_ATFILE */
 #endif /* __CRT_GLC */

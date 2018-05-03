@@ -33,18 +33,18 @@ typedef __CHAR16_TYPE__ char16_t;
 typedef __CHAR32_TYPE__ char32_t;
 #endif /* !__char16_t_defined */
 
-__VREDIRECT_W16(__LIBC,__PORT_KOSONLY __WUNUSED_SUGGESTED __NONNULL((1)),int,__ATTR_CDECL,_Xw16open,(char16_t const *__restrict __file, int __oflag, ...),Xwopen,TODO,(__file,__oflag),__oflag)
-__VREDIRECT_W32(__LIBC,__PORT_KOSONLY __WUNUSED_SUGGESTED __NONNULL((1)),int,__ATTR_CDECL,_Xw32open,(char32_t const *__restrict __file, int __oflag, ...),Xwopen,TODO,(__file,__oflag),__oflag)
+__VREDIRECT_W16(__LIBC,__PORT_KOSONLY __WUNUSED_SUGGESTED __NONNULL((1)),__fd_t,__ATTR_CDECL,_Xw16open,(char16_t const *__restrict __file, __oflag_t __oflag, ...),Xwopen,TODO,(__file,__oflag),__oflag)
+__VREDIRECT_W32(__LIBC,__PORT_KOSONLY __WUNUSED_SUGGESTED __NONNULL((1)),__fd_t,__ATTR_CDECL,_Xw32open,(char32_t const *__restrict __file, __oflag_t __oflag, ...),Xwopen,TODO,(__file,__oflag),__oflag)
 #if 0 /* Nope. Doesn't exist. */
-__VREDIRECT_W16(__LIBC,__PORT_DOSONLY __WUNUSED_SUGGESTED __NONNULL((1)),int,__ATTR_CDECL,_Xw16sopen,(char16_t const *__restrict __file, int __oflag, int __sflag, ...),Xwsopen,TODO,(__file,__oflag,__sflag),__sflag)
-__VREDIRECT_W32(__LIBC,__PORT_DOSONLY __WUNUSED_SUGGESTED __NONNULL((1)),int,__ATTR_CDECL,_Xw32sopen,(char32_t const *__restrict __file, int __oflag, int __sflag, ...),Xwsopen,TODO,(__file,__oflag,__sflag),__sflag)
+__VREDIRECT_W16(__LIBC,__PORT_DOSONLY __WUNUSED_SUGGESTED __NONNULL((1)),__fd_t,__ATTR_CDECL,_Xw16sopen,(char16_t const *__restrict __file, __oflag_t __oflag, int __sflag, ...),Xwsopen,TODO,(__file,__oflag,__sflag),__sflag)
+__VREDIRECT_W32(__LIBC,__PORT_DOSONLY __WUNUSED_SUGGESTED __NONNULL((1)),__fd_t,__ATTR_CDECL,_Xw32sopen,(char32_t const *__restrict __file, __oflag_t __oflag, int __sflag, ...),Xwsopen,TODO,(__file,__oflag,__sflag),__sflag)
 #endif
-__REDIRECT_W16(__LIBC,__PORT_KOSONLY __WUNUSED __NONNULL((1)),int,__LIBCCALL,_Xw16creat,(char16_t const *__restrict __file, int __pmode),Xwcreat,(__file,__pmode))
-__REDIRECT_W32(__LIBC,__PORT_KOSONLY __WUNUSED __NONNULL((1)),int,__LIBCCALL,_Xw32creat,(char32_t const *__restrict __file, int __pmode),Xwcreat,(__file,__pmode))
+__REDIRECT_W16(__LIBC,__PORT_KOSONLY __WUNUSED __NONNULL((1)),__fd_t,__LIBCCALL,_Xw16creat,(char16_t const *__restrict __file, __mode_t __mode),Xwcreat,(__file,__mode))
+__REDIRECT_W32(__LIBC,__PORT_KOSONLY __WUNUSED __NONNULL((1)),__fd_t,__LIBCCALL,_Xw32creat,(char32_t const *__restrict __file, __mode_t __mode),Xwcreat,(__file,__mode))
 __REDIRECT_W16_VOID(__LIBC,__PORT_DOSONLY __NONNULL((1)),__LIBCCALL,_Xw16access,(char16_t const *__restrict __file, int __type),Xwaccess,(__file,__type))
 __REDIRECT_W32_VOID(__LIBC,__PORT_DOSONLY __NONNULL((1)),__LIBCCALL,_Xw32access,(char32_t const *__restrict __file, int __type),Xwaccess,(__file,__type))
-__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY __NONNULL((1)),__LIBCCALL,_Xw16chmod,(char16_t const *__restrict __file, int __mode),Xwchmod,(__file,__mode))
-__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY __NONNULL((1)),__LIBCCALL,_Xw32chmod,(char32_t const *__restrict __file, int __mode),Xwchmod,(__file,__mode))
+__REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY __NONNULL((1)),__LIBCCALL,_Xw16chmod,(char16_t const *__restrict __file, __mode_t __mode),Xwchmod,(__file,__mode))
+__REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY __NONNULL((1)),__LIBCCALL,_Xw32chmod,(char32_t const *__restrict __file, __mode_t __mode),Xwchmod,(__file,__mode))
 __REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY __NONNULL((1)),__LIBCCALL,_Xw16unlink,(char16_t const *__restrict __file),Xwunlink,(__file))
 __REDIRECT_W32_VOID(__LIBC,__PORT_KOSONLY __NONNULL((1)),__LIBCCALL,_Xw32unlink,(char32_t const *__restrict __file),Xwunlink,(__file))
 __REDIRECT_W16_VOID(__LIBC,__PORT_KOSONLY __NONNULL((1,2)),__LIBCCALL,_Xw16rename,(char16_t const *__oldname, wchar_t const *__newname),Xwrename,(__oldname,__newname))

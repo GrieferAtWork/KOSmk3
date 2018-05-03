@@ -27,8 +27,8 @@
 #if defined(__CC__) && !defined(__KERNEL__) && defined(__USE_EXCEPT)
 __SYSDECL_BEGIN
 
-__LIBC __PORT_KOSONLY void (__LIBCCALL Xopenpty)(int *__amaster, int *__aslave, char *__name, struct termios const *__termp, struct winsize const *__winp);
-__LIBC __PORT_KOSONLY __pid_t (__LIBCCALL Xforkpty)(int *__amaster, char *__name, struct termios const *__termp, struct winsize const *__winp);
+__LIBC __PORT_KOSONLY void (__LIBCCALL Xopenpty)(__fd_t *__amaster, __fd_t *__aslave, char *__name, struct termios const *__termp, struct winsize const *__winp);
+__LIBC __PORT_KOSONLY __pid_t (__LIBCCALL Xforkpty)(__fd_t *__amaster, char *__name, struct termios const *__termp, struct winsize const *__winp);
 
 __SYSDECL_END
 #endif

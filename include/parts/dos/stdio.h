@@ -107,7 +107,7 @@ typedef size_t rsize_t;
 #ifndef _STDIO_DEFINED
 __REDIRECT_UFSDPB(__LIBC,,__FILE *,__LIBCCALL,popen,(char const *__command, char const *__mode),(__command,__mode))
 __REDIRECT_DPB(__LIBC,,int,__LIBCCALL,pclose,(__FILE *__restrict __stream),(__file))
-__REDIRECT_UFSDPB(__LIBC,,__FILE *,__LIBCCALL,fsopen,(char const *__file, char const *__mode, int __shflag),(__file,__mode,__shflag))
+__REDIRECT_UFSDPB(__LIBC,,__FILE *,__LIBCCALL,fsopen,(char const *__file, char const *__mode, int __sflag),(__file,__mode,__sflag))
 __REDIRECT_DPB(__LIBC,,__FILE *,__LIBCCALL,fdopen,(__fd_t __fd, char const *__restrict __mode),(__fd,__modes))
 #if defined(__GLC_COMPAT__) || defined(__CYG_COMPAT__) || !defined(__CRT_DOS)
 __LOCAL int (__LIBCCALL _flushall)(void) { return fflush(NULL); }
