@@ -52,6 +52,11 @@ BEGIN
 		SET_DISKFILE("/bin/kernctl")
 		SOURCE("kernctl/*.c")
 	END
+	BEGIN APPLICATION("apps.wm")
+		SET_OUTPUT("/bin/wm")
+		SET_DISKFILE("/bin/wm")
+		SOURCE("wm/*.c")
+	END
 END
 
 

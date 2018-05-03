@@ -279,6 +279,10 @@ int main(int argc, char *argv[]) {
   mount("/dev/hdc1","/mount",NULL,0,NULL);
  }
 
+#if 1
+ execl("/bin/wm","wm",(char *)NULL);
+#endif
+
 #if 0
  if (fork() == 0)
      Xexecl("/bin/hybrid-demo.exe","hybrid-demo.exe",(char *)NULL);

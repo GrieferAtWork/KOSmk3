@@ -275,7 +275,7 @@ handle_kind_name(char buf[HANDLE_KIND_NAME_BUFSIZE], u16 type) {
 #define PRINTF(...) debug_printf(__VA_ARGS__)
 INTERN void KCALL kernel_print_exception(void)
 #else
-#if 1
+#if 0
 PRIVATE void LIBCCALL
 exception_vprintf(FILE *fp, char const *__restrict format, va_list args) {
  LIBC_TRY {
