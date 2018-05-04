@@ -204,6 +204,8 @@ DEFINE_SYSCALL1_64(xpipe,oflag_t,flags) {
  union pipefd result; REF struct pipe *p;
  struct handle EXCEPT_VAR hreader;
  struct handle EXCEPT_VAR hwriter;
+ if (flags & ~(O_CLOEXEC|O_CLOFORK))
+     error_throw(E_INVALID_ARGUMENT);
  /* Setup handles. */
  hreader.h_mode = HANDLE_MODE(HANDLE_TYPE_FPIPEREADER,IO_RDONLY);
  hwriter.h_mode = HANDLE_MODE(HANDLE_TYPE_FPIPEWRITER,IO_WRONLY);
@@ -257,6 +259,10 @@ DEFINE_SYSCALL2(pipe2,USER UNCHECKED int *,pipefd,oflag_t,flags) {
   error_rethrow();
  }
  return 0;
+}
+
+DEFINE_SYSCALL1(pipe,USER UNCHECKED int *,pipefd) {
+ return SYSC_pipe2(pipefd,0);
 }
 
 

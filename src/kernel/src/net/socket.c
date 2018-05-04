@@ -916,7 +916,11 @@ INTERN size_t KCALL
 handle_socket_read(struct socket *__restrict self,
                    USER CHECKED void *buf, size_t bufsize,
                    iomode_t flags) {
- return socket_recv(self,buf,bufsize,flags,SOCKET_MESSAGE_FNORMAL);
+ size_t result;
+ result = socket_recv(self,buf,bufsize,flags,SOCKET_MESSAGE_FNORMAL);
+ if (result > bufsize)
+     result = bufsize;
+ return result;
 }
 INTERN size_t KCALL
 handle_socket_write(struct socket *__restrict self,

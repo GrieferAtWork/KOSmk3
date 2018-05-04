@@ -529,6 +529,7 @@ define_wrapper fchown, SYS_fchown, 3
 define_wrapper fchmodat, SYS_fchmodat, 4
 define_wrapper fchownat, SYS_fchownat, 5
 define_wrapper dup, SYS_dup, 1
+define_wrapper dup2, SYS_dup2, 1
 define_wrapper dup3, SYS_dup3, 3
 define_wrapper fcntl, SYS_fcntl, 3
 define_wrapper ioctl, SYS_ioctl, 3
@@ -571,6 +572,7 @@ define_wrapper waitid, SYS_waitid, 5
 define_wrapper wait4, SYS_wait4, 4
 define_wrapper pselect6, SYS_pselect6, 6
 define_wrapper ppoll, SYS_ppoll, 5
+define_wrapper pipe, SYS_pipe, 1
 define_wrapper pipe2, SYS_pipe2, 2
 define_wrapper mount, SYS_mount, 5
 define_wrapper umount2, SYS_umount2, 2
@@ -682,6 +684,9 @@ EXPORT(Xlsyscall,libc_Xsyscall)
 
 /* To reduce overhead, direct link libc functions
  * that don't change anything against system calls. */
+DEFINE_INTERN_ALIAS(libc_Xpipe,Xsys_pipe)
+EXPORT(Xpipe,libc_Xpipe)
+
 DEFINE_INTERN_ALIAS(libc_Xpipe2,Xsys_pipe2)
 EXPORT(Xpipe2,libc_Xpipe2)
 
@@ -693,6 +698,9 @@ EXPORT(Xfdatasync,libc_Xfdatasync)
 
 DEFINE_INTERN_ALIAS(libc_Xdup,Xsys_dup)
 EXPORT(Xdup,libc_Xdup)
+
+DEFINE_INTERN_ALIAS(libc_Xdup2,Xsys_dup2)
+EXPORT(Xdup2,libc_Xdup2)
 
 DEFINE_INTERN_ALIAS(libc_Xdup3,Xsys_dup3)
 EXPORT(Xdup3,libc_Xdup3)

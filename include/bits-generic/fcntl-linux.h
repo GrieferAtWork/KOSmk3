@@ -32,12 +32,12 @@
 __SYSDECL_BEGIN
 
 /* Open flags that are universal (binary-wise) */
-#define O_ACCMODE     000000003
-#define O_RDONLY      000000000
-#define O_WRONLY      000000001
-#define O_RDWR        000000002
-/*      O_RDWR        000000003 // Implemented as an alias! */
-#define O_TRUNC       000001000 /* This one was probably just a coincidence... */
+#define O_ACCMODE     0x003
+#define O_RDONLY      0x000
+#define O_WRONLY      0x001
+#define O_RDWR        0x002
+/*      O_RDWR        0x003 // Implemented as an alias! */
+#define O_TRUNC       0x200 /* This one was probably just a coincidence... */
 
 /* Flags with common binary compatibility between DOS and UNIX. */
 #define __DOS_O_COMMON  (O_TRUNC|O_ACCMODE)
@@ -45,21 +45,21 @@ __SYSDECL_BEGIN
 
 
 /* DOS open flag values. */
-#define __DOS_O_APPEND       000000010
-#define __DOS_O_RANDOM       000000020
-#define __DOS_O_SEQUENTIAL   000000040 /* Ignored */
-#define __DOS_O_TEMPORARY    000000100 /* Same as O_TMPFILE */
-#define __DOS_O_NOINHERIT    000000200 /* Same as O_CLOEXEC */
-#define __DOS_O_CREAT        000000400
-#define __DOS_O_TRUNC        000001000
-#define __DOS_O_EXCL         000002000
-#define __DOS_O_SHORT_LIVED  000010000 /* Ignored */
-#define __DOS_O_OBTAIN_DIR   000020000 /* Same as O_DIRECTORY (Not quite, but effectively the same...) */
-#define __DOS_O_TEXT         000040000 /* Ignored */
-#define __DOS_O_BINARY       000100000 /* Ignored */
-#define __DOS_O_WTEXT        000200000 /* Ignored */
-#define __DOS_O_U16TEXT      000400000 /* Ignored */
-#define __DOS_O_U8TEXT       001000000 /* Ignored */
+#define __DOS_O_APPEND       0x00008
+#define __DOS_O_RANDOM       0x00010
+#define __DOS_O_SEQUENTIAL   0x00020 /* Ignored */
+#define __DOS_O_TEMPORARY    0x00040 /* Same as O_TMPFILE */
+#define __DOS_O_NOINHERIT    0x00080 /* Same as O_CLOEXEC */
+#define __DOS_O_CREAT        0x00100
+#define __DOS_O_TRUNC        0x00200
+#define __DOS_O_EXCL         0x00400
+#define __DOS_O_SHORT_LIVED  0x01000 /* Ignored */
+#define __DOS_O_OBTAIN_DIR   0x02000 /* Same as O_DIRECTORY (Not quite, but effectively the same...) */
+#define __DOS_O_TEXT         0x04000 /* Ignored */
+#define __DOS_O_BINARY       0x08000 /* Ignored */
+#define __DOS_O_WTEXT        0x10000 /* Ignored */
+#define __DOS_O_U16TEXT      0x20000 /* Ignored */
+#define __DOS_O_U8TEXT       0x40000 /* Ignored */
 #define __DOS_O_RAW          __DOS_O_BINARY
 
 #ifdef __USE_DOS
@@ -129,52 +129,52 @@ __SYSDECL_BEGIN
 #endif /* __USE_DOS */
 #else /* __USE_DOSFS */
 #ifndef O_CREAT
-#   define O_CREAT        000000100
+#   define O_CREAT        0x40
 #endif /* !O_CREAT */
 #ifndef O_EXCL
-#   define O_EXCL         000000200
+#   define O_EXCL         0x80
 #endif /* !O_EXCL */
 #ifndef O_NOCTTY
-#   define O_NOCTTY       000000400
+#   define O_NOCTTY       0x100
 #endif /* !O_NOCTTY */
 #ifndef O_APPEND
-#   define O_APPEND       000002000
+#   define O_APPEND       0x400
 #endif /* !O_APPEND */
 #ifndef O_NONBLOCK
-#   define O_NONBLOCK     000004000
+#   define O_NONBLOCK     0x800
 #endif /* !O_NONBLOCK */
 #ifndef O_SYNC
-#   define O_SYNC         000010000
+#   define O_SYNC         0x1000
 #endif /* !O_SYNC */
 #ifndef __O_DSYNC
-#   define __O_DSYNC      000010000
+#   define __O_DSYNC      0x1000
 #endif /* !__O_DSYNC */
 #ifndef O_ASYNC
-#   define O_ASYNC        000020000
+#   define O_ASYNC        0x2000
 #endif /* !O_ASYNC */
 #ifndef __O_DIRECT
-#   define __O_DIRECT     000040000
+#   define __O_DIRECT     0x4000
 #endif /* !__O_DIRECT */
 #ifndef __O_LARGEFILE
-#   define __O_LARGEFILE  000100000
+#   define __O_LARGEFILE  0x8000
 #endif /* !__O_LARGEFILE */
 #ifndef __O_DIRECTORY
-#   define __O_DIRECTORY  000200000
+#   define __O_DIRECTORY  0x10000
 #endif /* !__O_DIRECTORY */
 #ifndef __O_NOFOLLOW
-#   define __O_NOFOLLOW   000400000
+#   define __O_NOFOLLOW   0x20000
 #endif /* !__O_NOFOLLOW */
 #ifndef __O_NOATIME
-#   define __O_NOATIME    001000000
+#   define __O_NOATIME    0x40000
 #endif /* !__O_NOATIME */
 #ifndef __O_CLOEXEC
-#   define __O_CLOEXEC    002000000
+#   define __O_CLOEXEC    0x80000
 #endif /* !__O_CLOEXEC */
 #ifndef __O_PATH
-#   define __O_PATH       010000000
+#   define __O_PATH       0x200000
 #endif /* !__O_PATH */
 #ifndef __O_TMPFILE
-#   define __O_TMPFILE   (020000000|__O_DIRECTORY)
+#   define __O_TMPFILE   (0x400000|__O_DIRECTORY)
 #endif /* !__O_TMPFILE */
 
 #ifdef __USE_DOS
@@ -193,18 +193,18 @@ __SYSDECL_BEGIN
 
 #ifdef __CRT_KOS
 #ifndef __O_CLOFORK
-#   define __O_CLOFORK    004000000
+#   define __O_CLOFORK   0x0100000
 #endif /* !__O_CLOFORK */
 #ifndef __O_SYMLINK
-#   define __O_SYMLINK   0200000000 /* Open a symlink itself, rather than dereferencing it.
-                                     * NOTE: When combined with O_EXCL, throw an `ERROR_FS_NOT_A_SYMLINK'
-                                     *       if the file isn't a symbolic link.
-                                     * NOTE: When used alongside `O_NOFOLLOW', throw an `E_INVALID_ARGUMENT' */
+#   define __O_SYMLINK   0x2000000 /* Open a symlink itself, rather than dereferencing it.
+                                    * NOTE: When combined with O_EXCL, throw an `ERROR_FS_NOT_A_SYMLINK'
+                                    *       if the file isn't a symbolic link.
+                                    * NOTE: When used alongside `O_NOFOLLOW', throw an `E_INVALID_ARGUMENT' */
 #endif /* !__O_SYMLINK */
 #ifndef __O_DOSPATH
-#   define __O_DOSPATH   0400000000 /* Interpret '\\' as '/', and ignore casing during path resolution.
-                                     * Additionally, recognize DOS mounting points, and interpret leading
-                                     * slashes as relative to the closest DOS mounting point. (s.a.: `AT_DOSPATH') */
+#   define __O_DOSPATH   0x4000000 /* Interpret '\\' as '/', and ignore casing during path resolution.
+                                    * Additionally, recognize DOS mounting points, and interpret leading
+                                    * slashes as relative to the closest DOS mounting point. (s.a.: `AT_DOSPATH') */
 #endif /* !__O_DOSPATH */
 #else /* __CRT_KOS */
 #   undef __O_CLOFORK

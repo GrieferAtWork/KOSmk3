@@ -99,7 +99,8 @@ struct wm_window {
     unsigned int            w_oldsizey; /* [lock(w_surface.s_lock)] The old window size in Y before `WM_WINDOW_MODE_FMAXIMIZED' or `WM_WINDOW_MODE_FFULLSCREEN' was set. */
     unsigned int            w_titlesz;  /* [lock(w_surface.s_lock)] The width of the border on the top (ymin). */
     unsigned int            w_bordersz; /* [lock(w_surface.s_lock)] The width of the border on all sides except for the top (ymin). */
-    wms_window_id_t         w_winid;    /* Internal ID of the window. */
+    wms_window_id_t         w_winid;    /* [const][owned] Internal ID of the window. */
+    __fd_t                  w_winfd;    /* [const][owned] A file descriptor referring to the mmap()able window display buffer. */
     LIST_NODE(struct wm_window) w_chain; /* [lock(INTERNAL(...))] Chain of windows with the same modulated hash. (for `wm_window_fromid()') */
 #endif /* __BUILDING_LIBWM */
 };

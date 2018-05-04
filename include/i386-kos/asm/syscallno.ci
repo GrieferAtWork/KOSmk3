@@ -299,6 +299,11 @@ __SYSCALL(__NR_syncfs,sys_syncfs)
 #define __NR_execveat     281
 __SYSCALL(__NR_execveat,sys_execveat)
 
+#define __NR_pipe         1040
+__SYSCALL(__NR_pipe,sys_pipe)
+#define __NR_dup2         1041
+__SYSCALL(__NR_dup2,sys_dup2)
+
 #define __NR_recv         1073
 __SYSCALL(__NR_recv,sys_recv)
 #define __NR_send         1074

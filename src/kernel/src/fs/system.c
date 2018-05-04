@@ -749,6 +749,10 @@ DEFINE_SYSCALL5(xfrenameat,
 DEFINE_SYSCALL1(dup,fd_t,fd) {
  return handle_dup(fd,0);
 }
+DEFINE_SYSCALL2(dup2,fd_t,oldfd,fd_t,newfd) {
+ handle_dupinto(oldfd,newfd,0);
+ return newfd;
+}
 DEFINE_SYSCALL3(dup3,fd_t,oldfd,fd_t,newfd,oflag_t,flags) {
  flags = IO_HANDLE_FFROM_O(flags);
  if (flags & ~IO_HANDLE_FMASK)

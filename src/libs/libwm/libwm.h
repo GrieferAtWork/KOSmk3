@@ -43,6 +43,9 @@ INTDEF void WMCALL libwm_event_waitfor(union wm_event *__restrict result);
 INTDEF void WMCALL libwms_handle(struct wms_response *__restrict resp);
 INTDEF unsigned int WMCALL libwms_sendrequest(struct wms_request *__restrict req);
 INTDEF void WMCALL libwms_recvresponse(unsigned int token, struct wms_response *__restrict resp);
+/* Same as `libwms_recvresponse()', but also receive
+ * a single file descriptor from ancillary data. */
+INTDEF fd_t WMCALL libwms_recvresponse_fd(unsigned int token, struct wms_response *__restrict resp);
 
 /* surface.h */
 INTDEF ATTR_RETNONNULL REF struct wm_palette *WMCALL
@@ -101,8 +104,7 @@ INTDEF REF struct wm_window *WMCALL libwm_window_fromid(wms_window_id_t id);
 
 
 /* The file descriptors used for communication with the server. */
-INTDEF fd_t libwms_requestfd; /* client -> server */
-INTDEF fd_t libwms_resposefd; /* server -> client */
+INTDEF fd_t libwms_socket; /* client -> server */
 
 
 DECL_END

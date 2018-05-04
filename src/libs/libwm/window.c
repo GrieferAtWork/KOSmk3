@@ -310,14 +310,16 @@ libwm_window_destroy(struct wm_window *__restrict self) {
    (*self->w_events->wo_fini)(self);
  /* Unmap the window display buffer. */
  munmap(self->w_buffer,
-        CEILDIV(self->w_sizex*self->w_sizey*self->w_surface.s_bpp,8));
+        self->w_surface.s_stride * self->w_sizey);
  /* Remove the window. */
  req.r_command        = WMS_COMMAND_RMWIN;
- req.r_flags          = WMS_COMMAND_FNORMAL;
+ req.r_flags          = WMS_COMMAND_FNOACK;
  req.r_rmwin.rw_winid = self->w_winid;
  /* XXX: What about exceptions here? */
- token = libwms_sendrequest(&req);
- libwms_recvresponse(token,&resp);
+ libwms_sendrequest(&req);
+
+ /* Close the window screen buffer file. */
+ close(self->w_winfd);
 
  /* Free all the remaining buffers and pointers. */
  libwm_format_decref(self->w_surface.s_format);

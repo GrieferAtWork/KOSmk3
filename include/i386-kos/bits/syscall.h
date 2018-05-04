@@ -137,6 +137,8 @@ for (local line: fp) {
 #define SYS_wait4 __NR_wait4
 #define SYS_syncfs __NR_syncfs
 #define SYS_execveat __NR_execveat
+#define SYS_pipe __NR_pipe
+#define SYS_dup2 __NR_dup2
 #define SYS_recv __NR_recv
 #define SYS_send __NR_send
 #define SYS_fork __NR_fork

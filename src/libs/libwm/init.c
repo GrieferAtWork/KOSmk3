@@ -23,6 +23,11 @@
 #include <hybrid/compiler.h>
 #include <hybrid/atomic.h>
 #include <wm/api.h>
+#include <sys/socket.h>
+
+#include <string.h>
+#include <unistd.h>
+#include <sys/un.h>
 
 #include "libwm.h"
 
@@ -39,15 +44,28 @@ __asm__(
 );
 
 
-
 DEFINE_PUBLIC_ALIAS(wm_init,libwm_init);
 INTERN void WMCALL libwm_init(void) {
- /* TODO */
+ struct sockaddr_un addr;
+ /* Create a new unix domain socket. */
+ libwms_socket = Xsocket(AF_UNIX,SOCK_STREAM,AF_UNIX);
+ TRY {
+  addr.sun_family = AF_UNIX;
+  strcpy(addr.sun_path,"/dev/wms");
+
+  /* Connect to the window server running under `/dev/wms' */
+  Xconnect(libwms_socket,(struct sockaddr *)&addr,sizeof(addr));
+ } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+  close(libwms_socket);
+  error_rethrow();
+ }
 }
 
 DEFINE_PUBLIC_ALIAS(wm_fini,libwm_fini);
 INTERN ATTR_NOTHROW void WMCALL libwm_fini(void) {
- /* TODO */
+ /* TODO: Close all windows that are still open. */
+ close(libwms_socket);
+ libwms_socket = -1;
 }
 
 

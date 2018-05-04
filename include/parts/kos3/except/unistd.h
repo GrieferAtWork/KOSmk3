@@ -121,6 +121,7 @@ __LIBC __PORT_KOSONLY size_t (__LIBCCALL Xpwrite64)(__fd_t __fd, void const *__b
 #undef __PIO_OFFSET
 #endif /* __USE_UNIX98 || __USE_XOPEN2K8 */
 
+__LIBC __PORT_KOSONLY void (__LIBCCALL Xpipe)(__fd_t __pipedes[2]);
 #ifdef __USE_GNU
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xpipe2)(__fd_t __pipedes[2], __oflag_t __flags);
 __LIBC __PORT_KOSONLY __fd_t (__LIBCCALL Xdup3)(__fd_t __oldfd, __fd_t __newfd, __oflag_t __flags);

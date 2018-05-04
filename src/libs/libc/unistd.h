@@ -22,7 +22,7 @@
 #include "libc.h"
 #include <kos/types.h>
 
-#ifdef __CC__
+#if defined(__CC__) && !defined(__KERNEL__)
 DECL_BEGIN
 
 /* ===================================================================================== */

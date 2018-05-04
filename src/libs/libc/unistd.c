@@ -138,7 +138,7 @@ INTERN int LIBCCALL libc_name_to_handle_at(fd_t dfd, char const *name, struct fi
 INTERN int LIBCCALL libc_open_by_handle_at(int mountdirfd, struct file_handle *handle, int flags) { libc_seterrno(ENOSYS); return -1; }
 INTERN int LIBCCALL libc_fallocate(fd_t fd, int mode, pos32_t offset, pos32_t len) { return libc_fallocate64(fd,mode,(pos64_t)offset,(pos64_t)len); }
 
-INTERN int LIBCCALL libc_pipe(int pipedes[2]) { return libc_pipe2(pipedes,0); }
+INTERN int LIBCCALL libc_pipe(int pipedes[2]) { return FORWARD_SYSTEM_ERROR(sys_pipe(pipedes)); }
 INTERN int LIBCCALL libc_pipe2(int pipedes[2], int flags) { return FORWARD_SYSTEM_ERROR(sys_pipe2(pipedes,flags)); }
 CRT_DOS int LIBCCALL libd_pipe(int pipedes[2], u32 UNUSED(pipesize), int UNUSED(textmode)) { return libc_pipe2(pipedes,0); }
 INTERN mode_t LIBCCALL libc_getumask(void) { mode_t result = sys_umask(0); sys_umask(result); return result; }
@@ -157,7 +157,7 @@ INTERN int LIBCCALL libc_getgroups(int size, gid_t list[]) { libc_seterrno(ENOSY
 INTERN int LIBCCALL libc_setuid(uid_t uid) { libc_seterrno(ENOSYS); return -1; }
 INTERN int LIBCCALL libc_setgid(gid_t gid) { libc_seterrno(ENOSYS); return -1; }
 INTERN fd_t LIBCCALL libc_dup(fd_t fd) { return FORWARD_SYSTEM_VALUE(sys_dup(fd)); }
-INTERN fd_t LIBCCALL libc_dup2(fd_t ofd, fd_t nfd) { return libc_dup3(ofd,nfd,0); }
+INTERN fd_t LIBCCALL libc_dup2(fd_t ofd, fd_t nfd) { return FORWARD_SYSTEM_VALUE(sys_dup2(ofd,nfd)); }
 INTERN fd_t LIBCCALL libc_dup3(fd_t ofd, fd_t nfd, int flags) { return FORWARD_SYSTEM_VALUE(sys_dup3(ofd,nfd,flags)); }
 INTERN int LIBCCALL libc_close(fd_t fd) { return FORWARD_SYSTEM_ERROR(sys_close(fd)); }
 INTERN int LIBCCALL libc_chdir(char const *path) { return FORWARD_SYSTEM_ERROR(sys_chdir(path)); }
@@ -714,16 +714,6 @@ EXPORT(Xcreat,libc_Xcreat);
 EXPORT(Xcreat64,libc_Xcreat);
 CRT_EXCEPT fd_t LIBCCALL libc_Xcreat(char const *file, mode_t mode) {
  return libc_Xopenat(AT_FDCWD,file,O_CREAT|O_WRONLY|O_TRUNC,mode);
-}
-EXPORT(Xpipe,libc_Xpipe);
-CRT_EXCEPT void LIBCCALL
-libc_Xpipe(fd_t pipedes[2]) {
- libc_Xpipe2(pipedes,0);
-}
-EXPORT(Xdup2,libc_Xdup2);
-CRT_EXCEPT fd_t LIBCCALL
-libc_Xdup2(fd_t ofd, fd_t nfd) {
- return libc_Xdup3(ofd,nfd,0);
 }
 
 EXPORT(Xpathconf,libc_Xpathconf);

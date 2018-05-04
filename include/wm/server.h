@@ -143,14 +143,10 @@ struct PACKED wms_response {
             unsigned int          w_sizey;   /* The Y size of the created window. */
             unsigned int          w_stride;  /* The stride of the window's display buffer. */
             unsigned int          w_bpp;     /* Bits per pixel. */
-            __uintptr_t           w_addr;    /* Offset into the `w_shm' file where the display
-                                              * buffer for this window is located.
-                                              * Permissions to map this buffer into memory have
-                                              * also been granted for a process who's PID matches
-                                              * the `mw_owner' PID specified when the associated
-                                              * window-creation command was sent. */
-            char                  w_shm[32]; /* NUL-terminated filename of the SHM file containing
-                                              * the window's display buffer. */
+            /* In its ancillary data, this response carries a file descriptor
+             * which, when used to mmap()-ed at offset ZERO(0) a number of
+             * `w_sizey * w_stride' bytes, then contains the screen buffer.
+             * NOTE: memory must be mapped as `PROT_SHARED'! */
         }                         r_mkwin;   /* [WMS_RESPONSE_MKWIN_OK] Window creation response. */
         struct PACKED {
             wms_window_id_t     __w_pad;     /* ... */
@@ -160,14 +156,6 @@ struct PACKED wms_response {
             unsigned int          w_sizey;   /* The Y size of the window. */
             unsigned int          w_stride;  /* The stride of the window's display buffer. */
             unsigned int          w_bpp;     /* Bits per pixel. */
-            __uintptr_t           w_addr;    /* Offset into the `w_shm' file where the display
-                                              * buffer for this window is located.
-                                              * Permissions to map this buffer into memory have
-                                              * also been granted for a process who's PID matches
-                                              * the `mw_owner' PID specified when the associated
-                                              * window-creation command was sent. */
-            char                  w_shm[32]; /* NUL-terminated filename of the SHM file
-                                              * containing the window's display buffer. */
         }                         r_rzwin;   /* [WMS_RESPONSE_RZWIN_OK] Window resize response. */
         struct PACKED {
             __uint16_t            cw_oldst;  /* Old window state. */

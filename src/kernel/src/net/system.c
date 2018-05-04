@@ -241,8 +241,8 @@ DEFINE_SYSCALL6(recvfrom,int,sockfd,
                 USER UNCHECKED struct sockaddr *,addr,socklen_t *,paddrlen) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  REF struct handle hsocket;
- if (flags & ~(MSG_CONFIRM|MSG_DONTROUTE|MSG_DONTWAIT|
-               MSG_EOR|MSG_MORE|MSG_NOSIGNAL|MSG_OOB))
+ if (flags & ~(MSG_DONTWAIT|MSG_ERRQUEUE|MSG_OOB|
+               MSG_PEEK|MSG_TRUNC|MSG_WAITALL))
      error_throw(E_INVALID_ARGUMENT);
  validate_writable(buf,buflen);
  if (paddrlen) {
@@ -276,7 +276,9 @@ DEFINE_SYSCALL6(recvfrom,int,sockfd,
        flags &= ~MSG_DONTWAIT,
        iomode |= IO_NONBLOCK;
    result = socket_recv(hsocket.h_object.o_socket,buf,
-                        buflen,iomode,flags);
+                        buflen,iomode,flags & ~MSG_TRUNC);
+   if (!(flags & MSG_TRUNC) && result > buflen)
+         result = buflen;
   } FINALLY {
    handle_decref(hsocket);
   }
@@ -314,8 +316,8 @@ DEFINE_SYSCALL4(recv,int,sockfd,
                 USER UNCHECKED void *,buf,size_t,buflen,int,flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  REF struct handle hsocket;
- if (flags & ~(MSG_CONFIRM|MSG_DONTROUTE|MSG_DONTWAIT|
-               MSG_EOR|MSG_MORE|MSG_NOSIGNAL|MSG_OOB))
+ if (flags & ~(MSG_DONTWAIT|MSG_ERRQUEUE|MSG_OOB|
+               MSG_PEEK|MSG_TRUNC|MSG_WAITALL))
      error_throw(E_INVALID_ARGUMENT);
  validate_writable(buf,buflen);
  hsocket = handle_get(sockfd);
@@ -327,7 +329,9 @@ DEFINE_SYSCALL4(recv,int,sockfd,
       flags &= ~MSG_DONTWAIT,
       iomode |= IO_NONBLOCK;
   result = socket_recv(hsocket.h_object.o_socket,buf,
-                       buflen,iomode,flags);
+                       buflen,iomode,flags & ~MSG_TRUNC);
+  if (!(flags & MSG_TRUNC) && result > buflen)
+        result = buflen;
  } FINALLY {
   handle_decref(hsocket);
  }

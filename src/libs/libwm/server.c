@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <except.h>
 #include <sys/poll.h>
+#include <sys/socket.h>
 
 #include "libwm.h"
 
@@ -37,8 +38,7 @@ DECL_BEGIN
  * Pre-initialize them to -1 to cause E_INVALID_HANDLE
  * exceptions if library users attempt to use API functions
  * before the library has actually been initialized. */
-INTERN fd_t libwms_requestfd = -1;
-INTERN fd_t libwms_resposefd = -1;
+INTERN fd_t libwms_socket = -1;
 
 
 PRIVATE unsigned int libwms_token = 1;
@@ -74,7 +74,7 @@ libwms_sendrequest(struct wms_request *__restrict req) {
  unsigned int result = libwms_gentoken();
  req->r_echo = result;
  /* Send the request */
- do part += Xwrite(libwms_requestfd,(byte_t *)req + part,
+ do part += Xwrite(libwms_socket,(byte_t *)req + part,
                    sizeof(struct wms_request) - part);
  while (part < sizeof(struct wms_request));
  return result;
@@ -87,11 +87,11 @@ libwms_recvresponse(unsigned int token,
  for (;;) {
   size_t part = 0;
   struct pollfd p;
-  p.fd     = libwms_resposefd;
+  p.fd     = libwms_socket;
   p.events = POLLIN;
   if (!Xpoll(&p,1,2000))
        error_throw(E_INVALID_ARGUMENT);
-  do part += Xread(libwms_resposefd,(byte_t *)resp + part,
+  do part += Xread(libwms_socket,(byte_t *)resp + part,
                    sizeof(struct wms_response) - part);
   while (part < sizeof(struct wms_response));
   if (resp->r_echo == token)
@@ -99,7 +99,7 @@ libwms_recvresponse(unsigned int token,
   /* Process unrelated response packets by themself. */
   libwms_handle(resp);
  }
- /* Interpret special sever resposenses. */
+ /* Interpret special sever responses. */
  switch (resp->r_answer) {
 
  case WMS_RESPONSE_FAILED:
@@ -115,6 +115,67 @@ libwms_recvresponse(unsigned int token,
 
  default: break;
  }
+}
+
+INTERN fd_t WMCALL
+libwms_recvresponse_fd(unsigned int token,
+                       struct wms_response *__restrict resp) {
+ fd_t result;
+ for (;;) {
+  struct pollfd p;
+  struct msghdr msg;
+  struct iovec iov[1];
+  union {
+   struct cmsghdr hdr;
+   byte_t buf[CMSG_SPACE(sizeof(fd_t))];
+  }  result_buffer;
+  p.fd     = libwms_socket;
+  p.events = POLLIN;
+  if (!Xpoll(&p,1,2000))
+       error_throw(E_INVALID_ARGUMENT);
+  iov[0].iov_base              = resp;
+  iov[0].iov_len               = sizeof(struct wms_response);
+  msg.msg_name                 = NULL;
+  msg.msg_namelen              = 0;
+  msg.msg_iov                  = iov;
+  msg.msg_iovlen               = 1;
+  msg.msg_control              = result_buffer.buf;
+  msg.msg_controllen           = sizeof(result_buffer);
+  msg.msg_flags                = 0;
+  result_buffer.hdr.cmsg_len   = CMSG_SPACE(sizeof(fd_t));
+  result_buffer.hdr.cmsg_level = SOL_SOCKET;
+  result_buffer.hdr.cmsg_type  = SCM_RIGHTS;
+  *(fd_t *)CMSG_DATA(&result_buffer.hdr) = -1;
+  if (Xrecvmsg(libwms_socket,&msg,MSG_CMSG_CLOEXEC) < sizeof(struct wms_response))
+      error_throw(E_INVALID_ARGUMENT);
+  result = -1;
+  if (CMSG_FIRSTHDR(&msg) == &result_buffer.hdr)
+      result = *(fd_t *)CMSG_DATA(&result_buffer.hdr);
+  if (resp->r_echo == token)
+      break; /* This is what we were waiting for. */
+  /* Process unrelated response packets by themself. */
+  if (result >= 0) close(result);
+  libwms_handle(resp);
+ }
+ /* Interpret special sever responses. */
+ switch (resp->r_answer) {
+
+ case WMS_RESPONSE_FAILED:
+  /* Rethrow the error that caused the failure. */
+  if (result >= 0) close(result);
+  error_throw_ex(resp->r_failed.f_except.e_code,
+                &resp->r_failed.f_except);
+  break;
+
+ case WMS_RESPONSE_BADCMD:
+  /* The command isn't implemented. */
+  if (result >= 0) close(result);
+  error_throw(E_NOT_IMPLEMENTED);
+  break;
+
+ default: break;
+ }
+ return result;
 }
 
 

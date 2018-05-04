@@ -152,13 +152,10 @@ libwm_surface_create(struct wm_format *__restrict format,
  atomic_rwlock_init(&result->s_lock);
  result->s_sizex  = sizex;
  result->s_sizey  = sizey;
- result->s_stride = CEIL_ALIGN(sizex,16);
+ result->s_stride = CEIL_ALIGN(CEILDIV(sizex * format->f_bpp,8),16);
  TRY {
   /* Allocate the surface buffer. */
-  result->s_buffer = (byte_t *)Xmalloc(CEILDIV(result->s_stride*
-                                               sizey*
-                                               format->f_bpp,
-                                               8));
+  result->s_buffer = (byte_t *)Xmalloc(result->s_stride * sizey);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   free(result);
   error_rethrow();

@@ -481,8 +481,8 @@ struct msghdr {
 #define __cmsghdr_defined 1
 struct cmsghdr {
     size_t          cmsg_len;     /* Length of data in cmsg_data plus length of cmsghdr structure. !! The type should be socklen_t but the definition of the kernel is incompatible with this. */
-    int             cmsg_level;   /* Originating protocol. */
-    int             cmsg_type;    /* Protocol specific type. */
+    int             cmsg_level;   /* Originating protocol. (One of `SOL_*'; (always `SOL_SOCKET'?)) */
+    int             cmsg_type;    /* Protocol specific type (One of `SCM_*'). */
     unsigned char __cmsg_data[1]; /* Ancillary data. */
 };
 #endif /* !__cmsghdr_defined */
