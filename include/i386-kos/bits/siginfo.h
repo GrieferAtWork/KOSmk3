@@ -240,7 +240,7 @@ typedef struct __siginfo_struct {
         struct { /* SIGILL, SIGFPE, SIGSEGV, SIGBUS. */
             void          *si_addr;     /* Faulting insn/memory ref. */
             __INT16_TYPE__ si_addr_lsb; /* Valid LSB of the reported address. */
-            __INT16_TYPE__ __si_pad2[(sizeof(void *)/sizeof(__INT16_TYPE__))-1];
+            __INT16_TYPE__ __si_pad2[(sizeof(void *)-2)/2];
             void          *si_lower;
             void          *si_upper;
         };
@@ -289,7 +289,7 @@ typedef struct __siginfo_struct {
         struct { /* SIGILL, SIGFPE, SIGSEGV, SIGBUS. */
             void          *si_addr;     /* Faulting insn/memory ref. */
             __INT16_TYPE__ si_addr_lsb; /* Valid LSB of the reported address. */
-            __INT16_TYPE__ __si_pad2[(sizeof(void *)/sizeof(__INT16_TYPE__))-1];
+            __INT16_TYPE__ __si_pad2[(sizeof(void *)-2)/2];
             struct {
                 void *_lower;
                 void *_upper;

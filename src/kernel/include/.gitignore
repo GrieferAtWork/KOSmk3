@@ -1,2 +1,3 @@
 #net -- Before I release this, I want it working!
-net
+net/nic.h
+net/route.h

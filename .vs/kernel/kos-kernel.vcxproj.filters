@@ -133,6 +133,12 @@
     <Filter Include="kernel\src\dev">
       <UniqueIdentifier>{3c3e033a-5918-4b65-b4f0-9704ab4e81c5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="kernel\include\net">
+      <UniqueIdentifier>{3905f35b-0a27-4382-8cd8-28b88359d42a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="kernel\src\net">
+      <UniqueIdentifier>{b76e3eb3-762d-4166-8dc9-9274b7c75742}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\hybrid\string.c">
@@ -486,6 +492,9 @@
     <ClCompile Include="..\..\src\kernel\src\dev\mouse.c">
       <Filter>kernel\src\dev</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\net\socket.c">
+      <Filter>kernel\src\net</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">
@@ -802,6 +811,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\kernel\i386-kos\except.h">
       <Filter>kernel\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\net\socket.h">
+      <Filter>kernel\include\net</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

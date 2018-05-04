@@ -141,6 +141,7 @@
     <ClCompile Include="..\..\src\kernel\src\kernel\syscall.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\sysconf.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\system.c" />
+    <ClCompile Include="..\..\src\kernel\src\net\socket.c" />
     <ClCompile Include="..\..\src\kernel\src\sched\affinity.c" />
     <ClCompile Include="..\..\src\kernel\src\sched\group.c" />
     <ClCompile Include="..\..\src\kernel\src\sched\mutex.c" />
@@ -250,6 +251,7 @@
     <ClInclude Include="..\..\src\kernel\include\kernel\ushare.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\version.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\vm.h" />
+    <ClInclude Include="..\..\src\kernel\include\net\socket.h" />
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot.h" />
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h" />
     <ClInclude Include="..\..\src\kernel\include\sched\affinity.h" />

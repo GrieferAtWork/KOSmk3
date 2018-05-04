@@ -68,6 +68,7 @@ __LIBC __PORT_KOSONLY void (__LIBCCALL Xposix_madvise)(void *__addr, size_t __le
 __LIBC __PORT_KOSONLY void *(__ATTR_CDECL Xmremap)(void *__addr, size_t __old_len, size_t __new_len, int __flags, ...);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xremap_file_pages)(void *__start, size_t __size, int __prot, size_t __pgoff, int __flags);
 #endif /* __USE_GNU */
+#ifdef __USE_KOS
 __REDIRECT(__LIBC,__PORT_KOSONLY,void *,__LIBCCALL,Xxmmap,(struct mmap_info const *__data),Xxmmap1,(__data))
 /* @param: flags: Set of `XUNMAP_*'; @return: * : Number of modified bytes */
 __LIBC __PORT_KOSONLY size_t (__LIBCCALL Xxmunmap)(void *__addr, size_t __len, int __flags, void *__tag);
@@ -75,6 +76,7 @@ __LIBC __PORT_KOSONLY size_t (__LIBCCALL Xxmunmap)(void *__addr, size_t __len, i
 /* @param: flags: Set of `XUNMAP_*'; @return: * : Number of modified bytes */
 __LIBC __PORT_KOSONLY size_t (__LIBCCALL Xxmprotect)(void *__addr, size_t __len, int __protmask, int __protflag, int __flags, void *__tag);
 #endif
+#endif /* __USE_KOS */
 
 __SYSDECL_END
 #endif

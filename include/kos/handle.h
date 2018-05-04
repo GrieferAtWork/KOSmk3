@@ -44,7 +44,8 @@ __SYSDECL_BEGIN
 #define HANDLE_TYPE_FPIPE                0x000d /* [NAME("pipe")]                `struct pipe' */
 #define HANDLE_TYPE_FPIPEREADER          0x000e /* [NAME("pipereader")]          `struct pipereader' */
 #define HANDLE_TYPE_FPIPEWRITER          0x000f /* [NAME("pipewriter")]          `struct pipewriter' */
-#define HANDLE_TYPE_FCOUNT               0x0010 /* Amount of handle types. */
+#define HANDLE_TYPE_FSOCKET              0x0010 /* [NAME("socket")]              `struct socket' */
+#define HANDLE_TYPE_FCOUNT               0x0011 /* Amount of handle types. */
 
 /* Handle kinds (for use with `ERROR_INVALID_HANDLE_FWRONGKIND') */
 #define HANDLE_KIND_FANY      0x0000 /* Any kind of handle was expected (set for reasons other than `ERROR_INVALID_HANDLE_FWRONGKIND') */

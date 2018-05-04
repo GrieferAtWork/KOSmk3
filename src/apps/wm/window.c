@@ -70,9 +70,9 @@ window_getpixel(struct window *__restrict self,
  assert(y < self->w_sizey);
  ptr  = self->w_screen;
  ptr += y * self->w_stride; /* XXX: Use shifts here? */
- x   *= self->w_bpp;
+ x   *= self->w_display->d_bpp;
  ptr += x/8;
- switch (self->w_bpp) {
+ switch (self->w_display->d_bpp) {
  case 32:
   result = *(u32 *)ptr;
   break;
@@ -111,9 +111,9 @@ window_putpixel(struct window *__restrict self,
  assert(y < self->w_sizey);
  ptr  = self->w_screen;
  ptr += y * self->w_stride; /* XXX: Use shifts here? */
- x   *= self->w_bpp;
+ x   *= self->w_display->d_bpp;
  ptr += x/8;
- switch (self->w_bpp) {
+ switch (self->w_display->d_bpp) {
  case 32:
   *(u32 *)ptr = (u32)pixel;
   break;
@@ -294,7 +294,6 @@ INTERN struct window *KCALL
 window_create(struct display *__restrict disp,
               int posx, unsigned int sizex,
               int posy, unsigned int sizey,
-              unsigned int bpp,
               unsigned int flags) {
  struct window *result;
  result = (struct window *)Xmalloc(sizeof(struct window));
@@ -304,13 +303,12 @@ window_create(struct display *__restrict disp,
  result->w_sizey   = sizey;
  result->w_sizex   = sizex;
  result->w_stride  = CEIL_ALIGN(sizex,16);
- result->w_bpp     = bpp;
  result->w_display = disp;
  result->w_visi.r_strips = NULL;
  window_update_display_area(result);
  result->w_screen  = (byte_t *)Xmalloc(sizey*
                                        result->w_stride*
-                                       CEILDIV(bpp,8));
+                                       CEILDIV(disp->d_bpp,8));
  /* Clamp the visible portion of the window to the display size. */
  if (posx < 0) sizex = sizex > (unsigned int)-posx ? sizex - -posx : 0,posx = 0;
  if (posy < 0) sizey = sizey > (unsigned int)-posy ? sizey - -posy : 0,posy = 0;
@@ -339,15 +337,14 @@ window_render_rect(struct window *__restrict self,
  copy_rect(d->d_screen,
            window_rect.r_xmin+self->w_posx,
            window_rect.r_ymin+self->w_posy,
-           d->d_bpp,
            d->d_stride,
            self->w_screen,
            window_rect.r_xmin,
            window_rect.r_ymin,
-           self->w_bpp,
            self->w_stride,
            window_rect.r_xsiz,
-           window_rect.r_ysiz);
+           window_rect.r_ysiz,
+           d->d_bpp);
 }
 
 PRIVATE void KCALL
@@ -356,15 +353,14 @@ display_render_background(struct display *__restrict self,
  copy_rect(self->d_screen,
            display_rect.r_xmin,
            display_rect.r_ymin,
-           self->d_bpp,
            self->d_stride,
            self->d_backgrnd,
            display_rect.r_xmin,
            display_rect.r_ymin,
-           self->d_bpp,
            self->d_stride,
            display_rect.r_xsiz,
-           display_rect.r_ysiz);
+           display_rect.r_ysiz,
+           self->d_bpp);
 }
 
 
@@ -551,15 +547,14 @@ display_redraw(struct display *__restrict self) {
   copy_rect(self->d_screen,
             r.r_xmin,
             r.r_ymin,
-            self->d_bpp,
             self->d_stride,
             self->d_backgrnd,
             r.r_xmin,
             r.r_ymin,
-            self->d_bpp,
             self->d_stride,
             r.r_xsiz,
-            r.r_ysiz);
+            r.r_ysiz,
+            self->d_bpp);
  }
 #endif
  /* Then copy all visible window portions. */
@@ -569,15 +564,14 @@ display_redraw(struct display *__restrict self) {
    copy_rect(self->d_screen,
              win->w_posx+r.r_xmin,
              win->w_posy+r.r_ymin,
-             self->d_bpp,
              self->d_stride,
              win->w_screen,
              r.r_xmin,
              r.r_ymin,
-             win->w_bpp,
              win->w_stride,
              r.r_xsiz,
-             r.r_ysiz);
+             r.r_ysiz,
+             self->d_bpp);
   }
  }
 }
@@ -585,17 +579,18 @@ display_redraw(struct display *__restrict self) {
 
 
 #undef CONFIG_COPYRECT_DO_OUTLINE
+#if 1
 #define CONFIG_COPYRECT_DO_OUTLINE  4
+#endif
 
 
 INTERN void KCALL
 copy_rect(byte_t *__restrict dst_buffer,
-          unsigned int dst_x, unsigned int dst_y,
-          unsigned int dst_bpp, unsigned int dst_stride,
+          unsigned int dst_x, unsigned int dst_y, unsigned int dst_stride,
           byte_t const *__restrict src_buffer,
-          unsigned int src_x, unsigned int src_y,
-          unsigned int src_bpp, unsigned int src_stride,
-          unsigned int size_x, unsigned int size_y) {
+          unsigned int src_x, unsigned int src_y, unsigned int src_stride,
+          unsigned int size_x, unsigned int size_y,
+          unsigned int bpp) {
  assert(size_x || size_y);
 #if 1
  syslog(LOG_DEBUG,"copyrect(%u,%u*%u <-- %u,%u*%u  w=%u,h=%u)\n",
@@ -603,43 +598,39 @@ copy_rect(byte_t *__restrict dst_buffer,
 #endif
  dst_buffer += dst_y*dst_stride;
  src_buffer += src_y*src_stride;
- if (dst_bpp == src_bpp) {
-  if (dst_bpp == 8) {
+ if (bpp == 8) {
 do_bytewise_copy:
-   assert(dst_x+size_x <= dst_stride);
-   assert(src_x+size_x <= src_stride);
-   dst_buffer += dst_x;
-   src_buffer += src_x;
-   /* Copy line-wise */
+  assert(dst_x+size_x <= dst_stride);
+  assert(src_x+size_x <= src_stride);
+  dst_buffer += dst_x;
+  src_buffer += src_x;
+  /* Copy line-wise */
 #ifdef CONFIG_COPYRECT_DO_OUTLINE
-   --size_y;
-   memset(dst_buffer,CONFIG_COPYRECT_DO_OUTLINE,size_x);
-   src_buffer += src_stride;
+  --size_y;
+  memset(dst_buffer,CONFIG_COPYRECT_DO_OUTLINE,size_x);
+  src_buffer += src_stride;
+  dst_buffer += dst_stride;
+#endif
+  for (; size_y; --size_y) {
+   memcpy(dst_buffer,
+          src_buffer,
+          size_x);
+#ifdef CONFIG_COPYRECT_DO_OUTLINE
+   dst_buffer[0]        = CONFIG_COPYRECT_DO_OUTLINE;
+   dst_buffer[size_x-1] = CONFIG_COPYRECT_DO_OUTLINE;
+#endif
    dst_buffer += dst_stride;
-#endif
-   for (; size_y; --size_y) {
-    memcpy(dst_buffer,
-           src_buffer,
-           size_x);
-#ifdef CONFIG_COPYRECT_DO_OUTLINE
-    dst_buffer[0]        = CONFIG_COPYRECT_DO_OUTLINE;
-    dst_buffer[size_x-1] = CONFIG_COPYRECT_DO_OUTLINE;
-#endif
-    dst_buffer += dst_stride;
-    src_buffer += src_stride;
-   }
-#ifdef CONFIG_COPYRECT_DO_OUTLINE
-   memset(dst_buffer-dst_stride,
-          CONFIG_COPYRECT_DO_OUTLINE,size_x);
-#endif
-  } else if (!(dst_bpp & 7)) {
-   dst_x  *= dst_bpp/8;
-   src_x  *= dst_bpp/8;
-   size_x *= dst_bpp/8;
-   goto do_bytewise_copy;
-  } else {
-   assertf(0,"TODO");
+   src_buffer += src_stride;
   }
+#ifdef CONFIG_COPYRECT_DO_OUTLINE
+  memset(dst_buffer-dst_stride,
+         CONFIG_COPYRECT_DO_OUTLINE,size_x);
+#endif
+ } else if (!(bpp & 7)) {
+  dst_x  *= bpp/8;
+  src_x  *= bpp/8;
+  size_x *= bpp/8;
+  goto do_bytewise_copy;
  } else {
   assertf(0,"TODO");
  }

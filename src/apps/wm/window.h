@@ -44,7 +44,6 @@ struct window {
     unsigned int             w_sizey;    /* [!0] The window height in pixels. */
     struct rect              w_disparea; /* Window rectangle actually drawn on-screen (coords are display-relative) */
     unsigned int             w_stride;   /* Length of a screen buffer (`w_screen') line (in bytes) */
-    unsigned int             w_bpp;      /* [!0] Bits per pixel in `w_screen'. */
     struct display          *w_display;  /* [1..1][const] The associated display. */
     byte_t                  *w_screen;   /* [1..1][owned] The window screen buffer. (Allocated in shared memory) */
     struct rects             w_visi;     /* Vector of window portions not obstructed by other windows.
@@ -67,7 +66,6 @@ INTDEF struct window *KCALL
 window_create(struct display *__restrict disp,
               int posx, unsigned int sizex,
               int posy, unsigned int sizey,
-              unsigned int bpp,
               unsigned int flags);
 
 /* Destroy the given window. */
@@ -113,12 +111,11 @@ INTDEF void KCALL display_redraw(struct display *__restrict self);
 /* Copy a rectangle from one buffer to another. */
 INTDEF void KCALL
 copy_rect(byte_t *__restrict dst_buffer,
-          unsigned int dst_x, unsigned int dst_y,
-          unsigned int dst_bpp, unsigned int dst_stride,
+          unsigned int dst_x, unsigned int dst_y, unsigned int dst_stride,
           byte_t const *__restrict src_buffer,
-          unsigned int src_x, unsigned int src_y,
-          unsigned int src_bpp, unsigned int src_stride,
-          unsigned int size_x, unsigned int size_y);
+          unsigned int src_x, unsigned int src_y, unsigned int src_stride,
+          unsigned int size_x, unsigned int size_y,
+          unsigned int bpp);
 
 
 DECL_END

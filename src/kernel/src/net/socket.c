@@ -16,72 +16,16 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
+#ifndef GUARD_KERNEL_SRC_NET_SOCKET_C
+#define GUARD_KERNEL_SRC_NET_SOCKET_C 1
+
+#include <hybrid/compiler.h>
+#include <kos/types.h>
+
+DECL_BEGIN
 
 
-BEGIN
-	BEGIN PROJECT("libs.libc")
 
-		L_FLAGS("-nostdlib")
-		SET_OUTPUT("/bin/libc.so")
-		SET_DISKFILE("/lib/libc.so")
+DECL_END
 
-		LIB("gcc")
-		DEFINE("__BUILDING_LIBC")
-		C_FLAGS("-static-libgcc")
-		L_FLAGS("-static-libgcc")
-		C_FLAGS("-ffreestanding")
-		L_FLAGS("-ffreestanding")
-		C_FLAGS("-shared")
-		C_FLAGS("-fPIC")
-		L_FLAGS("-shared")
-
-		SOURCE("libc/*.c")
-		SOURCE("libc/i386-kos/*.c")
-		SOURCE("libc/i386-kos/*32.S")
-		SOURCE("libc/stdio/*.c")
-		SOURCE("libc/socket/*.c")
-		SOURCE("../hybrid/*.c")
-		SOURCE("../hybrid/i386-kos/*.c")
-		SOURCE("../hybrid/i386-kos/*32.S")
-	END
-
-	BEGIN PROJECT("libs.libwm")
-
-		L_FLAGS("-nostdlib")
-		SET_OUTPUT("/bin/libwm.so")
-		SET_DISKFILE("/lib/libwm.so")
-
-		LIB("gcc")
-		LIB("c")
-		LIBPATH("/bin")
-		DEFINE("__BUILDING_LIBWM")
-		C_FLAGS("-static-libgcc")
-		L_FLAGS("-static-libgcc")
-		C_FLAGS("-shared")
-		C_FLAGS("-fPIC")
-		L_FLAGS("-shared")
-
-		SOURCE("libwm/*.c")
-	END
-
-	BEGIN
-		SET_LINKER(PROGRAM {
-			local out = argv[argv.index("-o")+1];
-			try fs.unlink(out); catch (...);
-			fs.copy_(argv[#argv-1],out);
-		})
-		BEGIN PROJECT("libs.start")
-			SET_OUTPUT("/bin/crt1.o")
-			SET_DISKFILE("/usr/lib/crt1.o")
-			SOURCE("start/start.c")
-		END
-		BEGIN PROJECT("libs.start_debug")
-			SET_OUTPUT("/bin/crt1d.o")
-			SET_DISKFILE("/usr/lib/crt1d.o")
-			SOURCE("start/start_debug.c")
-		END
-	END
-
-END
-
-
+#endif /* !GUARD_KERNEL_SRC_NET_SOCKET_C */

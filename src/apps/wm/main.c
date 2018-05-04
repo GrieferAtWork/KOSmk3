@@ -65,9 +65,9 @@ PRIVATE void *KCALL map_vga(void) {
 
 
 int main(int argc, char *argv[]) {
-/* Temporary, hidden command to enable video mode
- * until I get around to implement a new VGA driver. */
  struct window *win1,*win2;
+ /* Temporary, hidden command to enable video mode
+  * until I get around to implement a new VGA driver. */
 #define KERNEL_CONTROL_ENABLE_VGA 0x86000123
  Xkernctl(KERNEL_CONTROL_ENABLE_VGA);
 
@@ -90,12 +90,10 @@ int main(int argc, char *argv[]) {
  win1 = window_create(&default_display,
                       10,default_display.d_sizex-20,
                       10,default_display.d_sizey-20,
-                      default_display.d_bpp,
                       WINDOW_FNORMAL);
  win2 = window_create(&default_display,
                       63,default_display.d_sizex-20,
                       28,default_display.d_sizey-20,
-                      default_display.d_bpp,
                       WINDOW_FNORMAL);
  display_redraw(&default_display);
 

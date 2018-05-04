@@ -81,7 +81,7 @@ struct PACKED handle {
             REF struct pipe                *o_pipe;                /* [1..1][const][HANDLE_TYPE_FPIPE] */
             REF struct pipereader          *o_pipereader;          /* [1..1][const][HANDLE_TYPE_FPIPEREADER] */
             REF struct pipewriter          *o_pipewriter;          /* [1..1][const][HANDLE_TYPE_FPIPEWRITER] */
-            REF struct block_device_reader *o_block_device_reader; /* [1..1][const][HANDLE_TYPE_FBLOCK_DEVICE_READER] */
+            REF struct socket              *o_socket;              /* [1..1][const][HANDLE_TYPE_FSOCKET] */
         }                                   h_object;              /* [const] The object pointed to by this handle. */
     };
 };

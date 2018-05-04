@@ -54,7 +54,7 @@ rect_intersect(struct rect a, struct rect b) {
  return result;
 empty:
  result.r_xsiz = 0;
- result.r_ysiz = 0;
+ /*result.r_ysiz = 0;*/ /* One ZERO is enough. */
  return result;
 }
 
