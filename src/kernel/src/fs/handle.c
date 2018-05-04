@@ -43,6 +43,7 @@
 #include <fs/path.h>
 #include <fs/pipe.h>
 #include <fs/handle.h>
+#include <net/socket.h>
 #include <string.h>
 #include <except.h>
 #include <fcntl.h>
@@ -94,6 +95,7 @@ DEFINE_HANDLE_REFERENCE_FUNCTIONS(vm_region)
 DEFINE_HANDLE_REFERENCE_FUNCTIONS(pipe)
 DEFINE_HANDLE_REFERENCE_FUNCTIONS(pipereader)
 DEFINE_HANDLE_REFERENCE_FUNCTIONS(pipewriter)
+DEFINE_HANDLE_REFERENCE_FUNCTIONS(socket)
 #undef DEFINE_HANDLE_REFERENCE_FUNCTIONS
 #undef DEFINE_HANDLE_REFERENCE_FUNCTIONS_EX
 

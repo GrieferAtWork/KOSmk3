@@ -120,6 +120,8 @@ illegal_poll(void *__restrict UNUSED(ptr),
     macro(pipe,HANDLE_TYPE_FPIPE) \
     macro(pipereader,HANDLE_TYPE_FPIPEREADER) \
     macro(pipewriter,HANDLE_TYPE_FPIPEWRITER) \
+    macro(socket,HANDLE_TYPE_FSOCKET) \
+/**/
 
 #define DEFINE_WEAK_OPS(name,id) \
     INTDEF              void         KCALL handle_##name##_incref(void *__restrict ptr); \
@@ -136,6 +138,7 @@ illegal_poll(void *__restrict UNUSED(ptr),
     INTDEF              void         KCALL handle_##name##_sync(void *__restrict ptr, bool only_data); \
     INTDEF              void         KCALL handle_##name##_stat(void *__restrict ptr, USER CHECKED struct stat64 *result); \
     INTDEF              unsigned int KCALL handle_##name##_poll(void *__restrict ptr, unsigned int mode); \
+/**/
 
 #define DEFINE_INTERN_WEAKALIAS(new,old) \
     __asm__(".weak " PP_PRIVATE_STR(new) "\n" \
@@ -156,6 +159,7 @@ illegal_poll(void *__restrict UNUSED(ptr),
     DEFINE_INTERN_WEAKALIAS(handle_##name##_sync,illegal_sync); \
     DEFINE_INTERN_WEAKALIAS(handle_##name##_stat,illegal_stat); \
     DEFINE_INTERN_WEAKALIAS(handle_##name##_poll,illegal_poll); \
+/**/
 
 
 FOREACH_HANDLE_TYPE(DEFINE_WEAK_OPS)   /* Define function prototypes */

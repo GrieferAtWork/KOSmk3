@@ -293,6 +293,7 @@ FUNDEF ATTR_RETNONNULL REF struct fs *KCALL handle_get_fs(fd_t fd);
 FUNDEF ATTR_RETNONNULL REF struct task_weakref *KCALL handle_get_thread(fd_t fd);
 FUNDEF ATTR_RETNONNULL REF struct vm_region *KCALL handle_get_vm_region(fd_t fd);
 FUNDEF ATTR_RETNONNULL REF struct pipewriter *KCALL handle_get_pipewriter(fd_t fd);
+FUNDEF ATTR_RETNONNULL REF struct socket *KCALL handle_get_socket(fd_t fd);
 #else
 #define handle_get_file(fd)             ((REF struct file *)handle_get_typed(fd,HANDLE_TYPE_FFILE))
 #define handle_get_directory_entry(fd)  ((REF struct directory_entry *)handle_get_typed(fd,HANDLE_TYPE_FDIRECTORY_ENTRY))
@@ -301,6 +302,7 @@ FUNDEF ATTR_RETNONNULL REF struct pipewriter *KCALL handle_get_pipewriter(fd_t f
 #define handle_get_vm_region(fd)        ((REF struct vm_region *)handle_get_typed(fd,HANDLE_TYPE_FVM_REGION))
 #define handle_get_pipereader(fd)       ((REF struct pipereader *)handle_get_typed(fd,HANDLE_TYPE_FPIPEREADER))
 #define handle_get_pipewriter(fd)       ((REF struct pipewriter *)handle_get_typed(fd,HANDLE_TYPE_FPIPEWRITER))
+#define handle_get_socket(fd)           ((REF struct socket *)handle_get_typed(fd,HANDLE_TYPE_FSOCKET))
 FUNDEF ATTR_RETNONNULL REF void *KCALL handle_get_typed(fd_t fd, u16 type);
 #endif
 

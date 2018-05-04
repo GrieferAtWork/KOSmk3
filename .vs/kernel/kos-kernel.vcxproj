@@ -142,6 +142,7 @@
     <ClCompile Include="..\..\src\kernel\src\kernel\sysconf.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\system.c" />
     <ClCompile Include="..\..\src\kernel\src\net\socket.c" />
+    <ClCompile Include="..\..\src\kernel\src\net\system.c" />
     <ClCompile Include="..\..\src\kernel\src\sched\affinity.c" />
     <ClCompile Include="..\..\src\kernel\src\sched\group.c" />
     <ClCompile Include="..\..\src\kernel\src\sched\mutex.c" />

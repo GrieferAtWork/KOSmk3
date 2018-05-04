@@ -234,10 +234,11 @@ typedef __UINT16_TYPE__ except_t;
 #define E_UNKNOWN_SYSTEMCALL     0x0036          /* [ERRNO(ENOSYS)] Attempted to execute an unknown system call. */
 #define E_NO_SUCH_OBJECT         E_NO_DATA       /* [ERRNO(ENODATA)] The named / indexed object could not be found. */
 #define E_FILESYSTEM_ERROR       0x0080          /* [ERRNO(...)] Filesystem error (see below) */
-#define E_IOERROR                0x0081          /* [ERRNO(EIO)] Hardware error, or miss-behaving/miss-configured device. */
-#define E_NOT_EXECUTABLE         0x0082          /* [ERRNO(ENOEXEC)] The named file was not recognized as a valid executable. */
-#define E_BUFFER_TOO_SMALL       0x0083          /* [ERRNO(ERANGE)] The provided buffer is too small. */
-#define E_UNICODE_ERROR          0x0084          /* [ERRNO(EILSEQ)] An illegal sequence was encountered in a unicode string. */
+#define E_NET_ERROR              0x0081          /* [ERRNO(...)] Network error (see below) */
+#define E_IOERROR                0x0082          /* [ERRNO(EIO)] Hardware error, or miss-behaving/miss-configured device. */
+#define E_NOT_EXECUTABLE         0x0083          /* [ERRNO(ENOEXEC)] The named file was not recognized as a valid executable. */
+#define E_BUFFER_TOO_SMALL       0x0084          /* [ERRNO(ERANGE)] The provided buffer is too small. */
+#define E_UNICODE_ERROR          0x0085          /* [ERRNO(EILSEQ)] An illegal sequence was encountered in a unicode string. */
 
 /* Signal codes. */
 #define E_INTERRUPT              0xf000          /* [ERRNO(EINTR)]
@@ -440,6 +441,27 @@ struct __ATTR_PACKED exception_data_filesystem_error {
 };
 #endif /* __CC__ */
 
+
+#define ERROR_NET_NOERROR              0x0000 /* No error. */
+#define ERROR_NET_UNSUPPORTED_DOMAIN   0x0001 /* [ERRNO(EAFNOSUPPORT)]    The specified socket domain (address family) is not supported (missing driver?) */
+#define ERROR_NET_UNSUPPORTED_TYPE     0x0002 /* [ERRNO(EINVAL)]          The specified socket type is not supported by the socket domain. */
+#define ERROR_NET_UNSUPPORTED_PROTOCOL 0x0003 /* [ERRNO(EPROTONOSUPPORT)] The specified socket protocol is not supported by the socket domain. */
+#define ERROR_NET_SHUTDOWN             0x0004 /* [ERRNO(ESHUTDOWN)]       The socket has been `shutdown(2)' */
+#define ERROR_NET_CANNOT_RECONNECT     0x0005 /* [ERRNO(EALREADY)]        A connection-oriented socket cannot be reconnected. */
+#define ERROR_NET_CANNOT_REBIND        0x0006 /* [ERRNO(EALREADY)]        A connection-oriented socket cannot be rebound. */
+#define ERROR_NET_NOT_BOUND            0x0007 /* [ERRNO(EOPNOTSUPP)]      Cannot `getsockname(2)', `listen(2)', `accept(2)', `sendto(2)', `read(2)', `recv(2)' or `recvfrom(2)' using an unbound socket. */
+#define ERROR_NET_NOT_CONNECTED        0x0008 /* [ERRNO(ENOTCONN)]        Cannot `getpeername(2)', `write(2)' or `send(2)' using an unconnected socket. */
+#define ERROR_NET_NOT_LISTENING        0x0009 /* [ERRNO(EINVAL)]          Cannot `accept(2)' using a socket that isn't listening. */
+#define ERROR_NET_ALREADY_LISTENING    0x000a /* [ERRNO(EALREADY)]        The socket has already started listening. */
+#define ERROR_NET_CANNOT_LISTEN        0x000b /* [ERRNO(EOPNOTSUPP)]      The socket doesn't implement the `listen(2)' function. */
+#define ERROR_NET_CANNOT_ACCEPT        0x000c /* [ERRNO(EOPNOTSUPP)]      The socket doesn't implement the `accept(2)' function. */
+#ifdef __CC__
+struct __ATTR_PACKED exception_data_net_error {
+    __UINT16_TYPE__      n_errcode;   /* Network operation error code (One of `ERROR_NET_*').
+                                       * NOTE: Never `ERROR_NET_NOERROR' */
+};
+#endif /* __CC__ */
+
 #define ERROR_NO_DEVICE_FBLOCKDEV 0x0000 /* The missing device is a block-device. */
 #define ERROR_NO_DEVICE_FCHARDEV  0x0001 /* The missing device is a character-device. */
 #ifdef __CC__
@@ -502,6 +524,7 @@ struct exception_data {
         struct exception_data_index_error         e_index_error;         /* E_INDEX_ERROR */
         struct exception_data_buffer_too_small    e_buffer_too_small;    /* E_BUFFER_TOO_SMALL */
         struct exception_data_filesystem_error    e_filesystem_error;    /* E_FILESYSTEM_ERROR */
+        struct exception_data_net_error           e_net_error;           /* E_NET_ERROR */
         struct exception_data_no_device           e_no_device;           /* E_NO_DEVICE */
         struct exception_data_unhandled_interrupt e_unhandled_interrupt; /* E_UNHANDLED_INTERRUPT. */
         struct exception_data_unknown_systemcall  e_unknown_systemcall;  /* E_UNKNOWN_SYSTEMCALL. */

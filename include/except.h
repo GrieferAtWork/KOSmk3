@@ -147,6 +147,7 @@ __LIBC __EXCEPT_NORETURN void (__FCALL error_throw)(except_t __code);
  *   (except_t code = E_INDEX_ERROR, uint64_t b_index, uint64_t b_boundmin, uint64_t b_boundmax);
  *   (except_t code = E_BUFFER_TOO_SMALL, size_t bs_bufsize, size_t bs_reqsize);
  *   (except_t code = E_FILESYSTEM_ERROR, unsigned int fs_errcode);
+ *   (except_t code = E_NET_ERROR, unsigned int net_errcode);
  *   (except_t code = E_NO_DEVICE, unsigned int d_type, dev_t d_devno);
  *   (except_t code = E_UNHANDLED_INTERRUPT, unsigned int ui_intcode, uintptr_t ui_errcode);
  *   (except_t code = E_UNKNOWN_SYSTEMCALL, syscall_ulong_t us_sysno, [syscall_ulong_t args...]);

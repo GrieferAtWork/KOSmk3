@@ -53,11 +53,11 @@ enum __socket_type {
     SOCK_SEQPACKET = 5,  /* Sequenced, reliable, connection-based, datagrams of fixed maximum length. */
     SOCK_DCCP      = 6,  /* Datagram Congestion Control Protocol.  */
     SOCK_PACKET    = 10, /* Linux specific way of getting packets at the dev level.
-                          *  For writing rarp and other similar things on the user level. */
+                          * For writing rarp and other similar things on the user level. */
     /* Flags to be ORed into the type parameter of socket and
      * socketpair and used for the flags parameter of paccept. */
-    SOCK_CLOEXEC   = 02000000, /* Atomically set close-on-exec flag for the new descriptor(s). */
-    SOCK_NONBLOCK  = 00004000, /* Atomically mark descriptor(s) as non-blocking. */
+    SOCK_CLOEXEC   = 0x80000, /* Atomically set close-on-exec flag for the new descriptor(s). */
+    SOCK_NONBLOCK  = 0x00800, /* Atomically mark descriptor(s) as non-blocking. */
 };
 #define SOCK_STREAM    SOCK_STREAM
 #define SOCK_DGRAM     SOCK_DGRAM

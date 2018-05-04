@@ -120,6 +120,23 @@ libc_exception_errno(struct exception_info *__restrict info) {
   default: break;
   }
   break;
+ case E_NET_ERROR:
+  switch (info->e_error.e_net_error.n_errcode) {
+  case ERROR_NET_UNSUPPORTED_DOMAIN:   result = EAFNOSUPPORT;
+  case ERROR_NET_UNSUPPORTED_TYPE:     result = EINVAL;
+  case ERROR_NET_UNSUPPORTED_PROTOCOL: result = EPROTONOSUPPORT;
+  case ERROR_NET_SHUTDOWN:             result = ESHUTDOWN;
+  case ERROR_NET_CANNOT_RECONNECT:     result = EALREADY;
+  case ERROR_NET_CANNOT_REBIND:        result = EALREADY;
+  case ERROR_NET_NOT_BOUND:            result = EOPNOTSUPP;
+  case ERROR_NET_NOT_CONNECTED:        result = ENOTCONN;
+  case ERROR_NET_NOT_LISTENING:        result = EINVAL;
+  case ERROR_NET_ALREADY_LISTENING:    result = EALREADY;
+  case ERROR_NET_CANNOT_LISTEN:        result = EOPNOTSUPP;
+  case ERROR_NET_CANNOT_ACCEPT:        result = EOPNOTSUPP;
+  default: break;
+  }
+  break;
 #ifdef E_BUFFER_TOO_SMALL
  case E_BUFFER_TOO_SMALL: result = ERANGE; break;
 #endif

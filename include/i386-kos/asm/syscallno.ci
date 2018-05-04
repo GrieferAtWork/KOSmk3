@@ -231,6 +231,31 @@ __SYSCALL(__NR_gettid,sys_gettid)
 #define __NR_sysinfo      179
 __SYSCALL(__NR_sysinfo,sys_sysinfo)
 
+#define __NR_socket       198
+__SYSCALL(__NR_socket,sys_socket)
+#define __NR_bind         200
+__SYSCALL(__NR_bind,sys_bind)
+#define __NR_listen       201
+__SYSCALL(__NR_listen,sys_listen)
+#define __NR_accept       202
+__SYSCALL(__NR_accept,sys_accept)
+#define __NR_connect      203
+__SYSCALL(__NR_connect,sys_connect)
+#define __NR_getsockname  204
+__SYSCALL(__NR_getsockname,sys_getsockname)
+#define __NR_getpeername  205
+__SYSCALL(__NR_getpeername,sys_getpeername)
+#define __NR_sendto       206
+__SYSCALL(__NR_sendto,sys_sendto)
+#define __NR_recvfrom     207
+__SYSCALL(__NR_recvfrom,sys_recvfrom)
+#define __NR_setsockopt   208
+__SYSCALL(__NR_setsockopt,sys_setsockopt)
+#define __NR_getsockopt   209
+__SYSCALL(__NR_getsockopt,sys_getsockopt)
+#define __NR_shutdown     210
+__SYSCALL(__NR_shutdown,sys_shutdown)
+
 
 #define __SC_ATTRIB_CLOBB_215 C("memory")
 #define __NR_munmap       215
@@ -260,6 +285,8 @@ __SYSCALL(__NR_mprotect,sys_mprotect)
 #define __NR_rt_tgsigqueueinfo 240
 __SYSCALL(__NR_rt_tgsigqueueinfo,sys_rt_tgsigqueueinfo)
 
+#define __NR_accept4      242
+__SYSCALL(__NR_accept4,sys_accept4)
 
 #define __SC_ATTRIB_CLOBB_260 C("memory")
 #define __NR_wait4        260
@@ -272,6 +299,10 @@ __SYSCALL(__NR_syncfs,sys_syncfs)
 #define __NR_execveat     281
 __SYSCALL(__NR_execveat,sys_execveat)
 
+#define __NR_recv         1073
+__SYSCALL(__NR_recv,sys_recv)
+#define __NR_send         1074
+__SYSCALL(__NR_send,sys_send)
 #define __SC_ATTRIB_CLOBB_1079 C("memory")
 #define __NR_fork         1079
 __RSYSCALL(__NR_fork,sys_fork)
@@ -354,6 +385,12 @@ __XSYSCALL(__NR_xunwind,sys_xunwind)
 __XSYSCALL(__NR_xunwind_except,sys_xunwind_except)
 #define __NR_xaddr2line   0x40000021
 __XSYSCALL(__NR_xaddr2line,sys_xaddr2line)
+#define __NR_xgetsockname 0x40000022
+__XSYSCALL(__NR_xgetsockname,sys_xgetsockname)
+#define __NR_xgetpeername 0x40000023
+__XSYSCALL(__NR_xgetpeername,sys_xgetpeername)
+#define __NR_xgetsockopt  0x40000024
+__XSYSCALL(__NR_xgetsockopt,sys_xgetsockopt)
 
 
 /* Dynamic linker system calls.

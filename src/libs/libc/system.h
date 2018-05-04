@@ -25,9 +25,6 @@
 #ifdef __CC__
 DECL_BEGIN
 
-/* ===================================================================================== */
-/*     SYSTEM                                                                            */
-/* ===================================================================================== */
 struct stat64;
 struct sysinfo;
 struct sigaltstack;
@@ -46,6 +43,12 @@ struct gc_data;
 struct dl_addr2line;
 struct cpu_context;
 struct fpu_context;
+struct sockaddr;
+
+
+/* ===================================================================================== */
+/*     SYSTEM                                                                            */
+/* ===================================================================================== */
 INTDEF int LIBCCALL sys_openat(fd_t dfd, char const *filename, oflag_t flags, mode_t mode);
 INTDEF errno_t LIBCCALL sys_close(fd_t fd);
 INTDEF ATTR_NORETURN void LIBCCALL sys_exit(int exitcode);
@@ -292,6 +295,44 @@ INTDEF syscall_slong_t LIBCCALL Xsys_xioctlf(fd_t fd, unsigned long cmd, oflag_t
 INTDEF size_t LIBCCALL Xsys_xreaddirf(fd_t fd, struct dirent *buf, size_t bufsize, int mode, oflag_t flags);
 INTDEF errno_t LIBCCALL Xsys_xunwind(struct cpu_context *ccontext, struct fpu_context *fcontext, sigset_t *signal_set, size_t sigset_size);
 INTDEF ssize_t LIBCCALL Xsys_xaddr2line(void *abs_pc, struct dl_addr2line *buf, size_t bufsize);
+
+/* Networking functions. */
+INTDEF fd_t LIBCCALL sys_socket(int domain, int type, int protocol);
+INTDEF errno_t LIBCCALL sys_bind(fd_t sockfd, struct sockaddr const *addr, socklen_t len);
+INTDEF errno_t LIBCCALL sys_listen(fd_t sockfd, int max_backlog);
+INTDEF fd_t LIBCCALL sys_accept4(fd_t sockfd, struct sockaddr *addr, socklen_t *len, int flags);
+INTDEF fd_t LIBCCALL sys_accept(fd_t sockfd, struct sockaddr *addr, socklen_t *len);
+INTDEF errno_t LIBCCALL sys_connect(fd_t sockfd, struct sockaddr const *addr, socklen_t len);
+INTDEF socklen_t LIBCCALL sys_xgetsockname(fd_t sockfd, struct sockaddr *addr, socklen_t len);
+INTDEF socklen_t LIBCCALL sys_xgetpeername(fd_t sockfd, struct sockaddr *addr, socklen_t len);
+INTDEF errno_t LIBCCALL sys_getsockname(fd_t sockfd, struct sockaddr *addr, socklen_t *len);
+INTDEF errno_t LIBCCALL sys_getpeername(fd_t sockfd, struct sockaddr *addr, socklen_t *len);
+INTDEF ssize_t LIBCCALL sys_sendto(fd_t sockfd, void const *buf, size_t buflen, int flags, struct sockaddr const *addr, socklen_t len);
+INTDEF ssize_t LIBCCALL sys_send(fd_t sockfd, void const *buf, size_t buflen, int flags);
+INTDEF ssize_t LIBCCALL sys_recvfrom(fd_t sockfd, void *buf, size_t buflen, int flags, struct sockaddr *addr, socklen_t *len);
+INTDEF ssize_t LIBCCALL sys_recv(fd_t sockfd, void *buf, size_t buflen, int flags);
+INTDEF socklen_t LIBCCALL sys_xgetsockopt(fd_t sockfd, int level, int optname, void *optval, socklen_t optlen);
+INTDEF errno_t LIBCCALL sys_getsockopt(fd_t sockfd, int level, int optname, void *optval, socklen_t *optlen);
+INTDEF errno_t LIBCCALL sys_setsockopt(fd_t sockfd, int level, int optname, void const *optval, socklen_t optlen);
+INTDEF errno_t LIBCCALL sys_shutdown(fd_t sockfd, int how);
+INTDEF fd_t LIBCCALL Xsys_socket(int domain, int type, int protocol);
+INTDEF void LIBCCALL Xsys_bind(fd_t sockfd, struct sockaddr const *addr, socklen_t len);
+INTDEF void LIBCCALL Xsys_listen(fd_t sockfd, int max_backlog);
+INTDEF fd_t LIBCCALL Xsys_accept4(fd_t sockfd, struct sockaddr *addr, socklen_t *len, int flags);
+INTDEF fd_t LIBCCALL Xsys_accept(fd_t sockfd, struct sockaddr *addr, socklen_t *len);
+INTDEF void LIBCCALL Xsys_connect(fd_t sockfd, struct sockaddr const *addr, socklen_t len);
+INTDEF socklen_t LIBCCALL Xsys_xgetsockname(fd_t sockfd, struct sockaddr *addr, socklen_t len);
+INTDEF socklen_t LIBCCALL Xsys_xgetpeername(fd_t sockfd, struct sockaddr *addr, socklen_t len);
+INTDEF void LIBCCALL Xsys_getsockname(fd_t sockfd, struct sockaddr *addr, socklen_t *len);
+INTDEF void LIBCCALL Xsys_getpeername(fd_t sockfd, struct sockaddr *addr, socklen_t *len);
+INTDEF size_t LIBCCALL Xsys_sendto(fd_t sockfd, void const *buf, size_t buflen, int flags, struct sockaddr const *addr, socklen_t len);
+INTDEF size_t LIBCCALL Xsys_send(fd_t sockfd, void const *buf, size_t buflen, int flags);
+INTDEF size_t LIBCCALL Xsys_recvfrom(fd_t sockfd, void *buf, size_t buflen, int flags, struct sockaddr *addr, socklen_t *len);
+INTDEF size_t LIBCCALL Xsys_recv(fd_t sockfd, void *buf, size_t buflen, int flags);
+INTDEF socklen_t LIBCCALL Xsys_xgetsockopt(fd_t sockfd, int level, int optname, void *optval, socklen_t optlen);
+INTDEF void LIBCCALL Xsys_getsockopt(fd_t sockfd, int level, int optname, void *optval, socklen_t *optlen);
+INTDEF void LIBCCALL Xsys_setsockopt(fd_t sockfd, int level, int optname, void const *optval, socklen_t optlen);
+
 
 DECL_END
 #endif /* __CC__ */

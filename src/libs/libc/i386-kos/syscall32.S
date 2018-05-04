@@ -624,6 +624,26 @@ define_wrapper xunwind_except, SYS_xunwind_except, 3, 0
 define_wrapper xunwind, SYS_xunwind, 4
 define_wrapper xaddr2line, SYS_xaddr2line, 3
 
+/* Socket API */
+define_wrapper socket, SYS_socket, 3
+define_wrapper bind, SYS_bind, 3
+define_wrapper listen, SYS_listen, 2
+define_wrapper accept4, SYS_accept4, 4
+define_wrapper accept, SYS_accept, 3
+define_wrapper connect, SYS_connect, 3
+define_wrapper xgetsockname, SYS_xgetsockname, 3
+define_wrapper xgetpeername, SYS_xgetpeername, 3
+define_wrapper getsockname, SYS_getsockname, 3
+define_wrapper getpeername, SYS_getpeername, 3
+define_wrapper sendto, SYS_sendto, 6
+define_wrapper send, SYS_send, 4
+define_wrapper recvfrom, SYS_recvfrom, 6
+define_wrapper recv, SYS_recv, 4
+define_wrapper xgetsockopt, SYS_xgetsockopt, 5
+define_wrapper getsockopt, SYS_getsockopt, 5
+define_wrapper setsockopt, SYS_setsockopt, 5
+define_wrapper shutdown, SYS_shutdown, 2, 0
+
 #ifdef __ARCH_WIDE_64BIT_SYSCALL
 define_wrapper lseek, SYS_lseek, 4
 define_wrapper pread64, SYS_pread64, 5

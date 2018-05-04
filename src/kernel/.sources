@@ -75,6 +75,7 @@ BEGIN
 		SOURCE("src/unwind/*.c")
 		SOURCE("src/sched/*.c")
 		SOURCE("src/core/*.c")
+		SOURCE("src/net/*.c")
 		SOURCE("src/core/i386-kos/*.c")
 		SOURCE("src/core/i386-kos/*32.S")
 		SOURCE("src/vm/*.c")

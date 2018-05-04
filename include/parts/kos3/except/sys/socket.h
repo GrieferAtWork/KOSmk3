@@ -45,7 +45,7 @@ __LIBC __PORT_KOSONLY __WUNUSED size_t (__LIBCCALL Xrecvmsg)(__fd_t __fd, struct
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xgetsockopt)(__fd_t __fd, int __level, int __optname, void *__restrict __optval, socklen_t *__restrict __optlen);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xsetsockopt)(__fd_t __fd, int __level, int __optname, void const *__optval, socklen_t __optlen);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xlisten)(__fd_t __fd, int __max_backlog);
-__LIBC __PORT_KOSONLY void (__LIBCCALL Xaccept)(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t *__restrict __addr_len);
+__LIBC __PORT_KOSONLY __fd_t (__LIBCCALL Xaccept)(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t *__restrict __addr_len);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xshutdown)(__fd_t __fd, int __how);
 #ifdef __USE_GNU
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xaccept4)(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t *__restrict __addr_len, int __flags);

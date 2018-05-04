@@ -88,7 +88,7 @@ readlocks_fini(struct task *__restrict thread) {
 }
 
 /* Find an existing read-lock descriptor for `lock', or return NULL. */
-PRIVATE struct read_lock *KCALL
+PRIVATE ATTR_NOTHROW struct read_lock *KCALL
 find_readlock(struct rwlock *__restrict lock) {
  uintptr_t i,perturb;
  struct read_locks *locks;
@@ -190,7 +190,7 @@ del_readlock(struct read_lock *__restrict rlock) {
 
 
 
-PUBLIC bool KCALL
+PUBLIC ATTR_NOTHROW bool KCALL
 rwlock_reading(struct rwlock *__restrict self) {
  struct read_lock *lock;
  if (self->rw_scnt == 0)
@@ -323,7 +323,7 @@ initial_lock:
  return true;
 }
 
-PUBLIC bool KCALL
+PUBLIC ATTR_NOTHROW bool KCALL
 __os_rwlock_trywrite(struct rwlock *__restrict self) {
  u32 control_word;
 #ifdef CONFIG_LOG_RWLOCKS

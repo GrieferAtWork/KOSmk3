@@ -133,6 +133,7 @@ DECL_BEGIN
 #define CRT_KOS_DP_DATA      INTERN ATTR_SECTION(".data.crt.kos.dp")      /* Deprecated KOS functionality. */
 #define CRT_KOS_DP_BSS       INTERN ATTR_SECTION(".bss.crt.kos.dp")       /* Deprecated KOS functionality. */
 #define CRT_GLC              INTERN ATTR_SECTION(".text.crt.glc")         /* GLibC-specific functions (ones that are implemented again for better KOS-integration, but still provided for compatibility; e.g. `stat()'). */
+#define CRT_NET              INTERN ATTR_SECTION(".text.crt.net")         /* Networking-related functions. */
 #define CRT_DOS              INTERN ATTR_SECTION(".text.crt.dos")         /* DOS-specific functions. */
 #define CRT_DOS_RARE         INTERN ATTR_SECTION(".text.crt.dos.rare")    /* Rare, DOS-specific text. */
 #define CRT_DOS_DATA         INTERN ATTR_SECTION(".data.crt.dos")         /* DOS-specific data. */

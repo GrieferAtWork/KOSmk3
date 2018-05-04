@@ -152,9 +152,9 @@ struct rwlock {
           sig_cinit(&(x)->rw_unshare), \
           assert((x)->rw_xind == 0))
 
-FUNDEF bool KCALL rwlock_reading(struct rwlock *__restrict self);
+FUNDEF ATTR_NOTHROW bool KCALL rwlock_reading(struct rwlock *__restrict self);
 #ifdef __INTELLISENSE__
-FUNDEF bool KCALL rwlock_writing(struct rwlock *__restrict self);
+FUNDEF ATTR_NOTHROW bool KCALL rwlock_writing(struct rwlock *__restrict self);
 #else
 #define rwlock_writing(self) \
     ((self)->rw_mode == RWLOCK_MODE_FWRITING && \
@@ -171,7 +171,7 @@ FORCELOCAL ATTR_NOTHROW bool KCALL rwlock_tryupgrade(struct rwlock *__restrict s
 
 #ifndef __INTELLISENSE__
 FUNDEF bool KCALL __os_rwlock_tryread(struct rwlock *__restrict self) ASMNAME("rwlock_tryread");
-FUNDEF bool KCALL __os_rwlock_trywrite(struct rwlock *__restrict self) ASMNAME("rwlock_trywrite");
+FUNDEF ATTR_NOTHROW bool KCALL __os_rwlock_trywrite(struct rwlock *__restrict self) ASMNAME("rwlock_trywrite");
 FUNDEF bool KCALL __os_rwlock_tryupgrade(struct rwlock *__restrict self) ASMNAME("rwlock_tryupgrade");
 FORCELOCAL bool KCALL
 rwlock_tryread(struct rwlock *__restrict self) {
