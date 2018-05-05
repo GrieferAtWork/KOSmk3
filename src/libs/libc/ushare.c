@@ -394,19 +394,6 @@ libc_getdomainname(char *name, size_t buflen) {
  return 0;
 }
 
-EXPORT(sethostname,libc_sethostname);
-CRT_COLD int LIBCCALL
-libc_sethostname(char const *name, size_t len) {
- return FORWARD_SYSTEM_ERROR(sys_sethostname(name,len));
-}
-
-EXPORT(setdomainname,libc_setdomainname);
-CRT_COLD int LIBCCALL
-libc_setdomainname(char const *name, size_t len) {
- return FORWARD_SYSTEM_ERROR(sys_setdomainname(name,len));
-}
-
-
 EXPORT(_strerror_s,libc_dos_strerrorm_s);
 CRT_DOS char *LIBCCALL
 libc_dos_strerrorm_s(char *__restrict buf, size_t buflen, char const *message) {

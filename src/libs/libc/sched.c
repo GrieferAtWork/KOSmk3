@@ -86,27 +86,17 @@ libc_clone(int (LIBCCALL *fn)(void *arg),
  /* Do arch-specific initialization of the child's CPU context. */
  arch_setup_context(&child_context,fn,child_stack,arg);
  /* Create the child process. */
- return sys_clone(&child_context,flags,ptid,tls,ctid);
+ return Esys_clone(&child_context,flags,ptid,tls,ctid);
 }
 
 
 INTERN int LIBCCALL libc_nice(int inc) { libc_seterrno(ENOSYS); return -1; }
-INTERN pid_t LIBCCALL libc_getpid(void) { return sys_getpid(); }
-INTERN pid_t LIBCCALL libc_getppid(void) { return sys_getppid(); }
 INTERN pid_t LIBCCALL libc_getpgrp(void) { return libc_getpgid(0); }
-INTERN pid_t LIBCCALL libc_getpgid(pid_t pid) { return FORWARD_SYSTEM_VALUE(sys_getpgid(pid)); }
-INTERN int LIBCCALL libc_setpgid(pid_t pid, pid_t pgid) { return FORWARD_SYSTEM_ERROR(sys_setpgid(pid,pgid)); }
 INTERN int LIBCCALL libc_setpgrp(void) { return libc_setpgid(0,0); }
-INTERN pid_t LIBCCALL libc_setsid(void) { return FORWARD_SYSTEM_VALUE(sys_setsid()); }
-INTERN pid_t LIBCCALL libc_getsid(pid_t pid) { return FORWARD_SYSTEM_VALUE(sys_getsid(pid)); }
-INTERN pid_t LIBCCALL libc_fork(void) { return FORWARD_SYSTEM_VALUE(sys_fork()); }
-DEFINE_INTERN_ALIAS(libc_vfork,libc_fork);
 INTERN pid_t LIBCCALL libc_wait(int *wstatus) { return libc_wait4(-1,wstatus,0,NULL); }
 INTERN pid_t LIBCCALL libc_waitpid(pid_t pid, int *wstatus, int options) { return libc_wait4(pid,wstatus,options,NULL); }
 INTERN int LIBCCALL libc_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options) { return FORWARD_SYSTEM_VALUE(sys_waitid(idtype,id,infop,options,NULL)); }
 INTERN pid_t LIBCCALL libc_wait3(int *wstatus, int options, struct rusage *usage) { return libc_wait4(-1,wstatus,options,usage); }
-INTERN pid_t LIBCCALL libc_wait4(pid_t pid, int *wstatus, int options, struct rusage *usage) { return FORWARD_SYSTEM_VALUE(sys_wait4(pid,wstatus,options,usage)); }
-INTERN int LIBCCALL libc_unshare(int flags) { return FORWARD_SYSTEM_ERROR(sys_unshare(flags)); }
 INTERN cpuid_t LIBCCALL libc_sched_getcpu(void) {
  unsigned int result;
  errno_t error = sys_getcpu(&result,NULL);
@@ -121,7 +111,6 @@ INTERN int LIBCCALL libc_sched_setparam(pid_t pid, struct sched_param const *par
 INTERN int LIBCCALL libc_sched_getparam(pid_t pid, struct sched_param *param) { libc_seterrno(ENOSYS); return -1; }
 INTERN int LIBCCALL libc_sched_setscheduler(pid_t pid, int policy, struct sched_param const *param) { libc_seterrno(ENOSYS); return -1; }
 INTERN int LIBCCALL libc_sched_getscheduler(pid_t pid) { libc_seterrno(ENOSYS); return -1; }
-INTERN int LIBCCALL libc_sched_yield(void) { return sys_sched_yield(); }
 INTERN int LIBCCALL libc_sched_get_priority_max(int algorithm) { libc_seterrno(ENOSYS); return -1; }
 INTERN int LIBCCALL libc_sched_get_priority_min(int algorithm) { libc_seterrno(ENOSYS); return -1; }
 INTERN int LIBCCALL libc_sched_setaffinity(pid_t pid, size_t cpusetsize, __cpu_set_t const *cpuset) { libc_seterrno(ENOSYS); return -1; }
@@ -162,6 +151,7 @@ INTERN int LIBCCALL libc_system(char const *command) {
 }
 
 
+EXPORT(futex,libc_futex);
 INTERN int LIBCCALL
 libc_futex(u32 *uaddr, int futex_op, u32 val,
            struct timespec32 const *timeout,
@@ -186,33 +176,18 @@ direct_64:
  t64.tv_nsec = timeout->tv_nsec;
  return libc_futex64(uaddr,futex_op,val,&t64,uaddr2,val3);
 }
-INTERN int LIBCCALL
-libc_futex64(u32 *uaddr, int futex_op, u32 val,
-             struct timespec64 const *timeout,
-             u32 *uaddr2, u32 val3) {
- return FORWARD_SYSTEM_VALUE(sys_futex(uaddr,futex_op,val,timeout,uaddr2,val3));
-}
 
 
 
 /* Export symbols. */
-EXPORT(getpid,                     libc_getpid);
-EXPORT(getppid,                    libc_getppid);
 EXPORT(getpgrp,                    libc_getpgrp);
-EXPORT(getpgid,                    libc_getpgid);
-EXPORT(setpgid,                    libc_setpgid);
 EXPORT(setpgrp,                    libc_setpgrp);
-EXPORT(setsid,                     libc_setsid);
-EXPORT(getsid,                     libc_getsid);
-EXPORT(fork,                       libc_fork);
-EXPORT(vfork,                      libc_vfork);
 EXPORT(nice,                       libc_nice);
 EXPORT(clone,                      libc_clone);
 EXPORT(wait,                       libc_wait);
 EXPORT(waitpid,                    libc_waitpid);
 EXPORT(waitid,                     libc_waitid);
 EXPORT(wait3,                      libc_wait3);
-EXPORT(wait4,                      libc_wait4);
 EXPORT(unshare,                    libc_unshare);
 EXPORT(sched_getcpu,               libc_sched_getcpu);
 EXPORT(setns,                      libc_setns);
@@ -227,7 +202,6 @@ EXPORT(sched_setaffinity,          libc_sched_setaffinity);
 EXPORT(sched_getaffinity,          libc_sched_getaffinity);
 EXPORT(sched_rr_get_interval,      libc_sched_rr_get_interval);
 EXPORT(sched_rr_get_interval64,    libc_sched_rr_get_interval64);
-EXPORT(_getpid,                    libc_getpid);
 EXPORT(getrlimit,                  libc_getrlimit);
 EXPORT(setrlimit,                  libc_setrlimit);
 EXPORT(getrusage,                  libc_getrusage);
@@ -268,10 +242,6 @@ CRT_EXCEPT void LIBCCALL libc_Xsetpgrp(void) {
  Xsys_setpgid(0,0);
 }
 
-EXPORT(Xvfork,libc_Xvfork);
-CRT_EXCEPT __ATTR_RETURNS_TWICE pid_t LIBCCALL libc_Xvfork(void) {
- return libc_Xfork();
-}
 
 EXPORT(Xwait,libc_Xwait);
 INTERN pid_t LIBCCALL
@@ -473,15 +443,12 @@ EXPORT_STRONG(__wait,libc_wait);
 EXPORT_STRONG(__waitpid,libc_waitpid);
 EXPORT_STRONG(__vfork,libc_vfork);
 EXPORT_STRONG(__libc_vfork,libc_vfork);
-EXPORT_STRONG(__setpgid,libc_setpgid);
 EXPORT_STRONG(__sched_yield,libc_sched_yield);
 EXPORT_STRONG(__sched_get_priority_min,libc_sched_get_priority_min);
 EXPORT_STRONG(__sched_get_priority_max,libc_sched_get_priority_max);
 EXPORT_STRONG(__fork,libc_fork);
 EXPORT_STRONG(__libc_fork,libc_fork);
 EXPORT_STRONG(__libc_system,libc_system);
-EXPORT_STRONG(__getpgid,libc_getpgid);
-EXPORT_STRONG(__getpid,libc_getpid);
 EXPORT_STRONG(__clone,libc_clone);
 
 

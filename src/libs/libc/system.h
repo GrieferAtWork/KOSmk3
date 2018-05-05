@@ -161,7 +161,7 @@ INTDEF errno_t LIBCCALL sys_xftruncateat(fd_t dfd, char const *path, u64 len, at
 INTDEF syscall_slong_t LIBCCALL sys_xfpathconfat(fd_t dfd, char const *path, int name, atflag_t flags);
 INTDEF syscall_slong_t LIBCCALL sys_xsysconf(unsigned int name);
 INTDEF u32 LIBCCALL sys_xgetdrives(void);
-INTDEF pid_t LIBCCALL sys_clone(struct cpu_context *context, syscall_ulong_t flags, pid_t *parent_tidptr, void *tls_val, pid_t *child_tidptr);
+INTDEF pid_t LIBCCALL Esys_clone(struct cpu_context *context, syscall_ulong_t flags, pid_t *parent_tidptr, void *tls_val, pid_t *child_tidptr);
 /* Dedicated system calls for hardware-accelerated string
  * operations designed for implementing fast debug heaps.
  * Making various assumptions about unallocated pages, or memory

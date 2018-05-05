@@ -31,17 +31,6 @@
 
 DECL_BEGIN
 
-EXPORT(xdlmodule_info,libc_xdlmodule_info);
-CRT_KOS_DL ssize_t LIBCCALL
-libc_xdlmodule_info(void *handle, int info_class,
-                    void *buf, size_t bufsize) {
- ssize_t result;
- result = Xsys_xdlmodule_info(handle,info_class,buf,bufsize);
- if (E_ISOK(result)) return result;
- libc_seterrno(-result);
- return -1;
-}
-
 EXPORT(__KSYM(xfdlopenat),libc_xfdlopenat);
 CRT_KOS_DL void *LIBCCALL
 libc_xfdlopenat(fd_t dfd, char const *path, atflag_t at_flags,
@@ -88,12 +77,6 @@ libc_xdlsym(void *handle, char const *symbol) {
  return NULL;
 }
 
-EXPORT(xdlclose,libc_xdlclose);
-CRT_KOS_DL int LIBCCALL
-libc_xdlclose(void *handle) {
- return FORWARD_SYSTEM_ERROR(sys_xdlclose(handle));
-}
-
 EXPORT(Xxdlopen,libc_Xxdlopen);
 CRT_KOS_DL ATTR_RETNONNULL void *LIBCCALL
 libc_Xxdlopen(char const *filename, int open_flags) {
@@ -116,8 +99,6 @@ CRT_DOS void *LIBCCALL libc_dos_loaddll(char *file) {
  return libc_dos_xdlopen(file,DL_OPEN_FNORMAL);
 }
 
-DEFINE_INTERN_ALIAS(libc_unloaddll,libc_xdlclose);
-EXPORT(_unloaddll,libc_unloaddll);
 
 #ifdef CONFIG_LIBCCALL_HAS_CALLER_ARGUMENT_CLEANUP
 DEFINE_INTERN_ALIAS(libc_getdllprocaddr,libc_xdlsym);
@@ -132,20 +113,9 @@ EXPORT(_getdllprocaddr,libc_getdllprocaddr);
 
 /* GLibc Aliases */
 EXPORT_STRONG(__libc_dlsym,libc_xdlsym);
-EXPORT_STRONG(__libc_dlclose,libc_xdlclose);
-
 
 
 /* Extended DL APIs */
-EXPORT(xdladdr2line,libc_xdladdr2line);
-CRT_KOS ssize_t LIBCCALL
-libc_xdladdr2line(void *abs_pc,
-                  struct dl_addr2line *__restrict buf,
-                  size_t bufsize) {
- return FORWARD_SYSTEM_VALUE(sys_xaddr2line(abs_pc,buf,bufsize));
-}
-
-
 EXPORT(xunwind,libc_xunwind);
 CRT_KOS int LIBCCALL
 libc_xunwind(struct cpu_context *__restrict ccontext,

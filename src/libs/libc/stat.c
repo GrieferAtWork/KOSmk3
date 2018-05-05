@@ -33,17 +33,13 @@
 
 DECL_BEGIN
 
-INTERN int LIBCCALL libc_kfstat64(fd_t fd, struct __kos_stat64 *buf) { return FORWARD_SYSTEM_ERROR(sys_fstat64(fd,buf)); }
 INTERN int LIBCCALL libc_kstat64(char const *file, struct __kos_stat64 *buf) { return libc_kfstatat64(AT_FDCWD,file,buf,0); }
-INTERN int LIBCCALL libc_kfstatat64(fd_t dfd, char const *file, struct __kos_stat64 *buf, int flags) { return FORWARD_SYSTEM_ERROR(sys_fstatat64(dfd,file,buf,flags)); }
 INTERN int LIBCCALL libc_klstat64(char const *file, struct __kos_stat64 *buf) { return libc_kfstatat64(AT_FDCWD,file,buf,AT_SYMLINK_NOFOLLOW); }
 CRT_DOS_EXT int LIBCCALL libc_dos_kstat64(char const *file, struct __kos_stat64 *buf) { return libc_kfstatat64(AT_FDCWD,file,buf,AT_DOSPATH); }
 CRT_DOS_EXT int LIBCCALL libc_dos_kfstatat64(fd_t dfd, char const *file, struct __kos_stat64 *buf, int flags) { return libc_kfstatat64(dfd,file,buf,flags|AT_DOSPATH); }
 CRT_DOS_EXT int LIBCCALL libc_dos_klstat64(char const *file, struct __kos_stat64 *buf) { return libc_kfstatat64(AT_FDCWD,file,buf,AT_SYMLINK_NOFOLLOW|AT_DOSPATH); }
-DEFINE_INTERN_ALIAS(libc_kfstat,libc_kfstat64);
 DEFINE_INTERN_ALIAS(libc_kstat,libc_kstat64);
 DEFINE_INTERN_ALIAS(libc_dos_kstat,libc_dos_kstat64);
-DEFINE_INTERN_ALIAS(libc_kfstatat,libc_kfstatat64);
 DEFINE_INTERN_ALIAS(libc_dos_kfstatat,libc_dos_kfstatat64);
 DEFINE_INTERN_ALIAS(libc_klstat,libc_klstat64);
 DEFINE_INTERN_ALIAS(libc_dos_klstat,libc_dos_klstat64);
@@ -191,15 +187,11 @@ CRT_DOS int LIBCCALL libd_dos_stat64(char const *file, struct __dos_stat64 *buf)
 
 
 /* Export symbols (STAT). */
-EXPORT(kfstat,                     libc_kfstat);
-EXPORT(kfstat64,                   libc_kfstat64);
 EXPORT(__KSYM(kstat),              libc_kstat);
 EXPORT(__DSYM(kstat),              libc_dos_kstat);
 EXPORT(__KSYM(kstat64),            libc_kstat64);
 EXPORT(__DSYM(kstat64),            libc_dos_kstat64);
-EXPORT(__KSYM(kfstatat),           libc_kfstatat);
 EXPORT(__DSYM(kfstatat),           libc_dos_kfstatat);
-EXPORT(__KSYM(kfstatat64),         libc_kfstatat64);
 EXPORT(__DSYM(kfstatat64),         libc_dos_kfstatat64);
 EXPORT(__KSYM(klstat),             libc_klstat);
 EXPORT(__DSYM(klstat),             libc_dos_klstat);

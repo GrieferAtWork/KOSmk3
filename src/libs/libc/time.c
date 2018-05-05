@@ -225,16 +225,6 @@ DEFINE_INTERN_ALIAS(libc_timelocal64,libc_mktime64);
 
 
 INTERN int LIBCCALL
-libc_gettimeofday64(struct timeval64 *__restrict tv,
-                    struct timezone *__restrict tz) {
- return FORWARD_SYSTEM_ERROR(sys_gettimeofday(tv,tz));
-}
-INTERN int LIBCCALL
-libc_nanosleep64(struct timespec64 const *requested_time,
-                 struct timespec64 *remaining) {
- return FORWARD_SYSTEM_ERROR(sys_nanosleep(requested_time,remaining));
-}
-INTERN int LIBCCALL
 libc_settimeofday(struct timeval32 const *tv,
                   struct timezone const *tz) {
  struct timeval64 tv64;
@@ -776,9 +766,7 @@ EXPORT(sigtimedwait64,             libc_sigtimedwait64);
 EXPORT(settimeofday,               libc_settimeofday);
 EXPORT(settimeofday64,             libc_settimeofday64);
 EXPORT(gettimeofday,               libc_gettimeofday);
-EXPORT(gettimeofday64,             libc_gettimeofday64);
 EXPORT(nanosleep,                  libc_nanosleep);
-EXPORT(nanosleep64,                libc_nanosleep64);
 EXPORT(time,                       libc_time);
 EXPORT(time64,                     libc_time64);
 EXPORT(_time32,                    libc_time);

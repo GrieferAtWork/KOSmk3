@@ -52,11 +52,6 @@ libc_dos_utimensat(fd_t dfd, char const *path,
                    int flags) {
  return libc_utimensat(dfd,path,times,AT_DOSPATH|flags);
 }
-INTERN int LIBCCALL
-libc_utimensat64(fd_t dfd, char const *path,
-                 struct timespec64 const times[2], int flags) {
- return FORWARD_SYSTEM_ERROR(sys_utimensat(dfd,path,times,flags));
-}
 CRT_DOS_EXT int LIBCCALL
 libc_dos_utimensat64(fd_t dfd, char const *path,
                      struct timespec64 const times[2], int flags) {
@@ -197,10 +192,6 @@ CRT_DOS_EXT int LIBCCALL libc_dos_futimesat64(fd_t dfd, char const *file, struct
 
 
 /* FILESYSTEM TIME MODIFICATION. */
-EXPORT(__KSYM(utimensat),          libc_utimensat);
-EXPORT(__DSYM(utimensat),          libc_dos_utimensat);
-EXPORT(__KSYM(utimensat64),        libc_utimensat64);
-EXPORT(__DSYM(utimensat64),        libc_dos_utimensat64);
 EXPORT(futimens,                   libc_futimens);
 EXPORT(futimens64,                 libc_futimens64);
 EXPORT(futime,                     libc_futime);
@@ -211,7 +202,6 @@ EXPORT(futimes,                    libc_futimes);
 EXPORT(futimes64,                  libc_futimes64);
 EXPORT(__KSYM(utimensat),          libc_utimensat);
 EXPORT(__DSYM(utimensat),          libc_dos_utimensat);
-EXPORT(__KSYM(utimensat64),        libc_utimensat64);
 EXPORT(__DSYM(utimensat64),        libc_dos_utimensat64);
 EXPORT(__KSYM(futimeat),           libc_futimeat);
 EXPORT(__DSYM(futimeat),           libc_dos_futimeat);

@@ -50,7 +50,7 @@ __SYSDECL_BEGIN
 #if defined(__x86_64__) || defined(__i386__)
 /* User-share segment: the x86 syscall entry page. */
 #define USHARE_X86_SYSCALL_FNAME            USHARE_NAME(0x86,1)
-#define USHARE_X86_SYSCALL_FSIZE            4096
+#define USHARE_X86_SYSCALL_FSIZE            0x1000
 #define USHARE_X86_SYSCALL_SYSENTER_STRIDE  0x100
 #define USHARE_X86_SYSCALL_SYSENTER_COUNT   7
 #define USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(num_args) \
@@ -61,6 +61,19 @@ __SYSDECL_BEGIN
  * from the first argument, as defined by CDECL. */
 #define USHARE_X86_SYSCALL_OFFSETOF_SYSCALL \
         USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(7)
+
+/* errno-enabled sysenter code.
+ * These are identical to the version above, however when the system
+ * call returns a negative value, they will negate that value again,
+ * store it in the thread-local `errno' variable (located at
+ * `%__ASM_USER_TASK_SEGMENT:USER_TASK_SEGMENT_OFFSETOF_ERRNO'), before
+ * setting the current errno format to `TASK_ERRNO_FKOS' (aka. writing
+ * `TASK_ERRNO_FKOS' to `%__ASM_USER_TASK_SEGMENT:USER_TASK_SEGMENT_OFFSETOF_EFORMAT')
+ */
+#define USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(num_args) \
+       (USHARE_X86_SYSCALL_SYSENTER_STRIDE*(8+(num_args)))
+#define USHARE_X86_SYSCALL_OFFSETOF_SYSCALL_ERRNO \
+        USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(7)
 
  /* User-share segment: The first 1Mb of physical memory.
   *                     Can be used to identity map memory needed for vm86 tasks.

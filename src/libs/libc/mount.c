@@ -81,24 +81,12 @@ libc_hasmntopt(struct mntent const *mnt,
 }
 
 INTERN int LIBCCALL
-libc_mount(char const *special_file,
-           char const *dir, char const *fstype,
-           unsigned long int rwflag,
-           void const *data) {
- return FORWARD_SYSTEM_ERROR(sys_mount(special_file,dir,fstype,rwflag,data));
-}
-INTERN int LIBCCALL
 libc_umount(char const *special_file) {
  return libc_umount2(special_file,0);
 }
 INTERN void LIBCCALL
 libc_Xumount(char const *special_file) {
  libc_Xumount2(special_file,0);
-}
-INTERN int LIBCCALL
-libc_umount2(char const *special_file,
-             int flags) {
- return FORWARD_SYSTEM_ERROR(sys_umount2(special_file,flags));
 }
 
 
@@ -108,9 +96,7 @@ EXPORT(endmntent,libc_endmntent);
 EXPORT(getmntent_r,libc_getmntent_r);
 EXPORT(addmntent,libc_addmntent);
 EXPORT(hasmntopt,libc_hasmntopt);
-EXPORT(mount,libc_mount);
 EXPORT(umount,libc_umount);
-EXPORT(umount2,libc_umount2);
 EXPORT(Xumount,libc_Xumount);
 
 

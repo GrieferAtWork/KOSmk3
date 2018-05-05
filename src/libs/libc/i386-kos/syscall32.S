@@ -39,7 +39,7 @@ INTERN_ENTRY(libc_Xsyscall)
 	/* Set the exception-support bit in the system call number
 	 * Other than that, this is exactly the same as the regular syscall() function. */
 	orl    $0x80000000, 4(%esp)
-INTERN_ENTRY(libc_syscall)
+INTERN_ENTRY(libc_ssyscall)
 	.byte  0xe9 /* jmp --- */
 	.long  0
 	.byte  0xe8 /* pushl %eip;   (call 1f; 1:) */
@@ -48,17 +48,33 @@ INTERN_ENTRY(libc_syscall)
 	call   x86_get_syscall_segment
 	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(7)), %eax
 	jmp    .x86_syscall_load_common
-SYMEND(libc_syscall)
+SYMEND(libc_ssyscall)
 SYMEND(libc_Xsyscall)
 
+INTERN_ENTRY(libc_syscall)
+	.byte  0xe9 /* jmp --- */
+	.long  0
+	.byte  0xe8 /* pushl %eip;   (call 1f; 1:) */
+	.long  0
+	pushl  %eax
+	call   x86_get_syscall_segment
+	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(7)), %eax
+	jmp    .x86_syscall_load_common
+SYMEND(libc_syscall)
+
+
 #else
+
+#define SYSCALL_ERRNO_TAIL(error) \
+	cmpl  $__ERRNO_THRESHOLD, %eax; \
+	jae   error
 
 .section .text
 INTERN_ENTRY(libc_Xsyscall)
 	/* Set the exception-support bit in the system call number
 	 * Other than that, this is exactly the same as the regular syscall() function. */
 	orl    $0x80000000, 4(%esp)
-INTERN_ENTRY(libc_syscall)
+INTERN_ENTRY(libc_ssyscall)
 	.cfi_startproc
 	/* Save callee-save registers */
 	pushl_cfi_r %ebx
@@ -89,8 +105,49 @@ INTERN_ENTRY(libc_syscall)
 	popl_cfi_r %ebx
 	ret
 	.cfi_endproc
-SYMEND(libc_syscall)
+SYMEND(libc_ssyscall)
 SYMEND(libc_Xsyscall)
+
+INTERN_ENTRY(libc_syscall)
+	.cfi_startproc
+	/* Save callee-save registers */
+	pushl_cfi_r %ebx
+	pushl_cfi_r %edi
+	pushl_cfi_r %esi
+	pushl_cfi_r %ebp
+
+	/* Load arguments */
+#define  A  20 /* return+4*register (4+4*4) */
+	movl A+ 0(%esp), %eax /* sysno */
+	.cfi_undefined   %eax
+	movl A+ 4(%esp), %ebx /* Arg #1 */
+	movl A+ 8(%esp), %ecx /* Arg #2 */
+	.cfi_undefined   %ecx
+	movl A+12(%esp), %edx /* Arg #3 */
+	.cfi_undefined   %edx
+	movl A+16(%esp), %esi /* Arg #4 */
+	movl A+20(%esp), %edi /* Arg #5 */
+	movl A+24(%esp), %ebp /* Arg #6 */
+#undef A
+
+	int  $0x80 /* Invoke the system call interrupt vector */
+
+	/* Restore callee-save registers */
+	popl_cfi_r %ebp
+	popl_cfi_r %esi
+	popl_cfi_r %edi
+	popl_cfi_r %ebx
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+.syscall_errno:
+	negl  %eax
+	movl  %eax, %Utaskseg:t_errno
+	movb  $TASK_ERRNO_FKOS, %Utaskseg:t_eformat
+	movl  $-1, %eax
+	ret
+	.cfi_endproc
+SYMEND(libc_syscall)
+
 
 #endif
 
@@ -141,6 +198,48 @@ INTERN_ENTRY(x86_syscall_load_6)
 	pushl_cfi %eax
 	call   x86_get_syscall_segment
 	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(6)), %eax
+	jmp    .x86_syscall_load_common
+	.cfi_adjust_cfa_offset -4
+INTERN_ENTRY(x86_syscall_load_errno_0)
+	pushl_cfi %eax
+	call   x86_get_syscall_segment
+	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(0)), %eax
+	jmp    .x86_syscall_load_common
+	.cfi_adjust_cfa_offset -4
+INTERN_ENTRY(x86_syscall_load_errno_1)
+	pushl_cfi %eax
+	call   x86_get_syscall_segment
+	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(1)), %eax
+	jmp    .x86_syscall_load_common
+	.cfi_adjust_cfa_offset -4
+INTERN_ENTRY(x86_syscall_load_errno_2)
+	pushl_cfi %eax
+	call   x86_get_syscall_segment
+	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(2)), %eax
+	jmp    .x86_syscall_load_common
+	.cfi_adjust_cfa_offset -4
+INTERN_ENTRY(x86_syscall_load_errno_3)
+	pushl_cfi %eax
+	call   x86_get_syscall_segment
+	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(3)), %eax
+	jmp    .x86_syscall_load_common
+	.cfi_adjust_cfa_offset -4
+INTERN_ENTRY(x86_syscall_load_errno_4)
+	pushl_cfi %eax
+	call   x86_get_syscall_segment
+	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(4)), %eax
+	jmp    .x86_syscall_load_common
+	.cfi_adjust_cfa_offset -4
+INTERN_ENTRY(x86_syscall_load_errno_5)
+	pushl_cfi %eax
+	call   x86_get_syscall_segment
+	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(5)), %eax
+	jmp    .x86_syscall_load_common
+	.cfi_adjust_cfa_offset -4
+INTERN_ENTRY(x86_syscall_load_errno_6)
+	pushl_cfi %eax
+	call   x86_get_syscall_segment
+	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(6)), %eax
 .x86_syscall_load_common:
 #if 0
 	movl   %eax, %ecx
@@ -159,6 +258,13 @@ INTERN_ENTRY(x86_syscall_load_6)
 	.cfi_adjust_cfa_offset -4
 	jmp    *%ecx           /* Re-execute the (now) `jmp' instruction */
 #endif
+SYMEND(x86_syscall_load_errno_6)
+SYMEND(x86_syscall_load_errno_5)
+SYMEND(x86_syscall_load_errno_4)
+SYMEND(x86_syscall_load_errno_3)
+SYMEND(x86_syscall_load_errno_2)
+SYMEND(x86_syscall_load_errno_1)
+SYMEND(x86_syscall_load_errno_0)
 SYMEND(x86_syscall_load_6)
 SYMEND(x86_syscall_load_5)
 SYMEND(x86_syscall_load_4)
@@ -265,6 +371,94 @@ INTERN_ENTRY(libc_sysenter_6)
 	popl_cfi_r %ebp
 	ret
 SYMEND(libc_sysenter_6)
+
+INTERN_ENTRY(libc_sysenter_errno_0)
+	call libc_sysenter_0
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+	.cfi_restore %eip
+SYMEND(libc_sysenter_errno_0)
+
+INTERN_ENTRY(libc_sysenter_errno_1)
+	pushl_cfi_r %ebx
+	movl  8(%esp), %ebx
+	call  libc_sysenter_0
+	popl_cfi_r %ebx
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_1)
+
+INTERN_ENTRY(libc_sysenter_errno_2)
+	pushl_cfi_r %ebx
+	movl  8(%esp), %ebx
+	movl  12(%esp), %ecx
+	call  libc_sysenter_0
+	popl_cfi_r %ebx
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_2)
+
+INTERN_ENTRY(libc_sysenter_errno_3)
+	pushl_cfi_r %ebx
+	movl  8(%esp), %ebx
+	movl  12(%esp), %ecx
+	movl  16(%esp), %edx
+	call  libc_sysenter_0
+	popl_cfi_r %ebx
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_3)
+
+INTERN_ENTRY(libc_sysenter_errno_4)
+	pushl_cfi_r %esi
+	pushl_cfi_r %ebx
+	movl  12(%esp), %ebx
+	movl  16(%esp), %ecx
+	movl  20(%esp), %edx
+	movl  24(%esp), %esi
+	call  libc_sysenter_0
+	popl_cfi_r %ebx
+	popl_cfi_r %esi
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_4)
+
+INTERN_ENTRY(libc_sysenter_errno_5)
+	pushl_cfi_r %edi
+	pushl_cfi_r %esi
+	pushl_cfi_r %ebx
+	movl  16(%esp), %ebx
+	movl  20(%esp), %ecx
+	movl  24(%esp), %edx
+	movl  28(%esp), %esi
+	movl  32(%esp), %edi
+	call  libc_sysenter_0
+	popl_cfi_r %ebx
+	popl_cfi_r %esi
+	popl_cfi_r %edi
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_5)
+
+INTERN_ENTRY(libc_sysenter_errno_6)
+	pushl_cfi_r %ebp
+	pushl_cfi_r %edi
+	pushl_cfi_r %esi
+	pushl_cfi_r %ebx
+	movl  20(%esp), %ebx
+	movl  24(%esp), %ecx
+	movl  28(%esp), %edx
+	movl  32(%esp), %esi
+	movl  36(%esp), %edi
+	movl  40(%esp), %ebp
+	call  libc_sysenter_0
+	popl_cfi_r %ebx
+	popl_cfi_r %esi
+	popl_cfi_r %edi
+	popl_cfi_r %ebp
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_6)
 
 #elif defined(CONFIG_USE_SYSENTER)
 
@@ -387,6 +581,119 @@ INTERN_ENTRY(libc_sysenter_6)
 	ret
 SYMEND(libc_sysenter_6)
 
+INTERN_ENTRY(libc_sysenter_errno_0)
+	pushl_cfi_r %ebp
+	pushl_cfi_r %edi
+	call  x86_sysenter
+	popl_cfi_r %edi
+	popl_cfi_r %ebp
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_0)
+
+INTERN_ENTRY(libc_sysenter_errno_1)
+	pushl_cfi_r %ebp
+	pushl_cfi_r %edi
+	pushl_cfi_r %ebx
+	movl  16(%esp), %ebx
+	call  x86_sysenter
+	popl_cfi_r %ebx
+	popl_cfi_r %edi
+	popl_cfi_r %ebp
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_1)
+
+INTERN_ENTRY(libc_sysenter_errno_2)
+	pushl_cfi_r %ebp
+	pushl_cfi_r %edi
+	pushl_cfi_r %ebx
+	movl  16(%esp), %ebx
+	movl  20(%esp), %ecx
+	call  x86_sysenter
+	popl_cfi_r %ebx
+	popl_cfi_r %edi
+	popl_cfi_r %ebp
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_2)
+
+INTERN_ENTRY(libc_sysenter_errno_3)
+	pushl_cfi_r %ebp
+	pushl_cfi_r %edi
+	pushl_cfi_r %ebx
+	movl  16(%esp), %ebx
+	movl  20(%esp), %ecx
+	movl  24(%esp), %edx
+	call  x86_sysenter
+	popl_cfi_r %ebx
+	popl_cfi_r %edi
+	popl_cfi_r %ebp
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_3)
+
+INTERN_ENTRY(libc_sysenter_errno_4)
+	pushl_cfi_r %ebp
+	pushl_cfi_r %edi
+	pushl_cfi_r %esi
+	pushl_cfi_r %ebx
+	movl  20(%esp), %ebx
+	movl  24(%esp), %ecx
+	movl  28(%esp), %edx
+	movl  32(%esp), %esi
+	call  x86_sysenter
+	popl_cfi_r %ebx
+	popl_cfi_r %esi
+	popl_cfi_r %edi
+	popl_cfi_r %ebp
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_4)
+
+INTERN_ENTRY(libc_sysenter_errno_5)
+	pushl_cfi_r %ebp
+	pushl_cfi_r %edi
+	pushl_cfi_r %esi
+	pushl_cfi_r %ebx
+	movl  20(%esp), %ebx
+	movl  24(%esp), %ecx
+	movl  28(%esp), %edx
+	movl  32(%esp), %esi
+	pushl_cfi 36(%esp) /* ARG #4 */
+	call  x86_sysenter
+	addl  $4, %esp
+	.cfi_adjust_cfa_offset -4
+	popl_cfi_r %ebx
+	popl_cfi_r %esi
+	popl_cfi_r %edi
+	popl_cfi_r %ebp
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_5)
+
+INTERN_ENTRY(libc_sysenter_errno_6)
+	pushl_cfi_r %ebp
+	pushl_cfi_r %edi
+	pushl_cfi_r %esi
+	pushl_cfi_r %ebx
+	movl  20(%esp), %ebx
+	movl  24(%esp), %ecx
+	movl  28(%esp), %edx
+	movl  32(%esp), %esi
+	pushl_cfi 36(%esp) /* ARG #4 */
+	pushl_cfi 40(%esp) /* ARG #5 */
+	call  x86_sysenter
+	addl  $8, %esp
+	.cfi_adjust_cfa_offset -8
+	popl_cfi_r %ebx
+	popl_cfi_r %esi
+	popl_cfi_r %edi
+	popl_cfi_r %ebp
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_6)
+
 #elif defined(CONFIG_USE_INT80)
 
 /* int $0x80 version */
@@ -471,6 +778,94 @@ INTERN_ENTRY(libc_sysenter_6)
 	popl_cfi_r %ebp
 	ret
 SYMEND(libc_sysenter_6)
+
+
+INTERN_ENTRY(libc_sysenter_errno_0)
+	int   $0x80
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_0)
+
+INTERN_ENTRY(libc_sysenter_errno_1)
+	pushl_cfi_r %ebx
+	movl  8(%esp), %ebx
+	int   $0x80
+	popl_cfi_r %ebx
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_1)
+
+INTERN_ENTRY(libc_sysenter_errno_2)
+	pushl_cfi_r %ebx
+	movl  8(%esp), %ebx
+	movl  12(%esp), %ecx
+	int   $0x80
+	popl_cfi_r %ebx
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_2)
+
+INTERN_ENTRY(libc_sysenter_errno_3)
+	pushl_cfi_r %ebx
+	movl  8(%esp), %ebx
+	movl  12(%esp), %ecx
+	movl  16(%esp), %edx
+	int   $0x80
+	popl_cfi_r %ebx
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_3)
+
+INTERN_ENTRY(libc_sysenter_errno_4)
+	pushl_cfi_r %esi
+	pushl_cfi_r %ebx
+	movl  12(%esp), %ebx
+	movl  16(%esp), %ecx
+	movl  20(%esp), %edx
+	movl  24(%esp), %esi
+	int   $0x80
+	popl_cfi_r %ebx
+	popl_cfi_r %esi
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_4)
+
+INTERN_ENTRY(libc_sysenter_errno_5)
+	pushl_cfi_r %edi
+	pushl_cfi_r %esi
+	pushl_cfi_r %ebx
+	movl  16(%esp), %ebx
+	movl  20(%esp), %ecx
+	movl  24(%esp), %edx
+	movl  28(%esp), %esi
+	movl  32(%esp), %edi
+	int   $0x80
+	popl_cfi_r %ebx
+	popl_cfi_r %esi
+	popl_cfi_r %edi
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_5)
+
+INTERN_ENTRY(libc_sysenter_errno_6)
+	pushl_cfi_r %ebp
+	pushl_cfi_r %edi
+	pushl_cfi_r %esi
+	pushl_cfi_r %ebx
+	movl  20(%esp), %ebx
+	movl  24(%esp), %ecx
+	movl  28(%esp), %edx
+	movl  32(%esp), %esi
+	movl  36(%esp), %edi
+	movl  40(%esp), %ebp
+	int   $0x80
+	popl_cfi_r %ebx
+	popl_cfi_r %esi
+	popl_cfi_r %edi
+	popl_cfi_r %ebp
+	SYSCALL_ERRNO_TAIL(.syscall_errno)
+	ret
+SYMEND(libc_sysenter_errno_6)
 #else
 #error "No system call mechanism defined"
 #endif
@@ -484,195 +879,455 @@ SYMEND(libc_sysenter_6)
 #define ENCODE_SYSNO(x) x
 #endif
 
+#ifdef CONFIG_USE_USHARE_LAZY_SYSCALLS
+#define SYSCALL_WRAPPER_INVOKE \
+	.byte  0xe9; /* jmp --- */ \
+	.long  0; \
+	call  x86_syscall_load_\argc
+#define SYSCALL_WRAPPER_INVOKE_ERRNO \
+	.byte  0xe9; /* jmp --- */ \
+	.long  0; \
+	call  x86_syscall_load_errno_\argc
+#else
+#define SYSCALL_WRAPPER_INVOKE \
+	jmp   libc_sysenter_\argc
+#define SYSCALL_WRAPPER_INVOKE_ERRNO \
+	jmp   libc_sysenter_errno_\argc
+#endif
+
+
+#define F      0x0010 /* export \name  = sys_\name;                    define libc_\name  = sys_\name; */
+#define E      0x0020 /* export \name  = ERRNO_ENABLED(sys_\name);     define libc_\name  = ERRNO_ENABLED(sys_\name); */
+#define X_     0x0040 /* export X\name = EXCEPTION_ENABLED(sys_\name); define libc_X\name = EXCEPTION_ENABLED(sys_\name); */
+#define sys    0x0100 /* define sys_\name = sys_\name; */
+#define Xsys   0x0200 /* define Xsys_\name = EXCEPTION_ENABLED(sys_\name); */
+#define Esys   0x0400 /* define Xsys_\name = EXCEPTION_ENABLED(sys_\name); */
+
+
 /* System call wrappers. */
-.macro define_wrapper name, nr, argc, define_Xsys = 1
-INTERN_ENTRY(sys_\name)
-	movl  $(ENCODE_SYSNO(\nr)), %eax
-#ifdef CONFIG_USE_USHARE_LAZY_SYSCALLS
-	.byte  0xe9 /* jmp --- */
-	.long  0
-	call  x86_syscall_load_\argc
-#else
-	jmp   libc_sysenter_\argc
-#endif
-SYMEND(sys_\name)
-.if \define_Xsys != 0
-INTERN_ENTRY(Xsys_\name)
-	movl  $(ENCODE_SYSNO(0x80000000 | \nr)), %eax
-#ifdef CONFIG_USE_USHARE_LAZY_SYSCALLS
-	.byte  0xe9 /* jmp --- */
-	.long  0
-	call  x86_syscall_load_\argc
-#else
-	jmp   libc_sysenter_\argc
-#endif
-SYMEND(Xsys_\name)
+.macro define_wrapper name, nr, argc, flags = (sys | Xsys)
+.if (\flags) & (F | sys)
+	.if (\flags) & F
+		DEFINE_INTERN_ALIAS(libc_\name,sys_\name);
+		EXPORT(\name,sys_\name)
+	.endif
+	INTERN_ENTRY(sys_\name)
+		movl  $(ENCODE_SYSNO(\nr)), %eax
+		SYSCALL_WRAPPER_INVOKE
+	SYMEND(sys_\name)
+.endif
+.if (\flags) & (X_ | Xsys)
+	.if (\flags) & X_
+		DEFINE_INTERN_ALIAS(libc_X\name,Xsys_\name)
+		EXPORT(X\name,Xsys_\name)
+	.endif
+	INTERN_ENTRY(Xsys_\name)
+		movl  $(ENCODE_SYSNO(0x80000000 | \nr)), %eax
+		SYSCALL_WRAPPER_INVOKE
+	SYMEND(Xsys_\name)
+.endif
+.if (\flags) & (E | Esys)
+	.if (\flags) & E
+		DEFINE_INTERN_ALIAS(libc_\name,Esys_\name)
+		EXPORT(\name,Esys_\name)
+	.endif
+	INTERN_ENTRY(Esys_\name)
+		movl  $(ENCODE_SYSNO(\nr)), %eax
+		SYSCALL_WRAPPER_INVOKE_ERRNO
+	SYMEND(Esys_\name)
 .endif
 .endm
 
-define_wrapper openat, SYS_openat, 4
-define_wrapper close, SYS_close, 1
-define_wrapper exit, SYS_exit, 1, 0
-define_wrapper exit_group, SYS_exit_group, 1, 0
-define_wrapper unshare, SYS_unshare, 1
-define_wrapper munmap, SYS_munmap, 2
-define_wrapper mremap, SYS_mremap, 5
-define_wrapper mmap, SYS_mmap, 6
-define_wrapper read, SYS_read, 3
-define_wrapper write, SYS_write, 3
-define_wrapper faccessat, SYS_faccessat, 4
-define_wrapper chdir, SYS_chdir, 1
-define_wrapper chroot, SYS_chroot, 1
-define_wrapper fchdir, SYS_fchdir, 1
-define_wrapper fchmod, SYS_fchmod, 2
-define_wrapper fchown, SYS_fchown, 3
-define_wrapper fchmodat, SYS_fchmodat, 4
-define_wrapper fchownat, SYS_fchownat, 5
-define_wrapper dup, SYS_dup, 1
-define_wrapper dup2, SYS_dup2, 1
-define_wrapper dup3, SYS_dup3, 3
-define_wrapper fcntl, SYS_fcntl, 3
-define_wrapper ioctl, SYS_ioctl, 3
-define_wrapper execve, SYS_execve, 3
-define_wrapper sched_yield, SYS_sched_yield, 0, 0
-define_wrapper fork, SYS_fork, 0
-define_wrapper sync, SYS_sync, 0
-define_wrapper fsync, SYS_fsync, 1
-define_wrapper fdatasync, SYS_fdatasync, 1
-define_wrapper syncfs, SYS_syncfs, 1
-define_wrapper fstat64, SYS_fstat64, 2
-define_wrapper fstatat64, SYS_fstatat64, 4
-define_wrapper readlinkat, SYS_readlinkat, 4
-define_wrapper mknodat, SYS_mknodat, 4
-define_wrapper mkdirat, SYS_mkdirat, 3
-define_wrapper unlinkat, SYS_unlinkat, 3
-define_wrapper symlinkat, SYS_symlinkat, 3
-define_wrapper linkat, SYS_linkat, 5
-define_wrapper renameat, SYS_renameat, 4
-define_wrapper utimensat, SYS_utimensat, 4
-define_wrapper getpid, SYS_getpid, 0, 0
-define_wrapper getppid, SYS_getppid, 0, 0
-define_wrapper gettid, SYS_gettid, 0, 0
-define_wrapper getpgid, SYS_getpgid, 1
-define_wrapper setpgid, SYS_setpgid, 2
-define_wrapper getsid, SYS_getsid, 1
-define_wrapper setsid, SYS_setsid, 0
-define_wrapper sethostname, SYS_sethostname, 2
-define_wrapper setdomainname, SYS_setdomainname, 2
-define_wrapper sigaction, SYS_sigaction, 4
-define_wrapper sigprocmask, SYS_sigprocmask, 4
-define_wrapper sigtimedwait, SYS_sigtimedwait, 4
-define_wrapper sigpending, SYS_sigpending, 2
-define_wrapper sigsuspend, SYS_sigsuspend, 2
-define_wrapper kill, SYS_kill, 2
-define_wrapper tkill, SYS_tkill, 2
-define_wrapper tgkill, SYS_tgkill, 3
-define_wrapper getcwd, SYS_getcwd, 2
-define_wrapper waitid, SYS_waitid, 5
-define_wrapper wait4, SYS_wait4, 4
-define_wrapper pselect6, SYS_pselect6, 6
-define_wrapper ppoll, SYS_ppoll, 5
-define_wrapper pipe, SYS_pipe, 1
-define_wrapper pipe2, SYS_pipe2, 2
-define_wrapper mount, SYS_mount, 5
-define_wrapper umount2, SYS_umount2, 2
-define_wrapper getcpu, SYS_getcpu, 2
-define_wrapper gettimeofday, SYS_gettimeofday, 2
-define_wrapper settimeofday, SYS_settimeofday, 2
-define_wrapper nanosleep, SYS_nanosleep, 2
-define_wrapper umask, SYS_umask, 1, 0
-define_wrapper mprotect, SYS_mprotect, 3
-define_wrapper swapon, SYS_swapon, 2
-define_wrapper swapoff, SYS_swapoff, 1
-define_wrapper futex, SYS_futex, 6
-define_wrapper sysinfo, SYS_sysinfo, 1
-define_wrapper sigaltstack, SYS_sigaltstack, 2
-define_wrapper set_tid_address, SYS_set_tid_address, 1, 0
-define_wrapper rt_sigqueueinfo, SYS_rt_sigqueueinfo, 3
-define_wrapper rt_tgsigqueueinfo, SYS_rt_tgsigqueueinfo, 4
-define_wrapper clone, SYS_clone, 5
-define_wrapper execveat, SYS_execveat, 5
-define_wrapper xreaddir, SYS_xreaddir, 4
-define_wrapper xopenpty, SYS_xopenpty, 3
-define_wrapper xfrealpathat, SYS_xfrealpathat, 6
-define_wrapper xpipe, SYS_xpipe, 1
-define_wrapper xsyslog, SYS_xsyslog, 3
-define_wrapper xmmap, SYS_xmmap, 2
-define_wrapper xmunmap, SYS_xmunmap, 4
-define_wrapper xmprotect, SYS_xmprotect, 6
-define_wrapper xfchdirat, SYS_xfchdirat, 3
-define_wrapper xfrenameat, SYS_xfrenameat, 5
-define_wrapper xfdlopenat, SYS_xfdlopenat, 5
-define_wrapper xdlsym, SYS_xdlsym, 2
-define_wrapper xdlfini, SYS_xdlfini, 0
-define_wrapper xdlclose, SYS_xdlclose, 1
-define_wrapper xdlmodule_info, SYS_xdlmodule_info, 4
-define_wrapper xfsymlinkat, SYS_xfsymlinkat, 4
-define_wrapper xfreadlinkat, SYS_xfreadlinkat, 5
-define_wrapper xfmknodat, SYS_xfmknodat, 5
-define_wrapper xfmkdirat, SYS_xfmkdirat, 4
-define_wrapper xgetdrives, SYS_xgetdrives, 0, 0
-define_wrapper xfpathconfat, SYS_xfpathconfat, 4
-define_wrapper xsysconf, SYS_xsysconf, 1
-define_wrapper xreset_debug_data, SYS_xreset_debug_data, 3
-define_wrapper xfind_modified_address, SYS_xfind_modified_address, 3
-define_wrapper xgc_search, SYS_xgc_search, 4
-define_wrapper xcapture_traceback, SYS_xcapture_traceback, 4
-define_wrapper xreadf, SYS_xreadf, 4
-define_wrapper xwritef, SYS_xwritef, 4
-define_wrapper xreaddirf, SYS_xreaddirf, 5
-define_wrapper xioctlf, SYS_xioctlf, 4
-define_wrapper xunwind_except, SYS_xunwind_except, 3, 0
-define_wrapper xunwind, SYS_xunwind, 4
-define_wrapper xaddr2line, SYS_xaddr2line, 3
+#define X X_
+
+#define DEFINE_SYSCALL(name,nargs,flags...) \
+	define_wrapper name, SYS_##name, nargs, ## flags
+
+DEFINE_SYSCALL(openat,4,     E|X)
+EXPORT(openat64,libc_openat)
+EXPORT(Xopenat64,libc_Xopenat)
+
+DEFINE_SYSCALL(close,1,      E|sys)
+EXPORT_STRONG(__close,libc_close);
+
+DEFINE_SYSCALL(exit,1,       sys)
+
+DEFINE_SYSCALL(exit_group,1, sys)
+DEFINE_INTERN_ALIAS(_libc_exit,sys_exit_group)
+EXPORT(_exit,_libc_exit)
+EXPORT(_Exit,_libc_exit)
+
+DEFINE_SYSCALL(unshare,1,    E|X)
+DEFINE_SYSCALL(munmap,2,     E|X|sys)
+DEFINE_SYSCALL(mremap,5,     E|X)
+DEFINE_SYSCALL(mmap,6,       E|X)
+
+DEFINE_SYSCALL(read,3,       E|X)
+DEFINE_INTERN_ALIAS(libd_read,libc_read)
+EXPORT(__DSYM(_read),libd_read)
+EXPORT_STRONG(__read,libc_read)
+
+DEFINE_SYSCALL(write,3,      E|X)
+DEFINE_INTERN_ALIAS(libd_write,libc_write)
+EXPORT(__DSYM(_write),libd_write)
+EXPORT_STRONG(__write,libc_write)
+
+DEFINE_SYSCALL(faccessat,4,  E|X)
+DEFINE_SYSCALL(chdir,1,      E|X)
+DEFINE_SYSCALL(chroot,1,     E|X)
+DEFINE_SYSCALL(fchdir,1,     E|X)
+DEFINE_SYSCALL(fchmod,2,     E|X)
+DEFINE_SYSCALL(fchown,3,     E|X)
+DEFINE_SYSCALL(fchmodat,4,   E|X)
+DEFINE_SYSCALL(fchownat,5,   E|X)
+DEFINE_SYSCALL(dup,1,        E|X)
+
+DEFINE_SYSCALL(dup2,2,       E|X)
+EXPORT_STRONG(__dup2,libc_dup2);
+
+DEFINE_SYSCALL(dup3,3,       E|X)
+
+DEFINE_SYSCALL(fcntl,3,      E|X)
+EXPORT_STRONG(__fcntl,libc_fcntl)
+
+DEFINE_SYSCALL(ioctl,3,      E|X)
+DEFINE_SYSCALL(execve,3,     E|X)
+DEFINE_SYSCALL(sched_yield,0,F|sys)
+
+DEFINE_SYSCALL(fork,0,       E|X)
+DEFINE_INTERN_ALIAS(libc_vfork,libc_fork)
+DEFINE_INTERN_ALIAS(libc_Xvfork,libc_Xfork)
+EXPORT(vfork,libc_vfork)
+EXPORT(Xvfork,libc_Xvfork)
+
+DEFINE_SYSCALL(sync,0,       E|X)
+DEFINE_SYSCALL(fsync,1,      E|X)
+DEFINE_SYSCALL(fdatasync,1,  E|X)
+DEFINE_SYSCALL(syncfs,1,     E|X)
+
+DEFINE_SYSCALL(fstat64,2,    Esys|Xsys)
+DEFINE_SYSCALL(fstatat64,4,  Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_kfstat64,Esys_fstat64)
+DEFINE_INTERN_ALIAS(libc_Xkfstat64,Xsys_fstat64)
+DEFINE_INTERN_ALIAS(libc_kfstatat64,Esys_fstatat64)
+DEFINE_INTERN_ALIAS(libc_Xkfstatat64,Xsys_fstatat64)
+DEFINE_INTERN_ALIAS(libc_kfstat,libc_kfstat64)
+DEFINE_INTERN_ALIAS(libc_Xkfstat,libc_Xkfstat64)
+DEFINE_INTERN_ALIAS(libc_kfstatat,libc_kfstatat64)
+DEFINE_INTERN_ALIAS(libc_Xkfstatat,libc_Xkfstatat64)
+EXPORT(kfstat64,libc_kfstat64)
+EXPORT(Xkfstat64,libc_Xkfstat64)
+EXPORT(kfstatat64,libc_kfstatat64)
+EXPORT(Xkfstatat64,libc_Xkfstatat64)
+EXPORT(kfstat,libc_kfstat)
+EXPORT(Xkfstat,libc_Xkfstat)
+EXPORT(kfstatat,libc_kfstatat)
+EXPORT(Xkfstatat,libc_Xkfstatat)
+
+DEFINE_SYSCALL(readlinkat,4, E|X)
+DEFINE_SYSCALL(mknodat,4,    E|X)
+DEFINE_SYSCALL(mkdirat,3,    E|X)
+DEFINE_SYSCALL(unlinkat,3,   E|X)
+DEFINE_SYSCALL(symlinkat,3,  E|X)
+DEFINE_SYSCALL(linkat,5,     E|X)
+DEFINE_SYSCALL(renameat,4,   E|X)
+
+DEFINE_SYSCALL(utimensat,4,  Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_utimensat64,Esys_utimensat)
+DEFINE_INTERN_ALIAS(libc_Xutimensat64,Xsys_utimensat)
+EXPORT(utimensat64,libc_utimensat64)
+EXPORT(Xutimensat64,libc_Xutimensat64)
+
+DEFINE_SYSCALL(getpid,0,     sys)
+DEFINE_INTERN_ALIAS(libc_getpid,sys_getpid)
+EXPORT(getpid,libc_getpid)
+EXPORT(__DSYM(_getpid),libc_getpid);
+EXPORT_STRONG(__getpid,libc_getpid);
+
+DEFINE_SYSCALL(getppid,0,    sys)
+DEFINE_INTERN_ALIAS(libc_getppid,sys_getppid)
+EXPORT(getppid,libc_getppid)
+
+DEFINE_SYSCALL(gettid,0,     sys)
+/* gettid() is implemented using the task segment. */
+//DEFINE_INTERN_ALIAS(libc_gettid,sys_gettid)
+//EXPORT(gettid,libc_gettid)
+
+DEFINE_SYSCALL(getpgid,1,    E|X)
+EXPORT_STRONG(__getpgid,libc_getpgid)
+
+DEFINE_SYSCALL(setpgid,2,    E|X)
+EXPORT_STRONG(__setpgid,libc_setpgid)
+
+DEFINE_SYSCALL(getsid,1,     E|X)
+DEFINE_SYSCALL(setsid,0,     E|X)
+
+DEFINE_SYSCALL(sethostname,2,E|X)
+DEFINE_SYSCALL(setdomainname,2,E|X)
+
+DEFINE_SYSCALL(sigaction,4)
+DEFINE_SYSCALL(sigprocmask,4)
+DEFINE_SYSCALL(sigtimedwait,4)
+DEFINE_SYSCALL(sigpending,2)
+DEFINE_SYSCALL(sigsuspend,2)
+
+DEFINE_SYSCALL(kill,2,       E|X)
+DEFINE_SYSCALL(tkill,2,      E|X)
+DEFINE_SYSCALL(tgkill,3,     E|X)
+
+//DEFINE_SYSCALL(getcwd,2) /* Libc implements this using sys_xfrealpathat() */
+DEFINE_SYSCALL(waitid,5)
+
+DEFINE_SYSCALL(wait4,4,      E|X)
+
+DEFINE_SYSCALL(pselect6,6)
+DEFINE_SYSCALL(ppoll,5)
+
+DEFINE_SYSCALL(pipe,1,       E|X)
+DEFINE_SYSCALL(pipe2,2,      E|X)
+
+DEFINE_SYSCALL(mount,5,      E|X)
+DEFINE_SYSCALL(umount2,2,    E|X)
+
+DEFINE_SYSCALL(getcpu,2)
+
+DEFINE_SYSCALL(gettimeofday,2,Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_gettimeofday64,Esys_gettimeofday)
+DEFINE_INTERN_ALIAS(libc_Xgettimeofday64,Xsys_gettimeofday)
+EXPORT(gettimeofday64,libc_gettimeofday64)
+EXPORT(Xgettimeofday64,libc_Xgettimeofday64)
+
+DEFINE_SYSCALL(settimeofday,2)
+DEFINE_SYSCALL(nanosleep,2,  Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_nanosleep64,Esys_nanosleep)
+DEFINE_INTERN_ALIAS(libc_Xnanosleep64,Xsys_nanosleep)
+EXPORT(nanosleep64,libc_nanosleep64)
+EXPORT(Xnanosleep64,libc_Xnanosleep64)
+
+DEFINE_SYSCALL(umask,1,      sys)
+DEFINE_INTERN_ALIAS(libc_umask,sys_umask)
+EXPORT(__KSYM(umask),libc_umask)
+EXPORT(__DSYM(_umask),libc_umask) /* DOS Alias */
+
+DEFINE_SYSCALL(mprotect,3,   E|X)
+DEFINE_SYSCALL(swapon,2,     E|X)
+DEFINE_SYSCALL(swapoff,1,    E|X)
+
+DEFINE_SYSCALL(futex,6,      Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_futex64,Esys_futex)
+DEFINE_INTERN_ALIAS(libc_Xfutex64,Xsys_futex)
+EXPORT(futex64,libc_futex64)
+EXPORT(Xfutex64,libc_Xfutex64)
+
+
+DEFINE_SYSCALL(sysinfo,1,    E|X)
+DEFINE_SYSCALL(sigaltstack,2,E|X)
+
+DEFINE_SYSCALL(set_tid_address,1,sys)
+
+DEFINE_SYSCALL(rt_sigqueueinfo,3,Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_sigqueueinfo,Esys_rt_sigqueueinfo)
+DEFINE_INTERN_ALIAS(libc_Xsigqueueinfo,Xsys_rt_sigqueueinfo)
+EXPORT(sigqueueinfo,libc_sigqueueinfo)
+EXPORT(Xsigqueueinfo,libc_Xsigqueueinfo)
+
+DEFINE_SYSCALL(rt_tgsigqueueinfo,4,Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_tgsigqueueinfo,Esys_rt_tgsigqueueinfo)
+DEFINE_INTERN_ALIAS(libc_Xtgsigqueueinfo,Xsys_rt_tgsigqueueinfo)
+EXPORT(tgsigqueueinfo,libc_tgsigqueueinfo)
+EXPORT(Xtgsigqueueinfo,libc_Xtgsigqueueinfo)
+
+DEFINE_SYSCALL(clone,5,         Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_xclone,Esys_clone)
+DEFINE_INTERN_ALIAS(libc_Xxclone,Xsys_clone)
+EXPORT(xclone,libc_xclone)
+EXPORT(Xxclone,libc_Xxclone)
+
+
+DEFINE_SYSCALL(execveat,5,      Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_fexecveat,Esys_execveat)
+DEFINE_INTERN_ALIAS(libc_Xfexecveat,Xsys_execveat)
+EXPORT(fexecveat,libc_fexecveat)
+EXPORT(Xfexecveat,libc_Xfexecveat)
+
+DEFINE_SYSCALL(xreaddir,4,      E|X)
+DEFINE_INTERN_ALIAS(libc_xreaddir64,libc_xreaddir)
+DEFINE_INTERN_ALIAS(libc_Xxreaddir64,libc_Xxreaddir)
+EXPORT(xreaddir64,libc_xreaddir64)
+EXPORT(Xxreaddir64,libc_Xxreaddir64)
+
+DEFINE_SYSCALL(xopenpty,3,      sys|Xsys)
+
+DEFINE_SYSCALL(xfrealpathat,6,  Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_xfrealpathat2,Esys_xfrealpathat)
+DEFINE_INTERN_ALIAS(libc_Xxfrealpathat2,Xsys_xfrealpathat)
+EXPORT(xfrealpathat2,libc_xfrealpathat2)
+EXPORT(Xxfrealpathat2,libc_Xxfrealpathat2)
+
+DEFINE_SYSCALL(xpipe,1)
+DEFINE_SYSCALL(xsyslog,3,    sys)
+DEFINE_SYSCALL(xmmap,2)
+DEFINE_SYSCALL(xmunmap,4,    E|X)
+DEFINE_SYSCALL(xmprotect,6,  E|X)
+
+DEFINE_SYSCALL(xfchdirat,3,  Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_fchdirat,Esys_xfchdirat)
+DEFINE_INTERN_ALIAS(libc_Xfchdirat,Xsys_xfchdirat)
+EXPORT(fchdirat,libc_fchdirat)
+EXPORT(Xfchdirat,libc_Xfchdirat)
+
+DEFINE_SYSCALL(xfrenameat,5, Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_frenameat,Esys_xfrenameat)
+DEFINE_INTERN_ALIAS(libc_Xfrenameat,Xsys_xfrenameat)
+EXPORT(frenameat,libc_frenameat)
+EXPORT(Xfrenameat,libc_Xfrenameat)
+
+DEFINE_SYSCALL(xfdlopenat,5, sys|X)
+DEFINE_SYSCALL(xdlsym,2,     sys|X)
+DEFINE_SYSCALL(xdlfini,0,    sys)
+
+DEFINE_SYSCALL(xdlclose,1,   E|X)
+DEFINE_INTERN_ALIAS(libc_unloaddll,libc_xdlclose)
+EXPORT(_unloaddll,libc_unloaddll)
+EXPORT_STRONG(__libc_dlclose,libc_xdlclose)
+
+DEFINE_SYSCALL(xdlmodule_info,4,E|X)
+
+DEFINE_SYSCALL(xfsymlinkat,4,Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_fsymlinkat,Esys_xfsymlinkat)
+DEFINE_INTERN_ALIAS(libc_Xfsymlinkat,Xsys_xfsymlinkat)
+EXPORT(fsymlinkat,libc_fsymlinkat)
+EXPORT(Xfsymlinkat,libc_Xfsymlinkat)
+
+DEFINE_SYSCALL(xfreadlinkat,5,Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_freadlinkat,Esys_xfreadlinkat)
+DEFINE_INTERN_ALIAS(libc_Xfreadlinkat,Xsys_xfreadlinkat)
+EXPORT(freadlinkat,libc_freadlinkat)
+EXPORT(Xfreadlinkat,libc_Xfreadlinkat)
+
+DEFINE_SYSCALL(xfmknodat,5, Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_fmknodat,Esys_xfmknodat)
+DEFINE_INTERN_ALIAS(libc_Xfmknodat,Xsys_xfmknodat)
+EXPORT(fmknodat,libc_fmknodat)
+EXPORT(Xfmknodat,libc_Xfmknodat)
+
+DEFINE_SYSCALL(xfmkdirat,4, Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_fmkdirat,Esys_xfmkdirat)
+DEFINE_INTERN_ALIAS(libc_Xfmkdirat,Xsys_xfmkdirat)
+EXPORT(fmkdirat,libc_fmkdirat)
+EXPORT(Xfmkdirat,libc_Xfmkdirat)
+
+DEFINE_SYSCALL(xgetdrives,0,sys)
+DEFINE_INTERN_ALIAS(libd_getdrives,sys_xgetdrives)
+EXPORT(__KSYM(getdrives),libd_getdrives)
+EXPORT(__DSYM(_getdrives),libd_getdrives)
+
+DEFINE_SYSCALL(xfpathconfat,4,  Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_fpathconfat,Esys_xfpathconfat)
+DEFINE_INTERN_ALIAS(libc_Xfpathconfat,Xsys_xfpathconfat)
+EXPORT(fpathconfat,libc_fpathconfat)
+EXPORT(Xfpathconfat,libc_Xfpathconfat)
+
+DEFINE_SYSCALL(xsysconf,1,   Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_sysconf,Esys_xsysconf)
+DEFINE_INTERN_ALIAS(libc_Xsysconf,Xsys_xsysconf)
+EXPORT(sysconf,libc_sysconf)
+EXPORT(Xsysconf,libc_Xsysconf)
+EXPORT_STRONG(__sysconf,libc_sysconf)
+
+
+DEFINE_SYSCALL(xreset_debug_data,3,sys)
+DEFINE_SYSCALL(xfind_modified_address,3,sys)
+DEFINE_SYSCALL(xgc_search,4, sys)
+DEFINE_SYSCALL(xcapture_traceback,4)
+DEFINE_SYSCALL(xreadf,4,     E|X)
+DEFINE_SYSCALL(xwritef,4,    E|X)
+
+DEFINE_SYSCALL(xreaddirf,5,  E|X)
+DEFINE_INTERN_ALIAS(libc_xreaddirf64,libc_xreaddirf)
+DEFINE_INTERN_ALIAS(libc_Xxreaddirf64,libc_Xxreaddirf)
+EXPORT(xreaddirf64,libc_xreaddirf64)
+EXPORT(Xxreaddirf64,libc_Xxreaddirf64)
+
+DEFINE_SYSCALL(xioctlf,4,    E|X)
+DEFINE_SYSCALL(xunwind_except,3,sys|Xsys)
+DEFINE_SYSCALL(xunwind,4,    sys|Xsys)
+DEFINE_SYSCALL(xaddr2line,3, Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_xdladdr2line,Esys_xaddr2line)
+DEFINE_INTERN_ALIAS(libc_Xxdladdr2line,Xsys_xaddr2line)
+EXPORT(xdladdr2line,libc_xdladdr2line)
+EXPORT(Xxdladdr2line,libc_Xxdladdr2line)
 
 /* Socket API */
-define_wrapper socket, SYS_socket, 3
-define_wrapper bind, SYS_bind, 3
-define_wrapper listen, SYS_listen, 2
-define_wrapper accept4, SYS_accept4, 4
-define_wrapper accept, SYS_accept, 3
-define_wrapper connect, SYS_connect, 3
-define_wrapper xgetsockname, SYS_xgetsockname, 3
-define_wrapper xgetpeername, SYS_xgetpeername, 3
-define_wrapper getsockname, SYS_getsockname, 3
-define_wrapper getpeername, SYS_getpeername, 3
-define_wrapper sendto, SYS_sendto, 6
-define_wrapper send, SYS_send, 4
-define_wrapper recvfrom, SYS_recvfrom, 6
-define_wrapper recv, SYS_recv, 4
-define_wrapper xgetsockopt, SYS_xgetsockopt, 5
-define_wrapper getsockopt, SYS_getsockopt, 5
-define_wrapper setsockopt, SYS_setsockopt, 5
-define_wrapper shutdown, SYS_shutdown, 2, 0
+DEFINE_SYSCALL(socket,3,     E|X)
+DEFINE_SYSCALL(bind,3,       E|X)
+DEFINE_SYSCALL(listen,2,     E|X)
+DEFINE_SYSCALL(accept4,4,    E|X)
+DEFINE_SYSCALL(accept,3,     E|X)
+DEFINE_SYSCALL(connect,3,    E|X)
+DEFINE_SYSCALL(xgetsockname,3,E|X)
+DEFINE_SYSCALL(xgetpeername,3,E|X)
+DEFINE_SYSCALL(getsockname,3,E|X)
+DEFINE_SYSCALL(getpeername,3,E|X)
+DEFINE_SYSCALL(sendto,6,     E|X)
+DEFINE_SYSCALL(send,4,       E|X)
+DEFINE_SYSCALL(recvfrom,6,   E|X)
+DEFINE_SYSCALL(recv,4,       E|X)
+DEFINE_SYSCALL(xgetsockopt,5,E|X)
+DEFINE_SYSCALL(getsockopt,5, E|X)
+DEFINE_SYSCALL(setsockopt,5, E|X)
+DEFINE_SYSCALL(shutdown,2,   E)
 
 #ifdef __ARCH_WIDE_64BIT_SYSCALL
-define_wrapper lseek, SYS_lseek, 4
-define_wrapper pread64, SYS_pread64, 5
-define_wrapper pwrite64, SYS_pwrite64, 5
-define_wrapper truncate, SYS_truncate, 3
-define_wrapper ftruncate, SYS_ftruncate, 3
-define_wrapper fallocate, SYS_fallocate, 6
-define_wrapper xfsmask, SYS_xfsmask, 2, 0
-define_wrapper xftruncateat, SYS_xftruncateat, 5
-define_wrapper xpreadf64, SYS_xpreadf64, 6
-define_wrapper xpwritef64, SYS_xpwritef64, 6
+#define ARGC64(c64,c32) c32
 #else
-define_wrapper lseek, SYS_lseek, 3
-define_wrapper pread64, SYS_pread64, 4
-define_wrapper pwrite64, SYS_pwrite64, 4
-define_wrapper truncate, SYS_truncate, 2
-define_wrapper ftruncate, SYS_ftruncate, 2
-define_wrapper fallocate, SYS_fallocate, 4
-define_wrapper xfsmask, SYS_xfsmask, 1, 0
-define_wrapper xftruncateat, SYS_xftruncateat, 4
-define_wrapper xpreadf64, SYS_xpreadf64, 5
-define_wrapper xpwritef64, SYS_xpwritef64, 5
+#define ARGC64(c64,c32) c64
 #endif
+
+DEFINE_SYSCALL(lseek,ARGC64(3,4),Esys|Xsys|sys)
+DEFINE_INTERN_ALIAS(libc_lseek64,Esys_lseek)
+DEFINE_INTERN_ALIAS(libc_Xlseek64,Xsys_lseek)
+EXPORT(lseek64,libc_lseek64)
+EXPORT(Xlseek64,libc_Xlseek64)
+EXPORT(__DSYM(_lseeki64),libc_lseek64)
+
+DEFINE_SYSCALL(pread64,ARGC64(4,5),E|X)
+EXPORT_STRONG(__pread64,libc_pread64)
+
+DEFINE_SYSCALL(pwrite64,ARGC64(4,5),E|X)
+EXPORT_STRONG(__pwrite64,libc_pwrite64)
+
+DEFINE_SYSCALL(truncate,ARGC64(2,3),Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_truncate64,Esys_truncate)
+DEFINE_INTERN_ALIAS(libc_Xtruncate64,Xsys_truncate)
+EXPORT(truncate64,libc_truncate64)
+EXPORT(Xtruncate64,libc_Xtruncate64)
+
+DEFINE_SYSCALL(fallocate,ARGC64(4,5),Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_fallocate64,Esys_fallocate)
+DEFINE_INTERN_ALIAS(libc_Xfallocate64,Xsys_fallocate)
+EXPORT(fallocate64,libc_fallocate64)
+EXPORT(Xfallocate64,libc_Xfallocate64)
+
+DEFINE_SYSCALL(xfsmask,ARGC64(1,2),sys)
+
+DEFINE_SYSCALL(ftruncate,ARGC64(2,3),Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_ftruncate64,Esys_ftruncate)
+DEFINE_INTERN_ALIAS(libc_Xftruncate64,Xsys_ftruncate)
+EXPORT(ftruncate64,libc_ftruncate64)
+EXPORT(Xftruncate64,libc_Xftruncate64)
+EXPORT(__DSYM(_chsize_s),libc_ftruncate64)
+
+DEFINE_SYSCALL(xftruncateat,ARGC64(4,5),Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_ftruncateat64,Esys_xftruncateat)
+DEFINE_INTERN_ALIAS(libc_Xftruncateat64,Xsys_xftruncateat)
+EXPORT(ftruncateat64,libc_ftruncateat64)
+EXPORT(Xftruncateat64,libc_Xftruncateat64)
+
+DEFINE_SYSCALL(xpreadf64,ARGC64(5,6),E|X)
+DEFINE_SYSCALL(xpwritef64,ARGC64(5,6),E|X)
+
 .cfi_endproc
-
-
-
 
 
 
@@ -681,309 +1336,6 @@ EXPORT(syscall,libc_syscall)
 EXPORT(lsyscall,libc_syscall)
 EXPORT(Xsyscall,libc_Xsyscall)
 EXPORT(Xlsyscall,libc_Xsyscall)
-
-/* To reduce overhead, direct link libc functions
- * that don't change anything against system calls. */
-DEFINE_INTERN_ALIAS(libc_Xpipe,Xsys_pipe)
-EXPORT(Xpipe,libc_Xpipe)
-
-DEFINE_INTERN_ALIAS(libc_Xpipe2,Xsys_pipe2)
-EXPORT(Xpipe2,libc_Xpipe2)
-
-DEFINE_INTERN_ALIAS(libc_Xfsync,Xsys_fsync)
-EXPORT(Xfsync,libc_Xfsync)
-
-DEFINE_INTERN_ALIAS(libc_Xfdatasync,Xsys_fdatasync)
-EXPORT(Xfdatasync,libc_Xfdatasync)
-
-DEFINE_INTERN_ALIAS(libc_Xdup,Xsys_dup)
-EXPORT(Xdup,libc_Xdup)
-
-DEFINE_INTERN_ALIAS(libc_Xdup2,Xsys_dup2)
-EXPORT(Xdup2,libc_Xdup2)
-
-DEFINE_INTERN_ALIAS(libc_Xdup3,Xsys_dup3)
-EXPORT(Xdup3,libc_Xdup3)
-
-DEFINE_INTERN_ALIAS(libc_Xchdir,Xsys_chdir)
-EXPORT(Xchdir,libc_Xchdir)
-
-DEFINE_INTERN_ALIAS(libc_Xfchdirat,Xsys_xfchdirat)
-EXPORT(Xfchdirat,libc_Xfchdirat)
-
-DEFINE_INTERN_ALIAS(libc_Xfchdir,Xsys_fchdir)
-EXPORT(Xfchdir,libc_Xfchdir)
-
-DEFINE_INTERN_ALIAS(libc_Xxfrealpathat2,Xsys_xfrealpathat)
-EXPORT(Xxfrealpathat2,libc_Xxfrealpathat2)
-
-DEFINE_INTERN_ALIAS(libc_Xfpathconfat,Xsys_xfpathconfat)
-EXPORT(Xfpathconfat,libc_Xfpathconfat)
-
-DEFINE_INTERN_ALIAS(libc_Xfchown,Xsys_fchown)
-EXPORT(Xfchown,libc_Xfchown)
-
-DEFINE_INTERN_ALIAS(libc_Xfchownat,Xsys_fchownat)
-EXPORT(Xfchownat,libc_Xfchownat)
-
-DEFINE_INTERN_ALIAS(libc_Xfchmod,Xsys_fchmod)
-EXPORT(Xfchmod,libc_Xfchmod)
-
-DEFINE_INTERN_ALIAS(libc_Xfchmodat,Xsys_fchmodat)
-EXPORT(Xfchmodat,libc_Xfchmodat)
-
-DEFINE_INTERN_ALIAS(libc_Xlinkat,Xsys_linkat)
-EXPORT(Xlinkat,libc_Xlinkat)
-
-DEFINE_INTERN_ALIAS(libc_Xunlinkat,Xsys_unlinkat)
-EXPORT(Xunlinkat,libc_Xunlinkat)
-
-DEFINE_INTERN_ALIAS(libc_Xrenameat,Xsys_renameat)
-EXPORT(Xrenameat,libc_Xrenameat)
-
-DEFINE_INTERN_ALIAS(libc_Xfrenameat,Xsys_xfrenameat)
-EXPORT(Xfrenameat,libc_Xfrenameat)
-
-DEFINE_INTERN_ALIAS(libc_Xmkdirat,Xsys_mkdirat)
-EXPORT(Xmkdirat,libc_Xmkdirat)
-
-DEFINE_INTERN_ALIAS(libc_Xfmkdirat,Xsys_xfmkdirat)
-EXPORT(Xfmkdirat,libc_Xfmkdirat)
-
-DEFINE_INTERN_ALIAS(libc_Xsymlinkat,Xsys_symlinkat)
-EXPORT(Xsymlinkat,libc_Xsymlinkat)
-
-DEFINE_INTERN_ALIAS(libc_Xfsymlinkat,Xsys_xfsymlinkat)
-EXPORT(Xfsymlinkat,libc_Xfsymlinkat)
-
-DEFINE_INTERN_ALIAS(libc_Xmknodat,Xsys_mknodat)
-EXPORT(Xmknodat,libc_Xmknodat)
-
-DEFINE_INTERN_ALIAS(libc_Xfmknodat,Xsys_xfmknodat)
-EXPORT(Xfmknodat,libc_Xfmknodat)
-
-DEFINE_INTERN_ALIAS(libc_Xreadlinkat,Xsys_readlinkat)
-EXPORT(Xreadlinkat,libc_Xreadlinkat)
-
-DEFINE_INTERN_ALIAS(libc_Xfreadlinkat,Xsys_xfreadlinkat)
-EXPORT(Xfreadlinkat,libc_Xfreadlinkat)
-
-DEFINE_INTERN_ALIAS(libc_Xftruncate64,Xsys_ftruncate)
-EXPORT(Xftruncate64,libc_Xftruncate64)
-
-DEFINE_INTERN_ALIAS(libc_Xtruncate64,Xsys_truncate)
-EXPORT(Xtruncate64,libc_Xtruncate64)
-
-DEFINE_INTERN_ALIAS(libc_Xftruncateat64,Xsys_xftruncateat)
-EXPORT(Xftruncateat64,libc_Xftruncateat64)
-
-DEFINE_INTERN_ALIAS(libc_Xchroot,Xsys_chroot)
-EXPORT(Xchroot,libc_Xchroot)
-
-DEFINE_INTERN_ALIAS(libc_Xkfstat64,Xsys_fstat64)
-DEFINE_INTERN_ALIAS(libc_Xkfstat,Xsys_fstat64)
-EXPORT(Xkfstat64,libc_Xkfstat64)
-EXPORT(Xkfstat,libc_Xkfstat)
-
-DEFINE_INTERN_ALIAS(libc_Xkfstatat64,Xsys_fstatat64)
-DEFINE_INTERN_ALIAS(libc_Xkfstatat,Xsys_fstatat64)
-EXPORT(Xkfstatat64,libc_Xkfstatat64)
-EXPORT(Xkfstatat,libc_Xkfstatat)
-
-DEFINE_INTERN_ALIAS(libc_Xutimensat64,Xsys_utimensat)
-EXPORT(Xutimensat64,libc_Xutimensat64)
-
-DEFINE_INTERN_ALIAS(libc_Xopenat,Xsys_openat)
-EXPORT(Xopenat,libc_Xopenat)
-EXPORT(Xopenat64,libc_Xopenat)
-
-DEFINE_INTERN_ALIAS(libc_Xfcntl,Xsys_fcntl)
-EXPORT(Xfcntl,libc_Xfcntl)
-
-DEFINE_INTERN_ALIAS(libc_Xioctl,Xsys_ioctl)
-EXPORT(Xioctl,libc_Xioctl)
-
-DEFINE_INTERN_ALIAS(libc_Xread,Xsys_read)
-EXPORT(Xread,libc_Xread)
-
-DEFINE_INTERN_ALIAS(libc_Xxreadf,Xsys_xreadf)
-EXPORT(Xxreadf,libc_Xxreadf)
-
-DEFINE_INTERN_ALIAS(libc_Xwrite,Xsys_write)
-EXPORT(Xwrite,libc_Xwrite)
-
-DEFINE_INTERN_ALIAS(libc_Xxwritef,Xsys_xwritef)
-EXPORT(Xxwritef,libc_Xxwritef)
-
-DEFINE_INTERN_ALIAS(libc_Xlseek64,Xsys_lseek)
-EXPORT(Xlseek64,libc_Xlseek64)
-
-DEFINE_INTERN_ALIAS(libc_Xpread64,Xsys_pread64)
-EXPORT(Xpread64,libc_Xpread64)
-
-DEFINE_INTERN_ALIAS(libc_Xxpreadf64,Xsys_xpreadf64)
-EXPORT(Xxpreadf64,libc_Xxpreadf64)
-
-DEFINE_INTERN_ALIAS(libc_Xpwrite64,Xsys_pwrite64)
-EXPORT(Xpwrite64,libc_Xpwrite64)
-
-DEFINE_INTERN_ALIAS(libc_Xxpwritef64,Xsys_xpwritef64)
-EXPORT(Xxpwritef64,libc_Xxpwritef64)
-
-DEFINE_INTERN_ALIAS(libc_Xsyncfs,Xsys_syncfs)
-EXPORT(Xsyncfs,libc_Xsyncfs)
-
-DEFINE_INTERN_ALIAS(libc_Xxreaddir,Xsys_xreaddir)
-DEFINE_INTERN_ALIAS(libc_Xxreaddir64,Xsys_xreaddir)
-EXPORT(Xxreaddir,libc_Xxreaddir)
-EXPORT(Xxreaddir64,libc_Xxreaddir64)
-
-DEFINE_INTERN_ALIAS(libc_Xxreaddirf,Xsys_xreaddirf)
-DEFINE_INTERN_ALIAS(libc_Xxreaddirf64,Xsys_xreaddirf)
-EXPORT(Xxreaddirf,libc_Xxreaddirf)
-EXPORT(Xxreaddirf64,libc_Xxreaddirf64)
-
-DEFINE_INTERN_ALIAS(libc_Xxmunmap,Xsys_xmunmap)
-EXPORT(Xxmunmap,libc_Xxmunmap)
-
-DEFINE_INTERN_ALIAS(libc_Xmmap,Xsys_mmap)
-EXPORT(Xmmap,libc_Xmmap)
-
-DEFINE_INTERN_ALIAS(libc_Xmunmap,Xsys_munmap)
-EXPORT(Xmunmap,libc_Xmunmap)
-
-DEFINE_INTERN_ALIAS(libc_Xxmprotect,Xsys_xmprotect)
-EXPORT(Xxmprotect,libc_Xxmprotect)
-
-DEFINE_INTERN_ALIAS(libc_Xmprotect,Xsys_mprotect)
-EXPORT(Xmprotect,libc_Xmprotect)
-
-DEFINE_INTERN_ALIAS(libc_Xexecve,Xsys_execve)
-EXPORT(Xexecve,libc_Xexecve)
-
-DEFINE_INTERN_ALIAS(libc_Xfexecveat,Xsys_execveat)
-EXPORT(Xfexecveat,libc_Xfexecveat)
-
-DEFINE_INTERN_ALIAS(libc_Xsysinfo,Xsys_sysinfo)
-EXPORT(Xsysinfo,libc_Xsysinfo)
-
-DEFINE_INTERN_ALIAS(libc_Xgetpgid,Xsys_getpgid)
-EXPORT(Xgetpgid,libc_Xgetpgid)
-
-DEFINE_INTERN_ALIAS(libc_Xsetpgid,Xsys_setpgid)
-EXPORT(Xsetpgid,libc_Xsetpgid)
-
-DEFINE_INTERN_ALIAS(libc_Xsetsid,Xsys_setsid)
-EXPORT(Xsetsid,libc_Xsetsid)
-
-DEFINE_INTERN_ALIAS(libc_Xgetsid,Xsys_getsid)
-EXPORT(Xgetsid,libc_Xgetsid)
-
-DEFINE_INTERN_ALIAS(libc_Xfork,Xsys_fork)
-EXPORT(Xfork,libc_Xfork)
-
-DEFINE_INTERN_ALIAS(libc_Xwait4,Xsys_wait4)
-EXPORT(Xwait4,libc_Xwait4)
-
-DEFINE_INTERN_ALIAS(libc_Xunshare,Xsys_unshare)
-EXPORT(Xunshare,libc_Xunshare)
-
-DEFINE_INTERN_ALIAS(libc_Xfutex64,Xsys_futex)
-EXPORT(Xfutex64,libc_Xfutex64)
-
-DEFINE_INTERN_ALIAS(libc_Xswapon,Xsys_swapon)
-EXPORT(Xswapon,libc_Xswapon)
-
-DEFINE_INTERN_ALIAS(libc_Xswapoff,Xsys_swapoff)
-EXPORT(Xswapoff,libc_Xswapoff)
-
-DEFINE_INTERN_ALIAS(libc_Xkill,Xsys_kill)
-EXPORT(Xkill,libc_Xkill)
-
-DEFINE_INTERN_ALIAS(libc_Xsigqueueinfo,Xsys_rt_sigqueueinfo)
-EXPORT(Xsigqueueinfo,libc_Xsigqueueinfo)
-
-DEFINE_INTERN_ALIAS(libc_Xtgsigqueueinfo,Xsys_rt_tgsigqueueinfo)
-EXPORT(Xtgsigqueueinfo,libc_Xtgsigqueueinfo)
-
-DEFINE_INTERN_ALIAS(libc_Xsigaltstack,Xsys_sigaltstack)
-EXPORT(Xsigaltstack,libc_Xsigaltstack)
-
-DEFINE_INTERN_ALIAS(libc_Xsethostname,Xsys_sethostname)
-EXPORT(Xsethostname,libc_Xsethostname)
-
-DEFINE_INTERN_ALIAS(libc_Xsetdomainname,Xsys_setdomainname)
-EXPORT(Xsetdomainname,libc_Xsetdomainname)
-
-DEFINE_INTERN_ALIAS(libc_Xfaccessat,Xsys_faccessat)
-EXPORT(Xfaccessat,libc_Xfaccessat)
-
-DEFINE_INTERN_ALIAS(libc_Xxdlclose,Xsys_xdlclose)
-EXPORT(Xxdlclose,libc_Xxdlclose)
-
-DEFINE_INTERN_ALIAS(libc_Xxdlsym,Xsys_xdlsym)
-EXPORT(Xxdlsym,libc_Xxdlsym)
-
-DEFINE_INTERN_ALIAS(libc_Xxfdlopenat,Xsys_xfdlopenat)
-EXPORT(Xxfdlopenat,libc_Xxfdlopenat)
-
-DEFINE_INTERN_ALIAS(libc_Xxdlmodule_info,Xsys_xfdlopenat)
-EXPORT(Xxdlmodule_info,libc_Xxdlmodule_info)
-
-DEFINE_INTERN_ALIAS(libc_Xsysconf,Xsys_xsysconf)
-EXPORT(Xsysconf,libc_Xsysconf)
-
-DEFINE_INTERN_ALIAS(libc_Xmremap,Xsys_mremap)
-EXPORT(Xmremap,libc_Xmremap)
-
-DEFINE_INTERN_ALIAS(libc_Xxdladdr2line,Xsys_xaddr2line)
-EXPORT(Xxdladdr2line,libc_Xxdladdr2line)
-
-
-
-
-DEFINE_INTERN_ALIAS(libc_umask,sys_umask)
-EXPORT(__KSYM(umask),libc_umask)
-EXPORT(__DSYM(_umask),libc_umask) /* DOS Alias */
-
-DEFINE_INTERN_ALIAS(libc_sync,sys_sync)
-EXPORT(sync,libc_sync)
-
-DEFINE_INTERN_ALIAS(libc_Xmount,Xsys_mount)
-EXPORT(Xmount,libc_Xmount)
-
-DEFINE_INTERN_ALIAS(libc_Xumount2,Xsys_umount2)
-EXPORT(Xumount2,libc_Xumount2)
-
-DEFINE_INTERN_ALIAS(libc_xclone,sys_clone)
-EXPORT(xclone,libc_xclone)
-
-DEFINE_INTERN_ALIAS(libc_Xxclone,Xsys_clone)
-EXPORT(Xxclone,libc_Xxclone)
-
-DEFINE_INTERN_ALIAS(_libc_exit,sys_exit_group)
-EXPORT(_exit,_libc_exit)
-EXPORT(_Exit,_libc_exit)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1006,13 +1358,5 @@ INTERN_ENTRY(libc_sigreturn)
 	jmp   libc_sysenter_0
 #endif
 SYMEND(libc_sigreturn)
-
 EXPORT(sigreturn,libc_sigreturn)
-
-
-
-
-
-
-
 

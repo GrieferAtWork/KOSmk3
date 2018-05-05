@@ -44,11 +44,6 @@ CRT_DOS_EXT char *LIBCCALL libc_dos_getwd(char *buf) { return libc_dos_getcwd(bu
 INTERN char *LIBCCALL libc_get_current_dir_name(void) { return libc_getcwd(NULL,0); }
 CRT_DOS_EXT char *LIBCCALL libc_dos_get_current_dir_name(void) { return libc_dos_getcwd(NULL,0); }
 
-INTERN ssize_t LIBCCALL
-libc_xfrealpathat2(fd_t fd, char const *path, int flags,
-                   char *buf, size_t bufsize, unsigned int type) {
- return FORWARD_SYSTEM_VALUE(sys_xfrealpathat(fd,path,flags,buf,bufsize,type));
-}
 CRT_DOS_EXT ssize_t LIBCCALL
 libc_dos_xfrealpathat2(fd_t dfd, char const *path, int flags,
                        char *buf, size_t bufsize, unsigned int type) {
@@ -90,7 +85,7 @@ do_dynamic:
     new_buf = (char *)libc_realloc(buf,(bufsize+1)*sizeof(char));
     if unlikely(!new_buf) {err_buffer: libc_free(buf); return NULL; }
     buf = new_buf;
-    reqsize = sys_xfrealpathat(fd,path,flags,buf,bufsize+1,type);
+    reqsize = libc_xfrealpathat2(fd,path,flags,buf,bufsize+1,type);
     if unlikely(reqsize == -1) goto err_buffer;
    } while ((size_t)reqsize != bufsize);
    return buf;
@@ -147,7 +142,6 @@ EXPORT(__KSYM(xfrealpath2),        libc_xfrealpath2);
 EXPORT(__DSYM(xfrealpath2),        libc_dos_xfrealpath2);
 EXPORT(__KSYM(xrealpath2),         libc_xrealpath2);
 EXPORT(__DSYM(xrealpath2),         libc_dos_xrealpath2);
-EXPORT(__KSYM(xfrealpathat2),      libc_xfrealpathat2);
 EXPORT(__DSYM(xfrealpathat2),      libc_dos_xfrealpathat2);
 EXPORT(__KSYM(realpath),           libc_realpath);
 EXPORT(__DSYM(realpath),           libc_dos_realpath);
@@ -910,7 +904,6 @@ CRT_DOS_NATIVE char *LIBCCALL libd_getdcwd(int drive, char *buf, size_t size) { 
 CRT_DOS char *LIBCCALL libd_dos_getdcwd(int drive, char *buf, size_t size) { return libc_xfdname(AT_FDDRIVE_CWD('A'+drive),REALPATH_FPATH|REALPATH_FDOSPATH,buf,size); }
 CRT_DOS_NATIVE int LIBCCALL libd_chdrive(int drive) { char temp[3] = "?:"; temp[0] = 'A'+drive; return libc_dos_chdir(temp); }
 CRT_DOS_NATIVE int LIBCCALL libd_getdrive(void) { char buf[1]; return libc_xfdname2(AT_FDCWD,REALPATH_FDRIVE,buf,1) < 0 ? -1 : (buf[0]-'A'); }
-CRT_DOS_NATIVE u32 LIBCCALL libd_getdrives(void) { return sys_xgetdrives(); }
 
 #ifdef CONFIG_LIBCCALL_HAS_CALLER_ARGUMENT_CLEANUP
 EXPORT(__DSYMw16(_getcwd_dbg),libc_dos_getcwd);
@@ -938,8 +931,6 @@ EXPORT(__KSYM(chdrive),            libd_chdrive);
 EXPORT(__DSYM(_chdrive),           libd_chdrive);
 EXPORT(__KSYM(getdrive),           libd_getdrive);
 EXPORT(__DSYM(_getdrive),          libd_getdrive);
-EXPORT(__KSYM(getdrives),          libd_getdrives);
-EXPORT(__DSYM(_getdrives),         libd_getdrives);
 EXPORT(__KSYM(getdcwd),            libd_getdcwd);
 EXPORT(__DSYM(_getdcwd),           libd_dos_getdcwd);
 

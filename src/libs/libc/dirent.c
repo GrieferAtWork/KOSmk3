@@ -149,25 +149,6 @@ libc_rewinddir(DIR *__restrict self) {
  sys_lseek(self->ds_fd,0,SEEK_SET);
 }
 
-EXPORT(xreaddir,libc_xreaddir);
-INTERN ssize_t LIBCCALL
-libc_xreaddir(fd_t fd, struct dirent *buf,
-              size_t bufsize, int mode) {
- return FORWARD_SYSTEM_VALUE(sys_xreaddir(fd,buf,bufsize,mode));
-}
-EXPORT(xreaddir64,libc_xreaddir64);
-DEFINE_INTERN_ALIAS(libc_xreaddir64,libc_xreaddir);
-
-EXPORT(xreaddirf,libc_xreaddirf);
-INTERN ssize_t LIBCCALL
-libc_xreaddirf(fd_t fd, struct dirent *buf,
-               size_t bufsize, int mode, oflag_t flags) {
- return FORWARD_SYSTEM_VALUE(sys_xreaddirf(fd,buf,bufsize,mode,flags));
-}
-EXPORT(xreaddirf64,libc_xreaddirf64);
-DEFINE_INTERN_ALIAS(libc_xreaddirf64,libc_xreaddirf);
-
-
 EXPORT(seekdir,libc_seekdir);
 INTERN int LIBCCALL libc_seekdir(DIR *__restrict self, long int pos) {
 #if __SIZEOF_LONG__ == 4

@@ -32,7 +32,6 @@
 DECL_BEGIN
 
 INTERN int LIBCCALL libc_execv(char const *path, char *const argv[]) { return libc_execve(path,argv,environ); }
-INTERN int LIBCCALL libc_execve(char const *path, char *const argv[], char *const envp[]) { return SET_SYSTEM_ERROR(sys_execve(path,argv,envp)); }
 INTERN int LIBCCALL libc_execvp(char const *file, char *const argv[]) { return libc_fexecvpeat(file,argv,environ,0); }
 INTERN int LIBCCALL libc_execvpe(char const *file, char *const argv[], char *const envp[]) { return libc_fexecvpeat(file,argv,envp,0); }
 CRT_DOS int LIBCCALL libc_dos_execv(char const *path, char *const argv[]) { return libc_fexecveat(AT_FDCWD,path,argv,environ,AT_DOSPATH); }
@@ -42,7 +41,6 @@ CRT_DOS int LIBCCALL libc_dos_execvpe(char const *file, char *const argv[], char
 INTERN int LIBCCALL libc_fexecv(int exec_fd, char *const argv[]) { return libc_fexecveat(exec_fd,libc_empty_string,argv,environ,AT_EMPTY_PATH); }
 INTERN int LIBCCALL libc_fexecve(int exec_fd, char *const argv[], char *const envp[]) { return libc_fexecveat(exec_fd,libc_empty_string,argv,envp,AT_EMPTY_PATH); }
 INTERN int LIBCCALL libc_fexecvat(fd_t dfd, char const *path, char *const argv[], int flags) { return libc_fexecveat(dfd,path,argv,environ,flags); }
-INTERN int LIBCCALL libc_fexecveat(fd_t dfd, char const *path, char *const argv[], char *const envp[], int flags) { return SET_SYSTEM_ERROR(sys_execveat(dfd,path,argv,envp,flags)); }
 INTERN int LIBCCALL libc_fexecvpat(char const *file, char *const argv[], int flags) { return libc_fexecvpeat(file,argv,environ,flags); }
 CRT_DOS_EXT int LIBCCALL libc_dos_fexecvat(fd_t dfd, char const *path, char *const argv[], int flags) { return libc_fexecveat(dfd,path,argv,environ,flags|AT_DOSPATH); }
 CRT_DOS_EXT int LIBCCALL libc_dos_fexecveat(fd_t dfd, char const *path, char *const argv[], char *const envp[], int flags) { return libc_fexecveat(dfd,path,argv,envp,flags|AT_DOSPATH); }
@@ -366,7 +364,6 @@ EXPORT(__KSYM(execvpe),            libc_execvpe);
 EXPORT(__DSYM(_execvpe),           libc_dos_execvpe);
 EXPORT(__KSYM(fexecvat),           libc_fexecvat);
 EXPORT(__DSYM(fexecvat),           libc_dos_fexecvat);
-EXPORT(__KSYM(fexecveat),          libc_fexecveat);
 EXPORT(__DSYM(fexecveat),          libc_dos_fexecveat);
 EXPORT(__KSYM(fexecvpat),          libc_fexecvpat);
 EXPORT(__DSYM(fexecvpat),          libc_dos_fexecvpat);

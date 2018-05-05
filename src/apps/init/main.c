@@ -279,7 +279,7 @@ int main(int argc, char *argv[]) {
   mount("/dev/hdc1","/mount",NULL,0,NULL);
  }
 
-#if 1
+#if 0
  execl("/bin/wm","wm",(char *)NULL);
 #endif
 

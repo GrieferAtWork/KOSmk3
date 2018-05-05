@@ -33,22 +33,10 @@
 
 DECL_BEGIN
 
-EXPORT(mmap,libc_mmap);
-INTERN void *LIBCCALL
-libc_mmap(void *addr, size_t len, int prot,
-          int flags, fd_t fd, pos32_t offset) {
- void *result;
- result = sys_mmap(addr,len,prot,flags,fd,(syscall_ulong_t)offset);
- if (E_ISOK(result)) return result;
- libc_seterrno(-(errno_t)(intptr_t)result);
- return MAP_FAILED;
-}
-
 EXPORT(mmap64,libc_mmap64);
 INTERN void *LIBCCALL
 libc_mmap64(void *addr, size_t len, int prot,
             int flags, fd_t fd, pos64_t offset) {
- void *result;
 #if __SIZEOF_SYSCALL_LONG__ < 8
  if (offset > (syscall_ulong_t)-1 && fd >= 0) {
   struct mmap_info_v1 info;
@@ -69,34 +57,7 @@ libc_mmap64(void *addr, size_t len, int prot,
   return libc_xmmap1(&info);
  }
 #endif
- result = sys_mmap(addr,len,prot,flags,fd,(syscall_ulong_t)offset);
- if (E_ISOK(result)) return result;
- libc_seterrno(-(errno_t)(intptr_t)(uintptr_t)result);
- return MAP_FAILED;
-}
-
-EXPORT(mremap,libc_mremap);
-INTERN void *ATTR_CDECL
-libc_mremap(void *addr, size_t old_len, size_t new_len, int flags, ...) {
- void *COMPILER_IGNORE_UNINITIALIZED(result);
- va_list __EXCEPTVAR_VALIST args;
- va_start(args,flags);
- __TRY_VALIST {
-  result = sys_mremap(addr,old_len,new_len,flags,va_arg(args,void *));
- } __FINALLY_VALIST {
-  va_end(args);
- }
- if (E_ISERR(result)) {
-  libc_seterrno(-(errno_t)(intptr_t)(uintptr_t)result);
-  result = MAP_FAILED;
- }
- return result;
-}
-
-EXPORT(mprotect,libc_mprotect);
-INTERN int LIBCCALL
-libc_mprotect(void *addr, size_t len, int prot) {
- return FORWARD_SYSTEM_ERROR(sys_mprotect(addr,len,prot));
+ return libc_mmap(addr,len,prot,flags,fd,(syscall_ulong_t)offset);
 }
 
 EXPORT(msync,libc_msync);
@@ -226,14 +187,6 @@ libc_dos_shm_unlink(char const *name) {
 
 
 
-EXPORT(munmap,libc_munmap);
-INTERN int LIBCCALL
-libc_munmap(void *addr, size_t len) {
- ssize_t result = sys_munmap(addr,len);
- if (E_ISERR(result)) { libc_seterrno(-E_GTERR(result)); return -1; }
- return 0;
-}
-
 EXPORT(xmmap1,libc_xmmap1);
 INTERN void *LIBCCALL
 libc_xmmap1(struct mmap_info const *data) {
@@ -242,25 +195,6 @@ libc_xmmap1(struct mmap_info const *data) {
  if (E_ISERR(result)) { libc_seterrno(-E_GTERR(result)); return MAP_FAILED; }
  return result;
 }
-
-EXPORT(xmunmap,libc_xmunmap);
-INTERN ssize_t LIBCCALL
-libc_xmunmap(void *addr, size_t len, int flags, void *tag) {
- ssize_t result = sys_xmunmap(addr,len,flags,tag);
- if (E_ISERR(result)) { libc_seterrno(-E_GTERR(result)); return -1; }
- return result;
-}
-
-EXPORT(xmprotect,libc_xmprotect);
-INTERN ssize_t LIBCCALL
-libc_xmprotect(void *start, size_t len, int protmask,
-               int protflag, int flags, void *tag) {
- ssize_t result = sys_xmprotect(start,len,protmask,protflag,flags,tag);
- if (E_ISERR(result)) { libc_seterrno(-E_GTERR(result)); return -1; }
- return result;
-}
-
-
 
 extern byte_t _end[]; /* Automatically defined by the linker (end of '.bss'). */
 PRIVATE byte_t *brk_curr = NULL;
@@ -504,20 +438,6 @@ CRT_EXCEPT void *LIBCCALL libc_Xsbrk(intptr_t delta) {
  }
  return result;
 }
-
-
-EXPORT(swapon,libc_swapon);
-INTERN int LIBCCALL
-libc_swapon(char const *specialfile, int flags) {
- return FORWARD_SYSTEM_ERROR(sys_swapon(specialfile,flags));
-}
-
-EXPORT(swapoff,libc_swapoff);
-INTERN int LIBCCALL
-libc_swapoff(char const *specialfile) {
- return FORWARD_SYSTEM_ERROR(sys_swapoff(specialfile));
-}
-
 
 /* GLibc aliases */
 EXPORT(__sbrk,libc_sbrk);

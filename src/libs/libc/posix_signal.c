@@ -46,8 +46,17 @@ libc_sigms_dos2kos(int dos_sigms) {
 
 PRIVATE sigset_t __sigintr;
 
-INTERN int LIBCCALL libc_raise(int sig) { return libc_kill(libc_gettid(),sig); }
-INTERN int LIBCCALL libd_raise(int sig) { return libc_raise(libc_signo_dos2kos(sig)); }
+EXPORT(__KSYM(raise),libc_raise);
+INTERN int LIBCCALL libc_raise(int sig) {
+ return libc_kill(libc_gettid(),sig);
+}
+
+EXPORT(__DSYM(raise),libd_raise);
+INTERN int LIBCCALL libd_raise(int sig) {
+ return libc_raise(libc_signo_dos2kos(sig));
+}
+
+EXPORT(__KSYM(sysv_signal),libc_sysv_signal);
 INTERN sighandler_t LIBCCALL
 libc_sysv_signal(int sig, sighandler_t handler) {
  struct sigaction act,oact;
@@ -60,10 +69,14 @@ libc_sysv_signal(int sig, sighandler_t handler) {
      return SIG_ERR;
  return oact.sa_handler;
 }
+
+EXPORT(__DSYM(sysv_signal),libd_sysv_signal);
 INTERN sighandler_t LIBCCALL
 libd_sysv_signal(int sig, sighandler_t handler) {
  return libc_sysv_signal(libc_signo_dos2kos(sig),handler);
 }
+
+EXPORT(__KSYM(bsd_signal),libc_bsd_signal);
 INTERN sighandler_t LIBCCALL
 libc_bsd_signal(int sig, sighandler_t handler) {
  struct sigaction act,oact;
@@ -75,10 +88,14 @@ libc_bsd_signal(int sig, sighandler_t handler) {
  if (libc_sigaction(sig,&act,&oact) < 0) return SIG_ERR;
  return oact.sa_handler;
 }
+
+EXPORT(__DSYM(bsd_signal),libd_bsd_signal);
 INTERN sighandler_t LIBCCALL
 libd_bsd_signal(int sig, sighandler_t handler) {
  return libc_bsd_signal(libc_signo_dos2kos(sig),handler);
 }
+
+EXPORT(__KSYM(sigset),libc_sigset);
 INTERN sighandler_t LIBCCALL libc_sigset(int sig, sighandler_t disp) {
  struct sigaction act,oact; sigset_t set,oset;
  if (disp == SIG_ERR) { libc_seterrno(EINVAL); return SIG_ERR; }
@@ -97,9 +114,13 @@ INTERN sighandler_t LIBCCALL libc_sigset(int sig, sighandler_t disp) {
  if (libc_sigprocmask(SIG_UNBLOCK,&set,&oset) < 0) return SIG_ERR;
  return libc_sigismember(&oset,sig) ? SIG_HOLD : oact.sa_handler;
 }
+
+EXPORT(__DSYM(sigset),libd_sigset);
 INTERN sighandler_t LIBCCALL libd_sigset(int sig, sighandler_t disp) {
  return libc_sigset(libc_signo_dos2kos(sig),disp);
 }
+
+EXPORT(__KSYM(siginterrupt),libc_siginterrupt);
 INTERN int LIBCCALL
 libc_siginterrupt(int sig, int interrupt) {
  struct sigaction action;
@@ -116,30 +137,52 @@ libc_siginterrupt(int sig, int interrupt) {
      return -1;
  return 0;
 }
+
+EXPORT(__DSYM(siginterrupt),libd_siginterrupt);
 INTERN int LIBCCALL
 libd_siginterrupt(int sig, int interrupt) {
  return libc_siginterrupt(libc_signo_dos2kos(sig),interrupt);
 }
-DEFINE_INTERN_ALIAS(libd_signal,libd_sysv_signal);
+
+EXPORT(__KSYM(signal),libc_signal);
 DEFINE_INTERN_ALIAS(libc_signal,libc_bsd_signal);
+
+EXPORT(__DSYM(signal),libd_signal);
+DEFINE_INTERN_ALIAS(libd_signal,libd_sysv_signal);
+
+EXPORT(__KSYM(ssignal),libc_ssignal);
 DEFINE_INTERN_ALIAS(libc_ssignal,libc_bsd_signal);
+
+EXPORT(__DSYM(ssignal),libd_ssignal);
 DEFINE_INTERN_ALIAS(libd_ssignal,libd_bsd_signal);
+
+EXPORT(__KSYM(gsignal),libc_gsignal);
 DEFINE_INTERN_ALIAS(libc_gsignal,libc_raise);
+
+EXPORT(__DSYM(gsignal),libd_gsignal);
 DEFINE_INTERN_ALIAS(libd_gsignal,libd_raise);
 
+EXPORT(__KSYM(sigblock),libc_sigblock);
 INTERN int LIBCCALL libc_sigblock(int mask) {
  return FORWARD_SYSTEM_ERROR(sys_sigprocmask(SIG_BLOCK,(sigset_t *)&mask,NULL,sizeof(mask)));
 }
-INTERN int LIBCCALL libc_sigsetmask(int mask) {
- return FORWARD_SYSTEM_ERROR(sys_sigprocmask(SIG_SETMASK,(sigset_t *)&mask,NULL,sizeof(mask)));
-}
+
+EXPORT(__DSYM(sigblock),libd_sigblock);
 INTERN int LIBCCALL libd_sigblock(int mask) {
  return libc_sigblock(libc_sigms_dos2kos(mask));
 }
+
+EXPORT(__KSYM(sigsetmask),libc_sigsetmask);
+INTERN int LIBCCALL libc_sigsetmask(int mask) {
+ return FORWARD_SYSTEM_ERROR(sys_sigprocmask(SIG_SETMASK,(sigset_t *)&mask,NULL,sizeof(mask)));
+}
+
+EXPORT(__DSYM(sigsetmask),libd_sigsetmask);
 INTERN int LIBCCALL libd_sigsetmask(int mask) {
  return libc_sigsetmask(libc_sigms_dos2kos(mask));
 }
 
+EXPORT(siggetmask,libc_siggetmask);
 INTERN int LIBCCALL libc_siggetmask(void) {
  int value,result;
  result = FORWARD_SYSTEM_ERROR(sys_sigprocmask(SIG_SETMASK,NULL,
@@ -153,22 +196,48 @@ PRIVATE int LIBCCALL set_single_signal_action(int sig, int how) {
  libc_sigaddset(&set,sig);
  return libc_sigprocmask(SIG_BLOCK,&set,NULL);
 }
-INTERN int LIBCCALL libc_sighold(int sig) { return set_single_signal_action(sig,SIG_BLOCK); }
-INTERN int LIBCCALL libc_sigrelse(int sig) { return set_single_signal_action(sig,SIG_UNBLOCK); }
-INTERN int LIBCCALL libc_sigignore(int sig) { return libc_bsd_signal(sig,SIG_IGN) == SIG_ERR ? -1 : 0; }
-INTERN int LIBCCALL libd_sighold(int sig) { return libc_sighold(libc_signo_dos2kos(sig)); }
-INTERN int LIBCCALL libd_sigrelse(int sig) { return libc_sigrelse(libc_signo_dos2kos(sig)); }
-INTERN int LIBCCALL libd_sigignore(int sig) { return libc_sigignore(libc_signo_dos2kos(sig)); }
+
+EXPORT(__KSYM(sighold),libc_sighold);
+INTERN int LIBCCALL libc_sighold(int sig) {
+ return set_single_signal_action(sig,SIG_BLOCK);
+}
+
+EXPORT(__DSYM(sighold),libd_sighold);
+INTERN int LIBCCALL libd_sighold(int sig) {
+ return libc_sighold(libc_signo_dos2kos(sig));
+}
+
+EXPORT(__KSYM(sigrelse),libc_sigrelse);
+INTERN int LIBCCALL libc_sigrelse(int sig) {
+ return set_single_signal_action(sig,SIG_UNBLOCK);
+}
+
+EXPORT(__DSYM(sigrelse),libd_sigrelse);
+INTERN int LIBCCALL libd_sigrelse(int sig) {
+ return libc_sigrelse(libc_signo_dos2kos(sig));
+}
+
+EXPORT(__KSYM(sigignore),libc_sigignore);
+INTERN int LIBCCALL libc_sigignore(int sig) {
+ return libc_bsd_signal(sig,SIG_IGN) == SIG_ERR ? -1 : 0;
+}
+
+EXPORT(__DSYM(sigignore),libd_sigignore);
+INTERN int LIBCCALL libd_sigignore(int sig) {
+ return libc_sigignore(libc_signo_dos2kos(sig));
+}
+
+EXPORT(__libc_current_sigrtmin,libc_current_sigrtmin);
+EXPORT(__libc_current_sigrtmax,libc_current_sigrtmax);
 INTERN int LIBCCALL libc_current_sigrtmin(void) { return __SIGRTMIN; }
 INTERN int LIBCCALL libc_current_sigrtmax(void) { return __SIGRTMAX; }
-INTERN int LIBCCALL
-libc_sigaltstack(struct sigaltstack const *ss,
-                 struct sigaltstack *oss) {
- return FORWARD_SYSTEM_ERROR(sys_sigaltstack(ss,oss));
-}
+
+EXPORT(__KSYM(sigsuspend),libc_sigsuspend);
 INTERN int LIBCCALL libc_sigsuspend(sigset_t const *set) {
  return FORWARD_SYSTEM_ERROR(sys_sigsuspend(set,sizeof(sigset_t)));
 }
+
+EXPORT(__DSYM(sigsuspend),libd_sigsuspend);
 INTERN int LIBCCALL libd_sigsuspend(sigset_t const *set) {
  sigset_t fixed_set;
  LIBC_TRY {
@@ -180,37 +249,46 @@ INTERN int LIBCCALL libd_sigsuspend(sigset_t const *set) {
  return libc_sigsuspend(&fixed_set);
 }
 
+EXPORT(__KSYM(sigpause),libc_sigpause);
 INTERN int LIBCCALL libc_sigpause(int sig_or_mask, int is_sig) {
  if (is_sig) return libc_xpg_sigpause(sig_or_mask);
  return FORWARD_SYSTEM_ERROR(sys_sigsuspend((sigset_t *)&sig_or_mask,sizeof(sig_or_mask)));
 }
+
+EXPORT(__DSYM(sigpause),libd_sigpause);
 INTERN int LIBCCALL libd_sigpause(int sig_or_mask, int is_sig) {
  return libc_sigpause(is_sig ? libc_signo_dos2kos(sig_or_mask)
                              : libc_sigms_dos2kos(sig_or_mask),
                       is_sig);
 }
+
+EXPORT(__KSYM(__xpg_sigpause),libc_xpg_sigpause);
 INTERN int LIBCCALL libc_xpg_sigpause(int sig) {
  sigset_t set;
  libc_sigemptyset(&set);
  libc_sigaddset(&set,sig);
  return libc_sigsuspend(&set);
 }
+
+EXPORT(__DSYM(__xpg_sigpause),libd_xpg_sigpause);
 INTERN int LIBCCALL
 libd_xpg_sigpause(int sig) {
  return libc_xpg_sigpause(libc_signo_dos2kos(sig));
 }
-INTERN int LIBCCALL
-libc_kill(pid_t pid, int sig) {
- return FORWARD_SYSTEM_ERROR(sys_kill(pid,sig));
-}
+
+EXPORT(__DSYM(kill),libd_kill);
 INTERN int LIBCCALL
 libd_kill(pid_t pid, int sig) {
  return libc_kill(pid,libc_signo_dos2kos(sig));
 }
+
+EXPORT(__KSYM(killpg),libc_killpg);
 INTERN int LIBCCALL
 libc_killpg(pid_t pgrp, int sig) {
  return libc_kill(-pgrp,sig);
 }
+
+EXPORT(__DSYM(killpg),libd_killpg);
 INTERN int LIBCCALL
 libd_killpg(pid_t pgrp, int sig) {
  return libd_kill(-pgrp,sig);
@@ -221,22 +299,58 @@ INTERN int LIBCCALL name(sigset_t const *set, int sig) { \
  unsigned long int word = __sigword(sig); \
  return body; \
 }
+
+EXPORT(sigismember,libc_sigismember);
 SIGSETFN(libc_sigismember,(set->__val[word] & mask) ? 1 : 0,const)
+
+EXPORT(sigaddset,libc_sigaddset);
 SIGSETFN(libc_sigaddset,((set->__val[word] |= mask), 0),)
+
+EXPORT(sigdelset,libc_sigdelset);
 SIGSETFN(libc_sigdelset,((set->__val[word] &= ~mask), 0),)
 #undef SIGSETFN
-INTERN int LIBCCALL libc_sigemptyset(sigset_t *set) { return __sigemptyset(set); }
-INTERN int LIBCCALL libc_sigfillset(sigset_t *set) { return __sigfillset(set); }
-INTERN int LIBCCALL libc_sigisemptyset(sigset_t const *set) { return __sigisemptyset(set); }
-INTERN int LIBCCALL libc_sigandset(sigset_t *set, sigset_t const *left, sigset_t const *right) { return __sigandset(set,left,right); }
-INTERN int LIBCCALL libc_sigorset(sigset_t *set, sigset_t const *left, sigset_t const *right) { return __sigorset(set,left,right); }
 
+
+EXPORT(sigemptyset,libc_sigemptyset);
+INTERN int LIBCCALL libc_sigemptyset(sigset_t *set) {
+ return __sigemptyset(set);
+}
+
+EXPORT(sigfillset,libc_sigfillset);
+INTERN int LIBCCALL libc_sigfillset(sigset_t *set) {
+ return __sigfillset(set);
+}
+
+EXPORT(sigisemptyset,libc_sigisemptyset);
+INTERN int LIBCCALL libc_sigisemptyset(sigset_t const *set) {
+ return __sigisemptyset(set);
+}
+
+EXPORT(sigandset,libc_sigandset);
+INTERN int LIBCCALL
+libc_sigandset(sigset_t *set,
+               sigset_t const *left,
+               sigset_t const *right) {
+ return __sigandset(set,left,right);
+}
+
+EXPORT(sigorset,libc_sigorset);
+INTERN int LIBCCALL
+libc_sigorset(sigset_t *set,
+              sigset_t const *left,
+              sigset_t const *right) {
+ return __sigorset(set,left,right);
+}
+
+EXPORT(__KSYM(sigprocmask),libc_sigprocmask);
 INTERN int LIBCCALL
 libc_sigprocmask(int how,
                  sigset_t const *set,
                  sigset_t *oset) {
  return FORWARD_SYSTEM_ERROR(sys_sigprocmask(how,set,oset,sizeof(sigset_t)));
 }
+
+EXPORT(__DSYM(sigprocmask),libd_sigprocmask);
 INTERN int LIBCCALL
 libd_sigprocmask(int how,
                  sigset_t const *set,
@@ -256,29 +370,38 @@ libd_sigprocmask(int how,
  }
  return result;
 }
+
+EXPORT(__KSYM(sigaction),libc_sigaction);
 INTERN int LIBCCALL
 libc_sigaction(int sig,
                struct sigaction const *act,
                struct sigaction *oact) {
  return FORWARD_SYSTEM_ERROR(sys_sigaction(sig,act,oact,sizeof(sigset_t)));
 }
+
+EXPORT(__DSYM(sigaction),libd_sigaction);
 INTERN int LIBCCALL
 libd_sigaction(int sig,
                struct sigaction const *act,
                struct sigaction *oact) {
  return libc_sigaction(libc_signo_dos2kos(sig),act,oact);
 }
+
+EXPORT(sigpending,libc_sigpending);
 INTERN int LIBCCALL
 libc_sigpending(sigset_t *set) {
  return FORWARD_SYSTEM_ERROR(sys_sigpending(set,sizeof(sigset_t)));
 }
 
+EXPORT(__KSYM(sigtimedwait64),libc_sigtimedwait64);
 INTERN int LIBCCALL
 libc_sigtimedwait64(sigset_t const *__restrict set,
                     siginfo_t *__restrict info,
                     struct timespec64 const *timeout) {
  return FORWARD_SYSTEM_VALUE(sys_sigtimedwait(set,info,timeout,sizeof(sigset_t)));
 }
+
+EXPORT(__DSYM(sigtimedwait64),libd_sigtimedwait64);
 INTERN int LIBCCALL
 libd_sigtimedwait64(sigset_t const *__restrict set,
                     siginfo_t *__restrict info,
@@ -292,6 +415,8 @@ libd_sigtimedwait64(sigset_t const *__restrict set,
  *(int *)&fixed_set = libc_sigms_dos2kos(*(int *)&fixed_set);
  return libc_sigtimedwait64(&fixed_set,info,timeout);
 }
+
+EXPORT(__KSYM(sigtimedwait),libc_sigtimedwait);
 INTERN int LIBCCALL
 libc_sigtimedwait(sigset_t const *__restrict set,
                   siginfo_t *__restrict info,
@@ -306,6 +431,8 @@ libc_sigtimedwait(sigset_t const *__restrict set,
  }
  return libc_sigtimedwait64(set,info,&t64);
 }
+
+EXPORT(__DSYM(sigtimedwait),libd_sigtimedwait);
 INTERN int LIBCCALL
 libd_sigtimedwait(sigset_t const *__restrict set,
                   siginfo_t *__restrict info,
@@ -320,16 +447,22 @@ libd_sigtimedwait(sigset_t const *__restrict set,
  }
  return libd_sigtimedwait64(set,info,&t64);
 }
+
+EXPORT(__KSYM(sigwaitinfo),libc_sigwaitinfo);
 INTERN int LIBCCALL
 libc_sigwaitinfo(sigset_t const *__restrict set,
                  siginfo_t *__restrict info) {
  return libc_sigtimedwait64(set,info,NULL);
 }
+
+EXPORT(__DSYM(sigwaitinfo),libd_sigwaitinfo);
 INTERN int LIBCCALL
 libd_sigwaitinfo(sigset_t const *__restrict set,
                  siginfo_t *__restrict info) {
  return libd_sigtimedwait64(set,info,NULL);
 }
+
+EXPORT(__KSYM(sigwait),libc_sigwait);
 INTERN errno_t LIBCCALL
 libc_sigwait(sigset_t const *__restrict set,
              int *__restrict sig) {
@@ -345,6 +478,8 @@ libc_sigwait(sigset_t const *__restrict set,
  }
  return libc_geterrno();
 }
+
+EXPORT(__DSYM(sigwait),libd_sigwait);
 INTERN derrno_t LIBCCALL
 libd_sigwait(sigset_t const *__restrict set,
              int *__restrict sig) {
@@ -359,10 +494,8 @@ libd_sigwait(sigset_t const *__restrict set,
  }
  return libc_dos_geterrno();
 }
-INTERN int LIBCCALL
-libc_sigqueueinfo(pid_t pid, int sig, siginfo_t const *info) {
- return FORWARD_SYSTEM_ERROR(sys_rt_sigqueueinfo(pid,sig,info));
-}
+
+EXPORT(__DSYM(sigqueueinfo),libd_sigqueueinfo);
 INTERN int LIBCCALL
 libd_sigqueueinfo(pid_t pid, int sig, siginfo_t const *info) {
  siginfo_t realinfo;
@@ -374,11 +507,8 @@ libd_sigqueueinfo(pid_t pid, int sig, siginfo_t const *info) {
  realinfo.si_signo = libc_signo_dos2kos(realinfo.si_signo);
  return libc_sigqueueinfo(pid,libc_signo_dos2kos(sig),&realinfo);
 }
-INTERN int LIBCCALL
-libc_tgsigqueueinfo(pid_t tgid, pid_t tid,
-                    int sig, siginfo_t const *info) {
- return FORWARD_SYSTEM_ERROR(sys_rt_tgsigqueueinfo(tgid,tid,sig,info));
-}
+
+EXPORT(__DSYM(tgsigqueueinfo),libd_tgsigqueueinfo);
 INTERN int LIBCCALL
 libd_tgsigqueueinfo(pid_t tgid, pid_t tid,
                     int sig, siginfo_t const *info) {
@@ -391,6 +521,8 @@ libd_tgsigqueueinfo(pid_t tgid, pid_t tid,
  realinfo.si_signo = libc_signo_dos2kos(realinfo.si_signo);
  return libc_tgsigqueueinfo(tgid,tid,libc_signo_dos2kos(sig),&realinfo);
 }
+
+EXPORT(__KSYM(sigqueue),libc_sigqueue);
 INTERN int LIBCCALL
 libc_sigqueue(pid_t pid, int sig, union sigval const val) {
  siginfo_t info;
@@ -399,22 +531,32 @@ libc_sigqueue(pid_t pid, int sig, union sigval const val) {
  info.si_code  = SI_QUEUE;
  return libc_sigqueueinfo(pid,sig,&info);
 }
+
+EXPORT(__DSYM(sigqueue),libd_sigqueue);
 INTERN int LIBCCALL
 libd_sigqueue(pid_t pid, int sig, union sigval const val) {
  return libc_sigqueue(pid,libc_signo_dos2kos(sig),val);
 }
+
+EXPORT(__KSYM(psignal),libc_psignal);
 INTERN void LIBCCALL
 libc_psignal(int sig, char const *s) {
  /* TODO */
 }
-INTERN void LIBCCALL
-libc_psiginfo(siginfo_t const *pinfo, char const *s) {
- /* TODO */
-}
+
+EXPORT(__DSYM(psignal),libd_psignal);
 INTERN void LIBCCALL
 libd_psignal(int sig, char const *s) {
  libc_psignal(libc_signo_dos2kos(sig),s);
 }
+
+EXPORT(__KSYM(psiginfo),libc_psiginfo);
+INTERN void LIBCCALL
+libc_psiginfo(siginfo_t const *pinfo, char const *s) {
+ /* TODO */
+}
+
+EXPORT(__DSYM(psiginfo),libd_psiginfo);
 INTERN void LIBCCALL
 libd_psiginfo(siginfo_t const *pinfo, char const *s) {
  siginfo_t info;
@@ -422,6 +564,8 @@ libd_psiginfo(siginfo_t const *pinfo, char const *s) {
  info.si_signo = libc_signo_dos2kos(info.si_signo);
  libc_psiginfo(&info,s);
 }
+
+EXPORT(sigstack,libc_sigstack);
 INTERN int LIBCCALL
 libc_sigstack(struct sigstack *ss, struct sigstack *oss) {
  struct sigaltstack ass,aoss;
@@ -445,78 +589,6 @@ libc_sigstack(struct sigstack *ss, struct sigstack *oss) {
 
 
 
-EXPORT(__KSYM(raise),              libc_raise);
-EXPORT(__DSYM(raise),              libd_raise);
-EXPORT(__KSYM(sysv_signal),        libc_sysv_signal);
-EXPORT(__DSYM(sysv_signal),        libd_sysv_signal);
-EXPORT(__KSYM(bsd_signal),         libc_bsd_signal);
-EXPORT(__DSYM(bsd_signal),         libd_bsd_signal);
-EXPORT(__KSYM(signal),             libc_signal);
-EXPORT(__DSYM(signal),             libd_signal);
-EXPORT(__KSYM(ssignal),            libc_ssignal);
-EXPORT(__DSYM(ssignal),            libd_ssignal);
-EXPORT(__KSYM(gsignal),            libc_gsignal);
-EXPORT(__DSYM(gsignal),            libd_gsignal);
-EXPORT(__KSYM(sigblock),           libc_sigblock);
-EXPORT(__DSYM(sigblock),           libd_sigblock);
-EXPORT(__KSYM(sigsetmask),         libc_sigsetmask);
-EXPORT(__DSYM(sigsetmask),         libd_sigsetmask);
-EXPORT(siggetmask,                 libc_siggetmask);
-EXPORT(__KSYM(sigpause),           libc_sigpause);
-EXPORT(__DSYM(sigpause),           libd_sigpause);
-EXPORT(__KSYM(__xpg_sigpause),     libc_xpg_sigpause);
-EXPORT(__DSYM(__xpg_sigpause),     libd_xpg_sigpause);
-EXPORT(__KSYM(kill),               libc_kill);
-EXPORT(__DSYM(kill),               libd_kill);
-EXPORT(__KSYM(killpg),             libc_killpg);
-EXPORT(__DSYM(killpg),             libd_killpg);
-EXPORT(sigemptyset,                libc_sigemptyset);
-EXPORT(sigfillset,                 libc_sigfillset);
-EXPORT(sigaddset,                  libc_sigaddset);
-EXPORT(sigdelset,                  libc_sigdelset);
-EXPORT(sigismember,                libc_sigismember);
-EXPORT(__KSYM(sigprocmask),        libc_sigprocmask);
-EXPORT(__DSYM(sigprocmask),        libd_sigprocmask);
-EXPORT(__KSYM(sigsuspend),         libc_sigsuspend);
-EXPORT(__DSYM(sigsuspend),         libd_sigsuspend);
-EXPORT(__KSYM(sigaction),          libc_sigaction);
-EXPORT(__DSYM(sigaction),          libd_sigaction);
-EXPORT(sigpending,                 libc_sigpending);
-EXPORT(__KSYM(sigwait),            libc_sigwait);
-EXPORT(__DSYM(sigwait),            libd_sigwait);
-EXPORT(sigisemptyset,              libc_sigisemptyset);
-EXPORT(sigandset,                  libc_sigandset);
-EXPORT(sigorset,                   libc_sigorset);
-EXPORT(__KSYM(sigwaitinfo),        libc_sigwaitinfo);
-EXPORT(__DSYM(sigwaitinfo),        libd_sigwaitinfo);
-EXPORT(__KSYM(sigtimedwait),       libc_sigtimedwait);
-EXPORT(__DSYM(sigtimedwait),       libd_sigtimedwait);
-EXPORT(__KSYM(sigtimedwait64),     libc_sigtimedwait64);
-EXPORT(__DSYM(sigtimedwait64),     libd_sigtimedwait64);
-EXPORT(__KSYM(sigqueueinfo),       libc_sigqueueinfo);
-EXPORT(__DSYM(sigqueueinfo),       libd_sigqueueinfo);
-EXPORT(__KSYM(tgsigqueueinfo),     libc_tgsigqueueinfo);
-EXPORT(__DSYM(tgsigqueueinfo),     libd_tgsigqueueinfo);
-EXPORT(__KSYM(sigqueue),           libc_sigqueue);
-EXPORT(__DSYM(sigqueue),           libd_sigqueue);
-EXPORT(__KSYM(psignal),            libc_psignal);
-EXPORT(__DSYM(psignal),            libd_psignal);
-EXPORT(__KSYM(psiginfo),           libc_psiginfo);
-EXPORT(__DSYM(psiginfo),           libd_psiginfo);
-EXPORT(__KSYM(siginterrupt),       libc_siginterrupt);
-EXPORT(__DSYM(siginterrupt),       libd_siginterrupt);
-EXPORT(sigstack,                   libc_sigstack);
-EXPORT(sigaltstack,                libc_sigaltstack);
-EXPORT(__KSYM(sighold),            libc_sighold);
-EXPORT(__DSYM(sighold),            libd_sighold);
-EXPORT(__KSYM(sigrelse),           libc_sigrelse);
-EXPORT(__DSYM(sigrelse),           libd_sigrelse);
-EXPORT(__KSYM(sigignore),          libc_sigignore);
-EXPORT(__DSYM(sigignore),          libd_sigignore);
-EXPORT(__KSYM(sigset),             libc_sigset);
-EXPORT(__DSYM(sigset),             libd_sigset);
-EXPORT(__libc_current_sigrtmin,    libc_current_sigrtmin);
-EXPORT(__libc_current_sigrtmax,    libc_current_sigrtmax);
 
 
 PUBLIC char const *const sys_siglist[_NSIG] = {

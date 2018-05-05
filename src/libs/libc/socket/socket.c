@@ -55,106 +55,11 @@ DEFINE_INTERN_ALIAS(libc_htons,libc_ntohs);
 #endif
 
 
-DEFINE_PUBLIC_ALIAS(socket,libc_socket);
-CRT_NET int LIBCCALL
-libc_socket(int domain, int type, int protocol) {
- return FORWARD_SYSTEM_ERROR(sys_socket(domain,type,protocol));
-}
-
 DEFINE_PUBLIC_ALIAS(socketpair,libc_socketpair);
 CRT_NET int LIBCCALL
 libc_socketpair(int domain, int type, int protocol, int fds[2]) {
  assertf(0,"TODO");
  return -1;
-}
-
-DEFINE_PUBLIC_ALIAS(bind,libc_bind);
-CRT_NET int LIBCCALL
-libc_bind(fd_t fd, struct sockaddr const *addr, socklen_t len) {
- return FORWARD_SYSTEM_ERROR(sys_bind(fd,addr,len));
-}
-
-DEFINE_PUBLIC_ALIAS(getsockname,libc_getsockname);
-CRT_NET int LIBCCALL
-libc_getsockname(fd_t fd, struct sockaddr *addr,
-                 socklen_t *__restrict len) {
- return FORWARD_SYSTEM_ERROR(sys_getsockname(fd,addr,len));
-}
-DEFINE_PUBLIC_ALIAS(connect,libc_connect);
-CRT_NET int LIBCCALL
-libc_connect(fd_t fd, struct sockaddr const *addr, socklen_t len) {
- return FORWARD_SYSTEM_ERROR(sys_connect(fd,addr,len));
-}
-DEFINE_PUBLIC_ALIAS(getpeername,libc_getpeername);
-CRT_NET int LIBCCALL
-libc_getpeername(fd_t fd, struct sockaddr *addr, socklen_t *__restrict len) {
- return FORWARD_SYSTEM_ERROR(sys_getpeername(fd,addr,len));
-}
-
-DEFINE_PUBLIC_ALIAS(send,libc_send);
-CRT_NET ssize_t LIBCCALL
-libc_send(fd_t fd, void const *buf, size_t n, int flags) {
- return FORWARD_SYSTEM_ERROR(sys_send(fd,buf,n,flags));
-}
-
-DEFINE_PUBLIC_ALIAS(recv,libc_recv);
-CRT_NET ssize_t LIBCCALL
-libc_recv(fd_t fd, void *buf, size_t n, int flags) {
- return FORWARD_SYSTEM_ERROR(sys_recv(fd,buf,n,flags));
-}
-
-DEFINE_PUBLIC_ALIAS(sendto,libc_sendto);
-CRT_NET ssize_t LIBCCALL
-libc_sendto(fd_t fd, void const *buf, size_t n, int flags,
-            struct sockaddr const *addr, socklen_t addr_len) {
- return FORWARD_SYSTEM_ERROR(sys_sendto(fd,buf,n,flags,addr,addr_len));
-}
-
-DEFINE_PUBLIC_ALIAS(recvfrom,libc_recvfrom);
-CRT_NET ssize_t LIBCCALL
-libc_recvfrom(fd_t fd, void *__restrict buf, size_t n, int flags,
-              struct sockaddr *addr, socklen_t *__restrict addr_len) {
- return FORWARD_SYSTEM_ERROR(sys_recvfrom(fd,buf,n,flags,addr,addr_len));
-}
-
-DEFINE_PUBLIC_ALIAS(getsockopt,libc_getsockopt);
-CRT_NET int LIBCCALL
-libc_getsockopt(fd_t fd, int level, int optname,
-                void *__restrict optval,
-                socklen_t *__restrict optlen) {
- return FORWARD_SYSTEM_ERROR(sys_getsockopt(fd,level,optname,optval,optlen));
-}
-
-DEFINE_PUBLIC_ALIAS(setsockopt,libc_setsockopt);
-CRT_NET int LIBCCALL
-libc_setsockopt(fd_t fd, int level, int optname,
-                void const *optval, socklen_t optlen) {
- return FORWARD_SYSTEM_ERROR(sys_setsockopt(fd,level,optname,optval,optlen));
-}
-
-DEFINE_PUBLIC_ALIAS(listen,libc_listen);
-CRT_NET int LIBCCALL libc_listen(fd_t fd, int n) {
- return FORWARD_SYSTEM_ERROR(sys_listen(fd,n));
-}
-
-DEFINE_PUBLIC_ALIAS(accept,libc_accept);
-CRT_NET int LIBCCALL
-libc_accept(fd_t fd, struct sockaddr *addr, socklen_t *__restrict addr_len) {
- return FORWARD_SYSTEM_ERROR(sys_accept(fd,addr,addr_len));
-}
-
-DEFINE_PUBLIC_ALIAS(shutdown,libc_shutdown);
-CRT_NET int LIBCCALL
-libc_shutdown(fd_t fd, int how) {
- return FORWARD_SYSTEM_ERROR(sys_shutdown(fd,how));
-}
-
-DEFINE_PUBLIC_ALIAS(accept4,libc_accept4);
-CRT_NET int LIBCCALL
-libc_accept4(fd_t fd, struct sockaddr *addr,
-             socklen_t *__restrict addr_len,
-             int flags) {
- return FORWARD_SYSTEM_ERROR(sys_accept4(fd,addr,addr_len,flags));
 }
 
 DEFINE_PUBLIC_ALIAS(sockatmark,libc_sockatmark);
@@ -169,8 +74,6 @@ libc_isfdtype(fd_t fd, int fdtype) {
  assertf(0,"TODO");
  return -1;
 }
-
-
 
 
 DEFINE_PUBLIC_ALIAS(sendmsg,libc_sendmsg);
