@@ -318,7 +318,7 @@ again:
     max_read = num_bytes-result;
     max_read = MIN(self->r_wptr-new_pointer,max_read);
     memcpy(dst,new_pointer,max_read);
-    dst         += result;
+    dst         += max_read;
     result      += max_read;
     new_pointer += max_read;
    }
@@ -405,6 +405,120 @@ again:
 done:
  return result;
 }
+
+/* Same as `ringbuffer_read()', but don't discard data as it is read. */
+PUBLIC size_t KCALL
+ringbuffer_peek_atomic(struct ringbuffer *__restrict self,
+                       USER CHECKED void *buf, size_t num_bytes) {
+ struct ringbuffer *EXCEPT_VAR xself = self;
+ byte_t *bufend,*old_pointer,*new_pointer,*dst;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ bool has_write_lock = false;
+ atomic_rwlock_read(&self->r_lock);
+ TRY { /* Required for potentially faulty user-buffer pointers. */
+  bufend = self->r_base+self->r_size;
+  dst         = (byte_t *)buf;
+  old_pointer = ATOMIC_READ(self->r_rptr);
+  new_pointer = old_pointer;
+  result      = 0;
+  /* If the peek-pointer is located at the end, but the buffer
+   * isn't empty, wrap around to peek data from low memory. */
+  if (old_pointer == bufend &&
+      self->r_wptr != self->r_base)
+      new_pointer = self->r_base;
+  if (new_pointer < bufend &&
+      new_pointer >= self->r_wptr) {
+   /* Read data before the buffer end. */
+   result = MIN(bufend-new_pointer,num_bytes);
+   memcpy(dst,new_pointer,result);
+   dst         += result;
+   new_pointer += result;
+   if (new_pointer == bufend && self->r_wptr != self->r_base)
+       new_pointer = self->r_base;
+  }
+  if (new_pointer < self->r_wptr) {
+   size_t max_peek;
+   /* Read data below the write-pointer. */
+   assert((size_t)(dst-(byte_t *)buf) == result);
+   assert(num_bytes >= result);
+   max_peek = num_bytes-result;
+   max_peek = MIN(self->r_wptr-new_pointer,max_peek);
+   memcpy(dst,new_pointer,max_peek);
+   result += max_peek;
+  }
+ } FINALLY {
+  if (has_write_lock)
+       atomic_rwlock_endwrite(&xself->r_lock);
+  else atomic_rwlock_endread(&xself->r_lock);
+ }
+ return result;
+}
+
+PUBLIC size_t KCALL
+ringbuffer_peek(struct ringbuffer *__restrict self,
+                USER CHECKED void *buf, size_t num_bytes, iomode_t flags) {
+ size_t result;
+ uintptr_t EXCEPT_VAR old_mask;
+again:
+ result = ringbuffer_peek_atomic(self,buf,num_bytes);
+ if (likely(result || !num_bytes) ||
+    (self->r_limt&RBUFFER_LIMT_FCLOSED) ||
+    (flags & IO_NONBLOCK))
+     goto done;
+ /* Connect to the signal of the buffer to wait for data to become available. */
+ old_mask = task_channelmask(0);
+ TRY {
+  task_connect(&self->r_stat);
+  TRY {
+   /* Try to peek data again now that we're connected. */
+   result = ringbuffer_peek_atomic(self,buf,num_bytes);
+  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+   task_disconnect();
+   error_rethrow();
+  }
+  COMPILER_READ_BARRIER();
+  if (result ||
+     (self->r_limt&RBUFFER_LIMT_FCLOSED)) {
+   task_disconnect();
+   goto done;
+  }
+  /* Wait for data to become available. */
+  task_wait();
+ } FINALLY {
+  task_channelmask(old_mask);
+ }
+ /* Jump back and try to peek that data. */
+ goto again;
+done:
+ return result;
+}
+
+
+PUBLIC size_t KCALL
+ringbuffer_readall(struct ringbuffer *__restrict self,
+                   USER CHECKED void *buf,
+                   size_t num_bytes, iomode_t flags) {
+ size_t result = 0,temp;
+ do temp = ringbuffer_peek(self,
+                          (byte_t *)buf+result,
+                           num_bytes-result,
+                           flags),
+    result += temp;
+ while (temp && result < num_bytes);
+ return result;
+}
+
+PUBLIC size_t KCALL
+ringbuffer_peekall(struct ringbuffer *__restrict self,
+                   USER CHECKED void *buf,
+                   size_t num_bytes, iomode_t flags) {
+ size_t result;
+ do result = ringbuffer_peek(self,buf,num_bytes,flags);
+ while (result && result < num_bytes &&
+        result < (self->r_limt & RBUFFER_LIMT_FMASK));
+ return result;
+}
+
 
 /* Write data to the buffer and return the amount of bytes written.
  * `ringbuffer_write()' will attempt to write at least 1 byte of data and will

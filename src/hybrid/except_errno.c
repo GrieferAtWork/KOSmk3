@@ -58,6 +58,9 @@ libc_exception_errno(struct exception_info *__restrict info) {
     /* Linux really just uses ENOTTY for most combinations. */
    default: result = ENOTTY; break;
    }
+  } else if (info->e_error.e_invalid_handle.h_reason == ERROR_INVALID_HANDLE_FWRONGTYPE) {
+   if (info->e_error.e_invalid_handle.h_rqtype == HANDLE_TYPE_FSOCKET)
+       result = ENOTSOCK;
   }
   break;
  case E_IOERROR:                result = EIO; break;

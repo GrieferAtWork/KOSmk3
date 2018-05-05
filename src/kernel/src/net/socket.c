@@ -19,7 +19,6 @@
 #ifndef GUARD_KERNEL_SRC_NET_SOCKET_C
 #define GUARD_KERNEL_SRC_NET_SOCKET_C 1
 #define _KOS_SOURCE 1
-#define _NOSERVE_SOURCE 1 /* So we can make `socket_shutdown()' be nothrow. */
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
@@ -45,6 +44,10 @@ PRIVATE LIST_HEAD(struct socket_domain) socket_domains = NULL;
 /* Register a new socket domain. */
 PUBLIC void KCALL
 register_socket_domain(struct socket_domain *__restrict domain) {
+ assertf(domain->sd_driver != NULL,
+         "Forgot to initialize `.sd_driver = &this_driver'");
+ assertf(domain->sd_socket != NULL,
+         "Forgot to initialize `.sd_socket = ...'");
  atomic_rwlock_write(&socket_domains_lock);
  /* NOTE: The reference created here is stored
   *       in the socket domain database. */
@@ -182,12 +185,13 @@ KCALL socket_alloc(size_t struct_size,
  assert(struct_size >= sizeof(struct socket));
  /* Allocate the socket data structure. */
  result = (REF struct socket *)kmalloc(struct_size,GFP_SHARED|GFP_CALLOC);
- result->s_refcnt = 1;
- result->s_domain = domain;
- result->s_type   = type;
- result->s_proto  = proto;
+ result->s_refcnt  = 1;
+ result->s_weakcnt = 1;
+ result->s_domain  = domain;
+ result->s_type    = type;
+ result->s_proto   = proto;
 #if SOCKET_STATE_FNORMAL != 0
- result->s_state  = SOCKET_STATE_FNORMAL;
+ result->s_state   = SOCKET_STATE_FNORMAL;
 #endif
  rwlock_cinit(&result->s_lock);
 
@@ -236,20 +240,30 @@ socket_destroy(struct socket *__restrict self) {
       LIST_REMOVE(self,s_domain_chain);
   atomic_rwlock_endwrite(&self->s_domain->sd_sockets.s_lock);
  }
+ socket_weak_decref(self);
+}
+
+PUBLIC ATTR_NOTHROW void KCALL
+socket_weak_destroy(struct socket *__restrict self) {
  kfree(self);
 }
 
 
 
-
 /* Shut down a given socket for reading or writing.
  * @param: how: Set of `SOCKET_STATE_FSHUT*'. */
-PUBLIC ATTR_NOTHROW void KCALL
+PUBLIC void KCALL
 socket_shutdown(struct socket *__restrict self, u16 how) {
- u16 old_state,new_bits;
+ u16 new_bits;
  assert((how & ~(SOCKET_STATE_FSHUTRD|SOCKET_STATE_FSHUTWR)) == 0);
  assert((how & (SOCKET_STATE_FSHUTRD|SOCKET_STATE_FSHUTWR)) != 0);
- old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
+ /* TODO: Implement and use an aggressive-acquire-write function here:
+  *       - Send RPC callbacks to all readers, which in turn will then
+  *         cause an `E_RETRY_RWLOCK' to be thrown in their threads
+  *         in order to get them to release their locks.
+  *       - If we do this, we can use shutdown() to interrupt blocking
+  *         operations such as recv(), send() or accept(), causing them
+  *         to loop around and notice that the socket has been shut down! */
  rwlock_write(&self->s_lock);
  new_bits = ATOMIC_FETCHOR(self->s_state,how);
  /* Figure out which bits become enabled by this shutdown command. */
@@ -257,8 +271,6 @@ socket_shutdown(struct socket *__restrict self, u16 how) {
  if (new_bits && self->s_ops->so_shutdown)
    (*self->s_ops->so_shutdown)(self,new_bits);
  rwlock_endwrite(&self->s_lock);
- if (!(old_state & TASK_STATE_FDONTSERVE))
-       ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
 }
 
 

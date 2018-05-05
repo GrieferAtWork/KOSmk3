@@ -55,6 +55,13 @@ BEGIN MODULE("kernel.ext2fs")
 	SOURCE("ext2fs/*.c")
 END
 
+BEGIN MODULE("kernel.unix-domain")
+	SET_OUTPUT("/bin/unix-domain.mod")
+	SET_DISKFILE("/mod/unix-domain.mod")
+
+	SOURCE("unix-domain/*.c")
+END
+
 #if 1
 BEGIN MODULE("kernel.a.out")
 	SET_OUTPUT("/bin/a.out.mod")

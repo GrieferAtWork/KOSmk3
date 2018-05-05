@@ -442,19 +442,23 @@ struct __ATTR_PACKED exception_data_filesystem_error {
 #endif /* __CC__ */
 
 
-#define ERROR_NET_NOERROR              0x0000 /* No error. */
-#define ERROR_NET_UNSUPPORTED_DOMAIN   0x0001 /* [ERRNO(EAFNOSUPPORT)]    The specified socket domain (address family) is not supported (missing driver?) */
-#define ERROR_NET_UNSUPPORTED_TYPE     0x0002 /* [ERRNO(EINVAL)]          The specified socket type is not supported by the socket domain. */
-#define ERROR_NET_UNSUPPORTED_PROTOCOL 0x0003 /* [ERRNO(EPROTONOSUPPORT)] The specified socket protocol is not supported by the socket domain. */
-#define ERROR_NET_SHUTDOWN             0x0004 /* [ERRNO(ESHUTDOWN)]       The socket has been `shutdown(2)' */
-#define ERROR_NET_CANNOT_RECONNECT     0x0005 /* [ERRNO(EALREADY)]        A connection-oriented socket cannot be reconnected. */
-#define ERROR_NET_CANNOT_REBIND        0x0006 /* [ERRNO(EALREADY)]        A connection-oriented socket cannot be rebound. */
-#define ERROR_NET_NOT_BOUND            0x0007 /* [ERRNO(EOPNOTSUPP)]      Cannot `getsockname(2)', `listen(2)', `accept(2)', `sendto(2)', `read(2)', `recv(2)' or `recvfrom(2)' using an unbound socket. */
-#define ERROR_NET_NOT_CONNECTED        0x0008 /* [ERRNO(ENOTCONN)]        Cannot `getpeername(2)', `write(2)' or `send(2)' using an unconnected socket. */
-#define ERROR_NET_NOT_LISTENING        0x0009 /* [ERRNO(EINVAL)]          Cannot `accept(2)' using a socket that isn't listening. */
-#define ERROR_NET_ALREADY_LISTENING    0x000a /* [ERRNO(EALREADY)]        The socket has already started listening. */
-#define ERROR_NET_CANNOT_LISTEN        0x000b /* [ERRNO(EOPNOTSUPP)]      The socket doesn't implement the `listen(2)' function. */
-#define ERROR_NET_CANNOT_ACCEPT        0x000c /* [ERRNO(EOPNOTSUPP)]      The socket doesn't implement the `accept(2)' function. */
+#define ERROR_NET_NOERROR                0x0000 /* No error. */
+#define ERROR_NET_UNSUPPORTED_DOMAIN     0x0001 /* [ERRNO(EAFNOSUPPORT)]    The specified socket domain (address family) is not supported (missing driver?) */
+#define ERROR_NET_UNSUPPORTED_TYPE       0x0002 /* [ERRNO(EINVAL)]          The specified socket type is not supported by the socket domain. */
+#define ERROR_NET_UNSUPPORTED_PROTOCOL   0x0003 /* [ERRNO(EPROTONOSUPPORT)] The specified socket protocol is not supported by the socket domain. */
+#define ERROR_NET_SHUTDOWN               0x0004 /* [ERRNO(ESHUTDOWN)]       The socket has been `shutdown(2)' */
+#define ERROR_NET_CANNOT_RECONNECT       0x0005 /* [ERRNO(EALREADY)]        A connection-oriented socket cannot be reconnected. */
+#define ERROR_NET_CANNOT_REBIND          0x0006 /* [ERRNO(EALREADY)]        A connection-oriented socket cannot be rebound. */
+#define ERROR_NET_NOT_BOUND              0x0007 /* [ERRNO(EOPNOTSUPP)]      Cannot `getsockname(2)', `listen(2)', `accept(2)', `sendto(2)', `read(2)', `recv(2)' or `recvfrom(2)' using an unbound socket. */
+#define ERROR_NET_NOT_CONNECTED          0x0008 /* [ERRNO(ENOTCONN)]        Cannot `getpeername(2)', `write(2)' or `send(2)' using an unconnected socket. */
+#define ERROR_NET_NOT_LISTENING          0x0009 /* [ERRNO(EINVAL)]          Cannot `accept(2)' using a socket that isn't listening. */
+#define ERROR_NET_ALREADY_LISTENING      0x000a /* [ERRNO(EALREADY)]        The socket has already started listening. */
+#define ERROR_NET_CANNOT_LISTEN          0x000b /* [ERRNO(EOPNOTSUPP)]      The socket doesn't implement the `listen(2)' function. */
+#define ERROR_NET_CANNOT_ACCEPT          0x000c /* [ERRNO(EOPNOTSUPP)]      The socket doesn't implement the `accept(2)' function. */
+#define ERROR_NET_INVALID_SOCKET_ADDRESS 0x000d /* [ERRNO(EINVAL)]          The socket address passed to `connect()', `bind()', or `sendto()' is malformed (usually thrown if the it's too small). */
+#define ERROR_NET_INVALID_ADDRESS_FAMILY 0x000e /* [ERRNO(EAFNOSUPPORT)]    The address family specified in a call to `connect()', `bind()', or `sendto()' isn't implemented by the socket. */
+#define ERROR_NET_CONNECTION_REFUSED     0x000f /* [ERRNO(ECONNREFUSED)]    Failed to connect to an address with no one listen(2)-ing on the other end. */
+#define ERROR_NET_ADDRESS_IN_USE         0x0010 /* [ERRNO(EADDRINUSE)]      Local address is already in use (mainly by `bind()'). */
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_net_error {
     __UINT16_TYPE__      n_errcode;   /* Network operation error code (One of `ERROR_NET_*').

@@ -321,13 +321,17 @@ FUNDEF void KCALL register_socket_domain(struct socket_domain *__restrict domain
 
 struct socket {
     ATOMIC_DATA ref_t        s_refcnt;  /* Socket reference counter. */
+    ATOMIC_DATA ref_t        s_weakcnt; /* Socket weak reference counter. */
     struct socket_ops       *s_ops;     /* [1..1][const][valid_if(!SOCKET_STATE_FDESTROYED)] Socket operators. */
     struct socket_domain    *s_domain;  /* [1..1][const][valid_if(!SOCKET_STATE_FDESTROYED)] Socket domain controller. */
     LIST_NODE(struct socket) s_domain_chain; /* [valid_if(!SOCKET_STATE_FDESTROYED)][lock(s_domain->s_sockets.s_lock)] Chain of sockets created by this domain. */
     u16                      s_type;    /* [const] Socket type (One of `SOCK_*' from <bits/socket_type.h>) */
     u16                      s_proto;   /* [const] Socket protocol (One of `PF_*' from <bits/socket.h>) */
 #define SOCKET_STATE_FNORMAL     0x0000 /* Normal socket state */
-#define SOCKET_STATE_FCONNECTED  0x0001 /* [lock(WRITE_ONCE)] The socket has been connected (`connect(2)'). */
+#define SOCKET_STATE_FCONNECTED  0x0001 /* [lock(WRITE_ONCE)] The socket has been connected (`connect(2)').
+                                         * NOTE: The `WRITE_ONCE' tag does not apply to connection-less sockets,
+                                         *       however since connections-less sockets shouldn't even be using
+                                         *       this field, that detail shouldn't really matter, either. */
 #define SOCKET_STATE_FBOUND      0x0002 /* [lock(WRITE_ONCE)] The socket has been bound (`bind(2)').
                                          * NOTE: Code is allowed to assume that this flag
                                          *       implies `SOCKET_STATE_FCONNECTED == 0' */
@@ -362,6 +366,7 @@ KCALL socket_create(u16 domain, u16 type, u16 proto);
 /* Allocate a new socket structure of `struct_size' bytes.
  * The following fields will have already been initialized:
  *   - s_refcnt       (Initialized to ONE(1))
+ *   - s_weakcnt      (Initialized to ONE(1))
  *   - s_ops          (Initialized to the provided `ops')
  *   - s_domain       (Initialized to the provided `domain')
  *   - s_domain_chain (Initialized to as part of the domain's socket instance chain)
@@ -387,9 +392,14 @@ FUNDEF void KCALL socket_free(struct socket *__restrict sock);
 
 
 /* Increment/decrement the reference counter of the given socket `x' */
+#define socket_tryincref(self) ATOMIC_INCIFNONZERO((self)->s_refcnt)
 #define socket_incref(self)    ATOMIC_FETCHINC((self)->s_refcnt)
 #define socket_decref(self)   (ATOMIC_DECFETCH((self)->s_refcnt) || (socket_destroy(self),0))
 FUNDEF ATTR_NOTHROW void KCALL socket_destroy(struct socket *__restrict self);
+
+#define socket_weak_incref(self)    ATOMIC_FETCHINC((self)->s_weakcnt)
+#define socket_weak_decref(self)   (ATOMIC_DECFETCH((self)->s_weakcnt) || (socket_weak_destroy(self),0))
+FUNDEF ATTR_NOTHROW void KCALL socket_weak_destroy(struct socket *__restrict self);
 
 
 
@@ -398,7 +408,7 @@ FUNDEF ATTR_NOTHROW void KCALL socket_destroy(struct socket *__restrict self);
 
 /* Shut down a given socket for reading or writing.
  * @param: how: Set of `SOCKET_STATE_FSHUT*'. */
-FUNDEF ATTR_NOTHROW void KCALL socket_shutdown(struct socket *__restrict self, u16 how);
+FUNDEF void KCALL socket_shutdown(struct socket *__restrict self, u16 how);
 
 /* Connect the socket to the specified socket address `addr'.
  * Upon success, the caller will automatically set the `SOCKET_STATE_FCONNECTED' flag.

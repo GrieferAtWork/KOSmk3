@@ -184,7 +184,8 @@ path_print(struct path *__restrict self, pformatprinter printer,
 /* Using `path_print()', fill in the given user-space buffer before
  * appending a NUL-character and returning the number of required
  * characters (excluding the NUL-character).
- * @param: type: One of `REALPATH_F*', optionally or'd with `REALPATH_FDOSPATH' */
+ * @param: type: One of `REALPATH_F*', optionally or'd with `REALPATH_FDOSPATH'
+ * @return: * : The requied buffer size, excluding a terminating NUL-character. */
 FUNDEF size_t KCALL
 path_getname(struct path *__restrict self,
              USER CHECKED char *buf,

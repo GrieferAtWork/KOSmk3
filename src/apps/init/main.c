@@ -267,13 +267,14 @@ int main(int argc, char *argv[]) {
  }
 #endif
 
+ kernctl(KERNEL_CONTROL_INSMOD,"/mod/pe.mod",NULL);
+ kernctl(KERNEL_CONTROL_INSMOD,"/mod/unix-domain.mod",NULL);
+
  /* Just for testing: Load a kernel driver. */
  if (kernctl(KERNEL_CONTROL_INSMOD,"/mod/procfs.mod",NULL) >= 0) {
   mkdir("/proc",0755);
   mount("procfs","/proc","procfs",0,NULL);
  }
-
- kernctl(KERNEL_CONTROL_INSMOD,"/mod/pe.mod",NULL);
 
  if (kernctl(KERNEL_CONTROL_INSMOD,"/mod/ext2fs.mod",NULL) >= 0) {
   mount("/dev/hdc1","/mount",NULL,0,NULL);

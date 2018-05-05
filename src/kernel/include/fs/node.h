@@ -585,8 +585,16 @@ struct regular_node {
     struct inode                re_node;   /* Underlying node. */
     struct PACKED {
         atomic_rwlock_t         m_lock;    /* Lock for `m_module' */
-        WEAK struct module     *m_module;  /* [lock(m_lock)][0..1] A weak pointer to an application module addressible through this INode. */
+        WEAK struct module     *m_module;  /* [lock(m_lock)][0..1] A weak pointer to an application module addressable through this INode. */
     }                           re_module; /* Module cache information. */
+    struct PACKED {
+        atomic_rwlock_t         u_lock;    /* Lock for `m_module' */
+        WEAK struct unix_socket*u_server;  /* [lock(u_lock)][0..1]
+                                            * A weak pointer to a unix domain socket bound to this file.
+                                            * This field is only used by the `unix-domain' driver and is NULL for unbound files.
+                                            * In actuality, this socket is a `UnixSocket', as defined
+                                            * in `/src/kernel/modules/unix-domain/unix_socket.h' */
+    }                           re_unix;   /* Unix domain socket binding. */
 };
 
 

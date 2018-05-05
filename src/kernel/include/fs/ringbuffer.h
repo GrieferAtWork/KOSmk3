@@ -120,6 +120,22 @@ FUNDEF ATTR_NOTHROW size_t KCALL ringbuffer_discard(struct ringbuffer *__restric
 FUNDEF size_t KCALL ringbuffer_read(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes, iomode_t flags);
 FUNDEF size_t KCALL ringbuffer_read_atomic(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes);
 
+/* Read data and fill the given buffer entirely while keeping
+ * on waiting for data that only arrives in chunks at a time.
+ * If the ring buffer is closed while is is happened, only
+ * return what has been read thus far.
+ * WARNING: If the calling thread is interrupted, any data already read will be lost! */
+FUNDEF size_t KCALL ringbuffer_readall(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes, iomode_t flags);
+
+/* Same as `ringbuffer_read()', but don't discard data as it is read. */
+FUNDEF size_t KCALL ringbuffer_peek(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes, iomode_t flags);
+FUNDEF size_t KCALL ringbuffer_peek_atomic(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes);
+/* Similar to `ringbuffer_peek()', but peek on trying until the ensure user-buffer
+ * has been read into, or until the amount read equals the max amount of data that
+ * can be stored in the buffer at once, or until no data was peek, as indicative
+ * of the IO_NONBLOCK flag, or the fact that the ring buffer was closed. */
+FUNDEF size_t KCALL ringbuffer_peekall(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes, iomode_t flags);
+
 /* Write data to the buffer and return the amount of bytes written.
  * `ringbuffer_write()' will attempt to write at least 1 byte of data and will
  * block until space becomes available if the buffer was full when the
