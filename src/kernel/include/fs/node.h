@@ -979,6 +979,14 @@ directory_getcasenode(struct directory_node *__restrict self,
  * @throw: E_FILESYSTEM_ERROR.ERROR_FS_FILE_ALREADY_EXISTS:  [...] (Only when `open_mode & O_EXCL' is set)
  * @throw: E_FILESYSTEM_ERROR.ERROR_FS_DISK_FULL:            [...] */
 FUNDEF ATTR_RETNONNULL REF struct inode *KCALL
+directory_creatfile_locked(struct directory_node *__restrict self,
+                           CHECKED USER char const *__restrict name,
+                           u16 namelen, oflag_t open_mode,
+                           uid_t owner, gid_t group, mode_t mode,
+                           REF struct directory_entry **pentry);
+/* Same as `directory_creatfile_locked()', but the caller
+ * isn't required to be holding a read-lock on `self'. */
+FUNDEF ATTR_RETNONNULL REF struct inode *KCALL
 directory_creatfile(struct directory_node *__restrict self,
                     CHECKED USER char const *__restrict name,
                     u16 namelen, oflag_t open_mode,

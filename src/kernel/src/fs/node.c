@@ -1157,22 +1157,90 @@ directory_addentry(struct directory_node *__restrict self,
 
 
 
+PUBLIC ATTR_RETNONNULL REF struct inode *KCALL
+directory_creatfile(struct directory_node *__restrict self_,
+                    CHECKED USER char const *__restrict name_,
+                    u16 namelen_, oflag_t open_mode_,
+                    uid_t owner_, gid_t group_, mode_t mode_,
+                    REF struct directory_entry **pentry_) {
+ REF struct inode *COMPILER_IGNORE_UNINITIALIZED(result);
+ struct directory_node *EXCEPT_VAR self = self_;
+ CHECKED USER char const *EXCEPT_VAR name = name_;
+ u16 EXCEPT_VAR namelen = namelen_;
+ oflag_t EXCEPT_VAR open_mode = open_mode_;
+ uid_t EXCEPT_VAR owner = owner_;
+ gid_t EXCEPT_VAR group = group_;
+ mode_t EXCEPT_VAR mode = mode_;
+ REF struct directory_entry **EXCEPT_VAR pentry = pentry_;
+again:
+ /* Acquire a read-lock and do the creatfile() call in locked mode. */
+ rwlock_read(&self->d_node.i_lock);
+ TRY {
+  result = directory_creatfile_locked(self,
+                                      name,
+                                      namelen,
+                                      open_mode,
+                                      owner,
+                                      group,
+                                      mode,
+                                      pentry);
+ } FINALLY {
+  if (rwlock_endread(&self->d_node.i_lock))
+      goto again;
+ }
+ return result;
+}
+
+
 PUBLIC WUNUSED ATTR_RETNONNULL REF struct inode *KCALL
-directory_creatfile(struct directory_node *__restrict self,
-                    CHECKED USER char const *__restrict name,
-                    u16 namelen, oflag_t open_mode,
-                    uid_t owner, gid_t group, mode_t mode,
-                    REF struct directory_entry **pentry) {
+directory_creatfile_locked(struct directory_node *__restrict self,
+                           CHECKED USER char const *__restrict name,
+                           u16 namelen, oflag_t open_mode,
+                           uid_t owner, gid_t group, mode_t mode,
+                           REF struct directory_entry **pentry) {
  struct directory_node *EXCEPT_VAR xself = self;
  REF struct directory_entry **EXCEPT_VAR xpentry = pentry;
  REF struct regular_node *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
+ struct directory_entry *EXCEPT_VAR existing_dirent;
  REF struct directory_entry *EXCEPT_VAR result_dirent;
  assert(rwlock_reading(&self->d_node.i_lock));
  if unlikely(!namelen)
     throw_fs_error(ERROR_FS_ILLEGAL_PATH);
  if unlikely(INODE_ISCLOSED(&self->d_node))
     throw_fs_error(ERROR_FS_PATH_NOT_FOUND);
- inode_access(&self->d_node,W_OK);
+#if 1 /* Optional optimization. */
+ if (!(open_mode & O_EXCL)) {
+  uintptr_t name_hash;
+  inode_access(&self->d_node,X_OK|R_OK);
+  /* Due to the fact that this function is used whenever `O_CREAT'
+   * is passed to open(), as well as the fact that the file may very
+   * well already exist, do a small optimization here to check if
+   * the file already exists, _without_ having to allocate a new
+   * directory that just gets discarded again later.
+   * Note however that this optimization doesn't mean that we can
+   * omit the already-exists check below, since evil user-space
+   * may have modified the file name to-be created in the mean time! */
+  name_hash = directory_entry_hash(name,namelen);
+  if (open_mode & O_DOSPATH) {
+   existing_dirent = directory_getcaseentry(self,
+                                            name,
+                                            namelen,
+                                            name_hash);
+  } else {
+   existing_dirent = directory_getentry(self,
+                                        name,
+                                        namelen,
+                                        name_hash);
+  }
+  /* Yes! the file does in fact already exist! */
+  if (existing_dirent)
+      goto load_and_return_existing_dirent;
+  inode_access(&self->d_node,W_OK);
+ } else
+#endif
+ {
+  inode_access(&self->d_node,X_OK|W_OK|R_OK);
+ }
  result_dirent = (REF struct directory_entry *)kmalloc(offsetof(struct directory_entry,de_name)+
                                                      ((size_t)namelen+1)*sizeof(char),
                                                        GFP_SHARED);
@@ -1194,27 +1262,41 @@ directory_creatfile(struct directory_node *__restrict self,
                                                 namelen);
   /* Search for an existing entry one last time. */
   if (open_mode & O_DOSPATH) {
-   result = (REF struct regular_node *)directory_getcasenode(self,
-                                                             result_dirent->de_name,
-                                                             namelen,
-                                                             result_dirent->de_hash);
+   existing_dirent = directory_getcaseentry(self,
+                                            result_dirent->de_name,
+                                            namelen,
+                                            result_dirent->de_hash);
   } else {
-   result = (REF struct regular_node *)directory_getnode(self,
-                                                         result_dirent->de_name,
-                                                         namelen,
-                                                         result_dirent->de_hash);
+   existing_dirent = directory_getentry(self,
+                                        result_dirent->de_name,
+                                        namelen,
+                                        result_dirent->de_hash);
   }
  } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
   kfree(result_dirent);
   error_rethrow();
  }
- if unlikely(result) {
+ if unlikely(existing_dirent) {
   /* The thing already exists! */
   kfree(result_dirent);
-  if (!(open_mode & O_EXCL))
-        return (REF struct inode *)result;
-  inode_decref((struct inode *)result);
-  throw_fs_error(ERROR_FS_FILE_ALREADY_EXISTS);
+  if (open_mode & O_EXCL)
+      throw_fs_error(ERROR_FS_FILE_ALREADY_EXISTS);
+load_and_return_existing_dirent:
+  if unlikely(existing_dirent->de_type == DT_WHT) {
+   /* Virtual link. */
+   result = (REF struct regular_node *)existing_dirent->de_virtual;
+   inode_incref((struct inode *)result);
+  } else {
+   result = (REF struct regular_node *)superblock_opennode(self->d_node.i_super,
+                                                           self,
+                                                           existing_dirent);
+  }
+  if (pentry) {
+   /* Also return the existing directory entry. */
+   *pentry = existing_dirent;
+   directory_entry_incref(existing_dirent);
+  }
+  return (REF struct inode *)result;
  }
  /* All right. Now we've got our own, safe copy of the filename,
   *            and we've verified that the entry doesn't already

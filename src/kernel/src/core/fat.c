@@ -1501,8 +1501,9 @@ Fat_AddFileToDirectory(struct directory_node *__restrict target_directory,
                          &dos83,file_index*sizeof(FatFile),
                          num_files,new_node);
  } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
-  /* TODO: `FatDirectory_AddFreeRange()' might override the active exception */
+  error_pushinfo();
   FatDirectory_AddFreeRange(xtarget_directory,file_index,num_files);
+  error_popinfo();
   error_rethrow();
  }
 }

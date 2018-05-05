@@ -498,9 +498,15 @@ file_creat(struct directory_node *__restrict path_node,
  REF struct path *EXCEPT_VAR result_path;
  REF struct handle result;
  /* Create the node for the new file. */
+#ifndef NDEBUG
+ entry = NULL;
+#endif
  node = directory_creatfile(path_node,name,namelen,flags,
                             owner,group,mode,
                            (struct directory_entry **)&entry);
+#ifndef NDEBUG
+ assert(entry != NULL);
+#endif
  TRY {
   /* Construct a path node for the new file. */
   result_path = path_newchild(path_desc,path_node,node,entry);
