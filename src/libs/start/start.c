@@ -58,12 +58,6 @@ INTERN ATTR_SECTION(".text.free") void (_start)(void) {
 }
 #endif
 
-INTERN uintptr_t __stack_chk_guard = 0x1246Ab1f;
-INTERN ATTR_NORETURN void __stack_chk_fail(void) {
- assertf(0,"__stack_chk_fail");
-}
-
-
 DECL_END
 
 #endif /* !GUARD_LIBS_START_START_C */

@@ -16,60 +16,25 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef GUARD_LIBS_LIBWM_INIT_C
-#define GUARD_LIBS_LIBWM_INIT_C 1
-#define _EXCEPT_SOURCE 1
+#ifndef GUARD_APPS_WMS_RENDER_H
+#define GUARD_APPS_WMS_RENDER_H 1
 
 #include <hybrid/compiler.h>
-#include <hybrid/atomic.h>
+#include <kos/types.h>
 #include <wm/api.h>
-#include <sys/socket.h>
 
-#include <string.h>
-#include <unistd.h>
-#include <sys/un.h>
-
-#include "libwm.h"
+#include "rect.h"
 
 DECL_BEGIN
 
-__asm__(
-".pushsection .data\n\t"
-".global __stack_chk_fail_local\n\t"
-".hidden __stack_chk_fail_local\n\t"
-"__stack_chk_fail_local:\n\t"
-"	jmp  __stack_chk_guard\n\t"
-".size __stack_chk_fail_local, . - __stack_chk_fail_local\n\t"
-".popsection"
-);
-
-
-DEFINE_PUBLIC_ALIAS(wm_init,libwm_init);
-INTERN void WMCALL libwm_init(void) {
- struct sockaddr_un addr;
- /* Create a new unix domain socket. */
- libwms_socket = Xsocket(AF_UNIX,SOCK_STREAM,AF_UNIX);
- TRY {
-  addr.sun_family = AF_UNIX;
-  strcpy(addr.sun_path,"/dev/wms");
-
-  /* Connect to the window server running under `/dev/wms' */
-  Xconnect(libwms_socket,(struct sockaddr *)&addr,sizeof(addr));
- } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  close(libwms_socket);
-  libwms_socket = -1;
-  error_rethrow();
- }
-}
-
-DEFINE_PUBLIC_ALIAS(wm_fini,libwm_fini);
-INTERN ATTR_NOTHROW void WMCALL libwm_fini(void) {
- close(libwms_socket);
- libwms_socket = -1;
-}
-
-
+INTDEF void KCALL
+Copy_Rect(byte_t *__restrict dst_buffer,
+          unsigned int dst_x, unsigned int dst_y, unsigned int dst_stride,
+          byte_t const *__restrict src_buffer,
+          unsigned int src_x, unsigned int src_y, unsigned int src_stride,
+          unsigned int size_x, unsigned int size_y,
+          unsigned int bpp);
 
 DECL_END
 
-#endif /* !GUARD_LIBS_LIBWM_INIT_C */
+#endif /* !GUARD_APPS_WMS_RENDER_H */

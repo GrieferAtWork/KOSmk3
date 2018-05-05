@@ -110,6 +110,10 @@ struct wm_window {
 #define wm_window_lock(self)    wm_surface_lock(&(self)->w_surface)
 #define wm_window_unlock(self)  wm_surface_unlock(&(self)->w_surface)
 
+/* Returns a pointer to the surface of the given
+ * window (Which is just the window pointer itself again) */
+#define wm_window_surface(self)  (&(self)->w_surface)
+
 /* Increment/decrement the reference counter of a WM window.
  * NOTE: When the last reference of a window that hasn't been
  *       closed is dropped, the window will be set as hidden,
@@ -120,9 +124,8 @@ struct wm_window {
  *       If this isn't intended, you may consider to always
  *       explicitly hide the window first, or configure its
  *       features accordingly and call `wm_window_close()'. */
-#define wm_window_incref(self)  wm_surface_incref(&(self)->w_surface)
-#define wm_window_decref(self)  wm_surface_decref(&(self)->w_surface)
-
+#define wm_window_incref(self)  wm_surface_incref(wm_window_surface(self))
+#define wm_window_decref(self)  wm_surface_decref(wm_window_surface(self))
 
 /* Special value which, when passing for `pos_x' _and_ `pos_y' in
  * a call to `wm_window_create()' will allow the implementation to

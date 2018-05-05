@@ -754,6 +754,21 @@ done:
  return result;
 }
 
+PUBLIC size_t KCALL
+ringbuffer_writeall(struct ringbuffer *__restrict self,
+                    USER CHECKED void const *buf,
+                    size_t num_bytes, iomode_t flags) {
+ size_t result = 0,part;
+ do part = ringbuffer_write(self,
+                           (byte_t *)buf + result,
+                            num_bytes    - result,
+                            flags),
+    result += part;
+ while (part && result < num_bytes);
+ return result;
+}
+
+
 PUBLIC unsigned int KCALL
 ringbuffer_poll(struct ringbuffer *__restrict self, unsigned int mode) {
  unsigned int result = 0;

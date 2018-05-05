@@ -19,10 +19,24 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\apps\wm\main.c" />
+    <ClCompile Include="..\..\src\apps\wms\display.c" />
+    <ClCompile Include="..\..\src\apps\wms\main.c" />
+    <ClCompile Include="..\..\src\apps\wms\rect.c" />
+    <ClCompile Include="..\..\src\apps\wms\render.c" />
+    <ClCompile Include="..\..\src\apps\wms\server.c" />
+    <ClCompile Include="..\..\src\apps\wms\window.c" />
+    <ClCompile Include="..\..\src\apps\wms\windowmap.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\src\apps\wms\bind.h" />
+    <ClInclude Include="..\..\src\apps\wms\display.h" />
+    <ClInclude Include="..\..\src\apps\wms\rect.h" />
+    <ClInclude Include="..\..\src\apps\wms\render.h" />
+    <ClInclude Include="..\..\src\apps\wms\server.h" />
+    <ClInclude Include="..\..\src\apps\wms\window.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{6C551BF0-4DD9-46E7-9639-F41AD982C4F0}</ProjectGuid>
+    <ProjectGuid>{D580C98F-EC6D-4024-B9FA-7B977B231EF9}</ProjectGuid>
     <RootNamespace>init</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

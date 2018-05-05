@@ -34,6 +34,12 @@ struct sockaddr_un {
 };
 #endif /* !__sockaddr_un_defined */
 
+#ifdef __USE_KOS
+#define DEFINE_SOCKADDR_UN(name,path) \
+ struct { __SOCKADDR_COMMON(sun_); char sun_path[sizeof(path)]; } \
+ name = { AF_UNIX, path }
+#endif
+
 #ifdef __USE_MISC
 #ifndef __std_strlen_defined
 #define __std_strlen_defined 1

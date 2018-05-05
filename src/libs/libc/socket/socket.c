@@ -54,7 +54,6 @@ DEFINE_INTERN_ALIAS(libc_htons,libc_ntohs);
 #error FIXME
 #endif
 
-
 DEFINE_PUBLIC_ALIAS(socketpair,libc_socketpair);
 CRT_NET int LIBCCALL
 libc_socketpair(int domain, int type, int protocol, int fds[2]) {
@@ -105,6 +104,50 @@ libc_recvmmsg(fd_t fd, struct mmsghdr *vmessages,
               struct timespec *tmo) {
  assertf(0,"TODO");
  return -1;
+}
+
+
+DEFINE_PUBLIC_ALIAS(Xsocketpair,libc_Xsocketpair);
+CRT_NET void LIBCCALL
+libc_Xsocketpair(int domain, int type, int protocol, int fds[2]) {
+ assertf(0,"TODO");
+}
+
+DEFINE_PUBLIC_ALIAS(Xsockatmark,libc_Xsockatmark);
+CRT_NET int LIBCCALL libc_Xsockatmark(fd_t fd) {
+ assertf(0,"TODO");
+ return 0;
+}
+
+DEFINE_PUBLIC_ALIAS(Xsendmsg,libc_Xsendmsg);
+CRT_NET size_t LIBCCALL
+libc_Xsendmsg(fd_t fd, struct msghdr const *message, int flags) {
+ assertf(0,"TODO");
+ return 0;
+}
+
+DEFINE_PUBLIC_ALIAS(Xrecvmsg,libc_Xrecvmsg);
+CRT_NET ssize_t LIBCCALL
+libc_Xrecvmsg(fd_t fd, struct msghdr *message, int flags) {
+ assertf(0,"TODO");
+ return 0;
+}
+
+DEFINE_PUBLIC_ALIAS(Xsendmmsg,libc_Xsendmmsg);
+CRT_NET unsigned int LIBCCALL
+libc_Xsendmmsg(fd_t fd, struct mmsghdr *vmessages,
+               unsigned int vlen, int flags) {
+ assertf(0,"TODO");
+ return 0;
+}
+
+DEFINE_PUBLIC_ALIAS(Xrecvmmsg,libc_Xrecvmmsg);
+CRT_NET unsigned int LIBCCALL
+libc_Xrecvmmsg(fd_t fd, struct mmsghdr *vmessages,
+               unsigned int vlen, int flags,
+               struct timespec *tmo) {
+ assertf(0,"TODO");
+ return 0;
 }
 
 DECL_END

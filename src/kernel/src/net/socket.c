@@ -188,6 +188,7 @@ KCALL socket_alloc(size_t struct_size,
  result->s_refcnt  = 1;
  result->s_weakcnt = 1;
  result->s_domain  = domain;
+ result->s_ops     = ops;
  result->s_type    = type;
  result->s_proto   = proto;
 #if SOCKET_STATE_FNORMAL != 0
@@ -214,7 +215,7 @@ KCALL socket_alloc(size_t struct_size,
  * undo everything done by `sock_alloc()' and free the socket structure. */
 PUBLIC void KCALL
 socket_free(struct socket *__restrict self) {
- while (rwlock_trywrite(&self->s_lock));
+ while (!rwlock_trywrite(&self->s_lock));
  if (!(ATOMIC_FETCHOR(self->s_state,SOCKET_STATE_FDESTROYED) &
                                     SOCKET_STATE_FDESTROYED)) {
   /* Literally the same as `socket_destroy()', but don't invoke `so_fini' */
@@ -230,7 +231,7 @@ socket_free(struct socket *__restrict self) {
 PUBLIC ATTR_NOTHROW void KCALL
 socket_destroy(struct socket *__restrict self) {
  assert(self->s_refcnt == 0);
- while (rwlock_trywrite(&self->s_lock));
+ while (!rwlock_trywrite(&self->s_lock));
  if (!(ATOMIC_FETCHOR(self->s_state,SOCKET_STATE_FDESTROYED) &
                                     SOCKET_STATE_FDESTROYED)) {
   if (self->s_ops->so_fini)

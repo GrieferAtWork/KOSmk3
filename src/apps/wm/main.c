@@ -22,105 +22,41 @@
 #define _EXCEPT_SOURCE 1
 
 #include <hybrid/compiler.h>
-#include <unistd.h>
-#include <sys/mman.h>
-#include <kos/types.h>
-#include <kos/kernctl.h>
-#include <kos/keyboard.h>
-#include <kos/keyboard-ioctl.h>
-#include <fcntl.h>
-#include <malloc.h>
-#include <string.h>
+#include <wm/api.h>
+#include <wm/window.h>
+#include <stddef.h>
 #include <stdlib.h>
-#include <syslog.h>
-
-#include "window.h"
+#include <unistd.h>
 
 DECL_BEGIN
 
-INTERN int fd_mouse;
-INTERN int fd_keyboard;
-
-INTERN struct display default_display = {
-    .d_sizex  = 320,
-    .d_sizey  = 200,
-    .d_stride = 320,
-    .d_bpp    = 8
-};
-
-PRIVATE void *KCALL map_vga(void) {
- struct mmap_info info;
- info.mi_prot         = PROT_READ|PROT_WRITE;
- info.mi_flags        = MAP_PRIVATE;
- info.mi_xflag        = XMAP_PHYSICAL;
- info.mi_addr         = NULL;
- info.mi_size         = 8192*4*4; /* 128K */
- info.mi_align        = PAGESIZE;
- info.mi_gap          = 0;
- info.mi_tag          = NULL;
- info.mi_phys.mp_addr = (void *)0xA0000;
- return Xxmmap(&info);
-}
-
-
-
 int main(int argc, char *argv[]) {
- struct window *win1,*win2;
- /* Temporary, hidden command to enable video mode
-  * until I get around to implement a new VGA driver. */
-#define KERNEL_CONTROL_ENABLE_VGA 0x86000123
- Xkernctl(KERNEL_CONTROL_ENABLE_VGA);
+ struct wm_window *win;
+ struct wm_surface *sfc;
+ wm_init();
 
- default_display.d_screen   = (byte_t *)map_vga();
- default_display.d_backgrnd = (byte_t *)Xmalloc(320*200*1);
- memset(default_display.d_backgrnd,1,320*200*1);
- default_display.d_backvisi.r_strips = RECT_STRIP_ALLOC(1);
- default_display.d_backvisi.r_strips->rs_chain.le_next   = NULL;
- default_display.d_backvisi.r_strips->rs_blkc            = 1;
- default_display.d_backvisi.r_strips->rs_xmin            = 0;
- default_display.d_backvisi.r_strips->rs_xsiz            = 320;
- default_display.d_backvisi.r_strips->rs_blkv[0].rb_ymin = 0;
- default_display.d_backvisi.r_strips->rs_blkv[0].rb_ysiz = 200;
+ win = wm_window_create(WM_WINDOW_AUTOPOS,
+                        WM_WINDOW_AUTOPOS,
+                        200,
+                        160,
+                        "My Window",
+                        WM_WINDOW_FEAT_FNORMAL,
+                        WM_WINDOW_STATE_FNORMAL,
+                        WM_WINDOW_MODE_FNORMAL,
+                        NULL,
+                        NULL);
 
- /* Open the default mouse and keyboard for reading. */
- fd_mouse    = Xopen("/dev/mouse",O_RDONLY);
- fd_keyboard = Xopen("/dev/keyboard",O_RDONLY);
-
- /* Create a new window. */
- win1 = window_create(&default_display,
-                      10,default_display.d_sizex-20,
-                      10,default_display.d_sizey-20,
-                      WINDOW_FNORMAL);
- win2 = window_create(&default_display,
-                      63,default_display.d_sizex-20,
-                      28,default_display.d_sizey-20,
-                      WINDOW_FNORMAL);
- display_redraw(&default_display);
-
- for (;;) {
-#if 1
-  struct rect r;
-  r.r_xsiz = 1;
-  r.r_ysiz = 1;
-
-  r.r_xmin = rand() % win1->w_sizex;
-  r.r_ymin = rand() % win1->w_sizey;
-  window_putpixel(win1,r.r_xmin,r.r_ymin,rand());
-  window_draw_rect(win1,r);
-
-  r.r_xmin = rand() % win2->w_sizex;
-  r.r_ymin = rand() % win2->w_sizey;
-  window_putpixel(win2,r.r_xmin,r.r_ymin,rand());
-  window_draw_rect(win2,r);
-#endif
-
-  //display_redraw(&default_display);
-  keyboard_key_t buf;
-  read(fd_keyboard,&buf,sizeof(keyboard_key_t));
-  syslog(LOG_DEBUG,"KEY PRESSED\n");
+ sfc = wm_window_surface(win);
+ for (unsigned int i = 0; i < 1000; ++i) {
+  wm_surface_setpixel(sfc,
+                     (unsigned int)rand() % sfc->s_sizex,
+                     (unsigned int)rand() % sfc->s_sizey,
+                      rand());
  }
- for (;;) pause();
- return 0;
+ wm_window_draw(win,WM_WINDOW_DRAW_FNORMAL);
+
+ pause();
+ wm_window_decref(win);
 }
 
 DECL_END

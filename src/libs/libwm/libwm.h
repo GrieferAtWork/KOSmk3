@@ -48,6 +48,7 @@ INTDEF void WMCALL libwms_recvresponse(unsigned int token, struct wms_response *
 INTDEF fd_t WMCALL libwms_recvresponse_fd(unsigned int token, struct wms_response *__restrict resp);
 
 /* surface.h */
+INTDEF struct wm_palette libwm_palette_256;
 INTDEF ATTR_RETNONNULL REF struct wm_palette *WMCALL
 libwm_palette_create(u16 bpp, u8 mask);
 #define libwm_palette_incref(self) (void)ATOMIC_FETCHINC((self)->p_refcnt)

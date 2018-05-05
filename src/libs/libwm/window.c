@@ -19,6 +19,7 @@
 #ifndef GUARD_LIBS_LIBWM_WINDOW_C
 #define GUARD_LIBS_LIBWM_WINDOW_C 1
 #define _EXCEPT_SOURCE 1
+#define _KOS_SOURCE 1
 
 #include <hybrid/compiler.h>
 #include <hybrid/atomic.h>
@@ -262,10 +263,107 @@ INTERN ATTR_RETNONNULL REF struct wm_window *WMCALL
 libwm_window_create(int pos_x, int pos_y, unsigned int size_x, unsigned int size_y,
                     char const *title, u32 features, u16 state, u16 mode,
                     struct wm_winevent_ops *eventops, void *userdata) {
- REF struct wm_window *result;
+ REF struct wm_window *EXCEPT_VAR result;
  result = (REF struct wm_window *)Xmalloc(sizeof(struct wm_window));
- /* TODO */
- libwm_window_register(result);
+ TRY {
+  struct wms_request req;
+  struct wms_response resp;
+  unsigned int token;
+  result->w_winfd    = -1;
+  result->w_bordersz = 3;
+  result->w_titlesz  = 18;
+  result->w_features = features;
+  result->w_mode     = mode;
+  if (features & WM_WINDOW_FEAT_FNOBORDER)
+      result->w_titlesz -= result->w_bordersz,
+      result->w_bordersz = 0;
+  if (features & WM_WINDOW_FEAT_FNOHEADER)
+      result->w_titlesz = result->w_bordersz;
+
+  COMPILER_WRITE_BARRIER();
+  req.r_command        = WMS_COMMAND_MKWIN;
+  req.r_flags          = WMS_COMMAND_FNORMAL;
+  req.r_mkwin.mw_xmin  = pos_x;
+  req.r_mkwin.mw_ymin  = pos_y;
+  req.r_mkwin.mw_xsiz  = size_x + (2 * result->w_bordersz);
+  req.r_mkwin.mw_ysiz  = size_y + (result->w_bordersz +
+                                   result->w_titlesz);
+  req.r_mkwin.mw_state = state;
+
+  /* Send the request. */
+  token = libwms_sendrequest(&req);
+
+  /* Receive the response. */
+  result->w_winfd = libwms_recvresponse_fd(token,&resp);
+
+  if (resp.r_answer != WMS_RESPONSE_MKWIN_OK)
+      error_throw(E_NOT_IMPLEMENTED);
+
+  TRY {
+   /* Map the display buffer into memory. */
+   result->w_buffer = (byte_t *)mmap(NULL,
+                                     resp.r_mkwin.w_sizey*resp.r_mkwin.w_stride,
+                                     PROT_READ|PROT_WRITE|PROT_SHARED,
+                                     MAP_SHARED|MAP_FILE,
+                                     result->w_winfd,
+                                     0);
+   TRY {
+
+    /* Extract data from the response. */
+    result->w_winid             = resp.r_mkwin.w_id;
+    result->w_state             = resp.r_mkwin.w_state;
+    result->w_posx              = resp.r_mkwin.w_posx;
+    result->w_posy              = resp.r_mkwin.w_posy;
+    result->w_sizex             = resp.r_mkwin.w_sizex;
+    result->w_sizey             = resp.r_mkwin.w_sizex;
+    result->w_oldsizex          = resp.r_mkwin.w_sizex;
+    result->w_oldsizey          = resp.r_mkwin.w_sizey;
+
+    /* Adjust so the surface describes the window contents without the border. */
+    result->w_surface.s_flags   = WM_SURFACE_FWINDOW;
+    result->w_surface.s_sizex   = resp.r_mkwin.w_sizex - (2 * result->w_bordersz);
+    result->w_surface.s_sizey   = resp.r_mkwin.w_sizey - (result->w_bordersz + result->w_titlesz);
+    result->w_surface.s_stride  = resp.r_mkwin.w_stride;
+    result->w_surface.s_bpp     = resp.r_mkwin.w_bpp;
+    result->w_surface.s_buffer  = result->w_buffer;
+    result->w_surface.s_buffer += result->w_titlesz * resp.r_mkwin.w_stride;
+    result->w_surface.s_buffer += result->w_bordersz;
+
+    /* TODO: This currently assumes the format that is implemented by the server. */
+    result->w_surface.s_format = libwm_format_create_pal(&libwm_palette_256);
+
+    TRY {
+     /* Map the window  */
+     libwm_window_register(result);
+    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+     libwm_format_decref(result->w_surface.s_format);
+     error_rethrow();
+    }
+
+   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+    munmap(result->w_buffer,
+           resp.r_mkwin.w_sizey*
+           resp.r_mkwin.w_stride);
+    error_rethrow();
+   }
+
+  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+   /* Destroy the window again if something went wrong. */
+   error_pushinfo();
+   req.r_command        = WMS_COMMAND_RMWIN;
+   req.r_flags          = WMS_COMMAND_FNOACK;
+   req.r_rmwin.rw_winid = resp.r_mkwin.w_id;
+   libwms_sendrequest(&req);
+   error_popinfo();
+   error_rethrow();
+  }
+
+ } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+  if (result->w_winfd >= 0)
+      close(result->w_winfd);
+  free(result);
+  error_rethrow();
+ }
  return result;
 }
 

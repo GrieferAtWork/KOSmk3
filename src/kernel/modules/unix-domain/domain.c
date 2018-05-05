@@ -36,6 +36,9 @@
 
 #include "unix_socket.h"
 
+/* TODO: The `SOCKET_MESSAGE_FWAITALL' flag should be implemented
+ *       as part of the socket core api for stream-based sockets! */
+
 DECL_BEGIN
 
 
@@ -184,8 +187,17 @@ AcceptSocket_Send(AcceptSocket *__restrict self,
  if (!socket_tryincref(&client->us_socket))
       return 0; /* Connection terminated. */
  TRY {
-  result = ringbuffer_write(&client->us_client.c_server2client,
-                             buf,buflen,mode);
+  if (flags & SOCKET_MESSAGE_FWAITALL)
+   result = ringbuffer_writeall(&client->us_client.c_server2client,
+                                 buf,
+                                 buflen,
+                                 mode);
+  else {
+   result = ringbuffer_write(&client->us_client.c_server2client,
+                              buf,
+                              buflen,
+                              mode);
+  }
  } FINALLY {
   socket_decref(&client->us_socket);
  }
@@ -486,8 +498,20 @@ PRIVATE size_t KCALL
 UnixSocket_Send(UnixSocket *__restrict self,
                 USER CHECKED void const *buf, size_t buflen,
                 iomode_t mode, unsigned int flags) {
+ size_t result;
  assert(SOCKET_ISCLIENT(self));
- return ringbuffer_write(&self->us_client.c_client2server,buf,buflen,mode);
+ if (flags & SOCKET_MESSAGE_FWAITALL)
+  result = ringbuffer_writeall(&self->us_client.c_client2server,
+                                buf,
+                                buflen,
+                                mode);
+ else {
+  result = ringbuffer_write(&self->us_client.c_client2server,
+                             buf,
+                             buflen,
+                             mode);
+ }
+ return result;
 }
 
 

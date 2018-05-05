@@ -48,7 +48,6 @@
 
 DECL_BEGIN
 
-DEFINE_INTERN_ALIAS(__stack_chk_fail,__stack_chk_fail_local);
 INTERN ATTR_NORETURN void LIBCCALL
 libc_core_assertion_failure(char const *expr, DEBUGINFO,
                             char const *format, va_list args) {
@@ -60,7 +59,8 @@ libc_core_assertion_failure(char const *expr, DEBUGINFO,
  sys_exit_group(1);
 }
 
-INTERN uintptr_t __stack_chk_guard = 0x1246Ab1f;
+EXPORT(__stack_chk_fail,__stack_chk_fail_local);
+PUBLIC uintptr_t __stack_chk_guard = 0x1246Ab1f;
 INTERN ATTR_NORETURN void __stack_chk_fail_local(void) {
  libc_syslog(LOG_EMERG,"__stack_chk_fail_local()\n");
  asm("int3");

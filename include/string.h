@@ -149,6 +149,8 @@ __LIBC __ATTR_RETNONNULL __NONNULL((1,2)) void *(__LIBCCALL memmove)(void *__dst
 __OPT_LOCAL __ATTR_RETNONNULL __NONNULL((1,2)) void *(__LIBCCALL memmove)(void *__dst, void const *__src, size_t __n_bytes) { return __local_memmove(__dst,__src,__n_bytes); }
 #endif
 #endif /* !__std_memmove_defined */
+#ifndef __std_strlen_defined
+#define __std_strlen_defined 1
 #if defined(_MSC_VER) || (defined(__NO_opt_strlen) || !defined(__OPTIMIZE_LIBC__))
 __LIBC __WUNUSED __ATTR_PURE __NONNULL((1)) size_t (__LIBCCALL strlen)(char const *__restrict __s);
 #ifdef _MSC_VER
@@ -166,6 +168,7 @@ __FORCELOCAL __WUNUSED __ATTR_PURE size_t (__LIBCCALL __return_size_t)(size_t __
 #endif
 #endif /* __opt_strlen_needs_macro */
 #endif /* Optimized... */
+#endif /* !__std_strlen_defined */
 #if defined(__OPTIMIZE_LIBC__) && !defined(_MSC_VER)
 __OPT_LOCAL __ATTR_RETNONNULL __NONNULL((1)) void *(__LIBCCALL memset)(void *__dst, int __byte, size_t __n_bytes) { return __local_memset(__dst,__byte,__n_bytes); }
 __OPT_LOCAL __WUNUSED __ATTR_PURE __NONNULL((1,2)) int (__LIBCCALL memcmp)(void const *__a, void const *__b, size_t __n_bytes) { return __local_memcmp(__a,__b,__n_bytes); }

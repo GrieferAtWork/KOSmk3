@@ -36,7 +36,7 @@ DECL_BEGIN
 DEFINE_SYSCALL3(socket,int,domain,int,type,int,protocol) {
  unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
  struct handle hsocket;
- hsocket.h_mode = HANDLE_MODE(HANDLE_TYPE_FSOCKET,0);
+ hsocket.h_mode = HANDLE_MODE(HANDLE_TYPE_FSOCKET,IO_RDWR);
  if (type & SOCK_NONBLOCK) hsocket.h_flag |= IO_NONBLOCK;
  if (type & SOCK_CLOEXEC)  hsocket.h_flag |= IO_HANDLE_FCLOEXEC;
  type &= ~(SOCK_NONBLOCK|SOCK_CLOEXEC);
@@ -97,34 +97,55 @@ DEFINE_SYSCALL4(accept4,
                 USER UNCHECKED socklen_t *,len,int,flags) {
  unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
  REF struct handle hsocket,hresult;
- socklen_t addr_buflen;
  if (flags & ~(SOCK_NONBLOCK|SOCK_CLOEXEC))
      error_throw(E_INVALID_ARGUMENT);
- validate_writable(len,sizeof(socklen_t));
- addr_buflen = *len;
- COMPILER_READ_BARRIER();
- validate_writable(addr,addr_buflen);
- hresult.h_mode = HANDLE_MODE(HANDLE_TYPE_FSOCKET,0);
- if (flags & SOCK_NONBLOCK) hresult.h_flag |= IO_NONBLOCK;
- if (flags & SOCK_CLOEXEC)  hresult.h_flag |= IO_HANDLE_FCLOEXEC;
- hsocket = handle_get(sockfd);
- TRY {
-  CHECK_SOCKET_HANDLE(hsocket,sockfd);
-  hresult.h_object.o_socket = socket_accept(hsocket.h_object.o_socket,hsocket.h_mode);
- } FINALLY {
-  handle_decref(hsocket);
- }
- if (!hresult.h_object.o_socket)
-      return -EWOULDBLOCK;
- TRY {
-  /* Lookup the peer socket address of the new connection. */
-  *len = socket_getpeername(hresult.h_object.o_socket,
-                            addr,addr_buflen,
-                            hresult.h_mode);
-  /* Finally, insert the new connection into the handle manager. */
-  result = handle_put(hresult);
- } FINALLY {
-  socket_decref(hresult.h_object.o_socket);
+ if (addr != NULL) {
+  socklen_t addr_buflen;
+  validate_writable(len,sizeof(socklen_t));
+  addr_buflen = *len;
+  COMPILER_READ_BARRIER();
+  validate_writable(addr,addr_buflen);
+  hresult.h_mode = HANDLE_MODE(HANDLE_TYPE_FSOCKET,IO_RDWR);
+  if (flags & SOCK_NONBLOCK) hresult.h_flag |= IO_NONBLOCK;
+  if (flags & SOCK_CLOEXEC)  hresult.h_flag |= IO_HANDLE_FCLOEXEC;
+  hsocket = handle_get(sockfd);
+  TRY {
+   CHECK_SOCKET_HANDLE(hsocket,sockfd);
+   hresult.h_object.o_socket = socket_accept(hsocket.h_object.o_socket,hsocket.h_mode);
+  } FINALLY {
+   handle_decref(hsocket);
+  }
+  if (!hresult.h_object.o_socket)
+       return -EWOULDBLOCK;
+  TRY {
+   /* Lookup the peer socket address of the new connection. */
+   *len = socket_getpeername(hresult.h_object.o_socket,
+                             addr,addr_buflen,
+                             hresult.h_mode);
+   /* Finally, insert the new connection into the handle manager. */
+   result = handle_put(hresult);
+  } FINALLY {
+   socket_decref(hresult.h_object.o_socket);
+  }
+ } else {
+  hresult.h_mode = HANDLE_MODE(HANDLE_TYPE_FSOCKET,IO_RDWR);
+  if (flags & SOCK_NONBLOCK) hresult.h_flag |= IO_NONBLOCK;
+  if (flags & SOCK_CLOEXEC)  hresult.h_flag |= IO_HANDLE_FCLOEXEC;
+  hsocket = handle_get(sockfd);
+  TRY {
+   CHECK_SOCKET_HANDLE(hsocket,sockfd);
+   hresult.h_object.o_socket = socket_accept(hsocket.h_object.o_socket,hsocket.h_mode);
+  } FINALLY {
+   handle_decref(hsocket);
+  }
+  if (!hresult.h_object.o_socket)
+       return -EWOULDBLOCK;
+  TRY {
+   /* Finally, insert the new connection into the handle manager. */
+   result = handle_put(hresult);
+  } FINALLY {
+   socket_decref(hresult.h_object.o_socket);
+  }
  }
  return 0;
 }
@@ -211,7 +232,7 @@ DEFINE_SYSCALL6(sendto,int,sockfd,
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  REF struct handle hsocket;
  if (flags & ~(MSG_CONFIRM|MSG_DONTROUTE|MSG_DONTWAIT|
-               MSG_EOR|MSG_MORE|MSG_NOSIGNAL|MSG_OOB))
+               MSG_EOR|MSG_MORE|MSG_NOSIGNAL|MSG_OOB|MSG_WAITALL))
      error_throw(E_INVALID_ARGUMENT);
  validate_readable(buf,buflen);
  if (addrlen) validate_readable(addr,addrlen);
@@ -293,7 +314,7 @@ DEFINE_SYSCALL4(send,int,sockfd,
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  REF struct handle hsocket;
  if (flags & ~(MSG_CONFIRM|MSG_DONTROUTE|MSG_DONTWAIT|
-               MSG_EOR|MSG_MORE|MSG_NOSIGNAL|MSG_OOB))
+               MSG_EOR|MSG_MORE|MSG_NOSIGNAL|MSG_OOB|MSG_WAITALL))
      error_throw(E_INVALID_ARGUMENT);
  validate_readable(buf,buflen);
  hsocket = handle_get(sockfd);

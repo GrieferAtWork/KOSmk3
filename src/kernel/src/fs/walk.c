@@ -178,7 +178,7 @@ dosfs_walk_path_one(struct path *__restrict root,
  if (!segment_relevant) {
   /* Throw a path-not-found error if empty paths are not allowed. */
   if (!(flags & FS_MODE_FEMPTY_PATH))
-        throw_fs_error(ERROR_FS_PATH_NOT_FOUND);
+        throw_fs_error(ERROR_FS_FILE_NOT_FOUND);
 return_this_directory:
   /* Ignore empty segments. */
   path_incref(pwd);
@@ -204,7 +204,18 @@ default_lookup:
    /* Do a regular directory lookup. */
    if unlikely(segment_relevant > 0xffff)
       throw_fs_error(ERROR_FS_FILENAME_TOO_LONG);
-   result = path_casechild(pwd,remaining_path,(u16)segment_relevant);
+   if (remaining_pathlen == segment_length) {
+    TRY {
+     result = path_casechild(pwd,remaining_path,(u16)segment_relevant);
+    } CATCH (E_FILESYSTEM_ERROR) {
+     /* Throw FILE_NOT_FOUND for the last path segment, rather than PATH_NOT_FOUND */
+     if (error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_PATH_NOT_FOUND)
+         error_info()->e_error.e_filesystem_error.fs_errcode = ERROR_FS_FILE_NOT_FOUND;
+     error_rethrow();
+    }
+   } else {
+    result = path_casechild(pwd,remaining_path,(u16)segment_relevant);
+   }
    atomic_rwlock_read(&result->p_lock);
    if (INODE_ISLNK(result->p_node) &&
       (remaining_pathlen != segment_length ||
@@ -289,7 +300,7 @@ fs_walk_path_one(struct path *__restrict root,
  if (!segment_relevant) {
   /* Throw a path-not-found error if empty paths are not allowed. */
   if (!(flags & FS_MODE_FEMPTY_PATH))
-        throw_fs_error(ERROR_FS_PATH_NOT_FOUND);
+        throw_fs_error(ERROR_FS_FILE_NOT_FOUND);
 return_this_directory:
   /* Ignore empty segments. */
   path_incref(pwd);
@@ -314,7 +325,18 @@ default_lookup:
    /* Do a regular directory lookup. */
    if unlikely(segment_relevant > 0xffff)
       throw_fs_error(ERROR_FS_FILENAME_TOO_LONG);
-   result = path_child(pwd,remaining_path,(u16)segment_relevant);
+   if (remaining_pathlen == segment_length) {
+    TRY {
+     result = path_child(pwd,remaining_path,(u16)segment_relevant);
+    } CATCH (E_FILESYSTEM_ERROR) {
+     /* Throw FILE_NOT_FOUND for the last path segment, rather than PATH_NOT_FOUND */
+     if (error_info()->e_error.e_filesystem_error.fs_errcode == ERROR_FS_PATH_NOT_FOUND)
+         error_info()->e_error.e_filesystem_error.fs_errcode = ERROR_FS_FILE_NOT_FOUND;
+     error_rethrow();
+    }
+   } else {
+    result = path_child(pwd,remaining_path,(u16)segment_relevant);
+   }
    atomic_rwlock_read(&result->p_lock);
    if (INODE_ISLNK(result->p_node) &&
       (remaining_pathlen != segment_length ||

@@ -255,9 +255,11 @@ SYMEND(x86_cpu_idle)
 PUBLIC_ENTRY(task_tryyield)
 	.cfi_startproc
 	pause
+
 	pushfl_cfi_r
-	testl   $(EFLAGS_IF), (%esp)
+	testl   $(EFLAGS_IF), 0(%esp)
 	jnz     1f
+	int3
 	popfl_cfi_r
 	/* Return `false' if interrupts have been disabled. */
 99:	xorl    %eax, %eax
@@ -272,7 +274,7 @@ PUBLIC_ENTRY(task_tryyield)
 	cli
 	movl    %taskseg:t_sched+re_next, %edx
 	cmpl    %edx, %taskseg:t_segment+TASK_SEGMENT_OFFSETOF_SELF
-	je      99b /* Same thread (Don't yield) */
+	je      98f /* Same thread (Don't yield) */
 #ifdef CONFIG_NO_SMP
 	movl    %edx, c_running + _boot_cpu
 #else
@@ -282,6 +284,8 @@ PUBLIC_ENTRY(task_tryyield)
 	movl    $1, %eax /* Return TRUE to the caller (when the next quantum starts) */
 	clc              /* Clear the carry bit. */
 	jmp     x86_exchange_context
+98:	sti
+	jmp     99b
 	.cfi_endproc
 SYMEND(task_tryyield)
 

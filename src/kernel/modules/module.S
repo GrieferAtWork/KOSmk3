@@ -38,7 +38,7 @@ DEFINE_PUBLIC(__stack_chk_guard)
 
 .section .data
 INTERN_ENTRY(__stack_chk_fail_local)
-	jmp  __stack_chk_guard
+	jmp  __stack_chk_fail
 SYMEND(__stack_chk_fail_local)
 
 

@@ -448,7 +448,23 @@ enum {
 #define MSG_TRUNC        0x00000020
 #define MSG_DONTWAIT     0x00000040 /* Nonblocking IO. */
 #define MSG_EOR          0x00000080 /* End of record. */
-#define MSG_WAITALL      0x00000100 /* Wait for a full request. */
+#define MSG_WAITALL      0x00000100 /* Wait for a full request.
+                                     * NOTE: On KOS, this flag can also be specified
+                                     *       for send() operations on stream-based
+                                     *       sockets to ensure that all given data is
+                                     *       sent in order without the need for user-space
+                                     *       to ensure that no 2 threads write data at the
+                                     *       same time. (If an EOF occurs in the mean time,
+                                     *       not everything is written)
+                                     *       Basically, do the following atomically:
+                                     * >> size_t total = 0,part;
+                                     * >> do part   = send(sockfd,(byte_t *)buf + total,
+                                     * >>                             num_bytes - total,
+                                     * >>                  flags),
+                                     * >>    total += part;
+                                     * >> while (part && total < num_bytes);
+                                     * >> return total;
+                                     */
 #define MSG_FIN          0x00000200
 #define MSG_SYN          0x00000400
 #define MSG_CONFIRM      0x00000800 /* Confirm path validity. */

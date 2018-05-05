@@ -99,8 +99,9 @@ struct display {
 };
 
 INTDEF struct display default_display;
-INTDEF int fd_mouse;
-INTDEF int fd_keyboard;
+INTDEF int fd_mouse;    /* open("/dev/mouse") */
+INTDEF int fd_keyboard; /* open("/dev/keyboard") */
+INTDEF int fd_server;   /* socket(AF_UNIX,...) -- bind("/dev/wms") */
 
 
 /* Do a full redraw of all visible windows. */

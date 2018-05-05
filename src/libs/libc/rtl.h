@@ -29,9 +29,7 @@ DECL_BEGIN
 /* ===================================================================================== */
 /*     RTL                                                                               */
 /* ===================================================================================== */
-INTDEF uintptr_t __stack_chk_guard;
 INTDEF ATTR_NORETURN void __stack_chk_fail_local(void);
-INTDEF ATTR_NORETURN void __stack_chk_fail(void);
 INTDEF ATTR_NORETURN void LIBCCALL libc_core_assertion_failure(char const *expr, DEBUGINFO, char const *format, va_list args);
 INTDEF ATTR_NORETURN ATTR_COLD void ATTR_CDECL libc_afailf(char const *expr, DEBUGINFO, char const *format, ...);
 INTDEF ATTR_NORETURN ATTR_COLD void LIBCCALL libc_afail(char const *expr, DEBUGINFO);

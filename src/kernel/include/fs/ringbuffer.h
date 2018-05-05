@@ -150,6 +150,11 @@ FUNDEF size_t KCALL ringbuffer_peekall(struct ringbuffer *__restrict self, USER 
 FUNDEF size_t KCALL ringbuffer_write(struct ringbuffer *__restrict self, USER CHECKED void const *buf, size_t num_bytes, iomode_t flags);
 FUNDEF size_t KCALL ringbuffer_write_atomic(struct ringbuffer *__restrict self, USER CHECKED void const *buf, size_t num_bytes);
 
+/* Write all data to the ring buffer and keep blocking
+ * while a portion remains that hasn't been written.
+ * If the buffer is closed, stop prematurely and return the amount that was written. */
+FUNDEF size_t KCALL ringbuffer_writeall(struct ringbuffer *__restrict self, USER CHECKED void const *buf, size_t num_bytes, iomode_t flags);
+
 /* Asynchronously wait for a read/write operation to become non-blocking:
  *   - Specify `POLLIN' to poll for `ringbuffer_read()'
  *   - Specify `POLLOUT' to poll for `ringbuffer_write()'

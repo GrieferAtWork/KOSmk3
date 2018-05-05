@@ -16,60 +16,29 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef GUARD_LIBS_LIBWM_INIT_C
-#define GUARD_LIBS_LIBWM_INIT_C 1
-#define _EXCEPT_SOURCE 1
+#ifndef GUARD_APPS_WMS_BIND_H
+#define GUARD_APPS_WMS_BIND_H 1
 
 #include <hybrid/compiler.h>
-#include <hybrid/atomic.h>
+#include <kos/types.h>
 #include <wm/api.h>
-#include <sys/socket.h>
-
-#include <string.h>
-#include <unistd.h>
-#include <sys/un.h>
-
-#include "libwm.h"
 
 DECL_BEGIN
 
-__asm__(
-".pushsection .data\n\t"
-".global __stack_chk_fail_local\n\t"
-".hidden __stack_chk_fail_local\n\t"
-"__stack_chk_fail_local:\n\t"
-"	jmp  __stack_chk_guard\n\t"
-".size __stack_chk_fail_local, . - __stack_chk_fail_local\n\t"
-".popsection"
-);
+#define WMS_PATH_KEYBOARD "/dev/keyboard"
+#define WMS_PATH_MOUSE    "/dev/mouse"
+#define WMS_PATH_SERVER   "/dev/wms"
+#define WMS_PATH_DISPLAY  "/dev/vga" /* TODO: Must re-implement the VGA driver first! */
 
+/* Filesystem bindings. */
+INTDEF fd_t wms_keyboard; /* open(WMS_PATH_KEYBOARD); */
+INTDEF fd_t wms_mouse;    /* open(WMS_PATH_MOUSE); */
+INTDEF fd_t wms_server;   /* socket(AF_UNIX); bind(WMS_PATH_SERVER); */
 
-DEFINE_PUBLIC_ALIAS(wm_init,libwm_init);
-INTERN void WMCALL libwm_init(void) {
- struct sockaddr_un addr;
- /* Create a new unix domain socket. */
- libwms_socket = Xsocket(AF_UNIX,SOCK_STREAM,AF_UNIX);
- TRY {
-  addr.sun_family = AF_UNIX;
-  strcpy(addr.sun_path,"/dev/wms");
-
-  /* Connect to the window server running under `/dev/wms' */
-  Xconnect(libwms_socket,(struct sockaddr *)&addr,sizeof(addr));
- } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  close(libwms_socket);
-  libwms_socket = -1;
-  error_rethrow();
- }
-}
-
-DEFINE_PUBLIC_ALIAS(wm_fini,libwm_fini);
-INTERN ATTR_NOTHROW void WMCALL libwm_fini(void) {
- close(libwms_socket);
- libwms_socket = -1;
-}
-
+/* WMS threads. */
+INTDEF fd_t wms_keyboard; /* open(WMS_PATH_KEYBOARD); */
 
 
 DECL_END
 
-#endif /* !GUARD_LIBS_LIBWM_INIT_C */
+#endif /* !GUARD_APPS_WMS_BIND_H */

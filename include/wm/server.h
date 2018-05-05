@@ -62,7 +62,6 @@ struct PACKED wms_request {
             unsigned int          mw_xsiz;   /* The initial size in X of the usable window surface area. */
             unsigned int          mw_ysiz;   /* The initial size in Y of the usable window surface area. */
             __uint16_t            mw_state;  /* The initial state of the window. */
-            __pid_t               mw_owner;  /* The process for which access to the window's front buffer should be granted. */
         }                         r_mkwin;   /* [WMS_COMMAND_MKWIN] Create a new window. */
         struct PACKED {
             wms_window_id_t       rw_winid;  /* The ID of the window in question. */
@@ -76,7 +75,6 @@ struct PACKED wms_request {
             wms_window_id_t       rw_winid;  /* The ID of the window in question. */
             unsigned int          rw_xsiz;   /* New window size in X. */
             unsigned int          rw_ysiz;   /* New window size in Y. */
-            __pid_t               rw_owner;  /* The process for which access to the window's front buffer should be granted. */
         }                         r_rzwin;   /* [WMS_COMMAND_RZWIN] Resize a window. */
         struct PACKED {
             wms_window_id_t       cw_winid;  /* The ID of the window in question. */
@@ -143,6 +141,7 @@ struct PACKED wms_response {
             unsigned int          w_sizey;   /* The Y size of the created window. */
             unsigned int          w_stride;  /* The stride of the window's display buffer. */
             unsigned int          w_bpp;     /* Bits per pixel. */
+            __uint16_t            w_state;   /* The initial window state. */
             /* In its ancillary data, this response carries a file descriptor
              * which, when used to mmap()-ed at offset ZERO(0) a number of
              * `w_sizey * w_stride' bytes, then contains the screen buffer.

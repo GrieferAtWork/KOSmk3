@@ -55,7 +55,14 @@ BEGIN
 	BEGIN APPLICATION("apps.wm")
 		SET_OUTPUT("/bin/wm")
 		SET_DISKFILE("/bin/wm")
+		WEAK_PROJDEP("libs.libwm")
+		LIB("wm")
 		SOURCE("wm/*.c")
+	END
+	BEGIN APPLICATION("apps.wms")
+		SET_OUTPUT("/bin/wms")
+		SET_DISKFILE("/bin/wms")
+		SOURCE("wms/*.c")
 	END
 END
 

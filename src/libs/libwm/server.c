@@ -121,22 +121,21 @@ INTERN fd_t WMCALL
 libwms_recvresponse_fd(unsigned int token,
                        struct wms_response *__restrict resp) {
  fd_t result = -1;
- size_t total = 0;
  for (;;) {
-  size_t part;
+  size_t total;
   struct pollfd p;
   struct msghdr msg;
   struct iovec iov[1];
   union {
    struct cmsghdr hdr;
    byte_t buf[CMSG_SPACE(sizeof(fd_t))];
-  }  result_buffer;
+  } result_buffer;
   p.fd     = libwms_socket;
   p.events = POLLIN;
   if (!Xpoll(&p,1,2000))
        error_throw(E_INVALID_ARGUMENT);
-  iov[0].iov_base              = (byte_t *)resp+total;
-  iov[0].iov_len               = sizeof(struct wms_response)-total;
+  iov[0].iov_base              = resp;
+  iov[0].iov_len               = sizeof(struct wms_response);
   msg.msg_name                 = NULL;
   msg.msg_namelen              = 0;
   msg.msg_iov                  = iov;
@@ -148,19 +147,16 @@ libwms_recvresponse_fd(unsigned int token,
   result_buffer.hdr.cmsg_level = SOL_SOCKET;
   result_buffer.hdr.cmsg_type  = SCM_RIGHTS;
   *(fd_t *)CMSG_DATA(&result_buffer.hdr) = -1;
-  part = Xrecvmsg(libwms_socket,&msg,MSG_CMSG_CLOEXEC);
+  total = Xrecvmsg(libwms_socket,&msg,MSG_CMSG_CLOEXEC|MSG_WAITALL);
   if (CMSG_FIRSTHDR(&msg) == &result_buffer.hdr) {
    if (result >= 0) close(result);
    result = *(fd_t *)CMSG_DATA(&result_buffer.hdr);
   }
-  if unlikely(part == 0) {
+  if (total != sizeof(struct wms_response)) {
    /* EOF (the server may have crashed?) */
    if (result >= 0) close(result);
    error_throwf(E_NET_ERROR,ERROR_NET_SHUTDOWN);
   }
-  total += part;
-  if (total < sizeof(struct wms_response))
-      continue; /* Not everything was read */
   if (resp->r_echo == token)
       break; /* This is what we were waiting for. */
   /* Process unrelated response packets by themself. */
