@@ -37,7 +37,7 @@ DECL_BEGIN
 
 DEFINE_SYSCALL3(socket,int,domain,int,type,int,protocol) {
  unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
- struct handle hsocket;
+ struct handle EXCEPT_VAR hsocket;
  hsocket.h_mode = HANDLE_MODE(HANDLE_TYPE_FSOCKET,IO_RDWR);
  if (type & SOCK_NONBLOCK) hsocket.h_flag |= IO_NONBLOCK;
  if (type & SOCK_CLOEXEC)  hsocket.h_flag |= IO_HANDLE_FCLOEXEC;
@@ -66,7 +66,7 @@ do{ \
 }__WHILE0
 
 DEFINE_SYSCALL3(bind,fd_t,sockfd,struct sockaddr *,addr,socklen_t,len) {
- REF struct handle hsocket;
+ REF struct handle EXCEPT_VAR hsocket;
  validate_readable(addr,len);
  hsocket = handle_get(sockfd);
  TRY {
@@ -79,7 +79,7 @@ DEFINE_SYSCALL3(bind,fd_t,sockfd,struct sockaddr *,addr,socklen_t,len) {
 }
 
 DEFINE_SYSCALL2(listen,fd_t,sockfd,int,max_backlog) {
- REF struct handle hsocket;
+ REF struct handle EXCEPT_VAR hsocket;
  /* XXX: This `5' should be configurable via a /proc setting. */
  if unlikely(max_backlog <= 0 || max_backlog > 5)
     error_throw(E_INVALID_ARGUMENT);
@@ -98,7 +98,8 @@ DEFINE_SYSCALL4(accept4,
                 USER UNCHECKED struct sockaddr *,addr,
                 USER UNCHECKED socklen_t *,len,int,flags) {
  unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
- REF struct handle hsocket,hresult;
+ REF struct handle EXCEPT_VAR hsocket;
+ REF struct handle hresult;
  if (flags & ~(SOCK_NONBLOCK|SOCK_CLOEXEC))
      error_throw(E_INVALID_ARGUMENT);
  if (addr != NULL) {
@@ -164,7 +165,7 @@ DEFINE_SYSCALL3(connect,
                 fd_t,sockfd,
                 USER UNCHECKED struct sockaddr *,addr,
                 socklen_t,len) {
- REF struct handle hsocket;
+ REF struct handle EXCEPT_VAR hsocket;
  validate_readable(addr,len);
  hsocket = handle_get(sockfd);
  TRY {
@@ -181,7 +182,7 @@ DEFINE_SYSCALL3(xgetsockname,
                 USER UNCHECKED struct sockaddr *,addr,
                 socklen_t,len) {
  socklen_t COMPILER_IGNORE_UNINITIALIZED(result);
- REF struct handle hsocket;
+ REF struct handle EXCEPT_VAR hsocket;
  validate_writable(addr,len);
  hsocket = handle_get(sockfd);
  TRY {
@@ -198,7 +199,7 @@ DEFINE_SYSCALL3(xgetpeername,
                 USER UNCHECKED struct sockaddr *,addr,
                 socklen_t,len) {
  socklen_t COMPILER_IGNORE_UNINITIALIZED(result);
- REF struct handle hsocket;
+ REF struct handle EXCEPT_VAR hsocket;
  validate_writable(addr,len);
  hsocket = handle_get(sockfd);
  TRY {
@@ -232,7 +233,7 @@ DEFINE_SYSCALL6(sendto,fd_t,sockfd,
                 USER UNCHECKED void *,buf,size_t,buflen,int,flags,
                 USER UNCHECKED struct sockaddr *,addr,socklen_t,addrlen) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
- REF struct handle hsocket; struct iovec iov[1];
+ REF struct handle EXCEPT_VAR hsocket; struct iovec iov[1];
  if (flags & ~(MSG_CONFIRM|MSG_DONTROUTE|MSG_DONTWAIT|
                MSG_EOR|MSG_MORE|MSG_NOSIGNAL|MSG_OOB))
      error_throw(E_INVALID_ARGUMENT);
@@ -267,7 +268,7 @@ DEFINE_SYSCALL6(recvfrom,fd_t,sockfd,
                 USER UNCHECKED void *,buf,size_t,buflen,int,flags,
                 USER UNCHECKED struct sockaddr *,addr,socklen_t *,paddrlen) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
- REF struct handle hsocket; struct iovec iov[1];
+ REF struct handle EXCEPT_VAR hsocket; struct iovec iov[1];
  if (flags & ~(MSG_DONTWAIT|MSG_ERRQUEUE|MSG_OOB|
                MSG_PEEK|MSG_TRUNC|MSG_WAITALL))
      error_throw(E_INVALID_ARGUMENT);
@@ -328,7 +329,7 @@ again:
 DEFINE_SYSCALL4(send,fd_t,sockfd,
                 USER UNCHECKED void *,buf,size_t,buflen,int,flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
- REF struct handle hsocket; struct iovec iov[1];
+ REF struct handle EXCEPT_VAR hsocket; struct iovec iov[1];
  if (flags & ~(MSG_CONFIRM|MSG_DONTROUTE|MSG_DONTWAIT|
                MSG_EOR|MSG_MORE|MSG_NOSIGNAL|MSG_OOB))
      error_throw(E_INVALID_ARGUMENT);
@@ -354,7 +355,8 @@ DEFINE_SYSCALL4(send,fd_t,sockfd,
 DEFINE_SYSCALL4(recv,fd_t,sockfd,
                 USER UNCHECKED void *,buf,size_t,buflen,int,flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
- REF struct handle hsocket; struct iovec iov[1];
+ REF struct handle EXCEPT_VAR hsocket;
+ struct iovec iov[1];
  if (flags & ~(MSG_DONTWAIT|MSG_ERRQUEUE|MSG_OOB|
                MSG_PEEK|MSG_TRUNC|MSG_WAITALL))
      error_throw(E_INVALID_ARGUMENT);
@@ -388,7 +390,7 @@ again:
 DEFINE_SYSCALL5(xgetsockopt,fd_t,sockfd,int,level,int,optname,
                 USER UNCHECKED void *,optval,socklen_t,optlen) {
  socklen_t COMPILER_IGNORE_UNINITIALIZED(result);
- REF struct handle hsocket;
+ REF struct handle EXCEPT_VAR hsocket;
  validate_readable(optval,optlen);
  hsocket = handle_get(sockfd);
  TRY {
@@ -411,7 +413,7 @@ DEFINE_SYSCALL5(getsockopt,fd_t,sockfd,int,level,int,optname,
 
 DEFINE_SYSCALL5(setsockopt,fd_t,sockfd,int,level,int,optname,
                 USER UNCHECKED void *,optval,socklen_t,optlen) {
- REF struct handle hsocket;
+ REF struct handle EXCEPT_VAR hsocket;
  validate_readable(optval,optlen);
  hsocket = handle_get(sockfd);
  TRY {
@@ -433,7 +435,7 @@ PRIVATE u16 const shutdown_how_flags[] = {
 };
 
 DEFINE_SYSCALL2(shutdown,fd_t,sockfd,unsigned int,how) {
- REF struct handle hsocket;
+ REF struct handle EXCEPT_VAR hsocket;
  if (how >= COMPILER_LENOF(shutdown_how_flags))
      error_throw(E_INVALID_ARGUMENT);
  hsocket = handle_get(sockfd);
@@ -558,7 +560,7 @@ socket_sendmsg(struct socket *__restrict self,
 DEFINE_SYSCALL3(recvmsg,fd_t,sockfd,
                 USER UNCHECKED struct msghdr *,msg,int,flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
- REF struct handle hsocket; struct msghdr kernel_msg;
+ REF struct handle EXCEPT_VAR hsocket; struct msghdr kernel_msg;
  if (flags & ~(MSG_CONFIRM|MSG_DONTROUTE|MSG_DONTWAIT|
                MSG_EOR|MSG_MORE|MSG_NOSIGNAL|MSG_OOB))
      error_throw(E_INVALID_ARGUMENT);
@@ -585,7 +587,7 @@ DEFINE_SYSCALL3(recvmsg,fd_t,sockfd,
 DEFINE_SYSCALL3(sendmsg,fd_t,sockfd,
                 USER UNCHECKED struct msghdr const *,msg,int,flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
- REF struct handle hsocket; struct msghdr kernel_msg;
+ REF struct handle EXCEPT_VAR hsocket; struct msghdr kernel_msg;
  if (flags & ~(MSG_CONFIRM|MSG_DONTROUTE|MSG_DONTWAIT|
                MSG_EOR|MSG_MORE|MSG_NOSIGNAL|MSG_OOB))
      error_throw(E_INVALID_ARGUMENT);
@@ -612,7 +614,7 @@ DEFINE_SYSCALL4(sendmmsg,fd_t,sockfd,
                 USER UNCHECKED struct mmsghdr *,msg,
                 unsigned int,vlen,int,flags) {
  unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
- REF struct handle hsocket;
+ REF struct handle EXCEPT_VAR hsocket;
  if (flags & ~(MSG_CONFIRM|MSG_DONTROUTE|MSG_DONTWAIT|
                MSG_EOR|MSG_MORE|MSG_NOSIGNAL|MSG_OOB))
      error_throw(E_INVALID_ARGUMENT);

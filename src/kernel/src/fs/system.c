@@ -1739,7 +1739,8 @@ scan_again:
    /* Quick check: If we're not supposed to wait for anything, skip ahead. */
    if (!part_i && !part_o && !part_e) continue;
    for (fd_no = fd_base,mask = 1; part_bits; mask <<= 1,++fd_no,--part_bits) {
-    unsigned int mode = 0; REF struct handle EXCEPT_VAR hnd;
+    REF struct handle EXCEPT_VAR hnd;
+    unsigned int mode = 0;
     if (part_i & mask) mode |= POLLIN|POLLPRI;
     if (part_o & mask) mode |= POLLOUT;
     if (part_e & mask) mode |= POLLERR;
