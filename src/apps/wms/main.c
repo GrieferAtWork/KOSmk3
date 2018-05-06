@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <kos/kernctl.h>
 #include <string.h>
 #include <malloc.h>
@@ -33,6 +34,8 @@
 #include <wm/api.h>
 #include <wm/server.h>
 #include <sys/mman.h>
+#include <signal.h>
+#include <unistd.h>
 
 #include "bind.h"
 #include "display.h"
@@ -61,6 +64,25 @@ PRIVATE void *KCALL map_phys(void *base, size_t num_bytes) {
  info.mi_phys.mp_addr = (void *)0xA0000;
  return Xxmmap(&info);
 }
+
+PRIVATE pid_t init_process;
+
+PRIVATE void
+sigchld_handler(int UNUSED(signo),
+                siginfo_t *info,
+                struct ucontext *UNUSED(ctx)) {
+ syslog(LOG_DEBUG,"sigchld_handler(%u) (looking for %u)\n",
+        info->si_pid,init_process);
+ asm("int3");
+ if (info->si_pid != init_process)
+     return;
+ /* Exit the current process using the exit code of the child. */
+ error_throwf(E_EXIT_PROCESS,
+              WEXITSTATUS(info->si_status)
+            ? WEXITSTATUS(info->si_status) + 0x30
+            : 0);
+}
+
 
 
 int main(int argc, char *argv[]) {
@@ -101,6 +123,18 @@ int main(int argc, char *argv[]) {
                        PF_UNIX);
   Xbind(wms_server,(struct sockaddr *)&server_addr,sizeof(server_addr));
   Xlisten(wms_server,5);
+
+  {
+   /* Setup a signal handler to throw an exception when the init */
+   struct sigaction act;
+   memset(&act,0,sizeof(act));
+   act.sa_flags     = SA_RESTART|SA_SIGINFO;
+   act.sa_sigaction = &sigchld_handler;
+   Xsigaction(SIGCLD,&act,NULL);
+  }
+
+  if ((init_process = Xfork()) == 0)
+       Xexecv(argv[1],argv+1);
 
   for (;;) {
    fd_t client;

@@ -281,12 +281,7 @@ int main(int argc, char *argv[]) {
  }
 
 #if 1
- if (Xfork() == 0)
-     Xexecl("/bin/wms","wms",(char *)NULL);
- /* Yield a bit to wait for the server to start running. */
- for (int i = 0; i < 32; ++i)
-      sched_yield();
- execl("/bin/wm","wm",(char *)NULL);
+ Xexecl("/bin/wms","wms","/bin/wm","wm",(char *)NULL);
 #endif
 
 #if 0

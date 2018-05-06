@@ -88,6 +88,15 @@ EXPORT(exit,libc_exit)
 
 
 
+/* Thread entry point. */
+.section .text
+INTERN_ENTRY(libc_thread_entry)
+	pushl    %edx             /* arg */
+	call    *%ecx             /* (*fn)(arg) */
+	movl     %eax, (%esp)     /* result = (*fn)(arg); */
+DEFINE_INTERN(sys_exit)
+	call     sys_exit         /* exit(result); // NOTE: Only exits the thread; not the process. */
+SYMEND(libc_thread_entry)
 
 
 

@@ -42,19 +42,6 @@ DECL_BEGIN
 #elif defined(__i386__)
 INTERN ATTR_NORETURN void FCALL
 libc_thread_entry(int (LIBCCALL *fn)(void *arg), void *arg);
-__asm__(
-".section .text\n\t"
-".global libc_thread_entry\n\t"
-".hidden libc_thread_entry\n\t"
-".type libc_thread_entry, @function\n\t"
-"libc_thread_entry:\n\t"
-"\t"  "pushl %edx\n\t"         /* arg */
-"\t"  "call *%ecx\n\t"         /* (*fn)(arg) */
-"\t"  "movl  %eax, (%esp)\n\t" /* result = ...; */
-"\t"  "call  sys_exit\n\t"     /* exit(result); // NOTE: Only exits the thread; not the process. */
-".size libc_thread_entry, . - libc_thread_entry"
-);
-
 PRIVATE void LIBCCALL
 arch_setup_context(struct cpu_context *__restrict context,
                    int (LIBCCALL *fn)(void *arg),

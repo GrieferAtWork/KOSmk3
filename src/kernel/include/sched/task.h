@@ -480,8 +480,9 @@ task_alloc_stack(struct task *__restrict thread,
  * NOTE: This function will also pre-initialize the user-segment to its default values.
  * NOTE: If user-space should use an automatically allocated stack, this
  *       function must be called _AFTER_ `task_alloc_userstack()'
+ * @return: * : The value of `THIS_TASK->t_userseg'
  * @throw E_BADALLOC: Not enough available memory.*/
-FUNDEF void KCALL task_alloc_userseg(void);
+FUNDEF USER struct user_task_segment *KCALL task_alloc_userseg(void);
 
 /* Check for pending RPC functions yet to be executed.
  * NOTE: If the task is currently running in user-space, this function

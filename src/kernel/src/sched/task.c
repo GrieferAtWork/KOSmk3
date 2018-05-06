@@ -517,36 +517,39 @@ userseg_notify(void *closure, unsigned int code,
  return closure;
 }
 
-PUBLIC void KCALL task_alloc_userseg(void) {
+PUBLIC USER struct user_task_segment *KCALL task_alloc_userseg(void) {
  REF struct vm_region *EXCEPT_VAR region;
+ USER struct user_task_segment *COMPILER_IGNORE_UNINITIALIZED(new_segment);
  assert(!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB));
- if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG)) return;
+ if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG))
+     return PERTASK_GET(this_task.t_userseg);
  /* Allocate a new region for the user-space thread segment. */
  region = vm_region_alloc(USERSEG_SIZE);
-
- /* Setup user-space segments to be ZERO-initialized. */
- region->vr_init           = VM_REGION_INIT_FFILLER;
- region->vr_setup.s_filler = 0;
-
  TRY {
+
+  /* Setup user-space segments to be ZERO-initialized. */
+  region->vr_init           = VM_REGION_INIT_FFILLER;
+  region->vr_setup.s_filler = 0;
+
   /* Map the stack a suitable location, using arch-specific hints. */
-  PERTASK_SET(this_task.t_userseg,
-             (USER struct user_task_segment *)vm_map(VM_USERSEG_HINT,
-                                                     USERSEG_SIZE,
-                                                     1,
-                                                     0,
-                                                     VM_USERSEG_MODE,
-                                                     0,
-                                                     region,
-                                                     PROT_READ|PROT_WRITE,
-                                                    &userseg_notify,
-                                                     THIS_TASK));
+  new_segment = (USER struct user_task_segment *)vm_map(VM_USERSEG_HINT,
+                                                        USERSEG_SIZE,
+                                                        1,
+                                                        0,
+                                                        VM_USERSEG_MODE,
+                                                        0,
+                                                        region,
+                                                        PROT_READ|PROT_WRITE,
+                                                       &userseg_notify,
+                                                        THIS_TASK);
+  PERTASK_SET(this_task.t_userseg,new_segment);
  } FINALLY {
   vm_region_decref(region);
  }
  ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_FOWNUSERSEG);
  COMPILER_WRITE_BARRIER();
- setup_user_segment(PERTASK_GET(this_task.t_userseg));
+ setup_user_segment(new_segment);
+ return new_segment;
 }
 
 

@@ -41,7 +41,9 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
   sysno = regs->str_args.a_sysno & ~0x80000000;
   switch (sysno) {
   case SYS_xsyslog:
-   return; /* Not this one... */
+  case SYS_xaddr2line:
+  case SYS_xunwind:
+   return; /* Not these (they're called to generate tracebacks) */
   default: break;
   }
   debug_printf("[%u]trace.%s",
