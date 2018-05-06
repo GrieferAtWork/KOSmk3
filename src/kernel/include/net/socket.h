@@ -26,6 +26,7 @@
 #include <kos/types.h>
 #include <fs/iomode.h>
 #include <sched/rwlock.h>
+#include <stdbool.h>
 #include <bits/socket.h>
 #include <bits/socket_type.h>
 
@@ -33,12 +34,6 @@ DECL_BEGIN
 
 struct socket;
 struct sockaddr;
-
-/* Extended message flags that must be implemented by individual socket types. */
-#define SOCKET_MESSAGE_FNORMAL  0x0000      /* Normal message flags */
-#define SOCKET_MESSAGE_FPEEK    MSG_PEEK    /* Don't remove received data from the input queue. */
-#define SOCKET_MESSAGE_FOOB     MSG_OOB     /* Process out-of-band data. */
-#define SOCKET_MESSAGE_FWAITALL MSG_WAITALL /* Wait for a full request. */
 
 struct socket_ops {
     /* [0..1] An optional callback that is invoked during socket destruction.
@@ -203,83 +198,142 @@ struct socket_ops {
     /* [0..1][lock(READ(s_lock) &&
      *            (s_state & SOCKET_STATE_FCONNECTED) &&
      *           !(s_state & SOCKET_STATE_FSHUTRD))]
-     * Read data from a connected, connection-oriented socket.
-     * This is the socket operator hook for the `read(2)' and `recv(2)' system calls.
-     * When not implemented (as done by connection-less) sockets, the
-     * call is forwarded to `so_recvfrom()', if the socket has previous
-     * been ~connected~ (s.a.: `so_connect()' / `struct socket::s_peeraddr')
-     * @param: flags: Set of `SOCKET_MESSAGE_F*'
+     * Read a packet from the socket.
+     * @param: packet_mode: Set of `PACKETBUFFER_IO_F*':
+     *   - PACKET_IO_FRDALWAYS:
+     *               Always discard the packet, irregardless of whether or
+     *               not it actually fit into the provided user-buffer.
+     *   - PACKET_IO_FRDNEVER:
+     *               Never discard the packet and operate according to peek() semantics.
+     *               Always return `false' (become the packet is never actually removed)
+     *   - PACKET_IO_FRDIFFIT:
+     *               Read as much of the packet as can fit into the provided
+     *               user buffer, however in the event of the buffer being
+     *               too small, update `*pbufsize' to contain the required
+     *               buffer size of the packet next in line, and return `false'
+     *   - PACKET_IO_FRDIFFIT|PACKET_IO_FRDTRUNC:
+     *               Read as much as can be read into the provided user-buffer,
+     *               and don't read more than one packet.
+     *               However, if the provided user-buffer isn't large enough to
+     *               hold the entire packet, rather than returning `false' and
+     *               updating `*pbufsize' to contain the required buffer size,
+     *               instead fill `*pbufsize' with the read buffer size before
+     *               truncating the packet from which data was read to remove
+     *               all the data that was read, before returning `true'.
+     * @param: pbufsize: PRE(*)  The provided buffer size.
+     * @param: pbufsize: POST(*) The required buffer size / size that would have been required.
+     *                           Even set if `PACKET_IO_FRDALWAYS' is used and the packet
+     *                           couldn't be read again, even if the caller provided a larger
+     *                           buffer.
+     * @return: true:  Successfully read and dequeued, or truncated a packet.
+     *                `*pbufsize' has been updated to the used buffer size (which is <= PRE(*pbufsize))
+     * @return: false: Failed to read a packet:
+     *              - `PACKET_IO_FRDNEVER' was passed in `packet_mode'
+     *                 In this case `*pbufsize' is set to the required packet size,
+     *                 and as much data as possible (MIN(PRE(*pbufsize),PACKET_SIZE))
+     *                 were copied into `buf'
+     *              - `PACKET_IO_FRDIFFIT' was passed in `packet_mode' and the
+     *                 provided `PRE(*pbufsize)' was not of sufficient size.
+     *              -  The packet buffer was closed.
      * @throw: * :            The recv() failed for some reason. (XXX: net errors?)
-     * @throw: E_WOULDBLOCK: `IO_NONBLOCK' was specified and the operation would have blocked.
-     * @return: 0 : Either `buflen' was ZERO(0), a zero-length datagram was
-     *              received, or the other end of a connection-oriented
-     *              socket (the peer) gracefully ended the connection.
-     * @return: * : The _REQUIRED_ buffer size (or rather the buffer size
-     *              that would have been required to read the full packet
-     *              if the socket is packet-oriented).
-     * NOTE: Be careful to properly implement the `SOCKET_MESSAGE_FPEEK' flag. */
-    size_t (KCALL *so_recv)(struct socket *__restrict self,
-                            USER CHECKED void *buf,
-                            size_t buflen, iomode_t mode,
-                            unsigned int flags);
-
+     * @throw: E_WOULDBLOCK: `IO_NONBLOCK' was set and the operation would have blocked.
+     * @throw: E_INTERRUPT:   The calling thread was interrupted.
+     * @throw: E_SEGFAULT:    The provided user-buffer is faulty. */
+    bool (KCALL *so_recv)(struct socket *__restrict self,
+                          USER CHECKED struct iovec const *iov, size_t *__restrict pbufsize,
+                          iomode_t mode, packet_iomode_t packet_mode);
     /* [0..1][lock(READ(s_lock) &&
      *           !(s_state & SOCKET_STATE_FSHUTRD))]
      * Same as `so_recv', but used for connection-less socket.
      * This is the socket operator hook for the `recvfrom(2)' system call.
-     * @param: flags: Set of `SOCKET_MESSAGE_F*'
      * @param: paddrbuflen: On entry, this pointer can be dereference to
      *                      determine the size of the `addrbuf' buffer.
      *                      On success, this pointer should be updated
      *                      to contain the _required_ size for the
-     *                     `addrbuf' buffer.
-     * @throw: * :            The recvfrom() failed for some reason. (XXX: net errors?)
-     * @throw: E_WOULDBLOCK: `IO_NONBLOCK' was specified and the operation would have blocked.
-     * @throw: E_NOT_IMPLEMENTED: Same as not implementing this operator.
-     * @return: 0 : Either `buflen' was ZERO(0), or a zero-length datagram was received.
-     * @return: * : The _REQUIRED_ buffer size (or rather the buffer size
-     *              that would have been required to read the full packet
-     *              if the socket is packet-oriented).
-     * NOTE: Be careful to properly implement the `SOCKET_MESSAGE_FPEEK' flag. */
-    size_t (KCALL *so_recvfrom)(struct socket *__restrict self,
-                                USER CHECKED void *buf, size_t buflen,
-                                USER CHECKED struct sockaddr *addrbuf,
-                                socklen_t *__restrict paddrlen,
-                                iomode_t mode, unsigned int flags);
+     *                     `addrbuf' buffer. */
+    bool (KCALL *so_recvfrom)(struct socket *__restrict self,
+                              USER CHECKED struct iovec const *iov, size_t *__restrict pbufsize,
+                              USER CHECKED struct sockaddr *addrbuf, socklen_t *__restrict paddrlen,
+                              iomode_t mode, packet_iomode_t packet_mode);
 
     /* [0..1][lock(READ(s_lock) &&
      *            (s_state & SOCKET_STATE_FCONNECTED) &&
      *           !(s_state & SOCKET_STATE_FSHUTWR))]
-     * Write data to a connected, connection-oriented socket.
-     * This is the socket operator hook for the `write(2)' and `send(2)' system calls.
-     * When not implemented (as done by connection-less) sockets, the
-     * call is forwarded to `so_recvfrom()', if the socket has previous
-     * been ~connected~ (s.a.: `so_connect()' / `struct socket::s_peeraddr')
-     * @param: flags: Set of `SOCKET_MESSAGE_F*'
+     * Construct, enqueue and send a new packet.
+     * NOTE: Passing `num_bytes == 0' will enqueue an empty packet which will still
+     *       have the same semantics any any other packet with a buffer size that
+     *       wouldn't match ZERO.
+     * @param: packet_mode: Either 0, or `PACKET_IO_FWRSPLIT'.
+     *                      When `PACKET_IO_FWRSPLIT', allow the packet data
+     *                      to be split across more than one packet.
+     * @return: * :         The total size of all written payloads.
+     *                      Unless `PACKET_IO_FWRSPLIT' is set, this always equals `num_bytes'
+     *                      Successfully enqueued a new packet.
+     * @return: 0 :         The peer has closed the connection, or an empty packet was sent.
      * @throw: * :            The send() failed for some reason. (XXX: net errors?)
-     * @throw: E_WOULDBLOCK: `IO_NONBLOCK' was specified and the operation would have blocked.
-     * @return: 0 : `buflen' was ZERO(0).
-     * @return: * :  The number of sent bytes. */
+     * @throw: E_WOULDBLOCK: `IO_NONBLOCK' was set and the operation would have blocked.
+     * @throw: E_INTERRUPT:   The calling thread was interrupted.
+     * @throw: E_BADALLOC:    Failed to (re-)allocate the internal packet buffer.
+     * @throw: E_NET_ERROR.ERROR_NET_PACKET_TOO_LARGE:
+     *                 [!PACKET_IO_FWRSPLIT] The total size of the packet to-be written exceeds `pb_limt',
+     *                                       meaning that no matter how long the function would wait, there
+     *                                       would never come a time when the buffer would be able to house
+     *                                       the packet in its entirety. */
     size_t (KCALL *so_send)(struct socket *__restrict self,
-                            USER CHECKED void const *buf,
-                            size_t buflen, iomode_t mode,
-                            unsigned int flags);
+                            USER CHECKED struct iovec const *iov, size_t num_bytes,
+                            iomode_t mode, packet_iomode_t packet_mode);
 
     /* [0..1][lock(READ(s_lock) &&
      *           !(s_state & SOCKET_STATE_FSHUTWR))]
      * Same as `so_send', but used for connection-less socket.
-     * This is the socket operator hook for the `sendto(2)' system call.
-     * @param: flags: Set of `SOCKET_MESSAGE_F*'
-     * @throw: * :                The sendto() failed for some reason. (XXX: net errors?)
-     * @throw: E_WOULDBLOCK:     `IO_NONBLOCK' was specified and the operation would have blocked.
-     * @throw: E_NOT_IMPLEMENTED: Same as not implementing this operator.
-     * @return: 0 : `buflen' was ZERO(0).
-     * @return: * :  The number of sent bytes. */
+     * This is the socket operator hook for the `sendto(2)' system call. */
     size_t (KCALL *so_sendto)(struct socket *__restrict self,
-                              USER CHECKED void const *buf, size_t buflen,
-                              USER CHECKED struct sockaddr const *addrbuf,
-                              socklen_t addrlen, iomode_t mode,
-                              unsigned int flags);
+                              USER CHECKED struct iovec const *iov, size_t num_bytes,
+                              USER CHECKED struct sockaddr const *addrbuf, socklen_t addrlen,
+                              iomode_t mode, packet_iomode_t packet_mode);
+
+    /* Extended variants of `so_recv' and `so_recvfrom' that
+     * include information about incoming ancillary data.
+     * @param: anc:      Ancillary data. Unless `so_recv' hasn't been implemented,
+     *                   this pointer is always [1..1], however if `so_recv' is not
+     *                   provided, but this operator is, then `anc' is passed as NULL
+     *                   when data should be received without any ancillary information,
+     *                   alongside `pancsize' pointing to a size_t with a value of ZERO.
+     * @param: pancsize: Upon entry, the size of the ancillary data buffer.
+     *                   Upon exit, the amount of data written to the ancillary data buffer.
+     *             NOTE: In the event of the ancillary data buffer not being of sufficient
+     *                   length, unused trailing data is truncated and `*pancsize' is set
+     *                   the contain the size of all data buffers that were received.
+     *                   There is no way of detecting that not all ancillary data could
+     *                   actually be received! */
+    bool (KCALL *so_recva)(struct socket *__restrict self,
+                           USER CHECKED struct iovec const *iov, size_t *__restrict pbufsize,
+                           USER CHECKED struct cmsghdr *anc, size_t *__restrict pancsize,
+                           iomode_t mode, packet_iomode_t packet_mode);
+    bool (KCALL *so_recvafrom)(struct socket *__restrict self,
+                               USER CHECKED struct iovec const *iov, size_t *__restrict pbufsize,
+                               USER CHECKED struct cmsghdr *anc, size_t *__restrict pancsize,
+                               USER CHECKED struct sockaddr *addrbuf, socklen_t *__restrict paddrlen,
+                               iomode_t mode, packet_iomode_t packet_mode);
+
+    /* Extended variants of `so_send' and `so_sendto' that
+     * include information about outgoing ancillary data.
+     * @param: anc:     Ancillary data. Unless `so_send' hasn't been implemented,
+     *                  this pointer is always [1..1], however if `so_send' is not
+     *                  provided, but this operator is, then `anc' is passed as NULL
+     *                  when data should be received without any ancillary information,
+     *                  alongside `ancsize' having a value of ZERO(0).
+     * @param: ancsize: The size of the ancillary data buffer. */
+    size_t (KCALL *so_senda)(struct socket *__restrict self,
+                             USER CHECKED struct iovec const *iov, size_t num_bytes,
+                             USER CHECKED struct cmsghdr const *anc, size_t anc_size,
+                             iomode_t mode, packet_iomode_t packet_mode);
+    size_t (KCALL *so_sendato)(struct socket *__restrict self,
+                               USER CHECKED struct iovec const *iov, size_t num_bytes,
+                               USER CHECKED struct cmsghdr const *anc, size_t anc_size,
+                               USER CHECKED struct sockaddr const *addrbuf, socklen_t addrlen,
+                               iomode_t mode, packet_iomode_t packet_mode);
+
 };
 
 struct socket_domain {
@@ -529,85 +583,139 @@ FUNDEF void KCALL socket_setsockopt(struct socket *__restrict self,
 FUNDEF unsigned int KCALL socket_poll(struct socket *__restrict self,
                                       unsigned int mode);
 
-/* Read data from a connected, connection-oriented socket.
- * This is the socket operator hook for the `read(2)' and `recv(2)' system calls.
- * When not implemented (as done by connection-less) sockets, the
- * call is forwarded to `so_recvfrom()', if the socket has previous
- * been ~connected~ (s.a.: `so_connect()' / `struct socket::s_peeraddr')
- * @param: flags: Set of `SOCKET_MESSAGE_F*'
- * @throw: * :                The recv() failed for some reason. (XXX: net errors?)
- * @throw: E_WOULDBLOCK:     `IO_NONBLOCK' was specified and the operation would have blocked.
+/* Read a packet from the socket.
+ * @param: packet_mode: Set of `PACKETBUFFER_IO_F*':
+ *   - PACKET_IO_FRDALWAYS:
+ *               Always discard the packet, irregardless of whether or
+ *               not it actually fit into the provided user-buffer.
+ *   - PACKET_IO_FRDNEVER:
+ *               Never discard the packet and operate according to peek() semantics.
+ *               Always return `false' (become the packet is never actually removed)
+ *   - PACKET_IO_FRDIFFIT:
+ *               Read as much of the packet as can fit into the provided
+ *               user buffer, however in the event of the buffer being
+ *               too small, update `*pbufsize' to contain the required
+ *               buffer size of the packet next in line, and return `false'
+ *   - PACKET_IO_FRDIFFIT|PACKET_IO_FRDTRUNC:
+ *               Read as much as can be read into the provided user-buffer,
+ *               and don't read more than one packet.
+ *               However, if the provided user-buffer isn't large enough to
+ *               hold the entire packet, rather than returning `false' and
+ *               updating `*pbufsize' to contain the required buffer size,
+ *               instead fill `*pbufsize' with the read buffer size before
+ *               truncating the packet from which data was read to remove
+ *               all the data that was read, before returning `true'.
+ * @param: pbufsize: PRE(*)  The provided buffer size.
+ * @param: pbufsize: POST(*) The required buffer size / size that would have been required.
+ *                           Even set if `PACKET_IO_FRDALWAYS' is used and the packet
+ *                           couldn't be read again, even if the caller provided a larger
+ *                           buffer.
+ * @return: true:  Successfully read and dequeued, or truncated a packet.
+ *                `*pbufsize' has been updated to the used buffer size (which is <= PRE(*pbufsize))
+ * @return: false: Failed to read a packet:
+ *              - `PACKET_IO_FRDNEVER' was passed in `packet_mode'
+ *                 In this case `*pbufsize' is set to the required packet size,
+ *                 and as much data as possible (MIN(PRE(*pbufsize),PACKET_SIZE))
+ *                 were copied into `buf'
+ *              - `PACKET_IO_FRDIFFIT' was passed in `packet_mode' and the
+ *                 provided `PRE(*pbufsize)' was not of sufficient size.
+ *              -  The packet buffer was closed.
+ * @throw: * :            The recv() failed for some reason. (XXX: net errors?)
  * @throw: E_NOT_IMPLEMENTED: The socket implements no way of receiving.
  * @throw: E_NET_ERROR.ERROR_NET_SHUTDOWN:      [...]
  * @throw: E_NET_ERROR.ERROR_NET_NOT_CONNECTED: [...]
- * @return: 0 : Either `buflen' was ZERO(0), a zero-length datagram was
- *              received, or the other end of a connection-oriented
- *              socket (the peer) gracefully ended the connection.
- * @return: * : The _REQUIRED_ buffer size (or rather the buffer size
- *              that would have been required to read the full packet
- *              if the socket is packet-oriented).
- * NOTE: Be careful to properly implement the `SOCKET_MESSAGE_FPEEK' flag. */
-FUNDEF size_t KCALL socket_recv(struct socket *__restrict self,
-                                USER CHECKED void *buf,
-                                size_t buflen, iomode_t mode,
-                                unsigned int flags);
+ * @throw: E_WOULDBLOCK: `IO_NONBLOCK' was set and the operation would have blocked.
+ * @throw: E_INTERRUPT:   The calling thread was interrupted.
+ * @throw: E_SEGFAULT:    The provided user-buffer is faulty. */
+FUNDEF bool KCALL socket_recv(struct socket *__restrict self,
+                              USER CHECKED struct iovec const *iov,
+                              size_t *__restrict pbufsize,
+                              iomode_t mode, packet_iomode_t packet_mode);
 
 /* Same as `so_recv', but used for connection-less socket.
  * This is the socket operator hook for the `recvfrom(2)' system call.
- * @param: flags: Set of `SOCKET_MESSAGE_F*'
  * @param: paddrbuflen: On entry, this pointer can be dereference to
  *                      determine the size of the `addrbuf' buffer.
  *                      On success, this pointer should be updated
  *                      to contain the _required_ size for the
- *                     `addrbuf' buffer.
- * @throw: * :            The recvfrom() failed for some reason. (XXX: net errors?)
- * @throw: E_WOULDBLOCK: `IO_NONBLOCK' was specified and the operation would have blocked.
- * @throw: E_NOT_IMPLEMENTED: The socket implements no way of receiving.
- * @throw: E_NET_ERROR.ERROR_NET_SHUTDOWN:      [...]
- * @throw: E_NET_ERROR.ERROR_NET_NOT_CONNECTED: The socket is connection-priented and hasn't been connected, yet.
- * @return: 0 : Either `buflen' was ZERO(0), or a zero-length datagram was received.
- * @return: * : The _REQUIRED_ buffer size (or rather the buffer size
- *              that would have been required to read the full packet
- *              if the socket is packet-oriented).
- * NOTE: Be careful to properly implement the `SOCKET_MESSAGE_FPEEK' flag. */
-FUNDEF size_t KCALL socket_recvfrom(struct socket *__restrict self,
-                                    USER CHECKED void *buf, size_t buflen,
-                                    USER CHECKED struct sockaddr *addrbuf,
-                                    socklen_t *__restrict paddrlen,
-                                    iomode_t mode, unsigned int flags);
+ *                     `addrbuf' buffer. */
+FUNDEF bool KCALL socket_recvfrom(struct socket *__restrict self,
+                                  USER CHECKED struct iovec const *iov,
+                                  size_t *__restrict pbufsize,
+                                  USER CHECKED struct sockaddr *addrbuf,
+                                  socklen_t *__restrict paddrlen,
+                                  iomode_t mode, packet_iomode_t packet_mode);
 
-/* Write data to a connected, connection-oriented socket.
- * This is the socket operator hook for the `write(2)' and `send(2)' system calls.
- * When not implemented (as done by connection-less) sockets, the
- * call is forwarded to `so_recvfrom()', if the socket has previous
- * been ~connected~ (s.a.: `so_connect()' / `struct socket::s_peeraddr')
- * @param: flags: Set of `SOCKET_MESSAGE_F*'
+
+/* Construct, enqueue and send a new packet.
+ * NOTE: Passing `num_bytes == 0' will enqueue an empty packet which will still
+ *       have the same semantics any any other packet with a buffer size that
+ *       wouldn't match ZERO.
+ * @param: packet_mode: Either 0, or `PACKET_IO_FWRSPLIT'.
+ *                      When `PACKET_IO_FWRSPLIT', allow the packet
+ *                      data to be split across more than one packet.
+ * @return: * :         The total size of all written payloads.
+ *                      Unless `PACKET_IO_FWRSPLIT' is set, this always equals `num_bytes'
+ *                      Successfully enqueued a new packet.
+ * @return: 0 :         The peer has closed the connection, or an empty packet was sent.
  * @throw: * :            The send() failed for some reason. (XXX: net errors?)
- * @throw: E_WOULDBLOCK: `IO_NONBLOCK' was specified and the operation would have blocked.
- * @throw: E_NET_ERROR.ERROR_NET_SHUTDOWN:      [...]
- * @throw: E_NET_ERROR.ERROR_NET_NOT_CONNECTED: [...]
- * @return: 0 : `buflen' was ZERO(0).
- * @return: * :  The number of sent bytes. */
-FUNDEF size_t KCALL socket_send(struct socket *__restrict self,
-                                USER CHECKED void const *buf,
-                                size_t buflen, iomode_t mode,
-                                unsigned int flags);
-
-/* Same as `so_send', but used for connection-less socket.
- * This is the socket operator hook for the `sendto(2)' system call.
- * @param: flags: Set of `SOCKET_MESSAGE_F*'
- * @throw: * :                The sendto() failed for some reason. (XXX: net errors?)
- * @throw: E_WOULDBLOCK:     `IO_NONBLOCK' was specified and the operation would have blocked.
- * @throw: E_NOT_IMPLEMENTED: Same as not implementing this operator.
+ * @throw: E_NOT_IMPLEMENTED: The socket provides no way of sending data.
  * @throw: E_NET_ERROR.ERROR_NET_SHUTDOWN:         [...]
  * @throw: E_NET_ERROR.ERROR_NET_CANNOT_RECONNECT: [...]
- * @return: 0 : `buflen' was ZERO(0).
- * @return: * :  The number of sent bytes. */
+ * @throw: E_WOULDBLOCK: `IO_NONBLOCK' was set and the operation would have blocked.
+ * @throw: E_INTERRUPT:   The calling thread was interrupted.
+ * @throw: E_BADALLOC:    Failed to (re-)allocate the internal packet buffer.
+ * @throw: E_NET_ERROR.ERROR_NET_PACKET_TOO_LARGE:
+ *                 [!PACKET_IO_FWRSPLIT] The total size of the packet to-be written exceeds `pb_limt',
+ *                                       meaning that no matter how long the function would wait, there
+ *                                       would never come a time when the buffer would be able to house
+ *                                       the packet in its entirety. */
+FUNDEF size_t KCALL socket_send(struct socket *__restrict self,
+                                USER CHECKED struct iovec const *iov, size_t num_bytes,
+                                iomode_t mode, packet_iomode_t packet_mode);
+
+/* Same as `so_send', but used for connection-less socket.
+ * This is the socket operator hook for the `sendto(2)' system call. */
 FUNDEF size_t KCALL socket_sendto(struct socket *__restrict self,
-                                  USER CHECKED void const *buf, size_t buflen,
-                                  USER CHECKED struct sockaddr const *addrbuf,
-                                  socklen_t addrlen, iomode_t mode,
-                                  unsigned int flags);
+                                  USER CHECKED struct iovec const *iov, size_t num_bytes,
+                                  USER CHECKED struct sockaddr const *addrbuf, socklen_t addrlen,
+                                  iomode_t mode, packet_iomode_t packet_mode);
+
+
+
+/* Extended variants of `socket_recv' and `socket_recvfrom'
+ * that include information about incoming ancillary data.
+ * @param: anc:      Ancillary data.
+ * @param: pancsize: Upon entry, the size of the ancillary data buffer.
+ *                   Upon exit, the amount of data written to the ancillary data buffer.
+ *             NOTE: In the event of the ancillary data buffer not being of sufficient
+ *                   length, unused trailing data is truncated and `*pancsize' is set
+ *                   the contain the size of all data buffers that were received.
+ *                   There is no way of detecting that not all ancillary data could
+ *                   actually be received! */
+FUNDEF bool KCALL socket_recva(struct socket *__restrict self,
+                               USER CHECKED struct iovec const *iov, size_t *__restrict pbufsize,
+                               USER CHECKED struct cmsghdr *anc, size_t *__restrict pancsize,
+                               iomode_t mode, packet_iomode_t packet_mode);
+FUNDEF bool KCALL socket_recvafrom(struct socket *__restrict self,
+                                   USER CHECKED struct iovec const *iov, size_t *__restrict pbufsize,
+                                   USER CHECKED struct cmsghdr *anc, size_t *__restrict pancsize,
+                                   USER CHECKED struct sockaddr *addrbuf, socklen_t *__restrict paddrlen,
+                                   iomode_t mode, packet_iomode_t packet_mode);
+
+/* Extended variants of `socket_send' and `socket_sendto' that
+ * include information about outgoing ancillary data.
+ * @param: anc:     Ancillary data.
+ * @param: ancsize: The size of the ancillary data buffer. */
+FUNDEF size_t KCALL socket_senda(struct socket *__restrict self,
+                                 USER CHECKED struct iovec const *iov, size_t num_bytes,
+                                 USER CHECKED struct cmsghdr const *anc, size_t anc_size,
+                                 iomode_t mode, packet_iomode_t packet_mode);
+FUNDEF size_t KCALL socket_sendato(struct socket *__restrict self,
+                                   USER CHECKED struct iovec const *iov, size_t num_bytes,
+                                   USER CHECKED struct cmsghdr const *anc, size_t anc_size,
+                                   USER CHECKED struct sockaddr const *addrbuf, socklen_t addrlen,
+                                   iomode_t mode, packet_iomode_t packet_mode);
 
 
 DECL_END

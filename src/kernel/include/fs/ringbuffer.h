@@ -38,6 +38,7 @@ DECL_BEGIN
 #define RBUFFER_INIT_ALLOC     512  /* The size of the initial data block. */
 #define RBUFFER_FREE_THRESHOLD 1024 /* Free unused buffer memory when there is at lest this much */
 
+struct iovec;
 struct ringbuffer {
     atomic_rwlock_t     r_lock; /* Lock for this ring buffer.
                                  * WARNING: This lock may be held during pagefaults! */
@@ -62,7 +63,13 @@ struct ringbuffer {
                                  */
 };
 
-#define RBUF_INIT(limt) \
+#define RBUF_STATE_CHANNEL_NOTFULL 0x1 /* Channel mask send to a single thread via `r_stat'
+                                        * after the ring buffer was full (no further data could
+                                        * be written). */
+#define RBUF_STATE_CHANNEL_EMPTY   0x2 /* Channel mask broadcast when the buffer becomes empty. */
+#define RBUF_STATE_CHANNEL_FULL    0x4 /* Channel mask broadcast when the buffer becomes full. */
+
+#define RINGBUFFER_INIT(limt) \
     { ATOMIC_RWLOCK_INIT, NULL, NULL, NULL, 0, \
      (limt) & RBUFFER_LIMT_FMASK, SIG_INIT }
 #define ringbuffer_init(self,limt) \
@@ -75,12 +82,6 @@ struct ringbuffer {
      assert((self)->r_rptr == NULL),assert((self)->r_wptr == NULL), \
      assert((self)->r_base == NULL),assert((self)->r_size == 0), \
     (self)->r_limt = (limt) & RBUFFER_LIMT_FMASK,sig_cinit(&(self)->r_stat))
-
-#define RBUF_STATE_CHANNEL_NOTFULL 0x1 /* Channel mask send to a single thread via `r_stat'
-                                        * after the ring buffer was full (no further data could
-                                        * be written). */
-#define RBUF_STATE_CHANNEL_EMPTY   0x2 /* Channel mask broadcast when the buffer becomes empty. */
-#define RBUF_STATE_CHANNEL_FULL    0x4 /* Channel mask broadcast when the buffer becomes full. */
 
 
 /* Return the max number of characters that can be
@@ -117,24 +118,28 @@ FUNDEF ATTR_NOTHROW size_t KCALL ringbuffer_discard(struct ringbuffer *__restric
  * @throw: * :          [ringbuffer_read] This error was thrown by an RPC function.
  * @throw: E_INTERRUPT: [ringbuffer_read] The calling thread was interrupted.
  * @throw: E_SEGFAULT:  A faulty buffer was given. */
-FUNDEF size_t KCALL ringbuffer_read(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes, iomode_t flags);
+FUNDEF size_t KCALL ringbuffer_read(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes, iomode_t mode);
 FUNDEF size_t KCALL ringbuffer_read_atomic(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes);
+FUNDEF size_t KCALL ringbuffer_readv(struct ringbuffer *__restrict self, USER CHECKED struct iovec const *iov, size_t iov_offset, size_t num_bytes, iomode_t mode);
+FUNDEF size_t KCALL ringbuffer_readv_atomic(struct ringbuffer *__restrict self, USER CHECKED struct iovec const *iov, size_t iov_offset, size_t num_bytes, iomode_t mode);
 
 /* Read data and fill the given buffer entirely while keeping
  * on waiting for data that only arrives in chunks at a time.
  * If the ring buffer is closed while is is happened, only
  * return what has been read thus far.
  * WARNING: If the calling thread is interrupted, any data already read will be lost! */
-FUNDEF size_t KCALL ringbuffer_readall(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes, iomode_t flags);
+FUNDEF size_t KCALL ringbuffer_readall(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes, iomode_t mode);
 
 /* Same as `ringbuffer_read()', but don't discard data as it is read. */
-FUNDEF size_t KCALL ringbuffer_peek(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes, iomode_t flags);
+FUNDEF size_t KCALL ringbuffer_peek(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes, iomode_t mode);
 FUNDEF size_t KCALL ringbuffer_peek_atomic(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes);
+FUNDEF size_t KCALL ringbuffer_peekv(struct ringbuffer *__restrict self, USER CHECKED struct iovec const *iov, size_t iov_offset, size_t num_bytes, iomode_t mode);
+FUNDEF size_t KCALL ringbuffer_peekv_atomic(struct ringbuffer *__restrict self, USER CHECKED struct iovec const *iov, size_t iov_offset, size_t num_bytes, iomode_t mode);
 /* Similar to `ringbuffer_peek()', but peek on trying until the ensure user-buffer
  * has been read into, or until the amount read equals the max amount of data that
  * can be stored in the buffer at once, or until no data was peek, as indicative
  * of the IO_NONBLOCK flag, or the fact that the ring buffer was closed. */
-FUNDEF size_t KCALL ringbuffer_peekall(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes, iomode_t flags);
+FUNDEF size_t KCALL ringbuffer_peekall(struct ringbuffer *__restrict self, USER CHECKED void *buf, size_t num_bytes, iomode_t mode);
 
 /* Write data to the buffer and return the amount of bytes written.
  * `ringbuffer_write()' will attempt to write at least 1 byte of data and will
@@ -147,13 +152,15 @@ FUNDEF size_t KCALL ringbuffer_peekall(struct ringbuffer *__restrict self, USER 
  * @throw: * :          [ringbuffer_write] This error was thrown by an RPC function.
  * @throw: E_INTERRUPT: [ringbuffer_write] The calling thread was interrupted.
  * @throw: E_SEGFAULT:  A faulty buffer was given. */
-FUNDEF size_t KCALL ringbuffer_write(struct ringbuffer *__restrict self, USER CHECKED void const *buf, size_t num_bytes, iomode_t flags);
+FUNDEF size_t KCALL ringbuffer_write(struct ringbuffer *__restrict self, USER CHECKED void const *buf, size_t num_bytes, iomode_t mode);
 FUNDEF size_t KCALL ringbuffer_write_atomic(struct ringbuffer *__restrict self, USER CHECKED void const *buf, size_t num_bytes);
+FUNDEF size_t KCALL ringbuffer_writev(struct ringbuffer *__restrict self, USER CHECKED struct iovec const *iov, size_t iov_offset, size_t num_bytes, iomode_t mode);
+FUNDEF size_t KCALL ringbuffer_writev_atomic(struct ringbuffer *__restrict self, USER CHECKED struct iovec const *iov, size_t iov_offset, size_t num_bytes, iomode_t mode);
 
 /* Write all data to the ring buffer and keep blocking
  * while a portion remains that hasn't been written.
  * If the buffer is closed, stop prematurely and return the amount that was written. */
-FUNDEF size_t KCALL ringbuffer_writeall(struct ringbuffer *__restrict self, USER CHECKED void const *buf, size_t num_bytes, iomode_t flags);
+FUNDEF size_t KCALL ringbuffer_writeall(struct ringbuffer *__restrict self, USER CHECKED void const *buf, size_t num_bytes, iomode_t mode);
 
 /* Asynchronously wait for a read/write operation to become non-blocking:
  *   - Specify `POLLIN' to poll for `ringbuffer_read()'
@@ -173,7 +180,6 @@ LOCAL bool KCALL ringbuffer_poll_nonempty(struct ringbuffer *__restrict self);
 LOCAL bool KCALL ringbuffer_poll_close(struct ringbuffer *__restrict self);
 
 /* Wait for a specific buffer conditions.
- * @CLOBBER(task_channelmask)
  * @return: true:  The specified condition was met.
  * @return: false: The given `abs_timeout' expired. */
 LOCAL bool KCALL ringbuffer_wait_full(struct ringbuffer *__restrict self, jtime_t abs_timeout);

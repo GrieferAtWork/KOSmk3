@@ -448,23 +448,7 @@ enum {
 #define MSG_TRUNC        0x00000020
 #define MSG_DONTWAIT     0x00000040 /* Nonblocking IO. */
 #define MSG_EOR          0x00000080 /* End of record. */
-#define MSG_WAITALL      0x00000100 /* Wait for a full request.
-                                     * NOTE: On KOS, this flag can also be specified
-                                     *       for send() operations on stream-based
-                                     *       sockets to ensure that all given data is
-                                     *       sent in order without the need for user-space
-                                     *       to ensure that no 2 threads write data at the
-                                     *       same time. (If an EOF occurs in the mean time,
-                                     *       not everything is written)
-                                     *       Basically, do the following atomically:
-                                     * >> size_t total = 0,part;
-                                     * >> do part   = send(sockfd,(byte_t *)buf + total,
-                                     * >>                             num_bytes - total,
-                                     * >>                  flags),
-                                     * >>    total += part;
-                                     * >> while (part && total < num_bytes);
-                                     * >> return total;
-                                     */
+#define MSG_WAITALL      0x00000100 /* Wait for a full request. */
 #define MSG_FIN          0x00000200
 #define MSG_SYN          0x00000400
 #define MSG_CONFIRM      0x00000800 /* Confirm path validity. */
@@ -482,13 +466,13 @@ enum {
 #ifndef __msghdr_defined
 #define __msghdr_defined 1
 struct msghdr {
-    void         *msg_name;       /* Address to send to/receive from. */
+    void         *msg_name;       /* [TYPE(struct sockaddr *)] Address to send to/receive from. */
     socklen_t     msg_namelen;    /* Length of address data. */
     struct iovec *msg_iov;        /* Vector of data to send/receive into. */
     size_t        msg_iovlen;     /* Number of elements in the vector. */
-    void         *msg_control;    /* Ancillary data (eg BSD filedesc passing). */
+    void         *msg_control;    /* [TYPE(struct cmsghdr *)] Ancillary data (eg BSD filedesc passing). */
     size_t        msg_controllen; /* Ancillary data buffer length. !! The type should be socklen_t but the definition of the kernel is incompatible with this. */
-    int           msg_flags;      /* Flags on received message. */
+    int           msg_flags;      /* Flags returned by recvmsg() */
 };
 #endif /* !__msghdr_defined */
 

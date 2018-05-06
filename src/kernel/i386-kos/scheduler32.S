@@ -259,7 +259,6 @@ PUBLIC_ENTRY(task_tryyield)
 	pushfl_cfi_r
 	testl   $(EFLAGS_IF), 0(%esp)
 	jnz     1f
-	int3
 	popfl_cfi_r
 	/* Return `false' if interrupts have been disabled. */
 99:	xorl    %eax, %eax

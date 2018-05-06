@@ -32,6 +32,7 @@
 #include <string.h>
 #include <except.h>
 #include <bits/poll.h>
+#include <sys/uio.h>
 
 /* General-purpose RING-buffer. */
 
@@ -277,10 +278,12 @@ again:
  * @throw: E_INTERRUPT: [ringbuffer_read] The calling thread was interrupted.
  * @throw: E_SEGFAULT:  A faulty buffer was given. */
 PUBLIC size_t KCALL
-ringbuffer_read_atomic(struct ringbuffer *__restrict self,
-                       USER CHECKED void *buf, size_t num_bytes) {
+ringbuffer_readv_atomic(struct ringbuffer *__restrict self,
+                        USER CHECKED struct iovec const *iov,
+                        size_t iov_offset, size_t num_bytes,
+                        iomode_t mode) {
  struct ringbuffer *EXCEPT_VAR xself = self;
- byte_t *bufend,*old_pointer,*new_pointer,*dst;
+ byte_t *bufend,*old_pointer,*new_pointer;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  bool COMPILER_IGNORE_UNINITIALIZED(was_full);
  bool COMPILER_IGNORE_UNINITIALIZED(is_empty);
@@ -290,7 +293,7 @@ ringbuffer_read_atomic(struct ringbuffer *__restrict self,
 again:
   bufend = self->r_base+self->r_size;
   do {
-   dst         = (byte_t *)buf;
+   size_t dst_offset = iov_offset;
    old_pointer = ATOMIC_READ(self->r_rptr);
    new_pointer = old_pointer;
    result      = 0;
@@ -304,8 +307,8 @@ again:
        new_pointer >= self->r_wptr) {
     /* Read data before the buffer end. */
     result = MIN(bufend-new_pointer,num_bytes);
-    memcpy(dst,new_pointer,result);
-    dst         += result;
+    iov_write(iov,dst_offset,new_pointer,result,mode);
+    dst_offset  += result;
     new_pointer += result;
     if (new_pointer == bufend && self->r_wptr != self->r_base)
         new_pointer = self->r_base;
@@ -313,12 +316,12 @@ again:
    if (new_pointer < self->r_wptr) {
     size_t max_read;
     /* Read data below the write-pointer. */
-    assert((size_t)(dst-(byte_t *)buf) == result);
+    assert((dst_offset-iov_offset) == result);
     assert(num_bytes >= result);
     max_read = num_bytes-result;
     max_read = MIN(self->r_wptr-new_pointer,max_read);
-    memcpy(dst,new_pointer,max_read);
-    dst         += max_read;
+    iov_write(iov,dst_offset,new_pointer,max_read,mode);
+    //dst_offset  += max_read;
     result      += max_read;
     new_pointer += max_read;
    }
@@ -368,15 +371,17 @@ again:
 }
 
 PUBLIC size_t KCALL
-ringbuffer_read(struct ringbuffer *__restrict self,
-                USER CHECKED void *buf, size_t num_bytes, iomode_t flags) {
+ringbuffer_readv(struct ringbuffer *__restrict self,
+                 USER CHECKED struct iovec const *iov,
+                 size_t iov_offset, size_t num_bytes,
+                 iomode_t mode) {
  size_t result;
  uintptr_t EXCEPT_VAR old_mask;
 again:
- result = ringbuffer_read_atomic(self,buf,num_bytes);
+ result = ringbuffer_readv_atomic(self,iov,iov_offset,num_bytes,num_bytes);
  if (likely(result || !num_bytes) ||
     (self->r_limt&RBUFFER_LIMT_FCLOSED) ||
-    (flags & IO_NONBLOCK))
+    (mode & IO_NONBLOCK))
      goto done;
  /* Connect to the signal of the buffer to wait for data to become available. */
  old_mask = task_channelmask(0);
@@ -384,7 +389,7 @@ again:
   task_connect(&self->r_stat);
   TRY {
    /* Try to read data again now that we're connected. */
-   result = ringbuffer_read_atomic(self,buf,num_bytes);
+   result = ringbuffer_readv_atomic(self,iov,iov_offset,num_bytes,num_bytes);
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
    task_disconnect();
    error_rethrow();
@@ -406,18 +411,38 @@ done:
  return result;
 }
 
+PUBLIC size_t KCALL
+ringbuffer_read(struct ringbuffer *__restrict self,
+                USER CHECKED void *buf, size_t num_bytes,
+                iomode_t mode) {
+ struct iovec iov[1];
+ iov[0].iov_base = buf;
+ iov[0].iov_len  = num_bytes;
+ return ringbuffer_readv(self,iov,0,num_bytes,mode|IO_NOIOVCHECK);
+}
+PUBLIC size_t KCALL
+ringbuffer_read_atomic(struct ringbuffer *__restrict self,
+                       USER CHECKED void *buf, size_t num_bytes) {
+ struct iovec iov[1];
+ iov[0].iov_base = buf;
+ iov[0].iov_len  = num_bytes;
+ return ringbuffer_readv_atomic(self,iov,0,num_bytes,IO_NOIOVCHECK);
+}
+
+
 /* Same as `ringbuffer_read()', but don't discard data as it is read. */
 PUBLIC size_t KCALL
-ringbuffer_peek_atomic(struct ringbuffer *__restrict self,
-                       USER CHECKED void *buf, size_t num_bytes) {
+ringbuffer_peekv_atomic(struct ringbuffer *__restrict self,
+                        USER CHECKED struct iovec const *iov,
+                        size_t iov_offset, size_t num_bytes,
+                        iomode_t mode) {
  struct ringbuffer *EXCEPT_VAR xself = self;
- byte_t *bufend,*old_pointer,*new_pointer,*dst;
+ byte_t *bufend,*old_pointer,*new_pointer;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  bool has_write_lock = false;
  atomic_rwlock_read(&self->r_lock);
  TRY { /* Required for potentially faulty user-buffer pointers. */
   bufend = self->r_base+self->r_size;
-  dst         = (byte_t *)buf;
   old_pointer = ATOMIC_READ(self->r_rptr);
   new_pointer = old_pointer;
   result      = 0;
@@ -430,8 +455,8 @@ ringbuffer_peek_atomic(struct ringbuffer *__restrict self,
       new_pointer >= self->r_wptr) {
    /* Read data before the buffer end. */
    result = MIN(bufend-new_pointer,num_bytes);
-   memcpy(dst,new_pointer,result);
-   dst         += result;
+   iov_write(iov,iov_offset,new_pointer,result,mode);
+   iov_offset  += result;
    new_pointer += result;
    if (new_pointer == bufend && self->r_wptr != self->r_base)
        new_pointer = self->r_base;
@@ -439,11 +464,10 @@ ringbuffer_peek_atomic(struct ringbuffer *__restrict self,
   if (new_pointer < self->r_wptr) {
    size_t max_peek;
    /* Read data below the write-pointer. */
-   assert((size_t)(dst-(byte_t *)buf) == result);
    assert(num_bytes >= result);
    max_peek = num_bytes-result;
    max_peek = MIN(self->r_wptr-new_pointer,max_peek);
-   memcpy(dst,new_pointer,max_peek);
+   iov_write(iov,iov_offset,new_pointer,max_peek,mode);
    result += max_peek;
   }
  } FINALLY {
@@ -455,15 +479,17 @@ ringbuffer_peek_atomic(struct ringbuffer *__restrict self,
 }
 
 PUBLIC size_t KCALL
-ringbuffer_peek(struct ringbuffer *__restrict self,
-                USER CHECKED void *buf, size_t num_bytes, iomode_t flags) {
+ringbuffer_peekv(struct ringbuffer *__restrict self,
+                 USER CHECKED struct iovec const *iov,
+                 size_t iov_offset, size_t num_bytes,
+                 iomode_t mode) {
  size_t result;
  uintptr_t EXCEPT_VAR old_mask;
 again:
- result = ringbuffer_peek_atomic(self,buf,num_bytes);
+ result = ringbuffer_peekv_atomic(self,iov,iov_offset,num_bytes,mode);
  if (likely(result || !num_bytes) ||
     (self->r_limt&RBUFFER_LIMT_FCLOSED) ||
-    (flags & IO_NONBLOCK))
+    (mode & IO_NONBLOCK))
      goto done;
  /* Connect to the signal of the buffer to wait for data to become available. */
  old_mask = task_channelmask(0);
@@ -471,7 +497,7 @@ again:
   task_connect(&self->r_stat);
   TRY {
    /* Try to peek data again now that we're connected. */
-   result = ringbuffer_peek_atomic(self,buf,num_bytes);
+   result = ringbuffer_peekv_atomic(self,iov,iov_offset,num_bytes,mode);
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
    task_disconnect();
    error_rethrow();
@@ -495,14 +521,33 @@ done:
 
 
 PUBLIC size_t KCALL
+ringbuffer_peek(struct ringbuffer *__restrict self,
+                USER CHECKED void *buf,
+                size_t num_bytes, iomode_t mode) {
+ struct iovec iov[1];
+ iov[0].iov_base = buf;
+ iov[0].iov_len  = num_bytes;
+ return ringbuffer_peekv(self,iov,0,num_bytes,mode|IO_NOIOVCHECK);
+}
+PUBLIC size_t KCALL
+ringbuffer_peek_atomic(struct ringbuffer *__restrict self,
+                       USER CHECKED void *buf, size_t num_bytes) {
+ struct iovec iov[1];
+ iov[0].iov_base = buf;
+ iov[0].iov_len  = num_bytes;
+ return ringbuffer_peekv_atomic(self,iov,0,num_bytes,IO_NOIOVCHECK);
+}
+
+
+PUBLIC size_t KCALL
 ringbuffer_readall(struct ringbuffer *__restrict self,
                    USER CHECKED void *buf,
-                   size_t num_bytes, iomode_t flags) {
+                   size_t num_bytes, iomode_t mode) {
  size_t result = 0,temp;
  do temp = ringbuffer_peek(self,
                           (byte_t *)buf+result,
                            num_bytes-result,
-                           flags),
+                           mode),
     result += temp;
  while (temp && result < num_bytes);
  return result;
@@ -511,9 +556,9 @@ ringbuffer_readall(struct ringbuffer *__restrict self,
 PUBLIC size_t KCALL
 ringbuffer_peekall(struct ringbuffer *__restrict self,
                    USER CHECKED void *buf,
-                   size_t num_bytes, iomode_t flags) {
+                   size_t num_bytes, iomode_t mode) {
  size_t result;
- do result = ringbuffer_peek(self,buf,num_bytes,flags);
+ do result = ringbuffer_peek(self,buf,num_bytes,mode);
  while (result && result < num_bytes &&
         result < (self->r_limt & RBUFFER_LIMT_FMASK));
  return result;
@@ -530,8 +575,9 @@ ringbuffer_peekall(struct ringbuffer *__restrict self,
  * @throw: E_INTERRUPT: [ringbuffer_write] The calling thread was interrupted.
  * @throw: E_SEGFAULT:  A faulty buffer was given. */
 PUBLIC size_t KCALL
-ringbuffer_write_atomic(struct ringbuffer *__restrict self,
-                        USER CHECKED void const *buf, size_t num_bytes) {
+ringbuffer_writev_atomic(struct ringbuffer *__restrict self,
+                         USER CHECKED struct iovec const *iov,
+                         size_t iov_offset, size_t num_bytes, iomode_t mode) {
  struct ringbuffer *EXCEPT_VAR xself = self;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  bool COMPILER_IGNORE_UNINITIALIZED(was_empty);
@@ -559,7 +605,7 @@ again:
            "self->r_base = %p\n",
            self->r_rptr,
            self->r_base);
-   memcpy(self->r_wptr,buf,result);
+   iov_read(self->r_wptr,iov,iov_offset,result,mode);
    self->r_wptr += result;
    is_full = self->r_wptr == self->r_rptr;
    /* Deal with the special case of just having filled up the buffer completely. */
@@ -575,7 +621,7 @@ again:
    /* Write data before the end of the buffer. */
    was_empty = false;
    result    = MIN((size_t)(bufend-self->r_wptr),num_bytes);
-   memcpy(self->r_wptr,buf,result);
+   iov_read(self->r_wptr,iov,iov_offset,result,mode);
    self->r_wptr += result;
    if (self->r_wptr == bufend) {
     self->r_wptr = self->r_base;
@@ -587,7 +633,7 @@ again:
      if (max_write > num_bytes-result)
          max_write = num_bytes-result;
      /* Copy additional data. */
-     memcpy(self->r_wptr,(void *)((uintptr_t)buf+result),max_write);
+     iov_read(self->r_wptr,iov,iov_offset+result,max_write,mode);
      self->r_wptr += max_write;
      result       += max_write;
      is_full = self->r_wptr == self->r_rptr;
@@ -715,16 +761,16 @@ increase_buffer:
 }
 
 PUBLIC size_t KCALL
-ringbuffer_write(struct ringbuffer *__restrict self,
-                 USER CHECKED void const *buf,
-                 size_t num_bytes, iomode_t flags) {
+ringbuffer_writev(struct ringbuffer *__restrict self,
+                  USER CHECKED struct iovec const *iov,
+                  size_t iov_offset, size_t num_bytes, iomode_t mode) {
  size_t result;
  uintptr_t EXCEPT_VAR old_mask;
 again:
- result = ringbuffer_write_atomic(self,buf,num_bytes);
+ result = ringbuffer_writev_atomic(self,iov,iov_offset,num_bytes,mode);
  if (likely(result || !num_bytes) ||
     (self->r_limt&RBUFFER_LIMT_FCLOSED) ||
-    (flags & IO_NONBLOCK))
+    (mode & IO_NONBLOCK))
      goto done;
  /* Connect to the signal of the buffer to wait for space to become available. */
  old_mask = task_channelmask(RBUF_STATE_CHANNEL_NOTFULL);
@@ -732,7 +778,7 @@ again:
   task_connect(&self->r_stat);
   TRY {
    /* Try to write data again now that we're connected. */
-   result = ringbuffer_write_atomic(self,buf,num_bytes);
+   result = ringbuffer_writev_atomic(self,iov,iov_offset,num_bytes,mode);
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
    task_disconnect();
    error_rethrow();
@@ -755,14 +801,34 @@ done:
 }
 
 PUBLIC size_t KCALL
+ringbuffer_write(struct ringbuffer *__restrict self,
+                 USER CHECKED void const *buf,
+                 size_t num_bytes, iomode_t mode) {
+ struct iovec iov[1];
+ iov[0].iov_base = (void *)buf;
+ iov[0].iov_len  = num_bytes;
+ return ringbuffer_writev(self,iov,0,num_bytes,mode|IO_NOIOVCHECK);
+}
+PUBLIC size_t KCALL
+ringbuffer_write_atomic(struct ringbuffer *__restrict self,
+                        USER CHECKED void const *buf,
+                        size_t num_bytes) {
+ struct iovec iov[1];
+ iov[0].iov_base = (void *)buf;
+ iov[0].iov_len  = num_bytes;
+ return ringbuffer_writev_atomic(self,iov,0,num_bytes,IO_NOIOVCHECK);
+}
+
+
+PUBLIC size_t KCALL
 ringbuffer_writeall(struct ringbuffer *__restrict self,
                     USER CHECKED void const *buf,
-                    size_t num_bytes, iomode_t flags) {
+                    size_t num_bytes, iomode_t mode) {
  size_t result = 0,part;
  do part = ringbuffer_write(self,
                            (byte_t *)buf + result,
                             num_bytes    - result,
-                            flags),
+                            mode),
     result += part;
  while (part && result < num_bytes);
  return result;

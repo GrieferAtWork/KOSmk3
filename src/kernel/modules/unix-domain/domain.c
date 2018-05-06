@@ -67,8 +67,8 @@ UnixSocket_Fini(UnixSocket *__restrict self) {
    * and clear the ring buffers of all data that was never
    * transmitted. */
   socket_weak_decref(&self->us_client.c_accept->as_socket);
-  ringbuffer_fini(&self->us_client.c_client2server);
-  ringbuffer_fini(&self->us_client.c_server2client);
+  packetbuffer_fini(&self->us_client.c_client2server);
+  packetbuffer_fini(&self->us_client.c_server2client);
  }
  if (self->us_bind_node)
      inode_decref((struct inode *)self->us_bind_node);
@@ -109,8 +109,8 @@ AcceptSocket_Fini(AcceptSocket *__restrict self) {
  if (socket_tryincref(&self->as_client->us_socket)) {
   /* Close the communication buffers, thus interrupting any
    * recv() or send() operation that may still be in process. */
-  ringbuffer_close(&self->as_client->us_client.c_client2server);
-  ringbuffer_close(&self->as_client->us_client.c_server2client);
+  packetbuffer_close(&self->as_client->us_client.c_client2server);
+  packetbuffer_close(&self->as_client->us_client.c_server2client);
   socket_decref(&self->as_client->us_socket);
  }
  socket_weak_decref(&self->as_client->us_socket);
@@ -142,9 +142,9 @@ AcceptSocket_Poll(AcceptSocket *__restrict self,
       return mode; /* recv() and send() become non-blocking when the connection was closed. */
  TRY {
   /* Poll the ring buffer used to communicate data. */
-  if ((mode & POLLIN) && ringbuffer_poll_nonempty(&client->us_client.c_client2server))
+  if ((mode & POLLIN) && packetbuffer_poll_nonempty(&client->us_client.c_client2server))
        mode |= POLLIN;
-  if ((mode & POLLOUT) && ringbuffer_poll_nonfull(&client->us_client.c_server2client))
+  if ((mode & POLLOUT) && packetbuffer_poll_empty(&client->us_client.c_server2client))
        mode |= POLLOUT;
  } FINALLY {
   socket_decref(&client->us_socket);
@@ -152,25 +152,22 @@ AcceptSocket_Poll(AcceptSocket *__restrict self,
  return result;
 }
 
-PRIVATE size_t KCALL
+PRIVATE bool KCALL
 AcceptSocket_Recv(AcceptSocket *__restrict self,
-                  USER CHECKED void *buf, size_t buflen,
-                  iomode_t mode, unsigned int flags) {
- size_t COMPILER_IGNORE_UNINITIALIZED(result);
+                  USER CHECKED struct iovec const *buf,
+                  size_t *__restrict pbufsize,
+                  iomode_t mode, packet_iomode_t packet_mode) {
+ bool COMPILER_IGNORE_UNINITIALIZED(result);
  REF UnixSocket *client;
  client = self->as_client;
  if (!socket_tryincref(&client->us_socket))
       return 0; /* Connection terminated. */
  TRY {
-  if (flags & SOCKET_MESSAGE_FPEEK) {
-   if (flags & SOCKET_MESSAGE_FWAITALL)
-        result = ringbuffer_peekall(&client->us_client.c_client2server,buf,buflen,mode);
-   else result = ringbuffer_peek(&client->us_client.c_client2server,buf,buflen,mode);
-  } else {
-   if (flags & SOCKET_MESSAGE_FWAITALL)
-        result = ringbuffer_readall(&client->us_client.c_client2server,buf,buflen,mode);
-   else result = ringbuffer_read(&client->us_client.c_client2server,buf,buflen,mode);
-  }
+  result = packetbuffer_readv(&client->us_client.c_client2server,
+                               buf,
+                               pbufsize,
+                               mode,
+                               packet_mode);
  } FINALLY {
   socket_decref(&client->us_socket);
  }
@@ -179,25 +176,19 @@ AcceptSocket_Recv(AcceptSocket *__restrict self,
 
 PRIVATE size_t KCALL
 AcceptSocket_Send(AcceptSocket *__restrict self,
-                  USER CHECKED void const *buf, size_t buflen,
-                  iomode_t mode, unsigned int flags) {
+                  USER CHECKED struct iovec const *buf, size_t num_bytes,
+                  iomode_t mode, packet_iomode_t packet_mode) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  REF UnixSocket *client;
  client = self->as_client;
  if (!socket_tryincref(&client->us_socket))
       return 0; /* Connection terminated. */
  TRY {
-  if (flags & SOCKET_MESSAGE_FWAITALL)
-   result = ringbuffer_writeall(&client->us_client.c_server2client,
-                                 buf,
-                                 buflen,
-                                 mode);
-  else {
-   result = ringbuffer_write(&client->us_client.c_server2client,
-                              buf,
-                              buflen,
-                              mode);
-  }
+  result = packetbuffer_writev(&client->us_client.c_server2client,
+                                buf,
+                                num_bytes,
+                                mode,
+                                packet_mode);
  } FINALLY {
   socket_decref(&client->us_socket);
  }
@@ -217,8 +208,8 @@ PRIVATE struct socket_ops AcceptSocket_Ops = {
      * `SOCKET_STATE_FBOUND' flags already pre-set. */
     .so_bind        = (void(KCALL *)(struct socket *__restrict,USER CHECKED struct sockaddr const *,socklen_t,iomode_t))(void *)(uintptr_t)1,
     .so_connect     = (void(KCALL *)(struct socket *__restrict,USER CHECKED struct sockaddr const *,socklen_t,iomode_t))(void *)(uintptr_t)1,
-    .so_recv        = (size_t(KCALL *)(struct socket *__restrict,USER CHECKED void *,size_t,iomode_t,unsigned int))&AcceptSocket_Recv,
-    .so_send        = (size_t(KCALL *)(struct socket *__restrict,USER CHECKED void const *,size_t,iomode_t,unsigned int))&AcceptSocket_Send,
+    .so_recv        = (bool(KCALL *)(struct socket *__restrict,USER CHECKED struct iovec const *,size_t *__restrict,iomode_t,packet_iomode_t))&AcceptSocket_Recv,
+    .so_send        = (size_t(KCALL *)(struct socket *__restrict,USER CHECKED struct iovec const *,size_t,iomode_t,packet_iomode_t))&AcceptSocket_Send,
 };
 
 
@@ -314,8 +305,8 @@ UnixSocket_Connect(UnixSocket *__restrict self,
 
  /* Initialize the client buffer.
   * XXX: Buffer limit configuration? */
- ringbuffer_cinit(&self->us_client.c_client2server,4096);
- ringbuffer_cinit(&self->us_client.c_server2client,4096);
+ packetbuffer_cinit(&self->us_client.c_client2server,4096,NULL);
+ packetbuffer_cinit(&self->us_client.c_server2client,4096,NULL);
 
  /* Deal with the binding of our own socket
   * to the specified filesystem location. */
@@ -420,9 +411,9 @@ UnixSocket_Poll(UnixSocket *__restrict self,
   }
  } else if (SOCKET_ISCLIENT(self)) {
   /* Poll the buffers used to communicate between server and client. */
-  if ((mode & POLLIN) && ringbuffer_poll_nonempty(&self->us_client.c_server2client))
+  if ((mode & POLLIN) && packetbuffer_poll_nonempty(&self->us_client.c_server2client))
        result |= POLLIN;
-  if ((mode & POLLOUT) && ringbuffer_poll_nonfull(&self->us_client.c_client2server))
+  if ((mode & POLLOUT) && packetbuffer_poll_empty(&self->us_client.c_client2server))
        result |= POLLOUT;
  }
  return result;
@@ -476,42 +467,29 @@ again:
  goto again;
 }
 
-PRIVATE size_t KCALL
+PRIVATE bool KCALL
 UnixSocket_Recv(UnixSocket *__restrict self,
-                USER CHECKED void *buf, size_t buflen,
-                iomode_t mode, unsigned int flags) {
- size_t result;
+                USER CHECKED struct iovec const *iov,
+                size_t *__restrict pbufsize,
+                iomode_t mode, packet_iomode_t packet_mode) {
  assert(SOCKET_ISCLIENT(self));
- if (flags & SOCKET_MESSAGE_FPEEK) {
-  if (flags & SOCKET_MESSAGE_FWAITALL)
-       result = ringbuffer_peekall(&self->us_client.c_server2client,buf,buflen,mode);
-  else result = ringbuffer_peek(&self->us_client.c_server2client,buf,buflen,mode);
- } else {
-  if (flags & SOCKET_MESSAGE_FWAITALL)
-       result = ringbuffer_readall(&self->us_client.c_server2client,buf,buflen,mode);
-  else result = ringbuffer_read(&self->us_client.c_server2client,buf,buflen,mode);
- }
- return result;
+ return packetbuffer_readv(&self->us_client.c_server2client,
+                            iov,
+                            pbufsize,
+                            mode,
+                            packet_mode);
 }
 
 PRIVATE size_t KCALL
 UnixSocket_Send(UnixSocket *__restrict self,
-                USER CHECKED void const *buf, size_t buflen,
-                iomode_t mode, unsigned int flags) {
- size_t result;
+                USER CHECKED struct iovec const *buf, size_t buflen,
+                iomode_t mode, packet_iomode_t packet_mode) {
  assert(SOCKET_ISCLIENT(self));
- if (flags & SOCKET_MESSAGE_FWAITALL)
-  result = ringbuffer_writeall(&self->us_client.c_client2server,
-                                buf,
-                                buflen,
-                                mode);
- else {
-  result = ringbuffer_write(&self->us_client.c_client2server,
+ return packetbuffer_writev(&self->us_client.c_client2server,
                              buf,
                              buflen,
-                             mode);
- }
- return result;
+                             mode,
+                             packet_mode);
 }
 
 
@@ -525,8 +503,8 @@ PRIVATE struct socket_ops UnixSocket_Ops = {
     .so_poll        = (unsigned int(KCALL *)(struct socket *__restrict,unsigned int))&UnixSocket_Poll,
     .so_getsockname = (socklen_t(KCALL *)(struct socket *__restrict,USER CHECKED struct sockaddr *,socklen_t,iomode_t))&UnixSocket_GetSockName,
     .so_getpeername = (socklen_t(KCALL *)(struct socket *__restrict,USER CHECKED struct sockaddr *,socklen_t,iomode_t))&UnixSocket_GetSockName,
-    .so_recv        = (size_t(KCALL *)(struct socket *__restrict,USER CHECKED void *,size_t,iomode_t,unsigned int))&UnixSocket_Recv,
-    .so_send        = (size_t(KCALL *)(struct socket *__restrict,USER CHECKED void const *,size_t,iomode_t,unsigned int))&UnixSocket_Send,
+    .so_recv        = (bool(KCALL *)(struct socket *__restrict,USER CHECKED struct iovec const *,size_t *__restrict,iomode_t,packet_iomode_t))&UnixSocket_Recv,
+    .so_send        = (size_t(KCALL *)(struct socket *__restrict,USER CHECKED struct iovec const *,size_t,iomode_t,packet_iomode_t))&UnixSocket_Send,
 };
 
 

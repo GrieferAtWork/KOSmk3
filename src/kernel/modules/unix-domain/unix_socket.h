@@ -23,6 +23,7 @@
 #include <hybrid/list/list.h>
 #include <kos/types.h>
 #include <net/socket.h>
+#include <net/packetbuffer.h>
 #include <fs/node.h>
 #include <fs/ringbuffer.h>
 
@@ -65,8 +66,8 @@ struct unix_socket {
                                                      * The socket that was accepted by the server.
                                                      * When this socket's reference counter drops to ZERO(0),
                                                      * the connection was closed by the server. */
-            struct ringbuffer      c_client2server; /* Buffer of data being sent from the client to the server. */
-            struct ringbuffer      c_server2client; /* Buffer of data being sent from the server to the client. */
+            struct packetbuffer    c_client2server; /* Buffer of data being sent from the client to the server. */
+            struct packetbuffer    c_server2client; /* Buffer of data being sent from the server to the client. */
         }             us_client;    /* [valid_if(SOCKET_ISCLIENT(self))] Client data. */
     };
 };

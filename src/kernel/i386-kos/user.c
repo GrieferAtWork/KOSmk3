@@ -43,6 +43,18 @@ validate_readable(UNCHECKED USER void const *base, size_t num_bytes) {
     error_throwf(E_SEGFAULT,0,(void *)addr_end);
 }
 PUBLIC void KCALL
+validate_readablem(UNCHECKED USER void const *base, size_t num_items, size_t item_size_in_bytes) {
+ uintptr_t addr_end,limit = PERTASK_GET(this_task.t_addrlimit);
+ if unlikely(__builtin_mul_overflow(num_items,item_size_in_bytes,&num_items) ||
+             __builtin_add_overflow((uintptr_t)base,num_items,&addr_end)) {
+  if unlikely((uintptr_t)base > limit)
+     error_throwf(E_SEGFAULT,0,(void *)base);
+  error_throwf(E_SEGFAULT,0,(void *)limit);
+ }
+ if unlikely(addr_end > limit && num_items)
+    error_throwf(E_SEGFAULT,0,(void *)addr_end);
+}
+PUBLIC void KCALL
 validate_writable(UNCHECKED USER void *base, size_t num_bytes) {
  uintptr_t addr_end,limit = PERTASK_GET(this_task.t_addrlimit);
  if unlikely(__builtin_add_overflow((uintptr_t)base,num_bytes,&addr_end)) {
@@ -50,10 +62,28 @@ validate_writable(UNCHECKED USER void *base, size_t num_bytes) {
      error_throwf(E_SEGFAULT,X86_SEGFAULT_FWRITE,(void *)base);
   error_throwf(E_SEGFAULT,X86_SEGFAULT_FWRITE,(void *)limit);
  }
- if unlikely(addr_end > limit && num_bytes)
-    error_throwf(E_SEGFAULT,X86_SEGFAULT_FWRITE,(void *)addr_end);
- /* Ensure cow-writability on the address range. */
- vm_cow(base,num_bytes);
+ if (num_bytes) {
+  if unlikely(addr_end > limit)
+     error_throwf(E_SEGFAULT,X86_SEGFAULT_FWRITE,(void *)addr_end);
+  /* Ensure cow-writability on the address range. */
+  vm_cow(base,num_bytes);
+ }
+}
+PUBLIC void KCALL
+validate_writablem(UNCHECKED USER void *base, size_t num_items, size_t item_size_in_bytes) {
+ uintptr_t addr_end,limit = PERTASK_GET(this_task.t_addrlimit);
+ if unlikely(__builtin_mul_overflow(num_items,item_size_in_bytes,&num_items) ||
+             __builtin_add_overflow((uintptr_t)base,num_items,&addr_end)) {
+  if unlikely((uintptr_t)base > limit)
+     error_throwf(E_SEGFAULT,X86_SEGFAULT_FWRITE,(void *)base);
+  error_throwf(E_SEGFAULT,X86_SEGFAULT_FWRITE,(void *)limit);
+ }
+ if (num_items) {
+  if unlikely(addr_end > limit)
+     error_throwf(E_SEGFAULT,X86_SEGFAULT_FWRITE,(void *)addr_end);
+  /* Ensure cow-writability on the address range. */
+  vm_cow(base,num_items);
+ }
 }
 PUBLIC void KCALL
 validate_executable(UNCHECKED USER void const *base) {
@@ -80,6 +110,8 @@ user_strlen(UNCHECKED USER char const *base) {
 DEFINE_PUBLIC_ALIAS(validate_user,validate_readable);
 DEFINE_PUBLIC_ALIAS(validate_readable_opt,validate_readable);
 DEFINE_PUBLIC_ALIAS(validate_writable_opt,validate_writable);
+DEFINE_PUBLIC_ALIAS(validate_readablem_opt,validate_readablem);
+DEFINE_PUBLIC_ALIAS(validate_writablem_opt,validate_writablem);
 DEFINE_PUBLIC_ALIAS(validate_executable_opt,validate_executable);
 
 

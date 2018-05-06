@@ -459,26 +459,39 @@ got_lock:
                                      __RWLOCK_IND(control_word)-
                                     (caller_has_lock ? 1 : 0))))
         goto again;
+   TRY {
 wait_for_unshare:
-   /* Wait for the end of all readers to be signaled. */
-   TASK_POLL_BEFORE_CONNECT({
+    /* Wait for the end of all readers to be signaled. */
+    TASK_POLL_BEFORE_CONNECT({
+     if unlikely(ATOMIC_CMPXCH(self->rw_state,
+                               __RWLOCK_STATE(RWLOCK_MODE_FUPGRADING,0),
+                               __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1)))
+        goto got_lock;
+    });
+    /* Connect to the unshare-signal. */
+    task_connect(&self->rw_unshare);
+    /* Check if the upgrade already finished (unlikely) */
     if unlikely(ATOMIC_CMPXCH(self->rw_state,
                               __RWLOCK_STATE(RWLOCK_MODE_FUPGRADING,0),
-                              __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1)))
-       goto got_lock;
-   });
-   /* Connect to the unshare-signal. */
-   task_connect(&self->rw_unshare);
-   /* Check if the upgrade already finished (unlikely) */
-   if unlikely(ATOMIC_CMPXCH(self->rw_state,
-                             __RWLOCK_STATE(RWLOCK_MODE_FUPGRADING,0),
-                             __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1))) {
-    task_disconnect();
-    goto got_lock;
-   }
-   if (!task_waitfor(abs_timeout)) {
-    /* Our timeout expired. - Re-acquire the read-lock (if we had one),
-     * switch back to read-mode, and return `false' */
+                              __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1))) {
+     task_disconnect();
+     goto got_lock;
+    }
+    if (!task_waitfor(abs_timeout)) {
+     /* Our timeout expired. - Re-acquire the read-lock (if we had one),
+      * switch back to read-mode, and return `false' */
+     do {
+      control_word = ATOMIC_READ(self->rw_state);
+      assert(__RWLOCK_MODE(control_word) == RWLOCK_MODE_FUPGRADING);
+     } while (!ATOMIC_CMPXCH_WEAK(self->rw_state,control_word,
+                                  __RWLOCK_STATE(RWLOCK_MODE_FREADING,
+                                                 __RWLOCK_IND(control_word)+
+                                                (caller_has_lock ? 1 : 0))));
+     return false;
+    }
+   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+    /* Something went wrong. - Re-acquire the read-lock
+     * (if we had one), switch back to read-mode. */
     do {
      control_word = ATOMIC_READ(self->rw_state);
      assert(__RWLOCK_MODE(control_word) == RWLOCK_MODE_FUPGRADING);
@@ -486,7 +499,7 @@ wait_for_unshare:
                                  __RWLOCK_STATE(RWLOCK_MODE_FREADING,
                                                 __RWLOCK_IND(control_word)+
                                                (caller_has_lock ? 1 : 0))));
-    return false;
+    error_rethrow();
    }
    /* Signal received. - Check if the unshared is complete. */
    goto wait_for_unshare;
@@ -582,6 +595,8 @@ again:
   __builtin_unreachable();
  } break;
 
+ {
+  struct rwlock *EXCEPT_VAR xself;
  default:
   /* Read-mode. */
   assertf(find_readlock(self),"You're not holding any read-locks");
@@ -603,36 +618,49 @@ got_lock:
                      __RWLOCK_STATE(RWLOCK_MODE_FUPGRADING,
                                     __RWLOCK_IND(control_word)-1)))
        goto again;
+  xself = self;
+  TRY {
 wait_for_unshare:
-  /* Wait for the end of all readers to be signaled. */
-  TASK_POLL_BEFORE_CONNECT({
+   /* Wait for the end of all readers to be signaled. */
+   TASK_POLL_BEFORE_CONNECT({
+    if unlikely(ATOMIC_CMPXCH(self->rw_state,
+                              __RWLOCK_STATE(RWLOCK_MODE_FUPGRADING,0),
+                              __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1)))
+       goto got_lock;
+   });
+   /* Connect to the unshare-signal. */
+   task_connect(&self->rw_unshare);
+   /* Check if the upgrade already finished (unlikely) */
    if unlikely(ATOMIC_CMPXCH(self->rw_state,
                              __RWLOCK_STATE(RWLOCK_MODE_FUPGRADING,0),
-                             __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1)))
-      goto got_lock;
-  });
-  /* Connect to the unshare-signal. */
-  task_connect(&self->rw_unshare);
-  /* Check if the upgrade already finished (unlikely) */
-  if unlikely(ATOMIC_CMPXCH(self->rw_state,
-                            __RWLOCK_STATE(RWLOCK_MODE_FUPGRADING,0),
-                            __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1))) {
-   task_disconnect();
-   goto got_lock;
-  }
-  if (!task_waitfor(abs_timeout)) {
-   /* Our timeout expired. - Re-acquire the read-lock,
-    * switch back to read-mode, and return `false' */
+                             __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1))) {
+    task_disconnect();
+    goto got_lock;
+   }
+   if (!task_waitfor(abs_timeout)) {
+    /* Our timeout expired. - Re-acquire the read-lock,
+     * switch back to read-mode, and return `false' */
+    do {
+     control_word = ATOMIC_READ(self->rw_state);
+     assert(__RWLOCK_MODE(control_word) == RWLOCK_MODE_FUPGRADING);
+    } while (!ATOMIC_CMPXCH_WEAK(self->rw_state,control_word,
+                                 __RWLOCK_STATE(RWLOCK_MODE_FREADING,
+                                                __RWLOCK_IND(control_word)+1)));
+    return false;
+   }
+  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+   /* Something went wrong. - Re-acquire the read-lock and switch back to read-mode. */
    do {
-    control_word = ATOMIC_READ(self->rw_state);
+    control_word = ATOMIC_READ(xself->rw_state);
     assert(__RWLOCK_MODE(control_word) == RWLOCK_MODE_FUPGRADING);
-   } while (!ATOMIC_CMPXCH_WEAK(self->rw_state,control_word,
+   } while (!ATOMIC_CMPXCH_WEAK(xself->rw_state,control_word,
                                 __RWLOCK_STATE(RWLOCK_MODE_FREADING,
                                                __RWLOCK_IND(control_word)+1)));
-   return false;
+   error_rethrow();
   }
   /* Signal received. - Check if the unshared is complete. */
   goto wait_for_unshare;
+ } break;
  }
 }
 

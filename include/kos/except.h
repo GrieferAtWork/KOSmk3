@@ -459,6 +459,7 @@ struct __ATTR_PACKED exception_data_filesystem_error {
 #define ERROR_NET_INVALID_ADDRESS_FAMILY 0x000e /* [ERRNO(EAFNOSUPPORT)]    The address family specified in a call to `connect()', `bind()', or `sendto()' isn't implemented by the socket. */
 #define ERROR_NET_CONNECTION_REFUSED     0x000f /* [ERRNO(ECONNREFUSED)]    Failed to connect to an address with no one listen(2)-ing on the other end. */
 #define ERROR_NET_ADDRESS_IN_USE         0x0010 /* [ERRNO(EADDRINUSE)]      Local address is already in use (mainly by `bind()'). */
+#define ERROR_NET_PACKET_TOO_LARGE       0x0011 /* [ERRNO(EMSGSIZE)]        A packet is too large for the associated protocol. */
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_net_error {
     __UINT16_TYPE__      n_errcode;   /* Network operation error code (One of `ERROR_NET_*').

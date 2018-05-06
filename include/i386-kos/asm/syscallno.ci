@@ -255,6 +255,10 @@ __SYSCALL(__NR_setsockopt,sys_setsockopt)
 __SYSCALL(__NR_getsockopt,sys_getsockopt)
 #define __NR_shutdown     210
 __SYSCALL(__NR_shutdown,sys_shutdown)
+#define __NR_sendmsg      211
+__SYSCALL(__NR_sendmsg,sys_sendmsg)
+#define __NR_recvmsg      212
+__SYSCALL(__NR_recvmsg,sys_recvmsg)
 
 
 #define __SC_ATTRIB_CLOBB_215 C("memory")
@@ -294,6 +298,8 @@ __SYSCALL(__NR_wait4,sys_wait4)
 
 #define __NR_syncfs       267
 __SYSCALL(__NR_syncfs,sys_syncfs)
+#define __NR_sendmmsg     269
+__SYSCALL(__NR_sendmmsg,sys_sendmmsg)
 
 #define __SC_ATTRIB_CLOBB_281 C("memory")
 #define __NR_execveat     281

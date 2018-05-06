@@ -75,28 +75,6 @@ libc_isfdtype(fd_t fd, int fdtype) {
 }
 
 
-DEFINE_PUBLIC_ALIAS(sendmsg,libc_sendmsg);
-CRT_NET ssize_t LIBCCALL
-libc_sendmsg(fd_t fd, struct msghdr const *message, int flags) {
- assertf(0,"TODO");
- return -1;
-}
-
-DEFINE_PUBLIC_ALIAS(recvmsg,libc_recvmsg);
-CRT_NET ssize_t LIBCCALL
-libc_recvmsg(fd_t fd, struct msghdr *message, int flags) {
- assertf(0,"TODO");
- return -1;
-}
-
-DEFINE_PUBLIC_ALIAS(sendmmsg,libc_sendmmsg);
-CRT_NET int LIBCCALL
-libc_sendmmsg(fd_t fd, struct mmsghdr *vmessages,
-              unsigned int vlen, int flags) {
- assertf(0,"TODO");
- return -1;
-}
-
 DEFINE_PUBLIC_ALIAS(recvmmsg,libc_recvmmsg);
 CRT_NET int LIBCCALL
 libc_recvmmsg(fd_t fd, struct mmsghdr *vmessages,
@@ -115,28 +93,6 @@ libc_Xsocketpair(int domain, int type, int protocol, int fds[2]) {
 
 DEFINE_PUBLIC_ALIAS(Xsockatmark,libc_Xsockatmark);
 CRT_NET int LIBCCALL libc_Xsockatmark(fd_t fd) {
- assertf(0,"TODO");
- return 0;
-}
-
-DEFINE_PUBLIC_ALIAS(Xsendmsg,libc_Xsendmsg);
-CRT_NET size_t LIBCCALL
-libc_Xsendmsg(fd_t fd, struct msghdr const *message, int flags) {
- assertf(0,"TODO");
- return 0;
-}
-
-DEFINE_PUBLIC_ALIAS(Xrecvmsg,libc_Xrecvmsg);
-CRT_NET ssize_t LIBCCALL
-libc_Xrecvmsg(fd_t fd, struct msghdr *message, int flags) {
- assertf(0,"TODO");
- return 0;
-}
-
-DEFINE_PUBLIC_ALIAS(Xsendmmsg,libc_Xsendmmsg);
-CRT_NET unsigned int LIBCCALL
-libc_Xsendmmsg(fd_t fd, struct mmsghdr *vmessages,
-               unsigned int vlen, int flags) {
  assertf(0,"TODO");
  return 0;
 }

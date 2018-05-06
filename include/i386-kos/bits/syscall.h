@@ -124,6 +124,8 @@ for (local line: fp) {
 #define SYS_setsockopt __NR_setsockopt
 #define SYS_getsockopt __NR_getsockopt
 #define SYS_shutdown __NR_shutdown
+#define SYS_sendmsg __NR_sendmsg
+#define SYS_recvmsg __NR_recvmsg
 #define SYS_munmap __NR_munmap
 #define SYS_mremap __NR_mremap
 #define SYS_clone __NR_clone
@@ -136,6 +138,7 @@ for (local line: fp) {
 #define SYS_accept4 __NR_accept4
 #define SYS_wait4 __NR_wait4
 #define SYS_syncfs __NR_syncfs
+#define SYS_sendmmsg __NR_sendmmsg
 #define SYS_execveat __NR_execveat
 #define SYS_pipe __NR_pipe
 #define SYS_dup2 __NR_dup2

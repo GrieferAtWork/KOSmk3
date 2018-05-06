@@ -31,6 +31,7 @@
 #include <fs/linker.h>
 #include <fs/driver.h>
 #include <kernel/bind.h>
+#include <sys/uio.h>
 
 DECL_BEGIN
 
@@ -626,35 +627,61 @@ again:
 
 
 
-/* Read data from a connected, connection-oriented socket.
- * This is the socket operator hook for the `read(2)' and `recv(2)' system calls.
- * When not implemented (as done by connection-less) sockets, the
- * call is forwarded to `so_recvfrom()', if the socket has previous
- * been ~connected~ (s.a.: `so_connect()' / `struct socket::s_peeraddr')
- * @param: flags: Set of `SOCKET_MESSAGE_F*'
- * @throw: * :                The recv() failed for some reason. (XXX: net errors?)
- * @throw: E_WOULDBLOCK:     `IO_NONBLOCK' was specified and the operation would have blocked.
+/* Read a packet from the socket.
+ * @param: packet_mode: Set of `PACKETBUFFER_IO_F*':
+ *   - PACKET_IO_FRDALWAYS:
+ *               Always discard the packet, irregardless of whether or
+ *               not it actually fit into the provided user-buffer.
+ *   - PACKET_IO_FRDNEVER:
+ *               Never discard the packet and operate according to peek() semantics.
+ *               Always return `false' (become the packet is never actually removed)
+ *   - PACKET_IO_FRDIFFIT:
+ *               Read as much of the packet as can fit into the provided
+ *               user buffer, however in the event of the buffer being
+ *               too small, update `*pbufsize' to contain the required
+ *               buffer size of the packet next in line, and return `false'
+ *   - PACKET_IO_FRDIFFIT|PACKET_IO_FRDTRUNC:
+ *               Read as much as can be read into the provided user-buffer,
+ *               and don't read more than one packet.
+ *               However, if the provided user-buffer isn't large enough to
+ *               hold the entire packet, rather than returning `false' and
+ *               updating `*pbufsize' to contain the required buffer size,
+ *               instead fill `*pbufsize' with the read buffer size before
+ *               truncating the packet from which data was read to remove
+ *               all the data that was read, before returning `true'.
+ * @param: pbufsize: PRE(*)  The provided buffer size.
+ * @param: pbufsize: POST(*) The required buffer size / size that would have been required.
+ *                           Even set if `PACKET_IO_FRDALWAYS' is used and the packet
+ *                           couldn't be read again, even if the caller provided a larger
+ *                           buffer.
+ * @return: true:  Successfully read and dequeued, or truncated a packet.
+ *                `*pbufsize' has been updated to the used buffer size (which is <= PRE(*pbufsize))
+ * @return: false: Failed to read a packet:
+ *              - `PACKET_IO_FRDNEVER' was passed in `packet_mode'
+ *                 In this case `*pbufsize' is set to the required packet size,
+ *                 and as much data as possible (MIN(PRE(*pbufsize),PACKET_SIZE))
+ *                 were copied into `buf'
+ *              - `PACKET_IO_FRDIFFIT' was passed in `packet_mode' and the
+ *                 provided `PRE(*pbufsize)' was not of sufficient size.
+ *              -  The packet buffer was closed.
+ * @throw: * :            The recv() failed for some reason. (XXX: net errors?)
  * @throw: E_NOT_IMPLEMENTED: The socket implements no way of receiving.
  * @throw: E_NET_ERROR.ERROR_NET_SHUTDOWN:      [...]
  * @throw: E_NET_ERROR.ERROR_NET_NOT_CONNECTED: [...]
- * @return: 0 : Either `buflen' was ZERO(0), a zero-length datagram was
- *              received, or the other end of a connection-oriented
- *              socket (the peer) gracefully ended the connection.
- * @return: * : The _REQUIRED_ buffer size (or rather the buffer size
- *              that would have been required to read the full packet
- *              if the socket is packet-oriented).
- * NOTE: Be careful to properly implement the `SOCKET_MESSAGE_FPEEK' flag. */
-PUBLIC size_t KCALL
+ * @throw: E_WOULDBLOCK: `IO_NONBLOCK' was set and the operation would have blocked.
+ * @throw: E_INTERRUPT:   The calling thread was interrupted.
+ * @throw: E_SEGFAULT:    The provided user-buffer is faulty. */
+PUBLIC bool KCALL
 socket_recv(struct socket *__restrict self_,
-            USER CHECKED void *buf_,
-            size_t buflen_, iomode_t mode_,
-            unsigned int flags_) {
+            USER CHECKED struct iovec const *iov_,
+            size_t *__restrict pbufsize_,
+            iomode_t mode_, packet_iomode_t packet_mode_) {
  struct socket *EXCEPT_VAR self = self_;
- USER CHECKED void *EXCEPT_VAR buf = buf_;
- size_t EXCEPT_VAR buflen = buflen_;
+ USER CHECKED struct iovec const *EXCEPT_VAR iov = iov_;
+ size_t *EXCEPT_VAR pbufsize = pbufsize_;
  iomode_t EXCEPT_VAR mode = mode_;
- unsigned int EXCEPT_VAR flags = flags_;
- size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ packet_iomode_t EXCEPT_VAR packet_mode = packet_mode_;
+ bool COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  rwlock_readf(&self->s_lock,mode);
  TRY {
@@ -663,18 +690,34 @@ again:
   if (!(self->s_state & SOCKET_STATE_FCONNECTED))
       throw_net_error(ERROR_NET_NOT_CONNECTED);
   if (self->s_ops->so_recv) {
-   result = (*self->s_ops->so_recv)(self,buf,buflen,mode,flags);
+   result = (*self->s_ops->so_recv)(self,iov,pbufsize,mode,packet_mode);
+  } else if (self->s_ops->so_recva) {
+   size_t zero = 0;
+   result = (*self->s_ops->so_recva)(self,iov,pbufsize,NULL,&zero,mode,packet_mode);
   } else if (self->s_ops->so_recvfrom) {
    struct sockaddr_storage dst;
    socklen_t length = self->s_peeraddr_len;
 recv_again:
-   result = (*self->s_ops->so_recvfrom)(self,buf,buflen,
+   result = (*self->s_ops->so_recvfrom)(self,iov,pbufsize,
                                        (struct sockaddr *)&dst,&length,
-                                        mode,flags);
+                                        mode,packet_mode);
    /* Check if the packet was received from the ~connected~ target. */
    if (length != self->s_peeraddr_len ||
        memcmp(&dst,&self->s_peeraddr,length) != 0)
        goto recv_again;
+  } else if (self->s_ops->so_recvafrom) {
+   struct sockaddr_storage dst;
+   socklen_t length = self->s_peeraddr_len;
+   size_t zero;
+recva_again:
+   zero = 0;
+   result = (*self->s_ops->so_recvafrom)(self,iov,pbufsize,NULL,&zero,
+                                        (struct sockaddr *)&dst,&length,
+                                         mode,packet_mode);
+   /* Check if the packet was received from the ~connected~ target. */
+   if (length != self->s_peeraddr_len ||
+       memcmp(&dst,&self->s_peeraddr,length) != 0)
+       goto recva_again;
   } else {
    error_throw(E_NOT_IMPLEMENTED);
   }
@@ -688,44 +731,41 @@ recv_again:
 
 /* Same as `so_recv', but used for connection-less socket.
  * This is the socket operator hook for the `recvfrom(2)' system call.
- * @param: flags: Set of `SOCKET_MESSAGE_F*'
  * @param: paddrbuflen: On entry, this pointer can be dereference to
  *                      determine the size of the `addrbuf' buffer.
  *                      On success, this pointer should be updated
  *                      to contain the _required_ size for the
- *                     `addrbuf' buffer.
- * @throw: * :            The recvfrom() failed for some reason. (XXX: net errors?)
- * @throw: E_WOULDBLOCK: `IO_NONBLOCK' was specified and the operation would have blocked.
- * @throw: E_NOT_IMPLEMENTED: The socket implements no way of receiving.
- * @throw: E_NET_ERROR.ERROR_NET_SHUTDOWN: [...]
- * @return: 0 : Either `buflen' was ZERO(0), or a zero-length datagram was received.
- * @return: * : The _REQUIRED_ buffer size (or rather the buffer size
- *              that would have been required to read the full packet
- *              if the socket is packet-oriented).
- * NOTE: Be careful to properly implement the `SOCKET_MESSAGE_FPEEK' flag. */
-PUBLIC size_t KCALL
+ *                     `addrbuf' buffer. */
+PUBLIC bool KCALL
 socket_recvfrom(struct socket *__restrict self_,
-                USER CHECKED void *buf_, size_t buflen_,
+                USER CHECKED struct iovec const *iov_,
+                size_t *__restrict pbufsize_,
                 USER CHECKED struct sockaddr *addrbuf_,
                 socklen_t *__restrict paddrlen_,
-                iomode_t mode_, unsigned int flags_) {
+                iomode_t mode_, packet_iomode_t packet_mode_) {
  struct socket *EXCEPT_VAR self = self_;
- USER CHECKED void *EXCEPT_VAR buf = buf_;
- size_t EXCEPT_VAR buflen = buflen_;
+ USER CHECKED struct iovec const *EXCEPT_VAR iov = iov_;
+ size_t *EXCEPT_VAR pbufsize = pbufsize_;
  USER CHECKED struct sockaddr *EXCEPT_VAR addrbuf = addrbuf_;
  socklen_t *EXCEPT_VAR paddrlen = paddrlen_;
  iomode_t EXCEPT_VAR mode = mode_;
- unsigned int EXCEPT_VAR flags = flags_;
- size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ packet_iomode_t EXCEPT_VAR packet_mode = packet_mode_;
+ bool COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  rwlock_readf(&self->s_lock,mode);
  TRY {
   if (self->s_state & SOCKET_STATE_FSHUTRD)
       throw_net_error(ERROR_NET_SHUTDOWN);
   if (self->s_ops->so_recvfrom) {
-   result = (*self->s_ops->so_recvfrom)(self,buf,buflen,
+   result = (*self->s_ops->so_recvfrom)(self,iov,pbufsize,
                                         addrbuf,paddrlen,
-                                        mode,flags);
+                                        mode,packet_mode);
+  } else if (self->s_ops->so_recvafrom) {
+   size_t zero = 0;
+   result = (*self->s_ops->so_recvafrom)(self,iov,pbufsize,
+                                         NULL,&zero,
+                                         addrbuf,paddrlen,
+                                         mode,packet_mode);
   } else if (self->s_ops->so_recv) {
    if (!(self->s_state & SOCKET_STATE_FCONNECTED))
        throw_net_error(ERROR_NET_NOT_CONNECTED);
@@ -742,7 +782,25 @@ again:
     *paddrlen = self->s_peeraddr_len;
    }
    /* Actually receive data. */
-   result = (*self->s_ops->so_recv)(self,buf,buflen,mode,flags);
+   result = (*self->s_ops->so_recv)(self,iov,pbufsize,mode,packet_mode);
+  } else if (self->s_ops->so_recva) {
+   size_t zero = 0;
+   if (!(self->s_state & SOCKET_STATE_FCONNECTED))
+       throw_net_error(ERROR_NET_NOT_CONNECTED);
+   if (self->s_ops->so_getpeername) {
+    /* Lookup the peer address. */
+    *paddrlen = (*self->s_ops->so_getpeername)(self,
+                                               addrbuf,
+                                              *paddrlen,
+                                               mode);
+   } else {
+    /* Copy the saved peer address. */
+    memcpy(addrbuf,&self->s_peeraddr,
+           MIN(self->s_peeraddr_len,*paddrlen));
+    *paddrlen = self->s_peeraddr_len;
+   }
+   /* Actually receive data. */
+   result = (*self->s_ops->so_recva)(self,iov,pbufsize,NULL,&zero,mode,packet_mode);
   } else {
    error_throw(E_NOT_IMPLEMENTED);
   }
@@ -754,28 +812,44 @@ again:
 }
 
 
-/* Write data to a connected, connection-oriented socket.
- * This is the socket operator hook for the `write(2)' and `send(2)' system calls.
- * When not implemented (as done by connection-less) sockets, the
- * call is forwarded to `so_recvfrom()', if the socket has previous
- * been ~connected~ (s.a.: `so_connect()' / `struct socket::s_peeraddr')
- * @param: flags: Set of `SOCKET_MESSAGE_F*'
+/* Construct, enqueue and send a new packet.
+ * NOTE: Passing `num_bytes == 0' will enqueue an empty packet which will still
+ *       have the same semantics any any other packet with a buffer size that
+ *       wouldn't match ZERO.
+ * @param: packet_mode: Either 0, or `PACKET_IO_FWRSPLIT'.
+ *                      When `PACKET_IO_FWRSPLIT', allow the packet data (excluding
+ *                      ancillary data) to be split across more than one packet.
+ *                      Otherwise, or if ancillary data is too large, throw
+ *                      an `E_NET_ERROR.ERROR_NET_PACKET_TOO_LARGE' error.
+ * @return: * :         The total size of all written payloads.
+ *                      Unless `PACKET_IO_FWRSPLIT' is set, this always equals `num_bytes'
+ *                      Successfully enqueued a new packet.
+ *                      This is the only exit state in which this function has
+ *                      inherited passed ancillary data (if there is any)
+ *                      In all other exit states, the caller must destroy ancillary
+ *                      data manually before proceeding to handle the cause of failure.
+ * @return: 0 :         The peer has closed the connection, or an empty packet was sent.
  * @throw: * :            The send() failed for some reason. (XXX: net errors?)
- * @throw: E_WOULDBLOCK: `IO_NONBLOCK' was specified and the operation would have blocked.
- * @throw: E_NET_ERROR.ERROR_NET_SHUTDOWN:      [...]
- * @throw: E_NET_ERROR.ERROR_NET_NOT_CONNECTED: [...]
- * @return: 0 : `buflen' was ZERO(0).
- * @return: * :  The number of sent bytes. */
+ * @throw: E_NOT_IMPLEMENTED: The socket provides no way of sending data.
+ * @throw: E_NET_ERROR.ERROR_NET_SHUTDOWN:         [...]
+ * @throw: E_NET_ERROR.ERROR_NET_CANNOT_RECONNECT: [...]
+ * @throw: E_WOULDBLOCK: `IO_NONBLOCK' was set and the operation would have blocked.
+ * @throw: E_INTERRUPT:   The calling thread was interrupted.
+ * @throw: E_BADALLOC:    Failed to (re-)allocate the internal packet buffer.
+ * @throw: E_NET_ERROR.ERROR_NET_PACKET_TOO_LARGE:
+ *                 [!PACKET_IO_FWRSPLIT] The total size of the packet to-be written exceeds `pb_limt',
+ *                                       meaning that no matter how long the function would wait, there
+ *                                       would never come a time when the buffer would be able to house
+ *                                       the packet in its entirety. */
 PUBLIC size_t KCALL
 socket_send(struct socket *__restrict self_,
-            USER CHECKED void const *buf_,
-            size_t buflen_, iomode_t mode_,
-            unsigned int flags_) {
+            USER CHECKED struct iovec const *iov_, size_t num_bytes_,
+            iomode_t mode_, packet_iomode_t packet_mode_) {
  struct socket *EXCEPT_VAR self = self_;
- USER CHECKED void const *EXCEPT_VAR buf = buf_;
- size_t EXCEPT_VAR buflen = buflen_;
+ USER CHECKED struct iovec const *EXCEPT_VAR iov = iov_;
+ size_t EXCEPT_VAR num_bytes = num_bytes_;
  iomode_t EXCEPT_VAR mode = mode_;
- unsigned int EXCEPT_VAR flags = flags_;
+ packet_iomode_t EXCEPT_VAR packet_mode = packet_mode_;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  rwlock_readf(&self->s_lock,mode);
@@ -785,13 +859,21 @@ again:
   if (!(self->s_state & SOCKET_STATE_FCONNECTED))
       throw_net_error(ERROR_NET_NOT_CONNECTED);
   if (self->s_ops->so_send) {
-   result = (*self->s_ops->so_send)(self,buf,buflen,mode,flags);
+   result = (*self->s_ops->so_send)(self,iov,num_bytes,mode,packet_mode);
+  } else if (self->s_ops->so_senda) {
+   result = (*self->s_ops->so_senda)(self,iov,num_bytes,NULL,0,mode,packet_mode);
   } else if (self->s_ops->so_sendto) {
    /* Send data to the ~connected~ peer. */
-   result = (*self->s_ops->so_sendto)(self,buf,buflen,
+   result = (*self->s_ops->so_sendto)(self,iov,num_bytes,
                                      (struct sockaddr *)&self->s_peeraddr,
                                       self->s_peeraddr_len,
-                                      mode,flags);
+                                      mode,packet_mode);
+  } else if (self->s_ops->so_sendato) {
+   /* Send data to the ~connected~ peer. */
+   result = (*self->s_ops->so_sendato)(self,iov,num_bytes,NULL,0,
+                                      (struct sockaddr *)&self->s_peeraddr,
+                                       self->s_peeraddr_len,
+                                       mode,packet_mode);
   } else {
    error_throw(E_NOT_IMPLEMENTED);
   }
@@ -804,26 +886,18 @@ again:
 
 
 /* Same as `so_send', but used for connection-less socket.
- * This is the socket operator hook for the `sendto(2)' system call.
- * @param: flags: Set of `SOCKET_MESSAGE_F*'
- * @throw: * :                The sendto() failed for some reason. (XXX: net errors?)
- * @throw: E_WOULDBLOCK:     `IO_NONBLOCK' was specified and the operation would have blocked.
- * @throw: E_NOT_IMPLEMENTED: Same as not implementing this operator.
- * @throw: E_NET_ERROR.ERROR_NET_SHUTDOWN:         [...]
- * @throw: E_NET_ERROR.ERROR_NET_CANNOT_RECONNECT: [...]
- * @return: 0 : `buflen' was ZERO(0).
- * @return: * :  The number of sent bytes. */
+ * This is the socket operator hook for the `sendto(2)' system call. */
 PUBLIC size_t KCALL
 socket_sendto(struct socket *__restrict self_,
-              USER CHECKED void const *buf_, size_t buflen_,
+              USER CHECKED struct iovec const *iov_, size_t num_bytes_,
               USER CHECKED struct sockaddr const *addrbuf_,
               socklen_t addrlen_, iomode_t mode_,
-              unsigned int flags_) {
+              packet_iomode_t packet_mode_) {
  struct socket *EXCEPT_VAR self = self_;
- USER CHECKED void const *EXCEPT_VAR buf = buf_;
- size_t EXCEPT_VAR buflen = buflen_;
+ USER CHECKED struct iovec const *EXCEPT_VAR iov = iov_;
+ size_t EXCEPT_VAR num_bytes = num_bytes_;
  iomode_t EXCEPT_VAR mode = mode_;
- unsigned int EXCEPT_VAR flags = flags_;
+ packet_iomode_t EXCEPT_VAR packet_mode = packet_mode_;
  USER CHECKED struct sockaddr const *EXCEPT_VAR addrbuf = addrbuf_;
  socklen_t EXCEPT_VAR addrlen = addrlen_;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
@@ -833,8 +907,10 @@ again:
   if (self->s_state & SOCKET_STATE_FSHUTWR)
       throw_net_error(ERROR_NET_SHUTDOWN);
   if (self->s_ops->so_sendto) {
-   result = (*self->s_ops->so_sendto)(self,buf,buflen,addrbuf,addrlen,mode,flags);
-  } else if (self->s_ops->so_send) {
+   result = (*self->s_ops->so_sendto)(self,iov,num_bytes,addrbuf,addrlen,mode,packet_mode);
+  } else if (self->s_ops->so_sendato) {
+   result = (*self->s_ops->so_sendato)(self,iov,num_bytes,NULL,0,addrbuf,addrlen,mode,packet_mode);
+  } else if (self->s_ops->so_send || self->s_ops->so_senda) {
    if (!(self->s_state & SOCKET_STATE_FCONNECTED)) {
     rwlock_writef(&self->s_lock,mode);
     TRY {
@@ -911,7 +987,11 @@ again:
         throw_net_error(ERROR_NET_CANNOT_RECONNECT); /* Different targets */
    }
    /* The socket is now connected to the sendto() target. */
-   result = (*self->s_ops->so_send)(self,buf,buflen,mode,flags);
+   if (self->s_ops->so_send) {
+    result = (*self->s_ops->so_send)(self,iov,num_bytes,mode,packet_mode);
+   } else {
+    result = (*self->s_ops->so_senda)(self,iov,num_bytes,NULL,0,mode,packet_mode);
+   }
   } else {
    error_throw(E_NOT_IMPLEMENTED);
   }
@@ -924,22 +1004,367 @@ again:
 
 
 
+
+/* Extended variants of `socket_recv' and `socket_recvfrom'
+ * that include information about incoming ancillary data.
+ * @param: anc:      Ancillary data. Unless `so_recv' hasn't been implemented,
+ *                   this pointer is always [1..1], however if `so_recv' is not
+ *                   provided, but this operator is, then `anc' is passed as NULL
+ *                   when data should be received without any ancillary information,
+ *                   alongside `pancsize' pointing to a size_t with a value of ZERO.
+ * @param: pancsize: Upon entry, the size of the ancillary data buffer.
+ *                   Upon exit, the amount of data written to the ancillary data buffer.
+ *             NOTE: In the event of the ancillary data buffer not being of sufficient
+ *                   length, unused trailing data is truncated and `*pancsize' is set
+ *                   the contain the size of all data buffers that were received.
+ *                   There is no way of detecting that not all ancillary data could
+ *                   actually be received! */
+PUBLIC bool KCALL
+socket_recva(struct socket *__restrict self_,
+             USER CHECKED struct iovec const *iov_, size_t *__restrict pbufsize_,
+             USER CHECKED struct cmsghdr *anc_, size_t *__restrict pancsize_,
+             iomode_t mode_, packet_iomode_t packet_mode_) {
+ struct socket *EXCEPT_VAR self = self_;
+ USER CHECKED struct iovec const *EXCEPT_VAR iov = iov_;
+ size_t *EXCEPT_VAR pbufsize = pbufsize_;
+ USER CHECKED struct cmsghdr *EXCEPT_VAR anc = anc_;
+ size_t *EXCEPT_VAR pancsize = pancsize_;
+ iomode_t EXCEPT_VAR mode = mode_;
+ packet_iomode_t EXCEPT_VAR packet_mode = packet_mode_;
+ bool COMPILER_IGNORE_UNINITIALIZED(result);
+again:
+ rwlock_readf(&self->s_lock,mode);
+ TRY {
+  if (self->s_state & SOCKET_STATE_FSHUTRD)
+      throw_net_error(ERROR_NET_SHUTDOWN);
+  if (!(self->s_state & SOCKET_STATE_FCONNECTED))
+      throw_net_error(ERROR_NET_NOT_CONNECTED);
+  if (self->s_ops->so_recva) {
+   result = (*self->s_ops->so_recva)(self,iov,pbufsize,anc,pancsize,mode,packet_mode);
+  } else if (self->s_ops->so_recv) {
+   result = (*self->s_ops->so_recv)(self,iov,pbufsize,mode,packet_mode);
+  } else if (self->s_ops->so_recvafrom) {
+   struct sockaddr_storage dst;
+   socklen_t length = self->s_peeraddr_len;
+   size_t orig_size = *pancsize;
+recva_again:
+   result = (*self->s_ops->so_recvafrom)(self,iov,pbufsize,anc,pancsize,
+                                        (struct sockaddr *)&dst,&length,
+                                         mode,packet_mode);
+   /* Check if the packet was received from the ~connected~ target. */
+   if (length != self->s_peeraddr_len ||
+       memcmp(&dst,&self->s_peeraddr,length) != 0) {
+    *pancsize = orig_size;
+    goto recva_again;
+   }
+  } else if (self->s_ops->so_recvfrom) {
+   struct sockaddr_storage dst;
+   socklen_t length = self->s_peeraddr_len;
+recv_again:
+   result = (*self->s_ops->so_recvfrom)(self,iov,pbufsize,
+                                       (struct sockaddr *)&dst,&length,
+                                        mode,packet_mode);
+   /* Check if the packet was received from the ~connected~ target. */
+   if (length != self->s_peeraddr_len ||
+       memcmp(&dst,&self->s_peeraddr,length) != 0)
+       goto recv_again;
+  } else {
+   error_throw(E_NOT_IMPLEMENTED);
+  }
+ } FINALLY {
+  if (rwlock_endread(&self->s_lock))
+      goto again;
+ }
+ return result;
+}
+PUBLIC bool KCALL
+socket_recvafrom(struct socket *__restrict self_,
+                 USER CHECKED struct iovec const *iov_, size_t *__restrict pbufsize_,
+                 USER CHECKED struct cmsghdr *anc_, size_t *__restrict pancsize_,
+                 USER CHECKED struct sockaddr *addrbuf_, socklen_t *__restrict paddrlen_,
+                 iomode_t mode_, packet_iomode_t packet_mode_) {
+ struct socket *EXCEPT_VAR self = self_;
+ USER CHECKED struct iovec const *EXCEPT_VAR iov = iov_;
+ size_t *EXCEPT_VAR pbufsize = pbufsize_;
+ USER CHECKED struct cmsghdr *EXCEPT_VAR anc = anc_;
+ size_t *EXCEPT_VAR pancsize = pancsize_;
+ USER CHECKED struct sockaddr *EXCEPT_VAR addrbuf = addrbuf_;
+ socklen_t *EXCEPT_VAR paddrlen = paddrlen_;
+ iomode_t EXCEPT_VAR mode = mode_;
+ packet_iomode_t EXCEPT_VAR packet_mode = packet_mode_;
+ bool COMPILER_IGNORE_UNINITIALIZED(result);
+again:
+ rwlock_readf(&self->s_lock,mode);
+ TRY {
+  if (self->s_state & SOCKET_STATE_FSHUTRD)
+      throw_net_error(ERROR_NET_SHUTDOWN);
+  if (self->s_ops->so_recvafrom) {
+   result = (*self->s_ops->so_recvafrom)(self,iov,pbufsize,
+                                         anc,pancsize,
+                                         addrbuf,paddrlen,
+                                         mode,packet_mode);
+  } else if (self->s_ops->so_recvfrom) {
+   result = (*self->s_ops->so_recvfrom)(self,iov,pbufsize,
+                                        addrbuf,paddrlen,
+                                        mode,packet_mode);
+  } else if (self->s_ops->so_recva) {
+   if (!(self->s_state & SOCKET_STATE_FCONNECTED))
+       throw_net_error(ERROR_NET_NOT_CONNECTED);
+   if (self->s_ops->so_getpeername) {
+    /* Lookup the peer address. */
+    *paddrlen = (*self->s_ops->so_getpeername)(self,
+                                               addrbuf,
+                                              *paddrlen,
+                                               mode);
+   } else {
+    /* Copy the saved peer address. */
+    memcpy(addrbuf,&self->s_peeraddr,
+           MIN(self->s_peeraddr_len,*paddrlen));
+    *paddrlen = self->s_peeraddr_len;
+   }
+   /* Actually receive data. */
+   result = (*self->s_ops->so_recva)(self,iov,pbufsize,anc,pancsize,mode,packet_mode);
+  } else if (self->s_ops->so_recv) {
+   if (!(self->s_state & SOCKET_STATE_FCONNECTED))
+       throw_net_error(ERROR_NET_NOT_CONNECTED);
+   if (self->s_ops->so_getpeername) {
+    /* Lookup the peer address. */
+    *paddrlen = (*self->s_ops->so_getpeername)(self,
+                                               addrbuf,
+                                              *paddrlen,
+                                               mode);
+   } else {
+    /* Copy the saved peer address. */
+    memcpy(addrbuf,&self->s_peeraddr,
+           MIN(self->s_peeraddr_len,*paddrlen));
+    *paddrlen = self->s_peeraddr_len;
+   }
+   /* Actually receive data. */
+   result = (*self->s_ops->so_recv)(self,iov,pbufsize,mode,packet_mode);
+  } else {
+   error_throw(E_NOT_IMPLEMENTED);
+  }
+ } FINALLY {
+  if (rwlock_endread(&self->s_lock))
+      goto again;
+ }
+ return result;
+}
+
+
+/* Extended variants of `socket_send' and `socket_sendto' that
+ * include information about outgoing ancillary data.
+ * @param: anc:     Ancillary data.
+ * @param: ancsize: The size of the ancillary data buffer. */
+PUBLIC size_t KCALL
+socket_senda(struct socket *__restrict self_,
+             USER CHECKED struct iovec const *iov_, size_t num_bytes_,
+             USER CHECKED struct cmsghdr const *anc_, size_t ancsize_,
+             iomode_t mode_, packet_iomode_t packet_mode_) {
+ struct socket *EXCEPT_VAR self = self_;
+ USER CHECKED struct iovec const *EXCEPT_VAR iov = iov_;
+ size_t EXCEPT_VAR num_bytes = num_bytes_;
+ USER CHECKED struct cmsghdr const *EXCEPT_VAR anc = anc_;
+ size_t EXCEPT_VAR ancsize = ancsize_;
+ iomode_t EXCEPT_VAR mode = mode_;
+ packet_iomode_t EXCEPT_VAR packet_mode = packet_mode_;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+again:
+ rwlock_readf(&self->s_lock,mode);
+ TRY {
+  if (self->s_state & SOCKET_STATE_FSHUTWR)
+      throw_net_error(ERROR_NET_SHUTDOWN);
+  if (!(self->s_state & SOCKET_STATE_FCONNECTED))
+      throw_net_error(ERROR_NET_NOT_CONNECTED);
+  if (self->s_ops->so_senda) {
+   result = (*self->s_ops->so_senda)(self,iov,num_bytes,anc,ancsize,mode,packet_mode);
+  } else if (self->s_ops->so_send) {
+   result = (*self->s_ops->so_send)(self,iov,num_bytes,mode,packet_mode);
+  } else if (self->s_ops->so_sendato) {
+   /* Send data to the ~connected~ peer. */
+   result = (*self->s_ops->so_sendato)(self,iov,num_bytes,NULL,0,
+                                      (struct sockaddr *)&self->s_peeraddr,
+                                       self->s_peeraddr_len,
+                                       mode,packet_mode);
+  } else if (self->s_ops->so_sendto) {
+   /* Send data to the ~connected~ peer. */
+   result = (*self->s_ops->so_sendto)(self,iov,num_bytes,
+                                     (struct sockaddr *)&self->s_peeraddr,
+                                      self->s_peeraddr_len,
+                                      mode,packet_mode);
+  } else {
+   error_throw(E_NOT_IMPLEMENTED);
+  }
+ } FINALLY {
+  if (rwlock_endread(&self->s_lock))
+      goto again;
+ }
+ return result;
+}
+PUBLIC size_t KCALL
+socket_sendato(struct socket *__restrict self_,
+               USER CHECKED struct iovec const *iov_, size_t num_bytes_,
+               USER CHECKED struct cmsghdr const *anc_, size_t ancsize_,
+               USER CHECKED struct sockaddr const *addrbuf_,
+               socklen_t addrlen_, iomode_t mode_,
+               packet_iomode_t packet_mode_) {
+ struct socket *EXCEPT_VAR self = self_;
+ USER CHECKED struct iovec const *EXCEPT_VAR iov = iov_;
+ size_t EXCEPT_VAR num_bytes = num_bytes_;
+ USER CHECKED struct cmsghdr const *EXCEPT_VAR anc = anc_;
+ size_t EXCEPT_VAR ancsize = ancsize_;
+ iomode_t EXCEPT_VAR mode = mode_;
+ packet_iomode_t EXCEPT_VAR packet_mode = packet_mode_;
+ USER CHECKED struct sockaddr const *EXCEPT_VAR addrbuf = addrbuf_;
+ socklen_t EXCEPT_VAR addrlen = addrlen_;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+again:
+ rwlock_readf(&self->s_lock,mode);
+ TRY {
+  if (self->s_state & SOCKET_STATE_FSHUTWR)
+      throw_net_error(ERROR_NET_SHUTDOWN);
+  if (self->s_ops->so_sendato) {
+   result = (*self->s_ops->so_sendato)(self,iov,num_bytes,anc,ancsize,addrbuf,addrlen,mode,packet_mode);
+  } else if (self->s_ops->so_sendto) {
+   result = (*self->s_ops->so_sendto)(self,iov,num_bytes,addrbuf,addrlen,mode,packet_mode);
+  } else if (self->s_ops->so_send || self->s_ops->so_senda) {
+   if (!(self->s_state & SOCKET_STATE_FCONNECTED)) {
+    rwlock_writef(&self->s_lock,mode);
+    TRY {
+     if unlikely(!self->s_ops->so_connect) {
+      /* Without a connect callback, we can arbitrarily re-connect during each send. */
+      if unlikely(addrlen > sizeof(struct sockaddr_storage))
+         error_throw(E_INVALID_ARGUMENT);
+      memcpy(&self->s_sockaddr,addrbuf,addrlen);
+      self->s_sockaddr_len = addrlen;
+      /* An empty address length is unsed to indicate a disconnect() */
+      if unlikely(!addrlen)
+         throw_net_error(ERROR_NET_NOT_CONNECTED);
+     } else {
+      (*self->s_ops->so_connect)(self,addrbuf,addrlen,mode);
+     }
+     self->s_state |= SOCKET_STATE_FCONNECTED;
+    } FINALLY {
+     rwlock_endwrite(&self->s_lock);
+    }
+   } else if (!self->s_ops->so_connect) {
+    /* Already connected. - Check if it's connected to the same address. */
+    if (self->s_peeraddr_len != addrlen ||
+        memcmp(addrbuf,&self->s_peeraddr,addrlen) != 0) {
+     /* Reconnect a connection-less socket if it changed targets. */
+     rwlock_writef(&self->s_lock,mode);
+     TRY {
+      /* Without a connect callback, we can arbitrarily re-connect during each send. */
+      if unlikely(addrlen > sizeof(struct sockaddr_storage))
+         error_throw(E_INVALID_ARGUMENT);
+      memcpy(&self->s_sockaddr,addrbuf,addrlen);
+      self->s_sockaddr_len = addrlen;
+      /* An empty address length is unsed to indicate a disconnect() */
+      if unlikely(!addrlen)
+         throw_net_error(ERROR_NET_NOT_CONNECTED);
+      self->s_state |= SOCKET_STATE_FCONNECTED;
+     } FINALLY {
+      rwlock_endwrite(&self->s_lock);
+     }
+    }
+   } else if (self->s_ops->so_getpeername) {
+    /* Already connected. - Check if it's connected to the same address. */
+    struct sockaddr *EXCEPT_VAR temp_addrbuf;
+    socklen_t temp_addrbuf_len = MIN(addrlen,sizeof(struct sockaddr_storage));
+    socklen_t req_addrbuf_len;
+    temp_addrbuf = (struct sockaddr *)malloca(temp_addrbuf_len);
+    TRY {
+     req_addrbuf_len = (*self->s_ops->so_getpeername)(self,temp_addrbuf,temp_addrbuf_len,mode);
+     if (req_addrbuf_len != addrlen)
+         throw_net_error(ERROR_NET_CANNOT_RECONNECT); /* Different targets */
+     if unlikely(req_addrbuf_len > temp_addrbuf_len) {
+      struct sockaddr *EXCEPT_VAR dyn_buffer;
+      COMPILER_WRITE_BARRIER();
+      /* Need a larger socket address buffer. */
+      dyn_buffer = (struct sockaddr *)kmalloc(req_addrbuf_len,GFP_SHARED);
+      TRY {
+       req_addrbuf_len = (*self->s_ops->so_getpeername)(self,temp_addrbuf,req_addrbuf_len,mode);
+       if (req_addrbuf_len != addrlen ||
+          (memcmp(temp_addrbuf,addrbuf,addrlen) != 0))
+           throw_net_error(ERROR_NET_CANNOT_RECONNECT); /* Different targets */
+      } FINALLY {
+       kfree(dyn_buffer);
+      }
+     } else {
+      if (memcmp(temp_addrbuf,addrbuf,addrlen) != 0)
+          throw_net_error(ERROR_NET_CANNOT_RECONNECT); /* Different targets */
+     }
+    } FINALLY {
+     freea(temp_addrbuf);
+    }
+   } else {
+    /* Already connected. - Check if it's connected to the same address. */
+    if (self->s_peeraddr_len != addrlen ||
+        memcmp(addrbuf,&self->s_peeraddr,addrlen) != 0)
+        throw_net_error(ERROR_NET_CANNOT_RECONNECT); /* Different targets */
+   }
+   /* The socket is now connected to the sendto() target. */
+   if (self->s_ops->so_senda) {
+    result = (*self->s_ops->so_senda)(self,iov,num_bytes,anc,ancsize,mode,packet_mode);
+   } else {
+    result = (*self->s_ops->so_send)(self,iov,num_bytes,mode,packet_mode);
+   }
+  } else {
+   error_throw(E_NOT_IMPLEMENTED);
+  }
+ } FINALLY {
+  if (rwlock_endread(&self->s_lock))
+      goto again;
+ }
+ return result;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* Socket handle bindings. */
 INTERN size_t KCALL
 handle_socket_read(struct socket *__restrict self,
-                   USER CHECKED void *buf, size_t bufsize,
-                   iomode_t flags) {
- size_t result;
- result = socket_recv(self,buf,bufsize,flags,SOCKET_MESSAGE_FNORMAL);
- if (result > bufsize)
-     result = bufsize;
+                   USER CHECKED void *buf, size_t num_bytes,
+                   iomode_t mode) {
+ size_t result,required_size;
+ struct iovec iov[1];
+ iov[0].iov_base = buf;
+ iov[0].iov_len  = num_bytes;
+ assert((mode & ~IO_NOIOVCHECK) == (PACKET_IO_FRDNEVER) ||
+        (mode & ~IO_NOIOVCHECK) == (PACKET_IO_FRDIFFIT|PACKET_IO_FRDTRUNC));
+again:
+ required_size = num_bytes;
+ if (!socket_recv(self,iov,&required_size,mode,
+                  PACKET_IO_FRDIFFIT|PACKET_IO_FRDTRUNC))
+      result = 0; /* Emulate EOF */
+ else {
+  if (!required_size)
+       goto again; /* Ignore empty packets. */
+  result = num_bytes;
+ }
  return result;
 }
 INTERN size_t KCALL
 handle_socket_write(struct socket *__restrict self,
-                    USER CHECKED void const *buf, size_t bufsize,
-                    iomode_t flags) {
- return socket_send(self,buf,bufsize,flags,SOCKET_MESSAGE_FNORMAL);
+                    USER CHECKED void const *buf, size_t num_bytes,
+                    iomode_t mode) {
+ struct iovec iov[1];
+ iov[0].iov_base = (byte_t *)buf;
+ iov[0].iov_len  = num_bytes;
+ return socket_send(self,iov,num_bytes,mode,PACKET_IO_FWRNORMAL);
 }
 DEFINE_INTERN_ALIAS(handle_socket_poll,socket_poll);
 

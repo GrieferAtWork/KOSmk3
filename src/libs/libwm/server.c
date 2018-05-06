@@ -27,6 +27,8 @@
 #include <wm/window.h>
 #include <unistd.h>
 #include <except.h>
+#include <string.h>
+#include <errno.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
 
@@ -132,8 +134,13 @@ libwms_recvresponse_fd(unsigned int token,
   } result_buffer;
   p.fd     = libwms_socket;
   p.events = POLLIN;
-  if (!Xpoll(&p,1,2000))
+  {
+   int count;
+   do count = poll(&p,1,2000);
+   while (count < 0 && errno == EINTR);
+   if (count <= 0)
        error_throw(E_INVALID_ARGUMENT);
+  }
   iov[0].iov_base              = resp;
   iov[0].iov_len               = sizeof(struct wms_response);
   msg.msg_name                 = NULL;
@@ -143,12 +150,16 @@ libwms_recvresponse_fd(unsigned int token,
   msg.msg_control              = result_buffer.buf;
   msg.msg_controllen           = sizeof(result_buffer);
   msg.msg_flags                = 0;
+#if 0 /* This is filled in by the kernel! */
   result_buffer.hdr.cmsg_len   = CMSG_SPACE(sizeof(fd_t));
   result_buffer.hdr.cmsg_level = SOL_SOCKET;
   result_buffer.hdr.cmsg_type  = SCM_RIGHTS;
   *(fd_t *)CMSG_DATA(&result_buffer.hdr) = -1;
-  total = Xrecvmsg(libwms_socket,&msg,MSG_CMSG_CLOEXEC|MSG_WAITALL);
-  if (CMSG_FIRSTHDR(&msg) == &result_buffer.hdr) {
+#endif
+  total = Xrecvmsg(libwms_socket,&msg,MSG_CMSG_CLOEXEC);
+  if (CMSG_FIRSTHDR(&msg) == &result_buffer.hdr &&
+      result_buffer.hdr.cmsg_level == SOL_SOCKET &&
+      result_buffer.hdr.cmsg_type  == SCM_RIGHTS) {
    if (result >= 0) close(result);
    result = *(fd_t *)CMSG_DATA(&result_buffer.hdr);
   }

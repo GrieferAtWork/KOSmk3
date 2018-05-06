@@ -498,6 +498,12 @@
     <ClCompile Include="..\..\src\kernel\src\net\system.c">
       <Filter>kernel\src\net</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\net\packetbuffer.c">
+      <Filter>kernel\src\net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\fs\iov.c">
+      <Filter>kernel\src\fs</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">
@@ -816,6 +822,9 @@
       <Filter>kernel\i386-kos</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\kernel\include\net\socket.h">
+      <Filter>kernel\include\net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\net\packetbuffer.h">
       <Filter>kernel\include\net</Filter>
     </ClInclude>
   </ItemGroup>

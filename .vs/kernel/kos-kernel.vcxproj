@@ -116,6 +116,7 @@
     <ClCompile Include="..\..\src\kernel\src\fs\file.c" />
     <ClCompile Include="..\..\src\kernel\src\fs\handle.c" />
     <ClCompile Include="..\..\src\kernel\src\fs\handle_weak.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\iov.c" />
     <ClCompile Include="..\..\src\kernel\src\fs\linker.c" />
     <ClCompile Include="..\..\src\kernel\src\fs\node.c" />
     <ClCompile Include="..\..\src\kernel\src\fs\path.c" />
@@ -141,6 +142,7 @@
     <ClCompile Include="..\..\src\kernel\src\kernel\syscall.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\sysconf.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\system.c" />
+    <ClCompile Include="..\..\src\kernel\src\net\packetbuffer.c" />
     <ClCompile Include="..\..\src\kernel\src\net\socket.c" />
     <ClCompile Include="..\..\src\kernel\src\net\system.c" />
     <ClCompile Include="..\..\src\kernel\src\sched\affinity.c" />
@@ -252,6 +254,7 @@
     <ClInclude Include="..\..\src\kernel\include\kernel\ushare.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\version.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\vm.h" />
+    <ClInclude Include="..\..\src\kernel\include\net\packetbuffer.h" />
     <ClInclude Include="..\..\src\kernel\include\net\socket.h" />
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot.h" />
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h" />

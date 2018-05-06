@@ -38,12 +38,17 @@ DECL_BEGIN
  *                 these functions are used to deny the user access to such memory.
  * @throw E_SEGFAULT: User-space has not been granted access to the given address range. */
 FUNDEF void KCALL validate_user(UNCHECKED USER void const *base, size_t num_bytes);
+FUNDEF void KCALL validate_userm(UNCHECKED USER void const *base, size_t num_items, size_t item_size_in_bytes);
 FUNDEF void KCALL validate_readable(UNCHECKED USER void const *base, size_t num_bytes);
+FUNDEF void KCALL validate_readablem(UNCHECKED USER void const *base, size_t num_items, size_t item_size_in_bytes);
 FUNDEF void KCALL validate_writable(UNCHECKED USER void *base, size_t num_bytes);
+FUNDEF void KCALL validate_writablem(UNCHECKED USER void *base, size_t num_items, size_t item_size_in_bytes);
 FUNDEF void KCALL validate_executable(UNCHECKED USER void const *base);
 /* Same as the function above, but also accept `NULL' */
 FUNDEF void KCALL validate_readable_opt(UNCHECKED USER void const *base, size_t num_bytes);
+FUNDEF void KCALL validate_readablem_opt(UNCHECKED USER void const *base, size_t num_items, size_t item_size_in_bytes);
 FUNDEF void KCALL validate_writable_opt(UNCHECKED USER void *base, size_t num_bytes);
+FUNDEF void KCALL validate_writablem_opt(UNCHECKED USER void *base, size_t num_items, size_t item_size_in_bytes);
 FUNDEF void KCALL validate_executable_opt(UNCHECKED USER void const *base);
 
 /* Search for the end of the given user-space string.
