@@ -60,18 +60,16 @@ PRIVATE struct wm_color const default_color_codes[WM_COLOR_COUNT] = {
 
 DEFINE_PUBLIC_ALIAS(wm_palette_create,libwm_palette_create);
 INTERN ATTR_RETNONNULL REF struct wm_palette *WMCALL
-libwm_palette_create(u16 bpp, u8 mask) {
+libwm_palette_create(u16 bpp) {
  REF struct wm_palette *result; u16 count;
  assertf((bpp & (bpp-1)) == 0,"Not a power-of-2: %u",(unsigned)bpp);
  assertf(bpp >= 1 && bpp <= 16,"BPP is too large, or too small: %u",(unsigned)bpp);
- assertf((mask & (mask+1)) == 0,"Mask must be a power-of-2 minus 1: 0x%x",(unsigned)mask);
  count  = 1 << bpp;
  /* Allocate the palette */
  result = (REF struct wm_palette *)Xmalloc(offsetof(struct wm_palette,p_colors)+
                                            count*sizeof(struct wm_color_triple));
  result->p_refcnt = 1;
  result->p_bpp    = bpp;
- result->p_mask   = mask;
  result->p_count  = count;
  return result;
 }
@@ -82,7 +80,7 @@ libwm_palette_destroy(struct wm_palette *__restrict self) {
  free(self);
 }
 
-PRIVATE ATTR_NOTHROW struct wm_color WMCALL
+INTERN ATTR_NOTHROW struct wm_color WMCALL
 rgba_format_colorof(struct wm_format const *__restrict self, wm_pixel_t pixel) {
  struct wm_color result;
  result.c_red   = (pixel & self->f_rmask) >> self->f_rshft;
@@ -91,7 +89,7 @@ rgba_format_colorof(struct wm_format const *__restrict self, wm_pixel_t pixel) {
  result.c_alpha = (pixel & self->f_amask) >> self->f_ashft;
  return result;
 }
-PRIVATE ATTR_NOTHROW wm_pixel_t WMCALL
+INTERN ATTR_NOTHROW wm_pixel_t WMCALL
 rgba_format_pixelof(struct wm_format const *__restrict self,
                     struct wm_color color) {
  wm_pixel_t result;
@@ -108,9 +106,10 @@ INTERN ATTR_RETNONNULL REF struct wm_format *WMCALL
 libwm_format_create(wm_pixel_t rmask, u16 rshft,
                     wm_pixel_t gmask, u16 gshft,
                     wm_pixel_t bmask, u16 bshft,
-                    wm_pixel_t amask, u16 ashft) {
+                    wm_pixel_t amask, u16 ashft,
+                    unsigned int bpp) {
  REF struct wm_format *result;
- wm_pixel_t max_mask; unsigned int i;
+ unsigned int i;
  result = (REF struct wm_format *)Xmalloc(sizeof(struct wm_format));
  result->f_refcnt  = 1;
  result->f_pal     = NULL;
@@ -124,10 +123,7 @@ libwm_format_create(wm_pixel_t rmask, u16 rshft,
  result->f_ashft   = ashft;
  result->f_colorof = &rgba_format_colorof;
  result->f_pixelof = &rgba_format_pixelof;
- /* Determine the mask BPP. */
- max_mask = rmask|gmask|bmask|amask;
- for (i = 0; i < 32 && (max_mask > (unsigned int)(1 << i)); ++i);
- result->f_bpp = i;
+ result->f_bpp     = bpp;
  /* Calculate standard colors. */
  for (i = 0; i < WM_COLOR_COUNT; ++i) {
   result->f_color[i] = ((((wm_pixel_t)default_color_codes[i].c_red   << rshft) & rmask) |
@@ -139,6 +135,7 @@ libwm_format_create(wm_pixel_t rmask, u16 rshft,
 }
 
 
+#if 0 /* XXX: This function might be useful to the window server... */
 LOCAL u8 WMCALL scale_mask(u8 color, u8 mask) {
  assert((color & ~mask) == 0);
 #if 0
@@ -222,25 +219,19 @@ for (local x: [0x01,0x03,0x07,0x0f,0x1f,0x3f,0x7f]) {
  }
 #endif
 }
+#endif
 
-PRIVATE ATTR_NOTHROW struct wm_color WMCALL
+INTERN ATTR_NOTHROW struct wm_color WMCALL
 pal_format_colorof(struct wm_format const *__restrict self, wm_pixel_t pixel) {
  struct wm_color result;
- struct wm_color_triple triple;
  if (pixel >= self->f_pal->p_count) {
   result.c_red   = 0;
   result.c_green = 0;
   result.c_blue  = 0;
   result.c_alpha = 0;
  } else {
-  u8 mask = self->f_pal->p_mask;
-  assert(mask != 0);
-  assert((mask & (mask+1)) == 0);
-  triple = self->f_pal->p_colors[pixel];
-  result.c_red   = scale_mask(triple.c_red,mask);
-  result.c_green = scale_mask(triple.c_green,mask);
-  result.c_blue  = scale_mask(triple.c_blue,mask);
-  result.c_alpha = 0xff; /* Not supported by palette mode */
+  result.c_triple = self->f_pal->p_colors[pixel];
+  result.c_alpha  = 0xff; /* Not supported by the palette model */
  }
  return result;
 }
@@ -263,22 +254,19 @@ libwm_color_compare(struct wm_color_triple a,
 }
 
 
-PRIVATE ATTR_NOTHROW wm_pixel_t WMCALL
+INTERN ATTR_NOTHROW wm_pixel_t WMCALL
 pal_format_pixelof(struct wm_format const *__restrict self,
                    struct wm_color color) {
  wm_pixel_t COMPILER_IGNORE_UNINITIALIZED(result);
  struct wm_palette *pal = self->f_pal; wm_pixel_t i;
- u32 highscore = (u32)-1; u8 mask = pal->p_mask;
- assert(mask != 0);
- assert((mask & (mask+1)) == 0);
+ u32 highscore = (u32)-1;
  for (i = 0; i < pal->p_count; ++i) {
-  struct wm_color_triple triple; u32 score;
-  triple = pal->p_colors[i];
-  triple.c_red   = scale_mask(triple.c_red,mask);
-  triple.c_green = scale_mask(triple.c_green,mask);
-  triple.c_blue  = scale_mask(triple.c_blue,mask);
-  score = libwm_color_compare(triple,color.c_triple);
-  if (score < highscore) result = i,highscore = score;
+  u32 score;
+  score = libwm_color_compare(pal->p_colors[i],
+                              color.c_triple);
+  if (highscore > score)
+      highscore = score,
+      result = i;
  }
  return result;
 }

@@ -51,8 +51,8 @@ int main(int argc, char *argv[]) {
   wm_surface_fill(win,
                  (unsigned int)rand() % win->s_sizex,
                  (unsigned int)rand() % win->s_sizey,
-                 (unsigned int)rand() % win->s_sizex,
-                 (unsigned int)rand() % win->s_sizey,
+                  8,
+                  8,
                   rand());
  }
  wm_window_draw(win,WM_WINDOW_DRAW_FNORMAL);

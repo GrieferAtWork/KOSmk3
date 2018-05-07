@@ -23,6 +23,7 @@
 #include <hybrid/compiler.h>
 #include <kos/types.h>
 #include <wm/api.h>
+#include <wm/surface.h>
 #include <assert.h>
 #include <syslog.h>
 #include <string.h>
@@ -38,12 +39,86 @@ DECL_BEGIN
 #define CONFIG_COPYRECT_DO_OUTLINE  4
 #endif
 
+PRIVATE wm_pixel_t WMCALL
+read_pixel(byte_t const *__restrict src,
+           unsigned int x, unsigned int bpp) {
+ wm_pixel_t result;
+ x   *= bpp;
+ src += x/8;
+ switch (bpp) {
+ case 32:
+  result = *(u32 *)src;
+  break;
+ case 16:
+  result = *(u16 *)src;
+  break;
+ case 8:
+  result = *(u8 *)src;
+  break;
+ case 4:
+  x %= 8;
+  assert(x == 0 || x == 4);
+  result = *(u8 *)src >> x;
+  result &= 0xf;
+  break;
+ case 2:
+  x %= 8;
+  assert(x == 0 || x == 2 || x == 4 || x == 6);
+  result = *(u8 *)src >> x;
+  result &= 0x3;
+  break;
+ case 1:
+  result = *(u8 *)src >> (x % 8);
+  result &= 0x1;
+  break;
+ default: assert(0);
+ }
+ return result;
+}
+PRIVATE void WMCALL
+write_pixel(byte_t *__restrict dst,
+           unsigned int x, unsigned int bpp,
+           wm_pixel_t pixel) {
+ x   *= bpp;
+ dst += x/8;
+ switch (bpp) {
+ case 32:
+  *(u32 *)dst = (u32)pixel;
+  break;
+ case 16:
+  *(u16 *)dst = (u16)pixel;
+  break;
+ case 8:
+  *(u8 *)dst = (u8)pixel;
+  break;
+ case 4:
+  x %= 8;
+  assert(x == 0 || x == 4);
+  *(u8 *)dst &= ~(0xf << x);
+  *(u8 *)dst |= (pixel & 0xf) << x;
+  break;
+ case 2:
+  x %= 8;
+  assert(x == 0 || x == 2 || x == 4 || x == 6);
+  *(u8 *)dst &= ~(0x3 << x);
+  *(u8 *)dst |= (pixel & 0x3) << x;
+  break;
+ case 1:
+  *(u8 *)dst &= ~(0x1 << x);
+  *(u8 *)dst |= (pixel & 0x1) << x;
+  break;
+ default: assert(0);
+ }
+}
 
-INTERN void KCALL
+
+INTERN void WMCALL
 Copy_Rect(byte_t *__restrict dst_buffer,
-          unsigned int dst_x, unsigned int dst_y, unsigned int dst_stride,
+          unsigned int dst_x, unsigned int dst_y,
+          unsigned int dst_stride,
           byte_t const *__restrict src_buffer,
-          unsigned int src_x, unsigned int src_y, unsigned int src_stride,
+          unsigned int src_x, unsigned int src_y,
+          unsigned int src_stride,
           unsigned int size_x, unsigned int size_y,
           unsigned int bpp) {
  assert(size_x || size_y);
@@ -87,7 +162,16 @@ do_bytewise_copy:
   size_x *= bpp/8;
   goto do_bytewise_copy;
  } else {
-  assertf(0,"TODO");
+  while (size_y--) {
+   unsigned int i;
+   for (i = 0; i < size_x; ++i) {
+    wm_pixel_t pixel;
+    pixel = read_pixel(src_buffer,src_x+i,bpp);
+    write_pixel(dst_buffer,dst_x+i,bpp,pixel);
+   }
+   dst_buffer += dst_stride;
+   src_buffer += src_stride;
+  }
  }
 }
 

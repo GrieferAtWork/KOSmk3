@@ -23,6 +23,7 @@
 #include <kos/types.h>
 #include <wm/api.h>
 #include <wm/event.h>
+#include <wm/font.h>
 #include <wm/server.h>
 #include <wm/surface.h>
 #include <wm/window.h>
@@ -50,23 +51,40 @@ INTDEF fd_t WMCALL libwms_recvresponse_fd(unsigned int token, struct wms_respons
 /* surface.h */
 INTDEF struct wm_palette libwm_palette_256;
 INTDEF u32 WMCALL libwm_color_compare(struct wm_color_triple a, struct wm_color_triple b);
-INTDEF ATTR_RETNONNULL REF struct wm_palette *WMCALL
-libwm_palette_create(u16 bpp, u8 mask);
+INTDEF ATTR_RETNONNULL REF struct wm_palette *WMCALL libwm_palette_create(u16 bpp);
 #define libwm_palette_incref(self) (void)ATOMIC_FETCHINC((self)->p_refcnt)
 #define libwm_palette_decref(self) (void)(ATOMIC_DECFETCH((self)->p_refcnt) || (libwm_palette_destroy(self),0))
 INTDEF ATTR_NOTHROW void WMCALL
 libwm_palette_destroy(struct wm_palette *__restrict self);
+
+INTDEF ATTR_NOTHROW struct wm_color WMCALL
+rgba_format_colorof(struct wm_format const *__restrict self,
+                    wm_pixel_t pixel);
+INTDEF ATTR_NOTHROW wm_pixel_t WMCALL
+rgba_format_pixelof(struct wm_format const *__restrict self,
+                    struct wm_color color);
+INTDEF ATTR_NOTHROW struct wm_color WMCALL
+pal_format_colorof(struct wm_format const *__restrict self,
+                   wm_pixel_t pixel);
+INTDEF ATTR_NOTHROW wm_pixel_t WMCALL
+pal_format_pixelof(struct wm_format const *__restrict self,
+                   struct wm_color color);
+
+INTDEF ATTR_RETNONNULL struct wm_format *WMCALL
+libwm_format_lookup(unsigned int name);
 INTDEF ATTR_RETNONNULL REF struct wm_format *WMCALL
 libwm_format_create(wm_pixel_t rmask, u16 rshft,
                     wm_pixel_t gmask, u16 gshft,
                     wm_pixel_t bmask, u16 bshft,
-                    wm_pixel_t amask, u16 ashft);
+                    wm_pixel_t amask, u16 ashft,
+                    unsigned int bpp);
 INTDEF ATTR_RETNONNULL REF struct wm_format *WMCALL
 libwm_format_create_pal(struct wm_palette *__restrict pal);
 #define libwm_format_incref(self) (void)ATOMIC_FETCHINC((self)->f_refcnt)
 #define libwm_format_decref(self) (void)(ATOMIC_DECFETCH((self)->f_refcnt) || (libwm_format_destroy(self),0))
 INTDEF ATTR_NOTHROW void WMCALL
 libwm_format_destroy(struct wm_format *__restrict self);
+
 INTDEF ATTR_RETNONNULL REF struct wm_surface *WMCALL
 libwm_surface_create(struct wm_format *__restrict format,
                      unsigned int sizex, unsigned int sizey);
@@ -114,9 +132,19 @@ INTDEF u16 WMCALL libwm_window_chmode(struct wm_window *__restrict self, u16 mas
 INTDEF ATTR_CONST wms_window_id_t WMCALL libwm_window_getid(struct wm_window *__restrict self);
 INTDEF REF struct wm_window *WMCALL libwm_window_fromid(wms_window_id_t id);
 
-
 /* The file descriptors used for communication with the server. */
 INTDEF fd_t libwms_socket; /* client -> server */
+
+
+/* font.h */
+INTDEF void WMCALL
+libwm_font_draw(struct wm_font const *__restrict self,
+                char const *__restrict text, size_t textlen,
+                struct wm_surface *__restrict dst, int x, int y,
+                struct wm_text_state *state, unsigned int flags);
+INTDEF ATTR_RETNONNULL struct wm_font const *WMCALL libwm_font_system(unsigned int name);
+
+
 
 
 DECL_END

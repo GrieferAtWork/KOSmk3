@@ -51,6 +51,9 @@ FUNC(getpixel)(struct wm_surface const *__restrict self,
 #if BPP == 32
  ptr += x*4;
  return *(u32 *)ptr;
+#elif BPP == 24
+ ptr += x*3;
+ return *(u32 *)ptr & 0xffffff;
 #elif BPP == 16
  ptr += x*2;
  return *(u16 *)ptr;
@@ -77,20 +80,26 @@ FUNC(getpixel)(struct wm_surface const *__restrict self,
 #endif
 }
 
-PRIVATE void WMCALL
+PRIVATE bool WMCALL
 FUNC(setpixel)(struct wm_surface *__restrict self,
                int x, int y, wm_pixel_t pixel) {
-#ifndef EMPTY_SURFACE
+#ifdef EMPTY_SURFACE
+ return false;
+#else
  byte_t *ptr;
  ADJUST_COORDS;
  if ((unsigned int)x >= self->s_sizex ||
      (unsigned int)y >= self->s_sizey)
-      return;
+      return false;
  ptr  = self->s_buffer;
  ptr += y * self->s_stride; /* XXX: Use shifts here if possible? */
 #if BPP == 32
  ptr += x*4;
  *(u32 *)ptr = (u32)pixel;
+#elif BPP == 24
+ ptr += x*3;
+ *(u32 *)ptr &= ~0xffffff;
+ *(u32 *)ptr |= pixel & 0xffffff;
 #elif BPP == 16
  ptr += x*2;
  *(u16 *)ptr = (u16)pixel;
@@ -117,6 +126,7 @@ FUNC(setpixel)(struct wm_surface *__restrict self,
  *(u8 *)ptr &= ~(0x1 << x);
  *(u8 *)ptr |= (pixel & 0x1) << x;
 #endif
+ return true;
 #endif
 }
 
@@ -255,7 +265,34 @@ FUNC(cblit)(struct wm_surface *__restrict self, int x, int y,
 #endif
 }
 
-PRIVATE struct wm_surface_ops FUNC(ops) = {
+PRIVATE void WMCALL
+FUNC(ccblit)(struct wm_surface *__restrict self, int x, int y,
+             struct wm_surface const *__restrict source,
+             int source_x, int source_y,
+             unsigned int size_x, unsigned int size_y,
+             wm_pixel_t color_key, wm_pixel_t color) {
+#ifndef EMPTY_SURFACE
+ unsigned int i,j;
+ if (source->s_flags & WM_SURFACE_FISVIEW) {
+  source_x += ((struct wm_surface_view *)source)->s_offx;
+  source_y += ((struct wm_surface_view *)source)->s_offy;
+ }
+
+ /* TODO: Optimizations. */
+ for (j = 0; j < size_y; ++j) {
+  for (i = 0; i < size_x; ++i) {
+   wm_pixel_t pixel;
+   pixel = wm_surface_getpixel(source,
+                               source_x+i,
+                               source_y+j);
+   if (pixel == color_key) continue;
+   FUNC(setpixel)(self,x+i,y+j,color);
+  }
+ }
+#endif
+}
+
+INTERN struct wm_surface_ops FUNC(ops) = {
     .so_getpixel = &FUNC(getpixel),
     .so_setpixel = &FUNC(setpixel),
     .so_hline    = &FUNC(hline),
@@ -263,7 +300,8 @@ PRIVATE struct wm_surface_ops FUNC(ops) = {
     .so_rect     = &FUNC(rect),
     .so_fill     = &FUNC(fill),
     .so_bblit    = &FUNC(bblit),
-    .so_cblit    = &FUNC(cblit)
+    .so_cblit    = &FUNC(cblit),
+    .so_ccblit   = &FUNC(ccblit),
 };
 
 

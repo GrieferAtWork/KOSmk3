@@ -146,8 +146,8 @@ FUNDEF void KCALL device_add_to_devfs(struct device *__restrict dev);
 FUNDEF void KCALL device_remove_from_devfs(struct device *__restrict dev);
 
 
-/* Dynamically allocate a device ID of the given device and
- * register the device under that number. */
+/* Dynamically allocate a device ID of the given
+ * device and register the device under that number. */
 FUNDEF void KCALL register_dynamic_device(struct device *__restrict dev);
 /* Same as `register_dynamic_device()', but uses `devno_alloc_mask()' to allocate the device number. */
 FUNDEF void KCALL register_dynamic_device_mask(struct device *__restrict dev, dev_t start, minor_t mask);

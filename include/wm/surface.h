@@ -23,6 +23,7 @@
 #include <hybrid/atomic.h>
 #include <hybrid/limitcore.h>
 #include <hybrid/sync/atomic-rwlock.h>
+#include <stdbool.h>
 #include <features.h>
 #include <bits/types.h>
 
@@ -56,28 +57,40 @@ struct wm_surface_ops;
 #define __WM_SURFACE_CONST_POINTER    struct wm_surface const *
 #define __WM_SURFACE_CONST_POINTER_R  struct wm_surface const *__restrict
 #elif !defined(__NO_ATTR_TRANSPARENT_UNION)
-struct wm_window;
-struct wm_surface_view;
+#define __WM_FOREACH_SURFACE_CLASS(func) \
+    func(wm_surface) \
+    func(wm_surface_view) \
+    func(wm_window) \
+    func(wm_font) \
+/**/
+
+
+#define __WM_DECL_STRUCT(T) struct T;
+__WM_FOREACH_SURFACE_CLASS(__WM_DECL_STRUCT)
+#undef __WM_DECL_STRUCT
+
 typedef union {
-    struct wm_surface      *__wm_surface;
-    struct wm_window       *__wm_window;
-    struct wm_surface_view *__wm_surface_view;
+#define __WM_ENUM_STRUCT(T) struct T *__##T##__;
+__WM_FOREACH_SURFACE_CLASS(__WM_ENUM_STRUCT)
+#undef __WM_ENUM_STRUCT
 } __wm_surface_pointer_t __ATTR_TRANSPARENT_UNION;
 typedef union {
-    struct wm_surface      const *__wm_surface;
-    struct wm_window       const *__wm_window;
-    struct wm_surface_view const *__wm_surface_view;
+#define __WM_ENUM_STRUCT(T) struct T const *__##T##__;
+__WM_FOREACH_SURFACE_CLASS(__WM_ENUM_STRUCT)
+#undef __WM_ENUM_STRUCT
 } __wm_surface_const_pointer_t __ATTR_TRANSPARENT_UNION;
 typedef union {
-    struct wm_surface      *__restrict __wm_surface;
-    struct wm_window       *__restrict __wm_window;
-    struct wm_surface_view *__restrict __wm_surface_view;
+#define __WM_ENUM_STRUCT(T) struct T *__restrict __##T##__;
+__WM_FOREACH_SURFACE_CLASS(__WM_ENUM_STRUCT)
+#undef __WM_ENUM_STRUCT
 } __wm_surface_pointer_r_t __ATTR_TRANSPARENT_UNION;
 typedef union {
-    struct wm_surface      const *__restrict __wm_surface;
-    struct wm_window       const *__restrict __wm_window;
-    struct wm_surface_view const *__restrict __wm_surface_view;
+#define __WM_ENUM_STRUCT(T) struct T const *__restrict __##T##__;
+__WM_FOREACH_SURFACE_CLASS(__WM_ENUM_STRUCT)
+#undef __WM_ENUM_STRUCT
 } __wm_surface_const_pointer_r_t __ATTR_TRANSPARENT_UNION;
+#undef __WM_FOREACH_SURFACE_CLASS
+
 #define __WM_SURFACE_POINTER          __wm_surface_pointer_t
 #define __WM_SURFACE_CONST_POINTER    __wm_surface_const_pointer_t
 #define __WM_SURFACE_POINTER_R        __wm_surface_pointer_r_t
@@ -90,9 +103,9 @@ typedef union {
 #endif
 
 struct PACKED wm_color_triple {
-    __uint8_t   c_red;    /* [<= :p_mask] Red color component. */
-    __uint8_t   c_green;  /* [<= :p_mask] Green color component. */
-    __uint8_t   c_blue;   /* [<= :p_mask] Blue color component. */
+    __uint8_t   c_red;    /* Red color component. */
+    __uint8_t   c_green;  /* Green color component. */
+    __uint8_t   c_blue;   /* Blue color component. */
 };
 
 struct PACKED wm_color {
@@ -121,20 +134,23 @@ WMAPI __uint32_t WMCALL wm_color_compare(struct wm_color_triple a,
                                          struct wm_color_triple b);
 
 
+#define WM_PALETTE_TYPE(num_colors) \
+    ATOMIC_DATA __ref_t          p_refcnt;             /* Palette reference counter. */ \
+    __uint8_t                    p_bpp;                /* [>= 1 && <= 16] Bits per pixel (power-of-2). */ \
+    __uint16_t                   p_count;              /* [2...2^16][== 1 << p_bpp] Number of colors in the palette. */ \
+    struct wm_color_triple       p_colors[num_colors]; /* [p_count] Colors associated with individual palette indices. */ \
+/**/
 
 struct PACKED wm_palette {
-    ATOMIC_DATA __ref_t          p_refcnt;    /* Palette reference counter. */
-    __uint8_t                    p_bpp;       /* [>= 1 && <= 16] Bits per pixel (power-of-2). */
-    __uint8_t                    p_mask;      /* Per-color channel mask of effective color bits.
-                                               * Bits not masked by this must be set to ZERO. */
-    __uint16_t                   p_count;     /* [2...2^16][== 1 << p_bpp] Number of colors in the palette. */
-    struct wm_color_triple       p_colors[1]; /* [p_count] Colors associated with individual palette indices. */
+    WM_PALETTE_TYPE(1)
 };
+
+
 
 /* Create a new palette.
  * @throw: E_BADALLOC: [...] */
 WMAPI ATTR_RETNONNULL REF struct wm_palette *
-WMCALL wm_palette_create(__uint16_t bpp, __uint8_t mask);
+WMCALL wm_palette_create(__uint16_t bpp);
 
 /* Increment/decrement the reference counter of a WM palette. */
 #define wm_palette_incref(self) (void)ATOMIC_FETCHINC((self)->p_refcnt)
@@ -175,12 +191,39 @@ struct wm_format {
     __uint16_t                   f_gshft;  /* [valid_if(!f_pal)][const] Shift to reach the green color mask. */
     __uint16_t                   f_bshft;  /* [valid_if(!f_pal)][const] Shift to reach the blue color mask. */
     __uint16_t                   f_ashft;  /* [valid_if(!f_pal)][const] Shift to reach the blue color mask. */
-    wm_pixel_t                   f_color[WM_COLOR_COUNT]; /* Pixel codes for some standard colors. */
-    __uint16_t                   f_bpp;    /* [>= 1 && <= 32][const] Bits per pixel (power-of-2). */
+    wm_pixel_t                   f_color[16]; /* Pixel codes for some standard colors. */
+    __uint16_t                   f_bpp;    /* [>= 1 && <= 32][const] Bits per pixel (power-of-2, or 24). */
     __uint16_t                 __f_pad[(sizeof(void *)-2)/2];
     /*ATTR_NOTHROW*/ struct wm_color (WMCALL *f_colorof)(struct wm_format const *__restrict self, wm_pixel_t pixel);
     /*ATTR_NOTHROW*/ wm_pixel_t (WMCALL *f_pixelof)(struct wm_format const *__restrict self, struct wm_color color);
 };
+
+
+/* Lookup/create a standard pixel format, given its `name'
+ * @return: * : A pointer to the pixel format in question.
+ *              This format is lazily allocated and loaded upon first
+ *              access by the calling window client application.
+ *              During this initial load, the function may throw any
+ *              of the following errors, however will not throw any
+ *              errors after a successful first call when passing the
+ *              same `name' once again.
+ * @param: name: One of `WM_FORMAT_*'
+ * @throw: E_INVALID_ARGUMENT: The given `name' isn't a valid system font name.
+ * @throw: E_BADALLOC: [...] */
+WMAPI ATTR_RETNONNULL struct wm_format *WMCALL wm_format_lookup(unsigned int name);
+#define WM_FORMAT_BLACK_AND_WHITE  0x0000 /* 1-bpp, palette(white=0, black=1) */
+#define WM_FORMAT_GRAYSCALE4       0x0001 /* 2-bpp, palette(white=0, light-gray=1, dark-gray=1, black=3) */
+#define WM_FORMAT_GRAYSCALE16      0x0002 /* 4-bpp, palette(white=0, ... black=15) */
+#define WM_FORMAT_BGR24            0x0100 /* 24-bpp, [B, G, R] */
+#define WM_FORMAT_RGB24            0x0101 /* 24-bpp, [R, G, B] */
+#define WM_FORMAT_XBGR32           0x0200 /* 32-bpp, [-, B, G, R] */
+#define WM_FORMAT_BGRX32           0x0201 /* 32-bpp, [B, G, R, -] */
+#define WM_FORMAT_ABGR32           0x0202 /* 32-bpp, [A, B, G, R] */
+#define WM_FORMAT_BGRA32           0x0203 /* 32-bpp, [B, G, R, A] */
+#define WM_FORMAT_XRGB32           0x0204 /* 32-bpp, [-, R, G, B] */
+#define WM_FORMAT_RGBX32           0x0205 /* 32-bpp, [R, G, B, -] */
+#define WM_FORMAT_RGBA32           0x0206 /* 32-bpp, [R, G, B, A] */
+#define WM_FORMAT_ARGB32           0x0207 /* 32-bpp, [A, R, G, B] */
 
 
 /* Create a new mask-based pixel format.
@@ -189,7 +232,8 @@ WMAPI ATTR_RETNONNULL REF struct wm_format *WMCALL
 wm_format_create(wm_pixel_t rmask, __uint16_t rshft,
                  wm_pixel_t gmask, __uint16_t gshft,
                  wm_pixel_t bmask, __uint16_t bshft,
-                 wm_pixel_t amask, __uint16_t ashft);
+                 wm_pixel_t amask, __uint16_t ashft,
+                 unsigned int bpp);
 
 /* Create a new palette-based pixel format.
  * @throw: E_BADALLOC: [...] */
@@ -218,7 +262,8 @@ wm_format_pixelof(struct wm_format const *__restrict self,
 
 #define WM_SURFACE_FNORMAL       0x0000    /* Normal surface flags. */
 #define WM_SURFACE_FWINDOW       0x0001    /* This surface is actually a `struct wm_window'. */
-#define WM_SURFACE_FISVIEW       0x0002    /* This surface is actually a `struct wm_surface_view'
+#define WM_SURFACE_FISFONT       0x0002    /* This surface is actually a `struct wm_font' */
+#define WM_SURFACE_FISVIEW       0x8000    /* This surface is actually a `struct wm_surface_view'
                                             * with non-zero sub-pixel offsets. */
 
 #define __WM_SURFACE_STRUCT_MEMBERS \
@@ -264,8 +309,7 @@ struct PACKED wm_surface {
 /* Create a new surface with the given size and format.
  * @throw: E_INVALID_ARGUMENT: Either `sizex' or `sizey' is ZERO(0), or one
  *                             of them is larger than `WM_MAX_SURFACE_SIZE'
- * @throw: E_BADALLOC:         [...]
- */
+ * @throw: E_BADALLOC:         [...] */
 WMAPI ATTR_RETNONNULL REF struct wm_surface *WMCALL
 wm_surface_create(struct wm_format *__restrict format,
                   unsigned int sizex, unsigned int sizey);
@@ -350,10 +394,12 @@ struct wm_surface_ops {
      (*(self)->s_ops->so_getpixel)(self,x,y)
     wm_pixel_t (WMCALL *so_getpixel)(__WM_SURFACE_CONST_POINTER_R self, int x, int y);
 
-    /* Set a single pixel. */
+    /* Set a single pixel.
+     * @return: true:  The pixel was set.
+     * @return: false: The given coords are out-of-bounds and the pixel wasn't set. */
 #define wm_surface_setpixel(self,x,y,pixel) \
      (*(self)->s_ops->so_setpixel)(self,x,y,pixel)
-    void       (WMCALL *so_setpixel)(__WM_SURFACE_POINTER_R self, int x, int y, wm_pixel_t pixel);
+    bool       (WMCALL *so_setpixel)(__WM_SURFACE_POINTER_R self, int x, int y, wm_pixel_t pixel);
 
     /* Draw a horizontal line. */
 #define wm_surface_hline(self,x,y,size_x,pixel) \
@@ -393,6 +439,19 @@ struct wm_surface_ops {
                                   int source_x, int source_y,
                                   unsigned int size_x, unsigned int size_y,
                                   wm_pixel_t color_key);
+
+    /* Similar to `wm_surface_cblit()', but rather than copying pixels from
+     * `source', load a source pixel and compare it to `color_key'.
+     * If they are equal, don't blit anything for that pixel.
+     * If they are not equal, fill the target pixel with `color'
+     * This function is used by `wm_font_draw()' to render colored text. */
+#define wm_surface_ccblit(self,x,y,source,source_x,source_y,size_x,size_y,color_key,color) \
+     (*(self)->s_ops->so_ccblit)(self,x,y,source,source_x,source_y,size_x,size_y,color_key,color)
+    void       (WMCALL *so_ccblit)(__WM_SURFACE_POINTER_R self, int x, int y,
+                                   __WM_SURFACE_CONST_POINTER_R source,
+                                   int source_x, int source_y,
+                                   unsigned int size_x, unsigned int size_y,
+                                   wm_pixel_t color_key, wm_pixel_t color);
 };
 
 

@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\libs\libwm\event.c" />
+    <ClCompile Include="..\..\src\libs\libwm\font.c" />
     <ClCompile Include="..\..\src\libs\libwm\format.c" />
     <ClCompile Include="..\..\src\libs\libwm\init.c" />
     <ClCompile Include="..\..\src\libs\libwm\server.c" />

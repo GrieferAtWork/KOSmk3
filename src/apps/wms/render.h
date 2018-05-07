@@ -27,7 +27,7 @@
 
 DECL_BEGIN
 
-INTDEF void KCALL
+INTDEF void WMCALL
 Copy_Rect(byte_t *__restrict dst_buffer,
           unsigned int dst_x, unsigned int dst_y, unsigned int dst_stride,
           byte_t const *__restrict src_buffer,
