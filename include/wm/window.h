@@ -66,8 +66,13 @@ __SYSDECL_BEGIN
 #define WM_WINDOW_MODE_FMAXIMIZED   0x0002 /* The window has been maximized. */
 #define WM_WINDOW_MODE_FFULLSCREEN  0x0004 /* The window takes up the whole screen. */
 
-struct wm_window {
-    struct wm_surface       w_surface;  /* The underlying window surface.
+#ifdef __cplusplus
+struct PACKED wm_window: wm_surface
+#else
+struct PACKED wm_window
+#endif
+{
+    __WM_SURFACE_STRUCT_MEMBERS         /* The underlying window surface.
                                          * NOTE: This surface describes the exposed window
                                          *       data, as opposed to the real window data.
                                          *       In actuality, things like the close buttons,
@@ -105,15 +110,6 @@ struct wm_window {
 #endif /* __BUILDING_LIBWM */
 };
 
-/* Lock/unlock the given WM window. */
-#define wm_window_trylock(self) wm_surface_trylock(&(self)->w_surface)
-#define wm_window_lock(self)    wm_surface_lock(&(self)->w_surface)
-#define wm_window_unlock(self)  wm_surface_unlock(&(self)->w_surface)
-
-/* Returns a pointer to the surface of the given
- * window (Which is just the window pointer itself again) */
-#define wm_window_surface(self)  (&(self)->w_surface)
-
 /* Increment/decrement the reference counter of a WM window.
  * NOTE: When the last reference of a window that hasn't been
  *       closed is dropped, the window will be set as hidden,
@@ -124,8 +120,8 @@ struct wm_window {
  *       If this isn't intended, you may consider to always
  *       explicitly hide the window first, or configure its
  *       features accordingly and call `wm_window_close()'. */
-#define wm_window_incref(self)  wm_surface_incref(wm_window_surface(self))
-#define wm_window_decref(self)  wm_surface_decref(wm_window_surface(self))
+#define wm_window_incref(self)  wm_surface_incref(self)
+#define wm_window_decref(self)  wm_surface_decref(self)
 
 /* Special value which, when passing for `pos_x' _and_ `pos_y' in
  * a call to `wm_window_create()' will allow the implementation to
@@ -178,7 +174,7 @@ wm_window_create(int pos_x,
  * effective surface size, that is the window size _exclusing_ its
  * border and title bar. */
 #define wm_window_resize(self,new_sizx,new_sizy) \
-        wm_surface_resize(&(self)->w_surface,new_sizx,new_sizy)
+        wm_surface_resize(self,new_sizx,new_sizy)
 
 
 /* Move the given window to a new position. */

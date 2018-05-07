@@ -43,14 +43,14 @@ libwm_window_move(struct wm_window *__restrict self,
                   int new_posx, int new_posy) {
  struct wms_request req; unsigned int token;
  struct wms_response resp;
- wm_window_lock(self);
+ wm_surface_lock(self);
  if (self->w_posx == new_posx &&
      self->w_posy == new_posy) {
-  wm_window_unlock(self);
+  wm_surface_unlock(self);
   /* Nothing to do here! */
   return;
  }
- wm_window_unlock(self);
+ wm_surface_unlock(self);
  req.r_command        = WMS_COMMAND_MVWIN;
  req.r_flags          = WMS_COMMAND_FNORMAL;
  req.r_mvwin.mw_winid = self->w_winid;
@@ -86,14 +86,14 @@ libwm_window_chstat(struct wm_window *__restrict self, u16 mask, u16 flag) {
  struct wms_response resp; u16 result;
  if (flag & ~(WM_WINDOW_STATE_FHIDDEN|WM_WINDOW_STATE_FFOCUSED))
      error_throw(E_INVALID_ARGUMENT);
- wm_window_lock(self);
+ wm_surface_lock(self);
  result = self->w_state;
  if (((result & mask) | flag) == result) {
   /* Nothing changes */
-  wm_window_unlock(self);
+  wm_surface_unlock(self);
   return result;
  }
- wm_window_unlock(self);
+ wm_surface_unlock(self);
  req.r_command = WMS_COMMAND_CHWIN;
  req.r_flags   = WMS_COMMAND_FNORMAL;
  req.r_chwin.cw_winid = self->w_winid;
@@ -150,15 +150,15 @@ libwm_window_draw_rect(struct wm_window *__restrict self,
   ysiz -= -ymin;
   ymin = 0;
  }
- wm_window_lock(self);
+ wm_surface_lock(self);
  TRY {
-  if ((unsigned int)(xmin+xsiz) > self->w_surface.s_sizex) {
-   if ((unsigned int)xmin >= self->w_surface.s_sizex) goto empty_unlock;
-   xsiz = self->w_surface.s_sizex-xmin;
+  if ((unsigned int)(xmin+xsiz) > self->s_sizex) {
+   if ((unsigned int)xmin >= self->s_sizex) goto empty_unlock;
+   xsiz = self->s_sizex-xmin;
   }
-  if ((unsigned int)(ymin+ysiz) > self->w_surface.s_sizey) {
-   if ((unsigned int)ymin >= self->w_surface.s_sizey) goto empty_unlock;
-   ysiz = self->w_surface.s_sizey-ymin;
+  if ((unsigned int)(ymin+ysiz) > self->s_sizey) {
+   if ((unsigned int)ymin >= self->s_sizey) goto empty_unlock;
+   ysiz = self->s_sizey-ymin;
   }
   /* Fill in the render request. */
   req.r_command          = WMS_COMMAND_DRAWONE;
@@ -169,7 +169,7 @@ libwm_window_draw_rect(struct wm_window *__restrict self,
   req.r_drawone.dw_xsiz  = xsiz;
   req.r_drawone.dw_ysiz  = ysiz;
  } FINALLY {
-  wm_window_unlock(self);
+  wm_surface_unlock(self);
  }
  /* Send the request. */
  token = libwms_sendrequest(&req);
@@ -179,7 +179,7 @@ libwm_window_draw_rect(struct wm_window *__restrict self,
  }
  return;
 empty_unlock:
- wm_window_unlock(self);
+ wm_surface_unlock(self);
 empty:
  if (mode & WM_WINDOW_DRAW_FASYNC) return;
  if (!(mode & WM_WINDOW_DRAW_FVSYNC)) return;
@@ -264,6 +264,12 @@ libwm_window_create(int pos_x, int pos_y, unsigned int size_x, unsigned int size
                     char const *title, u32 features, u16 state, u16 mode,
                     struct wm_winevent_ops *eventops, void *userdata) {
  REF struct wm_window *EXCEPT_VAR result;
+ /* Check for invalid arguments. */
+ if unlikely(!size_x || !size_y)
+    error_throw(E_INVALID_ARGUMENT);
+ if unlikely(size_x > WM_MAX_SURFACE_SIZE ||
+             size_y > WM_MAX_SURFACE_SIZE)
+    error_throw(E_INVALID_ARGUMENT);
  result = (REF struct wm_window *)Xmalloc(sizeof(struct wm_window));
  TRY {
   struct wms_request req;
@@ -310,34 +316,34 @@ libwm_window_create(int pos_x, int pos_y, unsigned int size_x, unsigned int size
    TRY {
 
     /* Extract data from the response. */
-    result->w_winid             = resp.r_mkwin.w_id;
-    result->w_state             = resp.r_mkwin.w_state;
-    result->w_posx              = resp.r_mkwin.w_posx;
-    result->w_posy              = resp.r_mkwin.w_posy;
-    result->w_sizex             = resp.r_mkwin.w_sizex;
-    result->w_sizey             = resp.r_mkwin.w_sizex;
-    result->w_oldsizex          = resp.r_mkwin.w_sizex;
-    result->w_oldsizey          = resp.r_mkwin.w_sizey;
+    result->w_winid    = resp.r_mkwin.w_id;
+    result->w_state    = resp.r_mkwin.w_state;
+    result->w_posx     = resp.r_mkwin.w_posx;
+    result->w_posy     = resp.r_mkwin.w_posy;
+    result->w_sizex    = resp.r_mkwin.w_sizex;
+    result->w_sizey    = resp.r_mkwin.w_sizex;
+    result->w_oldsizex = resp.r_mkwin.w_sizex;
+    result->w_oldsizey = resp.r_mkwin.w_sizey;
 
     /* Adjust so the surface describes the window contents without the border. */
-    result->w_surface.s_flags   = WM_SURFACE_FWINDOW;
-    result->w_surface.s_sizex   = resp.r_mkwin.w_sizex - (2 * result->w_bordersz);
-    result->w_surface.s_sizey   = resp.r_mkwin.w_sizey - (result->w_bordersz + result->w_titlesz);
-    result->w_surface.s_stride  = resp.r_mkwin.w_stride;
-    result->w_surface.s_bpp     = resp.r_mkwin.w_bpp;
-    result->w_surface.s_buffer  = result->w_buffer;
-    result->w_surface.s_buffer += result->w_titlesz * resp.r_mkwin.w_stride;
-    result->w_surface.s_buffer += result->w_bordersz;
-    result->w_surface.s_ops     = libwm_lookup_surface_ops(resp.r_mkwin.w_bpp);
+    result->s_flags   = WM_SURFACE_FWINDOW;
+    result->s_sizex   = resp.r_mkwin.w_sizex - (2 * result->w_bordersz);
+    result->s_sizey   = resp.r_mkwin.w_sizey - (result->w_bordersz + result->w_titlesz);
+    result->s_stride  = resp.r_mkwin.w_stride;
+    result->s_buffer  = result->w_buffer;
+    result->s_buffer += result->w_titlesz * resp.r_mkwin.w_stride;
+    result->s_buffer += result->w_bordersz;
 
     /* TODO: This currently assumes the format that is implemented by the server. */
-    result->w_surface.s_format = libwm_format_create_pal(&libwm_palette_256);
+    result->s_format = libwm_format_create_pal(&libwm_palette_256);
+    assert(result->s_format->f_bpp == resp.r_mkwin.w_bpp);
 
+    libwm_setup_surface_ops((struct wm_surface *)result);
     TRY {
      /* Map the window  */
      libwm_window_register(result);
     } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-     libwm_format_decref(result->w_surface.s_format);
+     libwm_format_decref(result->s_format);
      error_rethrow();
     }
 
@@ -386,44 +392,38 @@ libwm_window_fromid(wms_window_id_t id) {
 }
 
 
-INTERN void WMCALL
+INTERN ATTR_NOTHROW void WMCALL
 libwm_window_destroy(struct wm_window *__restrict self) {
- struct wms_request req; unsigned int token;
- struct wms_response resp;
+ struct wm_window *EXCEPT_VAR xself = self;
+ struct wms_request req;
  /* First off: Remove the window from the global id->window hash table. */
  libwm_window_delete(self);
- if (!(self->w_state & WM_WINDOW_STATE_FHIDDEN)) {
-  /* Hide the window. */
-  req.r_command = WMS_COMMAND_CHWIN;
-  req.r_flags   = WMS_COMMAND_FNORMAL;
-  req.r_chwin.cw_winid = self->w_winid;
-  req.r_chwin.cw_mask  = ~0;
-  req.r_chwin.cw_flag  = WM_WINDOW_STATE_FHIDDEN;
-  /* XXX: What about exceptions here? */
-  token = libwms_sendrequest(&req);
-  libwms_recvresponse(token,&resp);
- }
  /* Invoke a user-defined window-fini callback. */
  if (self->w_events &&
      self->w_events->wo_fini)
    (*self->w_events->wo_fini)(self);
  /* Unmap the window display buffer. */
  munmap(self->w_buffer,
-        self->w_surface.s_stride * self->w_sizey);
+        self->s_stride * self->w_sizey);
  /* Remove the window. */
  req.r_command        = WMS_COMMAND_RMWIN;
  req.r_flags          = WMS_COMMAND_FNOACK;
  req.r_rmwin.rw_winid = self->w_winid;
- /* XXX: What about exceptions here? */
- libwms_sendrequest(&req);
+ TRY {
+  libwms_sendrequest(&req);
+ } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+  error_printf("Failed to remove window %Iu\n",
+                xself->w_winid);
+  error_handled();
+ }
 
  /* Close the window screen buffer file. */
- close(self->w_winfd);
+ close(xself->w_winfd);
 
  /* Free all the remaining buffers and pointers. */
- libwm_format_decref(self->w_surface.s_format);
- free(self->w_title);
- free(self);
+ libwm_format_decref(xself->s_format);
+ free(xself->w_title);
+ free(xself);
 }
 
 

@@ -26,10 +26,23 @@
 
 DECL_BEGIN
 
+#ifdef FOR_SURFACE_VIEW
+#define ADJUST_COORDS    \
+   ((x) += ((struct wm_surface_view *)self)->s_offx, \
+    (y) += ((struct wm_surface_view *)self)->s_offy)
+#else
+#define ADJUST_COORDS    \
+   (void)0
+#endif
+
 PRIVATE wm_pixel_t WMCALL
 FUNC(getpixel)(struct wm_surface const *__restrict self,
                int x, int y) {
+#ifdef EMPTY_SURFACE
+ return self->s_format->f_color[WM_COLOR_BLACK];
+#else
  byte_t *ptr;
+ ADJUST_COORDS;
  if ((unsigned int)x >= self->s_sizex ||
      (unsigned int)y >= self->s_sizey)
       return self->s_format->f_color[WM_COLOR_BLACK];
@@ -61,12 +74,15 @@ FUNC(getpixel)(struct wm_surface const *__restrict self,
  x   &= 0x7;
  return (*(u8 *)ptr >> x) & 0x1;
 #endif
+#endif
 }
 
 PRIVATE void WMCALL
 FUNC(setpixel)(struct wm_surface *__restrict self,
                int x, int y, wm_pixel_t pixel) {
+#ifndef EMPTY_SURFACE
  byte_t *ptr;
+ ADJUST_COORDS;
  if ((unsigned int)x >= self->s_sizex ||
      (unsigned int)y >= self->s_sizey)
       return;
@@ -101,85 +117,142 @@ FUNC(setpixel)(struct wm_surface *__restrict self,
  *(u8 *)ptr &= ~(0x1 << x);
  *(u8 *)ptr |= (pixel & 0x1) << x;
 #endif
+#endif
 }
 
 PRIVATE void WMCALL
 FUNC(hline)(struct wm_surface *__restrict self,
             int x, int y, unsigned int size_x,
             wm_pixel_t pixel) {
+#ifndef EMPTY_SURFACE
  unsigned int i;
  /* TODO: Optimizations. */
  for (i = 0; i < size_x; ++i)
      FUNC(setpixel)(self,x+i,y,pixel);
+#endif
 }
 
 PRIVATE void WMCALL
 FUNC(vline)(struct wm_surface *__restrict self,
             int x, int y, unsigned int size_y,
             wm_pixel_t pixel) {
+#ifndef EMPTY_SURFACE
  unsigned int i;
  /* TODO: Optimizations. */
  for (i = 0; i < size_y; ++i)
      FUNC(setpixel)(self,x,y+i,pixel);
+#endif
 }
 
 PRIVATE void WMCALL
 FUNC(rect)(struct wm_surface *__restrict self,
            int x, int y, unsigned int size_x,
            unsigned int size_y, wm_pixel_t pixel) {
+#ifndef EMPTY_SURFACE
  if (!size_x || !size_y) return;
  /* TODO: Optimizations. */
  FUNC(hline)(self,x,y,size_x,pixel);
  FUNC(hline)(self,x,y+size_y,size_x,pixel);
  FUNC(vline)(self,x,y+1,size_y-2,pixel);
  FUNC(vline)(self,x+size_x,y+1,size_y-2,pixel);
+#endif
 }
 
 PRIVATE void WMCALL
 FUNC(fill)(struct wm_surface *__restrict self,
            int x, int y, unsigned int size_x,
            unsigned int size_y, wm_pixel_t pixel) {
+#ifndef EMPTY_SURFACE
  unsigned int i;
  /* TODO: Optimizations. */
  for (i = 0; i < size_y; ++i)
      FUNC(hline)(self,x,y+i,size_x,pixel);
+#endif
 }
 
 PRIVATE void WMCALL
 FUNC(bblit)(struct wm_surface *__restrict self, int x, int y,
             struct wm_surface const *__restrict source,
-            unsigned int source_x, unsigned int source_y,
+            int source_x, int source_y,
             unsigned int size_x, unsigned int size_y) {
+#ifndef EMPTY_SURFACE
  unsigned int i,j;
+ ADJUST_COORDS;
+ if (source->s_flags & WM_SURFACE_FISVIEW) {
+  source_x += ((struct wm_surface_view *)source)->s_offx;
+  source_y += ((struct wm_surface_view *)source)->s_offy;
+ }
  /* TODO: Optimizations. */
- for (j = 0; j < size_y; ++j) {
-  for (i = 0; i < size_x; ++i) {
-   FUNC(setpixel)(self,x+i,y+j,
-                  wm_surface_getpixel(source,
-                                      source_x+i,
-                                      source_y+j));
+ if (self->s_format == source->s_format) {
+  for (j = 0; j < size_y; ++j) {
+   for (i = 0; i < size_x; ++i) {
+    FUNC(setpixel)(self,x+i,y+j,
+                   wm_surface_getpixel(source,
+                                       source_x+i,
+                                       source_y+j));
+   }
+  }
+ } else {
+  struct wm_format *dfmt = self->s_format;
+  struct wm_format *sfmt = source->s_format;
+  for (j = 0; j < size_y; ++j) {
+   for (i = 0; i < size_x; ++i) {
+    struct wm_color color;
+    color = wm_format_colorof(sfmt,
+                              wm_surface_getpixel(source,
+                                                  source_x+i,
+                                                  source_y+j));
+    FUNC(setpixel)(self,x+i,y+j,
+                   wm_format_pixelof(dfmt,color));
+   }
   }
  }
+#endif
 }
 
 PRIVATE void WMCALL
 FUNC(cblit)(struct wm_surface *__restrict self, int x, int y,
             struct wm_surface const *__restrict source,
-            unsigned int source_x, unsigned int source_y,
+            int source_x, int source_y,
             unsigned int size_x, unsigned int size_y,
             wm_pixel_t color_key) {
+#ifndef EMPTY_SURFACE
  unsigned int i,j;
+ if (source->s_flags & WM_SURFACE_FISVIEW) {
+  source_x += ((struct wm_surface_view *)source)->s_offx;
+  source_y += ((struct wm_surface_view *)source)->s_offy;
+ }
+
  /* TODO: Optimizations. */
- for (j = 0; j < size_y; ++j) {
-  for (i = 0; i < size_x; ++i) {
-   wm_pixel_t pixel;
-   pixel = wm_surface_getpixel(source,
-                               source_x+i,
-                               source_y+j);
-   if (pixel == color_key) continue;
-   FUNC(setpixel)(self,x+i,y+j,pixel);
+ if (self->s_format == source->s_format) {
+  for (j = 0; j < size_y; ++j) {
+   for (i = 0; i < size_x; ++i) {
+    wm_pixel_t pixel;
+    pixel = wm_surface_getpixel(source,
+                                source_x+i,
+                                source_y+j);
+    if (pixel == color_key) continue;
+    FUNC(setpixel)(self,x+i,y+j,pixel);
+   }
+  }
+ } else {
+  struct wm_format *dfmt = self->s_format;
+  struct wm_format *sfmt = source->s_format;
+  for (j = 0; j < size_y; ++j) {
+   for (i = 0; i < size_x; ++i) {
+    wm_pixel_t pixel;
+    struct wm_color color;
+    pixel = wm_surface_getpixel(source,
+                                source_x+i,
+                                source_y+j);
+    if (pixel == color_key) continue;
+    color = wm_format_colorof(sfmt,pixel);
+    FUNC(setpixel)(self,x+i,y+j,
+                   wm_format_pixelof(dfmt,color));
+   }
   }
  }
+#endif
 }
 
 PRIVATE struct wm_surface_ops FUNC(ops) = {
@@ -194,7 +267,10 @@ PRIVATE struct wm_surface_ops FUNC(ops) = {
 };
 
 
+#undef ADJUST_COORDS
+
 DECL_END
 
+#undef EMPTY_SURFACE
 #undef FUNC
 #undef BPP

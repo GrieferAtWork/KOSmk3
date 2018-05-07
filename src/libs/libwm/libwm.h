@@ -49,11 +49,13 @@ INTDEF fd_t WMCALL libwms_recvresponse_fd(unsigned int token, struct wms_respons
 
 /* surface.h */
 INTDEF struct wm_palette libwm_palette_256;
+INTDEF u32 WMCALL libwm_color_compare(struct wm_color_triple a, struct wm_color_triple b);
 INTDEF ATTR_RETNONNULL REF struct wm_palette *WMCALL
 libwm_palette_create(u16 bpp, u8 mask);
 #define libwm_palette_incref(self) (void)ATOMIC_FETCHINC((self)->p_refcnt)
 #define libwm_palette_decref(self) (void)(ATOMIC_DECFETCH((self)->p_refcnt) || (libwm_palette_destroy(self),0))
-INTDEF void WMCALL libwm_palette_destroy(struct wm_palette *__restrict self);
+INTDEF ATTR_NOTHROW void WMCALL
+libwm_palette_destroy(struct wm_palette *__restrict self);
 INTDEF ATTR_RETNONNULL REF struct wm_format *WMCALL
 libwm_format_create(wm_pixel_t rmask, u16 rshft,
                     wm_pixel_t gmask, u16 gshft,
@@ -63,31 +65,40 @@ INTDEF ATTR_RETNONNULL REF struct wm_format *WMCALL
 libwm_format_create_pal(struct wm_palette *__restrict pal);
 #define libwm_format_incref(self) (void)ATOMIC_FETCHINC((self)->f_refcnt)
 #define libwm_format_decref(self) (void)(ATOMIC_DECFETCH((self)->f_refcnt) || (libwm_format_destroy(self),0))
-INTDEF void WMCALL libwm_format_destroy(struct wm_format *__restrict self);
+INTDEF ATTR_NOTHROW void WMCALL
+libwm_format_destroy(struct wm_format *__restrict self);
 INTDEF ATTR_RETNONNULL REF struct wm_surface *WMCALL
 libwm_surface_create(struct wm_format *__restrict format,
                      unsigned int sizex, unsigned int sizey);
-INTDEF void WMCALL libwm_surface_destroy(struct wm_surface *__restrict self);
+INTDEF ATTR_NOTHROW void WMCALL
+libwm_surface_destroy(struct wm_surface *__restrict self);
 #define libwm_surface_incref(self) (void)ATOMIC_FETCHINC((self)->s_refcnt)
 #define libwm_surface_decref(self) (void)(ATOMIC_DECFETCH((self)->s_refcnt) || (libwm_surface_destroy(self),0))
+
 INTDEF void WMCALL libwm_surface_resize(struct wm_surface *__restrict self, unsigned int new_sizx, unsigned int new_sizy);
 INTDEF ATTR_RETNONNULL REF struct wm_surface *WMCALL
 libwm_surface_convert(struct wm_surface *__restrict self,
                       struct wm_format *__restrict new_format);
+INTDEF ATTR_NOTHROW void WMCALL
+libwm_surface_makeview(struct wm_surface_view *__restrict view,
+                       struct wm_surface const *__restrict surface,
+                       int posx, int posy, unsigned int sizex,
+                       unsigned int sizey);
+
 
 
 /* Return a pointer for the best matching surface operators for `bpp' */
-INTDEF ATTR_NOTHROW ATTR_RETNONNULL struct wm_surface_ops const *
-WMCALL libwm_lookup_surface_ops(unsigned int bpp);
+INTDEF ATTR_NOTHROW void WMCALL libwm_setup_surface_ops(struct wm_surface *__restrict self);
+INTDEF ATTR_NOTHROW void WMCALL libwm_setup_surface_view_ops(struct wm_surface_view *__restrict self);
 
 /* window.h */
 INTDEF ATTR_RETNONNULL REF struct wm_window *WMCALL
 libwm_window_create(int pos_x, int pos_y, unsigned int size_x, unsigned int size_y,
                     char const *title, u32 features, u16 state, u16 mode,
                     struct wm_winevent_ops *eventops, void *userdata);
-INTDEF void WMCALL libwm_window_destroy(struct wm_window *__restrict self);
-#define libwm_window_incref(self) (void)ATOMIC_FETCHINC((self)->w_surface.s_refcnt)
-#define libwm_window_decref(self) (void)(ATOMIC_DECFETCH((self)->w_surface.s_refcnt) || (libwm_window_destroy(self),0))
+INTDEF ATTR_NOTHROW void WMCALL libwm_window_destroy(struct wm_window *__restrict self);
+#define libwm_window_incref(self) (void)ATOMIC_FETCHINC((self)->s_refcnt)
+#define libwm_window_decref(self) (void)(ATOMIC_DECFETCH((self)->s_refcnt) || (libwm_window_destroy(self),0))
 
 INTDEF void WMCALL libwm_window_move(struct wm_window *__restrict self, int new_posx, int new_posy);
 INTDEF void WMCALL libwm_window_resize(struct wm_window *__restrict self, unsigned int new_sizx, unsigned int new_sizy);

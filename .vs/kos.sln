@@ -826,6 +826,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "wm", "wm", "{F28A08F2-7185-
 	ProjectSection(SolutionItems) = preProject
 		..\include\wm\api.h = ..\include\wm\api.h
 		..\include\wm\event.h = ..\include\wm\event.h
+		..\include\wm\font.h = ..\include\wm\font.h
 		..\include\wm\server.h = ..\include\wm\server.h
 		..\include\wm\surface.h = ..\include\wm\surface.h
 		..\include\wm\window.h = ..\include\wm\window.h

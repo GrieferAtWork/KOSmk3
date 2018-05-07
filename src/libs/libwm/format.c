@@ -90,6 +90,11 @@ INTERN struct PACKED {
 
 #ifndef __INTELLISENSE__
 #define BPP        1
+#define EMPTY_SURFACE 1
+#define FUNC(name) empty_surface_##name
+#include "surface-ops.c.inl"
+
+#define BPP        1
 #define FUNC(name) surface1_##name
 #include "surface-ops.c.inl"
 #define BPP        2
@@ -108,19 +113,68 @@ INTERN struct PACKED {
 #define FUNC(name) surface32_##name
 #include "surface-ops.c.inl"
 
-INTERN ATTR_NOTHROW ATTR_RETNONNULL struct wm_surface_ops const *
-WMCALL libwm_lookup_surface_ops(unsigned int bpp) {
- /* TODO: Optimizations for bpp=8,16 and 32 */
- assert(bpp >= 1 && bpp <= 32);
- assert((bpp & (bpp-1)) == 0);
- switch (bpp) {
- case 1:  return &surface1_ops;
- case 2:  return &surface2_ops;
- case 4:  return &surface4_ops;
- case 8:  return &surface8_ops;
- case 16: return &surface16_ops;
- case 32: return &surface32_ops;
+#define FOR_SURFACE_VIEW 1
+#define BPP        1
+#define FUNC(name) surface_view1_##name
+#include "surface-ops.c.inl"
+#define BPP        2
+#define FUNC(name) surface_view2_##name
+#include "surface-ops.c.inl"
+#define BPP        4
+#define FUNC(name) surface_view4_##name
+#include "surface-ops.c.inl"
+#define BPP        8
+#define FUNC(name) surface_view8_##name
+#include "surface-ops.c.inl"
+#define BPP        16
+#define FUNC(name) surface_view16_##name
+#include "surface-ops.c.inl"
+#define BPP        32
+#define FUNC(name) surface_view32_##name
+#include "surface-ops.c.inl"
+#undef FOR_SURFACE_VIEW
+
+INTERN ATTR_NOTHROW void WMCALL
+libwm_setup_surface_ops(struct wm_surface *__restrict self) {
+ struct wm_surface_ops const *ops;
+ assert(self->s_format->f_bpp >= 1 &&
+        self->s_format->f_bpp <= 32);
+ assert((self->s_format->f_bpp & (self->s_format->f_bpp-1)) == 0);
+ switch (self->s_format->f_bpp) {
+ case 1:  ops = &surface1_ops;  break;
+ case 2:  ops = &surface2_ops;  break;
+ case 4:  ops = &surface4_ops;  break;
+ case 8:  ops = &surface8_ops;  break;
+ case 16: ops = &surface16_ops; break;
+ case 32: ops = &surface32_ops; break;
  default: __builtin_unreachable();
+ }
+ self->s_ops = ops;
+}
+
+INTERN ATTR_NOTHROW void WMCALL
+libwm_setup_surface_view_ops(struct wm_surface_view *__restrict self) {
+ if (!self->s_sizex || !self->s_sizey) {
+  /* Surface views are allowed to be empty. */
+  self->s_ops = &empty_surface_ops;
+ } else if (!self->s_offx && !self->s_offy) {
+  /* No sub-pixel offset (meaning we can use the regular ops) */
+  libwm_setup_surface_ops((struct wm_surface *)self);
+ } else {
+  struct wm_surface_ops const *ops;
+  assert(self->s_format->f_bpp >= 1 && self->s_format->f_bpp < 8);
+  assert((self->s_format->f_bpp & (self->s_format->f_bpp-1)) == 0);
+  self->s_flags |= WM_SURFACE_FISVIEW;
+  switch (self->s_format->f_bpp) {
+  case 1:  ops = &surface_view1_ops;  break;
+  case 2:  ops = &surface_view2_ops;  break;
+  case 4:  ops = &surface_view4_ops;  break;
+  case 8:  ops = &surface_view8_ops;  break;
+  case 16: ops = &surface_view16_ops; break;
+  case 32: ops = &surface_view32_ops; break;
+  default: __builtin_unreachable();
+  }
+  self->s_ops = ops;
  }
 }
 

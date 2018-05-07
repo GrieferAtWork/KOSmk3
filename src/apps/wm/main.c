@@ -24,6 +24,7 @@
 #include <hybrid/compiler.h>
 #include <wm/api.h>
 #include <wm/window.h>
+#include <wm/font.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -33,7 +34,6 @@ DECL_BEGIN
 
 int main(int argc, char *argv[]) {
  struct wm_window *win;
- struct wm_surface *sfc;
  wm_init();
 
  win = wm_window_create(WM_WINDOW_AUTOPOS,
@@ -46,15 +46,13 @@ int main(int argc, char *argv[]) {
                         WM_WINDOW_MODE_FNORMAL,
                         NULL,
                         NULL);
- sfc = wm_window_surface(win);
- syslog(LOG_DEBUG,"Created window %p,%p\n",
-        win,win->w_surface.s_ops);
+ syslog(LOG_DEBUG,"Created window %p,%p\n",win,win->s_ops);
  for (unsigned int i = 0; i < 1000; ++i) {
-  wm_surface_fill(sfc,
-                 (unsigned int)rand() % sfc->s_sizex,
-                 (unsigned int)rand() % sfc->s_sizey,
-                 (unsigned int)rand() % sfc->s_sizex,
-                 (unsigned int)rand() % sfc->s_sizey,
+  wm_surface_fill(win,
+                 (unsigned int)rand() % win->s_sizex,
+                 (unsigned int)rand() % win->s_sizey,
+                 (unsigned int)rand() % win->s_sizex,
+                 (unsigned int)rand() % win->s_sizey,
                   rand());
  }
  wm_window_draw(win,WM_WINDOW_DRAW_FNORMAL);
