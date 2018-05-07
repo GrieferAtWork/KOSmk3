@@ -29,6 +29,9 @@
   <ItemGroup>
     <ClInclude Include="..\..\src\libs\libwm\libwm.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\src\libs\libwm\surface-ops.c.inl" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{6832E45A-5352-4198-A0CC-4F4D2393984B}</ProjectGuid>
     <RootNamespace>libwm</RootNamespace>

@@ -50,10 +50,12 @@ int main(int argc, char *argv[]) {
  syslog(LOG_DEBUG,"Created window %p,%p\n",
         win,win->w_surface.s_ops);
  for (unsigned int i = 0; i < 1000; ++i) {
-  wm_surface_setpixel(sfc,
-                     (unsigned int)rand() % sfc->s_sizex,
-                     (unsigned int)rand() % sfc->s_sizey,
-                      rand());
+  wm_surface_fill(sfc,
+                 (unsigned int)rand() % sfc->s_sizex,
+                 (unsigned int)rand() % sfc->s_sizey,
+                 (unsigned int)rand() % sfc->s_sizex,
+                 (unsigned int)rand() % sfc->s_sizey,
+                  rand());
  }
  wm_window_draw(win,WM_WINDOW_DRAW_FNORMAL);
 

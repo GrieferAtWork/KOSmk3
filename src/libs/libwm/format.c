@@ -88,138 +88,43 @@ INTERN struct PACKED {
 
 
 
-PRIVATE wm_pixel_t WMCALL default_surface_getpixel(struct wm_surface const *__restrict self, int x, int y);
-PRIVATE void WMCALL default_surface_setpixel(struct wm_surface *__restrict self, int x, int y, wm_pixel_t pixel);
-PRIVATE void WMCALL default_surface_hline(struct wm_surface *__restrict self, int x, int y, unsigned int size_x, wm_pixel_t pixel);
-PRIVATE void WMCALL default_surface_vline(struct wm_surface *__restrict self, int x, int y, unsigned int size_y, wm_pixel_t pixel);
-PRIVATE void WMCALL default_surface_rect(struct wm_surface *__restrict self, int x, int y, unsigned int size_x, unsigned int size_y, wm_pixel_t pixel);
-PRIVATE void WMCALL default_surface_fill(struct wm_surface *__restrict self, int x, int y, unsigned int size_x, unsigned int size_y, wm_pixel_t pixel);
-PRIVATE void WMCALL
-default_surface_bblit(struct wm_surface *__restrict self, int x, int y,
-                      struct wm_surface const *__restrict source,
-                      unsigned int source_x, unsigned int source_y,
-                      unsigned int size_x, unsigned int size_y);
-PRIVATE void WMCALL
-default_surface_cblit(struct wm_surface *__restrict self, int x, int y,
-                      struct wm_surface const *__restrict source,
-                      unsigned int source_x, unsigned int source_y,
-                      unsigned int size_x, unsigned int size_y,
-                      wm_pixel_t color_key);
-
-
-
-PRIVATE struct wm_surface_ops default_surface_ops = {
-    .so_getpixel = &default_surface_getpixel,
-    .so_setpixel = &default_surface_setpixel,
-    .so_hline    = &default_surface_hline,
-    .so_vline    = &default_surface_vline,
-    .so_rect     = &default_surface_rect,
-    .so_fill     = &default_surface_fill,
-    .so_bblit    = &default_surface_bblit,
-    .so_cblit    = &default_surface_cblit
-};
+#ifndef __INTELLISENSE__
+#define BPP        1
+#define FUNC(name) surface1_##name
+#include "surface-ops.c.inl"
+#define BPP        2
+#define FUNC(name) surface2_##name
+#include "surface-ops.c.inl"
+#define BPP        4
+#define FUNC(name) surface4_##name
+#include "surface-ops.c.inl"
+#define BPP        8
+#define FUNC(name) surface8_##name
+#include "surface-ops.c.inl"
+#define BPP        16
+#define FUNC(name) surface16_##name
+#include "surface-ops.c.inl"
+#define BPP        32
+#define FUNC(name) surface32_##name
+#include "surface-ops.c.inl"
 
 INTERN ATTR_NOTHROW ATTR_RETNONNULL struct wm_surface_ops const *
 WMCALL libwm_lookup_surface_ops(unsigned int bpp) {
  /* TODO: Optimizations for bpp=8,16 and 32 */
- return &default_surface_ops;
-}
-
-
-
-
-PRIVATE wm_pixel_t WMCALL
-default_surface_getpixel(struct wm_surface const *__restrict self,
-                         int x, int y) {
- /* TODO */
- return 0;
-}
-
-PRIVATE void WMCALL
-default_surface_setpixel(struct wm_surface *__restrict self,
-                         int x, int y, wm_pixel_t pixel) {
- byte_t *ptr;
- if ((unsigned int)x >= self->s_sizex ||
-     (unsigned int)y >= self->s_sizey)
-      return;
- ptr  = self->s_buffer;
- ptr += y * self->s_stride; /* XXX: Use shifts here if possible? */
- x   *= self->s_bpp;
- ptr += x/8;
- switch (self->s_bpp) {
- case 32:
-  *(u32 *)ptr = (u32)pixel;
-  break;
- case 16:
-  *(u16 *)ptr = (u16)pixel;
-  break;
- case 8:
-  *(u8 *)ptr = (u8)pixel;
-  break;
- case 4:
-  x %= 8;
-  assert(x == 0 || x == 4);
-  *(u8 *)ptr &= ~(0xf << x);
-  *(u8 *)ptr |= (pixel & 0xf) << x;
-  break;
- case 2:
-  x %= 8;
-  assert(x == 0 || x == 2 || x == 4 || x == 6);
-  *(u8 *)ptr &= ~(0x3 << x);
-  *(u8 *)ptr |= (pixel & 0x3) << x;
-  break;
- case 1:
-  *(u8 *)ptr &= ~(0x1 << x);
-  *(u8 *)ptr |= (pixel & 0x1) << x;
-  break;
- default: assert(0);
+ assert(bpp >= 1 && bpp <= 32);
+ assert((bpp & (bpp-1)) == 0);
+ switch (bpp) {
+ case 1:  return &surface1_ops;
+ case 2:  return &surface2_ops;
+ case 4:  return &surface4_ops;
+ case 8:  return &surface8_ops;
+ case 16: return &surface16_ops;
+ case 32: return &surface32_ops;
+ default: __builtin_unreachable();
  }
 }
 
-PRIVATE void WMCALL
-default_surface_hline(struct wm_surface *__restrict self,
-                      int x, int y, unsigned int size_x,
-                      wm_pixel_t pixel) {
- /* TODO */
-}
-
-PRIVATE void WMCALL
-default_surface_vline(struct wm_surface *__restrict self,
-                      int x, int y, unsigned int size_y,
-                      wm_pixel_t pixel) {
- /* TODO */
-}
-
-PRIVATE void WMCALL
-default_surface_rect(struct wm_surface *__restrict self,
-                     int x, int y, unsigned int size_x,
-                     unsigned int size_y, wm_pixel_t pixel) {
- /* TODO */
-}
-
-PRIVATE void WMCALL
-default_surface_fill(struct wm_surface *__restrict self,
-                     int x, int y, unsigned int size_x,
-                     unsigned int size_y, wm_pixel_t pixel) {
- /* TODO */
-}
-
-PRIVATE void WMCALL
-default_surface_bblit(struct wm_surface *__restrict self, int x, int y,
-                      struct wm_surface const *__restrict source,
-                      unsigned int source_x, unsigned int source_y,
-                      unsigned int size_x, unsigned int size_y) {
- /* TODO */
-}
-
-PRIVATE void WMCALL
-default_surface_cblit(struct wm_surface *__restrict self, int x, int y,
-                      struct wm_surface const *__restrict source,
-                      unsigned int source_x, unsigned int source_y,
-                      unsigned int size_x, unsigned int size_y,
-                      wm_pixel_t color_key) {
- /* TODO */
-}
+#endif
 
 
 DECL_END
