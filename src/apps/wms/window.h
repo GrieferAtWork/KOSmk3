@@ -66,8 +66,9 @@ INTDEF void WMCALL Window_PutPixel(struct window *__restrict self,
 /* Construct a new window. */
 INTDEF Window *WMCALL
 Window_CreateUnlocked(struct display *__restrict disp,
-                      int posx, unsigned int sizex,
-                      int posy, unsigned int sizey,
+                      int posx, int posy,
+                      unsigned int sizex,
+                      unsigned int sizey,
                       u16 state, fd_t client_fd);
 
 /* Destroy the given window. */

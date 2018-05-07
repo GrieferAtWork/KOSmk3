@@ -27,6 +27,7 @@
 #include <net/socket.h>
 #include <kernel/bind.h>
 #include <string.h>
+#include <hybrid/minmax.h>
 #include <sched/task.h>
 #include <sched/signal.h>
 #include <except.h>
@@ -37,6 +38,151 @@
 #include "unix_socket.h"
 
 DECL_BEGIN
+
+#define UNIX_FD_MAX_DELIVERY  4 /* XXX: Arbitrary hard limit? */
+
+PRIVATE size_t KCALL
+unix_senda(struct packetbuffer *__restrict self,
+           USER CHECKED struct iovec const *buf, size_t num_bytes,
+           USER CHECKED struct cmsghdr const *anc, size_t anc_size,
+           iomode_t mode, packet_iomode_t packet_mode) {
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct cmsghdr const *iter;
+ REF struct handle fd_buffer[UNIX_FD_MAX_DELIVERY];
+ REF struct handle EXCEPT_VAR *pfd_buffer = fd_buffer;
+ unsigned int EXCEPT_VAR fd_count = 0;
+ TRY {
+  CMSGHDR_FOREACH(iter,anc,anc_size) {
+   fd_t fdno;
+   if (iter->cmsg_level != SOL_SOCKET)
+       error_throw(E_INVALID_ALIGNMENT);
+   if (iter->cmsg_type != SCM_RIGHTS)
+       error_throw(E_INVALID_ALIGNMENT);
+   if (iter->cmsg_len != CMSG_SPACE(sizeof(fd_t)))
+       error_throw(E_INVALID_ALIGNMENT);
+   if (fd_count >= COMPILER_LENOF(fd_buffer))
+       error_throwf(E_NET_ERROR,ERROR_NET_PACKET_TOO_LARGE);
+   memcpy(&fdno,CMSG_DATA(iter),sizeof(fd_t));
+   COMPILER_READ_BARRIER();
+   fd_buffer[fd_count] = handle_get(fdno);
+   COMPILER_WRITE_BARRIER();
+   ++fd_count;
+   COMPILER_WRITE_BARRIER();
+  }
+  /* File descriptors can only be send alongside some other data.
+   * Otherwise, we couldn't detect if the packet actually got delivered. */
+  if (fd_count && !num_bytes)
+      error_throw(E_INVALID_ARGUMENT);
+  /* Send out the packet. */
+  result = packetbuffer_writeva(self,
+                                buf,
+                                num_bytes,
+                                fd_buffer,
+                                fd_count*sizeof(struct handle),
+                                mode,
+                                packet_mode);
+ } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+  while (fd_count--)
+      handle_decref(pfd_buffer[fd_count]);
+  error_rethrow();
+ }
+ if (result != num_bytes) {
+  /* Packet wasn't delivered, or was only partially delivered.
+   * Anyways, ancillary data wasn't send out, so destroy it now. */
+  while (fd_count--)
+      handle_decref(pfd_buffer[fd_count]);
+ }
+ return result;
+}
+
+PRIVATE bool KCALL
+unix_recva(struct packetbuffer *__restrict self,
+           USER CHECKED struct iovec const *buf, size_t *__restrict pbufsize,
+           USER CHECKED struct cmsghdr *anc, size_t *__restrict pancsize,
+           iomode_t mode, packet_iomode_t packet_mode) {
+ bool result;
+ REF struct handle fd_buffer[UNIX_FD_MAX_DELIVERY];
+ REF struct handle EXCEPT_VAR *pfd_buffer = fd_buffer;
+ size_t EXCEPT_VAR kernel_anc_bufsize = sizeof(fd_buffer);
+ if (!*pancsize) goto no_anc; /* Do not receive ancillary data. */
+ result = packetbuffer_readva(self,
+                              buf,
+                              pbufsize,
+                              fd_buffer,
+                             (size_t *)&kernel_anc_bufsize,
+                              mode,
+                              packet_mode);
+ if (!result) {
+  if unlikely(kernel_anc_bufsize > sizeof(fd_buffer)) {
+   /* Shouldn't happen unless some other piece
+    * of code gained access to our buffers. */
+   *pancsize = 0;
+no_anc:
+   return packetbuffer_readv(self,
+                             buf,
+                             pbufsize,
+                             mode,
+                             packet_mode);
+  }
+  return false;
+ }
+ if (kernel_anc_bufsize < sizeof(struct handle)) {
+  /* No ancillary data received. */
+  *pancsize = 0;
+  return true;
+ }
+ kernel_anc_bufsize /= sizeof(struct handle);
+ TRY {
+  size_t buf_avail,buf_req;
+  USER CHECKED struct cmsghdr *dst = anc;
+  unsigned int i,num_handles;
+  buf_req   = kernel_anc_bufsize * CMSG_SPACE(sizeof(fd_t));
+  buf_avail = *pancsize;
+  *pancsize = buf_req;
+  /* Copy as many handles as can fit into the user-space buffer. */
+  num_handles = buf_avail / CMSG_SPACE(sizeof(fd_t));
+  num_handles = MIN(num_handles,kernel_anc_bufsize);
+  for (i = 0; i < num_handles; ++i) {
+   union {
+      struct cmsghdr hdr;
+      byte_t data[CMSG_SPACE(sizeof(fd_t))];
+      fd_t   align;
+   } buf;
+   fd_t EXCEPT_VAR fd_no;
+   /* Setup the ancillary data header. */
+   buf.hdr.cmsg_len   = CMSG_SPACE(sizeof(fd_t));
+   buf.hdr.cmsg_level = SOL_SOCKET;
+   buf.hdr.cmsg_type  = SCM_RIGHTS;
+   /* Setup handle flags. */
+   fd_buffer[i].h_flag &= ~IO_SETFD_MASK;
+   if (packet_mode & PACKET_IO_FRCLOEXEC)
+       fd_buffer[i].h_flag |= IO_HANDLE_FCLOEXEC;
+   /* Register the new handle. */
+   fd_no = handle_put(fd_buffer[i]);
+   *(fd_t *)CMSG_DATA(&buf.hdr) = fd_no;
+   TRY {
+    /* Copy the entry to user-space. */
+    memcpy(dst,&buf,CMSG_SPACE(sizeof(fd_t)));
+    *(uintptr_t *)&dst += CMSG_SPACE(sizeof(fd_t));
+   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+    /* Close the faulting handle on error.
+     * If user-space pre-initialized the buffer, they at least get
+     * a chance to recover from this (although that's unlikely...) */
+    handle_close(fd_no);
+    error_rethrow();
+   }
+  }
+ } FINALLY {
+  /* Drop all the inherited references. */
+  while (kernel_anc_bufsize--)
+     handle_decref(pfd_buffer[kernel_anc_bufsize]);
+ }
+ return true;
+}
+
+
+
+
 
 PRIVATE ATTR_NOTHROW void KCALL
 UnixSocket_Fini(UnixSocket *__restrict self) {
@@ -78,17 +224,17 @@ UnixSocket_Fini(UnixSocket *__restrict self) {
 PRIVATE socklen_t KCALL
 UnixSocket_GetSockName(UnixSocket *__restrict self,
                        USER CHECKED struct sockaddr_un *buf,
-                       socklen_t buflen, iomode_t mode) {
+                       socklen_t num_bytes, iomode_t mode) {
  socklen_t result;
  if unlikely(!self->us_bind_path)
     error_throwf(E_NET_ERROR,ERROR_NET_NOT_BOUND);
  result = offsetof(struct sockaddr_un,sun_path);
- if likely(buflen >= result) {
+ if likely(num_bytes >= result) {
   buf->sun_family = AF_UNIX;
   /* Copy the actual path to user-space. */
   result += path_getname(self->us_bind_path,
                          buf->sun_path,
-                         buflen-result,
+                         num_bytes-result,
                          REALPATH_FPATH);
  } else {
   /* No space at all of the pathname. */
@@ -114,14 +260,14 @@ AcceptSocket_Fini(AcceptSocket *__restrict self) {
 PRIVATE socklen_t KCALL
 AcceptSocket_GetSockName(AcceptSocket *__restrict self,
                          USER CHECKED struct sockaddr_un *buf,
-                         socklen_t buflen, iomode_t mode) {
+                         socklen_t num_bytes, iomode_t mode) {
  socklen_t COMPILER_IGNORE_UNINITIALIZED(result);
  REF UnixSocket *client;
  client = self->as_client;
  if (!socket_tryincref(&client->us_socket))
       error_throwf(E_NET_ERROR,ERROR_NET_CONNECTION_REFUSED);
  TRY {
-  result = UnixSocket_GetSockName(client,buf,buflen,mode);
+  result = UnixSocket_GetSockName(client,buf,num_bytes,mode);
  } FINALLY {
   socket_decref(&client->us_socket);
  }
@@ -150,8 +296,7 @@ AcceptSocket_Poll(AcceptSocket *__restrict self,
 
 PRIVATE bool KCALL
 AcceptSocket_Recv(AcceptSocket *__restrict self,
-                  USER CHECKED struct iovec const *buf,
-                  size_t *__restrict pbufsize,
+                  USER CHECKED struct iovec const *buf, size_t *__restrict pbufsize,
                   iomode_t mode, packet_iomode_t packet_mode) {
  bool COMPILER_IGNORE_UNINITIALIZED(result);
  REF UnixSocket *client;
@@ -164,6 +309,30 @@ AcceptSocket_Recv(AcceptSocket *__restrict self,
                                pbufsize,
                                mode,
                                packet_mode);
+ } FINALLY {
+  socket_decref(&client->us_socket);
+ }
+ return result;
+}
+
+PRIVATE bool KCALL
+AcceptSocket_Recva(AcceptSocket *__restrict self,
+                   USER CHECKED struct iovec const *buf, size_t *__restrict pbufsize,
+                   USER CHECKED struct cmsghdr *anc, size_t *__restrict pancsize,
+                   iomode_t mode, packet_iomode_t packet_mode) {
+ bool COMPILER_IGNORE_UNINITIALIZED(result);
+ REF UnixSocket *client;
+ client = self->as_client;
+ if (!socket_tryincref(&client->us_socket))
+      return 0; /* Connection terminated. */
+ TRY {
+  result = unix_recva(&client->us_client.c_client2server,
+                       buf,
+                       pbufsize,
+                       anc,
+                       pancsize,
+                       mode,
+                       packet_mode);
  } FINALLY {
   socket_decref(&client->us_socket);
  }
@@ -191,6 +360,27 @@ AcceptSocket_Send(AcceptSocket *__restrict self,
  return result;
 }
 
+PRIVATE size_t KCALL
+AcceptSocket_Senda(AcceptSocket *__restrict self,
+                   USER CHECKED struct iovec const *buf, size_t num_bytes,
+                   USER CHECKED struct cmsghdr const *anc, size_t anc_size,
+                   iomode_t mode, packet_iomode_t packet_mode) {
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ REF UnixSocket *client;
+ client = self->as_client;
+ if (!socket_tryincref(&client->us_socket))
+      return 0; /* Connection terminated. */
+ TRY {
+  result = unix_senda(&client->us_client.c_server2client,
+                       buf,num_bytes,
+                       anc,anc_size,
+                       mode,packet_mode);
+ } FINALLY {
+  socket_decref(&client->us_socket);
+ }
+ return result;
+}
+
 
 
 PRIVATE struct socket_ops AcceptSocket_Ops = {
@@ -206,7 +396,22 @@ PRIVATE struct socket_ops AcceptSocket_Ops = {
     .so_connect     = (void(KCALL *)(struct socket *__restrict,USER CHECKED struct sockaddr const *,socklen_t,iomode_t))(void *)(uintptr_t)1,
     .so_recv        = (bool(KCALL *)(struct socket *__restrict,USER CHECKED struct iovec const *,size_t *__restrict,iomode_t,packet_iomode_t))&AcceptSocket_Recv,
     .so_send        = (size_t(KCALL *)(struct socket *__restrict,USER CHECKED struct iovec const *,size_t,iomode_t,packet_iomode_t))&AcceptSocket_Send,
+    .so_senda       = (size_t(KCALL *)(struct socket *__restrict,USER CHECKED struct iovec const *,size_t,USER CHECKED struct cmsghdr const *,size_t,iomode_t,packet_iomode_t))&AcceptSocket_Senda,
+    .so_recva       = (bool(KCALL *)(struct socket *__restrict,USER CHECKED struct iovec const *,size_t *__restrict,USER CHECKED struct cmsghdr *,size_t *__restrict,iomode_t,packet_iomode_t))&AcceptSocket_Recva,
 };
+
+PRIVATE ATTR_NOTHROW void KCALL
+UnixSocket_DestroyAncillaryData(struct packet_data data) {
+ STATIC_ASSERT(sizeof(struct handle) == 2*sizeof(uintptr_t));
+ while (data.pd_size >= sizeof(struct handle)) {
+  struct handle hnd;
+  ((uintptr_t *)&hnd)[0] = PACKET_DATA_GETP(data,data.pd_addr);
+  ((uintptr_t *)&hnd)[1] = PACKET_DATA_GETP(data,data.pd_addr+sizeof(uintptr_t));
+  handle_decref(hnd);
+  data.pd_addr += sizeof(struct handle);
+  data.pd_size -= sizeof(struct handle);
+ }
+}
 
 
 
@@ -301,8 +506,8 @@ UnixSocket_Connect(UnixSocket *__restrict self,
 
  /* Initialize the client buffer.
   * XXX: Buffer limit configuration? */
- packetbuffer_cinit(&self->us_client.c_client2server,4096,NULL);
- packetbuffer_cinit(&self->us_client.c_server2client,4096,NULL);
+ packetbuffer_cinit(&self->us_client.c_client2server,4096,&UnixSocket_DestroyAncillaryData);
+ packetbuffer_cinit(&self->us_client.c_server2client,4096,&UnixSocket_DestroyAncillaryData);
 
  /* Deal with the binding of our own socket
   * to the specified filesystem location. */
@@ -465,8 +670,7 @@ again:
 
 PRIVATE bool KCALL
 UnixSocket_Recv(UnixSocket *__restrict self,
-                USER CHECKED struct iovec const *iov,
-                size_t *__restrict pbufsize,
+                USER CHECKED struct iovec const *iov, size_t *__restrict pbufsize,
                 iomode_t mode, packet_iomode_t packet_mode) {
  assert(SOCKET_ISCLIENT(self));
  return packetbuffer_readv(&self->us_client.c_server2client,
@@ -476,16 +680,46 @@ UnixSocket_Recv(UnixSocket *__restrict self,
                             packet_mode);
 }
 
+PRIVATE bool KCALL
+UnixSocket_Recva(UnixSocket *__restrict self,
+                 USER CHECKED struct iovec const *iov, size_t *__restrict pbufsize,
+                 USER CHECKED struct cmsghdr *anc, size_t *__restrict pancsize,
+                 iomode_t mode, packet_iomode_t packet_mode) {
+ assert(SOCKET_ISCLIENT(self));
+ return unix_recva(&self->us_client.c_server2client,
+                    iov,
+                    pbufsize,
+                    anc,
+                    pancsize,
+                    mode,
+                    packet_mode);
+}
+
 PRIVATE size_t KCALL
 UnixSocket_Send(UnixSocket *__restrict self,
-                USER CHECKED struct iovec const *buf, size_t buflen,
+                USER CHECKED struct iovec const *buf, size_t num_bytes,
                 iomode_t mode, packet_iomode_t packet_mode) {
  assert(SOCKET_ISCLIENT(self));
  return packetbuffer_writev(&self->us_client.c_client2server,
                              buf,
-                             buflen,
+                             num_bytes,
                              mode,
                              packet_mode);
+}
+
+PRIVATE size_t KCALL
+UnixSocket_Senda(UnixSocket *__restrict self,
+                 USER CHECKED struct iovec const *buf, size_t num_bytes,
+                 USER CHECKED struct cmsghdr const *anc, size_t anc_size,
+                 iomode_t mode, packet_iomode_t packet_mode) {
+ assert(SOCKET_ISCLIENT(self));
+ return unix_senda(&self->us_client.c_client2server,
+                    buf,
+                    num_bytes,
+                    anc,
+                    anc_size,
+                    mode,
+                    packet_mode);
 }
 
 
@@ -501,6 +735,8 @@ PRIVATE struct socket_ops UnixSocket_Ops = {
     .so_getpeername = (socklen_t(KCALL *)(struct socket *__restrict,USER CHECKED struct sockaddr *,socklen_t,iomode_t))&UnixSocket_GetSockName,
     .so_recv        = (bool(KCALL *)(struct socket *__restrict,USER CHECKED struct iovec const *,size_t *__restrict,iomode_t,packet_iomode_t))&UnixSocket_Recv,
     .so_send        = (size_t(KCALL *)(struct socket *__restrict,USER CHECKED struct iovec const *,size_t,iomode_t,packet_iomode_t))&UnixSocket_Send,
+    .so_senda       = (size_t(KCALL *)(struct socket *__restrict,USER CHECKED struct iovec const *,size_t,USER CHECKED struct cmsghdr const *,size_t,iomode_t,packet_iomode_t))&UnixSocket_Senda,
+    .so_recva       = (bool(KCALL *)(struct socket *__restrict,USER CHECKED struct iovec const *,size_t *__restrict,USER CHECKED struct cmsghdr *,size_t *__restrict,iomode_t,packet_iomode_t))&UnixSocket_Recva,
 };
 
 

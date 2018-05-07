@@ -29,7 +29,6 @@
 
 DECL_BEGIN
 
-
 /* Unix domain sockets come in 3 variants:
  *   #1 Server socket (the one that called `bind()' + `listen()')
  *      - This socket is the one that holds the set of pending
@@ -66,8 +65,10 @@ struct unix_socket {
                                                      * The socket that was accepted by the server.
                                                      * When this socket's reference counter drops to ZERO(0),
                                                      * the connection was closed by the server. */
-            struct packetbuffer    c_client2server; /* Buffer of data being sent from the client to the server. */
-            struct packetbuffer    c_server2client; /* Buffer of data being sent from the server to the client. */
+            struct packetbuffer    c_client2server; /* Buffer of data being sent from the client to the server.
+                                                     * NOTE: Ancillary data consists of `struct handle[]' */
+            struct packetbuffer    c_server2client; /* Buffer of data being sent from the server to the client.
+                                                     * NOTE: Ancillary data consists of `struct handle[]' */
         }             us_client;    /* [valid_if(SOCKET_ISCLIENT(self))] Client data. */
     };
 };

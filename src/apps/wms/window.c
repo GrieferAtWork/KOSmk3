@@ -28,7 +28,6 @@
 #include <wm/api.h>
 #include <malloc.h>
 #include <assert.h>
-#include <syslog.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -297,8 +296,9 @@ again_parts:
 /* Construct a new window. */
 INTERN Window *WMCALL
 Window_CreateUnlocked(Display *__restrict disp,
-                      int posx, unsigned int sizex,
-                      int posy, unsigned int sizey,
+                      int posx, int posy,
+                      unsigned int sizex,
+                      unsigned int sizey,
                       u16 state, fd_t client_fd) {
  Window *result;
  result = (Window *)Xmalloc(sizeof(Window));
@@ -312,15 +312,9 @@ Window_CreateUnlocked(Display *__restrict disp,
  result->w_visi.r_strips = NULL;
  result->w_clientfd = client_fd;
  result->w_screenfd = Xsyscall(SYS_xvm_region_create,0x100000,O_CLOEXEC);
-#if 1
- result->w_screen = (byte_t *)Xmmap(NULL,sizex*result->w_stride,
-                                    PROT_READ|PROT_WRITE|PROT_SHARED,
-                                    MAP_SHARED|MAP_ANON,0,0);
-#else
  result->w_screen = (byte_t *)Xmmap(NULL,sizex*result->w_stride,
                                     PROT_READ|PROT_WRITE|PROT_SHARED,
                                     MAP_SHARED|MAP_FILE,result->w_screenfd,0);
-#endif
  Window_UpdateDisplayArea(result);
  /* Clamp the visible portion of the window to the display size. */
  if (posx < 0) sizex = sizex > (unsigned int)-posx ? sizex - -posx : 0,posx = 0;

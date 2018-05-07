@@ -328,6 +328,7 @@ libwm_window_create(int pos_x, int pos_y, unsigned int size_x, unsigned int size
     result->w_surface.s_buffer  = result->w_buffer;
     result->w_surface.s_buffer += result->w_titlesz * resp.r_mkwin.w_stride;
     result->w_surface.s_buffer += result->w_bordersz;
+    result->w_surface.s_ops     = libwm_lookup_surface_ops(resp.r_mkwin.w_bpp);
 
     /* TODO: This currently assumes the format that is implemented by the server. */
     result->w_surface.s_format = libwm_format_create_pal(&libwm_palette_256);

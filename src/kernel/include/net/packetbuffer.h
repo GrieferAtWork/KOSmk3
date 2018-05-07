@@ -179,7 +179,10 @@ packetbuffer_writea_vio(struct packetbuffer *__restrict self,
  *                      Otherwise, or if ancillary data is too large, throw
  *                      an `E_NET_ERROR.ERROR_NET_PACKET_TOO_LARGE' error.
  * @return: * :         The total size of all written payloads.
- *                      Unless `PACKET_IO_FWRSPLIT' is set, this always equals `num_bytes'
+ *                      Successfully enqueued a new packet.
+ *                      This case only happens when `PACKET_IO_FWRSPLIT' is set,
+ *                      otherwise, `num_bytes' is always returned upon success.
+ * @return: num_bytes:  The total size of all written payloads.
  *                      Successfully enqueued a new packet.
  *                      This is the only exit state in which this function has
  *                      inherited passed ancillary data (if there is any)

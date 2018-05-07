@@ -26,6 +26,7 @@
 #include <kos/types.h>
 #include <fs/iomode.h>
 #include <sched/rwlock.h>
+#include <stddef.h>
 #include <stdbool.h>
 #include <bits/socket.h>
 #include <bits/socket_type.h>
@@ -333,8 +334,25 @@ struct socket_ops {
                                USER CHECKED struct cmsghdr const *anc, size_t anc_size,
                                USER CHECKED struct sockaddr const *addrbuf, socklen_t addrlen,
                                iomode_t mode, packet_iomode_t packet_mode);
-
 };
+
+LOCAL struct cmsghdr const *KCALL
+cmsg_next(struct cmsghdr const *iter,
+          struct cmsghdr const *anc, size_t anc_size) {
+ size_t length = iter->cmsg_len;
+ COMPILER_READ_BARRIER();
+ if (length < COMPILER_OFFSETOF(struct cmsghdr,__cmsg_data))
+     return NULL;
+ iter = (struct cmsghdr *)((byte_t *)iter+CMSG_ALIGN(length));
+ if ((byte_t *)(iter+1) > ((byte_t*)anc+anc_size))
+      return NULL;
+ return iter;
+}
+#define CMSGHDR_FOREACH(iter,anc,anc_size) \
+ for ((iter) = (anc_size) >= COMPILER_OFFSETOF(struct cmsghdr,__cmsg_data) ? (anc) : NULL; \
+      (iter); (iter) = cmsg_next(iter,anc,anc_size))
+
+
 
 struct socket_domain {
     uintptr_half_t        sd_domain; /* Socket domain ID (One of `AF_*' from <bits/socket.h>) */

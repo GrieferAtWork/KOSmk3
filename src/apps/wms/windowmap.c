@@ -94,13 +94,49 @@ next_id:
 INTERN void WMCALL
 WindowMap_Insert(WindowMap *__restrict self,
                  Window *__restrict win) {
- /* TODO */
+ LIST_HEAD(Window) *bucket;
+ if (self->wm_size/2 >= self->wm_mask) {
+  /* Increase the hash mask. */
+  size_t new_mask,min_mask,i;
+  LIST_HEAD(Window) *new_map;
+  new_mask = self->wm_mask;
+  min_mask = (self->wm_size*3)/2;
+  while (new_mask < min_mask)
+      new_mask = (new_mask << 1) | 1;
+  if (new_mask < 15) new_mask = 15;
+  new_map = (LIST_HEAD(Window) *)Xcalloc(new_mask+1,
+                                         sizeof(LIST_HEAD(Window)));
+  if (self->wm_map) {
+   LIST_HEAD(Window) iter;
+   LIST_HEAD(Window) next;
+   /* Rehash the existing map. */
+   for (i = 0; i <= self->wm_mask; ++i) {
+    iter = self->wm_map[i];
+    while (iter) {
+     next = iter->w_idchain.le_next;
+     bucket = &new_map[iter->w_id & new_mask];
+     LIST_INSERT(*bucket,iter,w_idchain);
+     iter = next;
+    }
+   }
+   free(self->wm_map);
+  }
+  /* Save the new map. */
+  self->wm_map  = new_map;
+  self->wm_mask = new_mask;
+ }
+ /* Insert the given window into its bucket. */
+ bucket = &self->wm_map[win->w_id & self->wm_mask];
+ LIST_INSERT(*bucket,win,w_idchain);
+ ++self->wm_size;
 }
 
 INTERN ATTR_NOTHROW void WMCALL
 WindowMap_Remove(WindowMap *__restrict self,
                  Window *__restrict win) {
- /* TODO */
+ assert(self->wm_size != 0);
+ LIST_REMOVE(win,w_idchain);
+ --self->wm_size;
 }
 
 /* @return: NULL: Invalid window ID. */

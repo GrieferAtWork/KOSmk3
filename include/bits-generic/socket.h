@@ -492,22 +492,22 @@ struct cmsghdr {
 #define CMSG_DATA(cmsg)        ((cmsg)->__cmsg_data)
 #endif /* !CMSG_DATA */
 #ifndef CMSG_FIRSTHDR
-#define CMSG_FIRSTHDR(mhdr)    ((size_t)(mhdr)->msg_controllen >= sizeof(struct cmsghdr) ? (struct cmsghdr *)(mhdr)->msg_control : (struct cmsghdr *)0)
+#define CMSG_FIRSTHDR(mhdr)    ((size_t)(mhdr)->msg_controllen >= COMPILER_OFFSETOF(struct cmsghdr,__cmsg_data) ? (struct cmsghdr *)(mhdr)->msg_control : (struct cmsghdr *)0)
 #endif /* !CMSG_FIRSTHDR */
 #ifndef CMSG_ALIGN
 #define CMSG_ALIGN(len)       (((len)+sizeof(size_t)-1) & (size_t)~(sizeof(size_t)-1))
 #endif /* !CMSG_ALIGN */
 #ifndef CMSG_SPACE
-#define CMSG_SPACE(len)        (CMSG_ALIGN(len)+CMSG_ALIGN(sizeof(struct cmsghdr)))
+#define CMSG_SPACE(len)        (CMSG_ALIGN(len)+CMSG_ALIGN(COMPILER_OFFSETOF(struct cmsghdr,__cmsg_data)))
 #endif /* !CMSG_SPACE */
 #ifndef CMSG_LEN
-#define CMSG_LEN(len)          (CMSG_ALIGN(sizeof(struct cmsghdr))+(len))
+#define CMSG_LEN(len)          (CMSG_ALIGN(COMPILER_OFFSETOF(struct cmsghdr,__cmsg_data))+(len))
 #endif /* !CMSG_LEN */
 #ifndef CMSG_NXTHDR
 #define CMSG_NXTHDR(mhdr,cmsg)   __cmsg_nxthdr(mhdr, cmsg)
 #ifdef __KERNEL__
 __LOCAL struct cmsghdr *(__LIBCCALL __cmsg_nxthdr)(struct msghdr *__mhdr, struct cmsghdr *__cmsg) {
-    if ((size_t)__cmsg->cmsg_len < sizeof(struct cmsghdr)) return (struct cmsghdr *) 0;
+    if ((size_t)__cmsg->cmsg_len < COMPILER_OFFSETOF(struct cmsghdr,__cmsg_data)) return (struct cmsghdr *) 0;
     __cmsg = (struct cmsghdr *)((unsigned char *)__cmsg+CMSG_ALIGN(__cmsg->cmsg_len));
     if ((unsigned char *)(__cmsg+1) >((unsigned char *)__mhdr->msg_control+__mhdr->msg_controllen) ||
        ((unsigned char *) __cmsg+CMSG_ALIGN(__cmsg->cmsg_len) >

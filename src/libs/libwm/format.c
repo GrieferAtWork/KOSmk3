@@ -138,7 +138,42 @@ default_surface_getpixel(struct wm_surface const *__restrict self,
 PRIVATE void WMCALL
 default_surface_setpixel(struct wm_surface *__restrict self,
                          int x, int y, wm_pixel_t pixel) {
- /* TODO */
+ byte_t *ptr;
+ if ((unsigned int)x >= self->s_sizex ||
+     (unsigned int)y >= self->s_sizey)
+      return;
+ ptr  = self->s_buffer;
+ ptr += y * self->s_stride; /* XXX: Use shifts here if possible? */
+ x   *= self->s_bpp;
+ ptr += x/8;
+ switch (self->s_bpp) {
+ case 32:
+  *(u32 *)ptr = (u32)pixel;
+  break;
+ case 16:
+  *(u16 *)ptr = (u16)pixel;
+  break;
+ case 8:
+  *(u8 *)ptr = (u8)pixel;
+  break;
+ case 4:
+  x %= 8;
+  assert(x == 0 || x == 4);
+  *(u8 *)ptr &= ~(0xf << x);
+  *(u8 *)ptr |= (pixel & 0xf) << x;
+  break;
+ case 2:
+  x %= 8;
+  assert(x == 0 || x == 2 || x == 4 || x == 6);
+  *(u8 *)ptr &= ~(0x3 << x);
+  *(u8 *)ptr |= (pixel & 0x3) << x;
+  break;
+ case 1:
+  *(u8 *)ptr &= ~(0x1 << x);
+  *(u8 *)ptr |= (pixel & 0x1) << x;
+  break;
+ default: assert(0);
+ }
 }
 
 PRIVATE void WMCALL

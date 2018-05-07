@@ -27,6 +27,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <syslog.h>
 
 DECL_BEGIN
 
@@ -45,8 +46,9 @@ int main(int argc, char *argv[]) {
                         WM_WINDOW_MODE_FNORMAL,
                         NULL,
                         NULL);
-
  sfc = wm_window_surface(win);
+ syslog(LOG_DEBUG,"Created window %p,%p\n",
+        win,win->w_surface.s_ops);
  for (unsigned int i = 0; i < 1000; ++i) {
   wm_surface_setpixel(sfc,
                      (unsigned int)rand() % sfc->s_sizex,
