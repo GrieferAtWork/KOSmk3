@@ -732,6 +732,23 @@ FUNDEF ATTR_NOTHROW struct sig *KCALL task_disconnect(void);
 FUNDEF ATTR_NOTHROW void KCALL task_push_connections(struct task_connections *__restrict safe);
 FUNDEF ATTR_NOTHROW void KCALL task_pop_connections(struct task_connections *__restrict safe);
 
+#define TASK_EVAL_CONSAFE(expr) \
+ XBLOCK({ __typeof__(expr) COMPILER_IGNORE_UNINITIALIZED(__cs_result); \
+          struct task_connections __cs_cons; \
+          /* Clutch required to keep GCC from placing &__cs_cons in a register. */ \
+          struct task_connections *EXCEPT_VAR __cs_pcons = &__cs_cons; \
+          task_push_connections(&__cs_cons); \
+          TRY { \
+              __cs_result = (expr); \
+          } EXCEPT (EXCEPT_EXECUTE_HANDLER) { \
+              task_pop_connections(__cs_pcons); \
+              error_rethrow(); \
+          } \
+          task_pop_connections(&__cs_cons); \
+          XRETURN __cs_result; })
+
+
+
 /* Without blocking, check if any signal has been sent.
  * If so, disconnect from all other connected signals and
  * return a pointer to the signal that was discovered to be sent. */

@@ -231,6 +231,8 @@ handle_type_name(char buf[HANDLE_TYPE_NAME_BUFSIZE], u16 type) {
   return RARESTR("pipereader");
  case HANDLE_TYPE_FPIPEWRITER:
   return RARESTR("pipewriter");
+ case HANDLE_TYPE_FSOCKET:
+  return RARESTR("socket");
 
  default:
   if (type < COMPILER_LENOF(handle_type_names) &&

@@ -26,6 +26,7 @@
 #include <net/socket.h>
 #include <kernel/syscall.h>
 #include <kernel/user.h>
+#include <kernel/debug.h>
 #include <fs/handle.h>
 #include <except.h>
 #include <string.h>
@@ -41,7 +42,8 @@ DEFINE_SYSCALL3(socket,int,domain,int,type,int,protocol) {
  hsocket.h_mode = HANDLE_MODE(HANDLE_TYPE_FSOCKET,IO_RDWR);
  if (type & SOCK_NONBLOCK) hsocket.h_flag |= IO_NONBLOCK;
  if (type & SOCK_CLOEXEC)  hsocket.h_flag |= IO_HANDLE_FCLOEXEC;
- type &= ~(SOCK_NONBLOCK|SOCK_CLOEXEC);
+ if (type & SOCK_CLOFORK)  hsocket.h_flag |= IO_HANDLE_FCLOFORK;
+ type &= ~(SOCK_NONBLOCK|SOCK_CLOEXEC|SOCK_CLOFORK);
  if (protocol > PF_MAX)
      error_throw(E_INVALID_ARGUMENT);
  if (type > SOCK_DCCP && type != SOCK_PACKET)
@@ -100,7 +102,7 @@ DEFINE_SYSCALL4(accept4,
  unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
  REF struct handle EXCEPT_VAR hsocket;
  REF struct handle hresult;
- if (flags & ~(SOCK_NONBLOCK|SOCK_CLOEXEC))
+ if (flags & ~(SOCK_NONBLOCK|SOCK_CLOEXEC|SOCK_CLOFORK))
      error_throw(E_INVALID_ARGUMENT);
  if (addr != NULL) {
   socklen_t addr_buflen;
@@ -111,6 +113,7 @@ DEFINE_SYSCALL4(accept4,
   hresult.h_mode = HANDLE_MODE(HANDLE_TYPE_FSOCKET,IO_RDWR);
   if (flags & SOCK_NONBLOCK) hresult.h_flag |= IO_NONBLOCK;
   if (flags & SOCK_CLOEXEC)  hresult.h_flag |= IO_HANDLE_FCLOEXEC;
+  if (flags & SOCK_CLOFORK)  hresult.h_flag |= IO_HANDLE_FCLOFORK;
   hsocket = handle_get(sockfd);
   TRY {
    CHECK_SOCKET_HANDLE(hsocket,sockfd);
@@ -134,15 +137,17 @@ DEFINE_SYSCALL4(accept4,
   hresult.h_mode = HANDLE_MODE(HANDLE_TYPE_FSOCKET,IO_RDWR);
   if (flags & SOCK_NONBLOCK) hresult.h_flag |= IO_NONBLOCK;
   if (flags & SOCK_CLOEXEC)  hresult.h_flag |= IO_HANDLE_FCLOEXEC;
+  if (flags & SOCK_CLOFORK)  hresult.h_flag |= IO_HANDLE_FCLOFORK;
   hsocket = handle_get(sockfd);
   TRY {
    CHECK_SOCKET_HANDLE(hsocket,sockfd);
-   hresult.h_object.o_socket = socket_accept(hsocket.h_object.o_socket,hsocket.h_mode);
+   hresult.h_object.o_socket = socket_accept(hsocket.h_object.o_socket,
+                                             hsocket.h_mode);
   } FINALLY {
    handle_decref(hsocket);
   }
   if (!hresult.h_object.o_socket)
-       return -EWOULDBLOCK;
+       error_throw(E_WOULDBLOCK);
   TRY {
    /* Finally, insert the new connection into the handle manager. */
    result = handle_put(hresult);
@@ -150,7 +155,7 @@ DEFINE_SYSCALL4(accept4,
    socket_decref(hresult.h_object.o_socket);
   }
  }
- return 0;
+ return result;
 }
 
 DEFINE_SYSCALL3(accept,
@@ -562,7 +567,8 @@ DEFINE_SYSCALL3(recvmsg,fd_t,sockfd,
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  REF struct handle EXCEPT_VAR hsocket; struct msghdr kernel_msg;
  if (flags & ~(MSG_CONFIRM|MSG_DONTROUTE|MSG_DONTWAIT|
-               MSG_EOR|MSG_MORE|MSG_NOSIGNAL|MSG_OOB))
+               MSG_EOR|MSG_MORE|MSG_NOSIGNAL|MSG_OOB|
+               MSG_CMSG_CLOEXEC))
      error_throw(E_INVALID_ARGUMENT);
  validate_readable(msg,sizeof(*msg));
  memcpy(&kernel_msg,msg,sizeof(*msg));

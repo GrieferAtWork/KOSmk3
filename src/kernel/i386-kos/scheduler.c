@@ -20,6 +20,7 @@
 #define GUARD_KERNEL_I386_KOS_SCHEDULER_C 1
 #define _KOS_SOURCE 1
 #define _GNU_SOURCE 1
+#define _NOSERVE_SOURCE 1 /* Prevent recursive exceptions during task_exit() */
 #define _XOPEN_SOURCE 1
 #define _XOPEN_SOURCE_EXTENDED 1
 
@@ -1071,15 +1072,23 @@ PUBLIC ATTR_NORETURN void KCALL task_exit(void) {
  struct task *next_task;
  PHYS uintptr_t old_pagedir;
  bool did_clear_vm = false;
+ /* Ensure that RPC serving is enabled. */
+ ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
 
- /* Ensure that preemption is enabled while we do this. */
+ /* Ensure that preemption is enabled. */
  PREEMPTION_ENABLE();
 
  /* Disconnect arbitrary task signal connections that may still be active. */
  task_disconnect();
 
  /* Set the terminating flag to prevent new RPCs from being added. */
- ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FTERMINATING);
+ {
+  u16 old_state;
+  old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FTERMINATING);
+  assertf(!(old_state&TASK_STATE_FTERMINATING),
+            "Recursive call to `task_exit()'");
+ }
+
  while (PERTASK_TESTF(this_task.t_state,TASK_STATE_FINTERRUPTED)) {
   /* With the flag now set, serve all remaining RPCs. */
   TRY {
@@ -1091,9 +1100,20 @@ PUBLIC ATTR_NORETURN void KCALL task_exit(void) {
    /* XXX: Seriously: What should we do now?
     *         I mean: We couldn't propagate the error, but
     *                 we might want to log it somewhere? */
-   /* XXX: Free stack memory by restoring ESP to a value before `task_serve()' was called */
+   except_t code = error_code();
+   /*assert(code == error_info()->e_error.e_code);*/
+   COMPILER_READ_BARRIER();
+   ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
+   debug_printf("BEGIN_PRINT_ERROR (%x)\n",code);
+#if 0
+   asm("int3");
+#else
    error_printf("Error in task_serve() during task_exit()\n");
-   if (error_code() == E_INTERRUPT)
+#endif
+   debug_printf("DONE_PRINT_ERROR (%x)\n",code);
+   ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
+   error_handled();
+   /*if (code == E_INTERRUPT)*/
        goto done_rpc; /* ??? (See problem above...) */
   }
  }
@@ -1736,11 +1756,10 @@ cannot_signal:;
 #ifndef CONFIG_NO_X86_SEGMENTATION
       /* Set the user-space TLS segment to ensure
        * that the thread can read exception information. */
-#ifdef __x86_64__
-      context->c_segments.sg_fs = X86_USER_TLS;
-#else
-      context->c_segments.sg_gs = X86_USER_TLS;
+#ifndef CONFIG_NO_DOS_COMPAT
+      context->c_segments.sg_fs = X86_SEG_USER_FS;
 #endif
+      context->c_segments.sg_gs = X86_SEG_USER_GS;
 #endif      
       return;
      } else {

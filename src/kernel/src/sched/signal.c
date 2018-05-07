@@ -174,39 +174,20 @@ connect_fini(struct task *__restrict thread) {
 
 PRIVATE void *KCALL
 kmalloc_consafe(size_t n_bytes, gfp_t flags) {
- void *COMPILER_IGNORE_UNINITIALIZED(result);
- struct task_connections consave;
- task_push_connections(&consave);
- TRY {
-  result = kmalloc(n_bytes,flags);
- } FINALLY {
-  task_pop_connections(&consave);
- }
- return result;
+ return TASK_EVAL_CONSAFE(kmalloc(n_bytes,flags));
 }
 
 PRIVATE void *KCALL
 krealloc_consafe(void *ptr, size_t n_bytes, gfp_t flags) {
- void *COMPILER_IGNORE_UNINITIALIZED(result);
- struct task_connections consave;
- task_push_connections(&consave);
- TRY {
-  result = krealloc(ptr,n_bytes,flags);
- } FINALLY {
-  task_pop_connections(&consave);
- }
- return result;
+ return TASK_EVAL_CONSAFE(krealloc(ptr,n_bytes,flags));
 }
 
 PRIVATE void KCALL
 kfree_consafe(void *ptr) {
  struct task_connections consave;
  task_push_connections(&consave);
- TRY {
-  kfree(ptr);
- } FINALLY {
-  task_pop_connections(&consave);
- }
+ kfree(ptr);
+ task_pop_connections(&consave);
 }
 
 #if !defined(NDEBUG) && 1
@@ -239,8 +220,10 @@ do_debug_pop_connections(struct task_connections *__restrict safe) {
  assertf(count != 0,"Connections weren't pushed");
  if (count < COMPILER_LENOF(connections_push_stack)) {
   assertf(PERTASK_GET(connections_push_stack[count-1]) == safe,
-          "Incorrect restore location (expected %p, but got %p)\n",
-          PERTASK_GET(connections_push_stack[count-1]),safe);
+          "Incorrect restore location (expected %p, but got %p)\n"
+          "count = %u\n",
+          PERTASK_GET(connections_push_stack[count-1]),
+          safe,count);
  }
  PERTASK_DEC(connections_push_recursion);
 }
@@ -629,6 +612,8 @@ KCALL __os_task_waitfor(jtime_t abs_timeout) {
  } FINALLY {
   /* Always disconnect all connected signals,
    * thus resetting the connections list. */
+  if (FINALLY_WILL_RETHROW)
+      asm("nop");
   task_disconnect();
  }
  return result;

@@ -19,6 +19,7 @@
 #ifndef GUARD_APPS_WMS_MAIN_C
 #define GUARD_APPS_WMS_MAIN_C 1
 #define _KOS_SOURCE 1
+#define _GNU_SOURCE 1
 #define _EXCEPT_SOURCE 1
 
 #include <hybrid/compiler.h>
@@ -73,7 +74,6 @@ sigchld_handler(int UNUSED(signo),
                 struct ucontext *UNUSED(ctx)) {
  syslog(LOG_DEBUG,"sigchld_handler(%u) (looking for %u)\n",
         info->si_pid,init_process);
- asm("int3");
  if (info->si_pid != init_process)
      return;
  /* Exit the current process using the exit code of the child. */
@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
 
 
   wms_server = Xsocket(AF_UNIX,
-                       SOCK_STREAM|SOCK_CLOEXEC,
+                       SOCK_STREAM|SOCK_CLOEXEC|SOCK_CLOFORK,
                        PF_UNIX);
   Xbind(wms_server,(struct sockaddr *)&server_addr,sizeof(server_addr));
   Xlisten(wms_server,5);
@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
 
   for (;;) {
    fd_t client;
-   client = Xaccept(wms_server,NULL,NULL);
+   client = Xaccept4(wms_server,NULL,NULL,SOCK_CLOEXEC);
    syslog(LOG_DEBUG,"[WMS] New client connected using FD %d\n",client);
 
    /* Spawn a new thread for managing the client. */

@@ -58,6 +58,7 @@ PRIVATE int LIBCCALL ClientMain(void *arg) {
     if (Xrecv(client_fd,&req,sizeof(struct wms_request),MSG_WAITALL) !=
                              sizeof(struct wms_request))
         break; /* Disconnect */
+    syslog(LOG_DEBUG,"[WMS] Receive command: %u\n",req.r_command);
 
     memset(&resp,0,sizeof(struct wms_response));
     resp.r_echo = req.r_echo;
@@ -247,6 +248,7 @@ disconnect:
  } FINALLY {
   close(client_fd);
  }
+ syslog(LOG_DEBUG,"[WMS] Client gracefully disconnected\n");
  return 0;
 }
 
@@ -255,8 +257,7 @@ INTERN void WMCALL AcceptConnection(fd_t client_fd) {
  /* Spawn a new thread for dealing with the client. */
  clone(&ClientMain,
         CLONE_CHILDSTACK_AUTO,
-        CLONE_THREAD|CLONE_VM|CLONE_FS|
-        CLONE_FILES|CLONE_SIGHAND|CLONE_IO,
+        CLONE_NEW_THREAD,
        (void *)(uintptr_t)(intptr_t)client_fd);
 }
 

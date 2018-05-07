@@ -141,7 +141,11 @@ again_locked:
    ((u32 *)&header)[0] = GETL(state.pbs_addr+0);
    ((u32 *)&header)[1] = GETL(state.pbs_addr+4);
    assert(state.pbs_count >= header.p_total);
-   assert(IS_ALIGNED(header.p_total,PACKET_BUFFER_ALIGNMENT));
+   assertf(IS_ALIGNED(header.p_total,PACKET_BUFFER_ALIGNMENT),
+           "header.p_total  = %u (%x)\n"
+           "state.pbs_count = %u (%x)\n"
+           ,header.p_total,header.p_total
+           ,state.pbs_count,state.pbs_count);
    assert(CEIL_ALIGN(header.p_payload,PACKET_BUFFER_ALIGNMENT)+
           CEIL_ALIGN(header.p_ancillary,PACKET_BUFFER_ALIGNMENT)+
           sizeof(header) <= header.p_total);
@@ -294,8 +298,7 @@ read_finished:
   else atomic_rwlock_endread(&xself->pb_lock);
  }
  /* Signal that something was read (causing writers to
-  * re-evaluate their ability of writing their latest
-  * packet) */
+  * re-evaluate their ability of writing their latest packet) */
  sig_broadcast(&self->pb_read);
  /* Signal special buffer state change: non_empty -> empty */
  if (state.pbs_count != 0 && new_state.pbs_count == 0)
@@ -340,7 +343,7 @@ packetbuffer_writea_vio(struct packetbuffer *__restrict self,
      goto packet_too_large;
  if (__builtin_add_overflow(header.p_total,sizeof(header)+PACKET_BUFFER_ALIGNMENT-1,&header.p_total))
      goto packet_too_large;
- header.p_total    &= ~PACKET_BUFFER_ALIGNMENT;
+ header.p_total    &= ~(PACKET_BUFFER_ALIGNMENT-1);
  header.p_payload   = (u16)num_bytes;
  header.p_ancillary = (u16)ancsize;
 again:
@@ -355,7 +358,9 @@ again:
  size_avail -= self->pb_state.pbs_count;
  if (header.p_total <= size_avail) {
   /* Can immediately write the packet. */
+  bool was_empty;
   u16 packet_address,high_size;
+  was_empty = self->pb_state.pbs_count == 0;
   packet_address  = self->pb_state.pbs_addr;
   packet_address += self->pb_state.pbs_count;
   packet_address &= self->pb_mask;
@@ -385,6 +390,10 @@ again:
     iov_read(self->pb_base,iov,iov_offset+high_size,packet_address,mode);
    }
    if (ancsize) {
+    /* Align the packet address to the next valid address. */
+    packet_address +=  (PACKET_BUFFER_ALIGNMENT-1);
+    packet_address &= ~(PACKET_BUFFER_ALIGNMENT-1);
+
     /* Lastly, write ancillary data. */
     high_size = (self->pb_mask+1)-packet_address;
     if (high_size >= ancsize) {
@@ -402,9 +411,12 @@ again:
   } FINALLY {
    atomic_rwlock_endwrite(&self->pb_lock);
   }
+  /* If the buffer was empty before, signal that data has now arrived. */
+  if (was_empty)
+      sig_broadcast(&self->pb_stat);
   return num_bytes;
  }
- /* TODO: Allocate a larger buffer & goto again */
+ /* Allocate a larger buffer & goto again */
  {
   size_t new_mask;
   new_mask = self->pb_mask;

@@ -36,11 +36,7 @@
 
 #include "unix_socket.h"
 
-/* TODO: The `SOCKET_MESSAGE_FWAITALL' flag should be implemented
- *       as part of the socket core api for stream-based sockets! */
-
 DECL_BEGIN
-
 
 PRIVATE ATTR_NOTHROW void KCALL
 UnixSocket_Fini(UnixSocket *__restrict self) {

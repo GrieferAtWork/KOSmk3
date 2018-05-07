@@ -57,6 +57,9 @@ enum __socket_type {
     /* Flags to be ORed into the type parameter of socket and
      * socketpair and used for the flags parameter of paccept. */
     SOCK_CLOEXEC   = 0x80000, /* Atomically set close-on-exec flag for the new descriptor(s). */
+#ifdef __USE_KOS
+    SOCK_CLOFORK   = 0x0100000, /* Atomically set close-on-fork flag for the new descriptor(s). */
+#endif
     SOCK_NONBLOCK  = 0x00800, /* Atomically mark descriptor(s) as non-blocking. */
 };
 #define SOCK_STREAM    SOCK_STREAM
@@ -67,6 +70,9 @@ enum __socket_type {
 #define SOCK_DCCP      SOCK_DCCP
 #define SOCK_PACKET    SOCK_PACKET
 #define SOCK_CLOEXEC   SOCK_CLOEXEC
+#ifdef __USE_KOS
+#define SOCK_CLOFORK   SOCK_CLOFORK
+#endif
 #define SOCK_NONBLOCK  SOCK_NONBLOCK
 #endif /* !____socket_type_defined */
 

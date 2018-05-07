@@ -111,14 +111,8 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
  __asm__("movl %%cr2, %0" : "=r" (fault_address) : : "memory");
  assert(!PREEMPTION_ENABLED());
 #if 0
- if (context->c_eflags & EFLAGS_VM) {
- debug_printf("#PF at %p (from %p; errcode %x; esp %p%s)\n",
-              fault_address,context->c_eip,errcode,
-              X86_ANYCONTEXT32_ESP(*context),
-              PERTASK_TEST(mall_leak_nocore) ? "; SKIP_LOADCORE" : "");
- }
-//  if (!(context->c_iret.ir_cs & 3))
-//      __asm__("int3");
+ debug_printf("#PF at %p (from %p; errcode %x)\n",
+              fault_address,context->c_eip,errcode);
 #endif
  /* Re-enable interrupts if they were enabled before. */
  if (context->c_eflags & EFLAGS_IF)
@@ -133,6 +127,7 @@ again:
    bool EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(vm_ok);
    struct vm *EXCEPT_VAR effective_vm;
    struct task_connections old_connections;
+   struct task_connections *EXCEPT_VAR pold_connections = &old_connections;
    vm_vpage_t fault_page = VM_ADDR2PAGE((uintptr_t)fault_address);
    effective_vm = fault_page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
 
@@ -240,7 +235,7 @@ again:
     }
    } FINALLY {
     /* Restore task connections. */
-    task_pop_connections(&old_connections);
+    task_pop_connections(pold_connections);
    }
    /* If the VM says the error is OK, return without throwing a SEGFAULT. */
    if (vm_ok)

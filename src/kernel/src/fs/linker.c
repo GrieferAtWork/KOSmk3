@@ -916,7 +916,8 @@ recheck_apps:
 not_cached:
  /* Create a new dependency for `mod'. */
  {
-  struct module_patcher EXCEPT_VAR patcher;
+  struct module_patcher patcher;
+  struct module_patcher *EXCEPT_VAR ppatcher = &patcher;
   result              = application_alloc(self->mp_apptype);
   result->a_module    = mod;
   module_incref(mod);
@@ -935,9 +936,9 @@ not_cached:
 #endif
   TRY {
    /* Load the application. */
-   application_load((struct module_patcher *)&patcher);
+   application_load(&patcher);
    /* Patch the application. */
-   application_patch((struct module_patcher *)&patcher);
+   application_patch(&patcher);
 
    assertf(result->a_mapcnt != 0,"The application didn't get mapped");
    assertf(result->a_refcnt >= 2,
@@ -945,7 +946,7 @@ not_cached:
            "held by the application being mapped (a_mapcnt != 0).");
   } FINALLY {
    application_decref(result);
-   patcher_fini((struct module_patcher *)&patcher);
+   patcher_fini(ppatcher);
   }
 
 got_application:
@@ -1211,9 +1212,10 @@ patcher_symhash(USER CHECKED char const *__restrict name) {
 PUBLIC void KCALL
 application_loadroot(struct application *__restrict self, u16 flags,
                      USER CHECKED char const *runpath) {
- struct module_patcher EXCEPT_VAR patcher;
+ struct module_patcher patcher;
+ struct module_patcher *EXCEPT_VAR ppatcher = &patcher;
  struct vm *EXCEPT_VAR effective_vm;
- patcher.mp_root     = (struct module_patcher *)&patcher;
+ patcher.mp_root     = &patcher;
  patcher.mp_prev     = NULL;
  patcher.mp_app      = self;
  patcher.mp_requirec = 0;
@@ -1228,12 +1230,12 @@ application_loadroot(struct application *__restrict self, u16 flags,
  vm_acquire(effective_vm);
  TRY {
   /* Load the application. */
-  application_load((struct module_patcher *)&patcher);
+  application_load(&patcher);
   /* Patch the application. */
-  application_patch((struct module_patcher *)&patcher);
+  application_patch(&patcher);
  } FINALLY {
   vm_release(effective_vm);
-  patcher_fini((struct module_patcher *)&patcher);
+  patcher_fini(ppatcher);
  }
 }
 

@@ -30,6 +30,10 @@
 #include <assert.h>
 #include <syslog.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <syscall.h>
+#include <sys/mman.h>
 
 #include "window.h"
 #include "display.h"
@@ -303,14 +307,21 @@ Window_CreateUnlocked(Display *__restrict disp,
  result->w_state   = state;
  result->w_sizey   = sizey;
  result->w_sizex   = sizex;
- result->w_stride  = CEIL_ALIGN(sizex,16);
+ result->w_stride  = CEIL_ALIGN(CEILDIV(sizex*disp->d_bpp,8),16);
  result->w_display = disp;
  result->w_visi.r_strips = NULL;
  result->w_clientfd = client_fd;
+ result->w_screenfd = Xsyscall(SYS_xvm_region_create,0x100000,O_CLOEXEC);
+#if 1
+ result->w_screen = (byte_t *)Xmmap(NULL,sizex*result->w_stride,
+                                    PROT_READ|PROT_WRITE|PROT_SHARED,
+                                    MAP_SHARED|MAP_ANON,0,0);
+#else
+ result->w_screen = (byte_t *)Xmmap(NULL,sizex*result->w_stride,
+                                    PROT_READ|PROT_WRITE|PROT_SHARED,
+                                    MAP_SHARED|MAP_FILE,result->w_screenfd,0);
+#endif
  Window_UpdateDisplayArea(result);
- result->w_screen  = (byte_t *)Xmalloc(sizey*
-                                       result->w_stride*
-                                       CEILDIV(disp->d_bpp,8));
  /* Clamp the visible portion of the window to the display size. */
  if (posx < 0) sizex = sizex > (unsigned int)-posx ? sizex - -posx : 0,posx = 0;
  if (posy < 0) sizey = sizey > (unsigned int)-posy ? sizey - -posy : 0,posy = 0;
@@ -389,6 +400,9 @@ Window_DestroyUnlocked(Window *__restrict self) {
   * that it doesn't leave behind any artifacts. */
  Window_HideUnlocked(self);
  /* TODO */
+ munmap(self->w_screen,
+        self->w_sizex*self->w_stride);
+ close(self->w_screenfd);
  free(self);
 }
 

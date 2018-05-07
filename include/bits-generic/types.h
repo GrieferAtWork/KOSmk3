@@ -206,6 +206,7 @@ typedef __UINT32_TYPE__         __mode_t;
 typedef __UINT32_TYPE__         __nlink_t;
 typedef __UINT32_TYPE__         __rlim32_t;
 typedef __UINT32_TYPE__         __socklen_t;
+typedef __INT32_TYPE__          __ssocklen_t;
 typedef __UINT32_TYPE__         __uid_t;
 typedef __UINT32_TYPE__         __uint32_t;
 typedef __UINT32_TYPE__         __useconds_t;
@@ -291,6 +292,7 @@ typedef unsigned int            __atflag_t;
 #define __rlim_t                __rlim_t
 #define __size_t                __size_t
 #define __socklen_t             __socklen_t
+#define __ssocklen_t            __ssocklen_t
 #define __sregister_t           __sregister_t
 #define __ssize_t               __ssize_t
 #define __suseconds_t           __suseconds_t

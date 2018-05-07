@@ -29,7 +29,7 @@ DECL_BEGIN
 /* Generic I/O flags (compatible with O_* flags) */
 #ifdef __CC__
 typedef u16 iomode_t;
-typedef u16 packet_iomode_t;
+typedef u32 packet_iomode_t;
 #endif
 #define IO_ACCMODE     0x0003
 #define IO_RDONLY      0x0000 /* Read-only access */
@@ -93,6 +93,8 @@ typedef u16 packet_iomode_t;
                                        *        However, ancillary data ignores this flag and will not be truncated. */
 /*      PACKET_IO_FRD...       0x0020  * Reserved for `MSG_TRUNC' */
 /*      PACKET_IO_FRD...       0x0040  * Reserved for `MSG_DONTWAIT' */
+#define PACKET_IO_FRCLOEXEC 0x40000000/* [RECV][== MSG_CMSG_CLOEXEC]
+                                       *        Set the close-on-exec flag for file descriptors received through ancillary data. */
 #define PACKET_IO_FRDWAITALL   0x0100 /* [RECV][== MSG_WAITALL]
                                        *        Combine packets from the same source to fill the provided buffer
                                        *        to its entirety, and return only once everything has been read. */

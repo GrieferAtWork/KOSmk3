@@ -402,6 +402,8 @@ __XSYSCALL(__NR_xgetsockname,sys_xgetsockname)
 __XSYSCALL(__NR_xgetpeername,sys_xgetpeername)
 #define __NR_xgetsockopt  0x40000024
 __XSYSCALL(__NR_xgetsockopt,sys_xgetsockopt)
+#define __NR_xvm_region_create 0x40000025
+__XSYSCALL(__NR_xvm_region_create,sys_xvm_region_create)
 
 
 /* Dynamic linker system calls.

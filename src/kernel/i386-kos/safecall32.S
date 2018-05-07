@@ -42,6 +42,7 @@ PUBLIC_ENTRY(__SAFECALL_MISSMATCH)
 	pushl_cfi %ecx
 	pushl_cfi %__SAFECALL_TARGET_EIP
 	pushl_cfi %edx
+	.cfi_rel_offset %eip, 0
 DEFINE_INTERN(x86_safecall_panic)
 	call x86_safecall_panic
 	/* x86_safecall_panic() doesn't return... */

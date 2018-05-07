@@ -19,6 +19,7 @@
 #ifndef GUARD_KERNEL_I386_KOS_EXCEPT_C
 #define GUARD_KERNEL_I386_KOS_EXCEPT_C 1
 #define _KOS_SOURCE 1
+#define _NOSERVE_SOURCE 1
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
@@ -50,7 +51,7 @@ INTERN ATTR_NORETURN void FCALL
 libc_error_rethrow_at(struct cpu_context *__restrict context) {
  struct fde_info info;
  struct exception_handler_info hand;
- bool is_first = true;
+ bool is_first = true; u16 old_state;
  /* Safe the original stack-pointer. */
  uintptr_t sp = CPU_CONTEXT_SP(*context);
  assertf(context != &error_info()->e_context,
@@ -61,91 +62,124 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
  debug_printf("%[vinfo:%f(%l,%c) : %n : __error_rethrow_at(%p)]\n",
              (uintptr_t)CPU_CONTEXT_IP(*context));
 #endif
- for (;;) {
-  /* Account for the fact that return addresses point to the
-   * first instruction _after_ the `call', when it is actually
-   * that call which we are trying to guard. */
-  if (!is_first) --CPU_CONTEXT_IP(*context);
-  if (CPU_CONTEXT_IP(*context) < KERNEL_BASE &&
-    !(THIS_TASK->t_flags & TASK_FKERNELJOB))
-      goto no_handler; /* Exception must be propagated to userspace. */
-  if (!linker_findfde_consafe(CPU_CONTEXT_IP(*context),&info)) {
-   debug_printf("No frame at %p\n",CPU_CONTEXT_IP(*context));
-   goto no_handler;
-  }
-  is_first = false;
-  /* Search for a suitable exception handler (in reverse order!). */
-  if (linker_findexcept_consafe(CPU_CONTEXT_IP(*context),error_code(),&hand)) {
-    if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS)
-        error_info()->e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK;
-   if (hand.ehi_flag & EXCEPTION_HANDLER_FDESCRIPTOR) {
-    /* Unwind the stack to the caller-site. */
-    if (!eh_return(&info,context,EH_FDONT_UNWIND_SIGFRAME))
-         goto cannot_unwind;
-    /* Override the IP to use the entry point. */
-    context->c_eip = (uintptr_t)hand.ehi_entry;
-    assert(hand.ehi_desc.ed_type == EXCEPT_DESC_TYPE_BYPASS); /* XXX: What should we do here? */
+ /* Must disable serving of RPC functions to prevent the following recursion:
+  *    #0  -- libc_error_rethrow_at()
+  *    #1  -- linker_findfde_consafe()
+  *    #2  -- vm_acquire()
+  *    #3  -- task_wait()
+  *    #4  -- task_serve()
+  *    #5  -- TASK_RPC_USER
+  *    #6  -- error_throw(E_INTERRUPT)
+  *    #7  -- libc_error_rethrow_at()
+  * Technically, it's not an infinite recursion, because once the second
+  * `libc_error_rethrow_at()' would try to unwind the frame of the frame
+  * that call us (which uses the CPU state it passes to us to describe
+  * its return state), it would most likely point into nirvana, meaning
+  * that it'd end up trying to call into `error_unhandled_exception()',
+  * following which, and after some a lot of complex execution that can
+  * barely even be comprehended, we'd eventually end up with an unhandled
+  * user-RPC in task_exit(), as well as a corrupt (and therefor unwindable)
+  * stack, leaving task_exit() to be called recursively, and the kernel to
+  * panic() after dumping around 4-5 incomprehensible exception dumps...
+  * Yup... So in the end, rethrowing a kernel exception must not cause
+  * further exceptions related to RPC serving (and while that might seem
+  * obvious at first, you've really got to realize that it took me a couple
+  * of hours to figure that this is what was crashing the kernel...)
+  */
+ old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
+ TRY {
+  for (;;) {
+   /* Account for the fact that return addresses point to the
+    * first instruction _after_ the `call', when it is actually
+    * that call which we are trying to guard. */
+   if (!is_first) --CPU_CONTEXT_IP(*context);
+   if (CPU_CONTEXT_IP(*context) < KERNEL_BASE &&
+     !(THIS_TASK->t_flags & TASK_FKERNELJOB))
+       goto no_handler; /* Exception must be propagated to userspace. */
+   if (!linker_findfde_consafe(CPU_CONTEXT_IP(*context),&info)) {
+    debug_printf("No frame at %p\n",CPU_CONTEXT_IP(*context));
+    goto no_handler;
+   }
+   is_first = false;
+   /* Search for a suitable exception handler (in reverse order!). */
+   if (linker_findexcept_consafe(CPU_CONTEXT_IP(*context),error_code(),&hand)) {
+     if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS)
+         error_info()->e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK;
+    if (hand.ehi_flag & EXCEPTION_HANDLER_FDESCRIPTOR) {
+     /* Unwind the stack to the caller-site. */
+     if (!eh_return(&info,context,EH_FDONT_UNWIND_SIGFRAME))
+          goto cannot_unwind;
+     /* Override the IP to use the entry point. */
+     context->c_eip = (uintptr_t)hand.ehi_entry;
+     assert(hand.ehi_desc.ed_type == EXCEPT_DESC_TYPE_BYPASS); /* XXX: What should we do here? */
 
-    /* Allocate the stack-save area. */
-    CPU_CONTEXT_SP(*context) -= hand.ehi_desc.ed_safe;
-    if (!(hand.ehi_desc.ed_flags&EXCEPT_DESC_FDEALLOC_CONTINUE)) {
-     /* Must allocate stack memory at the back and copy data there. */
-     sp -= hand.ehi_desc.ed_safe;
-     memcpy((void *)sp,(void *)CPU_CONTEXT_SP(*context),hand.ehi_desc.ed_safe);
+     /* Allocate the stack-save area. */
+     CPU_CONTEXT_SP(*context) -= hand.ehi_desc.ed_safe;
+     if (!(hand.ehi_desc.ed_flags&EXCEPT_DESC_FDEALLOC_CONTINUE)) {
+      /* Must allocate stack memory at the back and copy data there. */
+      sp -= hand.ehi_desc.ed_safe;
+      memcpy((void *)sp,(void *)CPU_CONTEXT_SP(*context),hand.ehi_desc.ed_safe);
+      error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(*context);
+      CPU_CONTEXT_SP(*context) = sp;
+     } else {
+      error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(*context);
+     }
+     if (hand.ehi_desc.ed_flags & EXCEPT_DESC_FDISABLE_PREEMPTION)
+         context->c_eflags &= ~EFLAGS_IF;
+    } else {
+     /* Jump to the entry point of this exception handler. */
+     if (!eh_jmp(&info,context,(uintptr_t)hand.ehi_entry,EH_FNORMAL)) {
+      debug_printf("Failed to jump to handler at %p\n",
+                   hand.ehi_entry);
+      goto no_handler;
+     }
+
+     /* Restore the original SP to restore the stack as
+      * it were when the exception originally occurred.
+      * Without this, it would be impossible to continue
+      * execution after an exception occurred. */
      error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(*context);
      CPU_CONTEXT_SP(*context) = sp;
-    } else {
-     error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(*context);
     }
-    if (hand.ehi_desc.ed_flags & EXCEPT_DESC_FDISABLE_PREEMPTION)
-        context->c_eflags &= ~EFLAGS_IF;
-   } else {
-    /* Jump to the entry point of this exception handler. */
-    if (!eh_jmp(&info,context,(uintptr_t)hand.ehi_entry,EH_FNORMAL)) {
-     debug_printf("Failed to jump to handler at %p\n",
-                  hand.ehi_entry);
-     goto no_handler;
-    }
-
-    /* Restore the original SP to restore the stack as
-     * it were when the exception originally occurred.
-     * Without this, it would be impossible to continue
-     * execution after an exception occurred. */
-    error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(*context);
-    CPU_CONTEXT_SP(*context) = sp;
+#if 0
+    debug_printf("%[vinfo:%f(%l,%c) : %n : cpu_setcontext(%p)] cs = %p, eflags = %p\n",
+                (uintptr_t)CPU_CONTEXT_IP(unwind)-1,
+                unwind.c_iret.ir_cs,
+                unwind.c_iret.ir_eflags);
+    debug_printf("CONTEXT %p: { ds: %p, es: %p, fs: %p, gs: %p }\n",
+                 &unwind,
+                 unwind.c_segments.sg_ds,
+                 unwind.c_segments.sg_es,
+                 unwind.c_segments.sg_fs,
+                 unwind.c_segments.sg_gs);
+#endif
+    if (!(old_state&TASK_STATE_FDONTSERVE))
+          ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
+    cpu_setcontext(context);
+    /* Never get here... */
    }
 #if 0
-   debug_printf("%[vinfo:%f(%l,%c) : %n : cpu_setcontext(%p)] cs = %p, eflags = %p\n",
-               (uintptr_t)CPU_CONTEXT_IP(unwind)-1,
-               unwind.c_iret.ir_cs,
-               unwind.c_iret.ir_eflags);
-   debug_printf("CONTEXT %p: { ds: %p, es: %p, fs: %p, gs: %p }\n",
-                &unwind,
-                unwind.c_segments.sg_ds,
-                unwind.c_segments.sg_es,
-                unwind.c_segments.sg_fs,
-                unwind.c_segments.sg_gs);
+   else {
+    debug_printf("%[vinfo:%f(%l,%c) : %n : Missing except %p\n]",
+                 CPU_CONTEXT_IP(*context));
+   }
 #endif
-   cpu_setcontext(context);
-   /* Never get here... */
-  }
-#if 0
-  else {
-   debug_printf("%[vinfo:%f(%l,%c) : %n : Missing except %p\n]",
-                CPU_CONTEXT_IP(*context));
-  }
-#endif
-  /* Continue unwinding the stack. */
-  if (!eh_return(&info,context,EH_FDONT_UNWIND_SIGFRAME)) {
+   /* Continue unwinding the stack. */
+   if (!eh_return(&info,context,EH_FDONT_UNWIND_SIGFRAME)) {
 cannot_unwind:
-   debug_printf("Failed to unwind frame at %p\n",CPU_CONTEXT_IP(*context));
-   goto no_handler;
-  }
+    debug_printf("Failed to unwind frame at %p\n",CPU_CONTEXT_IP(*context));
+    goto no_handler;
+   }
 #if 0
-  debug_printf("%[vinfo:%f(%l,%c) : %n :] Unwind %p (ebp %p; fs: %p)\n",
-               CPU_CONTEXT_IP(*context),CPU_CONTEXT_IP(*context),
-               context->c_gpregs.gp_ebp,context->c_segments.sg_fs);
+   debug_printf("%[vinfo:%f(%l,%c) : %n :] Unwind %p (ebp %p; fs: %p)\n",
+                CPU_CONTEXT_IP(*context),CPU_CONTEXT_IP(*context),
+                context->c_gpregs.gp_ebp,context->c_segments.sg_fs);
 #endif
+  }
+ } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+  debug_printf("\n\n\n"
+               "Exception occurred while unwinding another exception\n"
+               "\n\n\n");
  }
 no_handler:
  error_unhandled_exception();

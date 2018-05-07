@@ -306,54 +306,57 @@ done_serving:
 #endif
   /* Indicate that we're now executing RPC functions. */
   ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FINRPC);
-  TRY {
-   /* Execute the RPC. */
+  {
+   struct task_connections *EXCEPT_VAR pconnections = &connections;
+   TRY {
+    /* Execute the RPC. */
 #if 0
-   debug_printf("%[vinfo:%f(%l,%c) : %n : %p] : RPC at %p, with %p in %p\n",
-                slot.rs_fun,slot.rs_arg,THIS_TASK);
+    debug_printf("%[vinfo:%f(%l,%c) : %n : %p] : RPC at %p, with %p in %p\n",
+                 slot.rs_fun,slot.rs_arg,THIS_TASK);
 #endif
-   INCSTAT(ts_xrpc);
-   (*slot.rs_fun)(slot.rs_arg);
-  } FINALLY {
-   assertf(PERTASK_TESTF(this_task.t_state,TASK_STATE_FINRPC),
-           "%[vinfo:%f(%l,%c) : %n : %p : RPC callback deleted the `TASK_STATE_FINRPC' flag\n]",
-           slot.rs_fun);
+    INCSTAT(ts_xrpc);
+    (*slot.rs_fun)(slot.rs_arg);
+   } FINALLY {
+    assertf(PERTASK_TESTF(this_task.t_state,TASK_STATE_FINRPC),
+            "%[vinfo:%f(%l,%c) : %n : %p : RPC callback deleted the `TASK_STATE_FINRPC' flag\n]",
+            slot.rs_fun);
 #ifndef NDEBUG
-   assertf(PERTASK_TESTF(this_task.t_flags,TASK_FRPCRECURSION) ==
-           (old_flags & TASK_FRPCRECURSION),
-           "%[vinfo:%f(%l,%c) : %n : %p : RPC callback did not clean up `TASK_FRPCRECURSION'\n]",
-           slot.rs_fun);
-   /* Assert that the `nothrow_serve()' recursion was restored. */
-   assertf(old_nothrow_serve_recursion == PERTASK_GET(this_task.t_nothrow_serve) ||
-           FINALLY_WILL_RETHROW,
-           "%[vinfo:%f(%l,%c) : %n] : RPC function call at %p with %p did not restore "
-           "nothrow_serve recursion (expected %I32u, but got %I32u)",
-           slot.rs_fun,slot.rs_fun,slot.rs_arg,
-           old_nothrow_serve_recursion,
-           PERTASK_GET(this_task.t_nothrow_serve));
+    assertf(PERTASK_TESTF(this_task.t_flags,TASK_FRPCRECURSION) ==
+            (old_flags & TASK_FRPCRECURSION),
+            "%[vinfo:%f(%l,%c) : %n : %p : RPC callback did not clean up `TASK_FRPCRECURSION'\n]",
+            slot.rs_fun);
+    /* Assert that the `nothrow_serve()' recursion was restored. */
+    assertf(old_nothrow_serve_recursion == PERTASK_GET(this_task.t_nothrow_serve) ||
+            FINALLY_WILL_RETHROW,
+            "%[vinfo:%f(%l,%c) : %n] : RPC function call at %p with %p did not restore "
+            "nothrow_serve recursion (expected %I32u, but got %I32u)",
+            slot.rs_fun,slot.rs_fun,slot.rs_arg,
+            old_nothrow_serve_recursion,
+            PERTASK_GET(this_task.t_nothrow_serve));
 #endif
-   /* Unset the in-rpc bit if we're not here recursively. */
-   if (!(state & TASK_STATE_FINRPC))
-         ATOMIC_FETCHAND(THIS_TASK->t_state,~(TASK_STATE_FINRPC));
-   /* Signal execution completion. */
-   if (slot.rs_done)
-       sig_broadcast(slot.rs_done);
-   if (FINALLY_WILL_RETHROW) {
-    if (PERTASK_TEST(this_task.t_nothrow_serve)) {
-     /*  Set the exception-serve flag and don't continue
-      *  running more RPC functions until this exception
-      *  will have been dealt with once the caller invokes
-      * `task_nothrow_end()' a sufficient number of times. */
-     ATOMIC_FETCHOR(THIS_TASK->t_state,
-                    TASK_STATE_FSERVEEXCEPT);
-     goto done_serving;
-    }
-    /* Restore connections if the finally will rethrow */
-    task_pop_connections(&connections);
-    /* Then, disconnect all signals (enter exception
-     * handling with an empty set of connections) */
-    task_disconnect();
-   } /* FINALLY_WILL_RETHROW */
+    /* Unset the in-rpc bit if we're not here recursively. */
+    if (!(state & TASK_STATE_FINRPC))
+          ATOMIC_FETCHAND(THIS_TASK->t_state,~(TASK_STATE_FINRPC));
+    /* Signal execution completion. */
+    if (slot.rs_done)
+        sig_broadcast(slot.rs_done);
+    if (FINALLY_WILL_RETHROW) {
+     if (PERTASK_TEST(this_task.t_nothrow_serve)) {
+      /*  Set the exception-serve flag and don't continue
+       *  running more RPC functions until this exception
+       *  will have been dealt with once the caller invokes
+       * `task_nothrow_end()' a sufficient number of times. */
+      ATOMIC_FETCHOR(THIS_TASK->t_state,
+                     TASK_STATE_FSERVEEXCEPT);
+      goto done_serving;
+     }
+     /* Restore connections if the finally will rethrow */
+     task_pop_connections(pconnections);
+     /* Then, disconnect all signals (enter exception
+      * handling with an empty set of connections) */
+     task_disconnect();
+    } /* FINALLY_WILL_RETHROW */
+   }
   }
   goto continue_serving;
  }

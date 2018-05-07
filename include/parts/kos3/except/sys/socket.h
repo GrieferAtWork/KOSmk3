@@ -33,8 +33,10 @@ __SYSDECL_BEGIN
 __LIBC __PORT_KOSONLY __fd_t (__LIBCCALL Xsocket)(int __domain, int __type, int __protocol);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xsocketpair)(int __domain, int __type, int __protocol, __fd_t __fds[2]);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xbind)(__fd_t __fd, __CONST_SOCKADDR_ARG __addr, socklen_t __len);
-__LIBC __PORT_KOSONLY void (__LIBCCALL Xgetsockname)(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t *__restrict __len);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xconnect)(__fd_t __fd, __CONST_SOCKADDR_ARG __addr, socklen_t __len);
+__LIBC __PORT_KOSONLY socklen_t (__LIBCCALL Xxgetsockname)(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t __len);
+__LIBC __PORT_KOSONLY socklen_t (__LIBCCALL Xxgetpeername)(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t __len);
+__LIBC __PORT_KOSONLY void (__LIBCCALL Xgetsockname)(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t *__restrict __len);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xgetpeername)(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t *__restrict __len);
 __LIBC __PORT_KOSONLY __WUNUSED_SUGGESTED size_t (__LIBCCALL Xsend)(__fd_t __fd, void const *__buf, size_t __bufsize, int __flags);
 __LIBC __PORT_KOSONLY __WUNUSED size_t (__LIBCCALL Xrecv)(__fd_t __fd, void *__buf, size_t __bufsize, int __flags);
@@ -42,14 +44,16 @@ __LIBC __PORT_KOSONLY __WUNUSED_SUGGESTED size_t (__LIBCCALL Xsendto)(__fd_t __f
 __LIBC __PORT_KOSONLY __WUNUSED size_t (__LIBCCALL Xrecvfrom)(__fd_t __fd, void *__restrict __buf, size_t __bufsize, int __flags, __SOCKADDR_ARG __addr, socklen_t *__restrict __addr_len);
 __LIBC __PORT_KOSONLY __WUNUSED_SUGGESTED size_t (__LIBCCALL Xsendmsg)(__fd_t __fd, struct msghdr const *__message, int __flags);
 __LIBC __PORT_KOSONLY __WUNUSED size_t (__LIBCCALL Xrecvmsg)(__fd_t __fd, struct msghdr *__message, int __flags);
+__LIBC __PORT_KOSONLY socklen_t (__LIBCCALL Xxgetsockopt)(__fd_t __fd, int __level, int __optname, void *__restrict __optval, socklen_t __optlen);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xgetsockopt)(__fd_t __fd, int __level, int __optname, void *__restrict __optval, socklen_t *__restrict __optlen);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xsetsockopt)(__fd_t __fd, int __level, int __optname, void const *__optval, socklen_t __optlen);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xlisten)(__fd_t __fd, int __max_backlog);
 __LIBC __PORT_KOSONLY __fd_t (__LIBCCALL Xaccept)(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t *__restrict __addr_len);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xshutdown)(__fd_t __fd, int __how);
 #ifdef __USE_GNU
-__LIBC __PORT_KOSONLY void (__LIBCCALL Xaccept4)(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t *__restrict __addr_len, int __flags);
-__LIBC __PORT_KOSONLY void (__LIBCCALL Xsendmmsg)(__fd_t __fd, struct mmsghdr *__vmessages, unsigned int __vlen, int __flags);
+/* @param: FLAGS: Set of `SOCK_NONBLOCK|SOCK_CLOEXEC|SOCK_CLOFORK' */
+__LIBC __PORT_KOSONLY __fd_t (__LIBCCALL Xaccept4)(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t *__restrict __addr_len, int __flags);
+__LIBC __PORT_KOSONLY unsigned int (__LIBCCALL Xsendmmsg)(__fd_t __fd, struct mmsghdr *__vmessages, unsigned int __vlen, int __flags);
 __REDIRECT_TM64(__LIBC,__PORT_KOSONLY __WUNUSED,unsigned int,__LIBCCALL,Xrecvmmsg,(__fd_t __fd, struct mmsghdr *__vmessages, unsigned int __vlen, int __flags, struct timespec *__tmo),(__fd,__vmessages,__vlen,__flags,__tmo))
 #ifdef __USE_TIME64
 __LIBC __PORT_KOSONLY __WUNUSED unsigned int (__LIBCCALL Xrecvmmsg64)(__fd_t __fd, struct mmsghdr *__vmessages, unsigned int __vlen, int __flags, struct __timespec64 *__tmo);

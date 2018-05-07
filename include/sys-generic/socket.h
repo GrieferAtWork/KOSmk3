@@ -148,7 +148,13 @@ __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,setsockopt,(__fd_t __fd, int __le
 __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,listen,(__fd_t __fd, int __max_backlog),(__fd,__max_backlog))
 __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,accept,(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t *__restrict __addr_len),(__fd,__addr,__addr_len))
 __LIBC int (__LIBCCALL shutdown)(__fd_t __fd, int __how);
+#ifdef __USE_KOS3
+__REDIRECT_EXCEPT_XVOID(__LIBC,,__EXCEPT_SELECT(__socklen_t,__ssocklen_t),__LIBCCALL,xgetsockname,(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t __len),(__fd,__addr,__len))
+__REDIRECT_EXCEPT_XVOID(__LIBC,,__EXCEPT_SELECT(__socklen_t,__ssocklen_t),__LIBCCALL,xgetpeername,(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t __len),(__fd,__addr,__len))
+__REDIRECT_EXCEPT_XVOID(__LIBC,,__EXCEPT_SELECT(__socklen_t,__ssocklen_t),__LIBCCALL,xgetsockopt,(__fd_t __fd, int __level, int __optname, void *__restrict __optval, socklen_t __optlen),(__fd,__level,__optname,__optval,__optlen))
+#endif /* __USE_KOS3 */
 #ifdef __USE_GNU
+/* @param: FLAGS: Set of `SOCK_NONBLOCK|SOCK_CLOEXEC|SOCK_CLOFORK' */
 __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,accept4,(__fd_t __fd, __SOCKADDR_ARG __addr, socklen_t *__restrict __addr_len, int __flags),(__fd,__addr,__addr_len,__flags))
 __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,sendmmsg,(__fd_t __fd, struct mmsghdr *__vmessages, unsigned int __vlen, int __flags),(__fd,__vmessages,__vlen,__flags))
 #ifdef __GLC_COMPAT__

@@ -39,6 +39,7 @@
 #include <string.h>
 #include <except.h>
 #include <assert.h>
+#include <fcntl.h>
 
 DECL_BEGIN
 
@@ -123,15 +124,16 @@ INTDEF ATTR_NORETURN void KCALL
 throw_invalid_handle(fd_t fd, u16 reason, u16 istype, u16 rqtype, u16 rqkind);
 
 PRIVATE VIRT void *KCALL
-do_xmmap(struct mmap_info *__restrict info) {
+do_xmmap(struct mmap_info *__restrict info_) {
+ struct mmap_info *EXCEPT_VAR info = info_;
  REF struct vm_region *EXCEPT_VAR region;
  REF struct vm_region *EXCEPT_VAR guard_region;
- bool is_extenal_region = false;
+ bool EXCEPT_VAR is_extenal_region = false;
  bool EXCEPT_VAR has_vm_lock = false;
  struct vm *EXCEPT_VAR user_vm = THIS_VM;
  vm_vpage_t EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
  vm_vpage_t EXCEPT_VAR hint;
- uintptr_t result_offset = 0;
+ uintptr_t EXCEPT_VAR result_offset = 0;
  size_t EXCEPT_VAR num_pages;
 
  /* Validate known flag bits. */
@@ -239,6 +241,26 @@ do_xmmap(struct mmap_info *__restrict info) {
     TRY {
      switch (hnd.h_type) {
 
+     {
+      pos_t mmap_start;
+      vm_raddr_t region_end;
+     case HANDLE_TYPE_FVM_REGION:
+      mmap_start  = info->mi_virt.mv_off64;
+      if (info->mi_virt.mv_begin > mmap_start)
+          error_throw(E_INVALID_ARGUMENT);
+      mmap_start -= info->mi_virt.mv_begin;
+      if (mmap_start & (PAGESIZE-1))
+          error_throw(E_INVALID_ARGUMENT);
+      region_start = (vm_raddr_t)VM_ADDR2PAGE(mmap_start);
+      /* Check if we're able to map the entirety of the request. */
+      if (__builtin_add_overflow(region_start,num_pages,&region_end) ||
+          region_end > hnd.h_object.o_vm_region->vr_size)
+          error_throw(E_INVALID_ARGUMENT);
+      region = hnd.h_object.o_vm_region; /* Inherit reference. */
+      is_extenal_region = true;
+      goto got_regions; /* XXX: Skip across finally is intended */
+     }
+
      case HANDLE_TYPE_FPATH:
       atomic_rwlock_read(&hnd.h_object.o_path->p_lock);
       node = hnd.h_object.o_path->p_node;
@@ -311,7 +333,7 @@ try_invoke_inode_mmap:
        device_decref(hnd.h_object.o_device);
       }
       is_extenal_region = true;
-      goto got_regions;
+      goto got_regions; /* XXX: Skip across finally is intended */
       
      default:
 cannot_mmap_handle:
@@ -820,9 +842,41 @@ DEFINE_SYSCALL6(xmprotect,
 }
 
 
-#define __NR_mremap       216
 #define __NR_swapon       224
 #define __NR_swapoff      225
+
+
+/* This system call will likely change, or be merged
+ * with something else, or at the very least be extended.
+ * Right now it creates and returns a handle to a
+ * vm_region, which can then be shared between
+ * processed to map anonymous, zero-initialized memory.
+ * Similar behavior could be implemented using `shm_open()',
+ * however this function works independent of the file system. */
+DEFINE_SYSCALL2(xvm_region_create,size_t,num_bytes,oflag_t,flags) {
+ unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
+ REF struct handle EXCEPT_VAR hresult;
+#if 0
+ return -1;
+#else
+ if unlikely(!num_bytes)
+    error_throw(E_INVALID_ARGUMENT);
+ if unlikely(flags & ~(O_CLOEXEC|O_CLOFORK))
+    error_throw(E_INVALID_ARGUMENT);
+ hresult.h_mode = HANDLE_MODE(HANDLE_TYPE_FVM_REGION,
+                              IO_HANDLE_FFROM_O(flags));
+ hresult.h_object.o_vm_region = vm_region_alloc(CEILDIV(num_bytes,PAGESIZE));
+ TRY {
+  hresult.h_object.o_vm_region->vr_init = VM_REGION_INIT_FFILLER;
+  hresult.h_object.o_vm_region->vr_setup.s_filler = 0;
+  /* Register the new handle. */
+  result = handle_put(hresult);
+ } FINALLY {
+  handle_decref(hresult);
+ }
+ return result;
+#endif
+}
 
 
 DECL_END

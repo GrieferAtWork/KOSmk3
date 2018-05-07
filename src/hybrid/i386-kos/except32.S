@@ -49,18 +49,19 @@ INTERN_ENTRY(libc_error_rethrow)
 	pushl_cfi    %cs    /* CS */
 #endif
 	pushl_cfi    %eax   /* EIP */
+	.cfi_rel_offset %eip, 0
 #ifndef CONFIG_NO_X86_SEGMENTATION
-	pushl_cfi    %ds
-	pushl_cfi    %es
-	pushl_cfi    %fs
-	pushl_cfi    %gs
+	pushl_cfi_r  %ds
+	pushl_cfi_r  %es
+	pushl_cfi_r  %fs
+	pushl_cfi_r  %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 	pushal_cfi_r
 	/* Fix ESP to point to caller, aka. the start of the context structure. */
 	leal   X86_CONTEXT_SIZE(%esp), %ecx
 	movl   %ecx, X86_CONTEXT_OFFSETOF_ESP(%esp)
 	movl   %esp, %ecx
-	/* FIX EIP to point into the middle of the
+	/* Fix EIP to point into the middle of the
 	 * instruction the caller used to get here. */
 	decl   X86_CONTEXT_OFFSETOF_EIP(%ecx)
 	/* Rethrow the exception. */

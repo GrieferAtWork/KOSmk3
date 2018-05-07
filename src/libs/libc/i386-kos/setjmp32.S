@@ -70,6 +70,7 @@ INTERN_ENTRY(libc_sigsetjmp)
 	testl  %edx,                   %edx
 	jz     1f /* Skip the signal mask if if shouldn't be saved */
 	pushl_cfi %ecx /* Preserve ECX */
+	.cfi_rel_offset %eip, 0
 	pushl_cfi $(__SIZEOF_SIGSET_T__)
 	leal   32(%eax), %eax
 	pushl_cfi %eax           /* oldset = &buf->__sig; */
@@ -79,6 +80,7 @@ INTERN_ENTRY(libc_sigsetjmp)
 	addl   $16, %esp
 	.cfi_adjust_cfa_offset -16
 	popl_cfi  %ecx /* Restore ECX */
+	.cfi_register %eip, %ecx
 1:	xorl   %eax,    %eax  /* Return ZERO(0) the first time around. */
 	jmpl  *%ecx
 	.cfi_endproc

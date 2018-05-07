@@ -615,7 +615,7 @@ INTERN_ENTRY(x86_interrupt_except)
 	.cfi_offset %eflags, (-X86_IRREGS_HOST32_SIZE) + X86_IRREGS_HOST32_OFFSETOF_EFLAGS
 	.cfi_offset %eip,    (-X86_IRREGS_HOST32_SIZE) + X86_IRREGS_HOST32_OFFSETOF_EIP
 #ifdef CONFIG_VM86
-	testl   $EFLAGS_VM, %ss:X86_IRREGS_HOST32_OFFSETOF_EFLAGS(%esp)
+	testl   $(EFLAGS_VM), %ss:X86_IRREGS_HOST32_OFFSETOF_EFLAGS(%esp)
 	jnz     .interrupt_except_user
 #endif
 
@@ -823,7 +823,7 @@ INTERN_ENTRY(x86_interrupt_except)
 	call    task_tryrestart_syscall
 	.cfi_adjust_cfa_offset -4
 	popl_cfi %edx
-	testl   %eax, %eax
+	testb    %al, %al
 	jz      .exit_after_propagate
 	/* Restart the system call. */
 
@@ -901,7 +901,9 @@ INTERN_ENTRY(x86_interrupt_except)
 	cli     /* Disable interrupts to ensure a consistent redirection state */
 	cmpl    $x86_redirect_preemption, ((-X86_IRREGS_USER32_SIZE)+X86_IRREGS_USER32_OFFSETOF_EIP)(%edx) /* Check if user-space got redirected */
 	jne     1f
-	/* Copy the IRET tail of the context into iret_saved */
+	.cfi_remember_state
+
+	/* Copy the updated IRET tail of the context into iret_saved */
 	movl    X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EIP(%esp), %eax
 	movl    %eax, %taskseg:iret_saved+X86_IRREGS_USER32_OFFSETOF_EIP
 	movl    X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_CS(%esp), %eax
@@ -912,18 +914,45 @@ INTERN_ENTRY(x86_interrupt_except)
 	movl    %eax, %taskseg:iret_saved+X86_IRREGS_USER32_OFFSETOF_USERESP
 	movl    X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_SS(%esp), %eax
 	movl    %eax, %taskseg:iret_saved+X86_IRREGS_USER32_OFFSETOF_SS
-	/* Copy the IRET tail that was redirected into the context */
-	movl    ((-X86_IRREGS_USER32_SIZE)+X86_IRREGS_USER32_OFFSETOF_EIP)(%edx), %eax
-	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EIP(%esp)
-	movl    ((-X86_IRREGS_USER32_SIZE)+X86_IRREGS_USER32_OFFSETOF_CS)(%edx), %eax
-	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_CS(%esp)
-	movl    ((-X86_IRREGS_USER32_SIZE)+X86_IRREGS_USER32_OFFSETOF_EFLAGS)(%edx), %eax
-	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EFLAGS(%esp)
-	movl    ((-X86_IRREGS_USER32_SIZE)+X86_IRREGS_USER32_OFFSETOF_USERESP)(%edx), %eax
-	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_USERESP(%esp)
-	movl    ((-X86_IRREGS_USER32_SIZE)+X86_IRREGS_USER32_OFFSETOF_SS)(%edx), %eax
-	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_SS(%esp)
 
+	/* Must adjust the IRET tail at the base of our stack so we can use it
+	 * to iret to where we need to go, with the register state we need to
+	 * have once we get there.
+	 * HINT: We know that the EIP field is $x86_redirect_preemption */
+#ifndef CONFIG_NO_X86_SEGMENTATION
+	movl    X86_CONTEXT32_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_FS(%esp), %eax
+	movl    %eax, ((-X86_IRREGS_USER32_SIZE)+X86_IRREGS_USER32_OFFSETOF_EIP)(%edx)
+#endif
+	popal_cfi_r
+#ifndef CONFIG_NO_X86_SEGMENTATION
+	popl_cfi_r  %gs /* Load segment registers. */
+	addl    $4, %esp
+	.cfi_adjust_cfa_offset -4
+	.cfi_same_value %fs
+	popl_cfi_r  %es
+	popl_cfi_r  %ds
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
+	/* Load the stack base. */
+	movl    %taskseg:TASK_OFFSETOF_STACKEND, %esp
+	subl    $(X86_IRREGS_USER32_SIZE), %esp
+
+#ifndef CONFIG_NO_X86_SEGMENTATION
+	/* Load the user-space FS register and setup the IRET target. */
+#if X86_IRREGS_USER32_OFFSETOF_EIP == 0
+	popl    %fs
+	pushl   $x86_redirect_preemption
+#else
+	xchgl   %eax, %ss:X86_IRREGS_USER32_OFFSETOF_EIP(%esp)
+	movw    %ax, %fs
+	movl    $x86_redirect_preemption, %eax
+	xchgl   %eax, %ss:X86_IRREGS_USER32_OFFSETOF_EIP(%esp)
+#endif
+#endif
+
+	/* Do the iret to get to where we need to! */
+	iret
+
+	.cfi_restore_state
 1:	popal_cfi_r /* Load general-purpose registers. */
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r  %gs /* Load segment registers. */

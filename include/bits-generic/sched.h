@@ -101,6 +101,7 @@ __SYSDECL_BEGIN
 #define CLONE_IO             0x80000000 /* Clone I/O context. */
 #endif /* !CLONE_IO */
 
+#ifdef __USE_KOS
 /* Value passed for 'CHILD_STACK' to 'clone()':
  * When given, let the kernel decide where and how to allocate a new stack for the child.
  * NOTE: The value was chosen due to the fact that it represents the wrap-around address
@@ -122,6 +123,14 @@ __SYSDECL_BEGIN
 #   define CLONE_CHILDSTACK_AUTO ((void *)-1)
 #endif
 #endif /* !CLONE_CHILDSTACK_AUTO */
+
+/* Generic set of clone flags implementing behavior
+ * that one would expect for a thread or process. */
+#define CLONE_NEW_THREAD    (CLONE_THREAD|CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_IO)
+#define CLONE_NEW_PROCESS   (0) /* Same flags as used by fork() */
+
+#endif /* __USE_KOS */
+
 #endif /* __USE_GNU */
 
 #ifdef __CC__

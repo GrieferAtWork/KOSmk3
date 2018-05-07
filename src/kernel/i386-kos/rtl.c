@@ -254,6 +254,10 @@ core_assertion_failure(char const *expr, DEBUGINFO,
  task_disconnect();
  THIS_TASK->t_sched.sched_ring.re_prev = THIS_TASK;
  THIS_TASK->t_sched.sched_ring.re_next = THIS_TASK;
+ THIS_CPU->c_sleeping                  = NULL;
+#ifndef CONFIG_NO_SMP
+ THIS_CPU->c_pending                   = NULL;
+#endif
 #ifdef CONFIG_VM_USE_RWLOCK
  vm_kernel.vm_lock.rw_state = 0;
  THIS_VM->vm_lock.rw_state  = 0;
@@ -276,6 +280,7 @@ core_assertion_failure(char const *expr, DEBUGINFO,
  }
  error_print_other_thread();
  error_print_vm();
+ PREEMPTION_DISABLE();
  for (;;) __asm__("hlt");
 }
 
