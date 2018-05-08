@@ -52,11 +52,13 @@ struct PACKED wm_font
     __WM_SURFACE_STRUCT_MEMBERS         /* Font sprite table.
                                          * The surface's size is one of:
                                          *  - 256  * 128  (16*8 16x16 characters)
+                                         *  - 128  * 128  (16*8  8x16 characters)
                                          *  - 128  * 64   (16*8  8x8  characters)
+                                         *  - 64   * 64   (16*8  4x8  characters)
                                          *  - 64   * 32   (16*8  4x4  characters)
                                          * Other surface sizes are not allowed. */
     wm_pixel_t            f_colorkey;   /* Color key describing transparent pixels. */
-    unsigned short int    f_lnpad;      /* Additional padding between lines. */
+    unsigned short int    f_lnsiz;      /* Height of a single line (in pixels). */
     unsigned short int    f_chpad;      /* Additional padding between characters. */
     struct wm_text_state  f_default;    /* Default font rendering state when no override is given. */
     struct wm_font_sprite f_ascii[128]; /* Sprite sizes of the first 128 characters (ASCII). */

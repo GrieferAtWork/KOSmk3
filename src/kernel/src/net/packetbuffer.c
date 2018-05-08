@@ -124,16 +124,16 @@ again_locked:
     /* Check if the buffer was closed. */
     if (self->pb_limt & PBUFFER_LIMT_FCLOSED) {
      if (has_write_lock)
-          atomic_rwlock_endwrite(&xself->pb_lock);
-     else atomic_rwlock_endread(&xself->pb_lock);
+          atomic_rwlock_endwrite(&self->pb_lock);
+     else atomic_rwlock_endread(&self->pb_lock);
      if (anc_buffer) *pancsize = 0;
      *pbufsize = 0;
      return false; /* XXX: Skip across finally is intentional! */
     }
     /* No data available for reading. */
     if (has_write_lock)
-         atomic_rwlock_endwrite(&xself->pb_lock);
-    else atomic_rwlock_endread(&xself->pb_lock);
+         atomic_rwlock_endwrite(&self->pb_lock);
+    else atomic_rwlock_endread(&self->pb_lock);
     goto wait_for_data; /* XXX: Skip across finally is intentional! */
    }
    assert(IS_ALIGNED(state.pbs_addr,PACKET_BUFFER_ALIGNMENT));
@@ -440,7 +440,6 @@ again:
            "new_mask      = %p\n"
            "self->pb_mask = %p\n",
            new_mask,self->pb_mask);
-   debug_printf("Increase buffer mask %p -> %p\n",self->pb_mask,new_mask);
    atomic_rwlock_endwrite(&self->pb_lock);
    COMPILER_BARRIER();
    /* Allocate the new buffer. */

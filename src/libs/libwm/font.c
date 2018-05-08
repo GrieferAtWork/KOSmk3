@@ -35,6 +35,8 @@ libwm_font_draw(struct wm_font const *__restrict self,
                 char const *__restrict text, size_t textlen,
                 struct wm_surface *__restrict dst, int x, int y,
                 struct wm_text_state *state, unsigned int flags) {
+
+
 }
 
 
@@ -56,7 +58,7 @@ PRIVATE struct wm_font wm_default_font = {
     .s_stride   = 128 / 8,
     .s_buffer   = (byte_t *)default_font_data,
     .f_colorkey = 0,
-    .f_lnpad    = 1,
+    .f_lnsiz    = 9,
     .f_chpad    = 1,
     .f_default  = {
         .f_color   = 0,
