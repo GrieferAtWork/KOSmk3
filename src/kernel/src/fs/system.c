@@ -1681,7 +1681,7 @@ scan_again:
   } else if (!tsp) {
    task_uwait();
    goto scan_again;
-  } else {
+  } else if (task_isconnected()) {
    /* Wait for signals to arrive and scan again. */
    if (task_uwaitfor_tmabs(tsp))
        goto scan_again;
@@ -1778,7 +1778,7 @@ scan_again:
   } else if (!tsp) {
    task_uwait();
    goto scan_again;
-  } else {
+  } else if (task_isconnected()) {
    /* Wait for files to become ready. */
    if (task_uwaitfor_tmabs(tsp))
        goto scan_again;

@@ -606,7 +606,7 @@ PUBLIC unsigned int KCALL
 socket_poll(struct socket *__restrict self_,
             unsigned int mode_) {
  struct socket *EXCEPT_VAR self = self_;
- unsigned int EXCEPT_VAR mode = mode;
+ unsigned int EXCEPT_VAR mode = mode_;
  unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  rwlock_readf(&self->s_lock,mode);
