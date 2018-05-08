@@ -1,0 +1,83 @@
+/* MIT License
+ *
+ * Copyright (c) 2017 GrieferAtWork
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+#include <fs>
+#include <gfx>
+#include <file>
+#include <util>
+#include <sys>
+
+function parse_file(out,filename) {
+	local name = fs::path::file(filename);
+	local sfx = gfx::surface_rgba8888(filename);
+	local guard = "__KOS_MISC_{name.upper()}_H__".format({.name = name });
+	/* Intentionally leave out a license (Don't want to claim ownership of some font I didn't draw...) */
+	print out: "#ifndef",guard;
+	print out: "#define",guard,"1";
+	print out:;
+	print out: "#include \"textbits.h\"";
+	print out:;
+	local sx = sfx.sizex,sy = sfx.sizey;
+	local lines = sy/16;
+	print out: "static struct font8x"+lines+" const",name," = {{";
+	
+	for (local chy: util::range(16)) {
+		for (local chx: util::range(16)) {
+			local ch = string::chr(chx+chy*16);
+			print out: (chx == 0 && chy == 0 ? "    " : "    },")+"{ /*",repr ch,"*/";
+			for (local y = 0; y < lines; ++y) {
+				local line = "";
+				for (local x = 0; x < 8; ++x) {
+					local px = sfx[chx*8+x:chy*lines+y];
+					if (px.r || px.g || px.b)
+						line += "1";
+					else
+						line += "0";
+				}
+				print out: "        __B("+line+"),";
+			}
+		}
+	}
+	print out: "    }";
+	print out: "}};";
+	print out:;
+	print out: "#endif /*",guard,"*/";
+}
+
+
+for (local filename: sys.argv[1:]) {
+	local outfile = fs::path::file(filename)+".h";
+	parse_file(file.open(outfile,"w"),filename);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

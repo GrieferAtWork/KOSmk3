@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <syslog.h>
+#include <string.h>
 
 DECL_BEGIN
 
@@ -53,7 +54,20 @@ int main(int argc, char *argv[]) {
                  (unsigned int)rand() % win->s_sizey,
                   8,
                   8,
-                  rand());
+                  win->s_format->f_color[WM_COLOR_GREEN]);
+ }
+ {
+  char const *text;
+  text = "This is my test string.\n"
+         "And this is the second line!";
+  wm_font_draw(wm_font_system(WM_FONT_SYSTEM_DEFAULT),
+               text,
+               strlen(text),
+               win,
+               0,
+               0,
+               NULL,
+               WM_FONT_DRAW_FNORMAL);
  }
  wm_window_draw(win,WM_WINDOW_DRAW_FNORMAL);
 

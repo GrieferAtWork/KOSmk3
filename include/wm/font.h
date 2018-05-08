@@ -26,19 +26,18 @@
 
 __SYSDECL_BEGIN
 
-struct wm_font_sprite {
-    unsigned int fs_sizex : 4; /* Sprite size in X */
-    unsigned int fs_sizey : 4; /* Sprite size in Y */
-};
-
 
 struct wm_text_state {
     wm_pixel_t            f_color;    /* Current text color. */
+    wm_pixel_t            f_shadow;   /* Current shadow color. */
 #define WM_TEXT_OPTION_FNORMAL 0x0000 /* Normal text flags. */
 #define WM_TEXT_OPTION_FUNDERL 0x0001 /* add an UNDERLine to rendered text. */
 #define WM_TEXT_OPTION_FCURSIV 0x0002 /* draw CURSIVe text */
 #define WM_TEXT_OPTION_FDWBOLD 0x0004 /* DraW as BOLD */
     unsigned int          f_options;  /* Currently enabled text options. */
+    signed char           f_shadow_x; /* Shadow offset in X */
+    signed char           f_shadow_y; /* Shadow offset in Y
+                                       * NOTE: When both this and `f_shadow_x' and ZERO(0), the shadow is disabled. */
 };
 
 
@@ -57,11 +56,14 @@ struct PACKED wm_font
                                          *  - 64   * 64   (16*8  4x8  characters)
                                          *  - 64   * 32   (16*8  4x4  characters)
                                          * Other surface sizes are not allowed. */
-    wm_pixel_t            f_colorkey;   /* Color key describing transparent pixels. */
-    unsigned short int    f_lnsiz;      /* Height of a single line (in pixels). */
-    unsigned short int    f_chpad;      /* Additional padding between characters. */
-    struct wm_text_state  f_default;    /* Default font rendering state when no override is given. */
-    struct wm_font_sprite f_ascii[128]; /* Sprite sizes of the first 128 characters (ASCII). */
+    unsigned short int    f_lnsiz;      /* [const] Height of a single line (in pixels). */
+    unsigned short int    f_log2_chsizx;/* [const] log2(Max width of a character in pixels) */
+    unsigned short int    f_log2_chsizy;/* [const] log2(Height of a character in pixels) */
+    unsigned short int    f_chsizy;     /* [const] Height of a character in pixels */
+    unsigned short int    f_tabsize;    /* [const] Min width of the \t character (in pixels). Also used as tab alignment:
+                                         * new_x = start_x + (((x - start_x) + (f_tabsize - 1)) / f_tabsize) * f_tabsize; */
+    struct wm_text_state  f_default;    /* [const] Default font rendering state when no override is given. */
+    __uint8_t             f_ascii[128]; /* [const] Sprite sizes (in X) of the first 128 characters (ASCII). */
     /* TODO: Unicode support */
 };
 
