@@ -62,14 +62,14 @@ BEGIN MODULE("kernel.unix-domain")
 	SOURCE("unix-domain/*.c")
 END
 
-#if 1
-BEGIN MODULE("kernel.a.out")
-	SET_OUTPUT("/bin/a.out.mod")
-	SET_DISKFILE("/mod/a.out.mod")
+IF ($TARGET_ARCH == i?86)
+	BEGIN MODULE("kernel.a.out")
+		SET_OUTPUT("/bin/a.out.mod")
+		SET_DISKFILE("/mod/a.out.mod")
 
-	SOURCE("a.out/*.c")
-END
-#endif
+		SOURCE("a.out/*.c")
+	END
+FI
 
 
 

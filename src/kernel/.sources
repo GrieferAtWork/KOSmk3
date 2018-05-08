@@ -21,21 +21,24 @@
 BEGIN
 	DEFINE("__KERNEL__")
 	INCLUDE("include")
-	INCLUDE("include/i386-kos")
+	INCLUDE("include/$TARGET_ARCH-kos")
 
 	/* Disable generation of code that uses floating point registers.
 	 * It would be too expensive for kernel code to make use of floating
 	 * point registers in a way that preserves the original user-space
 	 * content, so we simply don't use it, and won't run into problems. */
-	C_FLAGS("-mno-sse")
-	C_FLAGS("-mno-sse2")
-	C_FLAGS("-mno-sse3")
-	C_FLAGS("-mno-sse4")
-	C_FLAGS("-mno-ssse3")
-	C_FLAGS("-mno-mmx")
-	C_FLAGS("-mno-3dnow")
-	C_FLAGS("-mno-avx")
-	C_FLAGS("-mtls-direct-seg-refs")
+
+	IF ($TARGET_ARCH == i?86 || $TARGET_ARCH == x86_64)
+		C_FLAGS("-mno-sse")
+		C_FLAGS("-mno-sse2")
+		C_FLAGS("-mno-sse3")
+		C_FLAGS("-mno-sse4")
+		C_FLAGS("-mno-ssse3")
+		C_FLAGS("-mno-mmx")
+		C_FLAGS("-mno-3dnow")
+		C_FLAGS("-mno-avx")
+		C_FLAGS("-mtls-direct-seg-refs")
+	FI
 
 	/* Without SEE (disabled above), 4-byte (2^<2>) stack alignment is all we really need. */
 	C_FLAGS("-mpreferred-stack-boundary=2")
@@ -43,7 +46,7 @@ BEGIN
 	BEGIN PROJECT("kernel")
 		DEFINE("CONFIG_BUILDING_KERNEL_CORE")
 
-		//SET_COMPILER("${CXX}")
+		//SET_COMPILER("$CXX")
 		/* This flag disabled alignment that
 		 * would unnecessarily bloat the kernel. */
 		L_FLAGS("-Wl,--nmagic")
@@ -55,9 +58,9 @@ BEGIN
 
 		L_FLAGS("-nostdlib")
 
-		SET_OUTPUT("/${KERNEL_BINARY}")
+		SET_OUTPUT("/$KERNEL_BINARY")
 
-		LINKER_SCRIPT("./${TARGET_ARCH}-kos/kernel.ld")
+		LINKER_SCRIPT("./$TARGET_ARCH-kos/kernel.ld")
 
 		LIB("gcc")
 		C_FLAGS("-static-libgcc")
@@ -65,25 +68,37 @@ BEGIN
 		C_FLAGS("-ffreestanding")
 		L_FLAGS("-ffreestanding")
 
-		SOURCE("../hybrid/i386-kos/*.c")
-		SOURCE("../hybrid/i386-kos/*32.S")
+		IF ($TARGET_CPU == i?86)
+			SOURCE("../hybrid/i386-kos/*.c")
+			SOURCE("../hybrid/i386-kos/*32.S")
+			SOURCE("i386-kos/*.c")
+			SOURCE("i386-kos/*32.S")
+			SOURCE("i386-kos/kernel.ld.S")
+			SOURCE("src/core/i386-kos/*.c")
+			SOURCE("src/core/i386-kos/*32.S")
+		ELIF ($TARGET_CPU == x86_64)
+			SOURCE("../hybrid/i386-kos/*.c")
+			SOURCE("../hybrid/i386-kos/*64.S")
+			SOURCE("i386-kos/*.c")
+			SOURCE("i386-kos/*64.S")
+			SOURCE("i386-kos/kernel.ld.S")
+			SOURCE("src/core/i386-kos/*.c")
+			SOURCE("src/core/i386-kos/*64.S")
+		FI
+
 		SOURCE("../hybrid/*.c")
-		SOURCE("i386-kos/*.c")
-		SOURCE("i386-kos/*32.S")
-		SOURCE("i386-kos/kernel.ld.S")
 		SOURCE("src/kernel/*.c")
 		SOURCE("src/unwind/*.c")
 		SOURCE("src/sched/*.c")
 		SOURCE("src/core/*.c")
 		SOURCE("src/net/*.c")
-		SOURCE("src/core/i386-kos/*.c")
-		SOURCE("src/core/i386-kos/*32.S")
 		SOURCE("src/vm/*.c")
 		SOURCE("src/vm/*.S")
 		SOURCE("src/dev/*.c")
 		SOURCE("src/fs/*.c")
 		SOURCE("src/fs/*.S")
 
+#ifndef CONFIG_PRINTCMD
 		POSTLINK_BEGIN
 			/* Rebuild the kernel symbol table. */
 			function Elf_SymbolHash(name) {
@@ -97,8 +112,8 @@ BEGIN
 				}
 				return h;
 			}
-			local p = process(expand_options("${READELF}"),[
-				"-s","-W",expand_options("${KERNEL_BINARY}")
+			local p = process(expand_options("$READELF"),[
+				"-s","-W",expand_options("$KERNEL_BINARY")
 			]);
 			local r,w = pipe.new()...;
 			p.stdout = w;
@@ -189,6 +204,7 @@ BEGIN
 				return true;
 			}
 		POSTLINK_END
+#endif /* !CONFIG_PRINTCMD */
 	END
 
 #include "modules/.sources"

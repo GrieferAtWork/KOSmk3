@@ -21,6 +21,8 @@
 
 #define COMMAND_MTOOLS(name,args...) \
 	COMMAND("${MTOOLS}","-c",name,"-i","${DISK}",args);
+#define OPTIONAL_COMMAND_MTOOLS(name,args...) \
+	OPTIONAL_COMMAND("${MTOOLS}","-c",name,"-i","${DISK}",args);
 #define COMMAND_DISK_MKDIR(path)    command_disk_mkdir(_proj,path)
 #define COMMAND_DISK_COPY(src,path) command_disk_copy(_proj,FILES(src),path);
 #define COMMAND_DISK_SYNC(src,path) command_disk_sync(_proj,FILES(src),path);
@@ -37,10 +39,7 @@ function command_disk_mkdir(_proj,path) {
 	if (tail) command_disk_mkdir(_proj,head);
 	if (path !in known_disk_paths) {
 		known_disk_paths[path] = none;
-		try {
-			COMMAND_MTOOLS("mmd","-D","s","::/"+path)
-		} catch (Error.ThreadCrash) {
-		}
+		OPTIONAL_COMMAND_MTOOLS("mmd","-D","s","::/"+path)
 	}
 }
 function command_disk_copy_one(_proj,source,path) {
@@ -49,6 +48,10 @@ function command_disk_copy_one(_proj,source,path) {
 	if (tail) command_disk_mkdir(_proj,head);
 	COMMAND_MTOOLS("mcopy","-D","o",source,"::/"+path)
 }
+#ifdef CONFIG_PRINTCMD
+#define command_disk_sync_one(_proj,source,path) \
+        command_disk_copy_one(_proj,source,path)
+#else
 local disk_mtime = <none>;
 function command_disk_sync_one(_proj,source,path) {
 	if (disk_mtime.get() is none)
@@ -56,6 +59,7 @@ function command_disk_sync_one(_proj,source,path) {
 	if (fast_getmtime(source) > disk_mtime.get())
 		command_disk_copy_one(_proj,source,path);
 }
+#endif
 function command_disk_copy(_proj,files,path) {
 	files = list(files);
 	if (!files) return;

@@ -48,7 +48,7 @@ local run_mode_usb = false;
 local kernel_args = [];
 
 local config_options = dict {
-	"CROSS_PREFIX"  : "./binutils/build-binutils-i686-kos/bin/i686-kos-",
+	"CROSS_PREFIX"  : "./binutils/build-binutils-$TARGET_CPU-kos/bin/$TARGET_CPU-kos-",
 	"ASM"           : "${CROSS_PREFIX}as",
 	"CC"            : "${CROSS_PREFIX}gcc",
 	"CXX"           : "${CROSS_PREFIX}g++",
@@ -64,10 +64,16 @@ local config_options = dict {
 	"OUTPUTPATH"    : "",
 	"MKDIR"         : "mkdir",
 	/* KOS-specific magic options */
-	"MTOOLS"        : "binutils\\build-mtools\\mtools.exe",
 	"DISK"          : "bin/disk-${TARGET_ARCH}-kos.img",
-	"QEMU"          : "D:\\qemu\\qemu-system-${TARGET_ARCH}.exe",
 	"KERNEL_BINARY" : "bin/kernel-${TARGET_CPU}-kos.bin",
+#ifdef CONFIG_PRINTCMD
+	"MTOOLS"        : "binutils/build-mtools/mtools",
+	"QEMU"          : "qemu-system-${TARGET_ARCH}",
+	"CP"            : "cp",
+#else
+	"MTOOLS"        : "binutils\\build-mtools\\mtools.exe",
+	"QEMU"          : "D:\\qemu\\qemu-system-${TARGET_ARCH}.exe",
+#endif
 };
 
 
@@ -197,16 +203,6 @@ function hashof(x) {
 config_options["BUILDPATH"] = "%s-%X" %
 	(config_options["BUILDPATH"],hashof(config_options));
 
-function has_option(cond) {
-	for (local i: invert_options) {
-		if (cond.startswith(i)) {
-			return cond[#i:].strip() !in config_options;
-		}
-	}
-	cond = cond.strip();
-	used_options[cond] = none;
-	return cond in config_options;
-}
 #else
 #define PRINTCMD print output_buffer2:
 local output_buffer = file.writer();
@@ -225,12 +221,18 @@ function inv_option(cond) {
 local _cond = []; /* Active conditions (in order of being added). */
 local _cond_active = [];
 local _cond_pushed = [];
+local _cond_pending = [];
 function __cond_end() {
 	local disable = _cond_pushed.pop();
 	if (!disable) return;
 	for (local x: disable)
 		_cond_active.remove(x);
-	PRINTCMD "fi";
+	_cond_pending.append(disable);
+}
+function __cond_flush() {
+	for (local x: _cond_pending)
+		PRINTCMD "fi";
+	_cond_pending.clear();
 }
 function __cond_begin(_cond...) {
 	if (!_cond) _cond = __nth(2) _cond;
@@ -242,6 +244,11 @@ function __cond_begin(_cond...) {
 		}
 	}
 	_cond_pushed.append(required_conditions);
+	if (_cond_pending && _cond_pending.back() == required_conditions) {
+		_cond_pending.pop_back();
+		return;
+	}
+	__cond_flush();
 	if (!required_conditions) return;
 	PRINTCMD "if ",;
 	local first = true;
@@ -250,19 +257,24 @@ function __cond_begin(_cond...) {
 		if (!first) {
 			PRINTCMD " && ",;
 		}
-		first = false;
-		local is_not = false;
-		for (local i: invert_options) {
-			if (x.startswith(i)) {
-				is_not = true;
-				x = x[#i:];
-				break;
-			}
-		}
-		if (is_not) {
-			PRINTCMD "nopt",x.strip(),;
+		x = x.strip();
+		if ("$" in x) {
+			PRINTCMD "[[",x.strip(),"]]",;
 		} else {
-			PRINTCMD "yopt",x.strip(),;
+			first = false;
+			local is_not = false;
+			for (local i: invert_options) {
+				if (x.startswith(i)) {
+					is_not = true;
+					x = x[#i:];
+					break;
+				}
+			}
+			if (is_not) {
+				PRINTCMD "nopt",x.strip(),;
+			} else {
+				PRINTCMD "yopt",x.strip(),;
+			}
 		}
 	}
 	PRINTCMD "; then";
@@ -287,8 +299,10 @@ print output_buffer: "function yopt { [[ -v $1 ]]; return $?; }";
 print output_buffer: "function nopt { if [[ -v $1 ]]; then return 1; else return 0; fi; }";
 print output_buffer: "function iyopt { if [[ -v $1 ]]; then shift; echo $*; fi; }";
 print output_buffer: "function inopt { if ! [[ -v $1 ]]; then shift; echo $*; fi; }";
+print output_buffer: "function iexpr { if [ $1 ]; then shift; echo $*; fi; }";
 print output_buffer: "function run { echo $*; $*; }";
 print output_buffer: "function req { $* || exit $?; }";
+#if 0 /* Wouldn't make sense for KOS */
 print output_buffer: "case \"$(uname -s)\" in";
 print output_buffer: "	CYGWIN*)";
 print output_buffer: "		TARGET_WINDOWS=1";
@@ -303,12 +317,15 @@ print output_buffer: "		;;";
 print output_buffer: "	*)";
 print output_buffer: "		;;";
 print output_buffer: "esac";
+#endif
 print output_buffer: "while [[ $# -gt 0 ]]; do";
 print output_buffer: "	case $1 in";
+#if 0 /* Wouldn't make sense for KOS */
 print output_buffer: "		--no-auto-target)";
 print output_buffer: "			unset TARGET_WINDOWS";
 print output_buffer: "			unset TARGET_386";
 print output_buffer: "			;;";
+#endif
 print output_buffer: "		-*)";
 print output_buffer: "			echo \"Unrecognized option: '$1'\"";
 print output_buffer: "			exit 1";
@@ -335,10 +352,49 @@ local exe_keys = list {
 	"ADDR2LINE",
 	"READELF",
 	"MKDIR",
+	"MTOOLS",
+	"QEMU",
+	"CP",
 };
-for (local name,exe: config_options) {
-	print output_buffer: "if ! [[ -v "+name+" ]]; then "+name+"=\""+
-		(name in exe_keys ? "run " : "")+exe+"\"; fi";
+local complete_options = dict();
+local missing_options = copy config_options;
+while (missing_options) {
+	local later_options = dict();
+	while (missing_options) {
+		local name,exe = missing_options.front()...;
+		del missing_options[name];
+		local is_unresolved = false;
+		if ("$" in exe) {
+			local exe_copy = exe;
+			while ("$" in exe_copy) {
+				local start = exe_copy.index("$");
+				local end = start;
+				if (exe_copy[start+1] == "{") {
+					end = exe_copy.index("}",start)+1;
+				} else {
+					do
+						end = end+1;
+					while (end < #exe_copy && exe_copy[end].isalnum());
+				}
+				local replace = exe_copy[start+1:end];
+				if (replace.startswith("{"))
+					replace = replace[1:#replace-1];
+				if (replace !in complete_options) {
+					is_unresolved = true;
+					break;
+				}
+				exe_copy = exe_copy[:start]+exe_copy[end:];
+			}
+			if (is_unresolved)
+				later_options[name] = exe;
+		}
+		if (!is_unresolved) {
+			print output_buffer: "if ! [[ -v "+name+" ]]; then "+name+"=\""+
+				(name in exe_keys ? "run " : "")+exe+"\"; fi";
+			complete_options[name] = none;
+		}
+	}
+	missing_options = later_options;
 }
 print output_buffer:;
 #define DEFOPTAS(opt,val) __cond_begin(); PRINTCMD #opt+"="+val; __cond_end();
@@ -354,19 +410,25 @@ function __wrap_flags(_cond,args...) {
 	if (_cond is none)
 		_cond = __nth(2) _cond;
 	for (local x: _cond) {
-		local option_check = "iyopt";
-		for (local i: invert_options) {
-			if (x.startswith(i)) {
-				option_check = "inopt";
-				x = x[#i:];
-				break;
+		if ("$" in x) {
+			result = result+"$([[ "+x.strip()+" ]] && echo ";
+		} else {
+			local option_check = "iyopt";
+			for (local i: invert_options) {
+				if (x.startswith(i)) {
+					option_check = "inopt";
+					x = x[#i:];
+					break;
+				}
 			}
+			result = result+"$("+option_check+" \""+x.strip()+"\" ";
 		}
-		result = result+"$("+option_check+" "+x.strip()+" ";
 	}
 	if (result || #args > 1) {
 		result = result+"\""+" ".join(args)+"\"";
 	} else {
+		if (#args == 1 && args[0] !is string)
+			return args[0];
 		result = result+" ".join(args);
 	}
 	return result+")"*#_cond;
@@ -483,8 +545,9 @@ function expand_options(text) {
 		if (text[start+1] == "{") {
 			end = text.index("}",start)+1;
 		} else {
-			while (end < #text && text[end].isalnum())
+			do
 				end = end+1;
+			while (end < #text && text[end].isalnum());
 		}
 		local replace = text[start+1:end];
 		if (replace.startswith("{"))
@@ -493,6 +556,95 @@ function expand_options(text) {
 		text = text[:start]+replace+text[end:];
 	}
 	return text;
+}
+
+function eval_istrue(cond) {
+	if (cond is string)
+		return cond.lower() in ["1","yes","true","on"];
+	return !!cond;
+}
+function eval_expr_land;
+function eval_expr_unary(cond) {
+	cond = cond.strip();
+	if (cond.startswith("(")) {
+		local end = 1;
+		local recursion = 1;
+		while (end < #cond) {
+			local ch = cond[end];
+			if (ch == "(") recursion = recursion + 1;
+			else if (ch == ")") {
+				recursion = recursion - 1;
+				if (!recursion)
+					break;
+			}
+			end = end + 1;
+		}
+		if (end != #cond-1)
+			throw "Invalid position of closing parenthesis (in "+repr(cond)+")";
+		return eval_expr_land(cond[1:end]);
+	}
+	return cond;
+}
+function eval_expr_compare(cond) {
+	cond = cond.strip();
+	if (cond.startswith("("))
+		return eval_expr_unary(cond);
+	if ("=" !in cond)
+		return eval_expr_unary(cond);
+	local a,op,b = cond.partition("=")...;
+	if (a.endswith("!")) {
+		op = "!"+op;
+		a = a[:#a-1];
+	}
+	if (b.startswith("=")) {
+		op = op+"=";
+		b = b[1:];
+	}
+	a = expand_options(a.strip()).strip();
+	b = expand_options(b.strip()).strip();
+	if (a is string && b is string) {
+		if (op == "!=")
+			return !a.wmatch(b) && !b.wmatch(a);
+		return a.wmatch(b) || b.wmatch(a);
+	} else {
+		a = eval_istrue(a);
+		b = eval_istrue(b);
+		if (op == "!=")
+			return a != b;
+		return a == b;
+	}
+}
+
+function eval_expr_lor(cond) {
+	if ("||" !in cond)
+		return eval_expr_compare(cond);
+	if (cond.startswith("("))
+		return eval_expr_unary(cond);
+	local a,none,b = cond.partition("||")...;
+	return eval_expr_compare(a) || eval_expr_compare(b);
+}
+
+function eval_expr_land(cond) {
+	if ("&&" !in cond)
+		return eval_expr_lor(cond);
+	if (cond.startswith("("))
+		return eval_expr_unary(cond);
+	local a,none,b = cond.partition("&&")...;
+	return eval_expr_lor(a) || eval_expr_lor(b);
+}
+
+function has_option(cond) {
+	cond = cond.strip();
+	if ("$" in cond)
+		return eval_istrue(eval_expr_land(expand_options(cond)));
+	for (local i: invert_options) {
+		if (cond.startswith(i)) {
+			return cond[#i:].strip() !in config_options;
+		}
+	}
+	cond = cond.strip();
+	used_options[cond] = none;
+	return cond in config_options;
 }
 #define expand_all_options(args) expand_all_options_impl(args)...
 function expand_all_options_impl(args...) {
@@ -699,6 +851,8 @@ function start_process(proj,proc,sync,after_done) {
 
 function run_cmd(proj,exe,args,after_done,sync...) {
 #ifdef CONFIG_PRINTCMD
+	assert exe is string;
+	assert exe != "__anonymous__";
 	PRINTCMD "req",exe,args...;
 	after_done(proj);
 #else
@@ -714,14 +868,35 @@ function run_cmd(proj,exe,args,after_done,sync...) {
 #define POSTLINK_END         });
 #ifndef CONFIG_PRINTCMD
 #define COMMAND(exe,args...) run_user_cmd(_proj,exe,[args]);
+#define OPTIONAL_COMMAND(exe,args...) run_optional_user_cmd(_proj,exe,[args]);
 function run_user_cmd(proj,exe,args) {
 	SYNC_PRINT("["+proj.m_name+"] Command:",exe,args...);
 	exe = expand_options(exe);
 	args = list(for (local x: args) expand_options(x));
 	run_cmd(proj,exe,args,none,true);
 }
+function run_optional_user_cmd(proj,exe,args) {
+	SYNC_PRINT("["+proj.m_name+"] Command:",exe,args...);
+	exe = expand_options(exe);
+	args = list(for (local x: args) expand_options(x));
+	try {
+		run_cmd(proj,exe,args,none,true);
+	} catch (Error.ThreadCrash) {
+	}
+}
 #else
-#define COMMAND(exe,args...) run_cmd(_proj,exe,[args],none,true);
+#define COMMAND(exe,args...) run_user_cmd(_proj,exe,[args]);
+#define OPTIONAL_COMMAND(exe,args...) run_optional_user_cmd(_proj,exe,[args]);
+function run_user_cmd(_proj,exe,args) {
+	__cond_flush();
+	run_cmd(_proj,exe,args,none,true);
+}
+function run_optional_user_cmd(_proj,exe,args) {
+	__cond_flush();
+	assert exe is string;
+	assert exe != "__anonymous__";
+	PRINTCMD exe,args...;
+}
 #endif
 
 #define PROGRAM   [](_proj,argv)
@@ -915,9 +1090,10 @@ class Source
 		} else {
 			compiler(this.m_proj,cc_flags);
 		}
-		set_file_changed(output);
 #ifdef CONFIG_PRINTCMD
 		__cond_end();
+#else
+		set_file_changed(output);
 #endif
 		return true;
 	}
@@ -963,8 +1139,8 @@ class Project
 	}
 
 #define OBJECT(filename) \
-	_proj.add_objects(FILES(filename));
-	add_objects(files) {
+	_proj.add_objects(expand_all_options(__wrap_flags(none,FILES(filename)...)));
+	add_objects(files...) {
 		this.m_objects.extend(files);
 	}
 #define SOURCE(filename) \
@@ -1005,6 +1181,9 @@ class Project
 
 	compile() {
 		local did_change = false;
+#ifdef CONFIG_PRINTCMD
+		__cond_flush();
+#endif
 		if (this.m_compiled)
 			return this.m_changed;
 		if (this.m_compiling) {
@@ -1086,14 +1265,16 @@ class Project
 				link_args.extend(back_args);
 #ifndef CONFIG_PRINTCMD
 				SYNC_PRINT("["+this.m_name+"] Linking",repr output);
-#endif
 				set_file_changed(output);
+#endif
 				if (linker is string) {
 					run_cmd(this,linker,link_args,[](proj) {
 						for (local f: proj.m_postlink) {
 							if (f(proj)) {
 								proj.m_compiled = false;
+#ifndef CONFIG_PRINTCMD
 								unset_file_changed(output);
+#endif
 							}
 						}
 					});
@@ -1102,7 +1283,9 @@ class Project
 					for (local f: this.m_postlink) {
 						if (f(this)) {
 							this.m_compiled = false;
-							unset_file_changed(output);
+#ifndef CONFIG_PRINTCMD
+								unset_file_changed(output);
+#endif
 						}
 					}
 				}
@@ -1180,8 +1363,10 @@ print;
 print "# Recognized options:";
 local print_options = [];
 print_options.extend(list(default_options).sorted());
-for (local x: known_options)
-	print_options.append(pack(x,""));
+for (local x: known_options) {
+	if ("$" !in x)
+		print_options.append(pack(x,""));
+}
 local longest_option = 0;
 for (local key,item: print_options) {
 	if (longest_option < #key)
@@ -1210,8 +1395,6 @@ for (local key,item: config_options) {
 		print file.io.stderr: "WARNING: Configuration option",repr key,"was never used";
 	}
 }
-#endif
-
 
 if (config_start_qemu &&
 	!config_generate_assembly &&
@@ -1220,6 +1403,7 @@ if (config_start_qemu &&
 }
 
 print "DONE";
+#endif
 
 #if __DEEMON__ < 200
 sys.exit(0);
