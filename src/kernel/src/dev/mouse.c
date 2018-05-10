@@ -120,7 +120,7 @@ mouse_parse_action(byte_t act[MOUSE_ACTION_BACKLOG_SIZE],
   switch (opcode) {
 
   case MOUSE_ACTION_FMOVY:
-   state->ms_rely += act[rptr++ % MOUSE_ACTION_BACKLOG_SIZE];
+   state->ms_rely += (s8)act[rptr++ % MOUSE_ACTION_BACKLOG_SIZE];
    break;
 
   {
@@ -337,7 +337,6 @@ done_endread:
  /* Update the current packet time. */
  self->m_lastread += data.ms_time;
  packet->mp_time   = self->m_lastread;
- atomic_rwlock_endwrite(&self->m_readlock);
  /* Translate mouse overflow data into a mouse packet. */
  packet->mp_relx = data.ms_relx;
  packet->mp_rely = data.ms_rely;
@@ -350,6 +349,10 @@ done_endread:
   if (data.ms_down[i] || data.ms_up[i])
       packet->mp_chng |= 1 << i;
  }
+ self->m_buttons &= ~packet->mp_chng;
+ self->m_buttons |=  packet->mp_keys;
+ packet->mp_keys  =  self->m_buttons;
+ atomic_rwlock_endwrite(&self->m_readlock);
  return true;
 }
 

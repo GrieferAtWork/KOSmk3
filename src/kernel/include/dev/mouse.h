@@ -57,10 +57,10 @@ struct mouse_ops {
 #define MOUSE_ACTION_FPCKT4  0x30 /* [1] 0,0,1,1,T,T,T,T  (T -- Time since previous packet in jiffies) */
 #define MOUSE_ACTION_FPCKT4_GET(a)    ((a) & 0xf)
 #define MOUSE_ACTION_FMOVZ   0x40 /* [1] 0,1,w,W,W,W,W,W  (W -- Wheel delta; w -- sign bit) */
-#define MOUSE_ACTION_FMOVZ_GET(a)     ((s8)(((a) & 0x20) << 2) | ((a) & 0x1f))
+#define MOUSE_ACTION_FMOVZ_GET(a)     ((s8)(((a) & 0x20) << 2) | (((a) & 0x20) << 1) | ((a) & 0x3f))
 #define MOUSE_ACTION_FMOVXY  0x80 /* [2] 1,y,Y,Y,Y,Y,Y,Y   x,X,X,X,X,X,X,X */
 #define MOUSE_ACTION_FMOVXY_GETX(a,b) ((int)(s8)(b))
-#define MOUSE_ACTION_FMOVXY_GETY(a,b) (((s8)(((a) & 0x40) << 1)) | ((a) & 0x3f))
+#define MOUSE_ACTION_FMOVXY_GETY(a,b) (((s8)(((a) & 0x40) << 1)) | ((a) & 0x7f))
 
 #define MOUSE_BUTTON_COUNT  5
 struct mouse_overflow {
@@ -113,6 +113,7 @@ struct mouse {
 #define MOUSE_FHASLATEBUTTON   0x0004       /* [lock(m_readlock)] Late button operations from
                                              * `m_down_late' and `m_up_late' must be processed. */
     u16                        m_flags;     /* Mouse flags. */
+    u16                        m_buttons;   /* Last read mouse button state. */
     union mouse_action_state   m_act_state; /* Mouse action state. */
     byte_t                     m_act[MOUSE_ACTION_BACKLOG_SIZE]; /* Mouse action data backlog. */
     struct async_sig           m_avail;     /* Signal broadcast when new data arrives. */

@@ -82,10 +82,8 @@ Mouse_Interrupt(Mouse *__restrict self, byte_t byte) {
  COMPILER_WRITE_BARRIER();
 
  /* Extract and encode relative mouse motion. */
- relx = self->pm_pck.xm;
- rely = self->pm_pck.ym;
- if (self->pm_pck.flags & PS2_MOUSE_PACKET_FXS) relx = -relx;
- if (self->pm_pck.flags & PS2_MOUSE_PACKET_FYS) rely = -rely;
+ relx = (s16)self->pm_pck.xm - ((self->pm_pck.flags << 4) & 0x100);
+ rely = (s16)self->pm_pck.ym - ((self->pm_pck.flags << 3) & 0x100);
  ptr = mouse_encode_movxy(ptr,relx,rely);
 
  /* If nothing actually happened (which shouldn't
