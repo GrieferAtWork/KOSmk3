@@ -352,8 +352,9 @@ struct PACKED wm_surface_view
  * >> // Same as setting pixel `10,20' of `my_surface'
  * >> wm_surface_setpixel(&my_view,0,0,
  * >>                      my_view.s_format->f_color[WM_COLOR_BLACK]);
+ * @return: * : [== view] Always re-return `view'
  */
-WMAPI ATTR_NOTHROW void WMCALL
+WMAPI ATTR_NOTHROW ATTR_RETNONNULL struct wm_surface_view *WMCALL
 wm_surface_makeview(struct wm_surface_view *__restrict view,
                     __WM_SURFACE_CONST_POINTER_R surface,
                     int posx, int posy, unsigned int sizex,

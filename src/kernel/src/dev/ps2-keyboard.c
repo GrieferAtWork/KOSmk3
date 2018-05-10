@@ -85,7 +85,9 @@ struct ps2_keyboard {
 
 PRIVATE ASYNCSAFE void KCALL
 Keyboard_Putc(Keyboard *__restrict self, keyboard_key_t key) {
+#if 0
  debug_printf("KEY: %x\n",key);
+#endif
  if ((key & ~(KEY_PRESSED|KEY_RELEASED)) == KEY_UNKNOWN) {
   debug_printf("[PS/2] Unknown PS/2 keyboard key\n");
   return;

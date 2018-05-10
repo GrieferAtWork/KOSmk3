@@ -24,7 +24,7 @@
 #ifndef HZ
 #if defined(__KERNEL__) && defined(CONFIG_HZ)
 #   define HZ            CONFIG_HZ
-#elif 1
+#elif 0
 #   define HZ            20
 #else
 #   define HZ            100

@@ -154,6 +154,11 @@ no_anc:
    buf.hdr.cmsg_level = SOL_SOCKET;
    buf.hdr.cmsg_type  = SCM_RIGHTS;
    /* Setup handle flags. */
+   assertf(fd_buffer[i].h_type != HANDLE_TYPE_FNONE &&
+           fd_buffer[i].h_type <  HANDLE_TYPE_FCOUNT,
+           "fd_buffer[%u/%u] = { %p, %p }",i,num_handles,
+           fd_buffer[i].h_mode,
+           fd_buffer[i].h_ptr);
    fd_buffer[i].h_flag &= ~IO_SETFD_MASK;
    if (packet_mode & PACKET_IO_FRCLOEXEC)
        fd_buffer[i].h_flag |= IO_HANDLE_FCLOEXEC;

@@ -45,6 +45,9 @@ DECL_BEGIN
 #define GETW(addr) (*(u16 *)(self->pb_base + ((addr) & self->pb_mask)))
 #define GETL(addr) (*(u32 *)(self->pb_base + ((addr) & self->pb_mask)))
 
+#define ALIGNED_HEADER_SIZE  \
+   CEIL_ALIGN(sizeof(struct packet_header),PACKET_BUFFER_ALIGNMENT)
+
 /* Finalize a given packet buffer. */
 PUBLIC ATTR_NOTHROW void KCALL
 packetbuffer_fini(struct packetbuffer *__restrict self) {
@@ -66,7 +69,7 @@ packetbuffer_fini(struct packetbuffer *__restrict self) {
     /* Figure out where ancillary data starts. */
     data.pd_addr = CEIL_ALIGN(state.pbs_addr +
                               header.p_payload +
-                              sizeof(struct packet_header),
+                              ALIGNED_HEADER_SIZE,
                               PACKET_BUFFER_ALIGNMENT);
     data.pd_addr &= data.pd_mask;
     /* Invoke the cleanup callback. */
@@ -137,7 +140,7 @@ again_locked:
     goto wait_for_data; /* XXX: Skip across finally is intentional! */
    }
    assert(IS_ALIGNED(state.pbs_addr,PACKET_BUFFER_ALIGNMENT));
-   assert(state.pbs_count >= sizeof(struct packet_header));
+   assert(state.pbs_count >= ALIGNED_HEADER_SIZE);
    ((u32 *)&header)[0] = GETL(state.pbs_addr+0);
    ((u32 *)&header)[1] = GETL(state.pbs_addr+4);
    assert(state.pbs_count >= header.p_total);
@@ -155,7 +158,19 @@ again_locked:
 
    /* Copy the packet's actual payload. */
    {
-    size_t written_size = 0;
+#if 1
+    size_t high_size;
+    u16 payload_addr = (state.pbs_addr + sizeof(header)) & buffer_mask;
+    size_t written_size = MIN(header.p_payload,num_bytes);
+    high_size = (buffer_mask+1) - payload_addr;
+    if (high_size >= written_size) {
+     iov_write(iov,0,self->pb_base + payload_addr,written_size,mode);
+    } else {
+     iov_write(iov,0,self->pb_base + payload_addr,high_size,mode);
+     iov_write(iov,high_size,self->pb_base,
+               written_size-high_size,mode);
+    }
+#else
     size_t unwritten_size = header.p_payload;
     size_t iov_index;
     u16 payload_addr = (state.pbs_addr + sizeof(header)) & buffer_mask;
@@ -164,12 +179,13 @@ again_locked:
      size_t copy_size;
      io = iov[iov_index];
      COMPILER_READ_BARRIER();
-     if (!io.iov_len) continue;
+     if unlikely(!io.iov_len) continue;
      if (!(mode & IO_NOIOVCHECK))
            validate_writable(io.iov_base,io.iov_len);
      payload_addr &= buffer_mask;
      copy_size = (buffer_mask+1) - payload_addr;
      copy_size = MIN(copy_size,unwritten_size);
+     assert(copy_size != 0);
      if (copy_size >= io.iov_len) {
       /* Copy high memory only. */
       memcpy(io.iov_base,self->pb_base + payload_addr,io.iov_len);
@@ -184,14 +200,17 @@ again_locked:
       payload_addr   += copy_size;
       unwritten_size -= copy_size;
       io.iov_len     -= copy_size;
+      assert(payload_addr == buffer_mask+1);
       /* Must also read from low memory. */
       copy_size = MIN(unwritten_size,io.iov_len);
+      assert(copy_size <= buffer_mask+1);
       memcpy(io.iov_base,self->pb_base,copy_size);
       written_size   += copy_size;
       payload_addr   += copy_size;
       unwritten_size -= copy_size;
      }
     }
+#endif
     result = true;
     /* Figure out if we should actually indicate success. */
     if (packet_mode & PACKET_IO_FRDNEVER)
@@ -211,7 +230,6 @@ again_locked:
        /* Adjust the buffer state to point to the new header location. */
        new_state.pbs_addr  += written_size;
        new_state.pbs_count -= written_size;
-       assert(new_state.pbs_count == unwritten_size);
        /* Write the updated packet header. */
        GETL(state.pbs_addr + 0) = ((u32 *)&header)[0];
        GETL(state.pbs_addr + 4) = ((u32 *)&header)[1];
@@ -245,15 +263,16 @@ again_locked:
     adata.pd_base = self->pb_base;
     adata.pd_addr = CEIL_ALIGN(state.pbs_addr +
                                header.p_payload +
-                               sizeof(struct packet_header),
+                               ALIGNED_HEADER_SIZE,
                                PACKET_BUFFER_ALIGNMENT);
     adata.pd_mask = buffer_mask;
     adata.pd_size = header.p_ancillary;
+    adata.pd_addr &= buffer_mask;
     if (anc_buffer) {
      size_t high_size;
-     size_t bufavail = *pancsize;
+     size_t ancavail = *pancsize;
      *pancsize = adata.pd_size;
-     if (adata.pd_size > bufavail) {
+     if (adata.pd_size > ancavail) {
       result = false;
       goto read_finished; /* Ancillary buffer is too small (always fail in reading the packet). */
      }
@@ -448,6 +467,8 @@ again:
    atomic_rwlock_write(&self->pb_lock);
    if (new_mask > self->pb_mask) {
     size_t wrap_count;
+    debug_printf("Increase packet buffer mask %p -> %p\n",
+                  self->pb_mask,new_mask);
     if (self->pb_state.pbs_count) {
      /* Copy data from the old buffer. */
      memcpy(new_buffer,self->pb_base,self->pb_mask+1);
@@ -517,7 +538,7 @@ again:
 packet_too_large:
  if (packet_mode & PACKET_IO_FWRSPLIT) {
   size_t limit = ATOMIC_READ(self->pb_limt) & PBUFFER_LIMT_FMASK;
-  size_t max_payload = limit - sizeof(struct packet_header);
+  size_t max_payload = limit - ALIGNED_HEADER_SIZE;
   /* We're allowed to split the packet. */
   if (!ancsize) {
    size_t part_size;
@@ -537,8 +558,8 @@ packet_too_large:
    }
    assert(written_size == num_bytes);
    return written_size;
-  } else if ((ancsize+sizeof(struct packet_header)+PACKET_BUFFER_ALIGNMENT) > ancsize &&
-             (ancsize+sizeof(struct packet_header)+PACKET_BUFFER_ALIGNMENT) <= limit) {
+  } else if ((ancsize+ALIGNED_HEADER_SIZE+PACKET_BUFFER_ALIGNMENT) > ancsize &&
+             (ancsize+ALIGNED_HEADER_SIZE+PACKET_BUFFER_ALIGNMENT) <= limit) {
    size_t part_size;
    size_t written_size = 0;
    /* Without being allowed to block, we can't possible write a packet larger

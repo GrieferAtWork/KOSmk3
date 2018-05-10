@@ -338,7 +338,22 @@ libwm_window_create(int pos_x, int pos_y, unsigned int size_x, unsigned int size
 
     /* TODO: This currently assumes the format that is implemented by the server. */
     result->s_format = libwm_format_create_pal(&libwm_palette_256);
-    assert(result->s_format->f_bpp == resp.r_mkwin.w_bpp);
+    assertf(result->s_format->f_bpp == resp.r_mkwin.w_bpp,
+            "result->s_format->f_bpp = %u\n"
+            "resp.r_mkwin.w_bpp      = %u\n"
+            "resp.r_mkwin.w_posx     = %u\n"
+            "resp.r_mkwin.w_posy     = %u\n"
+            "resp.r_mkwin.w_sizex    = %u\n"
+            "resp.r_mkwin.w_sizey    = %u\n"
+            "resp.r_mkwin.w_stride   = %u\n"
+            ,result->s_format->f_bpp
+            ,resp.r_mkwin.w_bpp
+            ,resp.r_mkwin.w_posx
+            ,resp.r_mkwin.w_posy
+            ,resp.r_mkwin.w_sizex
+            ,resp.r_mkwin.w_sizey
+            ,resp.r_mkwin.w_stride
+            );
 
     libwm_setup_surface_ops((struct wm_surface *)result);
     TRY {
@@ -450,6 +465,44 @@ INTERN void WMCALL
 libwm_window_settitle(struct wm_window *__restrict self,
                       char const *__restrict new_title) {
  /* TODO */
+}
+
+
+DEFINE_PUBLIC_ALIAS(wm_window_viewall,libwm_window_viewall);
+INTERN ATTR_NOTHROW struct wm_surface_view *WMCALL
+libwm_window_viewall(struct wm_surface_view *__restrict view,
+                     struct wm_window const *__restrict self) {
+ view->s_ops    = self->s_ops;
+ view->s_format = self->s_format;
+ view->s_flags  = WM_SURFACE_FNORMAL;
+ atomic_rwlock_init(&view->s_lock);
+ view->s_sizex  = self->w_sizex;
+ view->s_sizey  = self->w_sizey;
+ view->s_stride = self->s_stride;
+ view->s_buffer = self->w_buffer;
+ view->s_offx   = 0;
+ view->s_offy   = 0;
+ return view;
+}
+
+INTDEF struct wm_surface_ops empty_surface_ops;
+DEFINE_PUBLIC_ALIAS(wm_window_viewtitle,libwm_window_viewtitle);
+INTERN ATTR_NOTHROW struct wm_surface_view *WMCALL
+libwm_window_viewtitle(struct wm_surface_view *__restrict view,
+                       struct wm_window const *__restrict self) {
+ view->s_ops    = self->s_ops;
+ view->s_format = self->s_format;
+ view->s_flags  = WM_SURFACE_FNORMAL;
+ atomic_rwlock_init(&view->s_lock);
+ view->s_sizex  = self->w_sizex;
+ view->s_sizey  = self->w_titlesz;
+ view->s_stride = self->s_stride;
+ view->s_buffer = self->w_buffer;
+ view->s_offx   = 0;
+ view->s_offy   = 0;
+ if (!view->s_sizey)
+      view->s_ops = &empty_surface_ops;
+ return view;
 }
 
 

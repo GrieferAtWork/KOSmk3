@@ -36,40 +36,43 @@ DECL_BEGIN
 int main(int argc, char *argv[]) {
  struct wm_window *win;
  wm_init();
+ unsigned int num;
+ for (num = 0; num < 3; ++num) {
 
- win = wm_window_create(WM_WINDOW_AUTOPOS,
-                        WM_WINDOW_AUTOPOS,
-                        200,
-                        160,
-                        "My Window",
-                        WM_WINDOW_FEAT_FNORMAL,
-                        WM_WINDOW_STATE_FNORMAL,
-                        WM_WINDOW_MODE_FNORMAL,
-                        NULL,
-                        NULL);
- syslog(LOG_DEBUG,"Created window %p,%p\n",win,win->s_ops);
- for (unsigned int i = 0; i < 1000; ++i) {
-  wm_surface_fill(win,
-                 (unsigned int)rand() % win->s_sizex,
-                 (unsigned int)rand() % win->s_sizey,
-                  8,
-                  8,
-                  win->s_format->f_color[WM_COLOR_GREEN]);
+  win = wm_window_create(WM_WINDOW_AUTOPOS,
+                         WM_WINDOW_AUTOPOS,
+                         200,
+                         160,
+                         "My Window",
+                         WM_WINDOW_FEAT_FNORMAL,
+                         WM_WINDOW_STATE_FNORMAL,
+                         WM_WINDOW_MODE_FNORMAL,
+                         NULL,
+                         NULL);
+  syslog(LOG_DEBUG,"Created window %p,%p\n",win,win->s_ops);
+  for (unsigned int i = 0; i < 1000; ++i) {
+   wm_surface_fill(win,
+                  (unsigned int)rand() % win->s_sizex,
+                  (unsigned int)rand() % win->s_sizey,
+                   8,
+                   8,
+                   win->s_format->f_color[rand() & 15]);
+  }
+  {
+   char const *text;
+   text = "This is my test string.\n"
+          "And this is the second line!";
+   wm_font_draw(wm_font_system(WM_FONT_SYSTEM_DEFAULT),
+                text,
+                strlen(text),
+                win,
+                0,
+                0,
+                NULL,
+                WM_FONT_DRAW_FNORMAL);
+  }
+  wm_window_draw(win,WM_WINDOW_DRAW_FNORMAL);
  }
- {
-  char const *text;
-  text = "This is my test string.\n"
-         "And this is the second line!";
-  wm_font_draw(wm_font_system(WM_FONT_SYSTEM_DEFAULT),
-               text,
-               strlen(text),
-               win,
-               0,
-               0,
-               NULL,
-               WM_FONT_DRAW_FNORMAL);
- }
- wm_window_draw(win,WM_WINDOW_DRAW_FNORMAL);
 
  pause();
  wm_window_decref(win);

@@ -251,6 +251,7 @@ Window_RemoveAndInheritVisibility(Window *__restrict self,
  Display *d = self->w_display;
  assert(window_rect.r_xsiz && window_rect.r_ysiz);
  parts.r_strips = NULL;
+ rects_assert(&self->w_visi);
  /* Extract the intersection of all visible rectangles and `window_rect' */
  RECTS_FOREACH(r,self->w_visi) {
   struct rect common;
@@ -313,6 +314,7 @@ Window_CreateUnlocked(Display *__restrict disp,
   result->w_state   = state & ~WM_WINDOW_STATE_FFOCUSED;
   result->w_sizey   = sizey;
   result->w_sizex   = sizex;
+  result->w_weakcnt = 1;
   result->w_stride  = CEIL_ALIGN(CEILDIV(sizex*disp->d_bpp,8),16);
   result->w_display = disp;
   result->w_visi.r_strips = NULL;
@@ -455,12 +457,14 @@ Window_MoveUnlocked(Window *__restrict self,
  struct rect r,old_display_area;
  struct rects reclaim_area;
  if (!rel_movx && !rel_movy) return;
+ rects_assert(&self->w_visi);
  old_display_area = self->w_disparea;
  if (self->w_state & WM_WINDOW_STATE_FHIDDEN) {
   self->w_posx = new_posx;
   self->w_posy = new_posy;
   return;
  }
+ rects_assert(&self->w_visi);
  
  /* Adjust the set of visible window
   * rects to apply to the new location. */
@@ -474,11 +478,13 @@ Window_MoveUnlocked(Window *__restrict self,
   }
   r.r_ymin = 0;
   r.r_ysiz = self->w_sizey;
+  rects_assert(&self->w_visi);
   /* Release visibility following a horizontal move */
   Window_RemoveAndInheritVisibility(self,r);
   self->w_posx = new_posx;
-  Window_UpdateDisplayArea(self);
+  rects_assert(&self->w_visi);
   rects_move(&self->w_visi,-rel_movx,0);
+  rects_assert(&self->w_visi);
  }
  if (rel_movy != 0) {
   if (rel_movy < 0) {
@@ -490,12 +496,16 @@ Window_MoveUnlocked(Window *__restrict self,
   }
   r.r_xmin = 0;
   r.r_xsiz = self->w_sizex;
+  rects_assert(&self->w_visi);
   /* Release visibility following a vertical move */
   Window_RemoveAndInheritVisibility(self,r);
   self->w_posy = new_posy;
-  Window_UpdateDisplayArea(self);
+  rects_assert(&self->w_visi);
   rects_move(&self->w_visi,0,-rel_movy);
+  rects_assert(&self->w_visi);
  }
+ Window_UpdateDisplayArea(self);
+ rects_assert(&self->w_visi);
  /* Claim visibility for everything apart of the new
   * display area, that isn't part of the old display
   * area. */
@@ -505,11 +515,13 @@ Window_MoveUnlocked(Window *__restrict self,
  RECTS_FOREACH(r,reclaim_area) {
   Window_ClaimVisibility(self,r,false);
  }
+ rects_assert(&self->w_visi);
  rects_fini(&reclaim_area);
  /* With the window moved, re-draw it. */
  RECTS_FOREACH(r,self->w_visi) {
   Window_RenderRect(self,r);
  }
+ rects_assert(&self->w_visi);
 
 
 }
@@ -584,9 +596,11 @@ Window_BringToFront(Window *__restrict self) {
        self->w_disparea.r_ysiz != 0) {
   Window *iter; struct rect r;
   struct rect_strip *new_strip;
+  rects_assert(&self->w_visi);
   /* Claim visibility from all overlap with windows covering this one. */
   iter = d->d_zorder;
   for (; iter != self; iter = iter->w_zlink.le_next) {
+   rects_assert(&iter->w_visi);
    r = rect_intersect(self->w_disparea,
                       iter->w_disparea);
    if (!r.r_xsiz || !r.r_ysiz) continue;
@@ -594,18 +608,36 @@ Window_BringToFront(Window *__restrict self) {
    r.r_ymin -= iter->w_posy;
    /* Remove this visibility from the other window. */
    rects_remove(&iter->w_visi,r);
+   r.r_xmin += iter->w_posx;
+   r.r_ymin += iter->w_posy;
+   /* Draw the portion of the window that will become visible. */
+   r.r_xmin -= self->w_posx;
+   r.r_ymin -= self->w_posy;
+   Window_RenderRect(self,r);
   }
+  rects_assert(&self->w_visi);
   /* Set the entirety of the display area as active visibility. */
-  new_strip = RECT_STRIP_ALLOC(1);
-  new_strip->rs_blkc            = 1;
-  new_strip->rs_xmin            = 0;
-  new_strip->rs_xsiz            = self->w_disparea.r_xsiz;
-  new_strip->rs_blkv[0].rb_ymin = 0;
-  new_strip->rs_blkv[0].rb_ysiz = self->w_disparea.r_ysiz;
+  if (self->w_disparea.r_xsiz != 0 &&
+      self->w_disparea.r_ysiz != 0) {
+   new_strip = RECT_STRIP_ALLOC(1);
+   new_strip->rs_chain.le_next   = NULL;
+   new_strip->rs_blkc            = 1;
+   new_strip->rs_xmin            = self->w_disparea.r_xmin - self->w_posx;
+   new_strip->rs_xsiz            = self->w_disparea.r_xsiz;
+   new_strip->rs_blkv[0].rb_ymin = self->w_disparea.r_ymin - self->w_posy;
+   new_strip->rs_blkv[0].rb_ysiz = self->w_disparea.r_ysiz;
+   assert((int)new_strip->rs_xmin >= 0);
+   assert((int)new_strip->rs_xsiz > 0);
+   assert((int)new_strip->rs_blkv[0].rb_ymin >= 0);
+   assert((int)new_strip->rs_blkv[0].rb_ysiz > 0);
+  } else {
+   new_strip = NULL;
+  }
 
   /* Use the new visibility. */
   rects_fini(&self->w_visi);
   self->w_visi.r_strips = new_strip;
+  rects_assert(&self->w_visi);
  }
  /* Re-insert the given window at the front of the Z-stack. */
  LIST_REMOVE(self,w_zlink);

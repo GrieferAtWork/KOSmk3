@@ -159,25 +159,6 @@ struct PACKED wms_response {
 };
 
 
-
-
-/* Send a request to the WM server.
- * @param: req: The request to send to the server.
- *              WARNING: The function may (will) modify this buffer.
- * @return: * : A token (`r_echo' field) that can be used to receive a
- *              response from the server when the `WMS_COMMAND_FNOACK'
- *              flag wasn't set in the given `req'. */
-WMAPI unsigned int WMCALL wms_sendrequest(struct wms_request *__restrict req);
-
-/* Receive a response for `token' from the WMS server.
- * Event response packets are also handled immediately by this function.
- * Upon success, the server response is written to `resp'.
- * @throw: * :                 The server response was a `WMS_RESPONSE_FAILED'
- * @throw: E_NOT_IMPLEMENTED:  The server response was a `WMS_RESPONSE_BADCMD'
- * @throw: E_INVALID_ARGUMENT: The server didn't respond in time (by default: 2 seconds) */
-WMAPI void WMCALL wms_recvresponse(unsigned int token, struct wms_response *__restrict resp);
-
-
 __SYSDECL_END
 
 #endif /* !_WM_SERVER_H */

@@ -396,7 +396,7 @@ libwm_surface_destroy(struct wm_surface *__restrict self) {
 
 
 DEFINE_PUBLIC_ALIAS(wm_surface_makeview,libwm_surface_makeview);
-INTERN ATTR_NOTHROW void WMCALL
+INTERN ATTR_NOTHROW ATTR_RETNONNULL struct wm_surface_view *WMCALL
 libwm_surface_makeview(struct wm_surface_view *__restrict view,
                        struct wm_surface const *__restrict surface,
                        int posx, int posy, unsigned int sizex,
@@ -442,6 +442,8 @@ libwm_surface_makeview(struct wm_surface_view *__restrict view,
  }
  /* Setup view operators. */
  libwm_setup_surface_view_ops(view);
+
+ return view;
 }
 
 

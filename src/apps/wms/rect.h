@@ -79,6 +79,13 @@ INTDEF void WMCALL
 rects_duplicate_and_move(struct rects *__restrict dst,
                          struct rects const *__restrict src,
                          int x_offset, int y_offset);
+#if defined(NDEBUG) || 0
+#define rects_assert(self)  (void)0
+#else
+INTDEF void WMCALL
+rects_assert(struct rects *__restrict self);
+#endif
+
 /* Apply an offset to all rects stored in `self' */
 INTDEF void WMCALL
 rects_move(struct rects *__restrict self,

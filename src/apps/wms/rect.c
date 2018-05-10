@@ -62,17 +62,24 @@ empty:
 
 #if 1
 
-#if 0
-#define rects_assert(self) (void)0
-#else
-PRIVATE void WMCALL
+#if defined(NDEBUG) || 1
+#define heap_validate_all() (void)0
+#endif
+
+#ifndef rects_assert
+INTERN void WMCALL
 rects_assert(struct rects *__restrict self) {
  struct rect_strip *iter;
  unsigned int i;
  heap_validate_all();
  iter = self->r_strips;
  for (; iter; iter = iter->rs_chain.le_next) {
-  assert(iter->rs_xsiz != 0);
+  assert((int)iter->rs_xmin >= 0);
+  assert((int)iter->rs_xsiz >= 0);
+  assertf(iter->rs_xsiz != 0,
+          "iter           = %p\n"
+          "self->r_strips = %p\n"
+          ,iter,self->r_strips);
   assertf(!iter->rs_chain.le_next ||
            iter->rs_chain.le_next->rs_xmin >=
            iter->rs_xmin+iter->rs_xsiz,
@@ -86,6 +93,8 @@ rects_assert(struct rects *__restrict self) {
           ,iter->rs_chain.le_next->rs_xmin);
   assert(iter->rs_blkc != 0);
   for (i = 0; i < iter->rs_blkc-1; ++i) {
+   assert((int)iter->rs_blkv[i].rb_ymin >= 0);
+   assert((int)iter->rs_blkv[i].rb_ysiz >= 0);
    assert(iter->rs_blkv[i].rb_ysiz != 0);
    assertf(iter->rs_blkv[i+1].rb_ymin >
            iter->rs_blkv[i].rb_ymin+
@@ -99,6 +108,8 @@ rects_assert(struct rects *__restrict self) {
           ,i,iter->rs_blkv[i].rb_ysiz
           ,i,i,iter->rs_blkv[i].rb_ymin+iter->rs_blkv[i].rb_ysiz);
   }
+  assert((int)iter->rs_blkv[iter->rs_blkc-1].rb_ymin >= 0);
+  assert((int)iter->rs_blkv[iter->rs_blkc-1].rb_ysiz >= 0);
   assert(iter->rs_blkv[iter->rs_blkc-1].rb_ysiz != 0);
  }
 }
@@ -399,6 +410,8 @@ rects_insert(struct rects *__restrict self, struct rect r) {
  struct rect_strip *insert;
  rects_assert(self);
  if (!r.r_xsiz || !r.r_ysiz) goto done;
+ assert((int)r.r_xmin >= 0);
+ assert((int)r.r_ymin >= 0);
 again:
  piter = &self->r_strips;
  while ((iter = *piter) != NULL) {
@@ -416,6 +429,7 @@ again:
    insert_width = iter->rs_xmin-r.r_xmin;
    if (insert_width > r.r_xsiz)
        insert_width = r.r_xsiz;
+   assert(insert_width != 0);
    insert = RECT_STRIP_ALLOC(1);
    insert->rs_blkc            = 1;
    insert->rs_xmin            = r.r_xmin;
@@ -430,10 +444,15 @@ again:
    rects_assert(self);
    if (!r.r_xsiz) {
     rects_split_merge_next(insert);
+    if (piter != &self->r_strips)
+        rects_split_merge_next(COMPILER_CONTAINER_OF(piter,struct rect_strip,rs_chain.le_next));
     rects_assert(self);
     goto done;
    }
    r.r_xmin += insert_width;
+   if (piter != &self->r_strips &&
+       rects_split_merge_next(COMPILER_CONTAINER_OF(piter,struct rect_strip,rs_chain.le_next)))
+       insert = COMPILER_CONTAINER_OF(piter,struct rect_strip,rs_chain.le_next);
    piter = &insert->rs_chain.le_next;
    iter = *piter;
    rects_assert(self);
@@ -491,6 +510,8 @@ again:
  rects_assert(self);
  /* Append a new strip at the end. */
  insert = RECT_STRIP_ALLOC(1);
+ assert((int)r.r_xmin >= 0);
+ assert((int)r.r_ymin >= 0);
  insert->rs_blkc            = 1;
  insert->rs_xmin            = r.r_xmin;
  insert->rs_xsiz            = r.r_xsiz;

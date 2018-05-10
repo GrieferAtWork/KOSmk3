@@ -34,6 +34,17 @@
 		FI
 //		C_FLAGS("-ffreestanding")
 //		L_FLAGS("-ffreestanding")
+#define APPLICATION_NDEBUG(name) \
+		PROJECT(name) \
+		L_FLAGS("-nostdlib") \
+		LIB("gcc") \
+		LIB("c") \
+		LIBPATH("/bin") \
+		WEAK_PROJDEP("libs.libc") \
+		C_FLAGS("-static-libgcc") \
+		L_FLAGS("-static-libgcc") \
+		PROJDEP("libs.start") \
+		OBJECT("/bin/crt1.o")
 
 
 BEGIN
@@ -59,7 +70,7 @@ BEGIN
 		LIB("wm")
 		SOURCE("wm/*.c")
 	END
-	BEGIN APPLICATION("apps.wms")
+	BEGIN APPLICATION_NDEBUG("apps.wms")
 		SET_OUTPUT("/bin/wms")
 		SET_DISKFILE("/bin/wms")
 		SOURCE("wms/*.c")

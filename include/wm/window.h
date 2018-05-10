@@ -284,6 +284,24 @@ WMAPI ATTR_CONST wms_window_id_t WMCALL wm_window_getid(struct wm_window *__rest
 WMAPI REF struct wm_window *WMCALL wm_window_fromid(wms_window_id_t id);
 
 
+/* Construct a view of a window in its entirety, including
+ * its title bar, as well as any potential border.
+ * When the window has all of the following flags
+ * set, this view equals the window itself:
+ *   - WM_WINDOW_FEAT_FNOBORDER
+ *   - WM_WINDOW_FEAT_FNOHEADER
+ * @return: * : [== view] Always re-return `view' */
+WMAPI ATTR_NOTHROW ATTR_RETNONNULL struct wm_surface_view *WMCALL
+wm_window_viewall(struct wm_surface_view *__restrict view,
+                  struct wm_window const *__restrict self);
+
+/* Very similar to `wm_window_viewall', but instead used to only view the title bar.
+ * If there is no title bar, the returned view is empty */
+WMAPI ATTR_NOTHROW ATTR_RETNONNULL struct wm_surface_view *WMCALL
+wm_window_viewtitle(struct wm_surface_view *__restrict view,
+                    struct wm_window const *__restrict self);
+
+
 __SYSDECL_END
 
 #endif /* !_WM_WINDOW_H */

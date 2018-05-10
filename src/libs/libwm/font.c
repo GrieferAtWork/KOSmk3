@@ -51,10 +51,16 @@ libwm_font_draw(struct wm_font const *__restrict self,
   switch (chr) {
 
   case '\r':
+#if 0 /* We should be able to reasonably allow this... */
+   if (flags & WM_FONT_DRAW_FSINGLE)
+       goto draw_generic;
+#endif
    x = start_x;
    break;
 
   case '\n':
+   if (flags & WM_FONT_DRAW_FSINGLE)
+       goto draw_generic;
    x  = start_x;
    y += self->f_lnsiz;
    break;
@@ -70,6 +76,7 @@ libwm_font_draw(struct wm_font const *__restrict self,
    unsigned int char_x;
    unsigned int char_y;
   default:
+draw_generic:
    if (chr > 127) chr = '?';
    /* Draw the character. */
    char_x = (chr % 16) << self->f_log2_chsizx;

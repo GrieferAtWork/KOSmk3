@@ -18,6 +18,7 @@
  */
 #ifndef GUARD_APPS_WMS_EVENT_C
 #define GUARD_APPS_WMS_EVENT_C 1
+#define _KOS_SOURCE 1
 #define _EXCEPT_SOURCE 1
 #define __BUILDING_WMSERVER 1
 
@@ -28,6 +29,7 @@
 #include <kos/keyboard-ioctl.h>
 #include <kos/mouse-ioctl.h>
 #include <sys/mman.h>
+#include <assert.h>
 #include <unistd.h>
 #include <string.h>
 #include <syslog.h>
@@ -41,6 +43,9 @@
 
 DECL_BEGIN
 
+#ifdef CONFIG_COPYRECT_DO_OUTLINE
+PRIVATE bool redraw_full_on_move = false;
+#endif
 
 INTERN int KeyboardRelayThread(void *arg) {
  Display *EXCEPT_VAR d = &default_display; /* XXX: Multiple display? */
@@ -101,6 +106,9 @@ INTERN int KeyboardRelayThread(void *arg) {
 #ifdef CONFIG_COPYRECT_DO_OUTLINE
    case KEY_F6:
     copyrect_do_outline = !copyrect_do_outline;
+    break;
+   case KEY_F7:
+    redraw_full_on_move = !redraw_full_on_move;
     break;
 #endif
 #endif
@@ -224,7 +232,16 @@ undraw_cursor(Display *__restrict d, unsigned int x, unsigned int y) {
  r.r_ymin = y;
  r.r_xsiz = CURSOR_SIZE_X;
  r.r_ysiz = CURSOR_SIZE_Y;
- Display_RedrawRect(d,r);
+#ifdef CONFIG_COPYRECT_DO_OUTLINE
+ if (copyrect_do_outline) {
+  copyrect_do_outline = false;
+  Display_RedrawRect(d,r);
+  copyrect_do_outline = true;
+ } else
+#endif
+ {
+  Display_RedrawRect(d,r);
+ }
 }
 
 
@@ -279,6 +296,13 @@ INTERN int MouseRelayThread(void *arg) {
        leave.r_event.e_mouse.m_mousey = new_mouse_display_y - hover_window->w_posy;
        Window_SendMessage(hover_window,&leave);
       }
+      assertf(hover_window->w_weakcnt >= 2 ||
+             (hover_window->w_weakcnt == 1 &&
+             (hover_window->w_state & WM_WINDOW_STATE_FDESTROYED)),
+              "hover_window->w_weakcnt = %u\n"
+              "hover_window->w_state   = %x\n"
+              ,hover_window->w_weakcnt
+              ,hover_window->w_state);
       Window_WeakDecref(hover_window);
      }
      if (new_hover_window)
@@ -325,6 +349,11 @@ INTERN int MouseRelayThread(void *arg) {
       Window_MoveUnlocked(hover_window,
                           hover_window->w_posx + (int)resp.r_event.e_mouse.m_clrelx,
                           hover_window->w_posy + (int)resp.r_event.e_mouse.m_clrely);
+#ifdef CONFIG_COPYRECT_DO_OUTLINE
+      /* Doing a full redraw here allow one to better see the redraw rects. */
+      if (redraw_full_on_move)
+          Display_Redraw(d);
+#endif
      }
     } FINALLY {
      atomic_rwlock_endwrite(&d->d_lock);

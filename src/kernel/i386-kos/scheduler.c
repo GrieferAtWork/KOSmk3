@@ -1101,20 +1101,23 @@ PUBLIC ATTR_NORETURN void KCALL task_exit(void) {
     *         I mean: We couldn't propagate the error, but
     *                 we might want to log it somewhere? */
    except_t code = error_code();
-   /*assert(code == error_info()->e_error.e_code);*/
-   COMPILER_READ_BARRIER();
-   ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
-   debug_printf("BEGIN_PRINT_ERROR (%x)\n",code);
+   if (code != E_EXIT_PROCESS &&
+       code != E_EXIT_THREAD) {
+    /*assert(code == error_info()->e_error.e_code);*/
+    COMPILER_READ_BARRIER();
+    ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
+    debug_printf("BEGIN_PRINT_ERROR (%x)\n",code);
 #if 0
-   asm("int3");
+    asm("int3");
 #else
-   error_printf("Error in task_serve() during task_exit()\n");
+    error_printf("Error in task_serve() during task_exit()\n");
 #endif
-   debug_printf("DONE_PRINT_ERROR (%x)\n",code);
-   ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
-   error_handled();
-   /*if (code == E_INTERRUPT)*/
-       goto done_rpc; /* ??? (See problem above...) */
+    debug_printf("DONE_PRINT_ERROR (%x)\n",code);
+    ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
+    error_handled();
+    /*if (code == E_INTERRUPT)*/
+        goto done_rpc; /* ??? (See problem above...) */
+   }
   }
  }
 

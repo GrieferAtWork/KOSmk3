@@ -141,7 +141,7 @@ PRIVATE __EXCEPT_NORETURN void
  __builtin_unreachable();
 }
 
-#if 0
+#if 1
 PRIVATE void KCALL
 validate_handle_manager(struct handle_manager *__restrict self) {
  unsigned int i;
@@ -916,6 +916,9 @@ undefined_handle:
                        HANDLE_TYPE_FNONE,
                        ERROR_INVALID_HANDLE_ILLHND_FUNSET);
  }
+ assertf(result.h_type < HANDLE_TYPE_FCOUNT,
+        "result = { %p, %p }",
+         result.h_mode,result.h_ptr);
  return result;
 }
 

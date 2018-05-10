@@ -21,6 +21,7 @@
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
+#include <kos/sched/mutex.h>
 #include <wm/api.h>
 #include <wm/event.h>
 #include <wm/font.h>
@@ -97,7 +98,7 @@ INTDEF void WMCALL libwm_surface_resize(struct wm_surface *__restrict self, unsi
 INTDEF ATTR_RETNONNULL REF struct wm_surface *WMCALL
 libwm_surface_convert(struct wm_surface *__restrict self,
                       struct wm_format *__restrict new_format);
-INTDEF ATTR_NOTHROW void WMCALL
+INTDEF ATTR_NOTHROW ATTR_RETNONNULL struct wm_surface_view *WMCALL
 libwm_surface_makeview(struct wm_surface_view *__restrict view,
                        struct wm_surface const *__restrict surface,
                        int posx, int posy, unsigned int sizex,
@@ -126,6 +127,8 @@ INTDEF void WMCALL libwm_window_draw_rect(struct wm_window *__restrict self, int
 INTDEF void WMCALL libwm_window_draw_rects(struct wm_window *__restrict self, size_t rectc, struct wm_rect const *__restrict rectv, unsigned int mode);
 INTDEF bool WMCALL libwm_window_bring_to_front(struct wm_window *__restrict self);
 INTDEF void WMCALL libwm_window_close(struct wm_window *__restrict self);
+INTDEF ATTR_NOTHROW ATTR_RETNONNULL struct wm_surface_view *WMCALL libwm_window_viewall(struct wm_surface_view *__restrict view, struct wm_window const *__restrict self);
+INTDEF ATTR_NOTHROW ATTR_RETNONNULL struct wm_surface_view *WMCALL libwm_window_viewtitle(struct wm_surface_view *__restrict view, struct wm_window const *__restrict self);
 INTDEF u32 WMCALL libwm_window_chfeat(struct wm_window *__restrict self, u32 mask, u32 flag);
 INTDEF u16 WMCALL libwm_window_chstat(struct wm_window *__restrict self, u16 mask, u16 flag);
 INTDEF u16 WMCALL libwm_window_chmode(struct wm_window *__restrict self, u16 mask, u16 flag);

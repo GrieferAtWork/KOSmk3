@@ -141,8 +141,8 @@ PRIVATE int LIBCCALL ClientMain(void *arg) {
        *(fd_t *)CMSG_DATA(&send_buffer.hdr) = new_window->w_screenfd;
 
        /* Send the response back. */
-       if (!Xsendmsg(client_fd,&msg,0))
-            goto disconnect; /* Disconnect */
+       if (Xsendmsg(client_fd,&msg,0) != sizeof(struct wms_response))
+           goto disconnect; /* Disconnect */
       }
 
       /* Don't send an ACK after we've already send the window-created message. */
@@ -311,7 +311,9 @@ PRIVATE int LIBCCALL ClientMain(void *arg) {
       break;
      }
 
-    } EXCEPT_HANDLED (EXCEPT_EXECUTE_HANDLER) {
+    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+     error_printf("Command failed\n");
+     error_handled();
      /* Propagate exceptions back to the client. */
      memset(&resp,0,sizeof(struct wms_response));
      resp.r_echo             = req.r_echo;
@@ -324,8 +326,8 @@ PRIVATE int LIBCCALL ClientMain(void *arg) {
    
     if (!(req.r_flags & WMS_COMMAND_FNOACK)) {
      /* Send the response back. */
-     if (!Xsend(client_fd,&resp,sizeof(struct wms_response),0))
-          break; /* Disconnect */
+     if (Xsend(client_fd,&resp,sizeof(struct wms_response),0) != sizeof(struct wms_response))
+         break; /* Disconnect */
     }
    }
 disconnect:

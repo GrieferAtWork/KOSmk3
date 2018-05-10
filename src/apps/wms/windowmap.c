@@ -27,6 +27,7 @@
 #include <wm/api.h>
 #include <malloc.h>
 #include <except.h>
+#include <syslog.h>
 
 #include "window.h"
 #include "display.h"
@@ -147,6 +148,8 @@ WindowMap_Lookup(WindowMap *__restrict self,
  result = self->wm_map[id & self->wm_mask];
  while (result && result->w_id != id)
         result = result->w_idchain.le_next;
+ if (!result)
+      syslog(LOG_DEBUG,"Unknown window id %Iu\n",id);
  return result;
 }
 

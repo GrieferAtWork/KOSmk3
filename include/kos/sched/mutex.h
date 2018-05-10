@@ -22,6 +22,7 @@
 #include <hybrid/compiler.h>
 #include <hybrid/__atomic.h>
 #include <hybrid/typecore.h>
+#include <hybrid/timespec.h>
 #include <assert.h>
 #include <features.h>
 #include "futex.h"
@@ -40,7 +41,7 @@ struct mutex {
 #define DEFINE_MUTEX(name) mutex_t name = MUTEX_INIT
 #define mutex_cinit(self)  (void)(assert((self)->__m_futex == 0))
 #define mutex_init(self)   (void)((self)->__m_futex = 0)
-#define mutex_holding(x)   (((x)->__m_futex & FUTEX_TID_MASK) == __gettid())
+#define mutex_holding(x)   (((x)->__m_futex & FUTEX_TID_MASK) == (__UINT32_TYPE__)__gettid())
 
 /* Atomically try to acquire the given mutex. */
 __FORCELOCAL __ATTR_NOTHROW __BOOL (__LIBCCALL mutex_try)(struct mutex *__restrict __self);
@@ -56,7 +57,7 @@ __REDIRECT_EXCEPT_TM64(__LIBC,,int,__LIBCCALL,mutex_get_timed,
                       (__self,__abs_timeout));
 #ifdef __USE_TIME64
 __REDIRECT_EXCEPT(__LIBC,int,__LIBCCALL,mutex_get_timed64,
-                 (struct mutex *__restrict __self, struct timespec64 *__abs_timeout),
+                 (struct mutex *__restrict __self, struct __timespec64 *__abs_timeout),
                  (__self,__abs_timeout))
 #endif
 #ifdef __USE_EXCEPT
@@ -64,7 +65,7 @@ __REDIRECT_TM64(__LIBC,,int,__LIBCCALL,Xmutex_get_timed,
                (struct mutex *__restrict __self, struct timespec *__abs_timeout),
                (__self,__abs_timeout));
 #ifdef __USE_TIME64
-__LIBC int (__LIBCCALL Xmutex_get_timed64)(struct mutex *__restrict __self, struct timespec64 *__abs_timeout);
+__LIBC int (__LIBCCALL Xmutex_get_timed64)(struct mutex *__restrict __self, struct __timespec64 *__abs_timeout);
 #endif
 #endif /* __USE_EXCEPT */
 #ifdef __INTELLISENSE__
@@ -84,7 +85,7 @@ __LIBC void (__LIBCCALL Xmutex_get)(struct mutex *__restrict __self);
 #define mutex_get(self) (void)mutex_get_timed64(self,NULL)
 #else
 __REDIRECT(__LIBC,,int,__LIBCCALL,__mutex_get_timed64,
-          (struct mutex *__restrict __self, struct timespec64 *__abs_timeout),
+          (struct mutex *__restrict __self, struct __timespec64 *__abs_timeout),
            Xmutex_get_timed64,(__self,__abs_timeout));
 #define mutex_get(self) (void)__mutex_get_timed64(self,NULL)
 #endif
@@ -95,7 +96,7 @@ __REDIRECT(__LIBC,,int,__LIBCCALL,__mutex_get_timed64,
 #define mutex_get(self) mutex_get_timed64(self,NULL)
 #else
 __REDIRECT(__LIBC,,int,__LIBCCALL,__mutex_get_timed64,
-          (struct mutex *__restrict __self, struct timespec64 *__abs_timeout),
+          (struct mutex *__restrict __self, struct __timespec64 *__abs_timeout),
            mutex_get_timed64,(__self,__abs_timeout));
 #define mutex_get(self) __mutex_get_timed64(self,NULL)
 #endif
@@ -107,7 +108,7 @@ __REDIRECT(__LIBC,,int,__LIBCCALL,__mutex_get_timed64,
 #define Xmutex_get(self) (void)Xmutex_get_timed64(self,NULL)
 #else
 __REDIRECT(__LIBC,,int,__LIBCCALL,__Xmutex_get_timed64,
-          (struct mutex *__restrict __self, struct timespec64 *__abs_timeout),
+          (struct mutex *__restrict __self, struct __timespec64 *__abs_timeout),
            Xmutex_get_timed64,(__self,__abs_timeout));
 #define Xmutex_get(self) (void)__Xmutex_get_timed64(self,NULL)
 #endif
