@@ -156,10 +156,20 @@ task_exit_secondary_threads(int exit_status) {
   struct task *EXCEPT_VAR thread;
   atomic_rwlock_write(&PERTASK(_this_group.tg_process.h_lock));
   thread = PERTASK_GET(_this_group.tg_process.h_group);
+  assertf(!thread ||
+           FORTASK(thread,_this_group).tg_thread.g_group.le_pself ==
+          &PERTASK(_this_group.tg_process.h_group),
+          "FORTASK(thread,_this_group).tg_thread.g_group.le_pself = %p\n"
+          "&PERTASK(_this_group.tg_process.h_group)               = %p\n"
+          ,FORTASK(thread,_this_group).tg_thread.g_group.le_pself
+          ,&PERTASK(_this_group.tg_process.h_group));
   while (thread &&
         !TASK_ISTERMINATING(thread) &&
         !ATOMIC_INCIFNONZERO(thread->t_refcnt))
-      thread = FORTASK(thread,_this_group).tg_thread.g_group.le_next;
+         assert(!FORTASK(thread,_this_group).tg_thread.g_group.le_next ||
+                 FORTASK(FORTASK(thread,_this_group).tg_thread.g_group.le_next,_this_group).tg_thread.g_group.le_pself ==
+                &FORTASK(thread,_this_group).tg_thread.g_group.le_next),
+         thread = FORTASK(thread,_this_group).tg_thread.g_group.le_next;
   if (thread) {
    /* Remove the thread from the group of threads registered to us. */
    assert(FORTASK(thread,_this_group).tg_thread.g_group.le_pself);
@@ -169,10 +179,12 @@ task_exit_secondary_threads(int exit_status) {
    if ((*FORTASK(thread,_this_group).tg_thread.g_group.le_pself =
          FORTASK(thread,_this_group).tg_thread.g_group.le_next) != NULL) {
     struct threadgroup *next_group = &FORTASK(FORTASK(thread,_this_group).tg_thread.g_group.le_next,_this_group);
-    next_group->tg_thread.g_group.le_pself = &FORTASK(thread,_this_group).tg_thread.g_group.le_next;
+    next_group->tg_thread.g_group.le_pself = FORTASK(thread,_this_group).tg_thread.g_group.le_pself;
    }
    FORTASK(thread,_this_group).tg_thread.g_group.le_pself = NULL;
+#if 0 /* No necessary */
    FORTASK(thread,_this_group).tg_thread.g_group.le_next  = NULL;
+#endif
   }
   atomic_rwlock_endwrite(&PERTASK(_this_group.tg_process.h_lock));
   if (!thread) break; /* All threads have been terminated, or are in the process of. */
@@ -363,12 +375,17 @@ INTERN void KCALL task_startup_group(u32 UNUSED(flags)) {
   debug_printf("GROUP_ADD(%p)\n",THIS_TASK);
 #endif
   /* Add the calling thread to its associated group. */
+#if 1
+#define GROUP_PATH(p) FORTASK(p,_this_group).tg_thread.g_group
+  LIST_INSERT_P(leader_group->tg_process.h_group,THIS_TASK,GROUP_PATH);
+#else
   PERTASK_SET(_this_group.tg_thread.g_group.le_next,
               leader_group->tg_process.h_group);
   if (leader_group->tg_process.h_group != NULL)
       FORTASK(leader_group->tg_process.h_group,_this_group).tg_thread.g_group.le_pself = &PERTASK(_this_group.tg_thread.g_group.le_next);
   PERTASK_SET(_this_group.tg_thread.g_group.le_pself,&leader_group->tg_process.h_group);
   leader_group->tg_process.h_group = THIS_TASK;
+#endif
  }
 #endif
  atomic_rwlock_endwrite(&leader_group->tg_process.h_lock);
