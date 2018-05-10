@@ -111,6 +111,7 @@ quick_verify_mfree(struct mfree *__restrict self) {
 }
 
 
+EXPORT(heap_validate,libc_heap_validate);
 INTERN void LIBCCALL
 libc_heap_validate(struct heap *__restrict self) {
  unsigned int i;
@@ -206,6 +207,7 @@ libc_heap_validate(struct heap *__restrict self) {
 }
 
 
+EXPORT(heap_validate_all,libc_heap_validate_all);
 INTERN void LIBCCALL
 libc_heap_validate_all(void) {
  struct heap *iter;

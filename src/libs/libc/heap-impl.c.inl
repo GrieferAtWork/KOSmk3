@@ -190,6 +190,11 @@ HSYM(core_page_alloc)(STRUCT_HEAP *__restrict self,
                       size_t num_bytes, gfp_t flags) {
  void *result;
  struct mmap_info_v1 vmreq;
+#ifdef OPTION_DEBUG_HEAP
+ /* Make sure that the heap has been registered. */
+ if (!self->h_chain.le_pself)
+      libc_heap_register_d((struct heap *)self);
+#endif
  if (flags&GFP_NOMAP)
      libc_error_throw(E_WOULDBLOCK);
  vmreq.mi_prot          = PROT_READ|PROT_WRITE;
@@ -232,6 +237,11 @@ HSYM(core_page_allocat)(STRUCT_HEAP *__restrict self, void *address,
                         size_t num_bytes, gfp_t flags) {
  void *result;
  struct mmap_info_v1 vmreq;
+#ifdef OPTION_DEBUG_HEAP
+ /* Make sure that the heap has been registered. */
+ if (!self->h_chain.le_pself)
+      libc_heap_register_d((struct heap *)self);
+#endif
  if (flags&GFP_NOMAP)
      libc_error_throw(E_WOULDBLOCK);
  vmreq.mi_prot  = PROT_READ|PROT_WRITE;
@@ -301,7 +311,9 @@ HSYM(libc_heap_init)(STRUCT_HEAP *__restrict self,
 }
 INTERN void LIBCCALL
 HSYM(libc_heap_fini)(STRUCT_HEAP *__restrict self) {
+#ifdef OPTION_DEBUG_HEAP
  libc_heap_unregister_d((struct heap *)self);
+#endif
  /* TODO: release all remaining data back to the core. */
 }
 
@@ -319,11 +331,12 @@ HSYM(heap_insert_node_unlocked)(STRUCT_HEAP *__restrict self,
  /* Figure out where the free-slot should go in the chain of free ranges. */
  pslot = &self->h_size[LOCAL_HEAP_BUCKET_OF(num_bytes)];
  while ((slot = *pslot) != NULL &&
-         MFREE_SIZE(slot) < num_bytes)
+        (assert(slot->mf_lsize.le_pself == pslot),
+         MFREE_SIZE(slot) < num_bytes))
          pslot = &slot->mf_lsize.le_next;
  node->mf_lsize.le_pself = pslot;
- node->mf_lsize.le_next  = slot;
- if (slot) slot->mf_lsize.le_pself = &node->mf_lsize.le_next;
+ if ((node->mf_lsize.le_next = slot) != NULL)
+      slot->mf_lsize.le_pself = &node->mf_lsize.le_next;
  *pslot = node;
 }
 
@@ -628,6 +641,7 @@ again:
   u8 free_flags;
   /* Search this bucket. */
   chain = *iter;
+  assert(!chain || chain->mf_lsize.le_pself == iter);
   while (chain &&
         (assertf(IS_ALIGNED(MFREE_SIZE(chain),HEAP_ALIGNMENT),
                            "MFREE_SIZE(chain) = 0x%Ix",
@@ -793,7 +807,11 @@ search_heap:
   gfp_t chain_flags;
   /* Search this bucket. */
   chain = *iter;
-  while (chain && MFREE_SIZE(chain) < result.hp_siz)
+  assert(!chain || chain->mf_lsize.le_pself == iter);
+  while (chain &&
+        (MFREE_SIZE(chain) < result.hp_siz))
+         assert(!chain->mf_lsize.le_next ||
+                 chain->mf_lsize.le_next->mf_lsize.le_pself == &chain->mf_lsize.le_next),
          chain = chain->mf_lsize.le_next;
   if (!chain) continue;
   asserte(mfree_tree_remove((struct mfree **)&self->h_addr,MFREE_BEGIN(chain)) == (struct mfree *)chain);
@@ -913,11 +931,6 @@ without_random:
   size_t unused_size;
   if unlikely(__builtin_add_overflow(result.hp_siz,PAGESIZE-1,&page_bytes))
      libc_heap_allocation_failed(result.hp_siz);
-#ifdef OPTION_DEBUG_HEAP
-  /* Make sure that the heap has been registered. */
-  if (!self->h_chain.le_pself)
-       libc_heap_register_d((struct heap *)self);
-#endif
   if (!(flags & GFP_NOOVER)) {
    /* Add overhead for overallocation. */
    if unlikely(__builtin_add_overflow(page_bytes,self->h_overalloc,&page_bytes))
@@ -978,11 +991,6 @@ again:
  if (!pslot) {
   void *ptr_page;
   atomic_rwlock_endwrite(&self->h_lock);
-#ifdef OPTION_DEBUG_HEAP
-  /* Make sure that the heap has been registered. */
-  if (!self->h_chain.le_pself)
-       libc_heap_register_d((struct heap *)self);
-#endif
   /* Not in cache. Try to allocate associated core memory. */
   ptr_page = (void *)FLOOR_ALIGN((uintptr_t)ptr,PAGESIZE);
   if (!HSYM(core_page_allocat)(self,ptr_page,1,flags))
@@ -1034,11 +1042,6 @@ again:
    slot_page = (void *)MFREE_BEGIN(slot);
    if unlikely(slot_page == 0)
        return 0; /* Shouldn't happen: can't allocate previous page that doesn't exist. */
-#ifdef OPTION_DEBUG_HEAP
-   /* Make sure that the heap has been registered. */
-   if (!self->h_chain.le_pself)
-        libc_heap_register_d((struct heap *)self);
-#endif
    *(uintptr_t *)&slot_page -= PAGESIZE;
    if (!HSYM(core_page_allocat)(self,slot_page,PAGESIZE,0 /*flags & __GFP_HEAPMASK*/))
        return 0; /* Failed to allocate the associated core-page. */
@@ -1189,7 +1192,10 @@ HSYM(libc_heap_align_untraced)(STRUCT_HEAP *__restrict self,
    size_t dangle_size;
    /* Search this bucket. */
    chain = *iter;
+   assert(!chain || chain->mf_lsize.le_pself == iter);
    while (chain && MFREE_SIZE(chain) < alloc_bytes)
+          assert(!chain->mf_lsize.le_next ||
+                  chain->mf_lsize.le_next->mf_lsize.le_pself == &chain->mf_lsize.le_next),
           chain = chain->mf_lsize.le_next;
    if (!chain) continue;
    /* Check if this chain entry can sustain our required alignment. */
