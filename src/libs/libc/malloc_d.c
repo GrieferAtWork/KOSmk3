@@ -157,7 +157,7 @@ libc_Xpvalloc_d(size_t num_bytes) {
 
 INTERN size_t LIBCCALL
 libc_malloc_usable_size_d(void *__restrict ptr) {
- return ptr ? ((struct mptr *)ptr)[-1].m_size : 0;
+ return ptr ? (((struct mptr *)ptr)[-1].m_size-sizeof(struct mptr)) : 0;
 }
 
 INTERN ATTR_RETNONNULL void *LIBCCALL
