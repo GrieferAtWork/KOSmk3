@@ -43,6 +43,7 @@ typedef struct display {
     LIST_HEAD(Window) d_zorder;   /* [lock(d_lock)] Chain of all windows present on this display.
                                    *                Ordered by their Z-order; front to back (w_zlink). */
     LIST_HEAD(Window) d_windows;  /* [lock(d_lock)] Chain of all visible windows (w_vlink). */
+    Window           *d_focus;    /* [lock(d_lock)] The window currently being focused. */
 } Display;
 
 /* The default display adapter. */
@@ -50,7 +51,16 @@ INTDEF Display default_display;
 
 /* Do a full redraw of all visible windows. */
 INTDEF void WMCALL Display_Redraw(Display *__restrict self);
+INTDEF void WMCALL Display_RedrawRect(Display *__restrict self, struct rect draw_rect);
 
+/* Return the window located at the given coords, or NULL if no window is there. */
+INTDEF Window *WMCALL Display_WindowAt(Display *__restrict self,
+                                       unsigned int x,
+                                       unsigned int y);
+
+/* Set keyboard focus to the given window. */
+INTDEF void WMCALL Display_FocusWindow(Display *__restrict self,
+                                       Window *win);
 
 DECL_END
 

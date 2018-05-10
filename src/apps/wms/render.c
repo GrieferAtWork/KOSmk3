@@ -16,8 +16,8 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef GUARD_APPS_WMS_RENDER_H
-#define GUARD_APPS_WMS_RENDER_H 1
+#ifndef GUARD_APPS_WMS_RENDER_C
+#define GUARD_APPS_WMS_RENDER_C 1
 #define _KOS_SOURCE 1
 
 #include <hybrid/compiler.h>
@@ -32,11 +32,8 @@
 
 DECL_BEGIN
 
-
-
-#undef CONFIG_COPYRECT_DO_OUTLINE
-#if 1
-#define CONFIG_COPYRECT_DO_OUTLINE  4
+#ifdef CONFIG_COPYRECT_DO_OUTLINE
+INTERN bool copyrect_do_outline = false;
 #endif
 
 PRIVATE wm_pixel_t WMCALL
@@ -122,7 +119,7 @@ Copy_Rect(byte_t *__restrict dst_buffer,
           unsigned int size_x, unsigned int size_y,
           unsigned int bpp) {
  assert(size_x || size_y);
-#if 1
+#if 0
  syslog(LOG_DEBUG,"copyrect(%u,%u*%u <-- %u,%u*%u  w=%u,h=%u)\n",
         dst_x,dst_y,dst_stride,src_x,src_y,src_stride,size_x,size_y);
 #endif
@@ -130,31 +127,35 @@ Copy_Rect(byte_t *__restrict dst_buffer,
  src_buffer += src_y*src_stride;
  if (bpp == 8) {
 do_bytewise_copy:
-  assert(dst_x+size_x <= dst_stride);
-  assert(src_x+size_x <= src_stride);
   dst_buffer += dst_x;
   src_buffer += src_x;
   /* Copy line-wise */
 #ifdef CONFIG_COPYRECT_DO_OUTLINE
-  --size_y;
-  memset(dst_buffer,CONFIG_COPYRECT_DO_OUTLINE,size_x);
-  src_buffer += src_stride;
-  dst_buffer += dst_stride;
+  if (copyrect_do_outline) {
+   --size_y;
+   memset(dst_buffer,CONFIG_COPYRECT_DO_OUTLINE,size_x);
+   src_buffer += src_stride;
+   dst_buffer += dst_stride;
+  }
 #endif
   for (; size_y; --size_y) {
    memcpy(dst_buffer,
           src_buffer,
           size_x);
 #ifdef CONFIG_COPYRECT_DO_OUTLINE
-   dst_buffer[0]        = CONFIG_COPYRECT_DO_OUTLINE;
-   dst_buffer[size_x-1] = CONFIG_COPYRECT_DO_OUTLINE;
+   if (copyrect_do_outline) {
+    dst_buffer[0]        = CONFIG_COPYRECT_DO_OUTLINE;
+    dst_buffer[size_x-1] = CONFIG_COPYRECT_DO_OUTLINE;
+   }
 #endif
    dst_buffer += dst_stride;
    src_buffer += src_stride;
   }
 #ifdef CONFIG_COPYRECT_DO_OUTLINE
-  memset(dst_buffer-dst_stride,
-         CONFIG_COPYRECT_DO_OUTLINE,size_x);
+  if (copyrect_do_outline) {
+   memset(dst_buffer-dst_stride,
+          CONFIG_COPYRECT_DO_OUTLINE,size_x);
+  }
 #endif
  } else if (!(bpp & 7)) {
   dst_x  *= bpp/8;
@@ -177,4 +178,4 @@ do_bytewise_copy:
 
 DECL_END
 
-#endif /* !GUARD_APPS_WMS_RENDER_H */
+#endif /* !GUARD_APPS_WMS_RENDER_C */

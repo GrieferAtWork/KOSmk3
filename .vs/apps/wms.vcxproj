@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\apps\wms\display.c" />
+    <ClCompile Include="..\..\src\apps\wms\event.c" />
     <ClCompile Include="..\..\src\apps\wms\main.c" />
     <ClCompile Include="..\..\src\apps\wms\rect.c" />
     <ClCompile Include="..\..\src\apps\wms\render.c" />
@@ -30,6 +31,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\src\apps\wms\bind.h" />
     <ClInclude Include="..\..\src\apps\wms\display.h" />
+    <ClInclude Include="..\..\src\apps\wms\event.h" />
     <ClInclude Include="..\..\src\apps\wms\rect.h" />
     <ClInclude Include="..\..\src\apps\wms\render.h" />
     <ClInclude Include="..\..\src\apps\wms\server.h" />

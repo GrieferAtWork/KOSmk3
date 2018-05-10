@@ -20,6 +20,7 @@
 #define GUARD_APPS_WMS_WINDOW_C 1
 #define _KOS_SOURCE 1
 #define _EXCEPT_SOURCE 1
+#define __BUILDING_WMSERVER 1
 
 #include <hybrid/compiler.h>
 #include <hybrid/align.h>
@@ -27,12 +28,16 @@
 #include <kos/types.h>
 #include <wm/api.h>
 #include <malloc.h>
+#include <syslog.h>
+#include <string.h>
 #include <assert.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <syscall.h>
 #include <sys/mman.h>
+#include <sys/socket.h>
+#include <wm/server.h>
 
 #include "window.h"
 #include "display.h"
@@ -300,40 +305,74 @@ Window_CreateUnlocked(Display *__restrict disp,
                       unsigned int sizex,
                       unsigned int sizey,
                       u16 state, fd_t client_fd) {
- Window *result;
+ Window *EXCEPT_VAR result;
  result = (Window *)Xmalloc(sizeof(Window));
- result->w_posx    = posx;
- result->w_posy    = posy;
- result->w_state   = state;
- result->w_sizey   = sizey;
- result->w_sizex   = sizex;
- result->w_stride  = CEIL_ALIGN(CEILDIV(sizex*disp->d_bpp,8),16);
- result->w_display = disp;
- result->w_visi.r_strips = NULL;
- result->w_clientfd = client_fd;
- result->w_screenfd = Xsyscall(SYS_xvm_region_create,0x100000,O_CLOEXEC);
- result->w_screen = (byte_t *)Xmmap(NULL,sizex*result->w_stride,
-                                    PROT_READ|PROT_WRITE|PROT_SHARED,
-                                    MAP_SHARED|MAP_FILE,result->w_screenfd,0);
- Window_UpdateDisplayArea(result);
- /* Clamp the visible portion of the window to the display size. */
- if (posx < 0) sizex = sizex > (unsigned int)-posx ? sizex - -posx : 0,posx = 0;
- if (posy < 0) sizey = sizey > (unsigned int)-posy ? sizey - -posy : 0,posy = 0;
- /**/ if ((unsigned int)posx > disp->d_sizex) sizex = 0;
- else if ((unsigned int)posx+sizex > disp->d_sizex) sizex = disp->d_sizex-(unsigned int)posx;
- /**/ if ((unsigned int)posy > disp->d_sizey) sizey = 0;
- else if ((unsigned int)posy+sizey > disp->d_sizey) sizey = disp->d_sizey-(unsigned int)posy;
- /* Insert the new window in front of all others. */
- LIST_INSERT(disp->d_zorder,result,w_zlink);
- /* Construct the initial visibility setup of the window. */
- if (sizex && sizey && !(state & WM_WINDOW_STATE_FHIDDEN)) {
-  /* Add the window to the visible part of the display render list. */
-  LIST_INSERT(disp->d_windows,result,w_vlink);
-  Window_ClaimVisibility(result,result->w_disparea,false);
+ TRY {
+  result->w_posx    = posx;
+  result->w_posy    = posy;
+  result->w_state   = state & ~WM_WINDOW_STATE_FFOCUSED;
+  result->w_sizey   = sizey;
+  result->w_sizex   = sizex;
+  result->w_stride  = CEIL_ALIGN(CEILDIV(sizex*disp->d_bpp,8),16);
+  result->w_display = disp;
+  result->w_visi.r_strips = NULL;
+  result->w_clientfd = client_fd;
+  result->w_screenfd = Xsyscall(SYS_xvm_region_create,0x100000,O_CLOEXEC);
+  TRY {
+   result->w_screen = (byte_t *)Xmmap(NULL,sizey*result->w_stride,
+                                      PROT_READ|PROT_WRITE|PROT_SHARED,
+                                      MAP_SHARED|MAP_FILE,result->w_screenfd,0);
+   TRY {
+    Window_UpdateDisplayArea(result);
+    /* Clamp the visible portion of the window to the display size. */
+    if (posx < 0) sizex = sizex > (unsigned int)-posx ? sizex - -posx : 0,posx = 0;
+    if (posy < 0) sizey = sizey > (unsigned int)-posy ? sizey - -posy : 0,posy = 0;
+    /**/ if ((unsigned int)posx > disp->d_sizex) sizex = 0;
+    else if ((unsigned int)posx+sizex > disp->d_sizex) sizex = disp->d_sizex-(unsigned int)posx;
+    /**/ if ((unsigned int)posy > disp->d_sizey) sizey = 0;
+    else if ((unsigned int)posy+sizey > disp->d_sizey) sizey = disp->d_sizey-(unsigned int)posy;
+    /* Insert the new window in front of all others. */
+    LIST_INSERT(disp->d_zorder,result,w_zlink);
+    TRY {
+     /* Construct the initial visibility setup of the window. */
+     if (sizex && sizey && !(state & WM_WINDOW_STATE_FHIDDEN)) {
+      /* Add the window to the visible part of the display render list. */
+      LIST_INSERT(disp->d_windows,result,w_vlink);
+      Window_ClaimVisibility(result,result->w_disparea,false);
+     }
+     if (state & WM_WINDOW_STATE_FFOCUSED) {
+      /* Set the focus to this window. */
+      if (disp->d_focus) {
+       struct wms_response msg;
+       memset(&msg,0,sizeof(struct wms_response));
+       msg.r_answer                                  = WMS_RESPONSE_EVENT;
+       msg.r_event.e_window.w_type                   = WM_EVENT_WINDOW;
+       msg.r_event.e_window.w_event                  = WM_WINDOWEVENT_STATE_CHANGE;
+       msg.r_event.e_window.w_winid                  = disp->d_focus->w_id;
+       msg.r_event.e_window.w_info.i_state.s_oldstat = disp->d_focus->w_state|WM_WINDOW_STATE_FFOCUSED;
+       msg.r_event.e_window.w_info.i_state.s_oldstat = disp->d_focus->w_state;
+       Window_SendMessage(disp->d_focus,&msg);
+      }
+      disp->d_focus = result;
+     }
+    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+     LIST_REMOVE(result,w_zlink);
+     error_rethrow();
+    }
+   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+    munmap(result->w_screen,sizey*result->w_stride);
+    error_rethrow();
+   }
+  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+   close(result->w_screenfd);
+   error_rethrow();
+  }
+ } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+  free(result);
+  error_rethrow();
  }
  return result;
 }
-
 
 
 /* Copy window memory from `window_rect' directly onto the screen. */
@@ -390,14 +429,17 @@ Window_DrawRectUnlocked(Window *__restrict self, struct rect r) {
 /* Destroy the given window. */
 INTERN void WMCALL
 Window_DestroyUnlocked(Window *__restrict self) {
+ assert(!(self->w_state & WM_WINDOW_STATE_FDESTROYED));
  /* Hide the window prior to its destruction to ensure
   * that it doesn't leave behind any artifacts. */
  Window_HideUnlocked(self);
- /* TODO */
- munmap(self->w_screen,
-        self->w_sizex*self->w_stride);
+ /* Unset the focus if it's targeted at this window. */
+ if (self->w_display->d_focus == self)
+     self->w_display->d_focus = NULL;
+ munmap(self->w_screen,self->w_sizey*self->w_stride);
  close(self->w_screenfd);
- free(self);
+ self->w_state |= WM_WINDOW_STATE_FDESTROYED;
+ Window_WeakDecref(self);
 }
 
 
@@ -423,9 +465,6 @@ Window_MoveUnlocked(Window *__restrict self,
  /* Adjust the set of visible window
   * rects to apply to the new location. */
  if (rel_movx != 0) {
-  self->w_posx = new_posx;
-  Window_UpdateDisplayArea(self);
-  rects_move(&self->w_visi,-rel_movx,0);
   if (rel_movx < 0) {
    r.r_xmin = self->w_sizex - -rel_movx;
    r.r_xsiz = -rel_movx;
@@ -437,11 +476,11 @@ Window_MoveUnlocked(Window *__restrict self,
   r.r_ysiz = self->w_sizey;
   /* Release visibility following a horizontal move */
   Window_RemoveAndInheritVisibility(self,r);
+  self->w_posx = new_posx;
+  Window_UpdateDisplayArea(self);
+  rects_move(&self->w_visi,-rel_movx,0);
  }
  if (rel_movy != 0) {
-  self->w_posy = new_posy;
-  Window_UpdateDisplayArea(self);
-  rects_move(&self->w_visi,0,-rel_movy);
   if (rel_movy < 0) {
    r.r_ymin = self->w_sizey - -rel_movy;
    r.r_ysiz = -rel_movy;
@@ -453,6 +492,9 @@ Window_MoveUnlocked(Window *__restrict self,
   r.r_xsiz = self->w_sizex;
   /* Release visibility following a vertical move */
   Window_RemoveAndInheritVisibility(self,r);
+  self->w_posy = new_posy;
+  Window_UpdateDisplayArea(self);
+  rects_move(&self->w_visi,0,-rel_movy);
  }
  /* Claim visibility for everything apart of the new
   * display area, that isn't part of the old display
@@ -461,9 +503,15 @@ Window_MoveUnlocked(Window *__restrict self,
  rects_insert(&reclaim_area,self->w_disparea);
  rects_remove(&reclaim_area,old_display_area);
  RECTS_FOREACH(r,reclaim_area) {
-  Window_ClaimVisibility(self,r,true);
+  Window_ClaimVisibility(self,r,false);
  }
  rects_fini(&reclaim_area);
+ /* With the window moved, re-draw it. */
+ RECTS_FOREACH(r,self->w_visi) {
+  Window_RenderRect(self,r);
+ }
+
+
 }
 
 
@@ -527,7 +575,111 @@ Window_ShowUnlocked(Window *__restrict self) {
  self->w_state &= ~WM_WINDOW_STATE_FHIDDEN;
 }
 
+INTERN bool WMCALL
+Window_BringToFront(Window *__restrict self) {
+ Display *d = self->w_display;
+ if (self == d->d_zorder) return false;
+ if (!(self->w_state & WM_WINDOW_STATE_FHIDDEN) &&
+       self->w_disparea.r_xsiz != 0 &&
+       self->w_disparea.r_ysiz != 0) {
+  Window *iter; struct rect r;
+  struct rect_strip *new_strip;
+  /* Claim visibility from all overlap with windows covering this one. */
+  iter = d->d_zorder;
+  for (; iter != self; iter = iter->w_zlink.le_next) {
+   r = rect_intersect(self->w_disparea,
+                      iter->w_disparea);
+   if (!r.r_xsiz || !r.r_ysiz) continue;
+   r.r_xmin -= iter->w_posx;
+   r.r_ymin -= iter->w_posy;
+   /* Remove this visibility from the other window. */
+   rects_remove(&iter->w_visi,r);
+  }
+  /* Set the entirety of the display area as active visibility. */
+  new_strip = RECT_STRIP_ALLOC(1);
+  new_strip->rs_blkc            = 1;
+  new_strip->rs_xmin            = 0;
+  new_strip->rs_xsiz            = self->w_disparea.r_xsiz;
+  new_strip->rs_blkv[0].rb_ymin = 0;
+  new_strip->rs_blkv[0].rb_ysiz = self->w_disparea.r_ysiz;
 
+  /* Use the new visibility. */
+  rects_fini(&self->w_visi);
+  self->w_visi.r_strips = new_strip;
+ }
+ /* Re-insert the given window at the front of the Z-stack. */
+ LIST_REMOVE(self,w_zlink);
+ LIST_INSERT(d->d_zorder,self,w_zlink);
+ return true;
+}
+
+INTERN bool WMCALL
+Window_SendMessage(Window *__restrict self,
+                   struct wms_response const *__restrict msg) {
+ bool EXCEPT_VAR result;
+ TRY {
+  result = Xsend(self->w_clientfd,msg,sizeof(struct wms_response),MSG_DONTWAIT) ==
+                                      sizeof(struct wms_response);
+ } CATCH_HANDLED (E_WOULDBLOCK) {
+  result = false;
+ }
+ return result;
+}
+
+
+INTERN void WMCALL
+Window_ChangeStateUnlocked(Window *__restrict self,
+                           u16 mask, u16 flag,
+                           unsigned int token) {
+ u16 old_flags,new_flags;
+ struct wms_response msg;
+ old_flags = self->w_state;
+ if (self->w_display->d_focus == self)
+     old_flags |= WM_WINDOW_STATE_FFOCUSED;
+ new_flags  = (old_flags & mask) | flag;
+ if (new_flags & ~(WM_WINDOW_STATE_FHIDDEN|WM_WINDOW_STATE_FFOCUSED))
+     error_throw(E_INVALID_ARGUMENT);
+ if ((old_flags & WM_WINDOW_STATE_FHIDDEN) !=
+     (new_flags & WM_WINDOW_STATE_FHIDDEN)) {
+  if (new_flags & WM_WINDOW_STATE_FHIDDEN)
+       Window_HideUnlocked(self);
+  else Window_ShowUnlocked(self);
+ }
+ if ((old_flags & WM_WINDOW_STATE_FFOCUSED) !=
+     (new_flags & WM_WINDOW_STATE_FFOCUSED)) {
+  if (!(new_flags & WM_WINDOW_STATE_FFOCUSED)) {
+   assert(self->w_display->d_focus == self);
+   self->w_display->d_focus = NULL;
+  } else {
+   Window *old_focus = self->w_display->d_focus;
+   if (old_focus) {
+    memset(&msg,0,sizeof(struct wms_response));
+    msg.r_answer                                  = WMS_RESPONSE_EVENT;
+    msg.r_event.e_window.w_type                   = WM_EVENT_WINDOW;
+    msg.r_event.e_window.w_event                  = WM_WINDOWEVENT_STATE_CHANGE;
+    msg.r_event.e_window.w_winid                  = old_focus->w_id;
+    msg.r_event.e_window.w_info.i_state.s_oldstat = old_focus->w_state|WM_WINDOW_STATE_FFOCUSED;
+    msg.r_event.e_window.w_info.i_state.s_oldstat = old_focus->w_state;
+    Window_SendMessage(old_focus,&msg);
+   }
+   self->w_display->d_focus = self;
+  }
+ }
+ /* Only send a message if a non-default token was
+  * passed, or the old flags don't equal the new flags. */
+ if (old_flags != new_flags || token != 0) {
+  /* Send a message back to the window, informing it of its state change. */
+  memset(&msg,0,sizeof(struct wms_response));
+  msg.r_answer                                  = WMS_RESPONSE_EVENT;
+  msg.r_echo                                    = token;
+  msg.r_event.e_window.w_type                   = WM_EVENT_WINDOW;
+  msg.r_event.e_window.w_event                  = WM_WINDOWEVENT_STATE_CHANGE;
+  msg.r_event.e_window.w_winid                  = self->w_id;
+  msg.r_event.e_window.w_info.i_state.s_oldstat = old_flags;
+  msg.r_event.e_window.w_info.i_state.s_oldstat = new_flags;
+  Window_SendMessage(self,&msg);
+ }
+}
 
 
 DECL_END

@@ -37,10 +37,12 @@
 #include <sys/mman.h>
 #include <signal.h>
 #include <unistd.h>
+#include <sched.h>
 
 #include "bind.h"
 #include "display.h"
 #include "server.h"
+#include "event.h"
 
 DECL_BEGIN
 
@@ -105,6 +107,15 @@ int main(int argc, char *argv[]) {
                                                  );
   default_display.d_backgrnd = (byte_t *)Xcalloc(default_display.d_sizey,
                                                  default_display.d_stride);
+  {
+   unsigned int x,y;
+   for (y = 0; y < default_display.d_sizey; ++y) {
+    for (x = 0; x < default_display.d_sizex; ++x) {
+     default_display.d_backgrnd[x + y*default_display.d_stride] = (u8)(x+y);
+    }
+   }
+  }
+
   default_display.d_backvisi.r_strips = RECT_STRIP_ALLOC(1);
   default_display.d_backvisi.r_strips[0].rs_blkc = 1;
   default_display.d_backvisi.r_strips[0].rs_chain.le_next = NULL;
@@ -117,12 +128,15 @@ int main(int argc, char *argv[]) {
   /* Redraw the display for the first time. */
   Display_Redraw(&default_display);
 
-
   wms_server = Xsocket(AF_UNIX,
                        SOCK_STREAM|SOCK_CLOEXEC|SOCK_CLOFORK,
                        PF_UNIX);
   Xbind(wms_server,(struct sockaddr *)&server_addr,sizeof(server_addr));
   Xlisten(wms_server,5);
+
+  /* Create the keyboard and mouse relay threads. */
+  Xclone(&KeyboardRelayThread,CLONE_CHILDSTACK_AUTO,CLONE_NEW_THREAD,NULL);
+  Xclone(&MouseRelayThread,CLONE_CHILDSTACK_AUTO,CLONE_NEW_THREAD,NULL);
 
   {
    /* Setup a signal handler to throw an exception when the init */

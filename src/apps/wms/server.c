@@ -21,6 +21,7 @@
 #define _KOS_SOURCE 1
 #define _GNU_SOURCE 1
 #define _EXCEPT_SOURCE 1
+#define __BUILDING_WMSERVER 1
 
 #include <hybrid/compiler.h>
 #include <hybrid/align.h>
@@ -49,6 +50,7 @@ DECL_BEGIN
 PRIVATE int LIBCCALL ClientMain(void *arg) {
  fd_t EXCEPT_VAR client_fd = (fd_t)(intptr_t)(uintptr_t)arg;
  WindowMap windowmap;
+ WindowMap *EXCEPT_VAR pwindowmap = &windowmap;
  TRY {
   WindowMap_Init(&windowmap);
   TRY {
@@ -73,8 +75,8 @@ PRIVATE int LIBCCALL ClientMain(void *arg) {
       break;
 
      case WMS_COMMAND_MKWIN: {
-      Window *COMPILER_IGNORE_UNINITIALIZED(new_window);
-      Display *disp = &default_display; /* XXX: option? */
+      Window *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(new_window);
+      Display *EXCEPT_VAR disp = &default_display; /* XXX: option? */
 
       atomic_rwlock_write(&disp->d_lock);
       TRY {
@@ -148,7 +150,7 @@ PRIVATE int LIBCCALL ClientMain(void *arg) {
      } break;
 
      {
-      Window *win;
+      Window *EXCEPT_VAR win;
      case WMS_COMMAND_RMWIN:
       win = WindowMap_Lookup(&windowmap,
                               req.r_rmwin.rw_winid);
@@ -159,7 +161,7 @@ PRIVATE int LIBCCALL ClientMain(void *arg) {
       }
       WindowMap_Remove(&windowmap,win);
       TRY {
-       Display *d = win->w_display;
+       Display *EXCEPT_VAR d = win->w_display;
        atomic_rwlock_write(&d->d_lock);
        TRY {
         /* Try to destroy the window. */
@@ -169,14 +171,50 @@ PRIVATE int LIBCCALL ClientMain(void *arg) {
        }
       } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
        /* If that failed, re-insert the window. */
-       WindowMap_Insert(&windowmap,win);
+       WindowMap_Insert(pwindowmap,win);
        error_rethrow();
       }
      } break;
 
      {
       Window *win;
-      Display *d;
+      Display *EXCEPT_VAR d;
+     case WMS_COMMAND_MVWIN:
+      win = WindowMap_Lookup(&windowmap,
+                              req.r_mvwin.mw_winid);
+      if (!win) {
+       if (req.r_flags & WMS_COMMAND_FNOACK)
+           break;
+       error_throw(E_INVALID_ARGUMENT);
+      }
+      d = win->w_display;
+      atomic_rwlock_read(&d->d_lock);
+      TRY {
+       int old_x = win->w_posx;
+       int old_y = win->w_posy;
+       Window_MoveUnlocked(win,
+                           req.r_mvwin.mw_newx,
+                           req.r_mvwin.mw_newy);
+       resp.r_answer                              = WMS_RESPONSE_EVENT;
+       resp.r_event.e_window.w_event              = WM_WINDOWEVENT_MOVED;
+       resp.r_event.e_window.w_winid              = win->w_id;
+       resp.r_event.e_window.w_info.i_move.m_oldx = old_x;
+       resp.r_event.e_window.w_info.i_move.m_oldy = old_y;
+       resp.r_event.e_window.w_info.i_move.m_newx = win->w_posx;
+       resp.r_event.e_window.w_info.i_move.m_newy = win->w_posy;
+      } FINALLY {
+       atomic_rwlock_endread(&d->d_lock);
+      }
+     } break;
+
+     case WMS_COMMAND_RZWIN:
+      /* TODO */
+      error_throw(E_NOT_IMPLEMENTED);
+      break;
+
+     {
+      Window *win;
+      Display *EXCEPT_VAR d;
      case WMS_COMMAND_DRAWALL:
      case WMS_COMMAND_DRAWONE:
       win = WindowMap_Lookup(&windowmap,
@@ -189,7 +227,7 @@ PRIVATE int LIBCCALL ClientMain(void *arg) {
       d = win->w_display;
       atomic_rwlock_read(&d->d_lock);
       TRY {
-       /* Try to destroy the window. */
+       /* Try to draw the window. */
        if (req.r_command == WMS_COMMAND_DRAWALL)
         Window_DrawUnlocked(win);
        else {
@@ -215,6 +253,56 @@ PRIVATE int LIBCCALL ClientMain(void *arg) {
       }
      } break;
 
+     {
+      Window *win;
+      Display *EXCEPT_VAR d;
+     case WMS_COMMAND_CHWIN:
+      win = WindowMap_Lookup(&windowmap,
+                              req.r_chwin.cw_winid);
+      if (!win) {
+       if (req.r_flags & WMS_COMMAND_FNOACK)
+           break;
+       error_throw(E_INVALID_ARGUMENT);
+      }
+      d = win->w_display;
+      if (req.r_flags & WMS_COMMAND_FNOACK)
+          req.r_echo = 0; /* Only send a response if the window actually changed state,
+                           * and if this is done, send it as a generic event, rather than
+                           * as a targeted response. */
+      atomic_rwlock_read(&d->d_lock);
+      TRY {
+       /* Try to change the window's state. */
+       Window_ChangeStateUnlocked(win,
+                                  req.r_chwin.cw_mask,
+                                  req.r_chwin.cw_flag,
+                                  req.r_echo);
+      } FINALLY {
+       atomic_rwlock_endread(&d->d_lock);
+      }
+      /* The ChangeState() will have already send an event, informing the client. */
+      req.r_flags |= WMS_COMMAND_FNOACK;
+     } break;
+
+     {
+      Window *win;
+      Display *EXCEPT_VAR d;
+     case WMS_COMMAND_TOFRONT:
+      win = WindowMap_Lookup(&windowmap,
+                              req.r_tofront.fw_winid);
+      if (!win) {
+       if (req.r_flags & WMS_COMMAND_FNOACK)
+           break;
+       error_throw(E_INVALID_ARGUMENT);
+      }
+      d = win->w_display;
+      atomic_rwlock_read(&d->d_lock);
+      TRY {
+       if (Window_BringToFront(win))
+           req;
+      } FINALLY {
+       atomic_rwlock_endread(&d->d_lock);
+      }
+     } break;
 
      default:
       /* Unknown command. */
@@ -243,7 +331,7 @@ PRIVATE int LIBCCALL ClientMain(void *arg) {
 disconnect:
    ;
   } FINALLY {
-   WindowMap_Fini(&windowmap);
+   WindowMap_Fini(pwindowmap);
   }
  } FINALLY {
   close(client_fd);

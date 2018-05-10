@@ -68,8 +68,8 @@ struct PACKED wms_request {
         }                         r_rmwin;   /* [WMS_COMMAND_RMWIN] Delete a window. */
         struct PACKED {
             wms_window_id_t       mw_winid;  /* The ID of the window in question. */
-            int                   mw_xmin;   /* The display-relative new X position of the window. */
-            int                   mw_ymin;   /* The display-relative new Y position of the window. */
+            int                   mw_newx;   /* The display-relative new X position of the window. */
+            int                   mw_newy;   /* The display-relative new Y position of the window. */
         }                         r_mvwin;   /* [WMS_COMMAND_MVWIN] Move a window. */
         struct PACKED {
             wms_window_id_t       rw_winid;  /* The ID of the window in question. */
@@ -108,8 +108,7 @@ struct PACKED wms_request {
 #define WMS_RESPONSE_EVENT      0x0008 /* An event occurred in a window managed by this application. */
 #define WMS_RESPONSE_MKWIN_OK   0x0010 /* Newly created window. */
 #define WMS_RESPONSE_RZWIN_OK   0x0011 /* Window successfully resized. */
-#define WMS_RESPONSE_CHWIN_OK   0x0012 /* Window state successfully changed. */
-#define WMS_RESPONSE_TOFRONT_OK 0x0013 /* If the window wasn't already in front, this is send. Otherwise, `WMS_RESPONSE_ACK' is send. */
+#define WMS_RESPONSE_TOFRONT_OK 0x0012 /* If the window wasn't already in front, this is send. Otherwise, `WMS_RESPONSE_ACK' is send. */
 #define WMS_RESPONSE_FNORMAL    0x0000 /* Normal response flags. */
 struct PACKED wms_response {
     __uint16_t                    r_answer;  /* The type of answer (One of `WMS_RESPONSE_*') */
@@ -156,10 +155,6 @@ struct PACKED wms_response {
             unsigned int          w_stride;  /* The stride of the window's display buffer. */
             unsigned int          w_bpp;     /* Bits per pixel. */
         }                         r_rzwin;   /* [WMS_RESPONSE_RZWIN_OK] Window resize response. */
-        struct PACKED {
-            __uint16_t            cw_oldst;  /* Old window state. */
-            __uint16_t            cw_newst;  /* New window state. */
-        }                         r_chwin;   /* [WMS_RESPONSE_CHWIN_OK] Change window state. */
     };
 };
 

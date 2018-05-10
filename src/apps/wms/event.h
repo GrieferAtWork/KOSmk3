@@ -16,36 +16,22 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef GUARD_APPS_WMS_RENDER_H
-#define GUARD_APPS_WMS_RENDER_H 1
+#ifndef GUARD_APPS_WMS_EVENT_H
+#define GUARD_APPS_WMS_EVENT_H 1
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
 #include <wm/api.h>
-#include <stdbool.h>
 
-#include "rect.h"
+#include "bind.h"
 
 DECL_BEGIN
 
-#undef CONFIG_COPYRECT_DO_OUTLINE
-#if 1
-#define CONFIG_COPYRECT_DO_OUTLINE  4
-#endif
 
-#ifdef CONFIG_COPYRECT_DO_OUTLINE
-INTDEF bool copyrect_do_outline;
-#endif
+INTDEF int KeyboardRelayThread(void *arg);
+INTDEF int MouseRelayThread(void *arg);
 
-
-INTDEF void WMCALL
-Copy_Rect(byte_t *__restrict dst_buffer,
-          unsigned int dst_x, unsigned int dst_y, unsigned int dst_stride,
-          byte_t const *__restrict src_buffer,
-          unsigned int src_x, unsigned int src_y, unsigned int src_stride,
-          unsigned int size_x, unsigned int size_y,
-          unsigned int bpp);
 
 DECL_END
 
-#endif /* !GUARD_APPS_WMS_RENDER_H */
+#endif /* !GUARD_APPS_WMS_EVENT_H */

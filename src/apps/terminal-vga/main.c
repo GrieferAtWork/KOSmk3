@@ -778,7 +778,7 @@ int main(int argc, char *argv[]) {
  current_keymap = (struct keyboard_keymap *)mmap(NULL,
                                                  sizeof(struct keyboard_keymap),
                                                  PROT_READ,
-                                                 MAP_PRIVATE,
+                                                 MAP_SHARED,
                                                  keyboard_fd,
                                                  KEYBOARD_KEYMAP_OFFSET);
  if (current_keymap == MAP_FAILED)

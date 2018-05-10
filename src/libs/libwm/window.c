@@ -54,8 +54,8 @@ libwm_window_move(struct wm_window *__restrict self,
  req.r_command        = WMS_COMMAND_MVWIN;
  req.r_flags          = WMS_COMMAND_FNORMAL;
  req.r_mvwin.mw_winid = self->w_winid;
- req.r_mvwin.mw_xmin  = new_posx;
- req.r_mvwin.mw_ymin  = new_posy;
+ req.r_mvwin.mw_newx  = new_posx;
+ req.r_mvwin.mw_newy  = new_posy;
  token = libwms_sendrequest(&req);
  /* Wait for the ACK.
   * NOTE: Once the window was actually moved, the server
@@ -102,9 +102,11 @@ libwm_window_chstat(struct wm_window *__restrict self, u16 mask, u16 flag) {
  /* Window fields are actually updated by `WM_WINDOWEVENT_STATE_CHANGE' events. */
  token = libwms_sendrequest(&req);
  libwms_recvresponse(token,&resp);
- if (resp.r_answer != WMS_RESPONSE_CHWIN_OK)
+ if (resp.r_answer                 != WMS_RESPONSE_EVENT ||
+     resp.r_event.e_type           != WM_EVENT_WINDOW ||
+     resp.r_event.e_window.w_event != WM_WINDOWEVENT_STATE_CHANGE)
      error_throw(E_NOT_IMPLEMENTED);
- return resp.r_chwin.cw_oldst;
+ return resp.r_event.e_window.w_info.i_state.s_oldstat;
 }
 
 

@@ -146,7 +146,7 @@ void test_vm86(void) {
 
 int main(int argc, char *argv[]) {
  struct sigaction act;
- kernctl(KERNEL_CONTROL_TRACE_SYSCALLS_ON);
+// kernctl(KERNEL_CONTROL_TRACE_SYSCALLS_ON);
  kernctl(KERNEL_CONTROL_DBG_DUMP_LEAKS);
  memset(&act,0,sizeof(struct sigaction));
  act.sa_sigaction = &my_handler;

@@ -76,8 +76,10 @@ struct PACKED wm_mouseevent {
 #define WM_EVENT_MOUSE_FENTER   0x0001     /* This is the first event after the mouse was moved over this window. */
 #define WM_EVENT_MOUSE_FLEAVE   0x0002     /* Trailing event send after the mouse left the window. (The `m_mouse(x|y)' fields are truncated to fit into the window) */
     __WM_EVENT_WINDOW_HEADER(m_)
-    unsigned int                m_mousex;  /* The window-relative X mouse coord (with motion already applied). */
-    unsigned int                m_mousey;  /* The window-relative Y mouse coord (with motion already applied). */
+    int                         m_mousex;  /* The window-relative X mouse coord (with motion already applied). */
+    int                         m_mousey;  /* The window-relative Y mouse coord (with motion already applied). */
+    int                         m_clrelx;  /* The display-clamped relative mouse movement in X (aka. the cursor movement) */
+    int                         m_clrely;  /* The display-clamped relative mouse movement in Y (aka. the cursor movement)  */
     struct mouse_packet         m_packet;  /* The mouse packet containing all the data.
                                             * This packet must be parsed to determine click events. */
 };
@@ -105,6 +107,8 @@ struct PACKED wm_windowevent {
         struct {
             int                 m_oldx;    /* The old window X coord. */
             int                 m_oldy;    /* The old window Y coord. */
+            int                 m_newx;    /* The new window X coord. */
+            int                 m_newy;    /* The new window Y coord. */
         }                       i_move;    /* WM_WINDOWEVENT_MOVED */
         struct {
             int                 r_oldxsiz; /* The old window X size (in pixels). */
@@ -112,7 +116,8 @@ struct PACKED wm_windowevent {
         }                       i_resize;  /* WM_WINDOWEVENT_RESIZED */
         struct {
             __uint16_t          s_oldstat; /* The old window state (Set of `WM_WINDOW_STATE_F*'). */
-            __uint16_t        __s_pad[3];  /* ... */
+            __uint16_t          s_newstat; /* The new window state (Set of `WM_WINDOW_STATE_F*'). */
+            __uint16_t        __s_pad[2];  /* ... */
         }                       i_state;   /* WM_WINDOWEVENT_STATE_CHANGE */
     }                           w_info;    /* Window-event-specific data. */
 };
