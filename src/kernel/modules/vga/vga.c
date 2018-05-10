@@ -53,12 +53,14 @@ INTERN struct vga_mode const vga_biosmode = {
      * (And wiki.osdev's VGA TTY page neglects to mention the seizure-
      *  inducing blinkyness that happens on real hardware and emulators
      *  ~supporting~ the VgA sTaNdArT's GrEaT iDeA oF iNcLuDiNg ThIs FeAtUrE) */
-    .vm_att_mode          = 0x0c & ~(VGA_AT10_BLINK),
+    .vm_att_mode          = VGA_AT10_FDUP9 & ~(VGA_AT10_FBLINK),
     .vm_att_overscan      = 0x00,
-    .vm_att_plane_enable  = 0x0f,
-    .vm_att_pel           = 0x08,
+    .vm_att_plane_enable  = 0x0f & VGA_AT12_FMASK,
+    .vm_att_pel           = 0x08 & VGA_AT13_FMASK,
     .vm_att_color_page    = 0x00,
-    .vm_mis               = 0xe3,
+    .vm_mis               = VGA_MIS_FCOLOR|VGA_MIS_FENB_MEM_ACCESS|
+                            VGA_MIS_FVSYNCPOL|VGA_MIS_FHSYNCPOL|
+                            VGA_MIS_FSEL_HIGH_PAGE,
     .vm_gfx_sr_value      = 0x00,
     .vm_gfx_sr_enable     = 0x00,
     .vm_gfx_compare_value = 0x00,
@@ -83,7 +85,7 @@ INTERN struct vga_mode const vga_biosmode = {
     .vm_crt_offset        = 0x28,
     .vm_crt_underline     = 0x1f,
     .vm_crt_v_blank_start = 0x96,
-    .vm_crt_v_blank_end   = 0xb9,
+    .vm_crt_v_blank_end   = 0xb9 & ~VGA_CR16_FRESERVED,
     .vm_crt_mode          = 0xa3,
     .vm_crt_line_compare  = 0xff,
     .vm_seq_clock_mode    = 0x00,
@@ -98,7 +100,9 @@ INTERN struct vga_mode const vga_mode_gfx320x200_256 = {
     .vm_att_plane_enable  = 0x0f,
     .vm_att_pel           = 0x00,
     .vm_att_color_page    = 0x00,
-    .vm_mis               = 0x63, /* 0xe3 */
+    .vm_mis               = VGA_MIS_FCOLOR|VGA_MIS_FENB_MEM_ACCESS|
+                            /*VGA_MIS_FVSYNCPOL|*/VGA_MIS_FHSYNCPOL|
+                            VGA_MIS_FSEL_HIGH_PAGE,
     .vm_gfx_sr_value      = 0x00,
     .vm_gfx_sr_enable     = 0x00,
     .vm_gfx_compare_value = 0x00,
@@ -123,49 +127,51 @@ INTERN struct vga_mode const vga_mode_gfx320x200_256 = {
     .vm_crt_offset        = 0x28,
     .vm_crt_underline     = 0x40, /* 0x00 */
     .vm_crt_v_blank_start = 0x96, /* 0xe7 */
-    .vm_crt_v_blank_end   = 0xb9, /* 0x06 */
+    .vm_crt_v_blank_end   = 0xb9 & ~VGA_CR16_FRESERVED, /* 0x06 */
     .vm_crt_mode          = 0xa3, /* 0xe3 */
     .vm_crt_line_compare  = 0xff,
     .vm_seq_clock_mode    = 0x01,
-    .vm_seq_plane_write   = VGA_SR02_ALL_PLANES,
+    .vm_seq_plane_write   = VGA_SR02_FALL_PLANES,
     .vm_seq_character_map = 0x00,
     .vm_seq_memory_mode   = 0x0e, /* 0x06 */
 };
 
 
 INTERN struct vga_palette const vga_biospal = {
-    {   {0x00,0x00,0x00},{0x00,0x00,0x2a},{0x00,0x2a,0x00},{0x00,0x2a,0x2a},{0x2a,0x00,0x00},{0x2a,0x00,0x2a},{0x2a,0x2a,0x00},{0x2a,0x2a,0x2a},
-        {0x00,0x00,0x15},{0x00,0x00,0x3f},{0x00,0x2a,0x15},{0x00,0x2a,0x3f},{0x2a,0x00,0x15},{0x2a,0x00,0x3f},{0x2a,0x2a,0x15},{0x2a,0x2a,0x3f},
-        {0x00,0x15,0x00},{0x00,0x15,0x2a},{0x00,0x3f,0x00},{0x00,0x3f,0x2a},{0x2a,0x15,0x00},{0x2a,0x15,0x2a},{0x2a,0x3f,0x00},{0x2a,0x3f,0x2a},
-        {0x00,0x15,0x15},{0x00,0x15,0x3f},{0x00,0x3f,0x15},{0x00,0x3f,0x3f},{0x2a,0x15,0x15},{0x2a,0x15,0x3f},{0x2a,0x3f,0x15},{0x2a,0x3f,0x3f},
-        {0x15,0x00,0x00},{0x15,0x00,0x2a},{0x15,0x2a,0x00},{0x15,0x2a,0x2a},{0x3f,0x00,0x00},{0x3f,0x00,0x2a},{0x3f,0x2a,0x00},{0x3f,0x2a,0x2a},
-        {0x15,0x00,0x15},{0x15,0x00,0x3f},{0x15,0x2a,0x15},{0x15,0x2a,0x3f},{0x3f,0x00,0x15},{0x3f,0x00,0x3f},{0x3f,0x2a,0x15},{0x3f,0x2a,0x3f},
-        {0x15,0x15,0x00},{0x15,0x15,0x2a},{0x15,0x3f,0x00},{0x15,0x3f,0x2a},{0x3f,0x15,0x00},{0x3f,0x15,0x2a},{0x3f,0x3f,0x00},{0x3f,0x3f,0x2a},
-        {0x15,0x15,0x15},{0x15,0x15,0x3f},{0x15,0x3f,0x15},{0x15,0x3f,0x3f},{0x3f,0x15,0x15},{0x3f,0x15,0x3f},{0x3f,0x3f,0x15},{0x3f,0x3f,0x3f},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
-        {0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},{0x00,0x00,0x00},
+#define C(r,g,b) {r<<2,g<<2,b<<2}
+    {   C(0x00,0x00,0x00),C(0x00,0x00,0x2a),C(0x00,0x2a,0x00),C(0x00,0x2a,0x2a),C(0x2a,0x00,0x00),C(0x2a,0x00,0x2a),C(0x2a,0x2a,0x00),C(0x2a,0x2a,0x2a),
+        C(0x00,0x00,0x15),C(0x00,0x00,0x3f),C(0x00,0x2a,0x15),C(0x00,0x2a,0x3f),C(0x2a,0x00,0x15),C(0x2a,0x00,0x3f),C(0x2a,0x2a,0x15),C(0x2a,0x2a,0x3f),
+        C(0x00,0x15,0x00),C(0x00,0x15,0x2a),C(0x00,0x3f,0x00),C(0x00,0x3f,0x2a),C(0x2a,0x15,0x00),C(0x2a,0x15,0x2a),C(0x2a,0x3f,0x00),C(0x2a,0x3f,0x2a),
+        C(0x00,0x15,0x15),C(0x00,0x15,0x3f),C(0x00,0x3f,0x15),C(0x00,0x3f,0x3f),C(0x2a,0x15,0x15),C(0x2a,0x15,0x3f),C(0x2a,0x3f,0x15),C(0x2a,0x3f,0x3f),
+        C(0x15,0x00,0x00),C(0x15,0x00,0x2a),C(0x15,0x2a,0x00),C(0x15,0x2a,0x2a),C(0x3f,0x00,0x00),C(0x3f,0x00,0x2a),C(0x3f,0x2a,0x00),C(0x3f,0x2a,0x2a),
+        C(0x15,0x00,0x15),C(0x15,0x00,0x3f),C(0x15,0x2a,0x15),C(0x15,0x2a,0x3f),C(0x3f,0x00,0x15),C(0x3f,0x00,0x3f),C(0x3f,0x2a,0x15),C(0x3f,0x2a,0x3f),
+        C(0x15,0x15,0x00),C(0x15,0x15,0x2a),C(0x15,0x3f,0x00),C(0x15,0x3f,0x2a),C(0x3f,0x15,0x00),C(0x3f,0x15,0x2a),C(0x3f,0x3f,0x00),C(0x3f,0x3f,0x2a),
+        C(0x15,0x15,0x15),C(0x15,0x15,0x3f),C(0x15,0x3f,0x15),C(0x15,0x3f,0x3f),C(0x3f,0x15,0x15),C(0x3f,0x15,0x3f),C(0x3f,0x3f,0x15),C(0x3f,0x3f,0x3f),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+        C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),C(0x00,0x00,0x00),
+#undef  C
     }
 };
 
@@ -213,125 +219,88 @@ VGA_SetMode(VGA *__restrict self,
             struct vga_mode const *__restrict mode) {
  u8 temp,qr1;
  void *regbase = self->v_mmio;
+ /* Validate the given mode. */
+ if (mode->vm_att_mode & VGA_AT10_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_att_plane_enable & VGA_AT12_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_att_pel & VGA_AT13_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_att_color_page & VGA_AT14_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_mis & VGA_MIS_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_seq_plane_write & VGA_SR02_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_seq_character_map & VGA_SR03_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_seq_memory_mode & VGA_SR04_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_gfx_sr_value & VGA_GR00_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_gfx_sr_enable & VGA_GR01_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_gfx_compare_value & VGA_GR02_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_gfx_data_rotate & VGA_GR03_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_gfx_mode & VGA_GR05_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_gfx_misc & VGA_GR06_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_gfx_compare_mask & VGA_GR07_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_crt_preset_row & VGA_CR8_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_crt_v_sync_end & VGA_CR11_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_crt_v_blank_end & VGA_CR16_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_crt_mode & VGA_CR17_FRESERVED)
+     goto invalid_mode;
+ if (mode->vm_seq_clock_mode & VGA_SR01_FRESERVED)
+     goto invalid_mode;
+
  atomic_rwlock_write(&self->v_lock);
-#if 1
- /* Disable preemption to prevent interference. */
- pflag_t was = PREEMPTION_PUSHOFF();
  qr1 = vga_rseq(regbase,VGA_SEQ_CLOCK_MODE);
-
- /* Validate the given mode. */
- /* TODO: Stuff like this: assert(!(mode->vm_att_mode&0x10)); */
-
- /* Turn off the screen. */
- vga_wseq(regbase,VGA_SEQ_RESET,0x1);
- vga_wseq(regbase,VGA_SEQ_CLOCK_MODE,qr1|VGA_SR01_SCREEN_OFF);
- vga_wseq(regbase,VGA_SEQ_RESET,0x3);
-
- /* Enable graphics mode. */
- vga_r(regbase,VGA_IS1_RC),vga_w(regbase,VGA_ATT_W,0x00);
- vga_r(regbase,VGA_IS1_RC),temp = vga_rattr(regbase,VGA_ATC_MODE);
- vga_r(regbase,VGA_IS1_RC),vga_wattr(regbase,VGA_ATC_MODE,(temp&VGA_AT10_RESERVED)|mode->vm_att_mode);
- vga_r(regbase,VGA_IS1_RC),vga_wattr(regbase,VGA_ATC_OVERSCAN,mode->vm_att_overscan);
- vga_r(regbase,VGA_IS1_RC),temp = vga_rattr(regbase,VGA_ATC_PLANE_ENABLE);
- vga_r(regbase,VGA_IS1_RC),vga_wattr(regbase,VGA_ATC_PLANE_ENABLE,(temp&~VGA_AT12_MASK)|mode->vm_att_plane_enable);
- vga_r(regbase,VGA_IS1_RC),temp = vga_rattr(regbase,VGA_ATC_PEL);
- vga_r(regbase,VGA_IS1_RC),vga_wattr(regbase,VGA_ATC_PEL,(temp&VGA_AT13_RESERVED)|mode->vm_att_pel);
- vga_r(regbase,VGA_IS1_RC),temp = vga_rattr(regbase,VGA_ATC_COLOR_PAGE);
- vga_r(regbase,VGA_IS1_RC),vga_wattr(regbase,VGA_ATC_COLOR_PAGE,(temp&VGA_AT14_RESERVED)|mode->vm_att_color_page);
- vga_r(regbase,VGA_IS1_RC),vga_w(regbase,VGA_ATT_W,0x20);
-
- temp = vga_r(regbase,VGA_MIS_R);
- vga_w(regbase,VGA_MIS_W,(temp&VGA_MIS_RESERVED)|mode->vm_mis);
-
- temp = vga_rseq(regbase,VGA_SEQ_PLANE_WRITE);
- vga_wseq(regbase,VGA_SEQ_PLANE_WRITE,(temp&VGA_SR02_RESERVED)|mode->vm_seq_plane_write);
- temp = vga_rseq(regbase,VGA_SEQ_CHARACTER_MAP);
- vga_wseq(regbase,VGA_SEQ_CHARACTER_MAP,(temp&VGA_SR03_RESERVED)|mode->vm_seq_character_map);
- temp = vga_rseq(regbase,VGA_SEQ_MEMORY_MODE);
- vga_wseq(regbase,VGA_SEQ_MEMORY_MODE,(temp&VGA_SR04_RESERVED)|mode->vm_seq_memory_mode);
-
- temp = vga_rgfx(regbase,VGA_GFX_SR_VALUE),vga_wgfx(regbase,VGA_GFX_SR_VALUE,(temp&VGA_GR00_RESERVED)|mode->vm_gfx_sr_value);
- temp = vga_rgfx(regbase,VGA_GFX_SR_ENABLE),vga_wgfx(regbase,VGA_GFX_SR_ENABLE,(temp&VGA_GR01_RESERVED)|mode->vm_gfx_sr_enable);
- temp = vga_rgfx(regbase,VGA_GFX_COMPARE_VALUE),vga_wgfx(regbase,VGA_GFX_COMPARE_VALUE,(temp&VGA_GR02_RESERVED)|mode->vm_gfx_compare_value);
- temp = vga_rgfx(regbase,VGA_GFX_DATA_ROTATE),vga_wgfx(regbase,VGA_GFX_DATA_ROTATE,(temp&VGA_GR03_RESERVED)|mode->vm_gfx_data_rotate);
- temp = vga_rgfx(regbase,VGA_GFX_MODE),vga_wgfx(regbase,VGA_GFX_MODE,(temp&VGA_GR05_RESERVED)|mode->vm_gfx_mode);
- temp = vga_rgfx(regbase,VGA_GFX_MISC),vga_wgfx(regbase,VGA_GFX_MISC,(temp&VGA_GR06_RESERVED)|mode->vm_gfx_misc);
- temp = vga_rgfx(regbase,VGA_GFX_COMPARE_MASK),vga_wgfx(regbase,VGA_GFX_COMPARE_MASK,(temp&VGA_GR07_RESERVED)|mode->vm_gfx_compare_mask);
- vga_wgfx(regbase,VGA_GFX_BIT_MASK,mode->vm_gfx_bit_mask);
-
- /* Apply new graphics settings. */
- vga_wcrt(regbase,VGA_CRTC_H_TOTAL,mode->vm_crt_h_total);
- vga_wcrt(regbase,VGA_CRTC_H_DISP,mode->vm_crt_h_disp);
- vga_wcrt(regbase,VGA_CRTC_H_BLANK_START,mode->vm_crt_h_blank_start);
- vga_wcrt(regbase,VGA_CRTC_H_BLANK_END,mode->vm_crt_h_blank_end);
- vga_wcrt(regbase,VGA_CRTC_H_SYNC_START,mode->vm_crt_h_sync_start);
- vga_wcrt(regbase,VGA_CRTC_H_SYNC_END,mode->vm_crt_h_sync_end);
- vga_wcrt(regbase,VGA_CRTC_V_TOTAL,mode->vm_crt_v_total);
- vga_wcrt(regbase,VGA_CRTC_OVERFLOW,mode->vm_crt_overflow);
- temp = vga_rcrt(regbase,VGA_CRTC_PRESET_ROW);
- vga_wcrt(regbase,VGA_CRTC_PRESET_ROW,(temp&VGA_CR8_RESERVED)|mode->vm_crt_preset_row);
- vga_wcrt(regbase,VGA_CRTC_MAX_SCAN,mode->vm_crt_max_scan);
- vga_wcrt(regbase,VGA_CRTC_V_SYNC_START,mode->vm_crt_v_sync_start);
- temp = vga_rcrt(regbase,VGA_CRTC_V_SYNC_END);
- vga_wcrt(regbase,VGA_CRTC_V_SYNC_END,(temp&VGA_CR11_RESERVED)|mode->vm_crt_v_sync_end);
- vga_wcrt(regbase,VGA_CRTC_V_DISP_END,mode->vm_crt_v_disp_end);
- vga_wcrt(regbase,VGA_CRTC_OFFSET,mode->vm_crt_offset);
- vga_wcrt(regbase,VGA_CRTC_UNDERLINE,mode->vm_crt_underline);
- vga_wcrt(regbase,VGA_CRTC_V_BLANK_START,mode->vm_crt_v_blank_start);
- temp = vga_rcrt(regbase,VGA_CRTC_V_BLANK_END);
- vga_wcrt(regbase,VGA_CRTC_V_BLANK_END,(temp&VGA_CR16_RESERVED)|mode->vm_crt_v_blank_end);
- temp = vga_rcrt(regbase,VGA_CRTC_MODE);
- vga_wcrt(regbase,VGA_CRTC_MODE,(temp&VGA_CR17_RESERVED)|mode->vm_crt_mode);
- vga_wcrt(regbase,VGA_CRTC_LINE_COMPARE,mode->vm_crt_line_compare);
-
- /* Turn the screen back on. */
- vga_wseq(regbase,VGA_SEQ_RESET,0x1);
- vga_wseq(regbase,VGA_SEQ_CLOCK_MODE,(qr1&VGA_SR01_RESERVED)|mode->vm_seq_clock_mode);
- vga_wseq(regbase,VGA_SEQ_RESET,0x3);
- PREEMPTION_POP(was);
-#else
- qr1 = vga_rseq(regbase,VGA_SEQ_CLOCK_MODE);
-
- /* Validate the given mode. */
- /* TODO: Stuff like this: assert(!(mode->vm_att_mode&0x10)); */
 
  /* Turn off the screen. */
  if (!(self->v_state & VGA_STATE_FSCREENOFF)) {
   vga_wseq(regbase,VGA_SEQ_RESET,0x1);
-  vga_wseq(regbase,VGA_SEQ_CLOCK_MODE,qr1|VGA_SR01_SCREEN_OFF);
+  vga_wseq(regbase,VGA_SEQ_CLOCK_MODE,qr1|VGA_SR01_FSCREEN_OFF);
   vga_wseq(regbase,VGA_SEQ_RESET,0x3);
  }
 
  /* Enable graphics mode. */
  vga_r(regbase,VGA_IS1_RC),vga_w(regbase,VGA_ATT_W,0x00);
  vga_r(regbase,VGA_IS1_RC),temp = vga_rattr(regbase,VGA_ATC_MODE);
- vga_r(regbase,VGA_IS1_RC),vga_wattr(regbase,VGA_ATC_MODE,(temp&VGA_AT10_RESERVED)|mode->vm_att_mode);
+ vga_r(regbase,VGA_IS1_RC),vga_wattr(regbase,VGA_ATC_MODE,(temp&VGA_AT10_FRESERVED)|mode->vm_att_mode);
  vga_r(regbase,VGA_IS1_RC),vga_wattr(regbase,VGA_ATC_OVERSCAN,mode->vm_att_overscan);
  vga_r(regbase,VGA_IS1_RC),temp = vga_rattr(regbase,VGA_ATC_PLANE_ENABLE);
- vga_r(regbase,VGA_IS1_RC),vga_wattr(regbase,VGA_ATC_PLANE_ENABLE,(temp&~VGA_AT12_MASK)|mode->vm_att_plane_enable);
+ vga_r(regbase,VGA_IS1_RC),vga_wattr(regbase,VGA_ATC_PLANE_ENABLE,(temp&VGA_AT12_FRESERVED)|mode->vm_att_plane_enable);
  vga_r(regbase,VGA_IS1_RC),temp = vga_rattr(regbase,VGA_ATC_PEL);
- vga_r(regbase,VGA_IS1_RC),vga_wattr(regbase,VGA_ATC_PEL,(temp&VGA_AT13_RESERVED)|mode->vm_att_pel);
+ vga_r(regbase,VGA_IS1_RC),vga_wattr(regbase,VGA_ATC_PEL,(temp&VGA_AT13_FRESERVED)|mode->vm_att_pel);
  vga_r(regbase,VGA_IS1_RC),temp = vga_rattr(regbase,VGA_ATC_COLOR_PAGE);
- vga_r(regbase,VGA_IS1_RC),vga_wattr(regbase,VGA_ATC_COLOR_PAGE,(temp&VGA_AT14_RESERVED)|mode->vm_att_color_page);
+ vga_r(regbase,VGA_IS1_RC),vga_wattr(regbase,VGA_ATC_COLOR_PAGE,(temp&VGA_AT14_FRESERVED)|mode->vm_att_color_page);
  vga_r(regbase,VGA_IS1_RC),vga_w(regbase,VGA_ATT_W,0x20);
 
  temp = vga_r(regbase,VGA_MIS_R);
- vga_w(regbase,VGA_MIS_W,(temp&VGA_MIS_RESERVED)|mode->vm_mis);
+ vga_w(regbase,VGA_MIS_W,(temp&VGA_MIS_FRESERVED)|mode->vm_mis);
 
  temp = vga_rseq(regbase,VGA_SEQ_PLANE_WRITE);
- vga_wseq(regbase,VGA_SEQ_PLANE_WRITE,(temp&VGA_SR02_RESERVED)|mode->vm_seq_plane_write);
+ vga_wseq(regbase,VGA_SEQ_PLANE_WRITE,(temp&VGA_SR02_FRESERVED)|mode->vm_seq_plane_write);
  temp = vga_rseq(regbase,VGA_SEQ_CHARACTER_MAP);
- vga_wseq(regbase,VGA_SEQ_CHARACTER_MAP,(temp&VGA_SR03_RESERVED)|mode->vm_seq_character_map);
+ vga_wseq(regbase,VGA_SEQ_CHARACTER_MAP,(temp&VGA_SR03_FRESERVED)|mode->vm_seq_character_map);
  temp = vga_rseq(regbase,VGA_SEQ_MEMORY_MODE);
- vga_wseq(regbase,VGA_SEQ_MEMORY_MODE,(temp&VGA_SR04_RESERVED)|mode->vm_seq_memory_mode);
+ vga_wseq(regbase,VGA_SEQ_MEMORY_MODE,(temp&VGA_SR04_FRESERVED)|mode->vm_seq_memory_mode);
 
- temp = vga_rgfx(regbase,VGA_GFX_SR_VALUE),vga_wgfx(regbase,VGA_GFX_SR_VALUE,(temp&VGA_GR00_RESERVED)|mode->vm_gfx_sr_value);
- temp = vga_rgfx(regbase,VGA_GFX_SR_ENABLE),vga_wgfx(regbase,VGA_GFX_SR_ENABLE,(temp&VGA_GR01_RESERVED)|mode->vm_gfx_sr_enable);
- temp = vga_rgfx(regbase,VGA_GFX_COMPARE_VALUE),vga_wgfx(regbase,VGA_GFX_COMPARE_VALUE,(temp&VGA_GR02_RESERVED)|mode->vm_gfx_compare_value);
- temp = vga_rgfx(regbase,VGA_GFX_DATA_ROTATE),vga_wgfx(regbase,VGA_GFX_DATA_ROTATE,(temp&VGA_GR03_RESERVED)|mode->vm_gfx_data_rotate);
- temp = vga_rgfx(regbase,VGA_GFX_MODE),vga_wgfx(regbase,VGA_GFX_MODE,(temp&VGA_GR05_RESERVED)|mode->vm_gfx_mode);
- temp = vga_rgfx(regbase,VGA_GFX_MISC),vga_wgfx(regbase,VGA_GFX_MISC,(temp&VGA_GR06_RESERVED)|mode->vm_gfx_misc);
- temp = vga_rgfx(regbase,VGA_GFX_COMPARE_MASK),vga_wgfx(regbase,VGA_GFX_COMPARE_MASK,(temp&VGA_GR07_RESERVED)|mode->vm_gfx_compare_mask);
+ temp = vga_rgfx(regbase,VGA_GFX_SR_VALUE),vga_wgfx(regbase,VGA_GFX_SR_VALUE,(temp&VGA_GR00_FRESERVED)|mode->vm_gfx_sr_value);
+ temp = vga_rgfx(regbase,VGA_GFX_SR_ENABLE),vga_wgfx(regbase,VGA_GFX_SR_ENABLE,(temp&VGA_GR01_FRESERVED)|mode->vm_gfx_sr_enable);
+ temp = vga_rgfx(regbase,VGA_GFX_COMPARE_VALUE),vga_wgfx(regbase,VGA_GFX_COMPARE_VALUE,(temp&VGA_GR02_FRESERVED)|mode->vm_gfx_compare_value);
+ temp = vga_rgfx(regbase,VGA_GFX_DATA_ROTATE),vga_wgfx(regbase,VGA_GFX_DATA_ROTATE,(temp&VGA_GR03_FRESERVED)|mode->vm_gfx_data_rotate);
+ temp = vga_rgfx(regbase,VGA_GFX_MODE),vga_wgfx(regbase,VGA_GFX_MODE,(temp&VGA_GR05_FRESERVED)|mode->vm_gfx_mode);
+ temp = vga_rgfx(regbase,VGA_GFX_MISC),vga_wgfx(regbase,VGA_GFX_MISC,(temp&VGA_GR06_FRESERVED)|mode->vm_gfx_misc);
+ temp = vga_rgfx(regbase,VGA_GFX_COMPARE_MASK),vga_wgfx(regbase,VGA_GFX_COMPARE_MASK,(temp&VGA_GR07_FRESERVED)|mode->vm_gfx_compare_mask);
  vga_wgfx(regbase,VGA_GFX_BIT_MASK,mode->vm_gfx_bit_mask);
 
  /* Apply new graphics settings. */
@@ -344,41 +313,43 @@ VGA_SetMode(VGA *__restrict self,
  vga_wcrt(regbase,VGA_CRTC_V_TOTAL,mode->vm_crt_v_total);
  vga_wcrt(regbase,VGA_CRTC_OVERFLOW,mode->vm_crt_overflow);
  temp = vga_rcrt(regbase,VGA_CRTC_PRESET_ROW);
- vga_wcrt(regbase,VGA_CRTC_PRESET_ROW,(temp&VGA_CR8_RESERVED)|mode->vm_crt_preset_row);
+ vga_wcrt(regbase,VGA_CRTC_PRESET_ROW,(temp&VGA_CR8_FRESERVED)|mode->vm_crt_preset_row);
  vga_wcrt(regbase,VGA_CRTC_MAX_SCAN,mode->vm_crt_max_scan);
  vga_wcrt(regbase,VGA_CRTC_V_SYNC_START,mode->vm_crt_v_sync_start);
  temp = vga_rcrt(regbase,VGA_CRTC_V_SYNC_END);
- vga_wcrt(regbase,VGA_CRTC_V_SYNC_END,(temp&VGA_CR11_RESERVED)|mode->vm_crt_v_sync_end);
+ vga_wcrt(regbase,VGA_CRTC_V_SYNC_END,(temp&VGA_CR11_FRESERVED)|mode->vm_crt_v_sync_end);
  vga_wcrt(regbase,VGA_CRTC_V_DISP_END,mode->vm_crt_v_disp_end);
  vga_wcrt(regbase,VGA_CRTC_OFFSET,mode->vm_crt_offset);
  vga_wcrt(regbase,VGA_CRTC_UNDERLINE,mode->vm_crt_underline);
  vga_wcrt(regbase,VGA_CRTC_V_BLANK_START,mode->vm_crt_v_blank_start);
  temp = vga_rcrt(regbase,VGA_CRTC_V_BLANK_END);
- vga_wcrt(regbase,VGA_CRTC_V_BLANK_END,(temp&VGA_CR16_RESERVED)|mode->vm_crt_v_blank_end);
+ vga_wcrt(regbase,VGA_CRTC_V_BLANK_END,(temp&VGA_CR16_FRESERVED)|mode->vm_crt_v_blank_end);
  temp = vga_rcrt(regbase,VGA_CRTC_MODE);
- vga_wcrt(regbase,VGA_CRTC_MODE,(temp&VGA_CR17_RESERVED)|mode->vm_crt_mode);
+ vga_wcrt(regbase,VGA_CRTC_MODE,(temp&VGA_CR17_FRESERVED)|mode->vm_crt_mode);
  vga_wcrt(regbase,VGA_CRTC_LINE_COMPARE,mode->vm_crt_line_compare);
 
  /* Turn the screen back on. */
  if (!(self->v_state & VGA_STATE_FSCREENOFF)) {
   vga_wseq(regbase,VGA_SEQ_RESET,0x1);
   vga_wseq(regbase,VGA_SEQ_CLOCK_MODE,
-          (qr1 & VGA_SR01_RESERVED) |
-          (mode->vm_seq_clock_mode & ~VGA_SR01_SCREEN_OFF));
+          (qr1 & VGA_SR01_FRESERVED) |
+          (mode->vm_seq_clock_mode & ~VGA_SR01_FSCREEN_OFF));
   vga_wseq(regbase,VGA_SEQ_RESET,0x3);
  } else {
   u8 new_mode;
-  new_mode  = mode->vm_seq_clock_mode | VGA_SR01_SCREEN_OFF;
-  new_mode &= ~VGA_SR01_RESERVED;
-  new_mode |= qr1 & VGA_SR01_RESERVED;
+  new_mode  = mode->vm_seq_clock_mode | VGA_SR01_FSCREEN_OFF;
+  new_mode &= ~VGA_SR01_FRESERVED;
+  new_mode |= qr1 & VGA_SR01_FRESERVED;
   if (new_mode != qr1) {
    vga_wseq(regbase,VGA_SEQ_RESET,0x1);
    vga_wseq(regbase,VGA_SEQ_CLOCK_MODE,new_mode);
    vga_wseq(regbase,VGA_SEQ_RESET,0x3);
   }
  }
-#endif
  atomic_rwlock_endwrite(&self->v_lock);
+ return;
+invalid_mode:
+ error_throw(E_INVALID_ARGUMENT);
 }
 
 INTERN void KCALL
@@ -387,21 +358,21 @@ VGA_GetMode(VGA *__restrict self,
  void *regbase = self->v_mmio;
  atomic_rwlock_write(&self->v_lock);
  vga_r(regbase,VGA_IS1_RC),vga_w(regbase,VGA_ATT_W,0x00);
- vga_r(regbase,VGA_IS1_RC),mode->vm_att_mode         = vga_rattr(regbase,VGA_ATC_MODE) & ~VGA_AT10_RESERVED;
+ vga_r(regbase,VGA_IS1_RC),mode->vm_att_mode         = vga_rattr(regbase,VGA_ATC_MODE) & ~VGA_AT10_FRESERVED;
  vga_r(regbase,VGA_IS1_RC),mode->vm_att_overscan     = vga_rattr(regbase,VGA_ATC_OVERSCAN);
- vga_r(regbase,VGA_IS1_RC),mode->vm_att_plane_enable = vga_rattr(regbase,VGA_ATC_PLANE_ENABLE) & ~VGA_AT12_RESERVED;
- vga_r(regbase,VGA_IS1_RC),mode->vm_att_pel          = vga_rattr(regbase,VGA_ATC_PEL) & ~VGA_AT13_RESERVED;
- vga_r(regbase,VGA_IS1_RC),mode->vm_att_color_page   = vga_rattr(regbase,VGA_ATC_COLOR_PAGE) & ~VGA_AT14_RESERVED;
+ vga_r(regbase,VGA_IS1_RC),mode->vm_att_plane_enable = vga_rattr(regbase,VGA_ATC_PLANE_ENABLE) & ~VGA_AT12_FRESERVED;
+ vga_r(regbase,VGA_IS1_RC),mode->vm_att_pel          = vga_rattr(regbase,VGA_ATC_PEL) & ~VGA_AT13_FRESERVED;
+ vga_r(regbase,VGA_IS1_RC),mode->vm_att_color_page   = vga_rattr(regbase,VGA_ATC_COLOR_PAGE) & ~VGA_AT14_FRESERVED;
  vga_r(regbase,VGA_IS1_RC),vga_w(regbase,VGA_ATT_W,0x20);
 
- mode->vm_mis               = vga_r(regbase,VGA_MIS_R) & ~VGA_MIS_RESERVED;
- mode->vm_gfx_sr_value      = vga_rgfx(regbase,VGA_GFX_SR_VALUE) & ~VGA_GR00_RESERVED;
- mode->vm_gfx_sr_enable     = vga_rgfx(regbase,VGA_GFX_SR_ENABLE) & ~VGA_GR01_RESERVED;
- mode->vm_gfx_compare_value = vga_rgfx(regbase,VGA_GFX_COMPARE_VALUE) & ~VGA_GR02_RESERVED;
- mode->vm_gfx_data_rotate   = vga_rgfx(regbase,VGA_GFX_DATA_ROTATE) & ~VGA_GR03_RESERVED;
- mode->vm_gfx_mode          = vga_rgfx(regbase,VGA_GFX_MODE) & ~VGA_GR05_RESERVED;
- mode->vm_gfx_misc          = vga_rgfx(regbase,VGA_GFX_MISC) & ~VGA_GR06_RESERVED;
- mode->vm_gfx_compare_mask  = vga_rgfx(regbase,VGA_GFX_COMPARE_MASK) & ~VGA_GR07_RESERVED;
+ mode->vm_mis               = vga_r(regbase,VGA_MIS_R) & ~VGA_MIS_FRESERVED;
+ mode->vm_gfx_sr_value      = vga_rgfx(regbase,VGA_GFX_SR_VALUE) & ~VGA_GR00_FRESERVED;
+ mode->vm_gfx_sr_enable     = vga_rgfx(regbase,VGA_GFX_SR_ENABLE) & ~VGA_GR01_FRESERVED;
+ mode->vm_gfx_compare_value = vga_rgfx(regbase,VGA_GFX_COMPARE_VALUE) & ~VGA_GR02_FRESERVED;
+ mode->vm_gfx_data_rotate   = vga_rgfx(regbase,VGA_GFX_DATA_ROTATE) & ~VGA_GR03_FRESERVED;
+ mode->vm_gfx_mode          = vga_rgfx(regbase,VGA_GFX_MODE) & ~VGA_GR05_FRESERVED;
+ mode->vm_gfx_misc          = vga_rgfx(regbase,VGA_GFX_MISC) & ~VGA_GR06_FRESERVED;
+ mode->vm_gfx_compare_mask  = vga_rgfx(regbase,VGA_GFX_COMPARE_MASK) & ~VGA_GR07_FRESERVED;
  mode->vm_gfx_bit_mask      = vga_rgfx(regbase,VGA_GFX_BIT_MASK);
  mode->vm_crt_h_total       = vga_rcrt(regbase,VGA_CRTC_H_TOTAL);
  mode->vm_crt_h_disp        = vga_rcrt(regbase,VGA_CRTC_H_DISP);
@@ -411,21 +382,21 @@ VGA_GetMode(VGA *__restrict self,
  mode->vm_crt_h_sync_end    = vga_rcrt(regbase,VGA_CRTC_H_SYNC_END);
  mode->vm_crt_v_total       = vga_rcrt(regbase,VGA_CRTC_V_TOTAL);
  mode->vm_crt_overflow      = vga_rcrt(regbase,VGA_CRTC_OVERFLOW);
- mode->vm_crt_preset_row    = vga_rcrt(regbase,VGA_CRTC_PRESET_ROW) & ~VGA_CR8_RESERVED;
+ mode->vm_crt_preset_row    = vga_rcrt(regbase,VGA_CRTC_PRESET_ROW) & ~VGA_CR8_FRESERVED;
  mode->vm_crt_max_scan      = vga_rcrt(regbase,VGA_CRTC_MAX_SCAN);
  mode->vm_crt_v_sync_start  = vga_rcrt(regbase,VGA_CRTC_V_SYNC_START);
- mode->vm_crt_v_sync_end    = vga_rcrt(regbase,VGA_CRTC_V_SYNC_END) & ~VGA_CR11_RESERVED;
+ mode->vm_crt_v_sync_end    = vga_rcrt(regbase,VGA_CRTC_V_SYNC_END) & ~VGA_CR11_FRESERVED;
  mode->vm_crt_v_disp_end    = vga_rcrt(regbase,VGA_CRTC_V_DISP_END);
  mode->vm_crt_offset        = vga_rcrt(regbase,VGA_CRTC_OFFSET);
  mode->vm_crt_underline     = vga_rcrt(regbase,VGA_CRTC_UNDERLINE);
  mode->vm_crt_v_blank_start = vga_rcrt(regbase,VGA_CRTC_V_BLANK_START);
- mode->vm_crt_v_blank_end   = vga_rcrt(regbase,VGA_CRTC_V_BLANK_END) & ~VGA_CR16_RESERVED;
- mode->vm_crt_mode          = vga_rcrt(regbase,VGA_CRTC_MODE) & ~VGA_CR17_RESERVED;
+ mode->vm_crt_v_blank_end   = vga_rcrt(regbase,VGA_CRTC_V_BLANK_END) & ~VGA_CR16_FRESERVED;
+ mode->vm_crt_mode          = vga_rcrt(regbase,VGA_CRTC_MODE) & ~VGA_CR17_FRESERVED;
  mode->vm_crt_line_compare  = vga_rcrt(regbase,VGA_CRTC_LINE_COMPARE);
- mode->vm_seq_plane_write   = vga_rseq(regbase,VGA_SEQ_PLANE_WRITE) & ~VGA_SR02_RESERVED;
- mode->vm_seq_character_map = vga_rseq(regbase,VGA_SEQ_CHARACTER_MAP) & ~VGA_SR03_RESERVED;
- mode->vm_seq_memory_mode   = vga_rseq(regbase,VGA_SEQ_MEMORY_MODE) & ~VGA_SR04_RESERVED;
- mode->vm_seq_clock_mode    = vga_rseq(regbase,VGA_SEQ_CLOCK_MODE) & ~VGA_SR01_RESERVED;
+ mode->vm_seq_plane_write   = vga_rseq(regbase,VGA_SEQ_PLANE_WRITE) & ~VGA_SR02_FRESERVED;
+ mode->vm_seq_character_map = vga_rseq(regbase,VGA_SEQ_CHARACTER_MAP) & ~VGA_SR03_FRESERVED;
+ mode->vm_seq_memory_mode   = vga_rseq(regbase,VGA_SEQ_MEMORY_MODE) & ~VGA_SR04_FRESERVED;
+ mode->vm_seq_clock_mode    = vga_rseq(regbase,VGA_SEQ_CLOCK_MODE) & ~VGA_SR01_FRESERVED;
  atomic_rwlock_endwrite(&self->v_lock);
 }
 
@@ -490,7 +461,7 @@ VGA_ScreenOn(VGA *__restrict self) {
  void *regbase = self->v_mmio;
  atomic_rwlock_write(&self->v_lock);
  qr1  = vga_rseq(regbase,VGA_SEQ_CLOCK_MODE);
- qr1 &= ~VGA_SR01_SCREEN_OFF;
+ qr1 &= ~VGA_SR01_FSCREEN_OFF;
  vga_wseq(regbase,VGA_SEQ_RESET,0x1);
  vga_wseq(regbase,VGA_SEQ_CLOCK_MODE,qr1);
  vga_wseq(regbase,VGA_SEQ_RESET,0x3);
@@ -503,7 +474,7 @@ VGA_ScreenOff(VGA *__restrict self) {
  void *regbase = self->v_mmio;
  atomic_rwlock_write(&self->v_lock);
  qr1  = vga_rseq(regbase,VGA_SEQ_CLOCK_MODE);
- qr1 |= VGA_SR01_SCREEN_OFF;
+ qr1 |= VGA_SR01_FSCREEN_OFF;
  vga_wseq(regbase,VGA_SEQ_RESET,0x1);
  vga_wseq(regbase,VGA_SEQ_CLOCK_MODE,qr1);
  vga_wseq(regbase,VGA_SEQ_RESET,0x3);
@@ -653,6 +624,19 @@ VGA_Ioctl(VGA *__restrict self,
   VGA_SetFont(self,(struct vga_font *)arg);
   break;
 
+ case VGA_SETFONT_DEFAULT:
+  switch ((unsigned int)(uintptr_t)arg) {
+
+  case VGA_DEFAULT_FONT_BIOS:
+   VGA_SetFont(self,&self->v_bios_font);
+   break;
+
+  default:
+   error_throw(E_INVALID_ARGUMENT);
+   break;
+  }
+  break;
+
  default:
   error_throw(E_NOT_IMPLEMENTED);
   break;
@@ -677,7 +661,7 @@ vga_disable_annoying_blinking(void) {
 
  qr1 = vga_rseq(NULL,VGA_SEQ_CLOCK_MODE);
  vga_wseq(NULL,VGA_SEQ_RESET,0x1);
- vga_wseq(NULL,VGA_SEQ_CLOCK_MODE,qr1|VGA_SR01_SCREEN_OFF);
+ vga_wseq(NULL,VGA_SEQ_CLOCK_MODE,qr1|VGA_SR01_FSCREEN_OFF);
  vga_wseq(NULL,VGA_SEQ_RESET,0x3);
 
  vga_r(NULL,VGA_IS1_RC);
@@ -686,13 +670,13 @@ vga_disable_annoying_blinking(void) {
  vga_r(NULL,VGA_IS1_RC);
  u8 temp = vga_rattr(NULL,VGA_ATC_MODE);
  vga_r(NULL,VGA_IS1_RC);
- vga_wattr(NULL,VGA_ATC_MODE,temp & ~(VGA_AT10_BLINK));
+ vga_wattr(NULL,VGA_ATC_MODE,temp & ~(VGA_AT10_FBLINK));
 
  vga_r(NULL,VGA_IS1_RC);
  vga_w(NULL,VGA_ATT_W,0x20);
 
  vga_wseq(NULL,VGA_SEQ_RESET,0x1);
- vga_wseq(NULL,VGA_SEQ_CLOCK_MODE,qr1 & ~VGA_SR01_SCREEN_OFF);
+ vga_wseq(NULL,VGA_SEQ_CLOCK_MODE,qr1 & ~VGA_SR01_FSCREEN_OFF);
  vga_wseq(NULL,VGA_SEQ_RESET,0x3);
 }
 
@@ -709,7 +693,7 @@ PRIVATE ATTR_USED ATTR_FREETEXT void KCALL VGA_Init(void) {
   dev->v_is1_r     = VGA_IS1_RC;
   dev->v_vram_addr = 0xA0000;
   dev->v_vram_size = 8192*4*4; /* 128K */
-  if unlikely(!(vga_r(dev->v_mmio,VGA_MIS_R) & VGA_MIS_COLOR)) {
+  if unlikely(!(vga_r(dev->v_mmio,VGA_MIS_R) & VGA_MIS_FCOLOR)) {
    dev->v_crt_i = VGA_CRT_IM;
    dev->v_crt_d = VGA_CRT_DM;
    dev->v_is1_r = VGA_IS1_RM;
