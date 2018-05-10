@@ -138,7 +138,7 @@ __NAMESPACE_INT_END
 #endif
 
 
-#define __MAKEIN(T,sfx,n) \
+#define __MAKEIN(T,sfx,r,n) \
 __FORCELOCAL T (__LIBCCALL in##sfx)(__IOPORT_T __port) { \
  register T __rv; \
  __asm__ __volatile__("in" #sfx " %w1, %0" \
@@ -160,13 +160,13 @@ __FORCELOCAL void (__LIBCCALL ins##sfx)(__IOPORT_T __port, void *__addr, __SIZE_
 __FORCELOCAL T (__LIBCCALL __read##sfx)(__MEMPORT_T __addr) { \
  register T __rv; \
  __asm__ __volatile__("mov" #sfx " %1, %0" \
-                      : "=r" (__rv) : "m" (*(T volatile *)__addr)); \
+                      : "=" r (__rv) : "m" (*(T volatile *)__addr)); \
  return __rv; \
 } \
 __FORCELOCAL T (__LIBCCALL __read##sfx##_p)(__MEMPORT_T __port) { \
  register T __rv; \
  __asm__ __volatile__("mov" #sfx " %1, %0" __IO_SLOWDOWN \
-                      : "=r" (__rv) : "m" (*(T volatile *)__port)); \
+                      : "=" r (__rv) : "m" (*(T volatile *)__port)); \
  return __rv; \
 } \
 __FORCELOCAL void (__LIBCCALL __reads##sfx)(__MEMPORT_T __port, void *__addr, __SIZE_TYPE__ __count) { \
@@ -183,7 +183,7 @@ __FORCELOCAL void (__LIBCCALL __reads##sfx)(__MEMPORT_T __port, void *__addr, __
 }
 
 
-#define __MAKEOUT(T,sfx,s1,n) \
+#define __MAKEOUT(T,sfx,s1,r,n) \
 __FORCELOCAL void (__LIBCCALL out##sfx)(__IOPORT_T __port, T __val) { \
  __asm__ __volatile__("out" #sfx " %" s1 "0, %w1" \
                       : : "a" (__val), "Nd" (__port)); \
@@ -201,12 +201,12 @@ __FORCELOCAL void (__LIBCCALL outs##sfx)(__IOPORT_T __port, void const *__addr, 
 __FORCELOCAL void (__LIBCCALL __write##sfx)(__MEMPORT_T __port, T __val) { \
  __asm__ __volatile__("mov" #sfx " %1, %0" \
                       : "=m" (*(T volatile *)__port) \
-                      : "r" (__val)); \
+                      : r (__val)); \
 } \
 __FORCELOCAL void (__LIBCCALL __write##sfx##_p)(__MEMPORT_T __port, T __val) { \
  __asm__ __volatile__("mov" #sfx " %1, %0" __IO_SLOWDOWN \
                       : "=m" (*(T volatile *)__port)\
-                      : "r" (__val)); \
+                      : r (__val)); \
 } \
 __FORCELOCAL void (__LIBCCALL __writes##sfx)(__MEMPORT_T __port, void const *__addr, __SIZE_TYPE__ __count) { \
  if (__count) { \
@@ -222,12 +222,12 @@ __FORCELOCAL void (__LIBCCALL __writes##sfx)(__MEMPORT_T __port, void const *__a
 }
 
 
-__MAKEIN(__UINT8_TYPE__,b,1)
-__MAKEIN(__UINT16_TYPE__,w,2)
-__MAKEIN(__UINT32_TYPE__,l,4)
-__MAKEOUT(__UINT8_TYPE__,b,"b",1)
-__MAKEOUT(__UINT16_TYPE__,w,"w",2)
-__MAKEOUT(__UINT32_TYPE__,l,"",4)
+__MAKEIN(__UINT8_TYPE__,b,"q",1)
+__MAKEIN(__UINT16_TYPE__,w,"r",2)
+__MAKEIN(__UINT32_TYPE__,l,"r",4)
+__MAKEOUT(__UINT8_TYPE__,b,"b","q",1)
+__MAKEOUT(__UINT16_TYPE__,w,"w","r",2)
+__MAKEOUT(__UINT32_TYPE__,l,"","r",4)
 
 #ifdef __x86_64__
 __FORCELOCAL __UINT64_TYPE__ (__LIBCCALL __readq)(__MEMPORT_T __port) {
