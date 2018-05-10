@@ -504,6 +504,9 @@
     <ClCompile Include="..\..\src\kernel\src\fs\iov.c">
       <Filter>kernel\src\fs</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\vm\phys.c">
+      <Filter>kernel\src\vm</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">

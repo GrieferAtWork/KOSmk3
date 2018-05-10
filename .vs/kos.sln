@@ -603,6 +603,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "i386-kos", "i386-kos", "{54
 		..\include\kos\i386-kos\thread.h = ..\include\kos\i386-kos\thread.h
 		..\include\kos\i386-kos\tib.h = ..\include\kos\i386-kos\tib.h
 		..\include\kos\i386-kos\tls.h = ..\include\kos\i386-kos\tls.h
+		..\include\kos\i386-kos\vga.h = ..\include\kos\i386-kos\vga.h
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "root", "root", "{5776572C-854B-436B-A180-09FCC3D9B17C}"
@@ -837,6 +838,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "unix-domain", "kernel\modules\unix-domain.vcxproj", "{D57F6B9A-384B-43A4-93A1-404BC393C4C8}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wms", "apps\wms.vcxproj", "{D580C98F-EC6D-4024-B9FA-7B977B231EF9}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "vga", "kernel\modules\vga.vcxproj", "{94A101F0-ABBB-4604-8725-D36AC554286A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -1076,6 +1079,22 @@ Global
 		{D580C98F-EC6D-4024-B9FA-7B977B231EF9}.Release|x64.ActiveCfg = Release|x64
 		{D580C98F-EC6D-4024-B9FA-7B977B231EF9}.Release|x64.Build.0 = Release|x64
 		{D580C98F-EC6D-4024-B9FA-7B977B231EF9}.Release|x86_64.ActiveCfg = Release|Win32
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Debug|i386.ActiveCfg = Debug|Win32
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Debug|Mixed Platforms.Build.0 = Debug|Win32
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Debug|Win32.Build.0 = Debug|Win32
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Debug|x64.ActiveCfg = Debug|x64
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Debug|x64.Build.0 = Debug|x64
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Debug|x86_64.ActiveCfg = Debug|Win32
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Release|i386.ActiveCfg = Release|Win32
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Release|Mixed Platforms.ActiveCfg = Release|Win32
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Release|Mixed Platforms.Build.0 = Release|Win32
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Release|Win32.ActiveCfg = Release|Win32
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Release|Win32.Build.0 = Release|Win32
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Release|x64.ActiveCfg = Release|x64
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Release|x64.Build.0 = Release|x64
+		{94A101F0-ABBB-4604-8725-D36AC554286A}.Release|x86_64.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -1134,5 +1153,6 @@ Global
 		{6832E45A-5352-4198-A0CC-4F4D2393984B} = {32E3FF1B-B00D-4518-A8E6-4D91B19412B3}
 		{D57F6B9A-384B-43A4-93A1-404BC393C4C8} = {0FCFED54-A8E5-4F4B-9F91-01AD614D377C}
 		{D580C98F-EC6D-4024-B9FA-7B977B231EF9} = {448AC789-9188-4593-A0B9-06164D500CAC}
+		{94A101F0-ABBB-4604-8725-D36AC554286A} = {0FCFED54-A8E5-4F4B-9F91-01AD614D377C}
 	EndGlobalSection
 EndGlobal

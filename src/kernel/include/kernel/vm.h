@@ -1211,6 +1211,11 @@ FORCELOCAL void KCALL vm_cowq(void *base) {
 #endif
 
 
+/* Copy memory to/from the physical address space. */
+FUNDEF void KCALL vm_copyfromphys(USER CHECKED void *dst, PHYS vm_phys_t src, size_t num_bytes);
+FUNDEF void KCALL vm_copytophys(PHYS vm_phys_t dst, USER CHECKED void const *src, size_t num_bytes);
+
+
 #ifndef CONFIG_NO_VIO
 /* Create/Remove VM memory breakpoints.
  * These breakpoints are implemented using VIO,

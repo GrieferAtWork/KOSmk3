@@ -281,7 +281,8 @@ int main(int argc, char *argv[]) {
  }
 
 #if 1
- Xexecl("/bin/wms","wms","/bin/wm","wm",(char *)NULL);
+ if (kernctl(KERNEL_CONTROL_INSMOD,"/mod/vga.mod",NULL) >= 0)
+     Xexecl("/bin/wms","wms","/bin/wm","wm",(char *)NULL);
 #endif
 
 #if 0

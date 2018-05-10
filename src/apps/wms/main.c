@@ -38,6 +38,8 @@
 #include <signal.h>
 #include <unistd.h>
 #include <sched.h>
+#include <sys/ioctl.h>
+#include <kos/i386-kos/vga.h>
 
 #include "bind.h"
 #include "display.h"
@@ -49,24 +51,10 @@ DECL_BEGIN
 /* Filesystem bindings. */
 INTERN fd_t wms_keyboard; /* open(WMS_PATH_KEYBOARD); */
 INTERN fd_t wms_mouse;    /* open(WMS_PATH_MOUSE); */
+INTERN fd_t wms_display;  /* open(WMS_PATH_DISPLAY); */
 INTERN fd_t wms_server;   /* socket(AF_UNIX); bind(WMS_PATH_SERVER); */
 
 PRIVATE DEFINE_SOCKADDR_UN(server_addr,WMS_PATH_SERVER);
-
-
-PRIVATE void *KCALL map_phys(void *base, size_t num_bytes) {
- struct mmap_info info;
- info.mi_prot         = PROT_READ|PROT_WRITE;
- info.mi_flags        = MAP_PRIVATE;
- info.mi_xflag        = XMAP_PHYSICAL;
- info.mi_addr         = NULL;
- info.mi_size         = 8192*4*4; /* 128K */
- info.mi_align        = PAGESIZE;
- info.mi_gap          = 0;
- info.mi_tag          = NULL;
- info.mi_phys.mp_addr = (void *)0xA0000;
- return Xxmmap(&info);
-}
 
 PRIVATE pid_t init_process;
 
@@ -89,22 +77,23 @@ sigchld_handler(int UNUSED(signo),
 
 int main(int argc, char *argv[]) {
  /* Setup all the bindings. */
- wms_keyboard = Xopen(WMS_PATH_KEYBOARD,O_RDONLY);
- wms_mouse    = Xopen(WMS_PATH_MOUSE,O_RDONLY);
+ wms_keyboard = Xopen(WMS_PATH_KEYBOARD,O_RDWR);
+ wms_mouse    = Xopen(WMS_PATH_MOUSE,O_RDWR);
+ wms_display  = Xopen(WMS_PATH_DISPLAY,O_RDWR);
 
- /* Temporary, hidden command to enable video mode
-  * until I get around to implement a new VGA driver. */
-#define KERNEL_CONTROL_ENABLE_VGA 0x86000123
- Xkernctl(KERNEL_CONTROL_ENABLE_VGA);
+ /* Switch to graphics mode (256 color). */
+ Xioctl(wms_display,VGA_SETMODE_DEFAULT,VGA_DEFAULT_MODE_GFX320X200_256);
+ Xioctl(wms_display,VGA_SETPAL_DEFAULT,VGA_DEFAULT_PAL_GFX256);
+
  TRY {
 
   default_display.d_sizex  = 320;
   default_display.d_sizey  = 200;
   default_display.d_stride = 320;
   default_display.d_bpp    = 8;
-  default_display.d_screen = (byte_t *)map_phys((void *)0xA0000, /* VGA */
-                                                 8192*4*4        /* 128K */
-                                                 );
+  /* Map VGA Display memory. */
+  default_display.d_screen = (byte_t *)Xmmap(0,8192*4*4,PROT_READ|PROT_WRITE,
+                                             MAP_PRIVATE,wms_display,0);
   default_display.d_backgrnd = (byte_t *)Xcalloc(default_display.d_sizey,
                                                  default_display.d_stride);
   {
@@ -164,7 +153,11 @@ int main(int argc, char *argv[]) {
    }
   }
  } FINALLY {
-  /* TODO: Return to text mode. */
+  /* Return to text mode. */
+  Xioctl(wms_display,VGA_RESET,
+         VGA_RESET_FMODE|
+         VGA_RESET_FFONT|
+         VGA_RESET_FPAL);
  }
  return 0;
 }

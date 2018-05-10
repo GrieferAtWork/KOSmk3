@@ -169,6 +169,7 @@
     <ClCompile Include="..\..\src\kernel\src\vm\environ.c" />
     <ClCompile Include="..\..\src\kernel\src\vm\futex.c" />
     <ClCompile Include="..\..\src\kernel\src\vm\loadcore.c" />
+    <ClCompile Include="..\..\src\kernel\src\vm\phys.c" />
     <ClCompile Include="..\..\src\kernel\src\vm\region-io.c" />
     <ClCompile Include="..\..\src\kernel\src\vm\region.c" />
     <ClCompile Include="..\..\src\kernel\src\vm\system.c" />

@@ -28,11 +28,12 @@ DECL_BEGIN
 #define WMS_PATH_KEYBOARD "/dev/keyboard"
 #define WMS_PATH_MOUSE    "/dev/mouse"
 #define WMS_PATH_SERVER   "/dev/wms"
-#define WMS_PATH_DISPLAY  "/dev/vga" /* TODO: Must re-implement the VGA driver first! */
+#define WMS_PATH_DISPLAY  "/dev/vga"
 
 /* Filesystem bindings. */
 INTDEF fd_t wms_keyboard; /* open(WMS_PATH_KEYBOARD); */
 INTDEF fd_t wms_mouse;    /* open(WMS_PATH_MOUSE); */
+INTDEF fd_t wms_display;  /* open(WMS_PATH_DISPLAY); */
 INTDEF fd_t wms_server;   /* socket(AF_UNIX); bind(WMS_PATH_SERVER); */
 
 /* WMS threads. */

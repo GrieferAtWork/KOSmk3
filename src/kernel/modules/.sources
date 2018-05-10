@@ -69,6 +69,12 @@ IF ($TARGET_ARCH == i?86)
 
 		SOURCE("a.out/*.c")
 	END
+	BEGIN MODULE("kernel.vga")
+		SET_OUTPUT("/bin/vga.mod")
+		SET_DISKFILE("/mod/vga.mod")
+
+		SOURCE("vga/*.c")
+	END
 FI
 
 
