@@ -107,8 +107,7 @@ struct PACKED wms_request {
 #define WMS_RESPONSE_BADCMD     0x0003 /* The specified command is unknown, or not supported. */
 #define WMS_RESPONSE_EVENT      0x0008 /* An event occurred in a window managed by this application. */
 #define WMS_RESPONSE_MKWIN_OK   0x0010 /* Newly created window. */
-#define WMS_RESPONSE_RZWIN_OK   0x0011 /* Window successfully resized. */
-#define WMS_RESPONSE_TOFRONT_OK 0x0012 /* If the window wasn't already in front, this is send. Otherwise, `WMS_RESPONSE_ACK' is send. */
+#define WMS_RESPONSE_TOFRONT_OK 0x0011 /* If the window wasn't already in front, this is send. Otherwise, `WMS_RESPONSE_ACK' is send. */
 #define WMS_RESPONSE_FNORMAL    0x0000 /* Normal response flags. */
 struct PACKED wms_response {
     __uint16_t                    r_answer;  /* The type of answer (One of `WMS_RESPONSE_*') */
@@ -146,15 +145,6 @@ struct PACKED wms_response {
              * `w_sizey * w_stride' bytes, then contains the screen buffer.
              * NOTE: memory must be mapped as `PROT_SHARED'! */
         }                         r_mkwin;   /* [WMS_RESPONSE_MKWIN_OK] Window creation response. */
-        struct PACKED {
-            wms_window_id_t     __w_pad;     /* ... */
-            int                 __w_pad2;    /* ... */
-            int                 __w_pad3;    /* ... */
-            unsigned int          w_sizex;   /* The X size of the window. */
-            unsigned int          w_sizey;   /* The Y size of the window. */
-            unsigned int          w_stride;  /* The stride of the window's display buffer. */
-            unsigned int          w_bpp;     /* Bits per pixel. */
-        }                         r_rzwin;   /* [WMS_RESPONSE_RZWIN_OK] Window resize response. */
     };
 };
 

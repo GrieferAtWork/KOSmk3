@@ -268,9 +268,10 @@ wm_format_pixelof(struct wm_format const *__restrict self,
 
 #define __WM_SURFACE_STRUCT_MEMBERS \
     ATOMIC_DATA __ref_t          s_refcnt; /* Surface reference counter. */ \
-    struct wm_surface_ops const *s_ops;    /* [1..1][const] Surface operators. */ \
-    REF struct wm_format        *s_format; /* [1..1][const] The surface format. */ \
+    struct wm_surface_ops const *s_ops;    /* [1..1][lock(s_lock)] Surface operators. */ \
+    REF struct wm_format        *s_format; /* [1..1][lock(s_lock)] The surface format. */ \
     __UINTPTR_HALF_TYPE__        s_flags;  /* [const] Surface flags (Set of `WM_SURFACE_F*'). */ \
+    __UINTPTR_HALF_TYPE__      __s_pad;    /* ... */ \
     atomic_rwlock_t              s_lock;   /* Lock that must be held (in read-mode only) \
                                             * when reading any of the surface's fields. \
                                             * The only place where this lock must be acquired \

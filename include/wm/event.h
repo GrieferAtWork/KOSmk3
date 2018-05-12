@@ -109,17 +109,23 @@ struct PACKED wm_windowevent {
             int                 m_oldy;    /* The old window Y coord. */
             int                 m_newx;    /* The new window X coord. */
             int                 m_newy;    /* The new window Y coord. */
-        }                       i_move;    /* WM_WINDOWEVENT_MOVED */
+        }                       w_moved;   /* WM_WINDOWEVENT_MOVED */
         struct {
-            int                 r_oldxsiz; /* The old window X size (in pixels). */
-            int                 r_oldysiz; /* The old window Y size (in pixels). */
-        }                       i_resize;  /* WM_WINDOWEVENT_RESIZED */
+            unsigned int        r_oldxsiz; /* The old window X size (in pixels). */
+            unsigned int        r_oldysiz; /* The old window Y size (in pixels). */
+            unsigned int        r_newxsiz; /* The new window X size (in pixels). */
+            unsigned int        r_newysiz; /* The new window Y size (in pixels). */
+#ifdef __BUILDING_LIBWM
+            unsigned int        r_stride;  /* The new stride of the window's display buffer. */
+            unsigned int        r_bpp;     /* New bits per pixel. */
+#endif /* __BUILDING_LIBWM */
+        }                       w_resized; /* WM_WINDOWEVENT_RESIZED */
         struct {
             __uint16_t          s_oldstat; /* The old window state (Set of `WM_WINDOW_STATE_F*'). */
             __uint16_t          s_newstat; /* The new window state (Set of `WM_WINDOW_STATE_F*'). */
             __uint16_t        __s_pad[2];  /* ... */
-        }                       i_state;   /* WM_WINDOWEVENT_STATE_CHANGE */
-    }                           w_info;    /* Window-event-specific data. */
+        }                       w_changed; /* WM_WINDOWEVENT_STATE_CHANGE */
+    };                                     /* Window-event-specific data. */
 };
 #undef __WM_EVENT_WINDOW_HEADER
 

@@ -205,12 +205,6 @@ libc_mkgmtime(struct tm const *__restrict tp) {
 }
 #endif
 
-INTERN int LIBCCALL
-libc_settimeofday64(struct timeval64 const *tv,
-                    struct timezone const *tz) {
- return FORWARD_SYSTEM_ERROR(sys_settimeofday(tv,tz));
-}
-
 EXPORT(timegm,libc_timegm);
 DEFINE_INTERN_ALIAS(libc_timegm,libc_mkgmtime);
 
@@ -347,13 +341,13 @@ libc_getsystime(struct tm *__restrict tp) {
      libc_memset(&now,0,sizeof(struct timeval64));
  libc_gmtime64_r(&now.tv_sec,tp);
  /* NOTE: Returns Milliseconds. */
- return now.tv_usec/USEC_PER_MSEC;
+ return now.tv_usec / USEC_PER_MSEC;
 }
 INTERN u32 LIBCCALL
 libc_setsystime(struct tm const *__restrict tp, u32 msec) {
  struct timeval64 now;
  now.tv_sec = libc_mktime64(tp);
- now.tv_usec = msec*USEC_PER_MSEC;
+ now.tv_usec = msec * USEC_PER_MSEC;
  /* Returns an NT error code, or ZERO on success. */
  return libc_settimeofday64(&now,NULL) ? libc_nt_geterrno() : 0;
 }
@@ -764,7 +758,6 @@ EXPORT(_mkgmtime64,                libc_mkgmtime64);
 EXPORT(sigtimedwait,               libc_sigtimedwait);
 EXPORT(sigtimedwait64,             libc_sigtimedwait64);
 EXPORT(settimeofday,               libc_settimeofday);
-EXPORT(settimeofday64,             libc_settimeofday64);
 EXPORT(gettimeofday,               libc_gettimeofday);
 EXPORT(nanosleep,                  libc_nanosleep);
 EXPORT(time,                       libc_time);

@@ -75,7 +75,7 @@ __SYSDECL_BEGIN
  * >>     ...
  * >> <TRY_END>
  * >> .Lafter_try:
- * >>     movl   x(%ebp), %eax
+ * >>     movl   y(%ebp), %eax
  * >>     testl  %eax, %eax
  * >>     jnz    .Lthrow_invalid_argument // <<--- This right here
  * >>     ret

@@ -347,12 +347,12 @@ Window_CreateUnlocked(Display *__restrict disp,
       if (disp->d_focus) {
        struct wms_response msg;
        memset(&msg,0,sizeof(struct wms_response));
-       msg.r_answer                                  = WMS_RESPONSE_EVENT;
-       msg.r_event.e_window.w_type                   = WM_EVENT_WINDOW;
-       msg.r_event.e_window.w_event                  = WM_WINDOWEVENT_STATE_CHANGE;
-       msg.r_event.e_window.w_winid                  = disp->d_focus->w_id;
-       msg.r_event.e_window.w_info.i_state.s_oldstat = disp->d_focus->w_state|WM_WINDOW_STATE_FFOCUSED;
-       msg.r_event.e_window.w_info.i_state.s_oldstat = disp->d_focus->w_state;
+       msg.r_answer                             = WMS_RESPONSE_EVENT;
+       msg.r_event.e_window.w_type              = WM_EVENT_WINDOW;
+       msg.r_event.e_window.w_event             = WM_WINDOWEVENT_STATE_CHANGE;
+       msg.r_event.e_window.w_winid             = disp->d_focus->w_id;
+       msg.r_event.e_window.w_changed.s_oldstat = disp->d_focus->w_state|WM_WINDOW_STATE_FFOCUSED;
+       msg.r_event.e_window.w_changed.s_oldstat = disp->d_focus->w_state;
        Window_SendMessage(disp->d_focus,&msg);
       }
       disp->d_focus = result;
@@ -686,12 +686,12 @@ Window_ChangeStateUnlocked(Window *__restrict self,
    Window *old_focus = self->w_display->d_focus;
    if (old_focus) {
     memset(&msg,0,sizeof(struct wms_response));
-    msg.r_answer                                  = WMS_RESPONSE_EVENT;
-    msg.r_event.e_window.w_type                   = WM_EVENT_WINDOW;
-    msg.r_event.e_window.w_event                  = WM_WINDOWEVENT_STATE_CHANGE;
-    msg.r_event.e_window.w_winid                  = old_focus->w_id;
-    msg.r_event.e_window.w_info.i_state.s_oldstat = old_focus->w_state|WM_WINDOW_STATE_FFOCUSED;
-    msg.r_event.e_window.w_info.i_state.s_oldstat = old_focus->w_state;
+    msg.r_answer                             = WMS_RESPONSE_EVENT;
+    msg.r_event.e_window.w_type              = WM_EVENT_WINDOW;
+    msg.r_event.e_window.w_event             = WM_WINDOWEVENT_STATE_CHANGE;
+    msg.r_event.e_window.w_winid             = old_focus->w_id;
+    msg.r_event.e_window.w_changed.s_oldstat = old_focus->w_state|WM_WINDOW_STATE_FFOCUSED;
+    msg.r_event.e_window.w_changed.s_oldstat = old_focus->w_state;
     Window_SendMessage(old_focus,&msg);
    }
    self->w_display->d_focus = self;
@@ -702,13 +702,13 @@ Window_ChangeStateUnlocked(Window *__restrict self,
  if (old_flags != new_flags || token != 0) {
   /* Send a message back to the window, informing it of its state change. */
   memset(&msg,0,sizeof(struct wms_response));
-  msg.r_answer                                  = WMS_RESPONSE_EVENT;
-  msg.r_echo                                    = token;
-  msg.r_event.e_window.w_type                   = WM_EVENT_WINDOW;
-  msg.r_event.e_window.w_event                  = WM_WINDOWEVENT_STATE_CHANGE;
-  msg.r_event.e_window.w_winid                  = self->w_id;
-  msg.r_event.e_window.w_info.i_state.s_oldstat = old_flags;
-  msg.r_event.e_window.w_info.i_state.s_oldstat = new_flags;
+  msg.r_answer                             = WMS_RESPONSE_EVENT;
+  msg.r_echo                               = token;
+  msg.r_event.e_window.w_type              = WM_EVENT_WINDOW;
+  msg.r_event.e_window.w_event             = WM_WINDOWEVENT_STATE_CHANGE;
+  msg.r_event.e_window.w_winid             = self->w_id;
+  msg.r_event.e_window.w_changed.s_oldstat = old_flags;
+  msg.r_event.e_window.w_changed.s_oldstat = new_flags;
   Window_SendMessage(self,&msg);
  }
 }

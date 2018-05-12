@@ -28,8 +28,8 @@
 #include <syscall.h>
 #include "../libc.h"
 
-.hidden sys_sigprocmask
-.global sys_sigprocmask
+.hidden Xsys_sigprocmask
+.global Xsys_sigprocmask
 
 #define SAVEMASK_OFFSET 28
 
@@ -76,7 +76,7 @@ INTERN_ENTRY(libc_sigsetjmp)
 	pushl_cfi %eax           /* oldset = &buf->__sig; */
 	pushl_cfi $0             /* set = NULL; */
 	pushl_cfi $(SIG_SETMASK) /* how = SIG_SETMASK; */
-	call   sys_sigprocmask
+	call   Xsys_sigprocmask
 	addl   $16, %esp
 	.cfi_adjust_cfa_offset -16
 	popl_cfi  %ecx /* Restore ECX */
@@ -103,7 +103,7 @@ INTERN_ENTRY(libc_siglongjmp)
 	leal   32(%eax), %eax
 	pushl_cfi %eax           /* set = &buf->__sig; */
 	pushl_cfi $(SIG_SETMASK) /* how = SIG_SETMASK; */
-	call   sys_sigprocmask
+	call   Xsys_sigprocmask
 	addl   $16, %esp
 	.cfi_adjust_cfa_offset -16
 INTERN_ENTRY(libc_longjmp)

@@ -195,13 +195,13 @@ PRIVATE int LIBCCALL ClientMain(void *arg) {
        Window_MoveUnlocked(win,
                            req.r_mvwin.mw_newx,
                            req.r_mvwin.mw_newy);
-       resp.r_answer                              = WMS_RESPONSE_EVENT;
-       resp.r_event.e_window.w_event              = WM_WINDOWEVENT_MOVED;
-       resp.r_event.e_window.w_winid              = win->w_id;
-       resp.r_event.e_window.w_info.i_move.m_oldx = old_x;
-       resp.r_event.e_window.w_info.i_move.m_oldy = old_y;
-       resp.r_event.e_window.w_info.i_move.m_newx = win->w_posx;
-       resp.r_event.e_window.w_info.i_move.m_newy = win->w_posy;
+       resp.r_answer                        = WMS_RESPONSE_EVENT;
+       resp.r_event.e_window.w_event        = WM_WINDOWEVENT_MOVED;
+       resp.r_event.e_window.w_winid        = win->w_id;
+       resp.r_event.e_window.w_moved.m_oldx = old_x;
+       resp.r_event.e_window.w_moved.m_oldy = old_y;
+       resp.r_event.e_window.w_moved.m_newx = win->w_posx;
+       resp.r_event.e_window.w_moved.m_newy = win->w_posy;
       } FINALLY {
        atomic_rwlock_endread(&d->d_lock);
       }

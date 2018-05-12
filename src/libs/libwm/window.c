@@ -106,7 +106,7 @@ libwm_window_chstat(struct wm_window *__restrict self, u16 mask, u16 flag) {
      resp.r_event.e_type           != WM_EVENT_WINDOW ||
      resp.r_event.e_window.w_event != WM_WINDOWEVENT_STATE_CHANGE)
      error_throw(E_NOT_IMPLEMENTED);
- return resp.r_event.e_window.w_info.i_state.s_oldstat;
+ return resp.r_event.e_window.w_changed.s_oldstat;
 }
 
 

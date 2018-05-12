@@ -185,6 +185,12 @@ __FORCELOCAL __BOOL (__LIBCCALL Xsemaphore_acquire64)(struct semaphore *__restri
 __LOCAL void (__LIBCCALL semaphore_poll)(struct semaphore *__restrict __self,
                                          struct pollfutex *__restrict __pftx) {
  __pftx->pf_futex  = &__self->__m_tickets;
+ /* Set the WAITERS bit and wait if there are no tickets.
+  * >> if ((FUTEX & ~__SEMAPHORE_FWAITERS) == 0) {
+  * >>      FUTEX |= __SEMAPHORE_FWAITERS;
+  * >>      WAIT();
+  * >> }
+  */
  __pftx->pf_action = FUTEX_WAIT_MASK;
  __pftx->pf_val    = (futex_t)~__SEMAPHORE_FWAITERS;
  __pftx->pf_val2   = (futex_t)0;

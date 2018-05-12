@@ -97,10 +97,10 @@ DEFINE_SYSCALL4(xgc_search,
 
 DEFINE_SYSCALL4(xcapture_traceback,
                 USER UNCHECKED struct x86_usercontext *,ctx,unsigned int,num_skipframes,
-                USER UNCHECKED void **,ptb,size_t,bufsize) {
+                USER UNCHECKED void **,ptb,size_t,ptb_count) {
  size_t result = 0;
  validate_readable(ctx,sizeof(struct x86_usercontext));
- validate_readable(ptb,bufsize);
+ validate_readablem(ptb,ptb_count,sizeof(USER void *));
 
 
  /* TODO */

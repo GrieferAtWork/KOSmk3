@@ -190,10 +190,7 @@ libc_dos_shm_unlink(char const *name) {
 EXPORT(xmmap1,libc_xmmap1);
 INTERN void *LIBCCALL
 libc_xmmap1(struct mmap_info const *data) {
- void *result;
- result = sys_xmmap(MMAP_INFO_CURRENT,data);
- if (E_ISERR(result)) { libc_seterrno(-E_GTERR(result)); return MAP_FAILED; }
- return result;
+ return Esys_xmmap(MMAP_INFO_CURRENT,data);
 }
 
 extern byte_t _end[]; /* Automatically defined by the linker (end of '.bss'). */

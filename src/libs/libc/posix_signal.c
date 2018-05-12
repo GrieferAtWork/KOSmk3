@@ -164,7 +164,7 @@ DEFINE_INTERN_ALIAS(libd_gsignal,libd_raise);
 
 EXPORT(__KSYM(sigblock),libc_sigblock);
 INTERN int LIBCCALL libc_sigblock(int mask) {
- return FORWARD_SYSTEM_ERROR(sys_sigprocmask(SIG_BLOCK,(sigset_t *)&mask,NULL,sizeof(mask)));
+ return Esys_sigprocmask(SIG_BLOCK,(sigset_t *)&mask,NULL,sizeof(mask));
 }
 
 EXPORT(__DSYM(sigblock),libd_sigblock);
@@ -174,7 +174,7 @@ INTERN int LIBCCALL libd_sigblock(int mask) {
 
 EXPORT(__KSYM(sigsetmask),libc_sigsetmask);
 INTERN int LIBCCALL libc_sigsetmask(int mask) {
- return FORWARD_SYSTEM_ERROR(sys_sigprocmask(SIG_SETMASK,(sigset_t *)&mask,NULL,sizeof(mask)));
+ return Esys_sigprocmask(SIG_SETMASK,(sigset_t *)&mask,NULL,sizeof(mask));
 }
 
 EXPORT(__DSYM(sigsetmask),libd_sigsetmask);
@@ -185,8 +185,7 @@ INTERN int LIBCCALL libd_sigsetmask(int mask) {
 EXPORT(siggetmask,libc_siggetmask);
 INTERN int LIBCCALL libc_siggetmask(void) {
  int value,result;
- result = FORWARD_SYSTEM_ERROR(sys_sigprocmask(SIG_SETMASK,NULL,
-                              (sigset_t *)&value,sizeof(value)));
+ result = Esys_sigprocmask(SIG_SETMASK,NULL,(sigset_t *)&value,sizeof(value));
  if (!result) result = value;
  return result;
 }
@@ -234,7 +233,7 @@ INTERN int LIBCCALL libc_current_sigrtmax(void) { return __SIGRTMAX; }
 
 EXPORT(__KSYM(sigsuspend),libc_sigsuspend);
 INTERN int LIBCCALL libc_sigsuspend(sigset_t const *set) {
- return FORWARD_SYSTEM_ERROR(sys_sigsuspend(set,sizeof(sigset_t)));
+ return Esys_sigsuspend(set,sizeof(sigset_t));
 }
 
 EXPORT(__DSYM(sigsuspend),libd_sigsuspend);
@@ -252,7 +251,7 @@ INTERN int LIBCCALL libd_sigsuspend(sigset_t const *set) {
 EXPORT(__KSYM(sigpause),libc_sigpause);
 INTERN int LIBCCALL libc_sigpause(int sig_or_mask, int is_sig) {
  if (is_sig) return libc_xpg_sigpause(sig_or_mask);
- return FORWARD_SYSTEM_ERROR(sys_sigsuspend((sigset_t *)&sig_or_mask,sizeof(sig_or_mask)));
+ return Esys_sigsuspend((sigset_t *)&sig_or_mask,sizeof(sig_or_mask));
 }
 
 EXPORT(__DSYM(sigpause),libd_sigpause);
@@ -347,7 +346,7 @@ INTERN int LIBCCALL
 libc_sigprocmask(int how,
                  sigset_t const *set,
                  sigset_t *oset) {
- return FORWARD_SYSTEM_ERROR(sys_sigprocmask(how,set,oset,sizeof(sigset_t)));
+ return Esys_sigprocmask(how,set,oset,sizeof(sigset_t));
 }
 
 EXPORT(__DSYM(sigprocmask),libd_sigprocmask);
@@ -376,7 +375,7 @@ INTERN int LIBCCALL
 libc_sigaction(int sig,
                struct sigaction const *act,
                struct sigaction *oact) {
- return FORWARD_SYSTEM_ERROR(sys_sigaction(sig,act,oact,sizeof(sigset_t)));
+ return Esys_sigaction(sig,act,oact,sizeof(sigset_t));
 }
 
 EXPORT(__DSYM(sigaction),libd_sigaction);
@@ -390,7 +389,7 @@ libd_sigaction(int sig,
 EXPORT(sigpending,libc_sigpending);
 INTERN int LIBCCALL
 libc_sigpending(sigset_t *set) {
- return FORWARD_SYSTEM_ERROR(sys_sigpending(set,sizeof(sigset_t)));
+ return Esys_sigpending(set,sizeof(sigset_t));
 }
 
 EXPORT(__KSYM(sigtimedwait64),libc_sigtimedwait64);
@@ -398,7 +397,7 @@ INTERN int LIBCCALL
 libc_sigtimedwait64(sigset_t const *__restrict set,
                     siginfo_t *__restrict info,
                     struct timespec64 const *timeout) {
- return FORWARD_SYSTEM_VALUE(sys_sigtimedwait(set,info,timeout,sizeof(sigset_t)));
+ return Esys_sigtimedwait(set,info,timeout,sizeof(sigset_t));
 }
 
 EXPORT(__DSYM(sigtimedwait64),libd_sigtimedwait64);

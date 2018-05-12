@@ -60,8 +60,11 @@ libc_capture_traceback(struct cpu_context *__restrict ctx,
                        unsigned int num_skipframes,
                        void **ptb, size_t max_entries) {
  ssize_t result;
- result = sys_xcapture_traceback(ctx,num_skipframes,ptb,max_entries*sizeof(void *));
+ result = sys_xcapture_traceback(ctx,num_skipframes,
+                                 ptb,max_entries);
+#if 0
  result = FORWARD_SYSTEM_VALUE(result);
+#endif
  if unlikely(result < 0) result = 0;
  return result;
 }

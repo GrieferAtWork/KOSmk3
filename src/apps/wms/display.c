@@ -168,24 +168,24 @@ Display_FocusWindow(Display *__restrict self,
  if (self->d_focus) {
   struct wms_response msg;
   memset(&msg,0,sizeof(struct wms_response));
-  msg.r_answer                                  = WMS_RESPONSE_EVENT;
-  msg.r_event.e_window.w_type                   = WM_EVENT_WINDOW;
-  msg.r_event.e_window.w_event                  = WM_WINDOWEVENT_STATE_CHANGE;
-  msg.r_event.e_window.w_winid                  = self->d_focus->w_id;
-  msg.r_event.e_window.w_info.i_state.s_oldstat = self->d_focus->w_state|WM_WINDOW_STATE_FFOCUSED;
-  msg.r_event.e_window.w_info.i_state.s_oldstat = self->d_focus->w_state;
+  msg.r_answer                             = WMS_RESPONSE_EVENT;
+  msg.r_event.e_window.w_type              = WM_EVENT_WINDOW;
+  msg.r_event.e_window.w_event             = WM_WINDOWEVENT_STATE_CHANGE;
+  msg.r_event.e_window.w_winid             = self->d_focus->w_id;
+  msg.r_event.e_window.w_changed.s_oldstat = self->d_focus->w_state|WM_WINDOW_STATE_FFOCUSED;
+  msg.r_event.e_window.w_changed.s_oldstat = self->d_focus->w_state;
   Window_SendMessage(self->d_focus,&msg);
  }
  self->d_focus = win;
  if (win) {
   struct wms_response msg;
   memset(&msg,0,sizeof(struct wms_response));
-  msg.r_answer                                  = WMS_RESPONSE_EVENT;
-  msg.r_event.e_window.w_type                   = WM_EVENT_WINDOW;
-  msg.r_event.e_window.w_event                  = WM_WINDOWEVENT_STATE_CHANGE;
-  msg.r_event.e_window.w_winid                  = win->w_id;
-  msg.r_event.e_window.w_info.i_state.s_oldstat = win->w_state;
-  msg.r_event.e_window.w_info.i_state.s_oldstat = win->w_state|WM_WINDOW_STATE_FFOCUSED;
+  msg.r_answer                             = WMS_RESPONSE_EVENT;
+  msg.r_event.e_window.w_type              = WM_EVENT_WINDOW;
+  msg.r_event.e_window.w_event             = WM_WINDOWEVENT_STATE_CHANGE;
+  msg.r_event.e_window.w_winid             = win->w_id;
+  msg.r_event.e_window.w_changed.s_oldstat = win->w_state;
+  msg.r_event.e_window.w_changed.s_oldstat = win->w_state|WM_WINDOW_STATE_FFOCUSED;
   Window_SendMessage(win,&msg);
  }
 }

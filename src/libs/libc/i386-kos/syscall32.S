@@ -911,6 +911,7 @@ SYMEND(libc_sysenter_errno_6)
 		DEFINE_INTERN_ALIAS(libc_\name,sys_\name);
 		EXPORT(\name,sys_\name)
 	.endif
+	.align 16
 	INTERN_ENTRY(sys_\name)
 		movl  $(ENCODE_SYSNO(\nr)), %eax
 		SYSCALL_WRAPPER_INVOKE
@@ -921,6 +922,7 @@ SYMEND(libc_sysenter_errno_6)
 		DEFINE_INTERN_ALIAS(libc_X\name,Xsys_\name)
 		EXPORT(X\name,Xsys_\name)
 	.endif
+	.align 16
 	INTERN_ENTRY(Xsys_\name)
 		movl  $(ENCODE_SYSNO(0x80000000 | \nr)), %eax
 		SYSCALL_WRAPPER_INVOKE
@@ -931,6 +933,7 @@ SYMEND(libc_sysenter_errno_6)
 		DEFINE_INTERN_ALIAS(libc_\name,Esys_\name)
 		EXPORT(\name,Esys_\name)
 	.endif
+	.align 16
 	INTERN_ENTRY(Esys_\name)
 		movl  $(ENCODE_SYSNO(\nr)), %eax
 		SYSCALL_WRAPPER_INVOKE_ERRNO
@@ -948,7 +951,7 @@ EXPORT(openat64,libc_openat)
 EXPORT(Xopenat64,libc_Xopenat)
 
 DEFINE_SYSCALL(close,1,      E|sys)
-EXPORT_STRONG(__close,libc_close);
+EXPORT_STRONG(__close,libc_close)
 
 DEFINE_SYSCALL(exit,1,       sys)
 
@@ -983,7 +986,7 @@ DEFINE_SYSCALL(fchownat,5,   E|X)
 DEFINE_SYSCALL(dup,1,        E|X)
 
 DEFINE_SYSCALL(dup2,2,       E|X)
-EXPORT_STRONG(__dup2,libc_dup2);
+EXPORT_STRONG(__dup2,libc_dup2)
 
 DEFINE_SYSCALL(dup3,3,       E|X)
 
@@ -1065,18 +1068,18 @@ DEFINE_SYSCALL(setsid,0,     E|X)
 DEFINE_SYSCALL(sethostname,2,E|X)
 DEFINE_SYSCALL(setdomainname,2,E|X)
 
-DEFINE_SYSCALL(sigaction,4)
-DEFINE_SYSCALL(sigprocmask,4)
-DEFINE_SYSCALL(sigtimedwait,4)
-DEFINE_SYSCALL(sigpending,2)
-DEFINE_SYSCALL(sigsuspend,2)
+DEFINE_SYSCALL(sigaction,4,  Esys|Xsys)
+DEFINE_SYSCALL(sigprocmask,4,Esys|Xsys)
+DEFINE_SYSCALL(sigtimedwait,4,Esys|Xsys)
+DEFINE_SYSCALL(sigpending,2, Esys|Xsys)
+DEFINE_SYSCALL(sigsuspend,2, Esys|Xsys)
 
 DEFINE_SYSCALL(kill,2,       E|X)
 DEFINE_SYSCALL(tkill,2,      E|X)
 DEFINE_SYSCALL(tgkill,3,     E|X)
 
 //DEFINE_SYSCALL(getcwd,2) /* Libc implements this using sys_xfrealpathat() */
-DEFINE_SYSCALL(waitid,5)
+DEFINE_SYSCALL(waitid,5,     Esys|Xsys)
 
 DEFINE_SYSCALL(wait4,4,      E|X)
 
@@ -1098,7 +1101,12 @@ DEFINE_INTERN_ALIAS(libc_Xgettimeofday64,Xsys_gettimeofday)
 EXPORT(gettimeofday64,libc_gettimeofday64)
 EXPORT(Xgettimeofday64,libc_Xgettimeofday64)
 
-DEFINE_SYSCALL(settimeofday,2)
+DEFINE_SYSCALL(settimeofday,2,Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_settimeofday64,Esys_settimeofday)
+DEFINE_INTERN_ALIAS(libc_Xsettimeofday64,Xsys_settimeofday)
+EXPORT(settimeofday64,libc_settimeofday64)
+EXPORT(Xsettimeofday64,libc_Xsettimeofday64)
+
 DEFINE_SYSCALL(nanosleep,2,  Esys|Xsys)
 DEFINE_INTERN_ALIAS(libc_nanosleep64,Esys_nanosleep)
 DEFINE_INTERN_ALIAS(libc_Xnanosleep64,Xsys_nanosleep)
@@ -1167,7 +1175,7 @@ EXPORT(Xxfrealpathat2,libc_Xxfrealpathat2)
 
 DEFINE_SYSCALL(xpipe,1)
 DEFINE_SYSCALL(xsyslog,3,    sys)
-DEFINE_SYSCALL(xmmap,2)
+DEFINE_SYSCALL(xmmap,2,      Esys|Xsys)
 DEFINE_SYSCALL(xmunmap,4,    E|X)
 DEFINE_SYSCALL(xmprotect,6,  E|X)
 
@@ -1223,7 +1231,7 @@ DEFINE_INTERN_ALIAS(libd_getdrives,sys_xgetdrives)
 EXPORT(__KSYM(getdrives),libd_getdrives)
 EXPORT(__DSYM(_getdrives),libd_getdrives)
 
-DEFINE_SYSCALL(xfpathconfat,4,  Esys|Xsys)
+DEFINE_SYSCALL(xfpathconfat,4,Esys|Xsys)
 DEFINE_INTERN_ALIAS(libc_fpathconfat,Esys_xfpathconfat)
 DEFINE_INTERN_ALIAS(libc_Xfpathconfat,Xsys_xfpathconfat)
 EXPORT(fpathconfat,libc_fpathconfat)
@@ -1240,7 +1248,7 @@ EXPORT_STRONG(__sysconf,libc_sysconf)
 DEFINE_SYSCALL(xreset_debug_data,3,sys)
 DEFINE_SYSCALL(xfind_modified_address,3,sys)
 DEFINE_SYSCALL(xgc_search,4, sys)
-DEFINE_SYSCALL(xcapture_traceback,4)
+DEFINE_SYSCALL(xcapture_traceback,4,sys)
 DEFINE_SYSCALL(xreadf,4,     E|X)
 DEFINE_SYSCALL(xwritef,4,    E|X)
 

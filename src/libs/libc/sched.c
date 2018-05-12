@@ -81,7 +81,7 @@ INTERN pid_t LIBCCALL libc_getpgrp(void) { return libc_getpgid(0); }
 INTERN int LIBCCALL libc_setpgrp(void) { return libc_setpgid(0,0); }
 INTERN pid_t LIBCCALL libc_wait(int *wstatus) { return libc_wait4(-1,wstatus,0,NULL); }
 INTERN pid_t LIBCCALL libc_waitpid(pid_t pid, int *wstatus, int options) { return libc_wait4(pid,wstatus,options,NULL); }
-INTERN int LIBCCALL libc_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options) { return FORWARD_SYSTEM_VALUE(sys_waitid(idtype,id,infop,options,NULL)); }
+INTERN int LIBCCALL libc_waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options) { return Esys_waitid(idtype,id,infop,options,NULL); }
 INTERN pid_t LIBCCALL libc_wait3(int *wstatus, int options, struct rusage *usage) { return libc_wait4(-1,wstatus,options,usage); }
 INTERN cpuid_t LIBCCALL libc_sched_getcpu(void) {
  unsigned int result;

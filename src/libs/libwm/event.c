@@ -18,11 +18,14 @@
  */
 #ifndef GUARD_LIBS_LIBWM_EVENT_C
 #define GUARD_LIBS_LIBWM_EVENT_C 1
+#define _GNU_SOURCE 1
 #define _KOS_SOURCE 1
 #define _EXCEPT_SOURCE 1
+#define __BUILDING_LIBWM 1
 
 #include <hybrid/compiler.h>
 #include <hybrid/atomic.h>
+#include <hybrid/align.h>
 #include <wm/api.h>
 #include <wm/server.h>
 #include <wm/window.h>
@@ -34,6 +37,7 @@
 #include <kos/sched/semaphore.h>
 #include <kos/futex.h>
 #include <linux/futex.h>
+#include <sys/mman.h>
 
 #include "libwm.h"
 
@@ -67,17 +71,83 @@ PRIVATE void WMCALL libwm_poll_events(void) {
 
 
 
-
-
-
-INTERN void WMCALL
-libwm_event_dealwith(union wm_event *__restrict evt) {
+/* Process the given event and return TRUE if the event should
+ * _NOT_ be passed on to the caller of `libwm_event_waitfor()'
+ * and friends, or appended to the pending_* list. */
+PRIVATE bool WMCALL
+process_event(union wm_event *__restrict evt) {
  struct wm_winevent_ops *event_ops;
  assert(evt->e_common.c_window);
  if (evt->e_type == WM_EVENT_WINDOW) {
-  struct wm_window *win = evt->e_common.c_window;
+  struct wm_window *win = evt->e_window.w_window;
   atomic_rwlock_write(&win->s_lock);
-  atomic_rwlock_endwrite(&win->s_lock);
+  TRY {
+   /* Update window characteristics changed by outside events. */
+   switch (evt->e_window.w_event) {
+   case WM_WINDOWEVENT_MOVED:
+    win->w_posx = evt->e_window.w_moved.m_newx;
+    win->w_posy = evt->e_window.w_moved.m_newy;
+    break;
+
+   {
+    size_t old_surface_pages;
+    size_t new_surface_pages;
+   case WM_WINDOWEVENT_RESIZED:
+    old_surface_pages = (win->s_sizey * win->s_stride);
+    new_surface_pages = (evt->e_window.w_resized.r_newysiz *
+                         evt->e_window.w_resized.r_stride);
+    old_surface_pages = CEIL_ALIGN(old_surface_pages,PAGESIZE);
+    new_surface_pages = CEIL_ALIGN(new_surface_pages,PAGESIZE);
+    /* Extend the length of the window surface buffer. */
+    if (new_surface_pages > old_surface_pages) {
+     win->w_buffer = (byte_t *)Xmremap(win->w_buffer,
+                                       old_surface_pages,
+                                       new_surface_pages,
+                                       MREMAP_MAYMOVE);
+    }
+    win->w_sizex   = evt->e_window.w_resized.r_newxsiz;
+    win->w_sizey   = evt->e_window.w_resized.r_newysiz;
+    win->s_sizex   = win->w_sizex - (2 * win->w_bordersz);
+    win->s_sizey   = win->w_sizey - (win->w_bordersz + win->w_titlesz);
+    win->s_stride  = evt->e_window.w_resized.r_stride;
+    /* Re-calculate the buffer start position. */
+    win->s_buffer  = win->w_buffer;
+    win->s_buffer += win->w_titlesz * win->s_stride;
+    win->s_buffer += win->w_bordersz;
+    if (evt->e_window.w_resized.r_bpp != win->s_format->f_bpp) {
+     /* The window's surface format has changed. */
+     if (win->s_format->f_refcnt == 1) {
+      win->s_format->f_bpp = evt->e_window.w_resized.r_bpp;
+     } else {
+      REF struct wm_format *new_format;
+      /* Create a new window format. */
+      new_format = libwm_format_create_pal(&libwm_palette_256,
+                                            evt->e_window.w_resized.r_bpp);
+      libwm_format_decref(win->s_format);
+      win->s_format = new_format;
+     }
+     /* Determine the new set of window operators. */
+     libwm_setup_surface_ops((struct wm_surface *)win);
+     /* XXX: Convert window surface data? */
+    }
+    /* XXX: Scale / re-align window contents? */
+
+    /* Truncate the length of the window surface buffer. */
+    if (new_surface_pages < old_surface_pages) {
+     munmap(win->w_buffer+new_surface_pages,
+            old_surface_pages-new_surface_pages);
+    }
+   } break;
+
+   case WM_WINDOWEVENT_STATE_CHANGE:
+    win->w_state = evt->e_window.w_changed.s_newstat;
+    break;
+
+   default: break;
+   }
+  } FINALLY {
+   atomic_rwlock_endwrite(&win->s_lock);
+  }
  }
  if ((event_ops = evt->e_common.c_window->w_events) != NULL) {
   void (WMCALL *func)(union wm_event const *__restrict info);
@@ -91,17 +161,46 @@ libwm_event_dealwith(union wm_event *__restrict evt) {
   /* When not implement, fallback to using the default event handler. */
   if (!func) func = event_ops->wo_event;
   /* Invoke the event callback, if implemented. */
-  if (func) { (*func)(evt); return; }
+  if (func) {
+   (*func)(evt);
+   return true;
+  }
  }
-
- /* TODO: Queue the event for being received
-  *       using `libwm_event_[try]wait[for]()' */
-
+ return false;
 }
+
+
+INTERN void WMCALL
+libwm_event_dealwith(union wm_event *__restrict evt) {
+ struct pending_event *pending;
+ /* Process window events and try to invoke asynchronous I/O hooks */
+ if (process_event(evt))
+     return; /* Don't enqueue events already processed as async I/O hooks. */
+ /* Copy the event and enqueue it in the chain of pending events. */
+ pending = (struct pending_event *)Xmalloc(sizeof(struct pending_event));
+ memcpy(&pending->pe_event,evt,sizeof(union wm_event));
+ atomic_rwlock_write(&pending_lock);
+ if ((pending->pe_next = pending_front) == NULL)
+      pending_back = pending; /* First event */
+ pending_front = pending;
+ atomic_rwlock_endwrite(&pending_lock);
+ /* Signal the addition by generating a ticket. */
+ semaphore_release(&pending_avail,1);
+}
+
 
 DEFINE_PUBLIC_ALIAS(wm_event_process,libwm_event_process);
 INTERN void WMCALL libwm_event_process(void) {
- /* TODO */
+ union wm_event evt;
+ if (wm_event_trywait(&evt)) {
+  /* Empty all event queues. */
+  while (libwm_event_trywait(&evt));
+ } else {
+  /* Wait for events until we can process at least one. */
+  do
+      libwm_poll_events();
+  while (!libwm_event_trywait(&evt));
+ }
 }
 
 DEFINE_PUBLIC_ALIAS(wm_event_trywait,libwm_event_trywait);
@@ -127,7 +226,6 @@ libwm_event_trywait(union wm_event *__restrict result) {
  }
  atomic_rwlock_endwrite(&pending_lock);
  /* TODO: Using O_NONBLOCK, try to read an event packet from the server socket. */
-
 
  return false;
 }

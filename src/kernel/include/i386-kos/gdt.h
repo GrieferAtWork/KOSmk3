@@ -36,83 +36,87 @@ DECL_BEGIN
 /* Segment Descriptor / GDT (Global Descriptor Table) Entry
  * NOTE: Another valid name of this would be `gdtentry' or `ldtentry' */
 struct PACKED x86_segment {
-union PACKED {
+    union PACKED {
 #ifdef __x86_64__
-struct PACKED { u64 s_ul,s_uh; };
-struct PACKED { s64 s_sl,s_sh; };
+        struct PACKED {      u64 s_ul,s_uh; };
+        struct PACKED {      s64 s_sl,s_sh; };
 #else
-struct PACKED { u32 s_ul,s_uh; };
-struct PACKED { s32 s_sl,s_sh; };
- s64          s_s;
- u64          s_u;
+        struct PACKED {      u32 s_ul,s_uh; };
+        struct PACKED {      s32 s_sl,s_sh; };
+        s64                      s_s;
+        u64                      s_u;
 #endif
-struct PACKED { u32 s_ul32,s_uh32; };
-struct PACKED { s32 s_sl32,s_sh32; };
-struct PACKED {
- u16          s_sizelow;
- unsigned int s_baselow:    24; /* Bits 0..23 of the base address. */
-union PACKED {
- u8           s_access;
-struct PACKED {
- unsigned int s_type:     4;
- unsigned int __unnamed2: 4;
-};struct PACKED {
- /* Just set to 0. The CPU sets this to 1 when the x86_segment is accessed. */
- unsigned int s_accessed:    1; /* Accessed bit. */
- /* Readable bit for code selectors:
-  *   Whether read access for this x86_segment is allowed.
-  *   Write access is never allowed for code segments.
-  * Writable bit for data selectors:
-  *   Whether write access for this x86_segment is allowed.
-  *   Read access is always allowed for data segments. */
- unsigned int s_rw:          1; /* Also the busy bit of tasks. */
- /* Direction bit for data selectors:
-  *   Tells the direction. 0 the x86_segment grows up. 1 the x86_segment
-  *   grows down, ie. the offset has to be greater than the limit.
-  * Conforming bit for code selectors:
-  *     If 1: code in this x86_segment can be executed from an equal or lower
-  *           privilege level. For example, code in ring 3 can far-jump to
-  *           conforming code in a ring 2 x86_segment. The s_privl-bits represent
-  *           the highest privilege level that is allowed to execute the x86_segment.
-  *           For example, code in ring 0 cannot far-jump to a conforming code
-  *           x86_segment with s_privl==0x2, while code in ring 2 and 3 can. Note that
-  *           the privilege level remains the same, ie. a far-jump form ring
-  *           3 to a s_privl==2-x86_segment remains in ring 3 after the jump.
-  *     If 0: code in this x86_segment can only be executed from the ring set in s_privl. */
- unsigned int s_dc:          1; /* Direction bit/Conforming bit. */
- unsigned int s_execute:     1; /* Executable bit. If 1 code in this x86_segment can be executed, ie. a code selector. If 0 it is a data selector. */
- unsigned int s_system:      1; /* 0: System descriptor; 1: Code/Data/Stack (always set to 1) */
- unsigned int s_privl:       2; /* Privilege, 2 bits. Contains the ring level, 0 = highest (kernel), 3 = lowest (user applications). */
- unsigned int s_present:     1; /* Present bit. This must be 1 for all valid selectors. */
-};};
-union PACKED {
-struct PACKED {
- unsigned int __unnamed1:    4;
- unsigned int s_flags:       4;
-};struct PACKED {
- unsigned int s_sizehigh:    4;
- unsigned int s_available:   1; /* Availability bit (Set to 1). */
- unsigned int s_longmode:    1; /* Set to 0 (Used in x86_64). */
- /* Indicates how the instructions(80386 and up) access register and memory data in protected mode.
-  * If 0: instructions are 16-bit instructions, with 16-bit offsets and 16-bit registers.
-  *       Stacks are assumed 16-bit wide and SP is used.
-  *       Must be set to 1 in x86_64 mode
-  * If 1: 32-bits are assumed.
-  * Allows 8086-80286 programs to run. */
- unsigned int s_dbbit:       1;
- /* If 0: segments can be 1 byte to 1MB in length.
-  * If 1: segments can be 4KB to 4GB in length. */
- unsigned int s_granularity: 1;
-};};
- u8           s_basehigh;  /* Bits 24..31 of the base address. */
+        struct PACKED {      u32 s_ul32,s_uh32; };
+        struct PACKED {      s32 s_sl32,s_sh32; };
+        struct PACKED {
+            u16                  s_sizelow;
+            unsigned int         s_baselow:    24; /* Bits 0..23 of the base address. */
+            union PACKED {
+                u8               s_access;
+                struct PACKED {
+                    unsigned int s_type:     4;
+                    unsigned int __unnamed2: 4;
+                };
+                struct PACKED {
+                    /* Just set to 0. The CPU sets this to 1 when the x86_segment is accessed. */
+                    unsigned int s_accessed:    1; /* Accessed bit. */
+                    /* Readable bit for code selectors:
+                     *   Whether read access for this x86_segment is allowed.
+                     *   Write access is never allowed for code segments.
+                     * Writable bit for data selectors:
+                     *   Whether write access for this x86_segment is allowed.
+                     *   Read access is always allowed for data segments. */
+                    unsigned int s_rw:          1; /* Also the busy bit of tasks. */
+                    /* Direction bit for data selectors:
+                     *   Tells the direction. 0 the x86_segment grows up. 1 the x86_segment
+                     *   grows down, ie. the offset has to be greater than the limit.
+                     * Conforming bit for code selectors:
+                     *     If 1: code in this x86_segment can be executed from an equal or lower
+                     *           privilege level. For example, code in ring 3 can far-jump to
+                     *           conforming code in a ring 2 x86_segment. The s_privl-bits represent
+                     *           the highest privilege level that is allowed to execute the x86_segment.
+                     *           For example, code in ring 0 cannot far-jump to a conforming code
+                     *           x86_segment with s_privl==0x2, while code in ring 2 and 3 can. Note that
+                     *           the privilege level remains the same, ie. a far-jump form ring
+                     *           3 to a s_privl==2-x86_segment remains in ring 3 after the jump.
+                     *     If 0: code in this x86_segment can only be executed from the ring set in s_privl. */
+                    unsigned int s_dc:          1; /* Direction bit/Conforming bit. */
+                    unsigned int s_execute:     1; /* Executable bit. If 1 code in this x86_segment can be executed, ie. a code selector. If 0 it is a data selector. */
+                    unsigned int s_system:      1; /* 0: System descriptor; 1: Code/Data/Stack (always set to 1) */
+                    unsigned int s_privl:       2; /* Privilege, 2 bits. Contains the ring level, 0 = highest (kernel), 3 = lowest (user applications). */
+                    unsigned int s_present:     1; /* Present bit. This must be 1 for all valid selectors. */
+                };
+            };
+            union PACKED {
+                struct PACKED {
+                    unsigned int __unnamed1:    4;
+                    unsigned int s_flags:       4;
+                };
+                struct PACKED {
+                    unsigned int s_sizehigh:    4;
+                    unsigned int s_available:   1; /* Availability bit (Set to 1). */
+                    unsigned int s_longmode:    1; /* Set to 0 (Used in x86_64). */
+                    /* Indicates how the instructions(80386 and up) access register and memory data in protected mode.
+                     * If 0: instructions are 16-bit instructions, with 16-bit offsets and 16-bit registers.
+                     *       Stacks are assumed 16-bit wide and SP is used.
+                     *       Must be set to 1 in x86_64 mode
+                     * If 1: 32-bits are assumed.
+                     * Allows 8086-80286 programs to run. */
+                    unsigned int s_dbbit:       1;
+                    /* If 0: segments can be 1 byte to 1MB in length.
+                     * If 1: segments can be 4KB to 4GB in length. */
+                    unsigned int s_granularity: 1;
+                };
+            };
+            u8                   s_basehigh;  /* Bits 24..31 of the base address. */
 #ifdef __x86_64__
- /* NOTE: Documentation on additions in 64-bit mode can be found here:
-  * https://xem.github.io/minix86/manual/intel-x86-and-64-manual-vol3/o_fe12b1e2a880e0ce-245.html
-  */
- u32          s_baseupper; /* Bits 32..64 of the base address. */
- u32          s_reserved;  /* ??? (Bit #8 Must be zero...) */
+            /* NOTE: Documentation on additions in 64-bit mode can be found here:
+             * https://xem.github.io/minix86/manual/intel-x86-and-64-manual-vol3/o_fe12b1e2a880e0ce-245.html */
+            u32                  s_baseupper; /* Bits 32..64 of the base address. */
+            u32                  s_reserved;  /* ??? (Bit #8 Must be zero...) */
 #endif /* __x86_64__ */
-};};
+        };
+    };
 };
 #endif /* __CC__ */
 
