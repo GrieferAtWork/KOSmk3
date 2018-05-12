@@ -756,7 +756,6 @@ DEFINE_SYSCALL4(xmunmap,VIRT void *,addr,size_t,len,int,flags,void *,tag) {
      error_throw(E_INVALID_ARGUMENT);
  /* Align to full pages. */
  len += (uintptr_t)addr & (PAGESIZE-1);
- *(uintptr_t *)&addr &= (PAGESIZE-1);
  if unlikely(!len) return 0;
  /* Do the unmap. */
  starting_page = VM_ADDR2PAGE((uintptr_t)addr);
@@ -778,7 +777,6 @@ DEFINE_SYSCALL2(munmap,VIRT void *,addr,size_t,len) {
  size_t num_pages; vm_vpage_t starting_page;
  /* Align to full pages. */
  len += (uintptr_t)addr & (PAGESIZE-1);
- *(uintptr_t *)&addr &= (PAGESIZE-1);
  if unlikely(!len) return 0;
  /* Do the unmap. */
  starting_page = VM_ADDR2PAGE((uintptr_t)addr);

@@ -807,7 +807,11 @@ search_heap:
   gfp_t chain_flags;
   /* Search this bucket. */
   chain = *iter;
-  assert(!chain || chain->mf_lsize.le_pself == iter);
+  assertf(!chain || chain->mf_lsize.le_pself == iter,
+          "chain                    = %p\n"
+          "chain->mf_lsize.le_pself = %p\n"
+          "iter                     = %p\n",
+          chain,chain->mf_lsize.le_pself,iter);
   while (chain &&
         (MFREE_SIZE(chain) < result.hp_siz))
          assert(!chain->mf_lsize.le_next ||
