@@ -77,7 +77,6 @@ __SYSDECL_BEGIN
                                     * does all of the following (read, compare, write, wake and wait):
                                     * >> if (uaddr2) {
                                     * >>     u32 old_value;
-                                    * >>     // The write portion of this CMPXCH happens once the thread has already started waiting.
                                     * >>     old_value = ATOMIC_CMPXCH_VAL(*uaddr,val,val3);
                                     * >>     *uaddr2 = old_value; // This write happens once the thread has already started waiting.
                                     * >>     result = WAKE(uaddr2,ALL);
@@ -86,7 +85,6 @@ __SYSDECL_BEGIN
                                     * >>         WAIT(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
                                     * >>     }
                                     * >> } else {
-                                    * >>     // The write portion of this CMPXCH happens once the thread has already started waiting.
                                     * >>     if (ATOMIC_CMPXCH(*uaddr,val,val3)) {
                                     * >>         result = -EAGAIN;
                                     * >>     } else {

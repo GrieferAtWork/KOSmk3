@@ -63,7 +63,13 @@ struct pollfutex {
 #define POLLFUTEX_STATUS_BADACTION 0xff                  /* The specified `pf_action' isn't known. */
     __uint8_t                  pf_status;                /* Poll status (One of `POLLFUTEX_STATUS_*') */
     __uint8_t                __pf_pad[sizeof(void *)-2]; /* ... */
-    __uintptr_t                pf_val;                   /* The `val' argument in an equivalent futex() system call. */
+    union PACKED {
+        __uintptr_t            pf_val;                   /* The `val' argument in an equivalent futex() system call. */
+        __uintptr_t            pf_result;                /* The storage location for the `result' of the following actions:
+                                                          *   - FUTEX_WAIT_CMPXCH   (Only for the case of `result = WAKE(uaddr2,ALL)')
+                                                          *   - FUTEX_WAIT_CMPXCH2  (Only for the case of `result = WAKE(uaddr2,ALL)')
+                                                          */
+    };
     union PACKED {
         __uintptr_t            pf_val2;                  /* The `val2' argument in an equivalent futex() system call. */
         USER UNCHECKED futex_t*pf_uaddr2;                /* The `uaddr2' argument in an equivalent futex() system call. */
@@ -87,6 +93,8 @@ struct pollfd;
  *       regular ppoll() system call, however this version offers
  *       more functionality, and uses less system resources, as
  *       well as not requiring additional file descriptor indices.
+ * @return: 0 : The given timeout has expired.
+ * @return: * : The sum of available futexes and handles combined.
  */
 __REDIRECT_EXCEPT_TM64(__LIBC,,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xppoll,(struct pollfd *__ufds, __size_t __nfds, struct pollfutex *__uftx, __size_t __nftx, struct timespec const *__tsp, __sigset_t *sig),(__ufds,__nfds,__uftx,__nftx,__tsp,sig))
 #ifdef __USE_TIME64

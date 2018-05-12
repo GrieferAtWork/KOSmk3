@@ -1982,8 +1982,12 @@ scan_again:
        /* Broadcast a futex located at the given address. */
        ftx = vm_getfutex(uaddr2);
        if (ftx) {
-        result = sig_broadcast(&ftx->f_sig);
+        size_t thread_count;
+        thread_count = sig_broadcast(&ftx->f_sig);
         futex_decref(ftx);
+        COMPILER_BARRIER();
+        uftx[i].pf_result = thread_count;
+        COMPILER_WRITE_BARRIER();
        }
       }
       uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
@@ -2005,8 +2009,12 @@ scan_again:
        /* Broadcast a futex located at the given address. */
        ftx = vm_getfutex(uaddr2);
        if (ftx) {
-        result = sig_broadcast(&ftx->f_sig);
+        size_t thread_count;
+        thread_count = sig_broadcast(&ftx->f_sig);
         futex_decref(ftx);
+        COMPILER_BARRIER();
+        uftx[i].pf_result = thread_count;
+        COMPILER_WRITE_BARRIER();
        }
       }
       if (real_old_value == old_value) {
@@ -2034,8 +2042,12 @@ scan_again:
       /* Broadcast a futex located at the given address. */
       ftx = vm_getfutex(uaddr2);
       if (ftx) {
-       result = sig_broadcast(&ftx->f_sig);
+       size_t thread_count;
+       thread_count = sig_broadcast(&ftx->f_sig);
        futex_decref(ftx);
+       COMPILER_BARRIER();
+       uftx[i].pf_result = thread_count;
+       COMPILER_WRITE_BARRIER();
       }
       uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
       ++result;
@@ -2056,8 +2068,12 @@ scan_again:
        /* Broadcast a futex located at the given address. */
        ftx = vm_getfutex(uaddr2);
        if (ftx) {
-        result = sig_broadcast(&ftx->f_sig);
+        size_t thread_count;
+        thread_count = sig_broadcast(&ftx->f_sig);
         futex_decref(ftx);
+        COMPILER_BARRIER();
+        uftx[i].pf_result = thread_count;
+        COMPILER_WRITE_BARRIER();
        }
        /* The futex entered the required state while we were connected to it. */
        uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
