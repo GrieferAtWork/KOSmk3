@@ -336,25 +336,9 @@ libwm_window_create(int pos_x, int pos_y, unsigned int size_x, unsigned int size
     result->s_buffer += result->w_titlesz * resp.r_mkwin.w_stride;
     result->s_buffer += result->w_bordersz;
 
-    /* TODO: This currently assumes the format that is implemented by the server. */
-    result->s_format = libwm_format_create_pal(&libwm_palette_256);
-    assertf(result->s_format->f_bpp == resp.r_mkwin.w_bpp,
-            "result->s_format->f_bpp = %u\n"
-            "resp.r_mkwin.w_bpp      = %u\n"
-            "resp.r_mkwin.w_posx     = %u\n"
-            "resp.r_mkwin.w_posy     = %u\n"
-            "resp.r_mkwin.w_sizex    = %u\n"
-            "resp.r_mkwin.w_sizey    = %u\n"
-            "resp.r_mkwin.w_stride   = %u\n"
-            ,result->s_format->f_bpp
-            ,resp.r_mkwin.w_bpp
-            ,resp.r_mkwin.w_posx
-            ,resp.r_mkwin.w_posy
-            ,resp.r_mkwin.w_sizex
-            ,resp.r_mkwin.w_sizey
-            ,resp.r_mkwin.w_stride
-            );
-
+    /* This currently assumes the palette that is implemented by the server. */
+    result->s_format = libwm_format_create_pal(&libwm_palette_256,
+                                                resp.r_mkwin.w_bpp);
     libwm_setup_surface_ops((struct wm_surface *)result);
     TRY {
      /* Map the window  */

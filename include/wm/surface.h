@@ -150,7 +150,7 @@ struct PACKED wm_palette {
 /* Create a new palette.
  * @throw: E_BADALLOC: [...] */
 WMAPI ATTR_RETNONNULL REF struct wm_palette *
-WMCALL wm_palette_create(__uint16_t bpp);
+WMCALL wm_palette_create(unsigned int bpp);
 
 /* Increment/decrement the reference counter of a WM palette. */
 #define wm_palette_incref(self) (void)ATOMIC_FETCHINC((self)->p_refcnt)

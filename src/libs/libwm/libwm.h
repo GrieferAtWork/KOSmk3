@@ -52,7 +52,7 @@ INTDEF fd_t WMCALL libwms_recvresponse_fd(unsigned int token, struct wms_respons
 /* surface.h */
 INTDEF struct wm_palette libwm_palette_256;
 INTDEF u32 WMCALL libwm_color_compare(struct wm_color_triple a, struct wm_color_triple b);
-INTDEF ATTR_RETNONNULL REF struct wm_palette *WMCALL libwm_palette_create(u16 bpp);
+INTDEF ATTR_RETNONNULL REF struct wm_palette *WMCALL libwm_palette_create(unsigned int bpp);
 #define libwm_palette_incref(self) (void)ATOMIC_FETCHINC((self)->p_refcnt)
 #define libwm_palette_decref(self) (void)(ATOMIC_DECFETCH((self)->p_refcnt) || (libwm_palette_destroy(self),0))
 INTDEF ATTR_NOTHROW void WMCALL
@@ -80,7 +80,7 @@ libwm_format_create(wm_pixel_t rmask, u16 rshft,
                     wm_pixel_t amask, u16 ashft,
                     unsigned int bpp);
 INTDEF ATTR_RETNONNULL REF struct wm_format *WMCALL
-libwm_format_create_pal(struct wm_palette *__restrict pal);
+libwm_format_create_pal(struct wm_palette *__restrict pal, unsigned int bpp);
 #define libwm_format_incref(self) (void)ATOMIC_FETCHINC((self)->f_refcnt)
 #define libwm_format_decref(self) (void)(ATOMIC_DECFETCH((self)->f_refcnt) || (libwm_format_destroy(self),0))
 INTDEF ATTR_NOTHROW void WMCALL

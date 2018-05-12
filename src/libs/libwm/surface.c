@@ -60,7 +60,7 @@ PRIVATE struct wm_color const default_color_codes[WM_COLOR_COUNT] = {
 
 DEFINE_PUBLIC_ALIAS(wm_palette_create,libwm_palette_create);
 INTERN ATTR_RETNONNULL REF struct wm_palette *WMCALL
-libwm_palette_create(u16 bpp) {
+libwm_palette_create(unsigned int bpp) {
  REF struct wm_palette *result; u16 count;
  assertf((bpp & (bpp-1)) == 0,"Not a power-of-2: %u",(unsigned)bpp);
  assertf(bpp >= 1 && bpp <= 16,"BPP is too large, or too small: %u",(unsigned)bpp);
@@ -110,6 +110,8 @@ libwm_format_create(wm_pixel_t rmask, u16 rshft,
                     unsigned int bpp) {
  REF struct wm_format *result;
  unsigned int i;
+ assertf((bpp & (bpp-1)) == 0 || bpp == 24,"Not a power-of-2: %u",(unsigned)bpp);
+ assertf(bpp >= 1 && bpp <= 32,"BPP is too large, or too small: %u",(unsigned)bpp);
  result = (REF struct wm_format *)Xmalloc(sizeof(struct wm_format));
  result->f_refcnt  = 1;
  result->f_pal     = NULL;
@@ -274,13 +276,16 @@ pal_format_pixelof(struct wm_format const *__restrict self,
 
 DEFINE_PUBLIC_ALIAS(wm_format_create_pal,libwm_format_create_pal);
 INTERN ATTR_RETNONNULL REF struct wm_format *WMCALL
-libwm_format_create_pal(struct wm_palette *__restrict pal) {
+libwm_format_create_pal(struct wm_palette *__restrict pal, unsigned int bpp) {
  REF struct wm_format *result;
  unsigned int i;
+ assertf((bpp & (bpp-1)) == 0,"Not a power-of-2: %u",(unsigned)bpp);
+ assertf(bpp >= 1 && bpp <= 16,"BPP is too large, or too small: %u",(unsigned)bpp);
+ assertf(bpp <= pal->p_bpp,"BPP is larger than supported by the palette");
  result = (REF struct wm_format *)Xmalloc(sizeof(struct wm_format));
  result->f_refcnt  = 1;
  result->f_pal     = pal;
- result->f_bpp     = pal->p_bpp;
+ result->f_bpp     = bpp;
  result->f_colorof = &pal_format_colorof;
  result->f_pixelof = &pal_format_pixelof;
  /* Calculate standard colors. */

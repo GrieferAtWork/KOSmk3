@@ -98,7 +98,7 @@ libwm_lazy_alloc_format_pal(struct wm_format **__restrict pformat,
  struct wm_format *result,*new_result;
  result = ATOMIC_READ(*pformat);
  if (result) return result;
- result = libwm_format_create_pal(pal);
+ result = libwm_format_create_pal(pal,pal->p_bpp);
  new_result = ATOMIC_CMPXCH_VAL(*pformat,NULL,result);
  if unlikely(new_result) {
   libwm_format_decref(result);
