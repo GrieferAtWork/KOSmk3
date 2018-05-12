@@ -82,13 +82,16 @@ __SYSDECL_BEGIN
                                     * >>     result = WAKE(uaddr2,ALL);
                                     * >>     if (old_value != val) {
                                     * >>         // Wait if the old value 
-                                    * >>         WAIT(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
+                                    * >>         if (!WAIT(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime))
+                                    * >>              if (!result) result = -ETIMEDOUT;
                                     * >>     }
                                     * >> } else {
                                     * >>     if (ATOMIC_CMPXCH(*uaddr,val,val3)) {
                                     * >>         result = -EAGAIN;
                                     * >>     } else {
-                                    * >>         WAIT(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
+                                    * >>         result = 0;
+                                    * >>         if (!WAIT(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime))
+                                    * >>              result = -ETIMEDOUT;
                                     * >>     }
                                     * >> }
                                     * While not perfectly optimized for any situation, due to the fact
@@ -101,14 +104,16 @@ __SYSDECL_BEGIN
                                     *       immediately, as you're just going to wake up yourself
                                     *       before actually being un-scheduled. */
 #define FUTEX_WAIT_CMPXCH_GHOST 0x41/* The ghost variant of `FUTEX_WAIT_CMPXCH' */
-#define FUTEX_WAIT_CMPXCH2    0x12 /* Very similar to `FUTEX_WAIT_CMPXCH', but only trigger `uaddr' if the exchange was OK:
+#define FUTEX_WAIT_CMPXCH2    0x12 /* Very similar to `FUTEX_WAIT_CMPXCH', but only trigger `uaddr' if the exchange failed:
                                     * >> u32 old_value;
                                     * >> old_value = ATOMIC_CMPXCH_VAL(*uaddr,val,val3);
                                     * >> if (old_value == val) {
+                                    * >>     result = -EAGAIN;
+                                    * >> } else {
                                     * >>     *uaddr2 = old_value; // This write happens once the thread has already started waiting.
                                     * >>     result = WAKE(uaddr2,ALL);
-                                    * >> } else {
-                                    * >>     WAIT(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
+                                    * >>     if (!WAIT(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime))
+                                    * >>          if (!result) result = -ETIMEDOUT;
                                     * >> }
                                     * While not perfectly optimized for any situation, due to the fact
                                     * that it implements a compare-exchange operation, there shouldn't

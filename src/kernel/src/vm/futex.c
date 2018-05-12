@@ -355,9 +355,10 @@ DEFINE_SYSCALL6(futex,
  case FUTEX_WAIT_MASK:
   if ((ATOMIC_READ(*uaddr) & (u32)val) != (u32)(uintptr_t)uaddr2)
        return -EAGAIN;
-  ftx = vm_futex(uaddr);
   /* Connect to the futex. */
+  ftx = vm_futex(uaddr);
   task_connect(&ftx->f_sig);
+do_wait_mask:
   TRY {
    u32 old_value;
    /* Atomically set bits from val3, while also ensuring that the mask still applies. */
@@ -388,49 +389,30 @@ done_mask:
  case FUTEX_WAIT_MASK_GHOST:
   if ((ATOMIC_READ(*uaddr) & (u32)val) != (u32)(uintptr_t)uaddr2)
        return -EAGAIN;
-  ftx = vm_futex(uaddr);
   /* Connect to the futex. */
+  ftx = vm_futex(uaddr);
   task_connect_ghost(&ftx->f_sig);
-  TRY {
-   u32 old_value;
-   /* Atomically set bits from val3, while also ensuring that the mask still applies. */
-   do if (((old_value = ATOMIC_READ(*uaddr)) & (u32)val) != (u32)(uintptr_t)uaddr2)
-      { result = -EAGAIN; goto done_mask_ghost; }
-   while (!ATOMIC_CMPXCH(*uaddr,old_value,old_value|(u32)val3));
-   if (utime) {
-    /* Must do the wait. */
-    validate_readable(utime,sizeof(struct timespec64));
-    if (!task_waitfor_tmabs(utime))
-         result = -ETIMEDOUT;
-   } else {
-    task_wait();
-   }
-done_mask_ghost:
-   ;
-  } FINALLY {
-   task_disconnect(); /* In case the second access to `*uaddr' faults. */
-   futex_decref(ftx);
-  }
-  break;
+  goto do_wait_mask;
 
  case FUTEX_WAIT_CMPXCH:
   if (ATOMIC_CMPXCH(*uaddr,val,val3)) {
    /* Must still trigger the second futex, if it was defined. */
-   if (uaddr2) {
-    /* Save the old futex value in the provided uaddr2 */
-    ATOMIC_WRITE(*uaddr2,val);
-    /* Broadcast a futex located at the given address. */
-    ftx = vm_getfutex(uaddr2);
-    if (ftx) {
-     result = sig_broadcast(&ftx->f_sig);
-     futex_decref(ftx);
-    }
-    return result;
+   if (!uaddr2)
+        return -EAGAIN;
+   /* Save the old futex value in the provided uaddr2 */
+   ATOMIC_WRITE(*uaddr2,val);
+   /* Broadcast a futex located at the given address. */
+   ftx = vm_getfutex(uaddr2);
+   if (ftx) {
+    result = sig_broadcast(&ftx->f_sig);
+    futex_decref(ftx);
    }
-   return -EAGAIN;
+   return result;
   }
   /* Connect to the futex. */
+  ftx = vm_futex(uaddr);
   task_connect(&ftx->f_sig);
+do_wait_cmpxch:
   TRY {
    u32 real_old_value;
    /* Now that we're connected, try the CMPXCH again, this
@@ -453,7 +435,7 @@ done_mask_ghost:
    } else if (utime) {
     /* Must do the wait. */
     validate_readable(utime,sizeof(struct timespec64));
-    if (!task_waitfor_tmabs(utime))
+    if (!task_waitfor_tmabs(utime) && result == 0)
          result = -ETIMEDOUT;
    } else {
     task_wait();
@@ -467,56 +449,8 @@ done_mask_ghost:
  case FUTEX_WAIT_CMPXCH_GHOST:
   if (ATOMIC_CMPXCH(*uaddr,val,val3)) {
    /* Must still trigger the second futex, if it was defined. */
-   if (uaddr2) {
-    /* Save the old futex value in the provided uaddr2 */
-    ATOMIC_WRITE(*uaddr2,val);
-    /* Broadcast a futex located at the given address. */
-    ftx = vm_getfutex(uaddr2);
-    if (ftx) {
-     result = sig_broadcast(&ftx->f_sig);
-     futex_decref(ftx);
-    }
-    return result;
-   }
-   return -EAGAIN;
-  }
-  /* Connect to the futex. */
-  task_connect_ghost(&ftx->f_sig);
-  TRY {
-   u32 real_old_value;
-   /* Now that we're connected, try the CMPXCH again, this
-    * time storing the old value in uaddr2 (if provided). */
-   real_old_value = ATOMIC_CMPXCH_VAL(*uaddr,val,val3);
-   if (uaddr2) {
-    REF struct futex *ftx2;
-    /* Save the old futex value in the provided uaddr2 */
-    ATOMIC_WRITE(*uaddr2,real_old_value);
-    /* Broadcast a futex located at the given address. */
-    ftx2 = vm_getfutex(uaddr2);
-    if (ftx2) {
-     result = sig_broadcast(&ftx2->f_sig);
-     futex_decref(ftx2);
-    }
-   }
-   if (real_old_value == val) {
-    if (!uaddr2)
-         result = -EAGAIN; /* Don't wait. - The CMPXCH succeeded. */
-   } else if (utime) {
-    /* Must do the wait. */
-    validate_readable(utime,sizeof(struct timespec64));
-    if (!task_waitfor_tmabs(utime))
-         result = -ETIMEDOUT;
-   } else {
-    task_wait();
-   }
-  } FINALLY {
-   task_disconnect(); /* In case the second access to `*uaddr' faults. */
-   futex_decref(ftx);
-  }
-  break;
-
- case FUTEX_WAIT_CMPXCH2:
-  if (ATOMIC_CMPXCH(*uaddr,val,val3)) {
+   if (!uaddr2)
+        return -EAGAIN;
    /* Save the old futex value in the provided uaddr2 */
    ATOMIC_WRITE(*uaddr2,val);
    /* Broadcast a futex located at the given address. */
@@ -528,13 +462,25 @@ done_mask_ghost:
    return result;
   }
   /* Connect to the futex. */
+  ftx = vm_futex(uaddr);
+  task_connect_ghost(&ftx->f_sig);
+  goto do_wait_cmpxch;
+
+ case FUTEX_WAIT_CMPXCH2:
+  if (ATOMIC_CMPXCH(*uaddr,val,val3))
+      return -EAGAIN;
+  /* Connect to the futex. */
+  ftx = vm_futex(uaddr);
   task_connect(&ftx->f_sig);
+do_wait_cmpxch2:
   TRY {
    u32 real_old_value;
    /* Now that we're connected, try the CMPXCH again, this
     * time storing the old value in uaddr2 (if provided). */
    real_old_value = ATOMIC_CMPXCH_VAL(*uaddr,val,val3);
-   if (real_old_value == val) {
+   if (real_old_value == val)
+    result = -EAGAIN;
+   else if (utime) {
     REF struct futex *ftx2;
     /* Save the old futex value in the provided uaddr2 */
     ATOMIC_WRITE(*uaddr2,real_old_value);
@@ -544,10 +490,9 @@ done_mask_ghost:
      result = sig_broadcast(&ftx2->f_sig);
      futex_decref(ftx2);
     }
-   } else if (utime) {
     /* Must do the wait. */
     validate_readable(utime,sizeof(struct timespec64));
-    if (!task_waitfor_tmabs(utime))
+    if (!task_waitfor_tmabs(utime) && result == 0)
          result = -ETIMEDOUT;
    } else {
     task_wait();
@@ -559,47 +504,12 @@ done_mask_ghost:
   break;
 
  case FUTEX_WAIT_CMPXCH2_GHOST:
-  if (ATOMIC_CMPXCH(*uaddr,val,val3)) {
-   /* Save the old futex value in the provided uaddr2 */
-   ATOMIC_WRITE(*uaddr2,val);
-   /* Broadcast a futex located at the given address. */
-   ftx = vm_getfutex(uaddr2);
-   if (ftx) {
-    result = sig_broadcast(&ftx->f_sig);
-    futex_decref(ftx);
-   }
-   return result;
-  }
+  if (ATOMIC_CMPXCH(*uaddr,val,val3))
+      return -EAGAIN;
   /* Connect to the futex. */
+  ftx = vm_futex(uaddr);
   task_connect_ghost(&ftx->f_sig);
-  TRY {
-   u32 real_old_value;
-   /* Now that we're connected, try the CMPXCH again, this
-    * time storing the old value in uaddr2 (if provided). */
-   real_old_value = ATOMIC_CMPXCH_VAL(*uaddr,val,val3);
-   if (real_old_value == val) {
-    REF struct futex *ftx2;
-    /* Save the old futex value in the provided uaddr2 */
-    ATOMIC_WRITE(*uaddr2,real_old_value);
-    /* Broadcast a futex located at the given address. */
-    ftx2 = vm_getfutex(uaddr2);
-    if (ftx2) {
-     result = sig_broadcast(&ftx2->f_sig);
-     futex_decref(ftx2);
-    }
-   } else if (utime) {
-    /* Must do the wait. */
-    validate_readable(utime,sizeof(struct timespec64));
-    if (!task_waitfor_tmabs(utime))
-         result = -ETIMEDOUT;
-   } else {
-    task_wait();
-   }
-  } FINALLY {
-   task_disconnect(); /* In case the second access to `*uaddr' faults. */
-   futex_decref(ftx);
-  }
-  break;
+  goto do_wait_cmpxch2;
 
  case FUTEX_WAKE_BITSET:
   if (val3 != FUTEX_BITSET_MATCH_ANY) {
