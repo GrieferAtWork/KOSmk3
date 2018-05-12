@@ -43,6 +43,7 @@
     <ClCompile Include="..\..\src\libs\libc\fnmatch.c" />
     <ClCompile Include="..\..\src\libs\libc\format-time.c" />
     <ClCompile Include="..\..\src\libs\libc\format.c" />
+    <ClCompile Include="..\..\src\libs\libc\futex.c" />
     <ClCompile Include="..\..\src\libs\libc\getopt.c" />
     <ClCompile Include="..\..\src\libs\libc\group.c" />
     <ClCompile Include="..\..\src\libs\libc\heap-trace.c" />
@@ -93,6 +94,7 @@
     <ClInclude Include="..\..\src\libs\libc\fnmatch.h" />
     <ClInclude Include="..\..\src\libs\libc\format-time.h" />
     <ClInclude Include="..\..\src\libs\libc\format.h" />
+    <ClInclude Include="..\..\src\libs\libc\futex.h" />
     <ClInclude Include="..\..\src\libs\libc\group.h" />
     <ClInclude Include="..\..\src\libs\libc\heap.h" />
     <ClInclude Include="..\..\src\libs\libc\libc.h" />

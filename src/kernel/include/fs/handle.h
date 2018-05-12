@@ -82,6 +82,8 @@ struct PACKED handle {
             REF struct pipereader          *o_pipereader;          /* [1..1][const][HANDLE_TYPE_FPIPEREADER] */
             REF struct pipewriter          *o_pipewriter;          /* [1..1][const][HANDLE_TYPE_FPIPEWRITER] */
             REF struct socket              *o_socket;              /* [1..1][const][HANDLE_TYPE_FSOCKET] */
+            REF struct futex               *o_futex;               /* [1..1][const][HANDLE_TYPE_FFUTEX] */
+            REF struct futex_handle        *o_futex_handle;        /* [1..1][const][HANDLE_TYPE_FFUTEX_HANDLE] */
         }                                   h_object;              /* [const] The object pointed to by this handle. */
     };
 };

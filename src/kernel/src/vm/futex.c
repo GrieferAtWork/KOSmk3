@@ -22,14 +22,18 @@
 
 #include <hybrid/compiler.h>
 #include <hybrid/section.h>
+#include <fs/handle.h>
 #include <kernel/vm.h>
 #include <kernel/malloc.h>
 #include <kernel/syscall.h>
 #include <kernel/user.h>
 #include <sched/pid.h>
 #include <string.h>
+#include <stdint.h>
 #include <except.h>
+#include <fcntl.h>
 #include <linux/futex.h>
+#include <sys/poll.h>
 
 DECL_BEGIN
 
@@ -279,10 +283,10 @@ done:;
 
 
 DEFINE_SYSCALL6(futex,
-                USER UNCHECKED u32 *,uaddr,int,op,u32,val,
+                USER UNCHECKED u32 *,uaddr,int,op,uintptr_t,val,
                 USER UNCHECKED struct timespec64 *,utime,
                 USER UNCHECKED u32 *,uaddr2,
-                u32,val3) {
+                uintptr_t,val3) {
  syscall_slong_t result = 0;
  REF struct futex *EXCEPT_VAR ftx;
 #ifdef __INTELLISENSE__
@@ -294,17 +298,44 @@ DEFINE_SYSCALL6(futex,
 
  switch (op & FUTEX_CMD_MASK) {
 
- case FUTEX_WAIT:
-  task_channelmask((uintptr_t)val3);
  case FUTEX_WAIT_BITSET:
-  if (ATOMIC_READ(*uaddr) != val)
+  task_channelmask((uintptr_t)val3);
+ case FUTEX_WAIT:
+  if (ATOMIC_READ(*uaddr) != (u32)val)
       return -EAGAIN;
   ftx = vm_futex(uaddr);
   /* Connect to the futex. */
   task_connect(&ftx->f_sig);
   TRY {
    /* Check the address again. */
-   if (ATOMIC_READ(*uaddr) != val)
+   if (ATOMIC_READ(*uaddr) != (u32)val)
+       result = -EAGAIN;
+   else if (utime) {
+    /* Must do the wait. */
+    validate_readable(utime,sizeof(struct timespec64));
+    if ((op & FUTEX_CMD_MASK) == FUTEX_WAIT ? !task_waitfor_tmrel(utime)
+                                            : !task_waitfor_tmabs(utime))
+         result = -ETIMEDOUT;
+   } else {
+    task_wait();
+   }
+  } FINALLY {
+   task_disconnect(); /* In case the second access to `*uaddr' faults. */
+   futex_decref(ftx);
+  }
+  break;
+
+ case FUTEX_WAIT_BITSET_GHOST:
+  task_channelmask((uintptr_t)val3);
+ case FUTEX_WAIT_GHOST:
+  if (ATOMIC_READ(*uaddr) != (u32)val)
+      return -EAGAIN;
+  ftx = vm_futex(uaddr);
+  /* Connect to the futex (as a ghost). */
+  task_connect_ghost(&ftx->f_sig);
+  TRY {
+   /* Check the address again. */
+   if (ATOMIC_READ(*uaddr) != (u32)val)
        result = -EAGAIN;
    else if (utime) {
     /* Must do the wait. */
@@ -380,10 +411,12 @@ done_lock_pi:;
   caller_tid = posix_gettid();
   for (;;) {
    value = ATOMIC_CMPXCH_VAL(*uaddr,caller_tid,0);
-   if unlikely(value == caller_tid) return 0; /* Unlock */
-   if ((value & ~FUTEX_WAITERS) != caller_tid) return -EPERM; /* You're not the owner. */
+   if unlikely(value == caller_tid)
+        return 0; /* Unlock */
+   if ((value & ~FUTEX_WAITERS) != caller_tid)
+        error_throw(E_ILLEGAL_OPERATION); /* You're not the owner. */
    if (ATOMIC_CMPXCH(*uaddr,value,0))
-       break;
+        break;
   }
   /* All right. Now wake one reader. */
   ftx = vm_getfutex(uaddr);
@@ -393,6 +426,53 @@ done_lock_pi:;
   }
  } break;
 
+ {
+  struct handle EXCEPT_VAR hresult;
+ case FUTEX_FD:
+  if (val != 0) {
+   /* In linux, a val!=0 used to create a handle that would cause a
+    * signal with that same number to be generated asynchronously
+    * when the futex got signaled.
+    *  -> KOS doesn't implement this.
+    */
+   error_throw(E_NOT_IMPLEMENTED);
+  }
+  /* Lookup the futex at the given address. */
+  hresult.h_mode = HANDLE_MODE(HANDLE_TYPE_FFUTEX,0);
+  hresult.h_object.o_futex = vm_futex(uaddr);
+  TRY {
+   /* Save the new futex handle in the handle manager. */
+   result = handle_put(hresult);
+  } FINALLY {
+   futex_decref(hresult.h_object.o_futex);
+  }
+ } break;
+
+ {
+  struct handle EXCEPT_VAR hresult;
+ case FUTEX_WAITFD:
+  val3 = FUTEX_BITSET_MATCH_ANY;
+ case FUTEX_WAITFD_BITSET:
+  /* Validate the futex handle mode argument. */
+  if (val2 & ~(O_ACCMODE|O_CLOEXEC|O_CLOFORK|O_NONBLOCK))
+      error_throw(E_INVALID_ARGUMENT);
+  /* Lookup the futex at the given address. */
+  ftx = vm_futex(uaddr);
+  hresult.h_mode = HANDLE_MODE(HANDLE_TYPE_FFUTEX_HANDLE,
+                               IO_FROM_O(val2));
+  TRY {
+   /* Construct a new futex handle wrapper. */
+   hresult.h_object.o_futex_handle = futex_handle_alloc(ftx,uaddr,(u32)val,val3);
+  } FINALLY {
+   futex_decref(ftx);
+  }
+  TRY {
+   /* Save the new futex handle in the handle manager. */
+   result = handle_put(hresult);
+  } FINALLY {
+   futex_handle_decref(hresult.h_object.o_futex_handle);
+  }
+ } break;
 
 #if 0
  case FUTEX_REQUEUE:
@@ -422,6 +502,125 @@ done_lock_pi:;
 }
 
 
+
+/* Construct a new futex handle. */
+PUBLIC ATTR_MALLOC ATTR_RETNONNULL REF struct futex_handle *KCALL
+futex_handle_alloc(struct futex *__restrict ftx,
+                   USER CHECKED u32 *uaddr, u32 value, uintptr_t mask) {
+ REF struct futex_handle *result;
+ /* Construct a new futex handle. */
+ result = (REF struct futex_handle *)kmalloc(sizeof(REF struct futex_handle),
+                                             GFP_SHARED);
+ /* Initialize the futex handle. */
+ result->fh_refcnt = 1;
+ futex_incref(ftx);
+ result->fh_futex  = ftx;
+ result->fh_uaddr  = uaddr;
+ result->fh_value  = value;
+ result->fh_mask   = mask;
+ return result;
+}
+
+/* Destroy a previously allocated futex handle. */
+PUBLIC void KCALL
+futex_handle_destroy(struct futex_handle *__restrict self) {
+ futex_decref(self->fh_futex);
+ kfree(self);
+}
+
+
+/* futex_handle handle operators. */
+INTERN unsigned int KCALL
+handle_futex_handle_poll(struct futex_handle *__restrict self,
+                         unsigned int mode) {
+ u32 value;
+ if (!(mode & POLLIN))
+       return 0;
+ /* Do an initial read on the futex word. */
+ value = ATOMIC_READ(*self->fh_uaddr);
+ if (value != self->fh_value)
+     return POLLIN;
+ /* Open all channels masked by the futex. */
+ task_openchannel(self->fh_mask);
+ /* Connect to the signal as a ghost. */
+ task_connect_ghost(&self->fh_futex->f_sig);
+ COMPILER_READ_BARRIER();
+
+ /* With the connection established, repeat read of the
+  * futex word as an operation interlocked with the signal. */
+ value = ATOMIC_READ(*self->fh_uaddr);
+ if (value != self->fh_value)
+     return POLLIN;
+
+ return 0;
+}
+INTERN size_t KCALL
+handle_futex_handle_read(struct futex_handle *__restrict self,
+                         USER CHECKED void *buf, size_t bufsize,
+                         iomode_t flags) {
+ u32 value;
+ if (bufsize < 4)
+     error_throwf(E_BUFFER_TOO_SMALL,bufsize,(size_t)4);
+ /* Do an initial, non-interlocked check
+  * and deal with the IO_NONBLOCK flag. */
+ value = ATOMIC_READ(*self->fh_uaddr);
+ if (value != self->fh_value) {
+  *(USER CHECKED u32 *)buf = value;
+  return 4;
+ }
+ if (flags & IO_NONBLOCK)
+     return 0;
+again:
+ task_channelmask(self->fh_mask);
+ task_connect(&self->fh_futex->f_sig);
+ /* Repeat the check while in interlocked mode */
+ value = ATOMIC_READ(*self->fh_uaddr);
+ if (value != self->fh_value) {
+  *(USER CHECKED u32 *)buf = value;
+  task_disconnect();
+  return 4;
+ }
+ task_wait();
+ goto again;
+}
+INTERN size_t KCALL
+handle_futex_handle_write(struct futex_handle *__restrict self,
+                          USER CHECKED void const *buf, size_t bufsize,
+                          iomode_t flags) {
+ if (bufsize < 4)
+     error_throwf(E_BUFFER_TOO_SMALL,bufsize,(size_t)4);
+ sig_send(&self->fh_futex->f_sig,*(u32 *)buf);
+ return 4;
+}
+INTERN size_t KCALL
+handle_futex_handle_pwrite(struct futex_handle *__restrict self,
+                           USER CHECKED void const *buf, size_t bufsize,
+                           pos_t pos, iomode_t flags) {
+ if (pos > UINT32_MAX)
+     error_throw(E_INVALID_ARGUMENT);
+ if (bufsize < 4)
+     error_throwf(E_BUFFER_TOO_SMALL,bufsize,(size_t)4);
+ /* Send out the signal. */
+ if (pos == FUTEX_BITSET_MATCH_ANY) {
+  sig_send(&self->fh_futex->f_sig,*(u32 *)buf);
+ } else {
+  sig_send_channel(&self->fh_futex->f_sig,(u32)pos,*(u32 *)buf);
+ }
+ return 4;
+}
+
+
+
+
+/* futex handle operators. */
+INTERN unsigned int KCALL
+handle_futex_poll(struct futex *__restrict self,
+                  unsigned int mode) {
+ /* It's small enough to implement, even if linux no longer does... */
+ if (mode != 0)
+     task_connect_ghost(&self->f_sig);
+ return mode;
+}
 
 
 DECL_END

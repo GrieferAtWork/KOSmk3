@@ -33,7 +33,6 @@
 #include <bits/dos-errno.h>
 #include <kos/types.h>
 #include <kos/context.h>
-#include <linux/futex.h>
 
 DECL_BEGIN
 
@@ -136,34 +135,6 @@ INTERN int LIBCCALL libc_system(char const *command) {
  }
  return status;
 }
-
-
-EXPORT(futex,libc_futex);
-INTERN int LIBCCALL
-libc_futex(u32 *uaddr, int futex_op, u32 val,
-           struct timespec32 const *timeout,
-           u32 *uaddr2, u32 val3) {
- struct timespec64 t64;
- switch (futex_op & FUTEX_CMD_MASK) {
-
- case FUTEX_WAIT:
- case FUTEX_WAIT_BITSET:
- case FUTEX_LOCK_PI:
- case FUTEX_WAIT_REQUEUE_PI:
-  break;
-
- default:
-direct_64:
-  return libc_futex64(uaddr,futex_op,val,
-                     (struct timespec64 *)timeout,
-                      uaddr2,val3);
- }
- if (!timeout) goto direct_64;
- t64.tv_sec  = timeout->tv_sec;
- t64.tv_nsec = timeout->tv_nsec;
- return libc_futex64(uaddr,futex_op,val,&t64,uaddr2,val3);
-}
-
 
 
 /* Export symbols. */
@@ -335,32 +306,6 @@ libc_Xsched_rr_get_interval(pid_t pid, struct timespec32 *t) {
  libc_Xsched_rr_get_interval64(pid,&t64);
  t->tv_sec  = t64.tv_sec;
  t->tv_nsec = t64.tv_nsec;
-}
-
-EXPORT(Xfutex,libc_Xfutex);
-CRT_EXCEPT int LIBCCALL
-libc_Xfutex(u32 *uaddr, int futex_op, u32 val,
-            struct timespec32 const *timeout,
-            u32 *uaddr2, u32 val3) {
- struct timespec64 t64;
- switch (futex_op & FUTEX_CMD_MASK) {
-
- case FUTEX_WAIT:
- case FUTEX_WAIT_BITSET:
- case FUTEX_LOCK_PI:
- case FUTEX_WAIT_REQUEUE_PI:
-  break;
-
- default:
-direct_64:
-  return libc_Xfutex64(uaddr,futex_op,val,
-                      (struct timespec64 *)timeout,
-                       uaddr2,val3);
- }
- if (!timeout) goto direct_64;
- t64.tv_sec  = timeout->tv_sec;
- t64.tv_nsec = timeout->tv_nsec;
- return libc_Xfutex64(uaddr,futex_op,val,&t64,uaddr2,val3);
 }
 
 EXPORT(Xgetrlimit,libc_Xgetrlimit);

@@ -233,6 +233,7 @@ typedef __UINT16_TYPE__ except_t;
 #define E_NO_DEVICE              0x0026          /* [ERRNO(ENODEV)] The named device doesn't exist. */
 #define E_UNKNOWN_SYSTEMCALL     0x0036          /* [ERRNO(ENOSYS)] Attempted to execute an unknown system call. */
 #define E_NO_SUCH_OBJECT         E_NO_DATA       /* [ERRNO(ENODATA)] The named / indexed object could not be found. */
+#define E_ILLEGAL_OPERATION      0x0007          /* [ERRNO(EPERM)] Illegal operation. */
 #define E_FILESYSTEM_ERROR       0x0080          /* [ERRNO(...)] Filesystem error (see below) */
 #define E_NET_ERROR              0x0081          /* [ERRNO(...)] Network error (see below) */
 #define E_IOERROR                0x0082          /* [ERRNO(EIO)] Hardware error, or miss-behaving/miss-configured device. */

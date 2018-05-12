@@ -24,7 +24,7 @@
 #include "unistd.h"
 #include "sched.h"
 
-#include <kos/sched/futex.h>
+#include <kos/futex.h>
 #include <kos/sched/mutex.h>
 #include <hybrid/atomic.h>
 

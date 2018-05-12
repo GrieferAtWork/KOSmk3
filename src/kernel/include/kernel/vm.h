@@ -50,6 +50,7 @@ struct vm_region;
 struct vm_region_part;
 struct vm_node;
 struct inode;
+struct futex;
 
 typedef u16       vm_prot_t;   /* Virtual memory protection (Set of `PROT_*' from <sys/mman.h>). */
 typedef uintptr_t vm_raddr_t;  /* VM Region page index (Relative to the start of the region). */
@@ -58,6 +59,26 @@ typedef intptr_t  vm_sraddr_t; /* Signed VM Region page index. */
 
 
 #ifdef __CC__
+struct futex_handle {
+    ATOMIC_DATA ref_t fh_refcnt; /* The handle reference counter. */
+    REF struct futex *fh_futex;  /* [1..1][const] The bound futex object. */
+    uintptr_t         fh_mask;   /* [const] The signal channel mask that this handle is listening for. */
+    USER CHECKED u32 *fh_uaddr;  /* [const] The user-space address checked by this futex. */
+    u32               fh_value;  /* [const] The value for which to probe `*fh_uaddr'. */
+};
+
+/* Construct a new futex handle.
+ * @throw E_BADALLOC: Failed to allocate sufficient memory. */
+FUNDEF ATTR_MALLOC ATTR_RETNONNULL REF struct futex_handle *
+KCALL futex_handle_alloc(struct futex *__restrict ftx, USER CHECKED u32 *uaddr, u32 value, u32 mask);
+
+/* Destroy a previously allocated futex handle. */
+FUNDEF void KCALL futex_handle_destroy(struct futex_handle *__restrict self);
+
+/* Increment/decrement the reference counter of the given futex handle `x' */
+#define futex_handle_incref(x)  ATOMIC_FETCHINC((x)->fh_refcnt)
+#define futex_handle_decref(x) (ATOMIC_DECFETCH((x)->fh_refcnt) || (futex_handle_destroy(x),0))
+
 struct futex {
     atomic_rwptr_t    f_next;   /* [TYPE(struct futex)][sort(ASCENDING(f_addr))]
                                  *  Pointer to the next futex at a greater address. */

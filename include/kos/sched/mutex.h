@@ -25,7 +25,7 @@
 #include <hybrid/timespec.h>
 #include <assert.h>
 #include <features.h>
-#include "futex.h"
+#include <kos/futex.h>
 
 DECL_BEGIN
 

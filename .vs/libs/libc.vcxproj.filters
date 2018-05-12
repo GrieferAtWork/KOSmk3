@@ -89,6 +89,7 @@
     <ClCompile Include="..\..\src\libs\libc\realpath.c" />
     <ClCompile Include="..\..\src\libs\libc\chtime.c" />
     <ClCompile Include="..\..\src\libs\libc\stat.c" />
+    <ClCompile Include="..\..\src\libs\libc\futex.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\libs\libc\libc.h" />
@@ -138,6 +139,7 @@
     <ClInclude Include="..\..\src\libs\libc\realpath.h" />
     <ClInclude Include="..\..\src\libs\libc\chtime.h" />
     <ClInclude Include="..\..\src\libs\libc\stat.h" />
+    <ClInclude Include="..\..\src\libs\libc\futex.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="i386-kos">

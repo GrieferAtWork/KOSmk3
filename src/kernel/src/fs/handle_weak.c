@@ -24,6 +24,7 @@
 #include <hybrid/list/list.h>
 #include <hybrid/sync/atomic-rwlock.h>
 #include <kernel/sections.h>
+#include <kernel/vm.h>
 #include <sched/task.h>
 #include <fs/handle.h>
 #include <except.h>
@@ -121,6 +122,8 @@ illegal_poll(void *__restrict UNUSED(ptr),
     macro(pipereader,HANDLE_TYPE_FPIPEREADER) \
     macro(pipewriter,HANDLE_TYPE_FPIPEWRITER) \
     macro(socket,HANDLE_TYPE_FSOCKET) \
+    macro(futex,HANDLE_TYPE_FFUTEX) \
+    macro(futex_handle,HANDLE_TYPE_FFUTEX_HANDLE) \
 /**/
 
 #define DEFINE_WEAK_OPS(name,id) \

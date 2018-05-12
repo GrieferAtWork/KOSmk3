@@ -504,6 +504,9 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
          INFO->e_error.e_unhandled_interrupt.ui_intcode,
          INFO->e_error.e_unhandled_interrupt.ui_errcode);
   break;
+ case E_ILLEGAL_OPERATION:
+  PRINTF("\tIllegal operation\n");
+  break;
  case E_UNKNOWN_SYSTEMCALL:
   PRINTF("\tUnknown system call %#Ix { %p, %p, %p, %p, %p, %p }\n",
          INFO->e_error.e_unknown_systemcall.us_sysno,

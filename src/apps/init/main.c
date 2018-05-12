@@ -36,7 +36,7 @@
 #include <format-printer.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
-#include <kos/sched/futex.h>
+#include <kos/futex.h>
 #include <wchar.h>
 #include <uchar.h>
 #include <stdlib.h>

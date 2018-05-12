@@ -20,44 +20,151 @@
 #define _LINUX_FUTEX_H 1
 
 #include <__stdinc.h>
+#include <features.h>
 
 /* DISCLAIMER: Mostly taken from /usr/include/linux/futex.h */
 
 __SYSDECL_BEGIN
 
 /* Second argument to futex syscall */
-#define FUTEX_WAIT            0x00 /* if (*uaddr == val)
-                                    *      WAIT(uaddr,0xffffffff,utime); */
-#define FUTEX_WAKE            0x01 /* WAKE(uaddr,0xffffffff); */
-#define FUTEX_FD              0x02
+#define FUTEX_WAIT            0x00 /* >> if (*uaddr == val)
+                                    * >>      WAIT(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime); */
+#define FUTEX_WAKE            0x01 /* >> WAKE_MAX(uaddr, mask = FUTEX_BITSET_MATCH_ANY, max_threads = val); */
+#define FUTEX_FD              0x02 /* Operates similarly to `FUTEX_WAIT_FD', and was originally implemented by
+                                    * linux but later removed due to the fact that this one's _COMPLETELY_ _USELESS_
+                                    * >> There is no interlocked check done when polling this one, meaning
+                                    *    that waiting for a signal here is the definition of raciness. */
 #define FUTEX_REQUEUE         0x03
 #define FUTEX_CMP_REQUEUE     0x04
 #define FUTEX_WAKE_OP         0x05
 #define FUTEX_LOCK_PI         0x06
 #define FUTEX_UNLOCK_PI       0x07
 #define FUTEX_TRYLOCK_PI      0x08
-#define FUTEX_WAIT_BITSET     0x09 /* if (*uaddr == val)
-                                    *      WAIT(uaddr,val3,utime); */
-#define FUTEX_WAKE_BITSET     0x0a /* WAKE(uaddr,val3); */
+#define FUTEX_WAIT_BITSET     0x09 /* >> if (*uaddr == val)
+                                    * >>      WAIT(uaddr, mask = val3, utime); */
+#define FUTEX_WAKE_BITSET     0x0a /* >> WAKE_MAX(uaddr, mask = val3, max_threads = val); */
 #define FUTEX_WAIT_REQUEUE_PI 0x0b
 #define FUTEX_CMP_REQUEUE_PI  0x0c
 
-#define FUTEX_PRIVATE_FLAG    0x80
-#define FUTEX_CLOCK_REALTIME  0x100
-#define FUTEX_CMD_MASK     (~(FUTEX_PRIVATE_FLAG|FUTEX_CLOCK_REALTIME))
 
-#define FUTEX_WAIT_PRIVATE            (FUTEX_WAIT|FUTEX_PRIVATE_FLAG)
-#define FUTEX_WAKE_PRIVATE            (FUTEX_WAKE|FUTEX_PRIVATE_FLAG)
-#define FUTEX_REQUEUE_PRIVATE         (FUTEX_REQUEUE|FUTEX_PRIVATE_FLAG)
-#define FUTEX_CMP_REQUEUE_PRIVATE     (FUTEX_CMP_REQUEUE|FUTEX_PRIVATE_FLAG)
-#define FUTEX_WAKE_OP_PRIVATE         (FUTEX_WAKE_OP|FUTEX_PRIVATE_FLAG)
-#define FUTEX_LOCK_PI_PRIVATE         (FUTEX_LOCK_PI|FUTEX_PRIVATE_FLAG)
-#define FUTEX_UNLOCK_PI_PRIVATE       (FUTEX_UNLOCK_PI|FUTEX_PRIVATE_FLAG)
-#define FUTEX_TRYLOCK_PI_PRIVATE      (FUTEX_TRYLOCK_PI|FUTEX_PRIVATE_FLAG)
-#define FUTEX_WAIT_BITSET_PRIVATE     (FUTEX_WAIT_BITSET|FUTEX_PRIVATE_FLAG)
-#define FUTEX_WAKE_BITSET_PRIVATE     (FUTEX_WAKE_BITSET|FUTEX_PRIVATE_FLAG)
-#define FUTEX_WAIT_REQUEUE_PI_PRIVATE (FUTEX_WAIT_REQUEUE_PI|FUTEX_PRIVATE_FLAG)
-#define FUTEX_CMP_REQUEUE_PI_PRIVATE  (FUTEX_CMP_REQUEUE_PI|FUTEX_PRIVATE_FLAG)
+#if defined(__KOS__) && (defined(__USE_KOS) || defined(__KERNEL__))
+#define FUTEX_WAIT_GHOST      0x20 /* >> if (*uaddr == val)
+                                    * >>      WAIT_GHOST(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
+                                    * Same as `FUTEX_WAIT', but when being woken using a val3 that
+                                    * isn't equal to ZERO(0), the calling thread will not count towards
+                                    * the total number of woken threads.
+                                    * This is highly useful to implement user-space poll(), or waitfor()
+                                    * functions that wait for something like a mutex to get unlocked,
+                                    * without actually preventing another thread that is waiting for the
+                                    * mutex because it wants to acquire it from being woken because the
+                                    * mutex_put() function uses val3=1 to only wake a single waiter.
+                                    * In such a context, `FUTEX_WAIT_GHOST' can be used to wait for the
+                                    * mutex to get unlocked without interfering with the regular process
+                                    * of locking/unlocking the mutex, that could otherwise cause a soft-lock
+                                    * when no thread is intending to acquire a mutex that has been unlocked,
+                                    * with some threads still waiting to be woken by the associated futex. */
+#define FUTEX_WAIT_BITSET_GHOST 0x29/*>> if (*uaddr == val)
+                                    * >>      WAIT_GHOST(uaddr, mask = val3, utime);
+                                    * A bitset-enabled variant of `FUTEX_WAIT_GHOST' */
+#define FUTEX_WAITFD          0x40 /* Same as `FUTEX_WAIT_FD_BITSET' with `val3 = FUTEX_BITSET_MATCH_ANY' */
+#define FUTEX_WAITFD_BITSET   0x49 /* @param: uaddr: The address of the futex to wait for, as well as the address to which to bind the file handle.
+                                    * @param: val:   The value to probe `uaddr' for, during a poll() or read() operation
+                                    * @param: val2:  A set of `O_ACCMODE' and `O_CLOEXEC|O_CLOFORK|O_NONBLOCK' applied to the new file descriptor.
+                                    *         NOTE: `O_ACCMODE' specifies if `read()' and `write()' can be used on the handle.
+                                    *                It however does not affect `poll()', which is always allowed.
+                                    * @param: val3:  The futex channel mask to which to connect during poll() or read()
+                                    *          NOTE: During a poll(), the channel mask might interact with other
+                                    *                file descriptors being polled, potentially causing sporadic
+                                    *                wake-ups when the states of other, unrelated file descriptors
+                                    *                change.
+                                    *                Because of this, you should assume that including a futex
+                                    *                handle in a poll() system call may lead to sporadic wake ups.
+                                    *               (Although due to the nature of poll(), the possibility of this
+                                    *                happening shouldn't require any changes to existing code)
+                                    * >> HANDLE(.futex = FUTEX_AT(.uaddr),
+                                    * >>     poll = {
+                                    * >>         if (!(mode & POLLIN))
+                                    * >>               return 0;
+                                    * >>         // NOTE: uaddr is evaluated in the VM of the polling() thread
+                                    * >>         //       Passing this type of futex between processed is not
+                                    * >>         //       recommended, as the address may be mapped differently.
+                                    * >>         // NOTE: Polling here is always implemented as a ghost connection,
+                                    * >>         //       quite simply because the only reason why one would want
+                                    * >>         //       to use futex handles over the futex() system call itself,
+                                    * >>         //       is to wait for more than a single condition, meaning that
+                                    * >>         //       the reason why ghost connections exist always applies.
+                                    * >>         //       In other words: using poll() must mean that the caller
+                                    * >>         //       isn't sure if they actually want to acquire some lock, or
+                                    * >>         //       if they'd rather prefer to acquire some other, unrelated
+                                    * >>         //       lock.
+                                    * >>         task_connect_ghost(.futex,.val3);
+                                    * >>         if (*.uaddr != .val)
+                                    * >>             return POLLIN;
+                                    * >>         return 0;
+                                    * >>     },
+                                    * >>     read = {
+                                    * >>         // read() acts like poll(), but atomically saves the value read
+                                    * >>         // from the bound user-space address within the provided buffer,
+                                    * >>         // thus allowing for atomic read+wait on a futex that may be
+                                    * >>         // changing its value rather quickly.
+                                    * >>         if (bufsize < 4)
+                                    * >>             error_throwf(E_BUFFER_TOO_SMALL,...);
+                                    * >>     again:
+                                    * >>         task_connect(.futex,.val3);
+                                    * >>         u32 value = *.uaddr;
+                                    * >>         if (value != .val) {
+                                    * >>             *(u32 *)buffer = value;
+                                    * >>             task_disconnect();
+                                    * >>             return 4;
+                                    * >>         }
+                                    * >>         if (O_NONBLOCK) {
+                                    * >>             task_disconnect();
+                                    * >>             return 0;
+                                    * >>         }
+                                    * >>         task_wait();
+                                    * >>         goto again;
+                                    * >>     },
+                                    * >>     write = {
+                                    * >>         // write() acts like `FUTEX_WAKE'
+                                    * >>         if (bufsize < 4)
+                                    * >>             error_throwf(E_BUFFER_TOO_SMALL,...);
+                                    * >>         WAKE_MAX(.futex, mask = FUTEX_BITSET_MATCH_ANY, max_threads = *(u32 *)buffer)
+                                    * >>         return 4;
+                                    * >>     },
+                                    * >>     pwrite = {
+                                    * >>         // pwrite() acts like `FUTEX_WAKE_BITSET'
+                                    * >>         if (pos > UINT32_MAX)
+                                    * >>             error_throw(E_INVALID_ARGUMENT);
+                                    * >>         if (bufsize < 4)
+                                    * >>             error_throwf(E_BUFFER_TOO_SMALL,...);
+                                    * >>         WAKE_MAX(.futex, mask = (u32)pos, max_threads = *(u32 *)buffer);
+                                    * >>         return 4;
+                                    * >>     });
+                                    */
+#endif /* KOS Extensions... */
+
+#define FUTEX_PRIVATE_FLAG       0x80
+#define FUTEX_CLOCK_REALTIME     0x100
+#define FUTEX_CMD_MASK        (~(FUTEX_PRIVATE_FLAG|FUTEX_CLOCK_REALTIME))
+
+#define FUTEX_WAIT_PRIVATE              (FUTEX_WAIT|FUTEX_PRIVATE_FLAG)
+#define FUTEX_WAKE_PRIVATE              (FUTEX_WAKE|FUTEX_PRIVATE_FLAG)
+#define FUTEX_REQUEUE_PRIVATE           (FUTEX_REQUEUE|FUTEX_PRIVATE_FLAG)
+#define FUTEX_CMP_REQUEUE_PRIVATE       (FUTEX_CMP_REQUEUE|FUTEX_PRIVATE_FLAG)
+#define FUTEX_WAKE_OP_PRIVATE           (FUTEX_WAKE_OP|FUTEX_PRIVATE_FLAG)
+#define FUTEX_LOCK_PI_PRIVATE           (FUTEX_LOCK_PI|FUTEX_PRIVATE_FLAG)
+#define FUTEX_UNLOCK_PI_PRIVATE         (FUTEX_UNLOCK_PI|FUTEX_PRIVATE_FLAG)
+#define FUTEX_TRYLOCK_PI_PRIVATE        (FUTEX_TRYLOCK_PI|FUTEX_PRIVATE_FLAG)
+#define FUTEX_WAIT_BITSET_PRIVATE       (FUTEX_WAIT_BITSET|FUTEX_PRIVATE_FLAG)
+#define FUTEX_WAKE_BITSET_PRIVATE       (FUTEX_WAKE_BITSET|FUTEX_PRIVATE_FLAG)
+#define FUTEX_WAIT_REQUEUE_PI_PRIVATE   (FUTEX_WAIT_REQUEUE_PI|FUTEX_PRIVATE_FLAG)
+#define FUTEX_CMP_REQUEUE_PI_PRIVATE    (FUTEX_CMP_REQUEUE_PI|FUTEX_PRIVATE_FLAG)
+#if defined(__KOS__) && (defined(__USE_KOS) || defined(__KERNEL__))
+#define FUTEX_WAIT_GHOST_PRIVATE        (FUTEX_WAIT_GHOST|FUTEX_PRIVATE_FLAG)
+#define FUTEX_WAIT_BITSET_GHOST_PRIVATE (FUTEX_WAIT_BITSET_GHOST|FUTEX_PRIVATE_FLAG)
+#define FUTEX_WAITFD_PRIVATE            (FUTEX_WAITFD|FUTEX_PRIVATE_FLAG)
+#define FUTEX_WAITFD_BITSET_PRIVATE     (FUTEX_WAITFD_BITSET|FUTEX_PRIVATE_FLAG)
+#endif
 
 #ifdef __CC__
 /*
