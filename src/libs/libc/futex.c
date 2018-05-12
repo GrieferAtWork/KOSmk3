@@ -22,11 +22,28 @@
 
 #include "libc.h"
 #include "futex.h"
+#include "system.h"
 #include <errno.h>
 #include <linux/futex.h>
 #include <kos/futex.h>
 
 DECL_BEGIN
+
+#define FUTEX_FOREACH_CASE_TIMEOUT \
+    case FUTEX_WAIT: \
+    case FUTEX_WAIT_GHOST: \
+    case FUTEX_WAIT_MASK: \
+    case FUTEX_WAIT_MASK_GHOST: \
+    case FUTEX_WAIT_CMPXCH: \
+    case FUTEX_WAIT_CMPXCH_GHOST: \
+    case FUTEX_WAIT_CMPXCH2: \
+    case FUTEX_WAIT_CMPXCH2_GHOST: \
+    case FUTEX_WAIT_BITSET: \
+    case FUTEX_WAIT_BITSET_GHOST: \
+    case FUTEX_LOCK_PI: \
+    case FUTEX_WAIT_REQUEUE_PI: \
+/**/
+
 
 EXPORT(futex,libc_futex);
 INTERN syscall_slong_t LIBCCALL
@@ -36,10 +53,7 @@ libc_futex(u32 *uaddr, int futex_op, uintptr_t val,
  struct timespec64 t64;
  switch (futex_op & FUTEX_CMD_MASK) {
 
- case FUTEX_WAIT:
- case FUTEX_WAIT_BITSET:
- case FUTEX_LOCK_PI:
- case FUTEX_WAIT_REQUEUE_PI:
+ FUTEX_FOREACH_CASE_TIMEOUT
   break;
 
  default:
@@ -67,10 +81,7 @@ libc_Xfutex(u32 *uaddr, int futex_op, uintptr_t val,
  struct timespec64 t64;
  switch (futex_op & FUTEX_CMD_MASK) {
 
- case FUTEX_WAIT:
- case FUTEX_WAIT_BITSET:
- case FUTEX_LOCK_PI:
- case FUTEX_WAIT_REQUEUE_PI:
+ FUTEX_FOREACH_CASE_TIMEOUT
   break;
 
  default:
@@ -91,6 +102,14 @@ EXPORT(futex_wait_inf,libc_futex_wait_inf);
 INTERN int LIBCCALL
 libc_futex_wait_inf(futex_t *uaddr, futex_t probe_value) {
  return libc_futex64(uaddr,FUTEX_WAIT,probe_value,NULL,NULL,0);
+}
+
+EXPORT(futex_wait_inf_mask,libc_futex_wait_inf_mask);
+INTERN int LIBCCALL
+libc_futex_wait_inf_mask(futex_t *uaddr, futex_t probe_mask,
+                         futex_t probe_value, futex_t enable_bits) {
+ return libc_futex64(uaddr,FUTEX_WAIT_MASK,probe_mask,NULL,
+                    (u32 *)(uintptr_t)probe_value,enable_bits);
 }
 
 EXPORT(futex_wait_inf_bitset,libc_futex_wait_inf_bitset);
@@ -116,6 +135,23 @@ libc_futex_wait(futex_t *uaddr, futex_t probe_value,
  return libc_futex_wait64(uaddr,probe_value,&t64);
 }
 
+EXPORT(futex_wait_mask,libc_futex_wait_mask);
+INTERN int LIBCCALL
+libc_futex_wait_mask(futex_t *uaddr, futex_t probe_mask,
+                     futex_t probe_value, futex_t enable_bits,
+                     struct timespec32 const *abs_timeout) {
+ struct timespec64 t64;
+ if (!abs_timeout)
+      return libc_futex_wait_inf_mask(uaddr,probe_mask,probe_value,enable_bits);
+ LIBC_TRY {
+  t64.tv_sec  = abs_timeout->tv_sec;
+  t64.tv_nsec = abs_timeout->tv_nsec;
+ } LIBC_EXCEPT (libc_except_errno()) {
+  return -1;
+ }
+ return libc_futex_wait64_mask(uaddr,probe_mask,probe_value,enable_bits,&t64);
+}
+
 EXPORT(futex_wait_bitset,libc_futex_wait_bitset);
 INTERN int LIBCCALL
 libc_futex_wait_bitset(futex_t *uaddr, futex_t probe_value,
@@ -139,6 +175,15 @@ libc_futex_wait64(futex_t *uaddr, futex_t probe_value,
                   struct timespec64 const *abs_timeout) {
  return libc_futex64(uaddr,FUTEX_WAIT_BITSET,probe_value,
                      abs_timeout,NULL,FUTEX_BITSET_MATCH_ANY);
+}
+
+EXPORT(futex_wait64_mask,libc_futex_wait64_mask);
+INTERN int LIBCCALL
+libc_futex_wait64_mask(futex_t *uaddr, futex_t probe_mask,
+                       futex_t probe_value, futex_t enable_bits,
+                       struct timespec64 const *abs_timeout) {
+ return libc_futex64(uaddr,FUTEX_WAIT_MASK,probe_mask,abs_timeout,
+                    (u32 *)(uintptr_t)probe_value,enable_bits);
 }
 
 EXPORT(futex_wait64_bitset,libc_futex_wait64_bitset);
@@ -180,6 +225,14 @@ libc_futex_wait_inf_ghost(futex_t *uaddr, futex_t probe_value) {
  return libc_futex64(uaddr,FUTEX_WAIT_GHOST,probe_value,NULL,NULL,0);
 }
 
+EXPORT(futex_wait_inf_mask_ghost,libc_futex_wait_inf_mask_ghost);
+INTERN int LIBCCALL
+libc_futex_wait_inf_mask_ghost(futex_t *uaddr, futex_t probe_mask,
+                               futex_t probe_value, futex_t enable_bits) {
+ return libc_futex64(uaddr,FUTEX_WAIT_MASK_GHOST,probe_mask,NULL,
+                    (u32 *)(uintptr_t)probe_value,enable_bits);
+}
+
 EXPORT(futex_wait_inf_bitset_ghost,libc_futex_wait_inf_bitset_ghost);
 INTERN int LIBCCALL
 libc_futex_wait_inf_bitset_ghost(futex_t *uaddr, futex_t probe_value,
@@ -201,6 +254,23 @@ libc_futex_wait_ghost(futex_t *uaddr, futex_t probe_value,
   return -1;
  }
  return libc_futex_wait64_ghost(uaddr,probe_value,&t64);
+}
+
+EXPORT(futex_wait_mask_ghost,libc_futex_wait_mask_ghost);
+INTERN int LIBCCALL
+libc_futex_wait_mask_ghost(futex_t *uaddr, futex_t probe_mask,
+                           futex_t probe_value, futex_t enable_bits,
+                           struct timespec32 const *abs_timeout) {
+ struct timespec64 t64;
+ if (!abs_timeout)
+      return libc_futex_wait_inf_mask_ghost(uaddr,probe_mask,probe_value,enable_bits);
+ LIBC_TRY {
+  t64.tv_sec  = abs_timeout->tv_sec;
+  t64.tv_nsec = abs_timeout->tv_nsec;
+ } LIBC_EXCEPT (libc_except_errno()) {
+  return -1;
+ }
+ return libc_futex_wait64_mask_ghost(uaddr,probe_mask,probe_value,enable_bits,&t64);
 }
 
 EXPORT(futex_wait_bitset_ghost,libc_futex_wait_bitset_ghost);
@@ -226,6 +296,15 @@ libc_futex_wait64_ghost(futex_t *uaddr, futex_t probe_value,
                         struct timespec64 const *abs_timeout) {
  return libc_futex64(uaddr,FUTEX_WAIT_BITSET_GHOST,probe_value,
                      abs_timeout,NULL,FUTEX_BITSET_MATCH_ANY);
+}
+
+EXPORT(futex_wait64_mask_ghost,libc_futex_wait64_mask_ghost);
+INTERN int LIBCCALL
+libc_futex_wait64_mask_ghost(futex_t *uaddr, futex_t probe_mask,
+                             futex_t probe_value, futex_t enable_bits,
+                             struct timespec64 const *abs_timeout) {
+ return libc_futex64(uaddr,FUTEX_WAIT_MASK_GHOST,probe_mask,abs_timeout,
+                    (u32 *)(uintptr_t)probe_value,enable_bits);
 }
 
 EXPORT(futex_wait64_bitset_ghost,libc_futex_wait64_bitset_ghost);
@@ -331,6 +410,14 @@ libc_Xfutex_wait_inf(futex_t *uaddr, futex_t probe_value) {
  libc_Xfutex64(uaddr,FUTEX_WAIT,probe_value,NULL,NULL,0);
 }
 
+EXPORT(Xfutex_wait_inf_mask,libc_Xfutex_wait_inf_mask);
+CRT_EXCEPT void LIBCCALL
+libc_Xfutex_wait_inf_mask(futex_t *uaddr, futex_t probe_mask,
+                          futex_t probe_value, futex_t enable_bits) {
+ libc_Xfutex64(uaddr,FUTEX_WAIT_MASK,probe_mask,NULL,
+              (u32 *)(uintptr_t)probe_value,enable_bits);
+}
+
 EXPORT(Xfutex_wait_inf_bitset,libc_Xfutex_wait_inf_bitset);
 CRT_EXCEPT void LIBCCALL
 libc_Xfutex_wait_inf_bitset(futex_t *uaddr, futex_t probe_value,
@@ -350,6 +437,21 @@ libc_Xfutex_wait(futex_t *uaddr, futex_t probe_value,
  t64.tv_sec  = abs_timeout->tv_sec;
  t64.tv_nsec = abs_timeout->tv_nsec;
  return libc_Xfutex_wait64(uaddr,probe_value,&t64);
+}
+
+EXPORT(Xfutex_wait_mask,libc_Xfutex_wait_mask);
+CRT_EXCEPT bool LIBCCALL
+libc_Xfutex_wait_mask(futex_t *uaddr, futex_t probe_mask,
+                      futex_t probe_value, futex_t enable_bits,
+                      struct timespec32 const *abs_timeout) {
+ struct timespec64 t64;
+ if (!abs_timeout) {
+  libc_Xfutex_wait_inf_mask(uaddr,probe_mask,probe_value,enable_bits);
+  return true;
+ }
+ t64.tv_sec  = abs_timeout->tv_sec;
+ t64.tv_nsec = abs_timeout->tv_nsec;
+ return libc_Xfutex_wait64_mask(uaddr,probe_mask,probe_value,enable_bits,&t64);
 }
 
 EXPORT(Xfutex_wait_bitset,libc_Xfutex_wait_bitset);
@@ -373,6 +475,15 @@ libc_Xfutex_wait64(futex_t *uaddr, futex_t probe_value,
                    struct timespec64 const *abs_timeout) {
  return libc_Xfutex64(uaddr,FUTEX_WAIT_BITSET,probe_value,
                       abs_timeout,NULL,FUTEX_BITSET_MATCH_ANY) != -ETIMEDOUT;
+}
+
+EXPORT(Xfutex_wait64_mask,libc_Xfutex_wait64_mask);
+CRT_EXCEPT bool LIBCCALL
+libc_Xfutex_wait64_mask(futex_t *uaddr, futex_t probe_mask,
+                        futex_t probe_value, futex_t enable_bits,
+                        struct timespec64 const *abs_timeout) {
+ return libc_Xfutex64(uaddr,FUTEX_WAIT_MASK,probe_mask,abs_timeout,
+                     (u32 *)(uintptr_t)probe_mask,enable_bits) != -ETIMEDOUT;
 }
 
 EXPORT(Xfutex_wait64_bitset,libc_Xfutex_wait64_bitset);
@@ -411,6 +522,14 @@ libc_Xfutex_wait_inf_ghost(futex_t *uaddr, futex_t probe_value) {
  libc_Xfutex64(uaddr,FUTEX_WAIT_GHOST,probe_value,NULL,NULL,0);
 }
 
+EXPORT(Xfutex_wait_inf_mask_ghost,libc_Xfutex_wait_inf_mask_ghost);
+CRT_EXCEPT void LIBCCALL
+libc_Xfutex_wait_inf_mask_ghost(futex_t *uaddr, futex_t probe_mask,
+                                futex_t probe_value, futex_t enable_bits) {
+ libc_Xfutex64(uaddr,FUTEX_WAIT_MASK_GHOST,probe_mask,NULL,
+              (u32 *)(uintptr_t)probe_value,enable_bits);
+}
+
 EXPORT(Xfutex_wait_inf_bitset_ghost,libc_Xfutex_wait_inf_bitset_ghost);
 CRT_EXCEPT void LIBCCALL
 libc_Xfutex_wait_inf_bitset_ghost(futex_t *uaddr, futex_t probe_value,
@@ -430,6 +549,21 @@ libc_Xfutex_wait_ghost(futex_t *uaddr, futex_t probe_value,
  t64.tv_sec  = abs_timeout->tv_sec;
  t64.tv_nsec = abs_timeout->tv_nsec;
  return libc_Xfutex_wait64_ghost(uaddr,probe_value,&t64);
+}
+
+EXPORT(Xfutex_wait_mask_ghost,libc_Xfutex_wait_mask_ghost);
+CRT_EXCEPT bool LIBCCALL
+libc_Xfutex_wait_mask_ghost(futex_t *uaddr, futex_t probe_mask,
+                            futex_t probe_value, futex_t enable_bits,
+                            struct timespec32 const *abs_timeout) {
+ struct timespec64 t64;
+ if (!abs_timeout) {
+  libc_Xfutex_wait_inf_mask_ghost(uaddr,probe_mask,probe_value,enable_bits);
+  return true;
+ }
+ t64.tv_sec  = abs_timeout->tv_sec;
+ t64.tv_nsec = abs_timeout->tv_nsec;
+ return libc_Xfutex_wait64_mask_ghost(uaddr,probe_mask,probe_value,enable_bits,&t64);
 }
 
 EXPORT(Xfutex_wait_bitset_ghost,libc_Xfutex_wait_bitset_ghost);
@@ -453,6 +587,15 @@ libc_Xfutex_wait64_ghost(futex_t *uaddr, futex_t probe_value,
                          struct timespec64 const *abs_timeout) {
  return libc_Xfutex64(uaddr,FUTEX_WAIT_BITSET_GHOST,probe_value,
                       abs_timeout,NULL,FUTEX_BITSET_MATCH_ANY) != -ETIMEDOUT;
+}
+
+EXPORT(Xfutex_wait64_mask_ghost,libc_Xfutex_wait64_mask_ghost);
+CRT_EXCEPT bool LIBCCALL
+libc_Xfutex_wait64_mask_ghost(futex_t *uaddr, futex_t probe_mask,
+                              futex_t probe_value, futex_t enable_bits,
+                              struct timespec64 const *abs_timeout) {
+ return libc_Xfutex64(uaddr,FUTEX_WAIT_MASK_GHOST,probe_mask,abs_timeout,
+                     (u32 *)(uintptr_t)probe_value,enable_bits) != -ETIMEDOUT;
 }
 
 EXPORT(Xfutex_wait64_bitset_ghost,libc_Xfutex_wait64_bitset_ghost);
@@ -545,6 +688,59 @@ libc_Xfutex_waitfd_bitset(futex_t *uaddr, futex_t probe_value,
                             NULL,channels);
 }
 
+
+EXPORT(xppoll,libc_xppoll);
+INTERN ssize_t LIBCCALL
+libc_xppoll(struct pollfd *ufds, size_t nfds,
+            struct pollfutex *uftx, size_t nftx,
+            struct timespec const *tsp, sigset_t *sig) {
+ struct timespec64 t64;
+ if (!tsp)
+      return libc_xppoll64(ufds,nfds,uftx,nftx,NULL,sig);
+ LIBC_TRY {
+  t64.tv_sec  = tsp->tv_sec;
+  t64.tv_nsec = tsp->tv_nsec;
+ } LIBC_EXCEPT (libc_except_errno()) {
+  return -1;
+ }
+ return libc_xppoll64(ufds,nfds,uftx,nftx,&t64,sig);
+}
+
+
+EXPORT(xppoll64,libc_xppoll64);
+INTERN ssize_t LIBCCALL
+libc_xppoll64(struct pollfd *ufds, size_t nfds,
+              struct pollfutex *uftx, size_t nftx,
+              struct timespec64 const *tsp, sigset_t *sig) {
+ struct { sigset_t const *p; size_t s; } sgm;
+ sgm.p = sig;
+ sgm.s = sizeof(sigset_t);
+ return Esys_xppoll(ufds,nfds,uftx,nftx,tsp,&sgm);
+}
+
+EXPORT(Xxppoll,libc_Xxppoll);
+CRT_EXCEPT size_t LIBCCALL
+libc_Xxppoll(struct pollfd *ufds, size_t nfds,
+             struct pollfutex *uftx, size_t nftx,
+             struct timespec const *tsp, sigset_t *sig) {
+ struct timespec64 t64;
+ if (!tsp)
+      return libc_Xxppoll64(ufds,nfds,uftx,nftx,NULL,sig);
+ t64.tv_sec  = tsp->tv_sec;
+ t64.tv_nsec = tsp->tv_nsec;
+ return libc_Xxppoll64(ufds,nfds,uftx,nftx,&t64,sig);
+}
+
+EXPORT(Xxppoll64,libc_Xxppoll64);
+CRT_EXCEPT size_t LIBCCALL
+libc_Xxppoll64(struct pollfd *ufds, size_t nfds,
+               struct pollfutex *uftx, size_t nftx,
+               struct timespec64 const *tsp, sigset_t *sig) {
+ struct { sigset_t const *p; size_t s; } sgm;
+ sgm.p = sig;
+ sgm.s = sizeof(sigset_t);
+ return Xsys_xppoll(ufds,nfds,uftx,nftx,tsp,&sgm);
+}
 
 
 DECL_END

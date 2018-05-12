@@ -23,7 +23,8 @@
 #include <hybrid/timespec.h>
 #include <features.h>
 #include <linux/futex.h>
-#include <asm/types.h>
+#include <bits/types.h>
+#include <bits/sigset.h>
 
 DECL_BEGIN
 
@@ -33,32 +34,107 @@ typedef __uint32_t  futex_t;
 typedef __uintptr_t futex_channel_t;
 #endif /* !__futex_t_defined */
 
+
+#ifndef __pollfutex_defined
+#define __pollfutex_defined 1
+struct pollfutex {
+    /* Descriptor of a futex when using the xppoll() system call.
+     * NOTE: sizeof(struct pollfutex) == 4 * sizeof(void *)
+     */
+    USER UNCHECKED futex_t    *pf_futex;                 /* [1..1] The futex word that should be polled.
+                                                          * When faulty, `pf_status' is set to `POLLFUTEX_STATUS_BADFUTEX' */
+    __uint8_t                  pf_action;                /* The action that should be performed in order to poll the futex word.
+                                                          * One of (optionally or'd with `FUTEX_PRIVATE_FLAG'):
+                                                          *  - `FUTEX_WAIT', `FUTEX_WAIT_GHOST'               (`if (*pf_futex != pf_val) READY()')
+                                                          *  - `FUTEX_WAIT_BITSET', `FUTEX_WAIT_BITSET_GHOST' (`if (*pf_futex != pf_val) READY()')
+                                                          *  - `FUTEX_LOCK_PI'  (Will ensure that the `FUTEX_WAITERS' bit is set)
+                                                          *  - `FUTEX_WAITMASK', `FUTEX_WAITMASK_GHOST'  (Will ensure that all bits from `val3' are set)
+                                                          *  - `FUTEX_WAIT_CMPXCH', `FUTEX_WAIT_CMPXCH_GHOST'  (Will perform the CMPXCH, properly save the value, and also trigger UADDR2 after polling was started)
+                                                          *  - `FUTEX_WAIT_CMPXCH2', `FUTEX_WAIT_CMPXCH2_GHOST'  (Will perform the CMPXCH, properly save the value, and also trigger UADDR2 after polling was started)
+                                                          * When signaled, the same action will not block
+                                                          * when executed using regular futex operations.
+                                                          * Note however that another thread may have also been informed, meaning
+                                                          * that the futex may already be locked again when xppoll() returns. */
+#define POLLFUTEX_STATUS_NOEVENT   0x00                  /* No event has been triggered for this futex. (ALWAYS ZERO(0))
+                                                          * NOTE: Never set or interpreted by the kernel. - Must be pre-set by
+                                                          *       the user if knowledge of which futex was triggered is important. */
+#define POLLFUTEX_STATUS_AVAILABLE 0x01                  /* The futex has become available. */
+#define POLLFUTEX_STATUS_BADFUTEX  0xfe                  /* The specified `pf_futex' address is faulty. */
+#define POLLFUTEX_STATUS_BADACTION 0xff                  /* The specified `pf_action' isn't known. */
+    __uint8_t                  pf_status;                /* Poll status (One of `POLLFUTEX_STATUS_*') */
+    __uint8_t                __pf_pad[sizeof(void *)-2]; /* ... */
+    __uintptr_t                pf_val;                   /* The `val' argument in an equivalent futex() system call. */
+    union PACKED {
+        __uintptr_t            pf_val2;                  /* The `val2' argument in an equivalent futex() system call. */
+        USER UNCHECKED futex_t*pf_uaddr2;                /* The `uaddr2' argument in an equivalent futex() system call. */
+    };
+    __uintptr_t                pf_val3;                  /* The `val3' argument in an equivalent futex() system call. */
+};
+#endif /* !__pollfutex_defined */
+
+
+
+struct pollfd;
+
+/* An extension to the poll() / select() family of system calls,
+ * that allows the user to not only wait for file descriptors to
+ * become ready, but also wait for an arbitrary number of futex
+ * events to happen, while also implementing support for atomic
+ * posix_signal masking.
+ * For more information, see the definition of `struct pollfutex'
+ * HINT: Even without this, one could create futex file descriptors
+ *       using `futex_waitfd()', which could then be passed to a
+ *       regular ppoll() system call, however this version offers
+ *       more functionality, and uses less system resources, as
+ *       well as not requiring additional file descriptor indices.
+ */
+__REDIRECT_EXCEPT_TM64(__LIBC,,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xppoll,(struct pollfd *__ufds, __size_t __nfds, struct pollfutex *__uftx, __size_t __nftx, struct timespec const *__tsp, __sigset_t *sig),(__ufds,__nfds,__uftx,__nftx,__tsp,sig))
+#ifdef __USE_TIME64
+__REDIRECT_EXCEPT(__LIBC,,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xppoll64,(struct pollfd *__ufds, __size_t __nfds, struct pollfutex *__uftx, __size_t __nftx, struct __timespec64 const *__tsp, __sigset_t *sig),(__ufds,__nfds,__uftx,__nftx,__tsp,sig))
+#endif /* __USE_TIME64 */
+#ifdef __USE_EXCEPT
+__REDIRECT_TM64(__LIBC,,__size_t,__LIBCCALL,Xxppoll,(struct pollfd *__ufds, __size_t __nfds, struct pollfutex *__uftx, __size_t __nftx, struct timespec const *__tsp, __sigset_t *sig),(__ufds,__nfds,__uftx,__nftx,__tsp,sig))
+#ifdef __USE_TIME64
+__LIBC __size_t (__LIBCCALL Xxppoll64)(struct pollfd *__ufds, __size_t __nfds, struct pollfutex *__uftx, __size_t __nftx, struct __timespec64 const *__tsp, __sigset_t *sig);
+#endif /* __USE_TIME64 */
+#endif /* __USE_EXCEPT */
+
+/* TODO: Add wrappers for `FUTEX_WAIT_CMPXCH' and `FUTEX_WAIT_CMPXCH2' */
+
 #if !defined(__KERNEL__) && defined(__CRT_KOS)
 #if !defined(__NO_ATTR_FORCEINLINE) && !defined(__NO_builtin_constant_p)
 __REDIRECT_EXCEPT_XVOID_(__LIBC,,int,__LIBCCALL,__os_futex_wait_inf,(futex_t *__uaddr, futex_t __probe_value),futex_wait_inf,(__uaddr,__probe_value))
+__REDIRECT_EXCEPT_XVOID_(__LIBC,,int,__LIBCCALL,__os_futex_wait_inf_mask,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits),futex_wait_inf_mask,(__uaddr,__probe_mask,__probe_value,__enable_bits))
 __REDIRECT_EXCEPT_XVOID_(__LIBC,,int,__LIBCCALL,__os_futex_wait_inf_bitset,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels),futex_wait_inf_bitset,(__uaddr,__probe_value,__channels))
 __REDIRECT_EXCEPT_XVOID_(__LIBC,,int,__LIBCCALL,__os_futex_wait_inf_ghost,(futex_t *__uaddr, futex_t __probe_value),futex_wait_inf_ghost,(__uaddr,__probe_value))
+__REDIRECT_EXCEPT_XVOID_(__LIBC,,int,__LIBCCALL,__os_futex_wait_inf_mask_ghost,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits),futex_wait_inf_mask_ghost,(__uaddr,__probe_mask,__probe_value,__enable_bits))
 __REDIRECT_EXCEPT_XVOID_(__LIBC,,int,__LIBCCALL,__os_futex_wait_inf_bitset_ghost,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels),futex_wait_inf_bitset_ghost,(__uaddr,__probe_value,__channels))
 __REDIRECT_EXCEPT_XVOID_(__LIBC,,int,__LIBCCALL,__os_futex_lock_inf,(futex_t *__uaddr),futex_lock_inf,(__uaddr))
 #ifdef __USE_EXCEPT
 __REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_Xfutex_wait_inf,(futex_t *__uaddr, futex_t __probe_value),Xfutex_wait_inf,(__uaddr,__probe_value))
+__REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_Xfutex_wait_inf_mask,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits),Xfutex_wait_inf_mask,(__uaddr,__probe_mask,__probe_value,__enable_bits))
 __REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_Xfutex_wait_inf_bitset,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels),Xfutex_wait_inf_bitset,(__uaddr,__probe_value,__channels))
 __REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_Xfutex_wait_inf_ghost,(futex_t *__uaddr, futex_t __probe_value),Xfutex_wait_inf_ghost,(__uaddr,__probe_value))
+__REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_Xfutex_wait_inf_mask_ghost,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits),Xfutex_wait_inf_mask_ghost,(__uaddr,__probe_mask,__probe_value,__enable_bits))
 __REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_Xfutex_wait_inf_bitset_ghost,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels),Xfutex_wait_inf_bitset_ghost,(__uaddr,__probe_value,__channels))
 __REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_Xfutex_lock_inf,(futex_t *__uaddr),Xfutex_lock_inf,(__uaddr))
 #endif /* __USE_EXCEPT */
 #ifdef __USE_TIME_BITS64
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__abs_timeout),futex_wait64,(__uaddr,__probe_value,__abs_timeout))
+__REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait_mask,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout),futex_wait64_mask,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait_bitset,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout),futex_wait64_bitset,(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait_ghost,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__abs_timeout),futex_wait64_ghost,(__uaddr,__probe_value,__abs_timeout))
+__REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait_mask_ghost,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout),futex_wait64_mask_ghost,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait_bitset_ghost,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout),futex_wait64_bitset_ghost,(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_waitrel,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__rel_timeout),futex_waitrel64,(__uaddr,__probe_value,__rel_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_waitrel_ghost,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__rel_timeout),futex_waitrel64_ghost,(__uaddr,__probe_value,__rel_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_lock,(futex_t *__uaddr, struct timespec const *__abs_timeout),futex_lock64,(__uaddr,__abs_timeout))
 #ifdef __USE_EXCEPT
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__abs_timeout),Xfutex_wait64,(__uaddr,__probe_value,__abs_timeout))
+__REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait_mask,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout),Xfutex_wait64_mask,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait_bitset,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout),Xfutex_wait64_bitset,(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait_ghost,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__abs_timeout),Xfutex_wait64_ghost,(__uaddr,__probe_value,__abs_timeout))
+__REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait_mask_ghost,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout),Xfutex_wait64_mask_ghost,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait_bitset_ghost,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout),Xfutex_wait64_bitset_ghost,(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_waitrel,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__rel_timeout),Xfutex_waitrel64,(__uaddr,__probe_value,__rel_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_waitrel_ghost,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__rel_timeout),Xfutex_waitrel64_ghost,(__uaddr,__probe_value,__rel_timeout))
@@ -66,16 +142,20 @@ __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_lock,(futex_t *__uaddr
 #endif /* __USE_EXCEPT */
 #ifdef __USE_TIME64
 #define __os_futex_wait64               __os_futex_wait
+#define __os_futex_wait64_mask          __os_futex_wait_mask
 #define __os_futex_wait64_bitset        __os_futex_wait_bitset
 #define __os_futex_wait64_ghost         __os_futex_wait_ghost
+#define __os_futex_wait64_mask_ghost    __os_futex_wait_mask_ghost
 #define __os_futex_wait64_bitset_ghost  __os_futex_wait_bitset_ghost
 #define __os_futex_waitrel64            __os_futex_waitrel
 #define __os_futex_waitrel64_ghost      __os_futex_waitrel_ghost
 #define __os_futex_lock64               __os_futex_lock
 #ifdef __USE_EXCEPT
 #define __os_Xfutex_wait64              __os_Xfutex_wait
+#define __os_Xfutex_wait64_mask         __os_Xfutex_wait_mask
 #define __os_Xfutex_wait64_bitset       __os_Xfutex_wait_bitset
 #define __os_Xfutex_wait64_ghost        __os_Xfutex_wait_ghost
+#define __os_Xfutex_wait64_mask_ghost   __os_Xfutex_wait_mask_ghost
 #define __os_Xfutex_wait64_bitset_ghost __os_Xfutex_wait_bitset_ghost
 #define __os_Xfutex_waitrel64           __os_Xfutex_waitrel
 #define __os_Xfutex_waitrel64_ghost     __os_Xfutex_waitrel_ghost
@@ -84,16 +164,20 @@ __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_lock,(futex_t *__uaddr
 #endif /* __USE_TIME64 */
 #else /* __USE_TIME_BITS64 */
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__abs_timeout),futex_wait,(__uaddr,__probe_value,__abs_timeout))
+__REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait_mask,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout),futex_wait_mask,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait_bitset,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout),futex_wait_bitset,(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait_ghost,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__abs_timeout),futex_wait_ghost,(__uaddr,__probe_value,__abs_timeout))
+__REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait_mask_ghost,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout),futex_wait_mask_ghost,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait_bitset_ghost,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout),futex_wait_bitset_ghost,(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_waitrel,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__rel_timeout),futex_waitrel,(__uaddr,__probe_value,__rel_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_waitrel_ghost,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__rel_timeout),futex_waitrel_ghost,(__uaddr,__probe_value,__rel_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_lock,(futex_t *__uaddr, struct timespec const *__abs_timeout),futex_lock,(__uaddr,__abs_timeout))
 #ifdef __USE_EXCEPT
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__abs_timeout),Xfutex_wait,(__uaddr,__probe_value,__abs_timeout))
+__REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait_mask,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout),Xfutex_wait_mask,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait_bitset,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout),Xfutex_wait_bitset,(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait_ghost,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__abs_timeout),Xfutex_wait_ghost,(__uaddr,__probe_value,__abs_timeout))
+__REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait_mask_ghost,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout),Xfutex_wait_mask_ghost,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait_bitset_ghost,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout),Xfutex_wait_bitset_ghost,(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_waitrel,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__rel_timeout),Xfutex_waitrel,(__uaddr,__probe_value,__rel_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_waitrel_ghost,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__rel_timeout),Xfutex_waitrel_ghost,(__uaddr,__probe_value,__rel_timeout))
@@ -101,16 +185,20 @@ __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_lock,(futex_t *__uaddr
 #endif /* __USE_EXCEPT */
 #ifdef __USE_TIME64
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait64,(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__abs_timeout),futex_wait64,(__uaddr,__probe_value,__abs_timeout))
+__REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait64_mask,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct __timespec64 const *__abs_timeout),futex_wait64_mask,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait64_bitset,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct __timespec64 const *__abs_timeout),futex_wait64_bitset,(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait64_ghost,(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__abs_timeout),futex_wait64_ghost,(__uaddr,__probe_value,__abs_timeout))
+__REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait64_mask_ghost,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct __timespec64 const *__abs_timeout),futex_wait64_mask_ghost,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_wait64_bitset_ghost,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct __timespec64 const *__abs_timeout),futex_wait64_bitset_ghost,(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_waitrel64,(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__rel_timeout),futex_waitrel64,(__uaddr,__probe_value,__rel_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_waitrel64_ghost,(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__rel_timeout),futex_waitrel64_ghost,(__uaddr,__probe_value,__rel_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,__os_futex_lock64,(futex_t *__uaddr, struct __timespec64 const *__abs_timeout),futex_lock64,(__uaddr,__abs_timeout))
 #ifdef __USE_EXCEPT
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait64,(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__abs_timeout),Xfutex_wait64,(__uaddr,__probe_value,__abs_timeout))
+__REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait64_mask,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct __timespec64 const *__abs_timeout),Xfutex_wait64_mask,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait64_bitset,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct __timespec64 const *__abs_timeout),Xfutex_wait64_bitset,(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait64_ghost,(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__abs_timeout),Xfutex_wait64_ghost,(__uaddr,__probe_value,__abs_timeout))
+__REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait64_mask_ghost,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct __timespec64 const *__abs_timeout),Xfutex_wait64_mask_ghost,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_wait64_bitset_ghost,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct __timespec64 const *__abs_timeout),Xfutex_wait64_bitset_ghost,(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_waitrel64,(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__rel_timeout),Xfutex_waitrel64,(__uaddr,__probe_value,__rel_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_waitrel64_ghost,(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__rel_timeout),Xfutex_waitrel64_ghost,(__uaddr,__probe_value,__rel_timeout))
@@ -123,6 +211,7 @@ __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_lock64,(futex_t *__uad
 
 
 /* FUTEX_WAIT / FUTEX_WAIT_BITSET / FUTEX_WAIT_GHOST / FUTEX_WAIT_BITSET_GHOST:
+ * FUTEX_WAIT_MASK / FUTEX_WAIT_MASK_GHOST:
  * @return: __EXCEPT_SELECT(false,-1 && errno == ETIMEDOUT):
  *          Only when `TIMEOUT != NULL': The specified timeout has expired.
  * @return: __EXCEPT_SELECT(true,-1 && errno == EAGAIN):
@@ -130,24 +219,31 @@ __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_Xfutex_lock64,(futex_t *__uad
  * @return: __EXCEPT_SELECT(true,0):
  *          The futex was triggered, and the caller should
  *          re-attempt acquiring the associated lock.
- * @throw:  E_SEGFAULT: The given `UADDR' or `TIMEOUT' is faulty.
+ * @throw:  E_SEGFAULT: The given `UADDR' or `TIMEOUT' are faulty.
  * @throw:  E_BADALLOC: Failed to allocate the futex controller in kernel-space. */
 #if !defined(__NO_ATTR_FORCEINLINE) && !defined(__NO_builtin_constant_p)
-__FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait)
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait)
 (futex_t *__uaddr, futex_t __probe_value, struct timespec const *__abs_timeout) {
  if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
      return __EXCEPT_SELECT((__os_futex_wait_inf(__uaddr,__probe_value),1),
                              __os_futex_wait_inf(__uaddr,__probe_value));
  return __os_futex_wait(__uaddr,__probe_value,__abs_timeout);
 }
-__FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_waitrel)
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_waitrel)
 (futex_t *__uaddr, futex_t __probe_value, struct timespec const *__rel_timeout) {
  if (__builtin_constant_p(__rel_timeout) && __rel_timeout == __NULLPTR)
      return __EXCEPT_SELECT((__os_futex_wait_inf(__uaddr,__probe_value),1),
                              __os_futex_wait_inf(__uaddr,__probe_value));
  return __os_futex_waitrel(__uaddr,__probe_value,__rel_timeout);
 }
-__FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait_bitset)
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait_mask)
+(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout) {
+ if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
+     return __EXCEPT_SELECT((__os_futex_wait_inf_mask(__uaddr,__probe_mask,__probe_value,__enable_bits),1),
+                             __os_futex_wait_inf_mask(__uaddr,__probe_mask,__probe_value,__enable_bits));
+ return __os_futex_wait_mask(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout);
+}
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait_bitset)
 (futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout) {
  if (__builtin_constant_p(__channels) && __channels == FUTEX_BITSET_MATCH_ANY) {
   if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
@@ -160,21 +256,28 @@ __FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait_bitset
                              __os_futex_wait_inf_bitset(__uaddr,__probe_value,__channels));
  return __os_futex_wait_bitset(__uaddr,__probe_value,__channels,__abs_timeout);
 }
-__FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait_ghost)
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait_ghost)
 (futex_t *__uaddr, futex_t __probe_value, struct timespec const *__abs_timeout) {
  if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
      return __EXCEPT_SELECT((__os_futex_wait_inf_ghost(__uaddr,__probe_value),1),
                              __os_futex_wait_inf_ghost(__uaddr,__probe_value));
  return __os_futex_wait_ghost(__uaddr,__probe_value,__abs_timeout);
 }
-__FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_waitrel_ghost)
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_waitrel_ghost)
 (futex_t *__uaddr, futex_t __probe_value, struct timespec const *__rel_timeout) {
  if (__builtin_constant_p(__rel_timeout) && __rel_timeout == __NULLPTR)
      return __EXCEPT_SELECT((__os_futex_wait_inf_ghost(__uaddr,__probe_value),1),
                              __os_futex_wait_inf_ghost(__uaddr,__probe_value));
  return __os_futex_waitrel_ghost(__uaddr,__probe_value,__rel_timeout);
 }
-__FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait_bitset_ghost)
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait_mask_ghost)
+(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout) {
+ if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
+     return __EXCEPT_SELECT((__os_futex_wait_inf_mask_ghost(__uaddr,__probe_mask,__probe_value,__enable_bits),1),
+                             __os_futex_wait_inf_mask_ghost(__uaddr,__probe_mask,__probe_value,__enable_bits));
+ return __os_futex_wait_mask_ghost(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout);
+}
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait_bitset_ghost)
 (futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout) {
  if (__builtin_constant_p(__channels) && __channels == FUTEX_BITSET_MATCH_ANY) {
   if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
@@ -188,19 +291,25 @@ __FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait_bitset
  return __os_futex_wait_bitset_ghost(__uaddr,__probe_value,__channels,__abs_timeout);
 }
 #ifdef __USE_EXCEPT
-__FORCELOCAL __WUNUSED __BOOL (__LIBCCALL Xfutex_wait)
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_wait)
 (futex_t *__uaddr, futex_t __probe_value, struct timespec const *__abs_timeout) {
  if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
      return (__os_Xfutex_wait_inf(__uaddr,__probe_value),1);
  return __os_Xfutex_wait(__uaddr,__probe_value,__abs_timeout);
 }
-__FORCELOCAL __WUNUSED __BOOL (__LIBCCALL Xfutex_waitrel)
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_waitrel)
 (futex_t *__uaddr, futex_t __probe_value, struct timespec const *__rel_timeout) {
  if (__builtin_constant_p(__rel_timeout) && __rel_timeout == __NULLPTR)
      return (__os_Xfutex_wait_inf(__uaddr,__probe_value),1);
  return __os_Xfutex_waitrel(__uaddr,__probe_value,__rel_timeout);
 }
-__FORCELOCAL __WUNUSED __BOOL (__LIBCCALL Xfutex_wait_bitset)
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_wait_mask)
+(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout) {
+ if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
+     return (__os_Xfutex_wait_inf_mask(__uaddr,__probe_mask,__probe_value,__enable_bits),1);
+ return __os_Xfutex_wait_mask(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout);
+}
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_wait_bitset)
 (futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout) {
  if (__builtin_constant_p(__channels) && __channels == FUTEX_BITSET_MATCH_ANY) {
   if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
@@ -211,19 +320,25 @@ __FORCELOCAL __WUNUSED __BOOL (__LIBCCALL Xfutex_wait_bitset)
      return (__os_Xfutex_wait_inf_bitset(__uaddr,__probe_value,__channels),1);
  return __os_Xfutex_wait_bitset(__uaddr,__probe_value,__channels,__abs_timeout);
 }
-__FORCELOCAL __WUNUSED __BOOL (__LIBCCALL Xfutex_wait_ghost)
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_wait_ghost)
 (futex_t *__uaddr, futex_t __probe_value, struct timespec const *__abs_timeout) {
  if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
      return (__os_Xfutex_wait_inf_ghost(__uaddr,__probe_value),1);
  return __os_Xfutex_wait_ghost(__uaddr,__probe_value,__abs_timeout);
 }
-__FORCELOCAL __WUNUSED __BOOL (__LIBCCALL Xfutex_waitrel_ghost)
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_waitrel_ghost)
 (futex_t *__uaddr, futex_t __probe_value, struct timespec const *__rel_timeout) {
  if (__builtin_constant_p(__rel_timeout) && __rel_timeout == __NULLPTR)
      return (__os_Xfutex_wait_inf_ghost(__uaddr,__probe_value),1);
  return __os_Xfutex_waitrel_ghost(__uaddr,__probe_value,__rel_timeout);
 }
-__FORCELOCAL __WUNUSED __BOOL (__LIBCCALL Xfutex_wait_bitset_ghost)
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_wait_mask_ghost)
+(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout) {
+ if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
+     return (__os_Xfutex_wait_inf_mask_ghost(__uaddr,__probe_mask,__probe_value,__enable_bits),1);
+ return __os_Xfutex_wait_mask_ghost(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout);
+}
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_wait_bitset_ghost)
 (futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout) {
  if (__builtin_constant_p(__channels) && __channels == FUTEX_BITSET_MATCH_ANY) {
   if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
@@ -236,21 +351,28 @@ __FORCELOCAL __WUNUSED __BOOL (__LIBCCALL Xfutex_wait_bitset_ghost)
 }
 #endif /* __USE_EXCEPT */
 #ifdef __USE_TIME64
-__FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait64)
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait64)
 (futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__abs_timeout) {
  if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
      return __EXCEPT_SELECT((__os_futex_wait_inf(__uaddr,__probe_value),1),
                              __os_futex_wait_inf(__uaddr,__probe_value));
  return __os_futex_wait64(__uaddr,__probe_value,__abs_timeout);
 }
-__FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_waitrel64)
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_waitrel64)
 (futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__rel_timeout) {
  if (__builtin_constant_p(__rel_timeout) && __rel_timeout == __NULLPTR)
      return __EXCEPT_SELECT((__os_futex_wait_inf(__uaddr,__probe_value),1),
                              __os_futex_wait_inf(__uaddr,__probe_value));
  return __os_futex_waitrel64(__uaddr,__probe_value,__rel_timeout);
 }
-__FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait64_bitset)
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait64_mask)
+(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct __timespec64 const *__abs_timeout) {
+ if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
+     return __EXCEPT_SELECT((__os_futex_wait_inf_mask(__uaddr,__probe_mask,__probe_value,__enable_bits),1),
+                             __os_futex_wait_inf_mask(__uaddr,__probe_mask,__probe_value,__enable_bits));
+ return __os_futex_wait64_mask(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout);
+}
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait64_bitset)
 (futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct __timespec64 const *__abs_timeout) {
  if (__builtin_constant_p(__channels) && __channels == FUTEX_BITSET_MATCH_ANY) {
   if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
@@ -263,21 +385,28 @@ __FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait64_bits
                              __os_futex_wait_inf_bitset(__uaddr,__probe_value,__channels));
  return __os_futex_wait64_bitset(__uaddr,__probe_value,__channels,__abs_timeout);
 }
-__FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait64_ghost)
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait64_ghost)
 (futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__abs_timeout) {
  if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
      return __EXCEPT_SELECT((__os_futex_wait_inf_ghost(__uaddr,__probe_value),1),
                              __os_futex_wait_inf_ghost(__uaddr,__probe_value));
  return __os_futex_wait64_ghost(__uaddr,__probe_value,__abs_timeout);
 }
-__FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_waitrel64_ghost)
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_waitrel64_ghost)
 (futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__rel_timeout) {
  if (__builtin_constant_p(__rel_timeout) && __rel_timeout == __NULLPTR)
      return __EXCEPT_SELECT((__os_futex_wait_inf_ghost(__uaddr,__probe_value),1),
                              __os_futex_wait_inf_ghost(__uaddr,__probe_value));
  return __os_futex_waitrel64_ghost(__uaddr,__probe_value,__rel_timeout);
 }
-__FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait64_bitset_ghost)
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait64_mask_ghost)
+(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct __timespec64 const *__abs_timeout) {
+ if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
+     return __EXCEPT_SELECT((__os_futex_wait_inf_mask_ghost(__uaddr,__probe_mask,__probe_value,__enable_bits),1),
+                             __os_futex_wait_inf_mask_ghost(__uaddr,__probe_mask,__probe_value,__enable_bits));
+ return __os_futex_wait64_mask_ghost(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout);
+}
+__FORCELOCAL __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait64_bitset_ghost)
 (futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct __timespec64 const *__abs_timeout) {
  if (__builtin_constant_p(__channels) && __channels == FUTEX_BITSET_MATCH_ANY) {
   if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
@@ -291,19 +420,25 @@ __FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int) (__LIBCCALL futex_wait64_bits
  return __os_futex_wait64_bitset_ghost(__uaddr,__probe_value,__channels,__abs_timeout);
 }
 #ifdef __USE_EXCEPT
-__FORCELOCAL __WUNUSED __BOOL (__LIBCCALL Xfutex_wait64)
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_wait64)
 (futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__abs_timeout) {
  if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
      return (__os_Xfutex_wait_inf(__uaddr,__probe_value),1);
  return __os_Xfutex_wait64(__uaddr,__probe_value,__abs_timeout);
 }
-__FORCELOCAL __WUNUSED __BOOL (__LIBCCALL Xfutex_waitrel64)
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_waitrel64)
 (futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__rel_timeout) {
  if (__builtin_constant_p(__rel_timeout) && __rel_timeout == __NULLPTR)
      return (__os_Xfutex_wait_inf(__uaddr,__probe_value),1);
  return __os_Xfutex_waitrel64(__uaddr,__probe_value,__rel_timeout);
 }
-__FORCELOCAL __WUNUSED __BOOL (__LIBCCALL Xfutex_wait64_bitset)
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_wait64_mask)
+(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct __timespec64 const *__abs_timeout) {
+ if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
+     return (__os_Xfutex_wait_inf_mask(__uaddr,__probe_mask,__probe_value,__enable_bits),1);
+ return __os_Xfutex_wait64_mask(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout);
+}
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_wait64_bitset)
 (futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct __timespec64 const *__abs_timeout) {
  if (__builtin_constant_p(__channels) && __channels == FUTEX_BITSET_MATCH_ANY) {
   if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
@@ -314,19 +449,25 @@ __FORCELOCAL __WUNUSED __BOOL (__LIBCCALL Xfutex_wait64_bitset)
      return (__os_Xfutex_wait_inf_bitset(__uaddr,__probe_value,__channels),1);
  return __os_Xfutex_wait64_bitset(__uaddr,__probe_value,__channels,__abs_timeout);
 }
-__FORCELOCAL __WUNUSED __BOOL (__LIBCCALL Xfutex_wait64_ghost)
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_wait64_ghost)
 (futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__abs_timeout) {
  if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
      return (__os_Xfutex_wait_inf_ghost(__uaddr,__probe_value),1);
  return __os_Xfutex_wait64_ghost(__uaddr,__probe_value,__abs_timeout);
 }
-__FORCELOCAL __WUNUSED __BOOL (__LIBCCALL Xfutex_waitrel64_ghost)
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_waitrel64_ghost)
 (futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__rel_timeout) {
  if (__builtin_constant_p(__rel_timeout) && __rel_timeout == __NULLPTR)
      return (__os_Xfutex_wait_inf_ghost(__uaddr,__probe_value),1);
  return __os_Xfutex_waitrel64_ghost(__uaddr,__probe_value,__rel_timeout);
 }
-__FORCELOCAL __WUNUSED __BOOL (__LIBCCALL Xfutex_wait64_bitset_ghost)
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_wait64_mask_ghost)
+(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct __timespec64 const *__abs_timeout) {
+ if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
+     return (__os_Xfutex_wait_inf_mask_ghost(__uaddr,__probe_mask,__probe_value,__enable_bits),1);
+ return __os_Xfutex_wait64_mask_ghost(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout);
+}
+__FORCELOCAL __BOOL (__LIBCCALL Xfutex_wait64_bitset_ghost)
 (futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct __timespec64 const *__abs_timeout) {
  if (__builtin_constant_p(__channels) && __channels == FUTEX_BITSET_MATCH_ANY) {
   if (__builtin_constant_p(__abs_timeout) && __abs_timeout == __NULLPTR)
@@ -351,34 +492,46 @@ __REDIRECT_TM64(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,Xfutex_waitrel,(futex_t *__ua
 __REDIRECT_TM64(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,Xfutex_waitrel_ghost,(futex_t *__uaddr, futex_t __probe_value, struct timespec const *__rel_timeout),(__uaddr,__probe_value,__rel_timeout))
 #endif /* __USE_EXCEPT */
 #ifdef __USE_TIME_BITS64
+__REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_wait_mask,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout),futex_wait64_bitset,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
+__REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_wait_mask_ghost,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout),futex_wait64_bitset_ghost,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_wait_bitset,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout),futex_wait64_bitset,(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT_EXCEPT_(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_wait_bitset_ghost,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout),futex_wait64_bitset_ghost,(__uaddr,__probe_value,__channels,__abs_timeout))
 #ifdef __USE_EXCEPT
+__REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,Xfutex_wait_mask,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout),Xfutex_wait64_bitset,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
+__REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,Xfutex_wait_mask_ghost,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout),Xfutex_wait64_bitset_ghost,(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,Xfutex_wait_bitset,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout),Xfutex_wait64_bitset,(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,Xfutex_wait_bitset_ghost,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout),Xfutex_wait64_bitset_ghost,(__uaddr,__probe_value,__channels,__abs_timeout))
 #endif /* __USE_EXCEPT */
 #else
+__REDIRECT_EXCEPT(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_wait_mask,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout),(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
+__REDIRECT_EXCEPT(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_wait_mask_ghost,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout),(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT_EXCEPT(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_wait_bitset,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout),(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT_EXCEPT(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_wait_bitset_ghost,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout),(__uaddr,__probe_value,__channels,__abs_timeout))
 #ifdef __USE_EXCEPT
-__LIBC __WUNUSED __BOOL (__LIBCCALL Xfutex_wait_bitset)(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout);
-__LIBC __WUNUSED __BOOL (__LIBCCALL Xfutex_wait_bitset_ghost)(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout);
+__LIBC __BOOL (__LIBCCALL Xfutex_wait_mask)(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout);
+__LIBC __BOOL (__LIBCCALL Xfutex_wait_mask_ghost)(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct timespec const *__abs_timeout);
+__LIBC __BOOL (__LIBCCALL Xfutex_wait_bitset)(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout);
+__LIBC __BOOL (__LIBCCALL Xfutex_wait_bitset_ghost)(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct timespec const *__abs_timeout);
 #endif /* __USE_EXCEPT */
 #endif
 #ifdef __USE_TIME64
 __REDIRECT_EXCEPT(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_wait64,(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__abs_timeout),(__uaddr,__probe_value,__abs_timeout))
+__REDIRECT_EXCEPT(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_wait64_mask,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct __timespec64 const *__abs_timeout),(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT_EXCEPT(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_wait64_bitset,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct __timespec64 const *__abs_timeout),(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT_EXCEPT(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_wait64_ghost,(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__abs_timeout),(__uaddr,__probe_value,__abs_timeout))
+__REDIRECT_EXCEPT(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_wait64_mask_ghost,(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct __timespec64 const *__abs_timeout),(__uaddr,__probe_mask,__probe_value,__enable_bits,__abs_timeout))
 __REDIRECT_EXCEPT(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_wait64_bitset_ghost,(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct __timespec64 const *__abs_timeout),(__uaddr,__probe_value,__channels,__abs_timeout))
 __REDIRECT_EXCEPT(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_waitrel64,(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__rel_timeout),(__uaddr,__probe_value,__rel_timeout))
 __REDIRECT_EXCEPT(__LIBC,__WUNUSED,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,futex_waitrel64_ghost,(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__rel_timeout),(__uaddr,__probe_value,__rel_timeout))
 #ifdef __USE_EXCEPT
-__LIBC __WUNUSED __BOOL (__LIBCCALL Xfutex_wait64)(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__abs_timeout);
-__LIBC __WUNUSED __BOOL (__LIBCCALL Xfutex_wait64_bitset)(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct __timespec64 const *__abs_timeout);
-__LIBC __WUNUSED __BOOL (__LIBCCALL Xfutex_wait64_ghost)(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__abs_timeout);
-__LIBC __WUNUSED __BOOL (__LIBCCALL Xfutex_wait64_bitset_ghost)(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct __timespec64 const *__abs_timeout);
-__LIBC __WUNUSED __BOOL (__LIBCCALL Xfutex_waitrel64)(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__rel_timeout);
-__LIBC __WUNUSED __BOOL (__LIBCCALL Xfutex_waitrel64_ghost)(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__rel_timeout);
+__LIBC __BOOL (__LIBCCALL Xfutex_wait64)(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__abs_timeout);
+__LIBC __BOOL (__LIBCCALL Xfutex_wait64_mask)(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct __timespec64 const *__abs_timeout);
+__LIBC __BOOL (__LIBCCALL Xfutex_wait64_bitset)(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct __timespec64 const *__abs_timeout);
+__LIBC __BOOL (__LIBCCALL Xfutex_wait64_ghost)(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__abs_timeout);
+__LIBC __BOOL (__LIBCCALL Xfutex_wait64_mask_ghost)(futex_t *__uaddr, futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits, struct __timespec64 const *__abs_timeout);
+__LIBC __BOOL (__LIBCCALL Xfutex_wait64_bitset_ghost)(futex_t *__uaddr, futex_t __probe_value, futex_channel_t __channels, struct __timespec64 const *__abs_timeout);
+__LIBC __BOOL (__LIBCCALL Xfutex_waitrel64)(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__rel_timeout);
+__LIBC __BOOL (__LIBCCALL Xfutex_waitrel64_ghost)(futex_t *__uaddr, futex_t __probe_value, struct __timespec64 const *__rel_timeout);
 #endif /* __USE_EXCEPT */
 #endif /* __USE_TIME64 */
 #endif
@@ -386,7 +539,7 @@ __LIBC __WUNUSED __BOOL (__LIBCCALL Xfutex_waitrel64_ghost)(futex_t *__uaddr, fu
 
 /* FUTEX_WAKE / FUTEX_WAKE_BITSET:
  * @return: * :        The number of non-ghosting threads woken.
- * @throw: E_SEGFAULT: The given `UADDR' or `TIMEOUT' is faulty. */
+ * @throw: E_SEGFAULT: The given `UADDR' or `TIMEOUT' are faulty. */
 #if 1 /* Because it usually appears in something like mutex_put(), which in itself
        * usually appears within a FINALLY-block, futex_wake() is considered a cleanup
        * function. */
@@ -409,7 +562,7 @@ __LIBC __size_t (__LIBCCALL Xfutex_wake_bitset)(futex_t *__uaddr, __size_t __num
  *          Only when `TIMEOUT != NULL': The specified timeout has expired.
  * @return: __EXCEPT_SELECT(true,0):
  *          The calling thread is now holding the lock.
- * @throw:  E_SEGFAULT: The given `UADDR' or `TIMEOUT' is faulty.
+ * @throw:  E_SEGFAULT: The given `UADDR' or `TIMEOUT' are faulty.
  * @throw:  E_BADALLOC: Failed to allocate the futex controller in kernel-space. */
 #if !defined(__NO_ATTR_FORCEINLINE) && !defined(__NO_builtin_constant_p)
 __FORCELOCAL __WUNUSED __EXCEPT_SELECT(__BOOL,int)
@@ -591,7 +744,7 @@ __REDIRECT_EXCEPT_TM64(__LIBC,,__syscall_slong_t,__LIBCCALL,futex,
 #ifdef __USE_TIME64
 __REDIRECT_EXCEPT(__LIBC,,__syscall_slong_t,__LIBCCALL,futex64,
                  (futex_t *__uaddr, int __futex_op, __UINTPTR_TYPE__ __val,
-                  struct timespec64 const *__timeout /* or: __UINTPTR_TYPE__ __val2 */,
+                  struct __timespec64 const *__timeout /* or: __UINTPTR_TYPE__ __val2 */,
                   futex_t *__uaddr2, __UINTPTR_TYPE__ __val3),
                  (__uaddr,__futex_op,__val,__timeout,__uaddr2,__val3))
 #endif
@@ -607,7 +760,7 @@ __REDIRECT_TM64(__LIBC,,__syscall_slong_t,__LIBCCALL,Xfutex,
                (__uaddr,__futex_op,__val,__timeout,__uaddr2,__val3))
 #ifdef __USE_TIME64
 __LIBC __syscall_slong_t (__LIBCCALL Xfutex64)(futex_t *__uaddr, int __futex_op, __UINTPTR_TYPE__ __val,
-                                               struct timespec64 const *__timeout /* or: __UINTPTR_TYPE__ __val2 */,
+                                               struct __timespec64 const *__timeout /* or: __UINTPTR_TYPE__ __val2 */,
                                                futex_t *__uaddr2, __UINTPTR_TYPE__ __val3);
 #endif
 __REDIRECT(__LIBC,,__syscall_slong_t,__LIBCCALL,Xfutexv,

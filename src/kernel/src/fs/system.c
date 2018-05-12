@@ -23,6 +23,7 @@
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
+#include <kos/futex.h>
 #include <hybrid/minmax.h>
 #include <kernel/sections.h>
 #include <kernel/syscall.h>
@@ -52,6 +53,7 @@
 #include <hybrid/align.h>
 #include <sys/mount.h>
 #include <sys/ioctl.h>
+#include <alloca.h>
 #include <termios.h>
 #include <linux/fs.h>
 #include <kos/keymap.h>
@@ -1623,22 +1625,22 @@ DEFINE_SYSCALL1(umask,mode_t,mask) {
 
 DEFINE_SYSCALL_DONTRESTART(ppoll);
 DEFINE_SYSCALL5(ppoll,
-                USER UNCHECKED struct pollfd *,ufds,size_t,nfds,
+                USER UNCHECKED struct pollfd *,ufds_,size_t,nfds_,
                 USER UNCHECKED struct timespec const *,tsp,
                 USER UNCHECKED sigset_t const *,sigmask,
                 size_t,sigsetsize) {
- USER UNCHECKED struct pollfd *EXCEPT_VAR xufds = ufds;
+ USER UNCHECKED struct pollfd *EXCEPT_VAR ufds = ufds_;
  USER UNCHECKED sigset_t const *EXCEPT_VAR xsigmask = sigmask;
  size_t EXCEPT_VAR xsigsetsize = sigsetsize;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
- size_t i,insize; sigset_t old_blocking;
+ size_t EXCEPT_VAR i;
+ size_t EXCEPT_VAR nfds = nfds_;
+ sigset_t old_blocking;
  /* */if (!sigmask);
  else if (sigsetsize > sizeof(sigset_t)) {
   error_throw(E_INVALID_ARGUMENT);
  }
- if (__builtin_mul_overflow(nfds,sizeof(struct pollfd),&insize))
-     insize = (size_t)-1;
- validate_readable(ufds,insize);
+ validate_readablem(ufds,nfds,sizeof(*ufds));
  validate_readable_opt(tsp,sizeof(*tsp));
  if (sigmask)
      signal_chmask(sigmask,&old_blocking,sigsetsize,SIGNAL_CHMASK_FBLOCK);
@@ -1672,7 +1674,7 @@ scan_again:
      handle_decref(hnd);
     }
    } CATCH_HANDLED (E_INVALID_HANDLE) {
-    xufds[i].revents = POLLERR;
+    ufds[i].revents = POLLERR;
    }
   }
   if (result) {
@@ -1790,6 +1792,319 @@ scan_again:
  }
  return result;
 }
+
+
+DEFINE_SYSCALL_DONTRESTART(xppoll);
+DEFINE_SYSCALL6(xppoll,
+                USER UNCHECKED struct pollfd *,ufds_,size_t,nfds_,
+                USER UNCHECKED struct pollfutex *,uftx_,size_t,nftx_,
+                USER UNCHECKED struct timespec const *,tsp,
+                USER UNCHECKED struct pselect6_sig *,sig) {
+ USER UNCHECKED sigset_t const *EXCEPT_VAR xsigmask = NULL;
+ size_t EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(xsigsetsize);
+ USER UNCHECKED struct pollfd *EXCEPT_VAR ufds = ufds_;
+ USER UNCHECKED struct pollfutex *EXCEPT_VAR uftx = uftx_;
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ size_t EXCEPT_VAR nfds = nfds_;
+ size_t EXCEPT_VAR nftx = nftx_;
+ size_t EXCEPT_VAR i; sigset_t old_blocking;
+ REF struct futex **EXCEPT_VAR futex_vec = NULL;
+ size_t EXCEPT_VAR futex_cnt;
+ if (sig) {
+  validate_readable(sig,sizeof(*sig));
+  xsigmask    = sig->set;
+  xsigsetsize = sig->setsz;
+ }
+ /* Must restrict the number of futexes because of the malloca() below. */
+ if unlikely(nftx > 0x1000)
+    error_throw(E_INVALID_ARGUMENT);
+
+ /* */if (!xsigmask);
+ else if (xsigsetsize > sizeof(sigset_t)) {
+  error_throw(E_INVALID_ARGUMENT);
+ }
+ validate_readablem(ufds,nfds,sizeof(*ufds));
+ validate_readablem(uftx,nftx,sizeof(*uftx));
+ validate_readable_opt(tsp,sizeof(*tsp));
+ if (xsigmask)
+     signal_chmask(xsigmask,&old_blocking,xsigsetsize,SIGNAL_CHMASK_FBLOCK);
+ TRY {
+  futex_vec = (REF struct futex **)calloca(nftx*sizeof(REF struct futex *));
+  futex_cnt = 0;
+scan_again:
+  assert(futex_cnt == 0);
+  result = 0;
+  /* Clear the channel mask. Individual channels
+   * may be re-opened by poll-callbacks as needed. */
+  task_channelmask(0);
+  for (i = 0; i < nfds; ++i) {
+   struct handle EXCEPT_VAR hnd;
+   TRY {
+    hnd = handle_get(ufds[i].fd);
+    TRY {
+     unsigned int mask;
+     size_t num_connections = task_numconnected();
+     mask = handle_poll(hnd,ufds[i].events);
+     if (mask) {
+      ++result;
+      ufds[i].revents = (u16)mask;
+     } else if (num_connections == task_numconnected()) {
+      /* This handle didn't add any new connections,
+       * and neither are any of its states signaled.
+       * As a conclusion: this handle doesn't support poll() */
+      ufds[i].revents = POLLNVAL;
+     } else {
+
+      ufds[i].revents = 0;
+     }
+    } FINALLY {
+     handle_decref(hnd);
+    }
+   } CATCH_HANDLED (E_INVALID_HANDLE) {
+    ufds[i].revents = POLLERR;
+   }
+  }
+  for (i = 0; i < nftx; ++i) {
+   REF struct futex *EXCEPT_VAR ftx;
+   USER UNCHECKED futex_t *uaddr = uftx[i].pf_futex;
+   COMPILER_READ_BARRIER();
+   TRY {
+    validate_writable(uaddr,sizeof(futex_t));
+    switch (uftx[i].pf_action) {
+
+    {
+     futex_t probe_value;
+    case FUTEX_WAIT_BITSET:
+    case FUTEX_WAIT_BITSET_GHOST:
+     /* Open all the channels described by the futex poll operation. */
+     task_openchannel(uftx[i].pf_val3);
+    case FUTEX_WAIT:
+    case FUTEX_WAIT_GHOST:
+     probe_value = (futex_t)uftx[i].pf_val;
+     COMPILER_READ_BARRIER();
+     if (ATOMIC_READ(*uaddr) != probe_value) {
+      uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
+      ++result;
+     } else {
+      /* Lookup and connect to the futex in question. */
+      ftx = vm_futex(uaddr);
+      COMPILER_BARRIER();
+      futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
+      COMPILER_BARRIER();
+      task_connect_ghost(&ftx->f_sig);
+
+      /* Now that we're connected (and therefor interlocked), repeat the check. */
+      COMPILER_READ_BARRIER();
+      if (ATOMIC_READ(*uaddr) == probe_value) {
+       uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
+       ++result;
+      }
+      COMPILER_BARRIER();
+     }
+     break;
+    } break;
+
+    case FUTEX_LOCK_PI:
+     /* A futex lock not held by anyone is indicated by a value equal to ZERO(0) */
+     if (ATOMIC_READ(*uaddr) == 0) {
+      uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
+      ++result;
+     } else {
+      /* Lookup and connect to the futex in question. */
+      ftx = vm_futex(uaddr);
+      COMPILER_BARRIER();
+      futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
+      COMPILER_BARRIER();
+      task_connect_ghost(&ftx->f_sig);
+      COMPILER_READ_BARRIER();
+      for (;;) {
+       /* Set the WAITERS bit to ensure that user-space can see that
+        * someone is waiting for the futex to become available.
+        * If we didn't do this, a user-space mutex implementation might
+        * neglect to wake us when the associated lock becomes ready. */
+       futex_t word = ATOMIC_READ(*uaddr);
+       if (word == 0) {
+        uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
+        ++result;
+        break;
+       }
+       if (ATOMIC_CMPXCH_WEAK(*uaddr,word,word|FUTEX_WAITERS))
+           break;
+      }
+      COMPILER_BARRIER();
+     }
+     break;
+
+    {
+     futex_t probe_mask;
+     futex_t probe_value;
+     futex_t enable_bits;
+    case FUTEX_WAIT_MASK:
+    case FUTEX_WAIT_MASK_GHOST:
+     probe_mask  = (futex_t)(uintptr_t)uftx[i].pf_val;
+     probe_value = (futex_t)(uintptr_t)uftx[i].pf_uaddr2;
+     enable_bits = (futex_t)(uintptr_t)uftx[i].pf_val3;
+     COMPILER_READ_BARRIER();
+     if ((ATOMIC_READ(*uaddr) & probe_mask) != probe_value) {
+      uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
+      ++result;
+     } else {
+      u32 old_value;
+      ftx = vm_futex(uaddr);
+      COMPILER_BARRIER();
+      futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
+      COMPILER_BARRIER();
+      task_connect_ghost(&ftx->f_sig);
+      /* Atomically set bits from val3, while also ensuring that the mask still applies. */
+      do if (((old_value = ATOMIC_READ(*uaddr)) & probe_mask) != probe_value) {
+       uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
+       ++result;
+       break;
+      } while (!ATOMIC_CMPXCH(*uaddr,old_value,old_value|enable_bits));
+     }
+    } break;
+
+    {
+     futex_t old_value;
+     futex_t new_value;
+     futex_t *uaddr2;
+    case FUTEX_WAIT_CMPXCH:
+    case FUTEX_WAIT_CMPXCH_GHOST:
+     old_value = (futex_t)uftx[i].pf_val;
+     new_value = (futex_t)uftx[i].pf_val3;
+     uaddr2    = uftx[i].pf_uaddr2;
+     validate_writable_opt(uaddr2,sizeof(*uaddr2));
+     COMPILER_READ_BARRIER();
+     if (ATOMIC_CMPXCH(*uaddr,old_value,new_value)) {
+      if (uaddr2) {
+       /* Save the old futex value in the provided uaddr2 */
+       ATOMIC_WRITE(*uaddr2,old_value);
+       /* Broadcast a futex located at the given address. */
+       ftx = vm_getfutex(uaddr2);
+       if (ftx) {
+        result = sig_broadcast(&ftx->f_sig);
+        futex_decref(ftx);
+       }
+      }
+      uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
+      ++result;
+     } else {
+      u32 real_old_value;
+      /* The initial CMPXCH failed. - Connect to the futex at that address. */
+      ftx = vm_futex(uaddr);
+      COMPILER_BARRIER();
+      futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
+      COMPILER_BARRIER();
+      task_connect_ghost(&ftx->f_sig);
+      /* Now that we're connected, try the CMPXCH again, this
+       * time storing the old value in uaddr2 (if provided). */
+      real_old_value = ATOMIC_CMPXCH_VAL(*uaddr,old_value,new_value);
+      if (uaddr2) {
+       /* Save the old futex value in the provided uaddr2 */
+       ATOMIC_WRITE(*uaddr2,real_old_value);
+       /* Broadcast a futex located at the given address. */
+       ftx = vm_getfutex(uaddr2);
+       if (ftx) {
+        result = sig_broadcast(&ftx->f_sig);
+        futex_decref(ftx);
+       }
+      }
+      if (real_old_value == old_value) {
+       /* The futex entered the required state while we were connected to it. */
+       uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
+       ++result;
+      }
+     }
+    } break;
+
+    {
+     futex_t old_value;
+     futex_t new_value;
+     futex_t *uaddr2;
+    case FUTEX_WAIT_CMPXCH2:
+    case FUTEX_WAIT_CMPXCH2_GHOST:
+     old_value = (futex_t)uftx[i].pf_val;
+     new_value = (futex_t)uftx[i].pf_val3;
+     uaddr2    = uftx[i].pf_uaddr2;
+     validate_writable(uaddr2,sizeof(*uaddr2));
+     COMPILER_READ_BARRIER();
+     if (ATOMIC_CMPXCH(*uaddr,old_value,new_value)) {
+      /* Save the old futex value in the provided uaddr2 */
+      ATOMIC_WRITE(*uaddr2,old_value);
+      /* Broadcast a futex located at the given address. */
+      ftx = vm_getfutex(uaddr2);
+      if (ftx) {
+       result = sig_broadcast(&ftx->f_sig);
+       futex_decref(ftx);
+      }
+      uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
+      ++result;
+     } else {
+      u32 real_old_value;
+      /* The initial CMPXCH failed. - Connect to the futex at that address. */
+      ftx = vm_futex(uaddr);
+      COMPILER_BARRIER();
+      futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
+      COMPILER_BARRIER();
+      task_connect_ghost(&ftx->f_sig);
+      /* Now that we're connected, try the CMPXCH again, this
+       * time storing the old value in uaddr2 (if provided). */
+      real_old_value = ATOMIC_CMPXCH_VAL(*uaddr,old_value,new_value);
+      if (real_old_value == old_value) {
+       /* Save the old futex value in the provided uaddr2 */
+       ATOMIC_WRITE(*uaddr2,real_old_value);
+       /* Broadcast a futex located at the given address. */
+       ftx = vm_getfutex(uaddr2);
+       if (ftx) {
+        result = sig_broadcast(&ftx->f_sig);
+        futex_decref(ftx);
+       }
+       /* The futex entered the required state while we were connected to it. */
+       uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
+       ++result;
+      }
+     }
+    } break;
+
+    default:
+     uftx[i].pf_status = POLLFUTEX_STATUS_BADACTION;
+     break;
+    }
+   } CATCH_HANDLED (E_SEGFAULT) {
+    uftx[i].pf_status = POLLFUTEX_STATUS_BADFUTEX;
+   }
+  }
+  if (result) {
+   /* At least one of the handles has been signaled. */
+   task_udisconnect();
+  } else if (!tsp) {
+   task_uwait();
+scan_again_drop_futex:
+   /* Drop all saved futex references. */
+   while (futex_cnt) {
+    --futex_cnt;
+    futex_decref(futex_vec[futex_cnt]);
+   }
+   goto scan_again;
+  } else if (task_isconnected()) {
+   /* Wait for signals to arrive and scan again. */
+   if (task_uwaitfor_tmabs(tsp))
+       goto scan_again_drop_futex;
+   /* NOTE: If the timeout expires, ZERO(0) is returned. */
+  }
+ } FINALLY {
+  if (futex_vec) {
+   /* Cleanup saved futex references. */
+   while (futex_cnt--)
+      futex_decref(futex_vec[futex_cnt]);
+   freea(futex_vec);
+  }
+  if (xsigmask)
+      signal_chmask(&old_blocking,NULL,xsigsetsize,SIGNAL_CHMASK_FBLOCK);
+ }
+ return result;
+}
+
 
 
 #ifdef CONFIG_WIDE_64BIT_SYSCALL

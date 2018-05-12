@@ -19,7 +19,7 @@
 #ifndef _KOS_SCHED_MUTEX_H
 #define _KOS_SCHED_MUTEX_H 1
 
-#include <hybrid/compiler.h>
+#include <__stdinc.h>
 #include <hybrid/__atomic.h>
 #include <hybrid/typecore.h>
 #include <hybrid/timespec.h>
@@ -32,7 +32,7 @@ DECL_BEGIN
 typedef struct mutex mutex_t;
 
 struct mutex {
-    __UINT32_TYPE__ __m_futex; /* The futex word that this mutex uses for locking.
+    futex_t         __m_futex; /* The futex word that this mutex uses for locking.
                                 * Used in conjunction with `FUTEX_LOCK_PI' / `FUTEX_UNLOCK_PI'. */
     unsigned int    __m_rec;   /* [lock(__m_futex)] The owner of the mutex. */
 };
@@ -54,7 +54,7 @@ __FORCELOCAL __ATTR_NOTHROW __BOOL (__LIBCCALL mutex_try)(struct mutex *__restri
 __LIBC void (__LIBCCALL mutex_put)(struct mutex *__restrict __self);
 __REDIRECT_EXCEPT_TM64(__LIBC,,int,__LIBCCALL,mutex_get_timed,
                       (struct mutex *__restrict __self, struct timespec *__abs_timeout),
-                      (__self,__abs_timeout));
+                      (__self,__abs_timeout))
 #ifdef __USE_TIME64
 __REDIRECT_EXCEPT(__LIBC,int,__LIBCCALL,mutex_get_timed64,
                  (struct mutex *__restrict __self, struct __timespec64 *__abs_timeout),

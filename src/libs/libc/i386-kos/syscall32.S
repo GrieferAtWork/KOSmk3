@@ -1080,8 +1080,9 @@ DEFINE_SYSCALL(waitid,5)
 
 DEFINE_SYSCALL(wait4,4,      E|X)
 
-DEFINE_SYSCALL(pselect6,6)
-DEFINE_SYSCALL(ppoll,5)
+DEFINE_SYSCALL(pselect6,6,   Esys|Xsys)
+DEFINE_SYSCALL(ppoll,5,      Esys|Xsys)
+DEFINE_SYSCALL(xppoll,6,     Esys|Xsys)
 
 DEFINE_SYSCALL(pipe,1,       E|X)
 DEFINE_SYSCALL(pipe2,2,      E|X)

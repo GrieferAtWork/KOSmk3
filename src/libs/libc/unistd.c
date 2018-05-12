@@ -208,7 +208,7 @@ INTERN ssize_t LIBCCALL libc_pread(fd_t fd, void *buf, size_t bufsize, pos32_t o
 INTERN ssize_t LIBCCALL libc_pwrite(fd_t fd, void const *buf, size_t bufsize, pos32_t offset) { return libc_pwrite64(fd,buf,bufsize,(pos64_t)offset); }
 INTERN ssize_t LIBCCALL libc_xpreadf(fd_t fd, void *buf, size_t bufsize, pos32_t offset, oflag_t flags) { return libc_xpreadf64(fd,buf,bufsize,offset,flags); }
 INTERN ssize_t LIBCCALL libc_xpwritef(fd_t fd, void const *buf, size_t bufsize, pos32_t offset, oflag_t flags) { return libc_xpwritef64(fd,buf,bufsize,offset,flags); }
-INTERN ssize_t LIBCCALL libc_ppoll64(struct pollfd *fds, nfds_t nfds, struct timespec64 const *timeout, sigset_t const *ss) { return FORWARD_SYSTEM_VALUE(sys_ppoll(fds,nfds,timeout,ss,sizeof(sigset_t))); }
+INTERN ssize_t LIBCCALL libc_ppoll64(struct pollfd *fds, nfds_t nfds, struct timespec64 const *timeout, sigset_t const *ss) { return Esys_ppoll(fds,nfds,timeout,ss,sizeof(sigset_t)); }
 INTERN ssize_t LIBCCALL
 libc_pselect64(int nfds, fd_set *readfds, fd_set *writefds,
                fd_set *exceptfds, struct timespec64 const *timeout,
@@ -219,13 +219,9 @@ libc_pselect64(int nfds, fd_set *readfds, fd_set *writefds,
    sigset_t const *p;
    size_t          s;
   } sgm = { sigmask, sizeof(sigset_t) };
-  error = sys_pselect6(nfds,readfds,writefds,exceptfds,timeout,&sgm);
+  error = Esys_pselect6(nfds,readfds,writefds,exceptfds,timeout,&sgm);
  } else {
-  error = sys_pselect6(nfds,readfds,writefds,exceptfds,timeout,NULL);
- }
- if (E_ISERR(error)) {
-  libc_seterrno(-error);
-  return -1;
+  error = Esys_pselect6(nfds,readfds,writefds,exceptfds,timeout,NULL);
  }
  return error;
 }

@@ -49,7 +49,7 @@ typedef __UINTPTR_TYPE__ nfds_t;
 #undef events
 #undef revents
 struct pollfd {
-    int            fd;      /* File descriptor to poll.  */
+    __fd_t         fd;      /* File descriptor to poll.  */
     __INT16_TYPE__ events;  /* Types of events poller cares about (Set of 'POLL*'). */
     __INT16_TYPE__ revents; /* Types of events that actually occurred (Set of 'POLL*'). */
 };

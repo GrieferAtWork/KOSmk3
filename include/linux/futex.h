@@ -48,6 +48,80 @@ __SYSDECL_BEGIN
 
 
 #if defined(__KOS__) && (defined(__USE_KOS) || defined(__KERNEL__))
+/* Robust waiter functions that ensure that all bits from
+ * `val3' are set while atomically entering a wait-state.
+ * These are useful for implementing a single-futex semaphore object
+ * which can make use of some flag in order to determine if the futex
+ * is currently available.
+ * WARNING: If bits set by `val3' are included in the `val' mask,
+ *          the thread _might_ (but might not necessarily) still begin
+ *          sleeping immediately, despite the fact that its wait
+ *          condition has already been fulfilled.
+ *          In this case, the futex() system call may return for any
+ *          number of reasons, and at any undefined point in time
+ *          besides the reason of the futex getting triggered, which
+ *          still guaranties to wake the thread if it was sleeping.
+ *          With that in mind, the point in time when such a thread
+ *          will be woken is any undefined time between it starting
+ *          to sleep on the futex, and it getting triggered by another
+ *          thread. */
+#define FUTEX_WAIT_MASK       0x10 /* >> if ((*uaddr & val) == (u32)uaddr2) {
+                                    * >>      *uaddr |= val3;
+                                    * >>      WAIT(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
+                                    * >> } */
+#define FUTEX_WAIT_MASK_GHOST 0x30 /* >> if ((*uaddr & val) == (u32)uaddr2) {
+                                    * >>      *uaddr |= val3;
+                                    * >>      WAIT_GHOST(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
+                                    * >> } */
+#define FUTEX_WAIT_CMPXCH     0x11 /* A highly advanced version of a futex_wait operation that atomically
+                                    * does all of the following (read, compare, write, wake and wait):
+                                    * >> if (uaddr2) {
+                                    * >>     u32 old_value;
+                                    * >>     // The write portion of this CMPXCH happens once the thread has already started waiting.
+                                    * >>     old_value = ATOMIC_CMPXCH_VAL(*uaddr,val,val3);
+                                    * >>     *uaddr2 = old_value; // This write happens once the thread has already started waiting.
+                                    * >>     result = WAKE(uaddr2,ALL);
+                                    * >>     if (old_value != val) {
+                                    * >>         // Wait if the old value 
+                                    * >>         WAIT(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
+                                    * >>     }
+                                    * >> } else {
+                                    * >>     // The write portion of this CMPXCH happens once the thread has already started waiting.
+                                    * >>     if (ATOMIC_CMPXCH(*uaddr,val,val3)) {
+                                    * >>         result = -EAGAIN;
+                                    * >>     } else {
+                                    * >>         WAIT(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
+                                    * >>     }
+                                    * >> }
+                                    * While not perfectly optimized for any situation, due to the fact
+                                    * that it implements a compare-exchange operation, there shouldn't
+                                    * be any arithmetic operation that couldn't be expressed using this.
+                                    * Also: There should be some interesting things doable because of
+                                    *       the fact that this one also allows waking another futex
+                                    *       when already waiting for another one.
+                                    * NOTE: When `uaddr2' matches `uaddr', the function will return
+                                    *       immediately, as you're just going to wake up yourself
+                                    *       before actually being un-scheduled. */
+#define FUTEX_WAIT_CMPXCH_GHOST 0x41/* The ghost variant of `FUTEX_WAIT_CMPXCH' */
+#define FUTEX_WAIT_CMPXCH2    0x12 /* Very similar to `FUTEX_WAIT_CMPXCH', but only trigger `uaddr' if the exchange was OK:
+                                    * >> u32 old_value;
+                                    * >> old_value = ATOMIC_CMPXCH_VAL(*uaddr,val,val3);
+                                    * >> if (old_value == val) {
+                                    * >>     *uaddr2 = old_value; // This write happens once the thread has already started waiting.
+                                    * >>     result = WAKE(uaddr2,ALL);
+                                    * >> } else {
+                                    * >>     WAIT(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
+                                    * >> }
+                                    * While not perfectly optimized for any situation, due to the fact
+                                    * that it implements a compare-exchange operation, there shouldn't
+                                    * be any arithmetic operation that couldn't be expressed using this.
+                                    * Also: There should be some interesting things doable because of
+                                    *       the fact that this one also allows waking another futex
+                                    *       when already waiting for another one.
+                                    * NOTE: When `uaddr2' matches `uaddr', the function will return
+                                    *       immediately, as you're just going to wake up yourself
+                                    *       before actually being un-scheduled. */
+#define FUTEX_WAIT_CMPXCH2_GHOST 0x32/* The ghost variant of `FUTEX_WAIT_CMPXCH2' */
 #define FUTEX_WAIT_GHOST      0x20 /* >> if (*uaddr == val)
                                     * >>      WAIT_GHOST(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
                                     * Same as `FUTEX_WAIT', but when being woken using a val3 that

@@ -404,6 +404,9 @@ __XSYSCALL(__NR_xgetpeername,sys_xgetpeername)
 __XSYSCALL(__NR_xgetsockopt,sys_xgetsockopt)
 #define __NR_xvm_region_create 0x40000025
 __XSYSCALL(__NR_xvm_region_create,sys_xvm_region_create)
+#define __NR_xppoll       0x40000026
+__XSYSCALL(__NR_xppoll,sys_xppoll) /* An extended version of ppoll() that can also poll futex objects
+                                    * without the need of creating a futex handle using `FUTEX_WAITFD' */
 
 
 /* Dynamic linker system calls.

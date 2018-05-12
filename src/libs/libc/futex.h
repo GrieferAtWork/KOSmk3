@@ -22,6 +22,7 @@
 #include "libc.h"
 #include <kos/types.h>
 #include <kos/futex.h>
+#include <signal.h>
 
 #ifdef __CC__
 DECL_BEGIN
@@ -35,35 +36,47 @@ INTDEF syscall_slong_t LIBCCALL libc_Xfutex(u32 *uaddr, int futex_op, uintptr_t 
 INTDEF syscall_slong_t LIBCCALL libc_Xfutex64(u32 *uaddr, int futex_op, uintptr_t val, struct timespec64 const *timeout, u32 *uaddr2, uintptr_t val3);
 
 INTDEF int LIBCCALL libc_futex_wait_inf(futex_t *uaddr, futex_t probe_value);
+INTDEF int LIBCCALL libc_futex_wait_inf_mask(futex_t *uaddr, futex_t probe_mask, futex_t probe_value, futex_t enable_bits);
 INTDEF int LIBCCALL libc_futex_wait_inf_bitset(futex_t *uaddr, futex_t probe_value, futex_channel_t channels);
 INTDEF int LIBCCALL libc_futex_wait(futex_t *uaddr, futex_t probe_value, struct timespec32 const *abs_timeout);
+INTDEF int LIBCCALL libc_futex_wait_mask(futex_t *uaddr, futex_t probe_mask, futex_t probe_value, futex_t enable_bits, struct timespec32 const *abs_timeout);
 INTDEF int LIBCCALL libc_futex_wait_bitset(futex_t *uaddr, futex_t probe_value, futex_channel_t channels, struct timespec32 const *abs_timeout);
 INTDEF int LIBCCALL libc_futex_wait64(futex_t *uaddr, futex_t probe_value, struct timespec64 const *abs_timeout);
+INTDEF int LIBCCALL libc_futex_wait64_mask(futex_t *uaddr, futex_t probe_mask, futex_t probe_value, futex_t enable_bits, struct timespec64 const *abs_timeout);
 INTDEF int LIBCCALL libc_futex_wait64_bitset(futex_t *uaddr, futex_t probe_value, futex_channel_t channels, struct timespec64 const *abs_timeout);
 INTDEF int LIBCCALL libc_futex_waitrel(futex_t *uaddr, futex_t probe_value, struct timespec32 const *rel_timeout);
 INTDEF int LIBCCALL libc_futex_waitrel64(futex_t *uaddr, futex_t probe_value, struct timespec64 const *rel_timeout);
 INTDEF void LIBCCALL libc_Xfutex_wait_inf(futex_t *uaddr, futex_t probe_value);
+INTDEF void LIBCCALL libc_Xfutex_wait_inf_mask(futex_t *uaddr, futex_t probe_mask, futex_t probe_value, futex_t enable_bits);
 INTDEF void LIBCCALL libc_Xfutex_wait_inf_bitset(futex_t *uaddr, futex_t probe_value, futex_channel_t channels);
 INTDEF bool LIBCCALL libc_Xfutex_wait(futex_t *uaddr, futex_t probe_value, struct timespec32 const *abs_timeout);
+INTDEF bool LIBCCALL libc_Xfutex_wait_mask(futex_t *uaddr, futex_t probe_mask, futex_t probe_value, futex_t enable_bits, struct timespec32 const *abs_timeout);
 INTDEF bool LIBCCALL libc_Xfutex_wait_bitset(futex_t *uaddr, futex_t probe_value, futex_channel_t channels, struct timespec32 const *abs_timeout);
 INTDEF bool LIBCCALL libc_Xfutex_wait64(futex_t *uaddr, futex_t probe_value, struct timespec64 const *abs_timeout);
+INTDEF bool LIBCCALL libc_Xfutex_wait64_mask(futex_t *uaddr, futex_t probe_mask, futex_t probe_value, futex_t enable_bits, struct timespec64 const *abs_timeout);
 INTDEF bool LIBCCALL libc_Xfutex_wait64_bitset(futex_t *uaddr, futex_t probe_value, futex_channel_t channels, struct timespec64 const *abs_timeout);
 INTDEF bool LIBCCALL libc_Xfutex_waitrel(futex_t *uaddr, futex_t probe_value, struct timespec32 const *rel_timeout);
 INTDEF bool LIBCCALL libc_Xfutex_waitrel64(futex_t *uaddr, futex_t probe_value, struct timespec64 const *rel_timeout);
 
 INTDEF int LIBCCALL libc_futex_wait_inf_ghost(futex_t *uaddr, futex_t probe_value);
+INTDEF int LIBCCALL libc_futex_wait_inf_mask_ghost(futex_t *uaddr, futex_t probe_mask, futex_t probe_value, futex_t enable_bits);
 INTDEF int LIBCCALL libc_futex_wait_inf_bitset_ghost(futex_t *uaddr, futex_t probe_value, futex_channel_t channels);
 INTDEF int LIBCCALL libc_futex_wait_ghost(futex_t *uaddr, futex_t probe_value, struct timespec32 const *abs_timeout);
+INTDEF int LIBCCALL libc_futex_wait_mask_ghost(futex_t *uaddr, futex_t probe_mask, futex_t probe_value, futex_t enable_bits, struct timespec32 const *abs_timeout);
 INTDEF int LIBCCALL libc_futex_wait_bitset_ghost(futex_t *uaddr, futex_t probe_value, futex_channel_t channels, struct timespec32 const *abs_timeout);
 INTDEF int LIBCCALL libc_futex_wait64_ghost(futex_t *uaddr, futex_t probe_value, struct timespec64 const *abs_timeout);
+INTDEF int LIBCCALL libc_futex_wait64_mask_ghost(futex_t *uaddr, futex_t probe_mask, futex_t probe_value, futex_t enable_bits, struct timespec64 const *abs_timeout);
 INTDEF int LIBCCALL libc_futex_wait64_bitset_ghost(futex_t *uaddr, futex_t probe_value, futex_channel_t channels, struct timespec64 const *abs_timeout);
 INTDEF int LIBCCALL libc_futex_waitrel_ghost(futex_t *uaddr, futex_t probe_value, struct timespec32 const *rel_timeout);
 INTDEF int LIBCCALL libc_futex_waitrel64_ghost(futex_t *uaddr, futex_t probe_value, struct timespec64 const *rel_timeout);
 INTDEF void LIBCCALL libc_Xfutex_wait_inf_ghost(futex_t *uaddr, futex_t probe_value);
+INTDEF void LIBCCALL libc_Xfutex_wait_inf_mask_ghost(futex_t *uaddr, futex_t probe_mask, futex_t probe_value, futex_t enable_bits);
 INTDEF void LIBCCALL libc_Xfutex_wait_inf_bitset_ghost(futex_t *uaddr, futex_t probe_value, futex_channel_t channels);
 INTDEF bool LIBCCALL libc_Xfutex_wait_ghost(futex_t *uaddr, futex_t probe_value, struct timespec32 const *abs_timeout);
+INTDEF bool LIBCCALL libc_Xfutex_wait_mask_ghost(futex_t *uaddr, futex_t probe_mask, futex_t probe_value, futex_t enable_bits, struct timespec32 const *abs_timeout);
 INTDEF bool LIBCCALL libc_Xfutex_wait_bitset_ghost(futex_t *uaddr, futex_t probe_value, futex_channel_t channels, struct timespec32 const *abs_timeout);
 INTDEF bool LIBCCALL libc_Xfutex_wait64_ghost(futex_t *uaddr, futex_t probe_value, struct timespec64 const *abs_timeout);
+INTDEF bool LIBCCALL libc_Xfutex_wait64_mask_ghost(futex_t *uaddr, futex_t probe_mask, futex_t probe_value, futex_t enable_bits, struct timespec64 const *abs_timeout);
 INTDEF bool LIBCCALL libc_Xfutex_wait64_bitset_ghost(futex_t *uaddr, futex_t probe_value, futex_channel_t channels, struct timespec64 const *abs_timeout);
 INTDEF bool LIBCCALL libc_Xfutex_waitrel_ghost(futex_t *uaddr, futex_t probe_value, struct timespec32 const *rel_timeout);
 INTDEF bool LIBCCALL libc_Xfutex_waitrel64_ghost(futex_t *uaddr, futex_t probe_value, struct timespec64 const *rel_timeout);
@@ -86,6 +99,16 @@ INTDEF fd_t LIBCCALL libc_futex_waitfd(futex_t *uaddr, futex_t probe_value, ofla
 INTDEF fd_t LIBCCALL libc_futex_waitfd_bitset(futex_t *uaddr, futex_t probe_value, oflag_t oflags, futex_channel_t channels);
 INTDEF fd_t LIBCCALL libc_Xfutex_waitfd(futex_t *uaddr, futex_t probe_value, oflag_t oflags);
 INTDEF fd_t LIBCCALL libc_Xfutex_waitfd_bitset(futex_t *uaddr, futex_t probe_value, oflag_t oflags, futex_channel_t channels);
+
+
+/* Advanced ppoll() with integration for polling futex objects. */
+struct pollfd;
+struct pollfutex;
+INTDEF ssize_t LIBCCALL libc_xppoll(struct pollfd *ufds, size_t nfds, struct pollfutex *uftx, size_t nftx, struct timespec const *tsp, sigset_t *sig);
+INTDEF ssize_t LIBCCALL libc_xppoll64(struct pollfd *ufds, size_t nfds, struct pollfutex *uftx, size_t nftx, struct timespec64 const *tsp, sigset_t *sig);
+INTDEF size_t LIBCCALL libc_Xxppoll(struct pollfd *ufds, size_t nfds, struct pollfutex *uftx, size_t nftx, struct timespec const *tsp, sigset_t *sig);
+INTDEF size_t LIBCCALL libc_Xxppoll64(struct pollfd *ufds, size_t nfds, struct pollfutex *uftx, size_t nftx, struct timespec64 const *tsp, sigset_t *sig);
+
 
 
 DECL_END

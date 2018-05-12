@@ -18,6 +18,7 @@
  */
 #ifndef GUARD_LIBS_LIBWM_EVENT_C
 #define GUARD_LIBS_LIBWM_EVENT_C 1
+#define _KOS_SOURCE 1
 #define _EXCEPT_SOURCE 1
 
 #include <hybrid/compiler.h>
@@ -25,24 +26,44 @@
 #include <wm/api.h>
 #include <wm/server.h>
 #include <wm/window.h>
+#include <malloc.h>
 #include <unistd.h>
 #include <except.h>
+#include <string.h>
 #include <sys/poll.h>
+#include <kos/sched/semaphore.h>
+#include <kos/futex.h>
+#include <linux/futex.h>
 
 #include "libwm.h"
 
 DECL_BEGIN
 
-#if 0
+#if 1
 typedef struct pending_event {
     struct pending_event *pe_next;  /* [0..1][lock(:pending_lock)] The next pending event. */
     union wm_event        pe_event; /* [const] The event that is pending. */
 } PendingEvent;
 
+PRIVATE DEFINE_SEMAPHORE(pending_avail,0);   /* A semaphore that is fed a ticket for every . */
 PRIVATE DEFINE_ATOMIC_RWLOCK(pending_lock);  /* Lock for synchronizing pending events. */
 PRIVATE struct pending_event *pending_front; /* [0..1][lock(pending_lock)] Next pending event. */
 PRIVATE struct pending_event *pending_back;  /* [0..1][lock(pending_lock)] Last pending event. */
+
 #endif
+
+/* Poll for events to become available. */
+PRIVATE void WMCALL libwm_poll_events(void) {
+ struct pollfd    pfds[1];
+ struct pollfutex pftx[1];
+ /* Poll the socket for read(), and the pending_avail semaphore at once.
+  * KOS FTW!!! -- Linux doesn't let you poll a futex in this manner. */
+ pfds[0].fd     = libwms_socket;
+ pfds[0].events = POLLIN;
+ semaphore_poll(&pending_avail,pftx);
+ /* Wait for one of the events to become triggered. */
+ Xxppoll(pfds,1,pftx,1,NULL,NULL);
+}
 
 
 
@@ -86,14 +107,37 @@ INTERN void WMCALL libwm_event_process(void) {
 DEFINE_PUBLIC_ALIAS(wm_event_trywait,libwm_event_trywait);
 INTERN bool WMCALL
 libwm_event_trywait(union wm_event *__restrict result) {
- /* TODO */
+ struct pending_event *evt;
+ atomic_rwlock_write(&pending_lock);
+ evt = pending_front;
+ if (evt) {
+  pending_front = evt->pe_next;
+  assert((pending_back == evt) ==
+         (pending_front == NULL));
+  if (pending_back == evt)
+      pending_back = NULL;
+  atomic_rwlock_endwrite(&pending_lock);
+  /* Copy the event into the provided buffer. */
+  TRY {
+   memcpy(result,&evt->pe_event,sizeof(union wm_event));
+  } FINALLY {
+   free(evt);
+  }
+  return true;
+ }
+ atomic_rwlock_endwrite(&pending_lock);
+ /* TODO: Using O_NONBLOCK, try to read an event packet from the server socket. */
+
+
  return false;
 }
 
 DEFINE_PUBLIC_ALIAS(wm_event_waitfor,libwm_event_waitfor);
 INTERN void WMCALL
 libwm_event_waitfor(union wm_event *__restrict result) {
- /* TODO */
+ /* Try to read an event, and if that fails, poll for events to become available. */
+ while (!libwm_event_trywait(result))
+      libwm_poll_events();
 }
 
 
