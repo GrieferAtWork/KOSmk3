@@ -286,6 +286,8 @@ SYMEND(cpu_xchcontext)
 #define VM86_OFFSETOF_IRET   X86_GPREGS_SIZE
 #endif
 
+	movl   X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX(%ecx), %edx
+	movl   %edx,  0(%eax) /* EAX */
 	movl   VM86_OFFSETOF_IRET+ 0(%ecx), %edx
 	movl   %edx,  4(%eax) /* EIP */
 	movl   VM86_OFFSETOF_IRET+ 4(%ecx), %edx

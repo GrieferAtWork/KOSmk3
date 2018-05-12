@@ -47,13 +47,13 @@ DECL_BEGIN
 #ifdef __ASSEMBLER__
 #define __DRIVER_PARAM_POINTER(x)  .long x;
 #else
-#define __DRIVER_PARAM_POINTER(x)  "\t.long " x "\n\t"
+#define __DRIVER_PARAM_POINTER(x)  ".long " x
 #endif
 #else /* CONFIG_BUILDING_KERNEL_CORE */
 #ifdef __ASSEMBLER__
 #define __DRIVER_PARAM_POINTER(x)  .reloc .,R_386_RELATIVE,x; .long 0;
 #else
-#define __DRIVER_PARAM_POINTER(x)  "\t.reloc .,R_386_RELATIVE," x "; .long 0\n\t"
+#define __DRIVER_PARAM_POINTER(x)  ".reloc .,R_386_RELATIVE," x "; .long 0"
 #endif
 #endif /* !CONFIG_BUILDING_KERNEL_CORE */
 
@@ -144,7 +144,7 @@ DECL_BEGIN
          "\t.section .rodata.str\n\t" \
          "\t\t991: .string " PP_PRIVATE_STR(name) "\n\t" \
          "\t.previous\n\t" \
-         __DRIVER_PARAM_POINTER("991b") \
+         "\t" __DRIVER_PARAM_POINTER("991b") "\n\t" \
          "\t.quad 0\n\t" \
          ".endif\n\t" \
          "\t.quad " PP_PRIVATE_STR(handler) "\n\t" \
@@ -179,7 +179,7 @@ DECL_BEGIN
          "\t.section .rodata.str\n\t" \
          "\t\t991: .string " PP_PRIVATE_STR(name) "\n\t" \
          "\t.previous\n\t" \
-         __DRIVER_PARAM_POINTER("991b") \
+         "\t" __DRIVER_PARAM_POINTER("991b") "\n\t" \
          "\t.long 0\n\t" \
          ".endif\n\t" \
          "\t.long " PP_PRIVATE_STR(handler) "\n\t" \

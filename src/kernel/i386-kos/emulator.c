@@ -91,12 +91,7 @@ done:
 #ifdef __x86_64__
 #define fix_user_context(context) (void)0
 #else
-PRIVATE void FCALL
-fix_user_context(struct x86_anycontext *__restrict context) {
- /* Copy the USER SP into the HOST SP pointer. */
- if (X86_ANYCONTEXT32_ISUSER(*context))
-     context->c_host.c_esp = context->c_user.c_esp;
-}
+INTDEF void FCALL fix_user_context(struct x86_anycontext *__restrict context);
 #endif
 
 INTDEF void FCALL

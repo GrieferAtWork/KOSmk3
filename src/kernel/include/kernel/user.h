@@ -31,6 +31,7 @@
 
 DECL_BEGIN
 
+#ifdef __CC__
 /* Validate user-pointers for being allowed to be used for the specified operations.
  * Since the kernel is allowed to access memory that is marked as `PROT_NOUSER',
  * user-pointers passed from user-space must be checked for the same restrictions.
@@ -58,6 +59,7 @@ FUNDEF void KCALL validate_executable_opt(UNCHECKED USER void const *base);
  * Upon such an error, an `E_SEGFAULT' is thrown. Otherwise,
  * the length of the string (in bytes) is returned. */
 FUNDEF size_t KCALL user_strlen(UNCHECKED USER char const *base);
+#endif /* __CC__ */
 
 DECL_END
 

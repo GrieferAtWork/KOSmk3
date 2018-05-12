@@ -79,7 +79,7 @@ __SYSDECL_BEGIN
   *                     Can be used to identity map memory needed for vm86 tasks.
   *               NOTE: Mapping this segment as writable will force-enable copy-on-write. */
 #define USHARE_X86_VM86BIOS_FNAME           USHARE_NAME(0x86,2)
-#define USHARE_X86_VM86BIOS_FSIZE          (1*1024*1024)
+#define USHARE_X86_VM86BIOS_FSIZE           0x100000
 #endif
 
 

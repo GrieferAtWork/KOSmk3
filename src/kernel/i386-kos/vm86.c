@@ -28,6 +28,7 @@
 #include <asm/cpu-flags.h>
 #include <sys/io.h>
 #include <stdbool.h>
+#include <except.h>
 
 #include "emulator.h"
 
@@ -123,8 +124,12 @@ extend_instruction:
  {
   u8 intno;
   u32 segoff;
+ case 0xcc:
+  intno = 0x3;
+  goto do_emulate_int;
  case 0xcd:
   intno = *text++;
+do_emulate_int:
   debug_printf("[VM86] EMULATE: <int $0x%.2I8x>\n",intno);
   COMPILER_BARRIER();
   /* Read the interrupt target from the BIOS interrupt vector at 0x0000:0x0000 */
@@ -134,10 +139,11 @@ extend_instruction:
   /* Push values. */
   vm86_pushw(context,(u16)context->c_eflags);     /* flags */
   vm86_pushw(context,(u16)context->c_iret.ir_cs); /* cs */
-  vm86_pushw(context,(u16)context->c_eip);        /* ip */
+  vm86_pushw(context,(u16)((uintptr_t)text - (context->c_iret.ir_cs * 16))); /* ip */
   context->c_iret.ir_cs      = (u16)(segoff >> 16);
   context->c_iret.ir_eip     = (u16)(segoff & 0xffff);
   context->c_iret.ir_eflags &= ~(EFLAGS_TF|EFLAGS_IF|EFLAGS_AC);
+  return true;
  } break;
 
  {
@@ -170,16 +176,17 @@ extend_instruction:
                                             EFLAGS_AC| /* XXX: System flag? */
                                             EFLAGS_ID  /* XXX: System flag? */
                                             );
+  return true;
  } break;
 
  case 0xfa:
   debug_printf("[VM86] EMULATE: <cli>\n");
-  /* TODO */
+  asm("cli");
   break;
 
  case 0xfb:
   debug_printf("[VM86] EMULATE: <sti>\n");
-  /* TODO */
+  asm("sti");
   break;
 
  case 0xe4:
@@ -259,12 +266,24 @@ extend_instruction:
   /* TODO: EFLAGS_IF */
  } break;
 
-
  default:
   debug_printf("[VM86] EMULATE: <0x%X> (UNSUPPORTED)\n",opcode);
+  debug_printf("IP = %.4I16x:%.4I16x\n",
+               context->c_iret.ir_cs,
+               context->c_iret.ir_eip);
+  debug_printf("SP = %.4I16x:%.4I16x\n",
+               context->c_iret.ir_ss,
+               context->c_iret.ir_esp);
+  {
+   uintptr_t sp;
+   sp = VM86_SEGMENT_ADDRESS(context->c_iret.ir_ss,
+                             context->c_iret.ir_esp);
+   if (sp < (0x20000-2))
+       debug_printf("%$[hex]\n",(0x20000-2)-sp,sp);
+  }
   return false;
  }
- context->c_eip = (uintptr_t)text & 0xffff;
+ context->c_iret.ir_eip = ((uintptr_t)text - (context->c_iret.ir_cs * 16)) & 0xffff;
  return true;
 }
 

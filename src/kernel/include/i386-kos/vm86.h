@@ -23,6 +23,7 @@
 #include <hybrid/host.h>
 #include <kos/types.h>
 #include <kos/context.h>
+#include <kernel/user.h>
 
 DECL_BEGIN
 
@@ -87,52 +88,103 @@ LOCAL u32 FCALL vm86_popl(struct cpu_context_vm86 *__restrict ctx);
 
 #ifndef __INTELLISENSE__
 LOCAL u8 FCALL vm86_peekb(u16 segment, u32 offset) {
- return *(u8 *)VM86_SEGMENT_ADDRESS(segment,offset);
+ u8 *presult;
+ presult = (u8 *)VM86_SEGMENT_ADDRESS(segment,offset);
+ validate_readable(presult,1);
+ COMPILER_READ_BARRIER();
+ return *presult;
 }
 LOCAL u16 FCALL vm86_peekw(u16 segment, u32 offset) {
- return *(u16 *)VM86_SEGMENT_ADDRESS(segment,offset);
+ u16 *presult;
+ presult = (u16 *)VM86_SEGMENT_ADDRESS(segment,offset);
+ validate_readable(presult,2);
+ COMPILER_READ_BARRIER();
+ return *presult;
 }
 LOCAL u32 FCALL vm86_peekl(u16 segment, u32 offset) {
- return *(u32 *)VM86_SEGMENT_ADDRESS(segment,offset);
+ u32 *presult;
+ presult = (u32 *)VM86_SEGMENT_ADDRESS(segment,offset);
+ validate_readable(presult,4);
+ COMPILER_READ_BARRIER();
+ return *presult;
 }
 LOCAL void FCALL vm86_pokeb(u16 segment, u32 offset, u8 value) {
- *(u8 *)VM86_SEGMENT_ADDRESS(segment,offset) = value;
+ u8 *ptarget;
+ ptarget = (u8 *)VM86_SEGMENT_ADDRESS(segment,offset);
+ validate_writable(ptarget,1);
+ COMPILER_WRITE_BARRIER();
+ *(u8 *)ptarget = value;
+ COMPILER_WRITE_BARRIER();
 }
 LOCAL void FCALL vm86_pokew(u16 segment, u32 offset, u16 value) {
- *(u16 *)VM86_SEGMENT_ADDRESS(segment,offset) = value;
+ u16 *ptarget;
+ ptarget = (u16 *)VM86_SEGMENT_ADDRESS(segment,offset);
+ validate_writable(ptarget,2);
+ COMPILER_WRITE_BARRIER();
+ *ptarget = value;
+ COMPILER_WRITE_BARRIER();
 }
 LOCAL void FCALL vm86_pokel(u16 segment, u32 offset, u32 value) {
- *(u32 *)VM86_SEGMENT_ADDRESS(segment,offset) = value;
+ u32 *ptarget;
+ ptarget = (u32 *)VM86_SEGMENT_ADDRESS(segment,offset);
+ validate_writable(ptarget,4);
+ COMPILER_WRITE_BARRIER();
+ *ptarget = value;
+ COMPILER_WRITE_BARRIER();
 }
 LOCAL void FCALL vm86_pushb(struct cpu_context_vm86 *__restrict ctx, u8 value) {
+ u8 *ptarget;
+ ptarget = (u8 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp)-1;
+ validate_writable(ptarget,4);
+ COMPILER_WRITE_BARRIER();
+ *ptarget = value;
+ COMPILER_WRITE_BARRIER();
  ctx->c_esp -= 1;
- *(u8 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp) = value;
 }
 LOCAL void FCALL vm86_pushw(struct cpu_context_vm86 *__restrict ctx, u16 value) {
+ u16 *ptarget;
+ ptarget = (u16 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp)-1;
+ validate_writable(ptarget,2);
+ COMPILER_WRITE_BARRIER();
+ *ptarget = value;
+ COMPILER_WRITE_BARRIER();
  ctx->c_esp -= 2;
- *(u16 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp) = value;
 }
 LOCAL void FCALL vm86_pushl(struct cpu_context_vm86 *__restrict ctx, u32 value) {
+ u32 *ptarget;
+ ptarget = (u32 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp)-1;
+ validate_writable(ptarget,4);
+ COMPILER_WRITE_BARRIER();
+ *ptarget = value;
+ COMPILER_WRITE_BARRIER();
  ctx->c_esp -= 4;
- *(u32 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp) = value;
 }
 LOCAL u8 FCALL vm86_popb(struct cpu_context_vm86 *__restrict ctx) {
- u8 result;
- result = *(u8 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp);
+ u8 *presult;
+ presult = (u8 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp);
+ validate_readable(presult,1);
+ COMPILER_WRITE_BARRIER();
  ctx->c_esp += 1;
- return result;
+ COMPILER_READ_BARRIER();
+ return *presult;
 }
 LOCAL u16 FCALL vm86_popw(struct cpu_context_vm86 *__restrict ctx) {
- u16 result;
- result = *(u16 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp);
+ u16 *presult;
+ presult = (u16 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp);
+ validate_readable(presult,2);
+ COMPILER_WRITE_BARRIER();
  ctx->c_esp += 2;
- return result;
+ COMPILER_READ_BARRIER();
+ return *presult;
 }
 LOCAL u32 FCALL vm86_popl(struct cpu_context_vm86 *__restrict ctx) {
- u32 result;
- result = *(u32 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp);
+ u32 *presult;
+ presult = (u32 *)VM86_SEGMENT_ADDRESS(ctx->c_iret.ir_ss,ctx->c_esp);
+ validate_readable(presult,4);
+ COMPILER_WRITE_BARRIER();
  ctx->c_esp += 4;
- return result;
+ COMPILER_READ_BARRIER();
+ return *presult;
 }
 #endif /* __INTELLISENSE__ */
 

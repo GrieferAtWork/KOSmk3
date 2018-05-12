@@ -323,7 +323,7 @@ x86_redirect_preempted_userspace(struct task *__restrict thread) {
      return; /* Kernel jobs don't originate from user-space. */
  iret = (struct x86_irregs_user *)thread->t_stackend-1;
 #ifdef CONFIG_VM86
- if (PERTASK_TESTF(this_task.t_flags,TASK_FVM86)) {
+ if (thread->t_flags & TASK_FVM86) {
   /* Adjust for the additional fields saved by VM86 mode. */
   *(uintptr_t *)&iret -= (sizeof(struct x86_irregs_vm86)-
                           sizeof(struct x86_irregs_user));

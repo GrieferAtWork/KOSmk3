@@ -65,21 +65,26 @@ clone_entry(struct cpu_hostcontext_user *__restrict user_context, u32 flags) {
       iter != pertask_startup_end; ++iter)
       (**iter)(flags);
 
- /* Automatically allocate a stack if user-space wants to. */
- if (interrupt_getsp() == (uintptr_t)CLONE_CHILDSTACK_AUTO)
-     interrupt_setsp(VM_PAGE2ADDR(task_alloc_userstack()->us_pageend));
+#ifdef CONFIG_VM86
+ if (!PERTASK_TESTF(this_task.t_flags,TASK_FVM86))
+#endif
+ {
+  /* Automatically allocate a stack if user-space wants to. */
+  if (interrupt_getsp() == (uintptr_t)CLONE_CHILDSTACK_AUTO)
+      interrupt_setsp(VM_PAGE2ADDR(task_alloc_userstack()->us_pageend));
 
- /* Allocate an automatic user-space TLS segment if
-  * no TLS pointer was set, and no new VM was allocated. */
- if (!(flags & CLONE_SETTLS) && (flags & CLONE_VM)) {
-  USER struct user_task_segment *segment;
-  segment = task_alloc_userseg();
-  /* Set the active TLS/TIB pointers, since we won't get preempted
-   * another time before entering userspace (if everything goes well) */
-  set_user_tls_register(segment);
+  /* Allocate an automatic user-space TLS segment if
+   * no TLS pointer was set, and no new VM was allocated. */
+  if (!(flags & CLONE_SETTLS) && (flags & CLONE_VM)) {
+   USER struct user_task_segment *segment;
+   segment = task_alloc_userseg();
+   /* Set the active TLS/TIB pointers, since we won't get preempted
+    * another time before entering userspace (if everything goes well) */
+   set_user_tls_register(segment);
 #ifndef CONFIG_NO_DOS_COMPAT
-  set_user_tib_register(&segment->ts_tib);
+   set_user_tib_register(&segment->ts_tib);
 #endif /* !CONFIG_NO_DOS_COMPAT */
+  }
  }
 
 

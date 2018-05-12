@@ -121,12 +121,7 @@ LOCAL register_t KCALL __cmpl(u32 a, u32 b) {
 #ifdef __x86_64__
 #define fix_user_context(context) (void)0
 #else
-PRIVATE void FCALL
-fix_user_context(struct x86_anycontext *__restrict context) {
- /* Copy the USER SP into the HOST SP pointer. */
- if (X86_ANYCONTEXT32_ISUSER(*context))
-     context->c_host.c_esp = context->c_user.c_esp;
-}
+INTDEF void FCALL fix_user_context(struct x86_anycontext *__restrict context);
 #endif
 
 INTDEF void FCALL
@@ -1228,7 +1223,9 @@ x86_handle_gpf(struct cpu_anycontext *__restrict context,
       return;
   /* Clear exception pointers. */
   memset(&info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
+  info->e_error.e_code = E_ILLEGAL_INSTRUCTION;
   info->e_error.e_flag = ERR_FRESUMABLE|ERR_FRESUMENEXT;
+  info->e_error.e_illegal_instruction.ii_errcode = errcode;
   goto e_privileged_instruction;
  }
 #endif

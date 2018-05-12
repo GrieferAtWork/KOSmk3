@@ -67,11 +67,23 @@ DECL_BEGIN
 #ifdef __x86_64__
 #define fix_user_context(context) (void)0
 #else
-PRIVATE void FCALL
+INTERN void FCALL
 fix_user_context(struct x86_anycontext *__restrict context) {
  /* Copy the USER SP into the HOST SP pointer. */
- if (X86_ANYCONTEXT32_ISUSER(*context))
-     context->c_host.c_esp = context->c_user.c_esp;
+#ifdef CONFIG_VM86
+ if (context->c_eflags & EFLAGS_VM) {
+#ifndef CONFIG_NO_X86_SEGMENTATION
+  context->c_segments.sg_gs = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_gs;
+  context->c_segments.sg_fs = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_fs;
+  context->c_segments.sg_es = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_es;
+  context->c_segments.sg_ds = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_ds;
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
+  context->c_host.c_esp = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_esp;
+ } else
+#endif
+ if (X86_ANYCONTEXT32_ISUSER(*context)) {
+  context->c_host.c_esp = context->c_user.c_esp;
+ }
 }
 #endif
 
@@ -413,6 +425,7 @@ default_divide:
 }
 
 INTDEF void KCALL error_print_other_thread(void);
+INTDEF void KCALL error_print_vm(void);
 INTERN void FCALL
 x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
  debug_printf("Breakpoint at %p (LASTERROR = %x)\n",
@@ -528,6 +541,7 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
     is_first = false;
    }
    //error_print_other_thread();
+   error_print_vm();
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
    error_printf("Unwind failure\n");
   }
