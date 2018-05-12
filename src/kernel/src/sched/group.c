@@ -1026,7 +1026,8 @@ DEFINE_SYSCALL4(wait4,pid_t,upid,
                 USER UNCHECKED int *,wstatus,int,options,
                 USER UNCHECKED struct rusage *,ru) {
  int which;
- if (options & ~(WNOHANG|WUNTRACED|WCONTINUED))
+ pid_t result;
+ if (options & ~(WNOHANG|WUNTRACED|WCONTINUED|WEXITED))
      error_throw(E_INVALID_ARGUMENT);
  options |= WEXITED;
  validate_writable_opt(wstatus,sizeof(int));
@@ -1048,7 +1049,8 @@ DEFINE_SYSCALL4(wait4,pid_t,upid,
   /* wait for the child whose process ID is equal to the value of pid. */
   which = P_PID;
  }
- return posix_waitfor(which,upid,wstatus,NULL,options,ru);
+ result = posix_waitfor(which,upid,wstatus,NULL,options,ru);
+ return result;
 }
 
 
