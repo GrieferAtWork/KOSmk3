@@ -205,7 +205,8 @@ xor_display_pixel(Display *__restrict self,
   *(u8 *)ptr ^= (0x3 << x);
   break;
  case 1:
-  *(u8 *)ptr ^= (0x1 << x);
+  x %= 8;
+  *(u8 *)ptr ^= (0x1 << (7 - x));
   break;
  default: assert(0);
  }

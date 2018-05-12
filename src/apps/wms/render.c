@@ -65,7 +65,8 @@ read_pixel(byte_t const *__restrict src,
   result &= 0x3;
   break;
  case 1:
-  result = *(u8 *)src >> (x % 8);
+  x %= 8;
+  result = *(u8 *)src >> x;
   result &= 0x1;
   break;
  default: assert(0);
@@ -101,6 +102,8 @@ write_pixel(byte_t *__restrict dst,
   *(u8 *)dst |= (pixel & 0x3) << x;
   break;
  case 1:
+  x %= 8;
+  x = 7-x;
   *(u8 *)dst &= ~(0x1 << x);
   *(u8 *)dst |= (pixel & 0x1) << x;
   break;

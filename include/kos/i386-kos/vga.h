@@ -308,15 +308,14 @@ struct __ATTR_PACKED vga_mode {
 #define VGA_SETMODE_DEFAULT _IOW('K',129,unsigned int)       /* Set the current display mode to one of the default modes (arg: One of `VGA_DEFAULT_MODE_*'). */
 #   define VGA_DEFAULT_MODE_TXT80X25_16    0x0000            /* Set 80x25 16-color text mode. */
 #   define VGA_DEFAULT_MODE_GFX320X200_256 0x0001            /* Set 320x200 256-color graphics mode. */
+#   define VGA_DEFAULT_MODE_GFX640X480_16  0x0002            /* Set 640x480 16-color graphics mode. */
 #define VGA_GETPAL    _IOR('K',130,struct vga_palette)       /* Get the current palette. */
 #define VGA_GETPAL_DEFAULT  _IOR('K',128,struct vga_palette) /* Get the default (bios) palette. */
 #define VGA_SETPAL    _IOW('K',130,struct vga_palette)       /* Set the current palette. */
 #define VGA_SETPAL_DEFAULT  _IOW('K',130,unsigned int)       /* Set the current palette to one of the default palettes (arg: One of `VGA_DEFAULT_PAL_*'). */
 #   define VGA_DEFAULT_PAL_TXT16           0x0000            /* Set 16-color text mode palette. */
-#   define VGA_DEFAULT_PAL_GFX16           0x0001            /* Set 16-color graphics mode palette.
-                                                              * (Yes, this is supposed to equal `VGA_DEFAULT_PAL_GFX256', because
-                                                              *  the first 16 colors of 256-color mode match those of 16-color mode). */
-#   define VGA_DEFAULT_PAL_GFX256          0x0001            /* Set 256-color graphics mode palette.
+#   define VGA_DEFAULT_PAL_GFX16           0x0001            /* Set 16-color graphics mode palette. */
+#   define VGA_DEFAULT_PAL_GFX256          0x0002            /* Set 256-color graphics mode palette.
                                                               * See the palette here: http://www.fountainware.com/EXPL/vga_color_palettes.htm */
 #define VGA_GETFONT   _IOR('K',131,struct vga_font)          /* Get the current font.
                                                               * NOTE: If the given buffer is too small, the call still succeeds,

@@ -123,6 +123,8 @@ typedef struct {
 INTDEF struct vga_mode    const vga_biosmode; /* 80x25 color text mode (BIOS 3h). */
 INTDEF struct vga_palette const vga_biospal;  /* Palette associated with `vga_biosmode' */
 INTDEF struct vga_mode    const vga_mode_gfx320x200_256;
+INTDEF struct vga_mode    const vga_mode_gfx640x480_16;
+INTDEF struct vga_palette const vga_pal_gfx16;
 INTDEF struct vga_palette const vga_pal_gfx256;
 
 INTDEF void KCALL VGA_SetMode(VGA *__restrict self, struct vga_mode const *__restrict mode);

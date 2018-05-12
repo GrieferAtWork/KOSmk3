@@ -21,6 +21,7 @@
 #define _KOS_SOURCE 1
 #define _GNU_SOURCE 1
 #define _EXCEPT_SOURCE 1
+#define __EXPOSE_CPU_CONTEXT 1
 
 #include <hybrid/compiler.h>
 #include <fcntl.h>
@@ -29,6 +30,7 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <kos/kernctl.h>
+#include <kos/heap.h>
 #include <string.h>
 #include <malloc.h>
 #include <syslog.h>
@@ -40,6 +42,9 @@
 #include <sched.h>
 #include <sys/ioctl.h>
 #include <kos/i386-kos/vga.h>
+#include <kos/ushare.h>
+#include <asm/cpu-flags.h>
+#include <errno.h>
 
 #include "bind.h"
 #include "display.h"
@@ -74,6 +79,103 @@ sigchld_handler(int UNUSED(signo),
 }
 
 
+void vm86_map_identity(void) {
+ struct mmap_info info;
+ memset(&info,0,sizeof(info));
+ info.mi_addr            = 0;
+ info.mi_prot            = PROT_READ|PROT_WRITE|PROT_EXEC;
+ info.mi_flags           = MAP_PRIVATE|MAP_FIXED;
+ info.mi_xflag           = XMAP_USHARE;
+ info.mi_size            = USHARE_X86_VM86BIOS_FSIZE;
+ info.mi_align           = PAGESIZE;
+ info.mi_gap             = 0;
+ info.mi_tag             = NULL;
+ info.mi_ushare.mu_name  = USHARE_X86_VM86BIOS_FNAME;
+ info.mi_ushare.mu_start = 0;
+ Xxmmap(&info);
+}
+
+void print_bios_vga_mode(int mode) {
+ struct cpu_context context; pid_t child;
+ byte_t *text;
+ byte_t *sp;
+ memset(&context,0,sizeof(context));
+
+ /* Map the identity page for the X86 bios. */
+ vm86_map_identity();
+
+ text    = (byte_t *)0x10000;
+ sp      = (byte_t *)0x20000-2;
+ text[0] = 0xcd;
+ text[1] = 0x10; /* int $0x10 */
+ text[2] = 0xf4; /* hlt # Cause it to crash (ugly, but this way we can join it) */
+
+ context.c_eflags        = EFLAGS_VM;
+ context.c_cs            = ((uintptr_t)text & ~0xffff)/16;
+ context.c_ss            = ((uintptr_t)sp & ~0xffff)/16;
+ context.c_eip           = (uintptr_t)text & 0xffff;
+ context.c_gpregs.gp_esp = (uintptr_t)sp & 0xffff;
+ context.c_gpregs.gp_eax = mode;
+ child = Xxclone(&context,CLONE_NEW_THREAD & ~CLONE_THREAD,NULL,NULL,NULL);
+ Xwaitpid(child,NULL,WEXITED);
+
+ {
+  struct vga_mode mode;
+  /* Read out the VGA mode, as set by the BIOS */
+  Xioctl(wms_display,VGA_GETMODE,&mode);
+  syslog(LOG_DEBUG,".vm_att_mode          = 0x%.2I8x\n",mode.vm_att_mode         );
+  syslog(LOG_DEBUG,".vm_att_overscan      = 0x%.2I8x\n",mode.vm_att_overscan     );
+  syslog(LOG_DEBUG,".vm_att_plane_enable  = 0x%.2I8x\n",mode.vm_att_plane_enable );
+  syslog(LOG_DEBUG,".vm_att_pel           = 0x%.2I8x\n",mode.vm_att_pel          );
+  syslog(LOG_DEBUG,".vm_att_color_page    = 0x%.2I8x\n",mode.vm_att_color_page   );
+  syslog(LOG_DEBUG,".vm_mis               = 0x%.2I8x\n",mode.vm_mis              );
+  syslog(LOG_DEBUG,".vm_gfx_sr_value      = 0x%.2I8x\n",mode.vm_gfx_sr_value     );
+  syslog(LOG_DEBUG,".vm_gfx_sr_enable     = 0x%.2I8x\n",mode.vm_gfx_sr_enable    );
+  syslog(LOG_DEBUG,".vm_gfx_compare_value = 0x%.2I8x\n",mode.vm_gfx_compare_value);
+  syslog(LOG_DEBUG,".vm_gfx_data_rotate   = 0x%.2I8x\n",mode.vm_gfx_data_rotate  );
+  syslog(LOG_DEBUG,".vm_gfx_mode          = 0x%.2I8x\n",mode.vm_gfx_mode         );
+  syslog(LOG_DEBUG,".vm_gfx_misc          = 0x%.2I8x\n",mode.vm_gfx_misc         );
+  syslog(LOG_DEBUG,".vm_gfx_compare_mask  = 0x%.2I8x\n",mode.vm_gfx_compare_mask );
+  syslog(LOG_DEBUG,".vm_gfx_bit_mask      = 0x%.2I8x\n",mode.vm_gfx_bit_mask     );
+  syslog(LOG_DEBUG,".vm_crt_h_total       = 0x%.2I8x\n",mode.vm_crt_h_total      );
+  syslog(LOG_DEBUG,".vm_crt_h_disp        = 0x%.2I8x\n",mode.vm_crt_h_disp       );
+  syslog(LOG_DEBUG,".vm_crt_h_blank_start = 0x%.2I8x\n",mode.vm_crt_h_blank_start);
+  syslog(LOG_DEBUG,".vm_crt_h_blank_end   = 0x%.2I8x\n",mode.vm_crt_h_blank_end  );
+  syslog(LOG_DEBUG,".vm_crt_h_sync_start  = 0x%.2I8x\n",mode.vm_crt_h_sync_start );
+  syslog(LOG_DEBUG,".vm_crt_h_sync_end    = 0x%.2I8x\n",mode.vm_crt_h_sync_end   );
+  syslog(LOG_DEBUG,".vm_crt_v_total       = 0x%.2I8x\n",mode.vm_crt_v_total      );
+  syslog(LOG_DEBUG,".vm_crt_overflow      = 0x%.2I8x\n",mode.vm_crt_overflow     );
+  syslog(LOG_DEBUG,".vm_crt_preset_row    = 0x%.2I8x\n",mode.vm_crt_preset_row   );
+  syslog(LOG_DEBUG,".vm_crt_max_scan      = 0x%.2I8x\n",mode.vm_crt_max_scan     );
+  syslog(LOG_DEBUG,".vm_crt_v_sync_start  = 0x%.2I8x\n",mode.vm_crt_v_sync_start );
+  syslog(LOG_DEBUG,".vm_crt_v_sync_end    = 0x%.2I8x\n",mode.vm_crt_v_sync_end   );
+  syslog(LOG_DEBUG,".vm_crt_v_disp_end    = 0x%.2I8x\n",mode.vm_crt_v_disp_end   );
+  syslog(LOG_DEBUG,".vm_crt_offset        = 0x%.2I8x\n",mode.vm_crt_offset       );
+  syslog(LOG_DEBUG,".vm_crt_underline     = 0x%.2I8x\n",mode.vm_crt_underline    );
+  syslog(LOG_DEBUG,".vm_crt_v_blank_start = 0x%.2I8x\n",mode.vm_crt_v_blank_start);
+  syslog(LOG_DEBUG,".vm_crt_v_blank_end   = 0x%.2I8x\n",mode.vm_crt_v_blank_end  );
+  syslog(LOG_DEBUG,".vm_crt_mode          = 0x%.2I8x\n",mode.vm_crt_mode         );
+  syslog(LOG_DEBUG,".vm_crt_line_compare  = 0x%.2I8x\n",mode.vm_crt_line_compare );
+  syslog(LOG_DEBUG,".vm_seq_clock_mode    = 0x%.2I8x\n",mode.vm_seq_clock_mode   );
+  syslog(LOG_DEBUG,".vm_seq_plane_write   = 0x%.2I8x\n",mode.vm_seq_plane_write  );
+  syslog(LOG_DEBUG,".vm_seq_character_map = 0x%.2I8x\n",mode.vm_seq_character_map);
+  syslog(LOG_DEBUG,".vm_seq_memory_mode   = 0x%.2I8x\n",mode.vm_seq_memory_mode  );
+ }
+ {
+  struct vga_palette pal;
+  unsigned int i;
+  Xioctl(wms_display,VGA_GETPAL,&pal);
+  for (i = 0; i < 256; ++i) {
+   syslog(LOG_DEBUG,"C(0x%.2I8x,0x%.2I8x,0x%.2I8x),",
+          pal.vp_pal[i].c_red >> 2,
+          pal.vp_pal[i].c_green >> 2,
+          pal.vp_pal[i].c_blue >> 2);
+   if ((i % 8) == 7) syslog(LOG_DEBUG,"\n");
+
+  }
+ }
+}
+
 
 int main(int argc, char *argv[]) {
  /* Setup all the bindings. */
@@ -81,21 +183,32 @@ int main(int argc, char *argv[]) {
  wms_mouse    = Xopen(WMS_PATH_MOUSE,O_RDWR);
  wms_display  = Xopen(WMS_PATH_DISPLAY,O_RDWR);
 
- /* Switch to graphics mode (256 color). */
- Xioctl(wms_display,VGA_SETMODE_DEFAULT,VGA_DEFAULT_MODE_GFX320X200_256);
- Xioctl(wms_display,VGA_SETPAL_DEFAULT,VGA_DEFAULT_PAL_GFX256);
-
  TRY {
 
+  /* Switch to graphics mode. */
+#if 0
+  //print_bios_vga_mode(0x12);
+  Xioctl(wms_display,VGA_SETMODE_DEFAULT,VGA_DEFAULT_MODE_GFX640X480_16);
+  Xioctl(wms_display,VGA_SETPAL_DEFAULT,VGA_DEFAULT_PAL_GFX16);
+  default_display.d_sizex  = 640;
+  default_display.d_sizey  = 480;
+  default_display.d_stride = 640/8;
+  default_display.d_bpp    = 1;
+#else
+  Xioctl(wms_display,VGA_SETMODE_DEFAULT,VGA_DEFAULT_MODE_GFX320X200_256);
+  Xioctl(wms_display,VGA_SETPAL_DEFAULT,VGA_DEFAULT_PAL_GFX256);
   default_display.d_sizex  = 320;
   default_display.d_sizey  = 200;
   default_display.d_stride = 320;
   default_display.d_bpp    = 8;
+#endif
+
   /* Map VGA Display memory. */
   default_display.d_screen = (byte_t *)Xmmap(0,8192*4*4,PROT_READ|PROT_WRITE,
                                              MAP_PRIVATE,wms_display,0);
   default_display.d_backgrnd = (byte_t *)Xcalloc(default_display.d_sizey,
                                                  default_display.d_stride);
+#if 1
   {
    unsigned int x,y;
    for (y = 0; y < default_display.d_sizey; ++y) {
@@ -104,14 +217,38 @@ int main(int argc, char *argv[]) {
     }
    }
   }
+#else
+  {
+   unsigned int x,y;
+   memset(default_display.d_screen,0,8192*4*4);
+   //memset(default_display.d_screen,0xff,8192*4*1);
+   for (y = 0; y < default_display.d_sizey; ++y) {
+    for (x = 0; x < default_display.d_sizex; ++x) {
+     byte_t color = (x+y) & 0xf;
+     byte_t mask  = 1 << (x & 7);
+     unsigned int addr = x/8+y*default_display.d_stride;
+     if (color > 1) default_display.d_screen[addr+0*8192*4] |= mask;
+     else           default_display.d_screen[addr+0*8192*4] &= ~mask;
+     //if (color > 2) default_display.d_screen[addr+1*8192*4] |= mask;
+     //else           default_display.d_screen[addr+1*8192*4] &= ~mask;
+     //if (color > 4) default_display.d_screen[addr+2*8192*4] |= mask;
+     //else           default_display.d_screen[addr+2*8192*4] &= ~mask;
+     //if (color > 8) default_display.d_screen[addr+3*8192*4] |= mask;
+     //else           default_display.d_screen[addr+3*8192*4] &= ~mask;
+     //Background_PutPixel(&default_display,x,y,x+y);
+    }
+   }
+  }
+  pause();
+#endif
 
   default_display.d_backvisi.r_strips = RECT_STRIP_ALLOC(1);
-  default_display.d_backvisi.r_strips[0].rs_blkc = 1;
-  default_display.d_backvisi.r_strips[0].rs_chain.le_next = NULL;
-  default_display.d_backvisi.r_strips[0].rs_xmin = 0;
-  default_display.d_backvisi.r_strips[0].rs_xsiz = default_display.d_sizex;
-  default_display.d_backvisi.r_strips[0].rs_blkv[0].rb_ymin = 0;
-  default_display.d_backvisi.r_strips[0].rs_blkv[0].rb_ysiz = default_display.d_sizey;
+  default_display.d_backvisi.r_strips->rs_blkc            = 1;
+  default_display.d_backvisi.r_strips->rs_chain.le_next   = NULL;
+  default_display.d_backvisi.r_strips->rs_xmin            = 0;
+  default_display.d_backvisi.r_strips->rs_xsiz            = default_display.d_sizex;
+  default_display.d_backvisi.r_strips->rs_blkv[0].rb_ymin = 0;
+  default_display.d_backvisi.r_strips->rs_blkv[0].rb_ysiz = default_display.d_sizey;
 
 
   /* Redraw the display for the first time. */
@@ -154,10 +291,10 @@ int main(int argc, char *argv[]) {
   }
  } FINALLY {
   /* Return to text mode. */
-  Xioctl(wms_display,VGA_RESET,
-         VGA_RESET_FMODE|
-         VGA_RESET_FFONT|
-         VGA_RESET_FPAL);
+  ioctl(wms_display,VGA_RESET,
+        VGA_RESET_FMODE|
+        VGA_RESET_FFONT|
+        VGA_RESET_FPAL);
  }
  return 0;
 }
