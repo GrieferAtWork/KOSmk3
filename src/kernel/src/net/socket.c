@@ -69,13 +69,28 @@ again:
  sock = domain->sd_sockets.s_sockets;
  if (sock) {
   assert(sock->s_domain == domain);
-  /* Must acquire a lock to the socket, because socket's assume that holding
+  /* Must acquire a lock to the socket, because sockets assume that holding
    * a lock to themself is enough to ensure that their driver is still loaded. */
   if (!rwlock_trywrite(&sock->s_lock)) {
    /* Prevent a deadlock scenario with the
     * socket's reference counter reaching ZERO(0). */
+#if 1
+   if (!socket_tryincref(sock)) sock = NULL;
+#endif
    atomic_rwlock_endwrite(&domain->sd_sockets.s_lock);
-   task_yield();
+#if 1 /* Shut down the socket to interrupt any operations still running. */
+   if (sock) {
+    struct socket *EXCEPT_VAR xsock = sock;
+    TRY {
+     socket_shutdown(sock,SOCKET_STATE_FSHUTRD|SOCKET_STATE_FSHUTWR);
+    } FINALLY {
+     socket_decref(xsock);
+    }
+   } else
+#endif
+   {
+    task_yield();
+   }
    goto again;
   }
   atomic_rwlock_endwrite(&domain->sd_sockets.s_lock);
@@ -259,14 +274,14 @@ socket_shutdown(struct socket *__restrict self, u16 how) {
  u16 new_bits;
  assert((how & ~(SOCKET_STATE_FSHUTRD|SOCKET_STATE_FSHUTWR)) == 0);
  assert((how & (SOCKET_STATE_FSHUTRD|SOCKET_STATE_FSHUTWR)) != 0);
- /* TODO: Implement and use an aggressive-acquire-write function here:
-  *       - Send RPC callbacks to all readers, which in turn will then
-  *         cause an `E_RETRY_RWLOCK' to be thrown in their threads
-  *         in order to get them to release their locks.
-  *       - If we do this, we can use shutdown() to interrupt blocking
-  *         operations such as recv(), send() or accept(), causing them
-  *         to loop around and notice that the socket has been shut down! */
- rwlock_write(&self->s_lock);
+ /* Use an aggressive-acquire-write function here:
+  *  - Send RPC callbacks to all readers, which in turn will then
+  *    cause an `E_RETRY_RWLOCK' to be thrown in their threads
+  *    in order to get them to release their locks.
+  *  - If we do this, we can use shutdown() to interrupt blocking
+  *    operations such as recv(), send() or accept(), causing them
+  *    to loop around and notice that the socket has been shut down! */
+ rwlock_write_agressive(&self->s_lock);
  new_bits = ATOMIC_FETCHOR(self->s_state,how);
  /* Figure out which bits become enabled by this shutdown command. */
  new_bits = how & ~new_bits;

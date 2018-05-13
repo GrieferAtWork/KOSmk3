@@ -49,7 +49,8 @@ struct task;
  * NOTE: This one must be capable of dealing with:
  * >> rwlock_read(x);
  * >> rwlock_read(x);  // Secondary read lock does not count to the total number of reading threads.
- * >> rwlock_write(x); // Upgrade lock by changing to a state that prevents new threads from being added.
+ * >> rwlock_write(x); // Upgrade lock by changing to a state that prevents new threads from being added,
+ * >>                  // while also ensuring that the calling thread is the only one holding a lock.
  * >> rwlock_write(x);
  * >> rwlock_read(x);  // Once already holding a write-lock, this is the same as calling `rwlock_write()'
  * >> // .. Same as holding a single `rwlock_write(x)'
@@ -200,6 +201,7 @@ rwlock_tryupgrade(struct rwlock *__restrict self) {
 /* Blocking-acquire a shared/exclusive lock.
  * NOTE: These functions clobber task connections.
  * @throw: * :             [abs_timeout != JTIME_DONTWAIT] An exception was thrown by an RPC callback.
+ * @throw: E_INTERRUPT:    [abs_timeout != JTIME_DONTWAIT] The calling thread was interrupted.
  * @throw: E_BADALLOC:     [rwlock_timedread] Failed to allocate a read-descriptor.
  * @throw: E_RETRY_RWLOCK: [rwlock_timedwrite | rwlock_write]
  *                          The parallel-upgrade deadlock was detected and the calling
@@ -223,9 +225,7 @@ void KCALL rwlock_writef(struct rwlock *__restrict self, iomode_t flags);
 #define rwlock_write(self)      (void)rwlock_timedwrite(self,JTIME_INFINITE)
 LOCAL void KCALL rwlock_readf(struct rwlock *__restrict self, iomode_t flags);
 LOCAL void KCALL rwlock_writef(struct rwlock *__restrict self, iomode_t flags);
-#endif
 
-#ifndef __INTELLISENSE__
 FUNDEF bool KCALL
 __os_rwlock_timedread(struct rwlock *__restrict self,
                       jtime_t abs_timeout)
@@ -246,6 +246,54 @@ FORCELOCAL bool KCALL
 rwlock_timedwrite(struct rwlock *__restrict self,
                   jtime_t abs_timeout) {
  if (!__os_rwlock_timedwrite(self,abs_timeout))
+      return false;
+ COMPILER_BARRIER();
+ return true;
+}
+#endif /* !__INTELLISENSE__ */
+
+/* An advanced variant of `rwlock_write()' which makes use of
+ * the RETRY_RWLOCK mechanism to quickly acquire a write lock.
+ * The difference between this and the regular write, is that
+ * this function will explicitly go and hunt down threads that
+ * are holding read-locks on `self', scheduling RPC callbacks
+ * in their context and throwing `E_RETRY_RWLOCK' with `self'
+ * as associated r/w-lock.
+ * This way, the calling thread is guarantied to be able to
+ * eventually acquire a write-lock, even if there were other
+ * threads holding read locks, which were also waiting for
+ * some other kind of lock.
+ * The `abs_timeout' only comes into effect when the r/w-lock
+ * was already in write-mode, but the owner was some thread
+ * other than the calling thread. In this case, a regular wait
+ * will still be performed, and the function behaves just like
+ * the regular `rwlock_timedwrite()'.
+ * @throw: * :            [abs_timeout != JTIME_DONTWAIT] An exception was thrown by an RPC callback.
+ * @throw: E_INTERRUPT:   [abs_timeout != JTIME_DONTWAIT] The calling thread was interrupted.
+ * @throw: E_BADALLOC:     Failed to allocate an RPC callback for one of the reader threads.
+ * @throw: E_RETRY_RWLOCK: The parallel-upgrade deadlock was detected and the calling
+ *                         thread was chosen to unwind their stack, calling
+ *                        `rwlock_endread()' or `rwlock_end()' until one of the
+ *                         two functions returns `true', in which case said function
+ *                         should jump back to the code that was originally used
+ *                         to acquire a read-lock further up the execution tree.
+ *                         See the section on `parallel-upgrade' above.
+ * @return: true:  Successfully acquire a write lock.
+ * @return: false: The given timeout has expired. */
+FORCELOCAL bool KCALL rwlock_timedwrite_agressive(struct rwlock *__restrict self, jtime_t abs_timeout);
+#ifdef __INTELLISENSE__
+void KCALL rwlock_write_agressive(struct rwlock *__restrict self);
+#else
+#define rwlock_write_agressive(self) (void)rwlock_timedwrite_agressive(self,JTIME_INFINITE)
+
+FUNDEF bool KCALL
+__os_rwlock_timedwrite_agressive(struct rwlock *__restrict self,
+                                 jtime_t abs_timeout)
+                                 ASMNAME("rwlock_timedwrite_agressive");
+FORCELOCAL bool KCALL
+rwlock_timedwrite_agressive(struct rwlock *__restrict self,
+                            jtime_t abs_timeout) {
+ if (!__os_rwlock_timedwrite_agressive(self,abs_timeout))
       return false;
  COMPILER_BARRIER();
  return true;

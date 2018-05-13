@@ -83,6 +83,8 @@ PRIVATE ATTR_USED void KCALL
 readlocks_fini(struct task *__restrict thread) {
  struct read_locks *locks;
  locks = &FORTASK(thread,my_readlocks);
+ assertf(locks->rls_use == 0,
+        "Thread died with read locks still held");
  if (locks->rls_vec != locks->rls_sbuf)
      kfree(locks->rls_vec);
 }
@@ -375,6 +377,9 @@ got_lock:
 PUBLIC bool KCALL
 __os_rwlock_timedwrite(struct rwlock *__restrict self,
                        jtime_t abs_timeout) {
+#if 0
+ return __os_rwlock_timedwrite_agressive(self,abs_timeout);
+#else
  u32 control_word;
  assertf(!task_isconnected(),
          "You mustn't be connected when calling this function");
@@ -489,6 +494,224 @@ wait_for_unshare:
                                                 (caller_has_lock ? 1 : 0))));
      return false;
     }
+   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+    /* Something went wrong. - Re-acquire the read-lock
+     * (if we had one), switch back to read-mode. */
+    do {
+     control_word = ATOMIC_READ(self->rw_state);
+     assert(__RWLOCK_MODE(control_word) == RWLOCK_MODE_FUPGRADING);
+    } while (!ATOMIC_CMPXCH_WEAK(self->rw_state,control_word,
+                                 __RWLOCK_STATE(RWLOCK_MODE_FREADING,
+                                                __RWLOCK_IND(control_word)+
+                                               (caller_has_lock ? 1 : 0))));
+    error_rethrow();
+   }
+   /* Signal received. - Check if the unshared is complete. */
+   goto wait_for_unshare;
+  }
+  break;
+ }
+#endif
+}
+
+
+PRIVATE void KCALL kill_reader(struct rwlock *__restrict lock) {
+ struct exception_info *info;
+ /* Check if the calling thread has a read-lock on `lock',
+  * and throw an `E_RETRY_RWLOCK' exception if it does. */
+ if (!find_readlock(lock))
+      return;
+ debug_printf("KILL_READER: %u for %p\n",posix_gettid(),lock);
+ /* Apparently we are using that lock in particular.
+  * So as already mentioned, to deal with this we simply throw
+  * an exception that'll cause the read-lock to be re-acquired. */
+ info = error_info();
+ memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
+ info->e_error.e_code                      = E_RETRY_RWLOCK;
+ info->e_error.e_flag                      = ERR_FNORMAL;
+ info->e_error.e_retry_rwlock.e_rwlock_ptr = lock;
+ error_throw_current();
+}
+
+PRIVATE bool KCALL
+kill_rwlock_reader(struct task *__restrict thread,
+                   struct rwlock *__restrict lock) {
+ struct read_locks *locks;
+ if (thread == THIS_TASK)
+     goto done; /* Skip our own thread. */
+ locks = &FORTASK(thread,my_readlocks);
+ if (!locks->rls_use)
+      goto done; /* This thread isn't using any R/W-locks */
+ if (thread->t_segment.ts_xcurrent.e_error.e_code == E_RETRY_RWLOCK &&
+     thread->t_segment.ts_xcurrent.e_error.e_retry_rwlock.e_rwlock_ptr == lock)
+     goto done; /* This thread is already in the process of dropping this read-lock. */
+ if (locks->rls_vec == locks->rls_sbuf) {
+  unsigned int i;
+  /* We can search the thread's static read-lock map. */
+  for (i = 0; i < COMPILER_LENOF(locks->rls_sbuf); ++i) {
+   /* Use an atomic read to reduce the chances of
+    * reading an incomplete pointer in SMP mode. */
+   if (ATOMIC_LOAD(locks->rls_sbuf[i].rl_rwlock) == lock)
+       goto use_rpc;
+  }
+  /* Check again if the thread is still using its static buffer.
+   * NOTE: Event if the thread temporarily used a dynamic
+   *       buffer while we were checking its static buffer,
+   *       we're trying to look for threads that were already
+   *       using our R/W-lock when we changed the lock to
+   *       upgrade-mode. So with that in mind, a thread that
+   *       wasn't using our lock at that point won't show up
+   *       here either. An those that were using it and didn't
+   *       show up just now are of no interest to us, as those
+   *       are the ones that already got rid of their locks
+   *       to our R/W-lock.
+   * This check is only required to ensure that the thread didn't
+   * migrate its lock to our r/w-lock while we were checking its
+   * set of used locks. */
+  if (locks->rls_vec == locks->rls_sbuf)
+      goto use_rpc;
+ } else {
+use_rpc:
+  /* Send an RPC to the thread to check if it's using our lock. */
+  task_queue_rpc(thread,(task_rpc_t)&kill_reader,lock,TASK_RPC_SYNC);
+ }
+done:
+ return true;
+}
+
+PRIVATE void KCALL
+rwlock_kill_readers(struct rwlock *__restrict self) {
+ /* Enumerate all running threads to find (and kill)
+  * those that are using our R/W-lock. */
+ task_foreach_weak_running((bool(KCALL *)(struct task *__restrict,void*))&kill_rwlock_reader,self);
+}
+
+
+PUBLIC bool KCALL
+__os_rwlock_timedwrite_agressive(struct rwlock *__restrict self,
+                                 jtime_t abs_timeout) {
+ u32 control_word;
+ assertf(!task_isconnected(),
+         "You mustn't be connected when calling this function");
+#ifdef CONFIG_LOG_RWLOCKS
+ debug_printf("[RWLOCK][%p] WRITE(%p,%p)\n",THIS_TASK,self,self->rw_state);
+#endif
+again:
+ control_word = ATOMIC_READ(self->rw_state);
+ switch (__RWLOCK_MODE(control_word)) {
+
+ case RWLOCK_MODE_FWRITING:
+  if (self->rw_xowner == THIS_TASK) {
+   /* Recursive read-after-write. */
+   ++self->rw_xind;
+   return true;
+  }
+  assertf(!find_readlock(self),
+          "You can't be holding read locks when another thread is writing");
+  /* Wait for the write-mode to finish. */
+wait_for_endwrite:
+  TASK_POLL_BEFORE_CONNECT({
+   COMPILER_READ_BARRIER();
+   if (self->rw_mode == RWLOCK_MODE_FREADING)
+       goto again;
+  });
+  task_connect(&self->rw_chmode);
+  COMPILER_READ_BARRIER();
+  if (self->rw_mode == RWLOCK_MODE_FREADING) {
+   task_disconnect();
+   goto again;
+  }
+  /* Wait for the lock to become available. */
+  if (!task_waitfor(abs_timeout))
+       return false; /* Timeout... */
+  goto again;
+
+ case RWLOCK_MODE_FUPGRADING:
+  /* Lock is in upgrade-mode. */
+  if (find_readlock(self)) {
+   struct exception_info *info;
+   /* The caller is holding read-locks, that must be removed to prevent
+    * a deadlock situation. For this purposes, the `E_RETRY_RWLOCK'
+    * exception exists. */
+   info                 = error_info();
+   info->e_error.e_code = E_RETRY_RWLOCK;
+   info->e_error.e_flag = ERR_FNORMAL;
+   memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
+   /* Save the R/W-lock responsible. */
+   info->e_error.e_retry_rwlock.e_rwlock_ptr = self;
+   error_throw_current();
+   __builtin_unreachable();
+  }
+  goto wait_for_endwrite;
+
+
+ default:
+  /* Read-mode. */
+  if (__RWLOCK_IND(control_word) == 0) {
+   /* Direct switch to write-mode. */
+   assertf(!find_readlock(self),"Without any read-locks, how can you be holding any?");
+   if (!ATOMIC_CMPXCH(self->rw_state,control_word,
+                      __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1)))
+        goto again;
+got_lock:
+   self->rw_xowner = THIS_TASK;
+   return true;
+  } else {
+   bool caller_has_lock;
+   assert(__RWLOCK_IND(control_word) >= 1);
+   caller_has_lock = find_readlock(self) != NULL;
+   /* Must use upgrade-mode to acquire the lock. */
+   if (caller_has_lock && __RWLOCK_IND(control_word) == 1) {
+    /* We seem to be the only reader. - Try to do an atomic upgrade. */
+    if (!ATOMIC_CMPXCH(self->rw_state,control_word,
+                       __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1)))
+         goto again;
+    goto got_lock;
+   }
+   /* Switch to upgrade-mode. */
+   if (!ATOMIC_CMPXCH(self->rw_state,control_word,
+                      __RWLOCK_STATE(RWLOCK_MODE_FUPGRADING,
+                                     __RWLOCK_IND(control_word)-
+                                    (caller_has_lock ? 1 : 0))))
+        goto again;
+   TRY {
+wait_for_unshare:
+    /* Wait for the end of all readers to be signaled. */
+    TASK_POLL_BEFORE_CONNECT({
+     if unlikely(ATOMIC_CMPXCH(self->rw_state,
+                               __RWLOCK_STATE(RWLOCK_MODE_FUPGRADING,0),
+                               __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1)))
+        goto got_lock;
+    });
+    rwlock_kill_readers(self);
+    TASK_POLL_BEFORE_CONNECT({
+     if unlikely(ATOMIC_CMPXCH(self->rw_state,
+                               __RWLOCK_STATE(RWLOCK_MODE_FUPGRADING,0),
+                               __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1)))
+        goto got_lock;
+    });
+
+    /* Connect to the unshare-signal. */
+    task_connect(&self->rw_unshare);
+    /* Check if the upgrade already finished (unlikely) */
+    if unlikely(ATOMIC_CMPXCH(self->rw_state,
+                              __RWLOCK_STATE(RWLOCK_MODE_FUPGRADING,0),
+                              __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1))) {
+     task_disconnect();
+     goto got_lock;
+    }
+    rwlock_kill_readers(self);
+    if unlikely(ATOMIC_CMPXCH(self->rw_state,
+                              __RWLOCK_STATE(RWLOCK_MODE_FUPGRADING,0),
+                              __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1))) {
+     task_disconnect();
+     goto got_lock;
+    }
+    /* Wait for a while, assuming that readers behave as they should
+     * and release their locks before entering a wait-state when trying to
+     * reacquire them, but noticing that the lock is in UPGRADING mode.
+     * NOTE: We use a small timeout so we can try again in case we missed something. */
+    task_waitfor(jiffies + JIFFIES_FROM_MILLI(200));
    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
     /* Something went wrong. - Re-acquire the read-lock
      * (if we had one), switch back to read-mode. */
