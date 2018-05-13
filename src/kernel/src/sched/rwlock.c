@@ -521,7 +521,9 @@ PRIVATE void KCALL kill_reader(struct rwlock *__restrict lock) {
   * and throw an `E_RETRY_RWLOCK' exception if it does. */
  if (!find_readlock(lock))
       return;
+#if 0
  debug_printf("KILL_READER: %u for %p\n",posix_gettid(),lock);
+#endif
  /* Apparently we are using that lock in particular.
   * So as already mentioned, to deal with this we simply throw
   * an exception that'll cause the read-lock to be re-acquired. */

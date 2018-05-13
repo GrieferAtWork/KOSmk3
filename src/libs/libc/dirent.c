@@ -147,10 +147,12 @@ EXPORT(rewinddir,libc_rewinddir);
 INTERN void LIBCCALL
 libc_rewinddir(DIR *__restrict self) {
  sys_lseek(self->ds_fd,0,SEEK_SET);
+ self->ds_lodsize = 0;
 }
 
 EXPORT(seekdir,libc_seekdir);
 INTERN int LIBCCALL libc_seekdir(DIR *__restrict self, long int pos) {
+ self->ds_lodsize = 0;
 #if __SIZEOF_LONG__ == 4
  return libc_lseek(self->ds_fd,(off32_t)pos,SEEK_SET) < 0 ? -1 : 0;
 #else
@@ -160,6 +162,7 @@ INTERN int LIBCCALL libc_seekdir(DIR *__restrict self, long int pos) {
 
 EXPORT(telldir,libc_telldir);
 INTERN long int LIBCCALL libc_telldir(DIR *__restrict self) {
+ /* XXX: Adjust for unread, but pre-cached directory entries? */
 #if __SIZEOF_LONG__ == 4
  return (long int)libc_lseek(self->ds_fd,0,SEEK_CUR);
 #else
@@ -275,10 +278,8 @@ CRT_EXCEPT ATTR_RETNONNULL DIR *LIBCCALL
 libc_public_Xfopendirat(fd_t dfd, char const *name, int flags) {
  oflag_t oflags = O_RDONLY|O_DIRECTORY;
  /* Check flags to be valid (same as would be done by the kernel) */
- if (flags & ~(AT_DOSPATH|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH)) {
-  libc_seterrno(EINVAL);
-  return NULL;
- }
+ if (flags & ~(AT_DOSPATH|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH))
+     error_throw(E_INVALID_ARGUMENT);
  /* Convert AT_* flags to O_* flags. */
  if (flags & AT_DOSPATH)          oflags |= O_DOSPATH;
  if (flags & AT_SYMLINK_NOFOLLOW) oflags |= O_NOFOLLOW;
@@ -297,7 +298,7 @@ libc_public_Xfopendirat(fd_t dfd, char const *name, int flags) {
    fd_t EXCEPT_VAR new_dfd = libc_dup(dfd);
    LIBC_TRY {
     result = libc_Xfdopendir(new_dfd);
-   } LIBC_EXCEPT(EXCEPT_EXECUTE_HANDLER) {
+   } LIBC_EXCEPT (EXCEPT_EXECUTE_HANDLER) {
     sys_close(new_dfd);
     error_rethrow();
    }

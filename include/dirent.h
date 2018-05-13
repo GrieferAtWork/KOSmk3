@@ -91,23 +91,47 @@ enum {
 typedef struct __dirstream DIR;
 #endif /* !__DIR_defined */
 
+/* >> opendir(3)
+ * Open and return a new directory stream for reading, referring to `name' */
 __REDIRECT_EXCEPT_UFS(__LIBC,__XATTR_RETNONNULL __WUNUSED __NONNULL((1)),DIR *,__LIBCCALL,opendir,(char const *__name),(__name))
+
 #if defined(__CRT_KOS) && defined(__USE_KOS) && defined(__USE_ATFILE)
+/* >> opendirat(3), fopendirat(3)
+ * Directory-handle-relative, and flags-enabled versions of `opendir(3)' */
 __REDIRECT_EXCEPT_UFS(__LIBC,__XATTR_RETNONNULL __PORT_KOSONLY_ALT(opendir) __WUNUSED __NONNULL((2)),DIR *,__LIBCCALL,opendirat,(__fd_t __dfd, char const *__name),(__dfd,__name))
 __REDIRECT_EXCEPT_UFS(__LIBC,__XATTR_RETNONNULL __PORT_KOSONLY_ALT(opendir) __WUNUSED __NONNULL((2)),DIR *,__LIBCCALL,fopendirat,(__fd_t __dfd, char const *__name, __atflag_t __flags),(__dfd,__name,__flags))
 #endif /* __CRT_KOS && __USE_KOS && __USE_ATFILE */
+
+/* >> closedir(3)
+ * Close a directory stream previously returned by `opendir(3)' and friends. */
 __LIBC __NONNULL((1)) int (__LIBCCALL closedir)(DIR *__dirp);
-/* @EXCEPT: Returns NULL for end-of-directory; throws an error if something else went wrong. */
+
+/* >> readdir(3)
+ * Read and return the next pending directory entry of the given directory stream `DIRP'
+ * @EXCEPT: Returns NULL for end-of-directory; throws an error if something else went wrong. */
 __REDIRECT_EXCEPT_FS64(__LIBC,__NONNULL((1)),struct dirent *,__LIBCCALL,readdir,(DIR *__restrict __dirp),(__dirp))
+
+/* >> rewinddir(3)
+ * Rewind the given directory stream in such a way that the next call to `readdir(3)'
+ * will once again return the first directory entry. */
 __LIBC __PORT_NODOS __NONNULL((1)) void (__LIBCCALL rewinddir)(DIR *__restrict __dirp);
+
 #ifdef __USE_XOPEN2K8
+/* >> fopendir(3)
+ * Create a new directory stream by inheriting the given `FD' as stream handle. */
 __REDIRECT_EXCEPT(__LIBC,__XATTR_RETNONNULL __PORT_NODOS __WUNUSED,DIR *,__LIBCCALL,fdopendir,(__fd_t __fd),(__fd))
 #endif /* __USE_XOPEN2K8 */
+
 #ifdef __USE_LARGEFILE64
-/* @EXCEPT: Returns NULL for end-of-directory; throws an error if something else went wrong. */
+/* >> readdir64(3)
+ * 64-bit equivalent of `readdir(3)'
+ * @EXCEPT: Returns NULL for end-of-directory; throws an error if something else went wrong. */
 __REDIRECT_EXCEPT(__LIBC,__NONNULL((1)),struct dirent64 *,__LIBCCALL,readdir64,(DIR *__restrict __dirp),(__dirp))
 #endif /* __USE_LARGEFILE64 */
+
 #ifdef __USE_POSIX
+/* >> readdir_r(3)
+ * Reentrant version of `readdir(3)' (Using this is not recommended in KOS). */
 #ifdef __USE_FILE_OFFSET64
 __REDIRECT_EXCEPT_XVOID_(__LIBC,__PORT_NODOS __NONNULL((1,2,3)),int,__LIBCCALL,
                          readdir_r,(DIR *__restrict __dirp, struct dirent *__restrict __entry, struct dirent **__restrict __result),
@@ -117,6 +141,7 @@ __REDIRECT_EXCEPT_XVOID(__LIBC,__PORT_NODOS __NONNULL((1,2,3)),int,__LIBCCALL,re
                        (DIR *__restrict __dirp, struct dirent *__restrict __entry, struct dirent **__restrict __result),
                        (__dirp,__entry,__result))
 #endif
+
 #ifdef __USE_LARGEFILE64
 /* NOTE: This ~reentrant~ version of readdir() is strongly discouraged from being used in KOS, as the
  *       kernel does not impose a limit on the length of a single directory entry name (s.a. 'xreaddir')
@@ -127,23 +152,34 @@ __REDIRECT_EXCEPT_XVOID(__LIBC,__PORT_NODOS __NONNULL((1,2,3)),int,__LIBCCALL,re
                        (__dirp,__entry,__result))
 #endif /* __USE_LARGEFILE64 */
 #endif /* __USE_POSIX */
+
+
 #if defined(__USE_MISC) || defined(__USE_XOPEN)
+/* >> seekdir(3), telldir(3)
+ * Get/Set the directory stream position. */
 __LIBC __PORT_NODOS __NONNULL((1)) void (__LIBCCALL seekdir)(DIR *__restrict __dirp, long int __pos);
 __REDIRECT_EXCEPT(__LIBC,__PORT_NODOS __NONNULL((1)),long int,__LIBCCALL,telldir,(DIR *__restrict __dirp),(__dirp))
 #endif /* __USE_MISC || __USE_XOPEN */
 
 #ifdef __USE_XOPEN2K8
-__LIBC __WUNUSED __NONNULL((1)) __fd_t (__LIBCCALL dirfd)(DIR *__restrict __dirp);
+/* >> dirfd(3)
+ * Return the underlying file descriptor of the given directory stream. */
+__LIBC __WUNUSED __ATTR_CONST __NONNULL((1)) __fd_t (__LIBCCALL dirfd)(DIR *__restrict __dirp);
+
 #if defined(__USE_MISC) && !defined(MAXNAMLEN)
 #define MAXNAMLEN    255 /* == 'NAME_MAX' from <linux/limits.h> */
 #endif
 
+/* >> scandir(3)
+ * Scan a directory `DIR' for all contained directory entries. */
 __REDIRECT_EXCEPT_UFS64(__LIBC,__PORT_NODOS __NONNULL((1,2)),
                         __EXCEPT_SELECT(unsigned int,int),__LIBCCALL,scandir,
                        (char const *__restrict __dir, struct dirent ***__restrict __namelist,
                         int (*__selector)(struct dirent const *),
                         int (*__cmp)(struct dirent const **, struct dirent const **)),
                        (__dir,__namelist,__selector,__cmp))
+/* >> alphasort(3)
+ * Sort the 2 given directory entries `E1' and `E2' the same way `strcmp(3)' would. */
 __REDIRECT_FS64(__LIBC,__PORT_NODOS __ATTR_PURE __NONNULL((1,2)),int,__LIBCCALL,
                 alphasort,(struct dirent const **__e1, struct dirent const **__e2),(__e1,__e2))
 #ifdef __USE_LARGEFILE64
@@ -151,6 +187,8 @@ __LIBC __PORT_NODOS __ATTR_PURE __NONNULL((1,2)) int (__LIBCCALL alphasort64)
       (struct dirent64 const **__e1, struct dirent64 const **__e2);
 #endif /* __USE_LARGEFILE64 */
 
+/* >> scandirat(3)
+ * Scan a directory `DFD:DIR' for all contained directory entries. */
 #ifdef __USE_GNU
 __REDIRECT_EXCEPT_UFS64(__LIBC,__PORT_NODOS __NONNULL((2,3)),
                         __EXCEPT_SELECT(unsigned int,int),__LIBCCALL,scandirat,
@@ -175,6 +213,8 @@ __REDIRECT_EXCEPT_UFS(__LIBC,__PORT_NODOS __NONNULL((2,3)),
 #endif /* __USE_GNU */
 #endif /* __USE_XOPEN2K8 */
 
+/* >> getdirentries(2)
+ * Linux's underlying system call for reading the entries of a directory */
 #ifdef __USE_MISC
 __REDIRECT_EXCEPT_FS64(__LIBC,__PORT_NODOS __NONNULL((2,4)),
                        __EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,getdirentries,
@@ -188,6 +228,8 @@ __REDIRECT_EXCEPT(__LIBC,__PORT_NODOS __NONNULL((2,4)),
 #endif /* __USE_LARGEFILE64 */
 #endif /* __USE_MISC */
 
+/* >> versionsort(3)
+ * Sort the 2 given directory entries `E1' and `E2' the same way `strvercmp(3)' would. */
 #ifdef __USE_GNU
 __REDIRECT_FS64(__LIBC,__PORT_NODOS __ATTR_PURE __NONNULL((1,2)),int,__LIBCCALL,versionsort,
                (struct dirent const **__e1, struct dirent const **__e2),(__e1,__e2))
@@ -197,7 +239,8 @@ __LIBC __PORT_NODOS __ATTR_PURE __NONNULL((1,2)) int (__LIBCCALL versionsort64)
 #endif /* __USE_LARGEFILE64 */
 #endif /* __USE_GNU */
 
-/* The KOS-specific system call for reading a single directory entry
+/* >> xreaddir(2), xreaddirf(2), xreaddir64(2), xreaddirf64(2)
+ * The KOS-specific system call for reading a single directory entry
  * from a file descriptor referring to an open directory stream.
  * @param: MODE: One of `READDIR_*' (See below)
  * @return: * : The actually required buffer size for the directory entry (in bytes)

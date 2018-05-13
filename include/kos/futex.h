@@ -907,8 +907,8 @@ __LIBC __WUNUSED __fd_t (__LIBCCALL Xfutex_waitfd_bitset)(futex_t *__uaddr, fute
 
 
 /* Low-level futex() system call interface.
- * NOTE: For the purposes of type safety and image size, it is
- *       recommended to use the wrapper functions above, rather
+ * NOTE: For the purposes of type safety and binary image size, it
+ *       is recommended to use the wrapper functions above, rather
  *       than these functions. */
 __REDIRECT_EXCEPT_TM64(__LIBC,,__syscall_slong_t,__LIBCCALL,futex,
                       (futex_t *__uaddr, int __futex_op, __UINTPTR_TYPE__ __val,
@@ -947,13 +947,23 @@ __REDIRECT(__LIBC,,__syscall_slong_t,__LIBCCALL,Xfutexv,
 struct task_segment;
 /* Basic thread-local context control functions. */
 #ifdef __BUILDING_LIBC
-__REDIRECT(__LIBC,__WUNUSED __ATTR_CONST,__pid_t,__LIBCCALL,__gettid,(void),libc_gettid,())
-__REDIRECT(__LIBC,__WUNUSED __ATTR_RETNONNULL __ATTR_CONST,struct task_segment *,__LIBCCALL,__current,(void),libc_current,())
-__REDIRECT(__LIBC,,int,__LIBCCALL,__sched_yield,(void),libc_sched_yield,())
+__REDIRECT(__LIBC,__WUNUSED __ATTR_CONST __ATTR_NOTHROW,__pid_t,__LIBCCALL,__gettid,(void),libc_gettid,())
+__REDIRECT(__LIBC,__WUNUSED __ATTR_RETNONNULL __ATTR_CONST __ATTR_NOTHROW,struct task_segment *,__LIBCCALL,__current,(void),libc_current,())
+__REDIRECT(__LIBC,__ATTR_NOTHROW,int,__LIBCCALL,__sched_yield,(void),libc_sched_yield,())
 #else
-__REDIRECT(__LIBC,__WUNUSED __ATTR_CONST,__pid_t,__LIBCCALL,__gettid,(void),gettid,())
-__LIBC __WUNUSED __ATTR_RETNONNULL __ATTR_CONST struct task_segment *(__LIBCCALL __current)(void);
-__REDIRECT(__LIBC,,int,__LIBCCALL,__sched_yield,(void),sched_yield,())
+/* Return the TID of the calling thread, as read from `__current()->ts_tid' */
+__REDIRECT(__LIBC,__WUNUSED __ATTR_CONST __ATTR_NOTHROW,__pid_t,__LIBCCALL,__gettid,(void),gettid,())
+/* Return a pointer to the calling thread's task segment, that is a block of memory
+ * mapped by the kernel, often addressable by some means using an arch-specific TLS register.
+ * On X86, the %fs / %gs segment registers are used for this. */
+__LIBC __WUNUSED __ATTR_RETNONNULL __ATTR_CONST __ATTR_NOTHROW struct task_segment *(__LIBCCALL __current)(void);
+/* Yield the remainder of the calling thread's current quantum to
+ * allow some other thread on the same cpu to start working prematurely.
+ * As far as semantics go, this function should be called in the same places
+ * as the X86 `pause' instruction would usually be placed, that is wherever
+ * some piece of code has entered an IDLE-loop in an attempt to acquire a
+ * lock currently held by some other thread (s.a. `hybrid/sync/atomic-rwlock.h') */
+__REDIRECT(__LIBC,__ATTR_NOTHROW,int,__LIBCCALL,__sched_yield,(void),sched_yield,())
 #endif
 
 

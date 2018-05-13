@@ -785,7 +785,7 @@ DEFINE_SYSCALL_MUSTRESTART(setsid);
 DEFINE_SYSCALL0(setsid) {
  if (!task_set_session())
       return -EPERM;
- return posix_gettid();
+ return posix_getpid();
 }
 
 

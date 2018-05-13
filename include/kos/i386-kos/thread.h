@@ -196,8 +196,7 @@ struct __ATTR_PACKED task_segment
  *    `ts_x86sysbase + X86_ENCODE_PFSYSCALL(SYS_sigreturn)'
  *    Knowing that, as well as the ~real~ (kernel-side) value of `ts_x86sysbase',
  *    KOS will correctly unwind signal frames when using the `SYS_xunwind'
- *    system call, or when throwing an exception from within a signal handler.
- */
+ *    system call, or when throwing an exception from within a signal handler. */
 #define X86_ENCODE_PFSYSCALL(sysno) \
       (((sysno) & 0xffff) | ((sysno) & 0xc0000000) >> 14)
 #define X86_DECODE_PFSYSCALL(rel_faultaddr) \

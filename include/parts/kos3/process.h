@@ -48,23 +48,41 @@ typedef __pid_t pid_t;
 #ifdef __CRT_GLC
 #ifndef __fexecve_defined
 #define __fexecve_defined 1
+
+/* >> fexecve(2)
+ * Replace the calling process with the application image referred to by `FD' and
+ * execute it's `main()' method, passing the given `ARGV', and setting `environ' to `ENVP' */
 __REDIRECT_EXCEPT_XVOID(__LIBC,__XATTR_NORETURN __PORT_NODOS_ALT(execve) __NONNULL((2,3)),int,__LIBCCALL,fexecve,(__fd_t __fd, __TARGV, __TENVP),(__fd,___argv,___envp))
+
 #ifdef __USE_EXCEPT
+/* >> fexecve(2)
+ * Replace the calling process with the application image referred to by `FD' and
+ * execute it's `main()' method, passing the given `ARGV', and setting `environ' to `ENVP' */
 __LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((2,3)) void (__LIBCCALL Xfexecve)(__fd_t __fd, __TARGV, __TENVP);
 #endif /* __USE_EXCEPT */
 #endif /* !__fexecve_defined */
+
 #ifndef __fexecv_defined
 #define __fexecv_defined 1
-#ifdef __GLC_COMPAT__
-/* When linking against GLibc, we can redirect these against 'fexecve' */
+#ifdef __GLC_COMPAT__ /* When linking against GLibc, we can redirect these against 'fexecve' */
+/* >> fexecv(2), fexecl(2), fexecle(2)
+ * Replace the calling process with the application image referred to by `FD' and
+ * execute it's `main()' method, passing the given `ARGV', and setting `environ' to `ENVP' */
 __LOCAL __PORT_NODOS_ALT(execv) __NONNULL((2)) int (__LIBCCALL fexecv)(__fd_t __fd, __TARGV) { return fexecve(__fd,___argv,environ); }
 __LOCAL __PORT_NODOS_ALT(execl) __ATTR_SENTINEL int (__ATTR_CDECL fexecl)(__fd_t __fd, char const *__args, ...) __REDIRECT_EXECL(char,fexecv,__fd,__args)
 __LOCAL __PORT_NODOS_ALT(execle) __ATTR_SENTINEL int (__ATTR_CDECL fexecle)(__fd_t __fd, char const *__args, ...) __REDIRECT_EXECLE(char,fexecve,__fd,__args)
 #else
+/* >> fexecv(2), fexecl(2), fexecle(2)
+ * Replace the calling process with the application image referred to by `FD' and
+ * execute it's `main()' method, passing the given `ARGV', and setting `environ' to `ENVP' */
 __REDIRECT_EXCEPT_XVOID(__LIBC,__PORT_NODOS_ALT(execv) __XATTR_NORETURN __NONNULL((2)),int,__LIBCCALL,fexecv,(__fd_t __fd, __TARGV),(__fd,___argv))
 __XREDIRECT_EXCEPT_XVOID(__LIBC,__PORT_NODOS_ALT(execl) __XATTR_NORETURN __ATTR_SENTINEL,int,__ATTR_CDECL,fexecl,(__fd_t __fd, char const *__args, ...),__REDIRECT_EXECL(char,fexecv,__fd,__args))
 __XREDIRECT_EXCEPT_XVOID(__LIBC,__PORT_NODOS_ALT(execle) __XATTR_NORETURN __ATTR_SENTINEL,int,__ATTR_CDECL,fexecle,(__fd_t __fd, char const *__args, ...),__REDIRECT_EXECLE(char,fexecve,__fd,__args))
+
 #ifdef __USE_EXCEPT
+/* >> fexecv(2), fexecl(2), fexecle(2)
+ * Replace the calling process with the application image referred to by `FD' and
+ * execute it's `main()' method, passing the given `ARGV', and setting `environ' to `ENVP' */
 __LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((2)) void (__LIBCCALL Xfexecv)(__fd_t __fd, __TARGV);
 __LIBC __PORT_KOSONLY __ATTR_NORETURN __ATTR_SENTINEL void (__ATTR_CDECL Xfexecl)(__fd_t __fd, char const *__args, ...);
 __LIBC __PORT_KOSONLY __ATTR_NORETURN __ATTR_SENTINEL void (__ATTR_CDECL Xfexecle)(__fd_t __fd, char const *__args, ...);
@@ -99,8 +117,16 @@ __LIBC __PORT_KOSONLY __ATTR_NORETURN __NONNULL((1)) __ATTR_SENTINEL_O(2) void (
 
 #ifndef __cwait_defined
 #define __cwait_defined 1
+
+/* >> cwait(3)
+ * Same as `waitpid(PID,TSTAT,WEXITED)'. The `ACTION' argument is ignored.
+ * s.a. `waitpid(3)' */
 __REDIRECT_EXCEPT_DPA(__LIBC,__PORT_DOSONLY,pid_t,__LIBCCALL,cwait,(int *__tstat, pid_t __pid, int __action),(__tstat,__pid,__action))
+
 #ifdef __USE_EXCEPT
+/* >> cwait(3)
+ * Same as `waitpid(PID,TSTAT,WEXITED)'. The `ACTION' argument is ignored.
+ * s.a. `waitpid(3)' */
 __LIBC __PORT_DOSONLY pid_t (__LIBCCALL Xcwait)(int *__tstat, pid_t __pid, int __action);
 #endif /* __USE_EXCEPT */
 #endif /* !__cwait_defined */
