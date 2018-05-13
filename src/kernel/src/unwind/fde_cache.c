@@ -45,8 +45,75 @@
 
 DECL_BEGIN
 
+#if 1
+/* Reduce the memory impact of these caches and speed up
+ * a valid, but _really_ extensive scenario where there is
+ * little pre-cached memory available, meaning that trying
+ * to allocate anything results in 4 exceptions being stacked
+ * ontop of each other.
+ * While that scenario is completely valid (and does resolve itself),
+ * it takes quite a while until it does.
+ * By disabling tracing of caches, that scenario doesn't happen:
+ * ..\src\kernel\src\unwind\except_cache.c(588,0) : except_cache_lookup : C013E9D9 : ESP C02462C0, EBP C0246344
+ * ..\src\kernel\src\unwind\except_cache.c(728,0) : kernel_findexcept : C013EE13 : ESP C024634C, EBP C0246368
+ * ..\src\kernel\src\unwind\linker.c(172,0) : linker_findexcept : C0140F99 : ESP C0246370, EBP C02463B8
+ * ..\src\kernel\src\unwind\linker.c(46,0) : linker_findexcept_consafe : C0140AE8 : ESP C02463C0, EBP C0246428
+ * ..\src\kernel\i386-kos\except.c(105,0) : libc_error_rethrow_at : C010768D : ESP C0246430, EBP C02464D8
+ * ..\src\hybrid\i386-kos\except32.S(68,0) : .error_rethrow_eax_is_ip : C0103940 : ESP C02464E0, EBP C0246520
+ * ..\src\kernel\i386-kos\scheduler32.S(299,0) : task_yield : C0124D2A : ESP C024651C, EBP C0246520
+ * ..\include\hybrid\sync\atomic-rwlock.h(178,0) : atomic_rwlock_write : C0130B46 : ESP C0246520, EBP C0246520
+ * ..\src\kernel\src\kernel\mall.c(1104,0) : define_user_traceing_point : C01338A1 : ESP C0246528, EBP C0246530
+ * ..\src\kernel\src\kernel\mall.c(1120,0) : mall_trace : C0133932 : ESP C0246538, EBP C0246548
+ * ..\src\kernel\src\kernel\mall.c(1212,0) : heap_alloc : C0133BFC : ESP C0246550, EBP C0246588
+ * ..\src\kernel\include\kernel\heap.h(219,0) : heap_alloc : C013DCAD
+ * ..\src\kernel\src\unwind\except_cache.c(214,0) : alloc_info : C013DCAD : ESP C0246590, EBP C02466C4
+ * ..\src\kernel\src\unwind\except_cache.c(472,0) : allocate_exception_info : C013E5A7 : ESP C02466CC, EBP C0246738
+ * ..\src\kernel\src\unwind\except_cache.c(592,0) : except_cache_lookup : C013E9F8 : ESP C0246740, EBP C02467DC
+ * ..\src\kernel\src\unwind\except_cache.c(728,0) : kernel_findexcept : C013EE13 : ESP C02467E4, EBP C0246800
+ * ..\src\kernel\src\unwind\linker.c(172,0) : linker_findexcept : C0140F99 : ESP C0246808, EBP C0246850
+ * ..\src\kernel\src\unwind\linker.c(46,0) : linker_findexcept_consafe : C0140AE8 : ESP C0246858, EBP C02468C0
+ * ..\src\kernel\i386-kos\except.c(105,0) : libc_error_rethrow_at : C010768D : ESP C02468C8, EBP C0246970
+ * ..\src\hybrid\i386-kos\except32.S(68,0) : .error_rethrow_eax_is_ip : C0103940 : ESP C0246978, EBP C02469B8
+ * ..\src\kernel\i386-kos\scheduler32.S(299,0) : task_yield : C0124D2A : ESP C02469B4, EBP C02469B8
+ * ..\include\hybrid\sync\atomic-rwlock.h(178,0) : atomic_rwlock_write : C0130B46 : ESP C02469B8, EBP C02469B8
+ * ..\src\kernel\src\kernel\mall.c(1104,0) : define_user_traceing_point : C01338A1 : ESP C02469C0, EBP C02469C8
+ * ..\src\kernel\src\kernel\mall.c(1120,0) : mall_trace : C0133932 : ESP C02469D0, EBP C02469E0
+ * ..\src\kernel\src\kernel\mall.c(1212,0) : heap_alloc : C0133BFC : ESP C02469E8, EBP C0246A20
+ * ..\src\kernel\include\kernel\heap.h(219,0) : heap_alloc : C0140268
+ * ..\src\kernel\src\unwind\fde_cache.c(152,0) : alloc_info : C0140268 : ESP C0246A28, EBP C0246B5C
+ * ..\src\kernel\src\unwind\fde_cache.c(234,0) : fde_cache_insert : C0140684 : ESP C0246B64, EBP C0246BB0
+ * ..\src\kernel\src\unwind\fde_cache.c(342,0) : kernel_eh_findfde : C0140A30 : ESP C0246BB8, EBP C0246BC0
+ * ..\src\kernel\src\unwind\linker.c(79,0) : linker_findfde : C0140C25 : ESP C0246BC8, EBP C0246C10
+ * ..\src\kernel\src\unwind\linker.c(40,0) : linker_findfde_consafe : C0140A78 : ESP C0246C18, EBP C0246C78
+ * ..\src\kernel\i386-kos\except.c(99,0) : libc_error_rethrow_at : C010763A : ESP C0246C80, EBP C0246D24
+ * ..\src\kernel\i386-kos\hw_except.c(108,0) : error_rethrow_atuser : C0108E6D : ESP C0246D2C, EBP C0246D34
+ * ..\src\kernel\i386-kos\hw_except.c(369,0) : x86_handle_pagefault : C010979F : ESP C0246D3C, EBP C0246E4C
+ * ..\src\kernel\i386-kos\hw_except32.S(138,0) : irq_0e : C0101362 : ESP C0246E54, EBP C0246EB4
+ * -> All the way down here is where the original exception happened.
+ *    All of the stuff above is able to resolve itself, but it really
+ *    takes a while. - A more permanent solution for this would be to
+ *    introduce a heap_alloc() function that never throws an exception,
+ *    but rather indicates an allocation failure in some other way.
+ *    It wouldn't even have to be able to interface with core_alloc(),
+ *    as it would only ever be used with GFP_NOMAP.
+ * ..\src\kernel\src\kernel\mall.c(235,0) : mall_reachable_data : C0131991 : ESP C0246E90, EBP C0246EB4
+ * ..\src\kernel\src\kernel\mall.c(359,0) : mall_search_leaks_impl : C0131DFD : ESP C0246EBC, EBP C0246F00
+ * ..\src\kernel\src\kernel\mall.c(564,0) : mall_dump_leaks : C0132607 : ESP C0246F08, EBP C0246F48
+ * ..\src\kernel\src\kernel\kernctl.c(53,0) : kernel_control : C0130668 : ESP C0246F50, EBP C0246F78
+ * ..\src\kernel\src\kernel\kernctl.c(145,0) : SYSC_xkernctl : C01308D4 : ESP C0246F80, EBP C0246F98
+ * ..\src\kernel\src\kernel\kernctl.c(140,0) : sys_xkernctl : C01308B5 : ESP C0246FA0, EBP C0246FB8
+ * ..\src\kernel\i386-kos\syscall32.S(326,0) : .sysenter_after_tracing : C0102C92 : ESP C0246FC0, EBP AFFFFE94
+ * ..\??(0,0) : ?? : BEEFCF24 : ESP AFFFFE94, EBP CCCCCCCC
+ */
+#define HEAP_ALLOC_INFO  heap_alloc_untraced
+#define HEAP_FREE_INFO   heap_free_untraced
+#else
+#define HEAP_ALLOC_INFO  heap_alloc
+#define HEAP_FREE_INFO   heap_free
+#endif
+
 #define FREE_INFO(x) \
-   heap_free(&kernel_heaps[GFP_SHARED],x,(x)->ic_size,GFP_SHARED)
+   HEAP_FREE_INFO(&kernel_heaps[GFP_SHARED],x,(x)->ic_size,GFP_SHARED)
 
 
 PRIVATE ATTR_NOTHROW void KCALL
@@ -142,16 +209,16 @@ PRIVATE ATTR_NOINLINE ATTR_NOTHROW
 struct fde_info_cache *KCALL alloc_info(void) {
  struct heapptr result;
  struct exception_info old_exception;
+ memcpy(&old_exception,error_info(),sizeof(struct exception_info));
  if (ATOMIC_XCH(is_allocating_cache_entry,true)) {
   return NULL; /* Prevent infinite recursion caused by this
                 * function being called by the unwind machinery,
                 * following an exception within this function itself. */
  }
- memcpy(&old_exception,error_info(),sizeof(struct exception_info));
  TRY {
-  result = heap_alloc(&kernel_heaps[GFP_SHARED],
-                       sizeof(struct fde_info_cache),
-                       GFP_SHARED|GFP_NOMAP);
+  result = HEAP_ALLOC_INFO(&kernel_heaps[GFP_SHARED],
+                            sizeof(struct fde_info_cache),
+                            GFP_SHARED|GFP_NOMAP);
  } EXCEPT_HANDLED (EXCEPT_EXECUTE_HANDLER) {
   /* Catch all errors and restore old exception info. */
   struct exception_info *EXCEPT_VAR perror_info = error_info();
@@ -317,9 +384,12 @@ INTDEF byte_t kernel_ehframe_start[];
 INTDEF byte_t kernel_ehframe_end[];
 INTDEF byte_t kernel_ehframe_size[];
 
-INTERN bool KCALL
+INTERN ATTR_NOTHROW bool KCALL
 kernel_eh_findfde(uintptr_t ip,
                   struct fde_info *__restrict result) {
+ if (ip <  (uintptr_t)kernel_start ||
+     ip >= (uintptr_t)kernel_end_raw)
+     return false;
  if (fde_cache_lookup(&kernel_module.m_fde_cache,
                        result,ip)) {
   /* Since the kernel is mapped with a load address of ZERO(0),

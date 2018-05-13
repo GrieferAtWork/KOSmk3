@@ -658,7 +658,7 @@ struct except_desc {
                                   * based on flags defined above (XXX: No such flags exist, yet).
                                   * This value should never be smaller than 4/8 because it must
                                   * include the exception handler return address. */
-    __UINT16_TYPE__  ed_pad;     /* ... */
+    __UINT16_TYPE__ __ed_pad;    /* ... */
 };
 #endif /* __CC__ */
 
@@ -677,22 +677,35 @@ struct except_desc {
 
 #ifdef __CC__
 struct __ATTR_PACKED except_handler {
-    /* The internal structure found in `.rodata.except'
+    /* The internal structure found in `.except'
      * These descriptors are iterated in reverse order, meaning that
-     * an entry defined after another is considered after the first. */
+     * an entry defined after another is considered after the first.
+     * WARNING: Modifications to .except after an application has
+     *          already been started can lead to undefined behavior.
+     *          The kernel keeps an internal cache of exception handlers
+     *          in order to speed up lookup time of exception handlers.
+     *          However this also means that changes made to an exception
+     *          handler after the application has already started might
+     *          not become visible, even if they had never been used
+     *          by the application.
+     *          This is because the cache of known exception handlers
+     *          kept by the kernel is shared between all instances of
+     *          an application, and may even be kept in memory for a
+     *          while when no instance of the application is actually
+     *          running.
+     *       -> So long story short: Don't bother writing self-modifying
+     *          code that will change it's own set of exception handlers,
+     *          because those changes will either not become visible, or
+     *          they might become visible to other instances of your app
+     *          that hadn't even modified their .except section, yet. */
     void                        *eh_begin;     /* [<= eh_end] Inclusive start address of the exception handling range */
     void                        *eh_end;       /* [>= eh_begin] Non-inclusive end address of the exception handling range */
     union __ATTR_PACKED {
         struct except_desc const*eh_descr;     /* [1..1][valid_if(EXCEPTION_HANDLER_FDESCRIPTOR)] Exception descriptor. */
         __UINTPTR_TYPE__         eh_entry;     /* Handler entry point address (Must be part of the same eh_frame as `eh_begin...eh_end') */
     };
-#if __SIZEOF_POINTER__ == 8
-    __UINT32_TYPE__              eh_flag;      /* Handler flags (Set of `EXCEPTION_HANDLER_F*') */
-    __UINT32_TYPE__              eh_mask;      /* Handler mask (When `EXCEPTION_HANDLER_FHASMASK' is set) */
-#else
-    __UINT16_TYPE__              eh_flag;      /* Handler flags (Set of `EXCEPTION_HANDLER_F*') */
-    __UINT16_TYPE__              eh_mask;      /* Handler mask (When `EXCEPTION_HANDLER_FHASMASK' is set) */
-#endif
+    __UINTPTR_HALF_TYPE__        eh_flag;      /* Handler flags (Set of `EXCEPTION_HANDLER_F*') */
+    __UINTPTR_HALF_TYPE__        eh_mask;      /* Handler mask (When `EXCEPTION_HANDLER_FHASMASK' is set) */
 };
 #endif /* __CC__ */
 

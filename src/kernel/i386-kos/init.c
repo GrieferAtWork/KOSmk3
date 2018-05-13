@@ -41,6 +41,7 @@
 #include <fs/path.h>
 #include <kernel/environ.h>
 #include <unwind/eh_frame.h>
+#include <unwind/linker.h>
 #include <string.h>
 #include <except.h>
 #include <stdlib.h>
@@ -246,6 +247,11 @@ void KCALL x86_switch_to_userspace(void) {
     * those optimizations the next time it is used. */
    fde_cache_clear(&kernel_module.m_fde_cache);
 #endif
+   /* This one we do actually have to clear, because it does the same
+    * optimizations as the kernel's FDE cache, but unlike it, all
+    * exception information related to the kernel's .free section
+    * is no longer required once that section has gone away. */
+   except_cache_clear(&kernel_module.m_exc_cache);
 
    /* Remove the node for the .free section from the kernel VM. */
    asserte(vm_pop_nodes(&vm_kernel,

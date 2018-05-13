@@ -510,6 +510,9 @@
     <ClCompile Include="..\..\src\kernel\src\unwind\fde_cache.c">
       <Filter>kernel\src\unwind</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\unwind\except_cache.c">
+      <Filter>kernel\src\unwind</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">

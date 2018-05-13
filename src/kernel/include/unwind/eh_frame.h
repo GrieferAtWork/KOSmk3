@@ -170,21 +170,6 @@ struct fde_info {
     u8                 fi_sigframe;  /* Non-zero if this is a signal frame. */
 };
 
-struct fde_info_cache {
-    ATREE_XNODE(struct fde_info_cache) ic_node; /* [0..1][owned] Address tree node of this cache entry. */
-    size_t                             ic_size; /* [const] Heap-size of this FDE info cache data block. */
-    struct fde_info                    ic_info; /* [const] FDE Info associated with this cache.
-                                                 * NOTE: All fields marked as `(absolute)' are made relative
-                                                 *       to the load address of the image before being saved
-                                                 *       in this cache.
-                                                 * Also: The `fi_pcend' field is modified to contain the MAX
-                                                 *       address, rather than the END address (meaning it is
-                                                 *       1 lower than what is documented as the END address),
-                                                 *       thus allowing it to be used as ATREE node range
-                                                 *       identifier. */
-};
-
-
 /* Find the FDE associated with a given `ip' by
  * searching the given `eh_frame' section.
  * If not found, `false' is returned. */
@@ -230,6 +215,21 @@ FUNDEF bool KCALL eh_jmp(struct fde_info *__restrict info,
 struct fde_cache;
 struct module;
 
+struct fde_info_cache {
+    ATREE_XNODE(struct fde_info_cache) ic_node; /* [0..1][owned] Address tree node of this cache entry. */
+    size_t                             ic_size; /* [const] Heap-size of this FDE info cache data block. */
+    struct fde_info                    ic_info; /* [const] FDE Info associated with this cache.
+                                                 * NOTE: All fields marked as `(absolute)' are made relative
+                                                 *       to the load address of the image before being saved
+                                                 *       in this cache.
+                                                 * Also: The `fi_pcend' field is modified to contain the MAX
+                                                 *       address, rather than the END address (meaning it is
+                                                 *       1 lower than what is documented as the END address),
+                                                 *       thus allowing it to be used as ATREE node range
+                                                 *       identifier. */
+};
+
+
 /* Finalize the given FDE cache. */
 INTDEF ATTR_NOTHROW void KCALL fde_cache_fini(struct fde_cache *__restrict self);
 
@@ -261,7 +261,7 @@ fde_cache_insert(struct module *__restrict self,
                  struct fde_info const *__restrict rel_info);
 
 /* Find an FDE entry belonging to the kernel core. */
-INTDEF bool KCALL
+INTDEF ATTR_NOTHROW bool KCALL
 kernel_eh_findfde(uintptr_t ip,
                   struct fde_info *__restrict result);
 #endif

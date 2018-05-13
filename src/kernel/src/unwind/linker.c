@@ -46,10 +46,6 @@ linker_findexcept_consafe(uintptr_t ip, u16 exception_code,
  return TASK_EVAL_CONSAFE(linker_findexcept(ip,exception_code,result));
 }
 
-INTDEF struct except_handler kernel_except_start[];
-INTDEF struct except_handler kernel_except_end[];
-INTDEF byte_t kernel_except_size[];
-
 
 /* Lookup the application at `ip' and load the FDE entry associated with `ip'.
  * NOTE: The caller is responsible to ensure, or deal with problems
@@ -144,86 +140,6 @@ invoke_region:
  return fde_ok;
 }
 
-PRIVATE bool KCALL
-find_exception(struct except_handler *__restrict iter,
-               struct except_handler *__restrict end,
-               uintptr_t ip, u16 exception_code,
-               struct application *__restrict app,
-               struct exception_handler_info *__restrict result) {
- struct module *mod = app->a_module;
- /* Lookup exception information. */
- for (; iter < end; ++iter) {
-  uintptr_t hand_begin,hand_end; u16 hand_flags;
-  hand_flags = iter->eh_flag;
-  COMPILER_READ_BARRIER();
-  if (hand_flags & ~EXCEPTION_HANDLER_FMASK)
-      break; /* Handler contains unknown flags (something's corrupt here). */
-  if ((hand_flags & EXCEPTION_HANDLER_FHASMASK) &&
-       iter->eh_mask != exception_code)
-       continue; /* Non-matching mask. */
-  hand_begin = (uintptr_t)iter->eh_begin;
-  hand_end   = (uintptr_t)iter->eh_end;
-  if (iter->eh_flag & EXCEPTION_HANDLER_FRELATIVE) {
-   hand_begin += app->a_loadaddr;
-   hand_end   += app->a_loadaddr;
-  }
-  /* Check handler IP ranges. */
-  if (ip < hand_begin) continue;
-  if (ip >= hand_end) continue;
-  /* Got a matching handler! */
-  if unlikely(hand_begin > hand_end)
-     break; /* Corruption... */
-  if unlikely(hand_begin < app->a_bounds.b_min)
-     break; /* Invalid range start */
-  if unlikely(hand_end > app->a_bounds.b_max+1)
-     break; /* Invalid range end */
-  /* All right! we found the handler we're looking for! */
-  result->ehi_flag = hand_flags;
-  result->ehi_mask = iter->eh_mask;
-  if (hand_flags & EXCEPTION_HANDLER_FDESCRIPTOR) {
-   uintptr_t entry;
-   struct except_desc *descr; u16 descr_type,descr_flag;
-   /* The handler uses an exception descriptor. */
-   descr = (struct except_desc *)iter->eh_descr;
-   if (hand_flags & EXCEPTION_HANDLER_FRELATIVE)
-       descr += app->a_loadaddr;
-   descr_type = descr->ed_type;
-   descr_flag = descr->ed_flags;
-   if unlikely(descr_type != EXCEPT_DESC_TYPE_BYPASS)
-      break; /* Unknown descriptor type. */
-   if unlikely(descr_flag & ~EXCEPT_DESC_FMASK)
-      break; /* Unknown descriptor flags. */
-   if unlikely((descr_flag & EXCEPT_DESC_FDISABLE_PREEMPTION) &&
-               (app->a_type != APPLICATION_TYPE_FDRIVER))
-      break; /* User-space isn't allowed to use this flag. */
-   entry = (uintptr_t)descr->ed_handler;
-   if (descr_flag & EXCEPT_DESC_FRELATIVE)
-       entry += app->a_loadaddr;
-   if unlikely(entry < (app->a_loadaddr + mod->m_imagemin) ||
-               entry > (app->a_loadaddr + mod->m_imageend))
-      break; /* Invalid handler entry point */
-   /* Save additional information available through the descriptor. */
-   result->ehi_entry         = (CHECKED void *)entry;
-   result->ehi_desc.ed_type  = descr_type;
-   result->ehi_desc.ed_flags = descr_flag;
-   result->ehi_desc.ed_safe  = descr->ed_safe;
-  } else {
-   uintptr_t entry;
-   entry = (uintptr_t)iter->eh_entry;
-   if (hand_flags & EXCEPTION_HANDLER_FRELATIVE)
-       entry += app->a_loadaddr;
-   /* Validate the range of the entry point. */
-   if unlikely(entry < (app->a_loadaddr + mod->m_imagemin) ||
-               entry > (app->a_loadaddr + mod->m_imageend))
-      break; /* Invalid handler entry point */
-   result->ehi_entry = (UNCHECKED void *)entry;
-  }
-  return true;
- }
- return false;
-}
-
-
 /* Lookup the effective exception handler for the given `ip' and fill in `result'
  * NOTE: The caller is responsible to ensure, or deal with problems
  *       caused by the associated application suddenly being unmapped.
@@ -253,12 +169,7 @@ linker_findexcept(uintptr_t ip, u16 exception_code,
    /* Can only search the kernel itself. */
    if (effective_vm != &vm_kernel)
        return false;
-   return find_exception(kernel_except_start,
-                         kernel_except_end,
-                         ip,
-                         exception_code,
-                        &kernel_driver.d_app,
-                         result);
+   return kernel_findexcept(ip,exception_code,result);
   }
  }
  TRY {
@@ -279,10 +190,11 @@ linker_findexcept(uintptr_t ip, u16 exception_code,
    struct except_handler *iter;
    iter = (struct except_handler *)((uintptr_t)mod->m_sect.m_except.ds_base+
                                                app->a_loadaddr);
-   except_ok = find_exception(iter,
-                             (struct except_handler *)((uintptr_t)iter+
-                                                        mod->m_sect.m_except.ds_size),
-                              ip,exception_code,app,result);
+   except_ok = except_cache_lookup(iter,
+                                  (struct except_handler *)((uintptr_t)iter+
+                                                             mod->m_sect.m_except.ds_size),
+                                   ip - app->a_loadaddr,exception_code,
+                                   app,result);
   }
  } FINALLY {
   application_decref(app);

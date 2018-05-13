@@ -420,8 +420,8 @@ FUNDEF void KCALL mall_validate_padding(gfp_t heap_max);
  *     be needing that same pointer from you.
  *    (Or just use `heap_free()' to have that be done automatically for you)
  */
-FUNDEF void KCALL mall_trace(void *base, size_t num_bytes);
-FUNDEF void KCALL mall_trace_leakless(void *base, size_t num_bytes);
+FUNDEF void KCALL mall_trace(void *base, size_t num_bytes, gfp_t flags);
+FUNDEF void KCALL mall_trace_leakless(void *base, size_t num_bytes, gfp_t flags);
 FUNDEF ATTR_NOTHROW void KCALL mall_untrace(void *ptr);
 FUNDEF void KCALL mall_print_traceback(void *ptr);
 

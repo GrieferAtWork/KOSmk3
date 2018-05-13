@@ -39,6 +39,7 @@
 #include <fs/driver.h>
 #include <unwind/debug_line.h>
 #include <unwind/eh_frame.h>
+#include <unwind/linker.h>
 #include <string.h>
 #include <except.h>
 #include <stdlib.h>
@@ -335,6 +336,7 @@ module_destroy(struct module *__restrict self) {
      driver_decref(self->m_driver);
  if (self->m_path)
      path_decref(self->m_path);
+ except_cache_fini(&self->m_exc_cache);
  fde_cache_fini(&self->m_fde_cache);
  kfree(self);
 }

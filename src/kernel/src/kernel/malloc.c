@@ -317,7 +317,7 @@ PUBLIC ATTR_WEAK void (KCALL kffree)(VIRT void *ptr, gfp_t flags) {
 PUBLIC ATTR_WEAK size_t KCALL mall_dump_leaks(gfp_t UNUSED(heap_max)) { return 0; }
 PUBLIC ATTR_WEAK void KCALL mall_validate_padding(gfp_t UNUSED(heap_max)) { }
 PUBLIC ATTR_WEAK void KCALL mall_untrace(void *UNUSED(ptr)) { }
-PUBLIC ATTR_WEAK void KCALL mall_trace(void *UNUSED(base), size_t UNUSED(num_bytes)) { }
+PUBLIC ATTR_WEAK void KCALL mall_trace(void *UNUSED(base), size_t UNUSED(num_bytes), gfp_t UNUSED(flags)) { }
 DEFINE_PUBLIC_WEAK_ALIAS(mall_trace_leakless,mall_trace);
 DEFINE_PUBLIC_WEAK_ALIAS(mall_print_traceback,mall_untrace);
 

@@ -594,13 +594,15 @@ release_heap_locks:
 
 
 PRIVATE ATTR_MALLOC ATTR_RETNONNULL
-struct mallnode *KCALL mallnode_alloc(void) {
+struct mallnode *KCALL mallnode_alloc(gfp_t gfp) {
  struct mallnode *result;
  struct heapptr ptr;
  ptr = heap_alloc_untraced(&mall_heap,
                            offsetof(struct mallnode,m_trace)+
                           (CONFIG_MALL_TRACEMIN*sizeof(void *)),
-                           MALL_HEAP_FLAGS);
+                           MALL_HEAP_FLAGS |
+                          (gfp & (GFP_NOSWAP|GFP_NOFS|GFP_ATOMIC|
+                                  GFP_NOOVER|GFP_NOMAP|GFP_INCORE)));
  result          = (struct mallnode *)ptr.hp_ptr;
  result->m_size  = ptr.hp_siz;
  result->m_flags = MALLNODE_FNORMAL;
@@ -753,7 +755,7 @@ PRIVATE void KCALL
 mall_register(gfp_t flags, struct heapptr pointer,
               struct cpu_context *__restrict allocator_context) {
  /* Must propagate the GFP_LOCKED-flag to prevent an infinite loop. */
- struct mallnode *EXCEPT_VAR node = mallnode_alloc();
+ struct mallnode *EXCEPT_VAR node = mallnode_alloc(flags);
  struct mallheap *heap = &mall_heaps[flags & __GFP_HEAPMASK];
 #ifdef CONFIG_ONLY_SIMPLE_TRACEBACKS
  assert(!PERTASK_TEST(mall_leak_nocore));
@@ -1092,8 +1094,8 @@ PRIVATE void (KCALL mall_free)(VIRT void *ptr, gfp_t flags) {
 
 /* User-defined tracing points API */
 PRIVATE void KCALL
-define_user_traceing_point(void *base, size_t num_bytes, u32 flags) {
- struct mallnode *node = mallnode_alloc();
+define_user_traceing_point(void *base, size_t num_bytes, gfp_t gfp, u32 flags) {
+ struct mallnode *node = mallnode_alloc(gfp);
  assertf(num_bytes,"Cannot define an empty tracing point");
  node->m_tree.a_vmin = (uintptr_t)base;
  node->m_tree.a_vmax = (uintptr_t)base + num_bytes-1;
@@ -1114,12 +1116,12 @@ mall_untrace(void *ptr) {
 }
 
 PUBLIC void KCALL
-mall_trace(void *base, size_t num_bytes) {
- define_user_traceing_point(base,num_bytes,MALLNODE_FUSERNODE);
+mall_trace(void *base, size_t num_bytes, gfp_t flags) {
+ define_user_traceing_point(base,num_bytes,flags,MALLNODE_FUSERNODE);
 }
 PUBLIC void KCALL
-mall_trace_leakless(void *base, size_t num_bytes) {
- define_user_traceing_point(base,num_bytes,
+mall_trace_leakless(void *base, size_t num_bytes, gfp_t flags) {
+ define_user_traceing_point(base,num_bytes,flags,
                             MALLNODE_FUSERNODE|
                             MALLNODE_FLEAKLESS);
 }
@@ -1207,7 +1209,7 @@ heap_alloc(struct heap *__restrict self,
  result = heap_alloc_untraced(self,num_bytes,flags);
  TRY {
   /* Start tracing the new data block. */
-  mall_trace(result.hp_ptr,result.hp_siz);
+  mall_trace(result.hp_ptr,result.hp_siz,flags);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Free the allocated data block on error. */
   heap_free_untraced(xself,
@@ -1230,7 +1232,7 @@ heap_align(struct heap *__restrict self,
                               offset,num_bytes,flags);
  TRY {
   /* Start tracing the new data block. */
-  mall_trace(result.hp_ptr,result.hp_siz);
+  mall_trace(result.hp_ptr,result.hp_siz,flags);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Free the allocated data block on error. */
   heap_free_untraced(xself,
@@ -1253,7 +1255,7 @@ heap_allat(struct heap *__restrict self,
  result = heap_allat_untraced(self,ptr,num_bytes,flags);
  TRY {
   /* Start tracing the new data block. */
-  mall_trace(ptr,result);
+  mall_trace(ptr,result,flags);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Free the allocated data block on error. */
   heap_free_untraced(xself,xptr,result,xflags);

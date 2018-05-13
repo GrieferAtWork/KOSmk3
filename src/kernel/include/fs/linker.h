@@ -207,6 +207,17 @@ struct fde_cache {
 };
 
 
+struct except_info_cache; /* Defined in `<unwind/linker.h>' */
+struct except_cache {
+    atomic_rwlock_t           ec_lock;   /* The lock of this cache. */
+    struct except_info_cache *ec_tree;   /* [0..1][lock(ec_lock)][owned] The head of this EXCEPT cache tree. */
+    /* The LEVEL0 and SEMI0 are lazily calculated the first time a cache node is saved (hence the `WRITE_ONCE').
+     * Their values are calculated to best fit the max address range potentially mapped by `m_imagemin...m_imageend'. */
+    unsigned int              ec_level0; /* [lock(ec_lock,WRITE_ONCE)] The initial level when searching for cached EXCEPT entries. */
+    image_rva_t               ec_semi0;  /* [lock(ec_lock,WRITE_ONCE)] The initial semi when searching for cached EXCEPT entries. */
+};
+
+
 struct module {
     ATOMIC_DATA ref_t             m_refcnt;    /* Module reference counter. */
     struct module_type           *m_type;      /* [1..1][const] Module type and associated operations. */
@@ -243,7 +254,7 @@ struct module {
                                                 * of FDE data blocks stored in the module's `.eh_frame' section.
                                                 * And that's just unacceptable considering how often we need to lookup
                                                 * various FDE entries, especially in large binaries like the kernel. */
-    /* TODO: Add a second cache that is similar to `m_fde_cache' for exception handlers. */
+    struct except_cache           m_exc_cache; /* Same as `m_fde_cache', but used to cache exception handlers. */
     struct module_debug          *m_debug;     /* [0..1][lock(WRITE_ONCE)] Module debug information (for addr2line) */
 };
 
