@@ -174,7 +174,7 @@ Display_FocusWindow(Display *__restrict self,
   msg.r_event.e_window.w_winid             = self->d_focus->w_id;
   msg.r_event.e_window.w_changed.s_oldstat = self->d_focus->w_state|WM_WINDOW_STATE_FFOCUSED;
   msg.r_event.e_window.w_changed.s_oldstat = self->d_focus->w_state;
-  Window_SendMessage(self->d_focus,&msg);
+  Window_TrySendMessage(self->d_focus,&msg);
  }
  self->d_focus = win;
  if (win) {
@@ -186,7 +186,7 @@ Display_FocusWindow(Display *__restrict self,
   msg.r_event.e_window.w_winid             = win->w_id;
   msg.r_event.e_window.w_changed.s_oldstat = win->w_state;
   msg.r_event.e_window.w_changed.s_oldstat = win->w_state|WM_WINDOW_STATE_FFOCUSED;
-  Window_SendMessage(win,&msg);
+  Window_TrySendMessage(win,&msg);
  }
 }
 

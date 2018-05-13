@@ -43,6 +43,8 @@
 #include "display.h"
 #include "render.h"
 #include "server.h"
+#include <kos/futex.h>
+#include <kos/thread.h>
 
 DECL_BEGIN
 
@@ -51,6 +53,9 @@ PRIVATE int LIBCCALL ClientMain(void *arg) {
  fd_t EXCEPT_VAR client_fd = (fd_t)(intptr_t)(uintptr_t)arg;
  WindowMap windowmap;
  WindowMap *EXCEPT_VAR pwindowmap = &windowmap;
+ /* Make our thread be stand-along so us crashing
+  * won't bring down the entire server. */
+ __current()->ts_state |= THREAD_STATE_FALONE;
  TRY {
   WindowMap_Init(&windowmap);
   TRY {

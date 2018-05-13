@@ -103,6 +103,9 @@ struct wms_response;
 INTDEF bool WMCALL
 Window_SendMessage(Window *__restrict self,
                    struct wms_response const *__restrict msg);
+INTDEF ATTR_NOTHROW bool WMCALL
+Window_TrySendMessage(Window *__restrict self,
+                      struct wms_response const *__restrict msg);
 
 
 

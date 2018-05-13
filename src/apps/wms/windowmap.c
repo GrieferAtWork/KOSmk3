@@ -57,6 +57,7 @@ WindowMap_Fini(WindowMap *__restrict self_) {
    TRY {
     /* Destroy the window. */
     Window_DestroyUnlocked(iter);
+    atomic_rwlock_endwrite(&disp->d_lock);
    } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
     atomic_rwlock_endwrite(&disp->d_lock);
     error_printf("Failed to destroy window %p\n",iter);

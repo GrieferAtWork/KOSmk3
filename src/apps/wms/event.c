@@ -29,6 +29,7 @@
 #include <kos/keyboard-ioctl.h>
 #include <kos/mouse-ioctl.h>
 #include <sys/mman.h>
+#include <sys/socket.h>
 #include <assert.h>
 #include <unistd.h>
 #include <string.h>
@@ -137,8 +138,11 @@ INTERN int KeyboardRelayThread(void *arg) {
    atomic_rwlock_read(&d->d_lock);
    TRY {
     if (d->d_focus) {
+     if (resp.r_event.e_key.k_key == KEY_F1)
+         shutdown(d->d_focus->w_clientfd,SHUT_RDWR);
+
      resp.r_event.e_window.w_winid = d->d_focus->w_id;
-     Window_SendMessage(d->d_focus,&resp);
+     Window_TrySendMessage(d->d_focus,&resp);
     }
    } FINALLY {
     atomic_rwlock_endread(&d->d_lock);
@@ -302,7 +306,7 @@ INTERN int MouseRelayThread(void *arg) {
        leave.r_event.e_mouse.m_winid  = hover_window->w_id;
        leave.r_event.e_mouse.m_mousex = new_mouse_display_x - hover_window->w_posx;
        leave.r_event.e_mouse.m_mousey = new_mouse_display_y - hover_window->w_posy;
-       Window_SendMessage(hover_window,&leave);
+       Window_TrySendMessage(hover_window,&leave);
       }
       assertf(hover_window->w_weakcnt >= 2 ||
              (hover_window->w_weakcnt == 1 &&
@@ -332,7 +336,7 @@ INTERN int MouseRelayThread(void *arg) {
       Window_ChangeStateUnlocked(hover_window,~0,WM_WINDOW_STATE_FFOCUSED,0);
      }
      /* Send the event to the window. */
-     Window_SendMessage(hover_window,&resp);
+     Window_TrySendMessage(hover_window,&resp);
     }
     if (mouse_display_x != new_mouse_display_x ||
         mouse_display_y != new_mouse_display_y) {

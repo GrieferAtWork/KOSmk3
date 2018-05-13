@@ -353,7 +353,7 @@ Window_CreateUnlocked(Display *__restrict disp,
        msg.r_event.e_window.w_winid             = disp->d_focus->w_id;
        msg.r_event.e_window.w_changed.s_oldstat = disp->d_focus->w_state|WM_WINDOW_STATE_FFOCUSED;
        msg.r_event.e_window.w_changed.s_oldstat = disp->d_focus->w_state;
-       Window_SendMessage(disp->d_focus,&msg);
+       Window_TrySendMessage(disp->d_focus,&msg);
       }
       disp->d_focus = result;
      }
@@ -435,6 +435,8 @@ Window_DestroyUnlocked(Window *__restrict self) {
  /* Hide the window prior to its destruction to ensure
   * that it doesn't leave behind any artifacts. */
  Window_HideUnlocked(self);
+ /* Remove the window from the Z-order. */
+ LIST_REMOVE(self,w_zlink);
  /* Unset the focus if it's targeted at this window. */
  if (self->w_display->d_focus == self)
      self->w_display->d_focus = NULL;
@@ -537,7 +539,7 @@ Window_HideUnlocked(Window *__restrict self) {
  LIST_REMOVE(self,w_vlink);
  d = self->w_display;
  /* Adjust the windows visibility set to become display-relative. */
- rects_move(&self->w_visi,-self->w_posx,-self->w_posy);
+ rects_move(&self->w_visi,self->w_posx,self->w_posy);
  /* Let windows with a lower Z order inherit visibility. */
  for (lower  = self->w_zlink.le_next;
       lower != NULL;
@@ -658,6 +660,15 @@ Window_SendMessage(Window *__restrict self,
  return result;
 }
 
+INTERN ATTR_NOTHROW bool WMCALL
+Window_TrySendMessage(Window *__restrict self,
+                      struct wms_response const *__restrict msg) {
+ bool result;
+ result = send(self->w_clientfd,msg,sizeof(struct wms_response),MSG_DONTWAIT) ==
+                                    sizeof(struct wms_response);
+ return result;
+}
+
 
 INTERN void WMCALL
 Window_ChangeStateUnlocked(Window *__restrict self,
@@ -692,7 +703,7 @@ Window_ChangeStateUnlocked(Window *__restrict self,
     msg.r_event.e_window.w_winid             = old_focus->w_id;
     msg.r_event.e_window.w_changed.s_oldstat = old_focus->w_state|WM_WINDOW_STATE_FFOCUSED;
     msg.r_event.e_window.w_changed.s_oldstat = old_focus->w_state;
-    Window_SendMessage(old_focus,&msg);
+    Window_TrySendMessage(old_focus,&msg);
    }
    self->w_display->d_focus = self;
   }
