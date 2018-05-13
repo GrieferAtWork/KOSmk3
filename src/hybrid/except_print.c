@@ -630,6 +630,31 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
   default: break;
   }
   break;
+ 
+ case E_NET_ERROR:
+  PRINTF("\tNetwork error %u\n",
+         INFO->e_error.e_net_error.n_errcode);
+  switch (INFO->e_error.e_net_error.n_errcode) {
+  case ERROR_NET_UNSUPPORTED_DOMAIN:     PRINTF("\t\tThe specified socket domain (address family) is not supported\n"); break;
+  case ERROR_NET_UNSUPPORTED_TYPE:       PRINTF("\t\tThe specified socket type is not supported by the socket domain\n"); break;
+  case ERROR_NET_UNSUPPORTED_PROTOCOL:   PRINTF("\t\tThe specified socket protocol is not supported by the socket domain\n"); break;
+  case ERROR_NET_SHUTDOWN:               PRINTF("\t\tThe socket has been `shutdown(2)'\n"); break;
+  case ERROR_NET_CANNOT_RECONNECT:       PRINTF("\t\tA connection-oriented socket cannot be reconnected\n"); break;
+  case ERROR_NET_CANNOT_REBIND:          PRINTF("\t\tA connection-oriented socket cannot be rebound\n"); break;
+  case ERROR_NET_NOT_BOUND:              PRINTF("\t\tCannot `getsockname(2)', `listen(2)', `accept(2)', `sendto(2)', `read(2)', `recv(2)' or `recvfrom(2)' using an unbound socket\n"); break;
+  case ERROR_NET_NOT_CONNECTED:          PRINTF("\t\tCannot `getpeername(2)', `write(2)' or `send(2)' using an unconnected socket\n"); break;
+  case ERROR_NET_NOT_LISTENING:          PRINTF("\t\tCannot `accept(2)' using a socket that isn't listening\n"); break;
+  case ERROR_NET_ALREADY_LISTENING:      PRINTF("\t\tThe socket has already started listening\n"); break;
+  case ERROR_NET_CANNOT_LISTEN:          PRINTF("\t\tThe socket doesn't implement the `listen(2)' function\n"); break;
+  case ERROR_NET_CANNOT_ACCEPT:          PRINTF("\t\tThe socket doesn't implement the `accept(2)' function\n"); break;
+  case ERROR_NET_INVALID_SOCKET_ADDRESS: PRINTF("\t\tThe socket address passed to `connect()', `bind()', or `sendto()' is malformed\n"); break;
+  case ERROR_NET_INVALID_ADDRESS_FAMILY: PRINTF("\t\tThe address family specified in a call to `connect()', `bind()', or `sendto()' isn't implemented by the socket\n"); break;
+  case ERROR_NET_CONNECTION_REFUSED:     PRINTF("\t\tFailed to connect to an address with no one listen(2)-ing on the other end\n"); break;
+  case ERROR_NET_ADDRESS_IN_USE:         PRINTF("\t\tLocal address is already in use\n"); break;
+  case ERROR_NET_PACKET_TOO_LARGE:       PRINTF("\t\tA packet is too large for the associated protocol\n"); break;
+  default: break;
+  }
+  break;
 
  case E_BUFFER_TOO_SMALL:
   PRINTF("\tThe provided buffer size of %Iu bytes is smaller than the requirement of %Iu bytes\n",
