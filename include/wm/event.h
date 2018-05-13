@@ -136,7 +136,10 @@ union PACKED wm_event {
     struct wm_mouseevent        e_mouse;   /* WM_EVENT_MOUSE */
     struct wm_windowevent       e_window;  /* WM_EVENT_WINDOW */
 };
-
+/* Must be called to destroy an event after it
+ * was returned by `wm_event_[try]wait[for]()'. */
+#define wm_event_fini(self) \
+    wm_window_decref((self)->e_common.c_window)
 
 struct PACKED wm_winevent_ops {
     /* NOTE: All window event operators are [0..1] */
@@ -145,11 +148,11 @@ struct PACKED wm_winevent_ops {
     /* Fallback/default event handler triggered when the
      * associated, dedicated event event handler isn't
      * implemented. */
-    void (WMCALL *wo_event)(union wm_event const *__restrict info);
+    bool (WMCALL *wo_event)(union wm_event const *__restrict info);
     /* Dedicated immediate event handlers. */
-    void (WMCALL *wo_key)(struct wm_keyevent const *__restrict info);
-    void (WMCALL *wo_mouse)(struct wm_mouseevent const *__restrict info);
-    void (WMCALL *wo_window)(struct wm_windowevent const *__restrict info);
+    bool (WMCALL *wo_key)(struct wm_keyevent const *__restrict info);
+    bool (WMCALL *wo_mouse)(struct wm_mouseevent const *__restrict info);
+    bool (WMCALL *wo_window)(struct wm_windowevent const *__restrict info);
 };
 
 
@@ -185,7 +188,23 @@ WMAPI void WMCALL wm_event_process(void);
 /* Empty the user-space event queue and handle events stored the
  * the kernel-space WMS command pipe (s.a. `WMS_RESPONSE_EVENT')
  * If either contains an event, store that event in `result' and
- * return `true', otherwise return `false' */
+ * return `true', otherwise return `false'
+ * A typical game-loop would look like this:
+ * >> for (;;) {
+ * >>     union wm_event evt;
+ * >>     while (wm_event_trywait(&evt)) {
+ * >>         TRY {
+ * >>             PROCESS_EVENT(&evt);
+ * >>         } FINALLY {
+ * >>             wm_event_fini(&evt);
+ * >>         }
+ * >>     }
+ * >>     update_game_logic();
+ * >>     render_background();
+ * >>     render_sprites();
+ * >>     wm_window_draw(win,WM_WINDOW_DRAW_FVSYNC);
+ * >> }
+ */
 WMAPI bool WMCALL wm_event_trywait(union wm_event *__restrict result);
 
 /* Same as `wm_event_trywait()', but rather than returning `false',

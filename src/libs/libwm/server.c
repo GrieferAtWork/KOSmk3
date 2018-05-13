@@ -41,6 +41,7 @@ DECL_BEGIN
  * exceptions if library users attempt to use API functions
  * before the library has actually been initialized. */
 INTERN fd_t libwms_socket = -1;
+INTERN DEFINE_MUTEX(libwms_lock);
 
 
 PRIVATE unsigned int libwms_token = 1;
@@ -71,8 +72,14 @@ libwms_handle(struct wms_response *__restrict resp) {
 
 INTERN unsigned int WMCALL
 libwms_sendrequest(struct wms_request *__restrict req) {
- unsigned int result = libwms_gentoken();
- req->r_echo = result;
+ unsigned int result;
+ if (req->r_flags & WMS_COMMAND_FNOACK) {
+  result = 0;
+ } else {
+  assert(mutex_holding(&libwms_lock));
+  result = libwms_gentoken();
+  req->r_echo = result;
+ }
  /* Send the request */
  if (Xsend(libwms_socket,(byte_t *)req,
            sizeof(struct wms_request),0) !=
@@ -84,6 +91,7 @@ libwms_sendrequest(struct wms_request *__restrict req) {
 INTERN void WMCALL
 libwms_recvresponse(unsigned int token,
                     struct wms_response *__restrict resp) {
+ assert(mutex_holding(&libwms_lock));
  for (;;) {
   struct pollfd p;
   p.fd     = libwms_socket;
@@ -119,6 +127,7 @@ INTERN fd_t WMCALL
 libwms_recvresponse_fd(unsigned int token,
                        struct wms_response *__restrict resp) {
  fd_t EXCEPT_VAR result = -1;
+ assert(mutex_holding(&libwms_lock));
  TRY {
   for (;;) {
    size_t total;
@@ -194,6 +203,18 @@ libwms_recvresponse_fd(unsigned int token,
  return result;
 }
 
+INTERN void WMCALL
+libwms_dorequest(struct wms_request *req,
+                 struct wms_response *resp) {
+ unsigned int token;
+ mutex_get(&libwms_lock);
+ TRY {
+  token = libwms_sendrequest(req);
+  libwms_recvresponse(token,resp);
+ } FINALLY {
+  mutex_put(&libwms_lock);
+ }
+}
 
 
 DECL_END

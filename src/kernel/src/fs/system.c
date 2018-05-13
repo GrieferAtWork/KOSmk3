@@ -1794,6 +1794,16 @@ scan_again:
 }
 
 
+PRIVATE ATTR_RETNONNULL REF struct futex *
+KCALL vm_futex_consafe(VIRT void *addr) {
+ return TASK_EVAL_CONSAFE(vm_futex(addr));
+}
+
+PRIVATE REF struct futex *
+KCALL vm_getfutex_consafe(VIRT void *addr) {
+ return TASK_EVAL_CONSAFE(vm_getfutex(addr));
+}
+
 DEFINE_SYSCALL_DONTRESTART(xppoll);
 DEFINE_SYSCALL6(xppoll,
                 USER UNCHECKED struct pollfd *,ufds_,size_t,nfds_,
@@ -1887,7 +1897,7 @@ scan_again:
       ++result;
      } else {
       /* Lookup and connect to the futex in question. */
-      ftx = vm_futex(uaddr);
+      ftx = vm_futex_consafe(uaddr);
       COMPILER_BARRIER();
       futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
       COMPILER_BARRIER();
@@ -1911,7 +1921,7 @@ scan_again:
       ++result;
      } else {
       /* Lookup and connect to the futex in question. */
-      ftx = vm_futex(uaddr);
+      ftx = vm_futex_consafe(uaddr);
       COMPILER_BARRIER();
       futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
       COMPILER_BARRIER();
@@ -1950,7 +1960,7 @@ scan_again:
       ++result;
      } else {
       u32 old_value;
-      ftx = vm_futex(uaddr);
+      ftx = vm_futex_consafe(uaddr);
       COMPILER_BARRIER();
       futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
       COMPILER_BARRIER();
@@ -1980,7 +1990,7 @@ scan_again:
        /* Save the old futex value in the provided uaddr2 */
        ATOMIC_WRITE(*uaddr2,old_value);
        /* Broadcast a futex located at the given address. */
-       ftx = vm_getfutex(uaddr2);
+       ftx = vm_getfutex_consafe(uaddr2);
        if (ftx) {
         size_t thread_count;
         thread_count = sig_broadcast(&ftx->f_sig);
@@ -1995,7 +2005,7 @@ scan_again:
      } else {
       u32 real_old_value;
       /* The initial CMPXCH failed. - Connect to the futex at that address. */
-      ftx = vm_futex(uaddr);
+      ftx = vm_futex_consafe(uaddr);
       COMPILER_BARRIER();
       futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
       COMPILER_BARRIER();
@@ -2007,7 +2017,7 @@ scan_again:
        /* Save the old futex value in the provided uaddr2 */
        ATOMIC_WRITE(*uaddr2,real_old_value);
        /* Broadcast a futex located at the given address. */
-       ftx = vm_getfutex(uaddr2);
+       ftx = vm_getfutex_consafe(uaddr2);
        if (ftx) {
         size_t thread_count;
         thread_count = sig_broadcast(&ftx->f_sig);
@@ -2040,7 +2050,7 @@ scan_again:
       /* Save the old futex value in the provided uaddr2 */
       ATOMIC_WRITE(*uaddr2,old_value);
       /* Broadcast a futex located at the given address. */
-      ftx = vm_getfutex(uaddr2);
+      ftx = vm_getfutex_consafe(uaddr2);
       if (ftx) {
        size_t thread_count;
        thread_count = sig_broadcast(&ftx->f_sig);
@@ -2054,7 +2064,7 @@ scan_again:
      } else {
       u32 real_old_value;
       /* The initial CMPXCH failed. - Connect to the futex at that address. */
-      ftx = vm_futex(uaddr);
+      ftx = vm_futex_consafe(uaddr);
       COMPILER_BARRIER();
       futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
       COMPILER_BARRIER();
@@ -2066,7 +2076,7 @@ scan_again:
        /* Save the old futex value in the provided uaddr2 */
        ATOMIC_WRITE(*uaddr2,real_old_value);
        /* Broadcast a futex located at the given address. */
-       ftx = vm_getfutex(uaddr2);
+       ftx = vm_getfutex_consafe(uaddr2);
        if (ftx) {
         size_t thread_count;
         thread_count = sig_broadcast(&ftx->f_sig);

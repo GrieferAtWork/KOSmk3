@@ -561,9 +561,7 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
    char const *name;
   default:
    switch (sysno) {
-#define __SYSCALL_ASM      __SYSCALL
-#define __XSYSCALL         __SYSCALL
-#define __XSYSCALL_ASM     __SYSCALL
+#define __XSYSCALL __SYSCALL
 #define __SYSCALL(id,sym) \
    case id: name = #sym; goto print_name;
 #include <asm/syscallno.ci>

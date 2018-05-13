@@ -26,22 +26,8 @@
 #ifndef __SYSCALL
 #define __SYSCALL(id,sym)
 #endif
-#ifndef __SYSCALL_ASM
-#define __SYSCALL_ASM(id,sym)
-#endif
 #ifndef __XSYSCALL
 #define __XSYSCALL(id,sym)
-#endif
-#ifndef __XSYSCALL_ASM
-#define __XSYSCALL_ASM(id,sym)
-#endif
-
-/* System call with full register state. */
-#ifndef __RSYSCALL
-#define __RSYSCALL __SYSCALL_ASM
-#endif
-#ifndef __RXSYSCALL
-#define __RXSYSCALL __XSYSCALL_ASM
 #endif
 
 #define __NR_syscall_min  0
@@ -147,11 +133,11 @@ __SYSCALL(__NR_utimensat,sys_utimensat)
 #define __SC_ATTRIB_CLOBB_93 C("memory")
 #define __SC_ATTRIB_ISNRT_93 1
 #define __NR_exit         93
-__SYSCALL_ASM(__NR_exit,sys_exit)
+__SYSCALL(__NR_exit,sys_exit)
 #define __SC_ATTRIB_CLOBB_94 C("memory")
 #define __SC_ATTRIB_ISNRT_94 1
 #define __NR_exit_group   94
-__SYSCALL_ASM(__NR_exit_group,sys_exit_group)
+__SYSCALL(__NR_exit_group,sys_exit_group)
 #define __SC_ATTRIB_CLOBB_95 C("memory")
 #define __NR_waitid       95
 __SYSCALL(__NR_waitid,sys_waitid)
@@ -169,7 +155,7 @@ __SYSCALL(__NR_nanosleep,sys_nanosleep)
 
 #define __SC_ATTRIB_CLOBB_124 C("memory")
 #define __NR_sched_yield  124
-__SYSCALL_ASM(__NR_sched_yield,sys_sched_yield)
+__SYSCALL(__NR_sched_yield,sys_sched_yield)
 
 #if (!defined(__KERNEL__) || !defined(CONFIG_NO_SIGNALS)) || \
     (defined(__KOS_VERSION__) && __KOS_VERSION__ >= 300)
@@ -196,7 +182,7 @@ __SYSCALL(__NR_rt_sigqueueinfo,sys_rt_sigqueueinfo)
 #define __NR_sigreturn    139
 #define __NR_rt_sigreturn 139
 #define __SC_ATTRIB_ISNRT_139 1
-__RSYSCALL(__NR_sigreturn,sys_sigreturn)
+__SYSCALL(__NR_sigreturn,sys_sigreturn)
 #endif
 
 #define __NR_setpgid      154
@@ -270,7 +256,7 @@ __SYSCALL(__NR_mremap,sys_mremap)
 
 #define __SC_ATTRIB_CLOBB_220 C("memory")
 #define __NR_clone        220
-__RSYSCALL(__NR_clone,sys_clone)
+__SYSCALL(__NR_clone,sys_clone)
 #define __SC_ATTRIB_CLOBB_221 C("memory")
 #define __NR_execve       221
 __SYSCALL(__NR_execve,sys_execve)
@@ -316,7 +302,7 @@ __SYSCALL(__NR_recv,sys_recv)
 __SYSCALL(__NR_send,sys_send)
 #define __SC_ATTRIB_CLOBB_1079 C("memory")
 #define __NR_fork         1079
-__RSYSCALL(__NR_fork,sys_fork)
+__SYSCALL(__NR_fork,sys_fork)
 #define __NR_syscall_max  1079
 
 
@@ -417,7 +403,7 @@ __XSYSCALL(__NR_xppoll,sys_xppoll) /* An extended version of ppoll() that can al
  *    within one's own memory manager, as instance handles
  *    cannot be shared between different processes (or rather VMs) */
 #define __NR_xfdlopenat   0x40000030
-__RXSYSCALL(__NR_xfdlopenat,sys_xfdlopenat)
+__XSYSCALL(__NR_xfdlopenat,sys_xfdlopenat)
 #define __NR_xdlclose     0x40000032
 __XSYSCALL(__NR_xdlclose,sys_xdlclose)
 #define __NR_xdlsym       0x40000033
@@ -444,15 +430,10 @@ __XSYSCALL(__NR_xdlsym,sys_xdlsym)
  * NOTE: libc invokes this system-call after `atexit()' was executed. */
 #define __NR_xdlfini      0x40000034
 #define __SC_ATTRIB_CLOBB_0x40000024 C("memory")
-__XSYSCALL_ASM(__NR_xdlfini,sys_xdlfini)
+__XSYSCALL(__NR_xdlfini,sys_xdlfini)
 #define __NR_xdlmodule_info 0x40000035
-__XSYSCALL_ASM(__NR_xdlmodule_info,sys_xdlmodule_info)
+__XSYSCALL(__NR_xdlmodule_info,sys_xdlmodule_info)
 #define __NR_xsyscall_max 0x40000035
 
-
-#undef __RXSYSCALL
-#undef __RSYSCALL
-#undef __XSYSCALL_ASM
 #undef __XSYSCALL
-#undef __SYSCALL_ASM
 #undef __SYSCALL

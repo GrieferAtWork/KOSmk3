@@ -57,6 +57,7 @@
 
 DECL_BEGIN
 
+EXPORT(memcasecmp,libc_memcasecmp);
 CRT_STRING int LIBCCALL
 libc_memcasecmp(u8 const *a, u8 const *b, size_t num_bytes) {
  while (num_bytes--) {
@@ -72,9 +73,9 @@ libc_memcasecmp(u8 const *a, u8 const *b, size_t num_bytes) {
  }
  return 0;
 }
-EXPORT(memcasecmp,libc_memcasecmp);
 
 #ifndef CONFIG_LIBC_LIMITED_API
+EXPORT(swab,libc_swab);
 CRT_STRING void LIBCCALL
 libc_swab(void const *__restrict from,
           void *__restrict to,
@@ -90,8 +91,8 @@ libc_swab(void const *__restrict from,
   ++src;
  }
 }
-EXPORT(swab,libc_swab);
 
+EXPORT(memcasecmp_l,libc_memcasecmp_l);
 CRT_STRING int LIBCCALL
 libc_memcasecmp_l(u8 const *a, u8 const *b, size_t num_bytes, locale_t locale) {
  while (num_bytes--) {
@@ -107,9 +108,9 @@ libc_memcasecmp_l(u8 const *a, u8 const *b, size_t num_bytes, locale_t locale) {
  }
  return 0;
 }
-EXPORT(memcasecmp_l,libc_memcasecmp_l);
 
 
+EXPORT(memmem,libc_memmem);
 CRT_STRING void *LIBCCALL
 libc_memmem(void *haystack, size_t haystacklen,
             void *needle, size_t needlelen) {
@@ -124,6 +125,8 @@ libc_memmem(void *haystack, size_t haystacklen,
  }
  return NULL;
 }
+
+EXPORT(memcasemem,libc_memcasemem);
 CRT_STRING void *LIBCCALL
 libc_memcasemem(void *haystack, size_t haystacklen,
                 void *needle, size_t needlelen) {
@@ -138,6 +141,8 @@ libc_memcasemem(void *haystack, size_t haystacklen,
  }
  return NULL;
 }
+
+EXPORT(memcasemem_l,libc_memcasemem_l);
 CRT_STRING void *LIBCCALL
 libc_memcasemem_l(void *haystack, size_t haystacklen,
                   void *needle, size_t needlelen,
@@ -154,15 +159,20 @@ libc_memcasemem_l(void *haystack, size_t haystacklen,
  return NULL;
 }
 
-EXPORT(memmem,libc_memmem);
-EXPORT(memcasemem,libc_memcasemem);
-EXPORT(memcasemem_l,libc_memcasemem_l);
 
-CRT_STRING void LIBCCALL libc_bcopy(void const *src, void *dst, size_t n) { libc_memmove((u8 *)dst,(u8 *)src,n); }
-CRT_STRING void LIBCCALL libc_bzero(void *__restrict s, size_t n) { libc_memset((u8 *)s,0,n); }
 EXPORT(bcopy,libc_bcopy);
-EXPORT(bzero,libc_bzero);
+CRT_STRING void LIBCCALL
+libc_bcopy(void const *src, void *dst, size_t n) {
+ libc_memmove((u8 *)dst,(u8 *)src,n);
+}
 
+EXPORT(bzero,libc_bzero);
+CRT_STRING void LIBCCALL
+libc_bzero(void *__restrict s, size_t n) {
+ libc_memset((u8 *)s,0,n);
+}
+
+EXPORT(dirname,libc_dirname);
 CRT_STRING char *LIBCCALL
 libc_dirname(char *path) {
  char *iter;
@@ -178,11 +188,15 @@ libc_dirname(char *path) {
  *iter = '\0';
  return path;
 }
+
+EXPORT(__xpg_basename,libc_xpg_basename);
 CRT_STRING char *LIBCCALL
 libc_xpg_basename(char *path) {
  assertf(0,"TODO");
  return NULL;
 }
+
+EXPORT(basename,libc_basename);
 CRT_STRING char *LIBCCALL
 libc_basename(char const *__restrict path) {
  char ch,*iter = (char *)path,*result = NULL;
@@ -198,6 +212,8 @@ libc_basename(char const *__restrict path) {
  while (iter != path && iter[-1] != '/') --iter; /* Scan until the previous '/'. */
  return iter; /* Returns string after previous '/'. */
 }
+
+EXPORT(memccpy,libc_memccpy);
 CRT_STRING void *LIBCCALL
 libc_memccpy(void *__restrict dst,
              void const *__restrict src,
@@ -212,18 +228,14 @@ libc_memccpy(void *__restrict dst,
  }
  return NULL;
 }
-EXPORT(dirname,libc_dirname);
-EXPORT(__xpg_basename,libc_xpg_basename);
-EXPORT(basename,libc_basename);
-EXPORT(memccpy,libc_memccpy);
 
+EXPORT(memfrob,libc_memfrob);
 INTERN u8 *LIBCCALL
 libc_memfrob(u8 *__restrict s, size_t n) {
  u8 *iter = s;
  while (n--) *iter++ ^= 42; /* -_-   yeah... */
  return s;
 }
-EXPORT(memfrob,libc_memfrob);
 
 
 #endif /* !CONFIG_LIBC_LIMITED_API */

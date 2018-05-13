@@ -135,8 +135,10 @@ INTERN int KeyboardRelayThread(void *arg) {
    /* Send the event to the focused window. */
    atomic_rwlock_read(&d->d_lock);
    TRY {
-    if (d->d_focus)
-        Window_SendMessage(d->d_focus,&resp);
+    if (d->d_focus) {
+     resp.r_event.e_window.w_winid = d->d_focus->w_id;
+     Window_SendMessage(d->d_focus,&resp);
+    }
    } FINALLY {
     atomic_rwlock_endread(&d->d_lock);
    }

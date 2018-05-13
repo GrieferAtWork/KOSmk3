@@ -59,6 +59,14 @@ STATIC_ASSERT_MSG(GFP_ATOMIC == IO_NONBLOCK,
 #define heap_novalidate_end()   (void)0
 #endif
 
+#if defined(NDEBUG) || 0
+#define HEAP_ASSERT(expr)      (void)0
+#define HEAP_ASSERTF(expr,...) (void)0
+#else
+#define HEAP_ASSERT(expr)      assert(expr)
+#define HEAP_ASSERTF(expr,...) assertf(expr,__VA_ARGS__)
+#endif
+
 #if 0
 #define DEFAULT_OVERALLOC  (PAGESIZE)
 #define DEFAULT_FREETHRESH (PAGESIZE*2)
@@ -334,7 +342,7 @@ core_page_alloc(struct heap *__restrict self,
                 size_t num_pages, gfp_t flags) {
  struct vm_corepair EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(corepair);
  vm_vpage_t COMPILER_IGNORE_UNINITIALIZED(result);
- assert(num_pages != 0);
+ HEAP_ASSERT(num_pages != 0);
  /* Throw a would-block error if we're not allowed to map new memory. */
  if (flags & GFP_NOMAP)
      error_throw(E_WOULDBLOCK);
@@ -395,7 +403,7 @@ core_page_alloc(struct heap *__restrict self,
   TRY {
    vm_vpage_t pagehint;
    /* Find a suitable, free location, using heap-specific hints. */
-   assert(!(flags&GFP_KERNEL) || THIS_VM == &vm_kernel);
+   HEAP_ASSERT(!(flags&GFP_KERNEL) || THIS_VM == &vm_kernel);
    pagehint = self->h_hintpage;
    result   = vm_getfree(pagehint,num_pages,1,0,self->h_hintmode);
    /* Save the new hint. */
@@ -437,7 +445,7 @@ PRIVATE bool KCALL
 core_page_allocat(vm_vpage_t page_index,
                   size_t num_pages, gfp_t flags) {
  struct vm_corepair EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(corepair);
- assert(num_pages != 0);
+ HEAP_ASSERT(num_pages != 0);
  /* Throw a would-block error if we're not allowed to map new memory. */
  if (flags & GFP_NOMAP)
      error_throw(E_WOULDBLOCK);
@@ -544,13 +552,13 @@ core_page_free(vm_vpage_t page_index,
   * As a hacky work-around, disable RPC serving for the during of the call. */
  u16 old_state;
  old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
- assert(num_pages != 0);
+ HEAP_ASSERT(num_pages != 0);
  vm_unmap(page_index,num_pages,
           VM_UNMAP_NOEXCEPT|VM_UNMAP_SYNC,NULL);
  if (!(old_state & TASK_STATE_FDONTSERVE))
        ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
 #else
- assert(num_pages != 0);
+ HEAP_ASSERT(num_pages != 0);
  vm_unmap(page_index,num_pages,
           VM_UNMAP_NOEXCEPT|
           VM_UNMAP_ATOMIC|
@@ -580,7 +588,7 @@ heap_insert_node_unlocked(struct heap *__restrict self,
                           struct mfree *__restrict node) {
  struct mfree **pslot,*slot;
  size_t num_bytes = node->mf_size;
- assertf(node->mf_size,"Empty node at %p",node);
+ HEAP_ASSERTF(node->mf_size,"Empty node at %p",node);
  /* Insert the node into the address and size trees. */
  mfree_tree_insert(&self->h_addr,node);
  /* Figure out where the free-slot should go in the chain of free ranges. */
@@ -608,10 +616,10 @@ heap_free_raw(struct heap *__restrict self,
 #endif
 again:
 #endif /* CONFIG_DEBUG_HEAP */
- assertf(num_bytes >= HEAP_MINSIZE,"Invalid heap_free(): Too few bytes (%Iu < %Iu)",num_bytes,HEAP_MINSIZE);
- assertf(IS_ALIGNED((uintptr_t)ptr,HEAP_ALIGNMENT),"Invalid heap_free(): Unaligned base pointer %p",ptr);
- assertf(IS_ALIGNED(num_bytes,HEAP_ALIGNMENT),"Invalid heap_free(): Unaligned free size %Iu (%#Ix)",num_bytes,num_bytes);
- assertf(((uintptr_t)ptr + num_bytes) > (uintptr_t)ptr,"Address space overflow when freeing %p...%p",ptr,(uintptr_t)ptr+num_bytes-1);
+ HEAP_ASSERTF(num_bytes >= HEAP_MINSIZE,"Invalid heap_free(): Too few bytes (%Iu < %Iu)",num_bytes,HEAP_MINSIZE);
+ HEAP_ASSERTF(IS_ALIGNED((uintptr_t)ptr,HEAP_ALIGNMENT),"Invalid heap_free(): Unaligned base pointer %p",ptr);
+ HEAP_ASSERTF(IS_ALIGNED(num_bytes,HEAP_ALIGNMENT),"Invalid heap_free(): Unaligned free size %Iu (%#Ix)",num_bytes,num_bytes);
+ HEAP_ASSERTF(((uintptr_t)ptr + num_bytes) > (uintptr_t)ptr,"Address space overflow when freeing %p...%p",ptr,(uintptr_t)ptr+num_bytes-1);
  heap_validate_all();
  addr_semi  = ATREE_SEMI0(uintptr_t);
  addr_level = ATREE_LEVEL0(uintptr_t);
@@ -778,7 +786,7 @@ load_new_slot:
    hkeep      = MFREE_MIN(new_slot);
    tkeep      = (free_endpage*PAGESIZE);
    hkeep_size = (free_minpage*PAGESIZE)-(uintptr_t)hkeep;
-   assertf(MFREE_END(new_slot) >= (uintptr_t)tkeep,
+   HEAP_ASSERTF(MFREE_END(new_slot) >= (uintptr_t)tkeep,
            "new_slot = %p...%p\n"
            "tkeep    = %p\n",
            MFREE_MIN(new_slot),
@@ -853,9 +861,9 @@ PUBLIC ATTR_NOTHROW void KCALL
 heap_free_untraced(struct heap *__restrict self,
                    VIRT void *ptr, size_t num_bytes,
                    gfp_t flags) {
- assertf(num_bytes >= HEAP_MINSIZE,"Invalid heap_free(): Too few bytes (%Iu < %Iu)",num_bytes,HEAP_MINSIZE);
- assertf(IS_ALIGNED((uintptr_t)ptr,HEAP_ALIGNMENT),"Invalid heap_free(): Unaligned base pointer %p",ptr);
- assertf(IS_ALIGNED(num_bytes,HEAP_ALIGNMENT),"Invalid heap_free(): Unaligned free size %Iu (%#Ix)",num_bytes,num_bytes);
+ HEAP_ASSERTF(num_bytes >= HEAP_MINSIZE,"Invalid heap_free(): Too few bytes (%Iu < %Iu)",num_bytes,HEAP_MINSIZE);
+ HEAP_ASSERTF(IS_ALIGNED((uintptr_t)ptr,HEAP_ALIGNMENT),"Invalid heap_free(): Unaligned base pointer %p",ptr);
+ HEAP_ASSERTF(IS_ALIGNED(num_bytes,HEAP_ALIGNMENT),"Invalid heap_free(): Unaligned free size %Iu (%#Ix)",num_bytes,num_bytes);
  /* Reset debug information. */
 #ifdef CONFIG_DEBUG_HEAP
  if (!(flags & GFP_CALLOC))
@@ -885,7 +893,7 @@ again:
   /* Search this bucket. */
   chain = *iter;
   while (chain &&
-        (assertf(IS_ALIGNED(MFREE_SIZE(chain),HEAP_ALIGNMENT),
+        (HEAP_ASSERTF(IS_ALIGNED(MFREE_SIZE(chain),HEAP_ALIGNMENT),
                            "MFREE_SIZE(chain) = 0x%Ix",
                             MFREE_SIZE(chain)),
          MFREE_SIZE(chain) < threshold))
@@ -953,8 +961,8 @@ heap_free_overallocation(struct heap *__restrict self,
                          void *overallocation_base,
                          size_t num_free_bytes,
                          gfp_t flags) {
- assert(IS_ALIGNED((uintptr_t)overallocation_base,HEAP_ALIGNMENT));
- assert(IS_ALIGNED(num_free_bytes,HEAP_ALIGNMENT));
+ HEAP_ASSERT(IS_ALIGNED((uintptr_t)overallocation_base,HEAP_ALIGNMENT));
+ HEAP_ASSERT(IS_ALIGNED(num_free_bytes,HEAP_ALIGNMENT));
  /* Work around lazy initialization of new memory:
   *    Since memory is default-initialized as `DEBUGHEAP_FRESH_MEMORY',
   *    if the unused portion is located in a different page than the
@@ -1027,7 +1035,7 @@ heap_alloc_untraced(struct heap *__restrict self,
              result.hp_siz = HEAP_MINSIZE;
  iter = &self->h_size[HEAP_BUCKET_OF(result.hp_siz)];
  end  =  COMPILER_ENDOF(self->h_size);
- assertf(iter >= self->h_size &&
+ HEAP_ASSERTF(iter >= self->h_size &&
          iter <  COMPILER_ENDOF(self->h_size),
          "HEAP_BUCKET_OF(%Iu) = %Iu/%Iu",
          result.hp_siz,HEAP_BUCKET_OF(result.hp_siz),
@@ -1045,7 +1053,7 @@ search_heap:
   /* Search this bucket. */
   chain = *iter;
   while (chain &&
-        (assertf(IS_ALIGNED(MFREE_SIZE(chain),HEAP_ALIGNMENT),
+        (HEAP_ASSERTF(IS_ALIGNED(MFREE_SIZE(chain),HEAP_ALIGNMENT),
                            "MFREE_SIZE(chain) = 0x%Ix",
                             MFREE_SIZE(chain)),
          MFREE_SIZE(chain) < result.hp_siz))
@@ -1060,7 +1068,7 @@ search_heap:
 #endif /* CONFIG_HEAP_TRACE_DANGLE */
   atomic_rwlock_endwrite(&self->h_lock);
   heap_validate_all();
-  assert(IS_ALIGNED(dangle_size,HEAP_ALIGNMENT));
+  HEAP_ASSERT(IS_ALIGNED(dangle_size,HEAP_ALIGNMENT));
   /* We've got the memory! */
   result.hp_ptr = (void *)chain;
   chain_flags = chain->mf_flags;
@@ -1110,7 +1118,7 @@ search_heap:
    } else
 #endif /* CONFIG_HEAP_RANDOMIZE_OFFSETS */
    {
-    assert(unused_size < MFREE_SIZE(chain));
+    HEAP_ASSERT(unused_size < MFREE_SIZE(chain));
     /* Free the unused overallocation. */
     heap_free_overallocation(self,
                              result.hp_ptr,
@@ -1136,9 +1144,9 @@ search_heap:
                     result.hp_siz);
   }
 #endif
-  assert(IS_ALIGNED((uintptr_t)result.hp_ptr,HEAP_ALIGNMENT));
-  assert(IS_ALIGNED((uintptr_t)result.hp_siz,HEAP_ALIGNMENT));
-  assert(result.hp_siz >= HEAP_MINSIZE);
+  HEAP_ASSERT(IS_ALIGNED((uintptr_t)result.hp_ptr,HEAP_ALIGNMENT));
+  HEAP_ASSERT(IS_ALIGNED((uintptr_t)result.hp_siz,HEAP_ALIGNMENT));
+  HEAP_ASSERT(result.hp_siz >= HEAP_MINSIZE);
   return result;
  }
 #ifdef CONFIG_HEAP_TRACE_DANGLE
@@ -1205,8 +1213,8 @@ allocate_without_overalloc:
   else {
    void *unused_begin = (void *)((uintptr_t)result.hp_ptr + result.hp_siz);
    /* Free unused size. */
-   assert(IS_ALIGNED(unused_size,HEAP_ALIGNMENT));
-   assert(IS_ALIGNED((uintptr_t)unused_begin,HEAP_ALIGNMENT));
+   HEAP_ASSERT(IS_ALIGNED(unused_size,HEAP_ALIGNMENT));
+   HEAP_ASSERT(IS_ALIGNED((uintptr_t)unused_begin,HEAP_ALIGNMENT));
 #ifdef CONFIG_DEBUG_HEAP
    if (!(flags&GFP_CALLOC))
          mempatl(unused_begin,DEBUGHEAP_NO_MANS_LAND,unused_size);
@@ -1223,9 +1231,9 @@ allocate_without_overalloc:
   }
 #endif
  }
- assert(IS_ALIGNED((uintptr_t)result.hp_ptr,HEAP_ALIGNMENT));
- assert(IS_ALIGNED((uintptr_t)result.hp_siz,HEAP_ALIGNMENT));
- assert(result.hp_siz >= HEAP_MINSIZE);
+ HEAP_ASSERT(IS_ALIGNED((uintptr_t)result.hp_ptr,HEAP_ALIGNMENT));
+ HEAP_ASSERT(IS_ALIGNED((uintptr_t)result.hp_siz,HEAP_ALIGNMENT));
+ HEAP_ASSERT(result.hp_siz >= HEAP_MINSIZE);
  return result;
 }
 
@@ -1235,7 +1243,7 @@ heap_allat_partial(struct heap *__restrict self,
  ATREE_SEMI_T(uintptr_t) addr_semi;
  ATREE_LEVEL_T addr_level; gfp_t slot_flags;
  size_t result; struct mfree **pslot,*slot;
- assert(IS_ALIGNED((uintptr_t)ptr,HEAP_ALIGNMENT));
+ HEAP_ASSERT(IS_ALIGNED((uintptr_t)ptr,HEAP_ALIGNMENT));
 again:
  addr_semi  = ATREE_SEMI0(uintptr_t);
  addr_level = ATREE_LEVEL0(uintptr_t);
@@ -1271,7 +1279,7 @@ again:
   goto again;
  }
  slot = *pslot;
- assert((uintptr_t)ptr >= MFREE_BEGIN(slot));
+ HEAP_ASSERT((uintptr_t)ptr >= MFREE_BEGIN(slot));
  if ((uintptr_t)ptr == MFREE_BEGIN(slot)) {
   /* Allocate this entire slot, then remove unused memory from the end. */
   asserte(mfree_tree_pop_at(pslot,addr_semi,addr_level) == slot);
@@ -1290,7 +1298,7 @@ again:
 #endif
  } else {
   size_t free_offset = (uintptr_t)ptr - MFREE_BEGIN(slot);
-  assert(IS_ALIGNED(free_offset,HEAP_ALIGNMENT));
+  HEAP_ASSERT(IS_ALIGNED(free_offset,HEAP_ALIGNMENT));
   if unlikely(free_offset < HEAP_MINSIZE) {
    /* The remaining part of the slot is too small.
     * Ask the core if it can allocate the the previous
@@ -1374,7 +1382,7 @@ again:
 #endif
  if ((flags & GFP_CALLOC) && !(slot_flags & GFP_CALLOC))
       memset(ptr,0,result);
- assert(result >= HEAP_MINSIZE);
+ HEAP_ASSERT(result >= HEAP_MINSIZE);
  return result;
 }
 
@@ -1415,7 +1423,7 @@ heap_allat_untraced(struct heap *__restrict self,
   result += part;
  }
  /* With everything now allocated, free what the caller didn't ask for. */
- assert(result >= alloc_size);
+ HEAP_ASSERT(result >= alloc_size);
  unused_size = result - alloc_size;
  if (unused_size >= HEAP_MINSIZE) {
   heap_free_untraced(self,
@@ -1434,8 +1442,8 @@ heap_align_untraced(struct heap *__restrict self,
  struct heapptr result_base,result;
  size_t nouse_size,alloc_bytes;
  size_t heap_alloc_bytes;
- assert(min_alignment != 0);
- assertf(!(min_alignment & (min_alignment-1)),
+ HEAP_ASSERT(min_alignment != 0);
+ HEAP_ASSERTF(!(min_alignment & (min_alignment-1)),
          "Invalid min_alignment: %IX",min_alignment);
  /* Truncate the offset, if it was a multiple of `min_alignment'
   * HINT: This also ensures that `offset' is positive. */
@@ -1453,7 +1461,7 @@ heap_align_untraced(struct heap *__restrict self,
   struct heapptr result; struct mfree **iter,**end;
   iter = &self->h_size[HEAP_BUCKET_OF(alloc_bytes)];
   end  =  COMPILER_ENDOF(self->h_size);
-  assertf(iter >= self->h_size &&
+  HEAP_ASSERTF(iter >= self->h_size &&
           iter <  COMPILER_ENDOF(self->h_size),
           "HEAP_BUCKET_OF(%Iu) = %Iu/%Iu",
           alloc_bytes,HEAP_BUCKET_OF(alloc_bytes),
@@ -1472,7 +1480,7 @@ heap_align_untraced(struct heap *__restrict self,
    /* Search this bucket. */
    chain = *iter;
    while (chain &&
-         (assertf(IS_ALIGNED(MFREE_SIZE(chain),HEAP_ALIGNMENT),
+         (HEAP_ASSERTF(IS_ALIGNED(MFREE_SIZE(chain),HEAP_ALIGNMENT),
                             "MFREE_SIZE(chain) = 0x%Ix",
                              MFREE_SIZE(chain)),
           MFREE_SIZE(chain) < alloc_bytes))
@@ -1530,7 +1538,7 @@ heap_align_untraced(struct heap *__restrict self,
 #endif
 
    if (hkeep_size) {
-    assert(hkeep_size >= HEAP_MINSIZE);
+    HEAP_ASSERT(hkeep_size >= HEAP_MINSIZE);
     /* Reset data of the head if we're to re-free them. */
     if (chain_flags & GFP_CALLOC)
          memset(hkeep,0,SIZEOF_MFREE);
@@ -1569,16 +1577,16 @@ heap_align_untraced(struct heap *__restrict self,
                      result.hp_siz);
    }
 #endif
-   assert(IS_ALIGNED((uintptr_t)result.hp_ptr,HEAP_ALIGNMENT));
-   assert(IS_ALIGNED((uintptr_t)result.hp_ptr+offset,min_alignment));
-   assert(IS_ALIGNED((uintptr_t)result.hp_siz,HEAP_ALIGNMENT));
-   assert(result.hp_siz >= HEAP_MINSIZE);
+   HEAP_ASSERT(IS_ALIGNED((uintptr_t)result.hp_ptr,HEAP_ALIGNMENT));
+   HEAP_ASSERT(IS_ALIGNED((uintptr_t)result.hp_ptr+offset,min_alignment));
+   HEAP_ASSERT(IS_ALIGNED((uintptr_t)result.hp_siz,HEAP_ALIGNMENT));
+   HEAP_ASSERT(result.hp_siz >= HEAP_MINSIZE);
    return result;
   }
   atomic_rwlock_endwrite(&self->h_lock);
  }
 #endif
- /* Fallback: Use overallocation to assert alignment. */
+ /* Fallback: Use overallocation to HEAP_ASSERT alignment. */
 
  /* Must overallocate by at least `HEAP_MINSIZE',
   * so we can _always_ free unused lower memory. */
@@ -1587,22 +1595,22 @@ heap_align_untraced(struct heap *__restrict self,
  if unlikely(__builtin_add_overflow(heap_alloc_bytes,HEAP_MINSIZE,&heap_alloc_bytes))
     heap_allocation_overflow(heap_alloc_bytes);
  result_base = heap_alloc_untraced(self,heap_alloc_bytes,flags);
- assert(result_base.hp_siz >= heap_alloc_bytes);
+ HEAP_ASSERT(result_base.hp_siz >= heap_alloc_bytes);
  result.hp_ptr = (void *)(CEIL_ALIGN((uintptr_t)result_base.hp_ptr+
                                                 HEAP_MINSIZE+offset,
                                       min_alignment)-offset);
- assert((uintptr_t)result.hp_ptr+alloc_bytes <=
+ HEAP_ASSERT((uintptr_t)result.hp_ptr+alloc_bytes <=
         (uintptr_t)result_base.hp_ptr+result_base.hp_siz);
  nouse_size = (uintptr_t)result.hp_ptr-(uintptr_t)result_base.hp_ptr;
- assert(nouse_size+alloc_bytes <= result_base.hp_siz);
- assertf(nouse_size >= HEAP_MINSIZE,"nouse_size = %Iu",nouse_size);
+ HEAP_ASSERT(nouse_size+alloc_bytes <= result_base.hp_siz);
+ HEAP_ASSERTF(nouse_size >= HEAP_MINSIZE,"nouse_size = %Iu",nouse_size);
  /* Release lower memory (This _MUST_ work because we've overallocated by `HEAP_MINSIZE'). */
  heap_free_untraced(self,result_base.hp_ptr,nouse_size,flags);
  result_base.hp_siz -= nouse_size;
- assert(result_base.hp_siz >= HEAP_MINSIZE);
+ HEAP_ASSERT(result_base.hp_siz >= HEAP_MINSIZE);
 
  /* Try to release upper memory. */
- assert(result_base.hp_siz >= alloc_bytes);
+ HEAP_ASSERT(result_base.hp_siz >= alloc_bytes);
  nouse_size = result_base.hp_siz-alloc_bytes;
  if (nouse_size >= HEAP_MINSIZE) {
   heap_free_untraced(self,
@@ -1610,11 +1618,11 @@ heap_align_untraced(struct heap *__restrict self,
                      nouse_size,flags);
   result_base.hp_siz -= nouse_size;
  }
- assert(result_base.hp_siz >= alloc_bytes);
- assert(IS_ALIGNED((uintptr_t)result.hp_ptr+offset,min_alignment));
+ HEAP_ASSERT(result_base.hp_siz >= alloc_bytes);
+ HEAP_ASSERT(IS_ALIGNED((uintptr_t)result.hp_ptr+offset,min_alignment));
  result.hp_siz = result_base.hp_siz;
- assert(IS_ALIGNED((uintptr_t)result.hp_siz,HEAP_ALIGNMENT));
- assert(result.hp_siz >= HEAP_MINSIZE);
+ HEAP_ASSERT(IS_ALIGNED((uintptr_t)result.hp_siz,HEAP_ALIGNMENT));
+ HEAP_ASSERT(result.hp_siz >= HEAP_MINSIZE);
  return result;
 }
 
@@ -1626,9 +1634,9 @@ heap_realloc_untraced(struct heap *__restrict self,
  struct heap *EXCEPT_VAR xself = self;
  gfp_t EXCEPT_VAR xalloc_flags = alloc_flags;
  struct heapptr EXCEPT_VAR result; size_t missing_bytes;
- assert(IS_ALIGNED(old_bytes,HEAP_ALIGNMENT));
- assert(!old_bytes || IS_ALIGNED((uintptr_t)old_ptr,HEAP_ALIGNMENT));
- assert(!old_bytes || old_bytes >= HEAP_MINSIZE);
+ HEAP_ASSERT(IS_ALIGNED(old_bytes,HEAP_ALIGNMENT));
+ HEAP_ASSERT(!old_bytes || IS_ALIGNED((uintptr_t)old_ptr,HEAP_ALIGNMENT));
+ HEAP_ASSERT(!old_bytes || old_bytes >= HEAP_MINSIZE);
  if (old_bytes == 0) /* Special case: initial allocation */
      return heap_alloc_untraced(self,new_bytes,alloc_flags);
  if (__builtin_add_overflow(new_bytes,HEAP_ALIGNMENT-1,&new_bytes))
@@ -1681,9 +1689,9 @@ heap_realign_untraced(struct heap *__restrict self,
  struct heap *EXCEPT_VAR xself = self;
  gfp_t EXCEPT_VAR xalloc_flags = alloc_flags;
  struct heapptr EXCEPT_VAR result; size_t missing_bytes;
- assert(IS_ALIGNED(old_bytes,HEAP_ALIGNMENT));
- assert(!old_bytes || IS_ALIGNED((uintptr_t)old_ptr,HEAP_ALIGNMENT));
- assert(!old_bytes || old_bytes >= HEAP_MINSIZE);
+ HEAP_ASSERT(IS_ALIGNED(old_bytes,HEAP_ALIGNMENT));
+ HEAP_ASSERT(!old_bytes || IS_ALIGNED((uintptr_t)old_ptr,HEAP_ALIGNMENT));
+ HEAP_ASSERT(!old_bytes || old_bytes >= HEAP_MINSIZE);
  if (old_bytes == 0) /* Special case: initial allocation */
      return heap_align_untraced(self,min_alignment,offset,new_bytes,alloc_flags);
  if (__builtin_add_overflow(new_bytes,HEAP_ALIGNMENT-1,&new_bytes))

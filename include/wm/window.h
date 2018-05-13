@@ -106,7 +106,7 @@ struct PACKED wm_window
     unsigned int            w_bordersz; /* [lock(w_surface.s_lock)] The width of the border on all sides except for the top (ymin). */
     wms_window_id_t         w_winid;    /* [const][owned] Internal ID of the window. */
     __fd_t                  w_winfd;    /* [const][owned] A file descriptor referring to the mmap()able window display buffer. */
-    LIST_NODE(struct wm_window) w_chain; /* [lock(INTERNAL(...))] Chain of windows with the same modulated hash. (for `wm_window_fromid()') */
+    LIST_NODE(struct wm_window) w_chain;/* [lock(INTERNAL(...))] Chain of windows with the same modulated hash. (for `wm_window_fromid()') */
 #endif /* __BUILDING_LIBWM */
 };
 
@@ -280,8 +280,8 @@ LOCAL bool WMCALL wm_window_fullscreen(struct wm_window *__restrict self) { retu
 
 /* Translate a window to its id or do the reverse.
  * @return: NULL: [wm_window_fromid] No window is associated with the given ID. */
-WMAPI ATTR_CONST wms_window_id_t WMCALL wm_window_getid(struct wm_window *__restrict self);
-WMAPI REF struct wm_window *WMCALL wm_window_fromid(wms_window_id_t id);
+WMAPI ATTR_NOTHROW ATTR_CONST wms_window_id_t WMCALL wm_window_getid(struct wm_window *__restrict self);
+WMAPI ATTR_NOTHROW REF struct wm_window *WMCALL wm_window_fromid(wms_window_id_t id);
 
 
 /* Construct a view of a window in its entirety, including

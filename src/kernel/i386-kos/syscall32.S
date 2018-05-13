@@ -47,7 +47,6 @@
 PUBLIC_OBJECT(x86_syscall_router)
 .last_sysno = __NR_syscall_min
 #define __SYSCALL(id,sym)     define_syscall_entry id, sym;
-#define __SYSCALL_ASM(id,sym) __SYSCALL(id,sym)
 #include <asm/syscallno.ci>
 	.rept (__NR_syscall_max+1) - .last_sysno
 		.long x86_bad_syscall_except
@@ -58,7 +57,6 @@ SYMEND(x86_syscall_router)
 PUBLIC_OBJECT(x86_xsyscall_router)
 .last_sysno = __NR_xsyscall_min
 #define __XSYSCALL(id,sym)     define_syscall_entry id, sym;
-#define __XSYSCALL_ASM(id,sym) __XSYSCALL(id,sym)
 #include <asm/syscallno.ci>
 	.rept (__NR_xsyscall_max+1) - .last_sysno
 		.long x86_bad_syscall_except
@@ -82,7 +80,6 @@ SYMEND(x86_xsyscall_router)
 PUBLIC_OBJECT(x86_syscall_argc)
 .last_sysno = __NR_syscall_min
 #define __SYSCALL(id,sym)     define_syscall_argc id, sym;
-#define __SYSCALL_ASM(id,sym) __SYSCALL(id,sym)
 #include <asm/syscallno.ci>
 	.rept (__NR_syscall_max+1) - .last_sysno
 		.byte 0
@@ -93,7 +90,6 @@ SYMEND(x86_syscall_argc)
 PUBLIC_OBJECT(x86_xsyscall_argc)
 .last_sysno = __NR_xsyscall_min
 #define __XSYSCALL(id,sym)     define_syscall_argc id, sym;
-#define __XSYSCALL_ASM(id,sym) __XSYSCALL(id,sym)
 #include <asm/syscallno.ci>
 	.rept (__NR_xsyscall_max+1) - .last_sysno
 		.byte 0
@@ -118,7 +114,6 @@ SYMEND(x86_xsyscall_argc)
 PUBLIC_OBJECT(x86_syscall_restart)
 .last_sysno = __NR_syscall_min
 #define __SYSCALL(id,sym)     define_syscall_restart id, sym;
-#define __SYSCALL_ASM(id,sym) __SYSCALL(id,sym)
 #include <asm/syscallno.ci>
 	.rept (__NR_syscall_max+1) - .last_sysno
 		.byte X86_SYSCALL_RESTART_FAUTO
@@ -129,7 +124,6 @@ SYMEND(x86_syscall_restart)
 PUBLIC_OBJECT(x86_xsyscall_restart)
 .last_sysno = __NR_xsyscall_min
 #define __XSYSCALL(id,sym)     define_syscall_restart id, sym;
-#define __XSYSCALL_ASM(id,sym) __XSYSCALL(id,sym)
 #include <asm/syscallno.ci>
 	.rept (__NR_xsyscall_max+1) - .last_sysno
 		.byte X86_SYSCALL_RESTART_FAUTO
@@ -155,9 +149,7 @@ SYMEND(x86_xsyscall_restart)
 	argc_##sym = 6; \
 	restart_##sym = X86_SYSCALL_RESTART_FAUTO;
 #endif
-#define __SYSCALL_ASM(id,sym)  __SYSCALL(id,sym)
 #define __XSYSCALL(id,sym)     __SYSCALL(id,sym)
-#define __XSYSCALL_ASM(id,sym) __SYSCALL(id,sym)
 #include <asm/syscallno.ci>
 
 

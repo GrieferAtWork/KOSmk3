@@ -25,6 +25,7 @@
 #include <wm/api.h>
 #include <wm/window.h>
 #include <wm/font.h>
+#include <wm/event.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -74,7 +75,8 @@ int main(int argc, char *argv[]) {
   wm_window_draw(win,WM_WINDOW_DRAW_FNORMAL);
  }
 
- pause();
+ for (;;)
+     wm_event_process();
  wm_window_decref(win);
 }
 

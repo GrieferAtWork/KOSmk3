@@ -95,7 +95,7 @@ Keyboard_Putc(Keyboard *__restrict self, keyboard_key_t key) {
 #if 1 /* For debugging... */
  if (key == KEYUP(KEY_F12)) {
   /* release F12 */
-#if 1
+#if 0
   asm("int3");
 #else
   PREEMPTION_ENABLE();

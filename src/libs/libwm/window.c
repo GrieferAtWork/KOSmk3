@@ -24,6 +24,7 @@
 #include <hybrid/compiler.h>
 #include <hybrid/atomic.h>
 #include <hybrid/align.h>
+#include <hybrid/xch.h>
 #include <wm/api.h>
 #include <wm/server.h>
 #include <wm/window.h>
@@ -37,11 +38,110 @@
 
 DECL_BEGIN
 
+
+typedef struct {
+    atomic_rwlock_t              wm_lock; /* Lock for this hash-map. */
+    wms_window_id_t              wm_size; /* Number of windows in the window map. */
+    wms_window_id_t              wm_mask; /* Hash-mask. */
+    LIST_HEAD(struct wm_window) *wm_map;  /* [0..1][0..wm_mask+1][owned] Hash map. */
+} WindowMap;
+
+PRIVATE WindowMap libwm_window_map = {
+    .wm_lock = ATOMIC_RWLOCK_INIT,
+    .wm_size = 0,
+    .wm_mask = 0,
+    .wm_map  = NULL
+};
+
+
+PRIVATE void WMCALL
+libwm_window_register(struct wm_window *__restrict win) {
+ struct wm_window **bucket;
+again:
+ /* Insert into global window_id -> window hash table. */
+ atomic_rwlock_write(&libwm_window_map.wm_lock);
+ if ((libwm_window_map.wm_size/3)*2 >= libwm_window_map.wm_mask) {
+  /* Rehash the hash-map. */
+  size_t i,new_mask = libwm_window_map.wm_mask;
+  struct wm_window **new_map,*iter,*next;
+  while (new_mask <= libwm_window_map.wm_size)
+         new_mask = (new_mask << 1) | 1;
+  if (new_mask < 7) new_mask = 7;
+  atomic_rwlock_endwrite(&libwm_window_map.wm_lock);
+  /* Allocate a new map. */
+  new_map = (struct wm_window **)Xcalloc(new_mask+1,sizeof(struct wm_window *));
+  atomic_rwlock_write(&libwm_window_map.wm_lock);
+  if unlikely(new_mask <= libwm_window_map.wm_mask) {
+   atomic_rwlock_endwrite(&libwm_window_map.wm_lock);
+   cfree(new_map);
+   goto again;
+  }
+  if (libwm_window_map.wm_map) {
+   for (i = 0; i <= libwm_window_map.wm_mask; ++i) {
+    iter = libwm_window_map.wm_map[i];
+    while (iter) {
+     next = iter->w_chain.le_next;
+     /* Re-insert the window into the new hash-map. */
+     bucket = &new_map[iter->w_winid & new_mask];
+     LIST_INSERT(*bucket,iter,w_chain);
+     iter = next;
+    }
+   }
+  }
+  /* Save the new hash-map and mask. */
+  new_map = XCH(libwm_window_map.wm_map,new_map);
+  libwm_window_map.wm_mask = new_mask;
+  atomic_rwlock_endwrite(&libwm_window_map.wm_lock);
+  free(new_map);
+  /* Start over now that the buffer has become larger. */
+  goto again;
+ }
+ bucket = &libwm_window_map.wm_map[win->w_winid & libwm_window_map.wm_mask];
+ LIST_INSERT(*bucket,win,w_chain);
+ ++libwm_window_map.wm_size;
+ atomic_rwlock_endwrite(&libwm_window_map.wm_lock);
+}
+
+PRIVATE ATTR_NOTHROW void WMCALL
+libwm_window_delete(struct wm_window *__restrict win) {
+ /* Remove from global window_id -> window hash table. */
+ atomic_rwlock_write(&libwm_window_map.wm_lock);
+ assert(libwm_window_map.wm_size >= 1);
+ assert(win->w_chain.le_pself != NULL);
+ LIST_REMOVE(win,w_chain);
+ --libwm_window_map.wm_size;
+ atomic_rwlock_endwrite(&libwm_window_map.wm_lock);
+}
+
+DEFINE_PUBLIC_ALIAS(wm_window_fromid,libwm_window_fromid);
+INTERN ATTR_NOTHROW REF struct wm_window *WMCALL
+libwm_window_fromid(wms_window_id_t id) {
+ /* Search global window_id -> window hash table.
+  * NOTE: Windows with a reference counter of ZERO(0) must be returned! */
+ REF struct wm_window *result = NULL;
+ atomic_rwlock_read(&libwm_window_map.wm_lock);
+ if likely(libwm_window_map.wm_map) {
+  result = libwm_window_map.wm_map[id & libwm_window_map.wm_mask];
+  while (result && result->w_winid != id)
+         result = result->w_chain.le_next;
+  /* Try to add a reference for this window. */
+  if (result && !ATOMIC_INCIFNONZERO(result->s_refcnt))
+      result = NULL;
+ }
+ atomic_rwlock_endread(&libwm_window_map.wm_lock);
+ return result;
+}
+
+
+
+
+
+
 DEFINE_PUBLIC_ALIAS(wm_window_move,libwm_window_move);
 INTERN void WMCALL
 libwm_window_move(struct wm_window *__restrict self,
                   int new_posx, int new_posy) {
- struct wms_request req; unsigned int token;
+ struct wms_request req;
  struct wms_response resp;
  wm_surface_lock(self);
  if (self->w_posx == new_posx &&
@@ -56,33 +156,26 @@ libwm_window_move(struct wm_window *__restrict self,
  req.r_mvwin.mw_winid = self->w_winid;
  req.r_mvwin.mw_newx  = new_posx;
  req.r_mvwin.mw_newy  = new_posy;
- token = libwms_sendrequest(&req);
- /* Wait for the ACK.
-  * NOTE: Once the window was actually moved, the server
-  *       will send a `WM_WINDOWEVENT_MOVED' event.
-  *       It is this event which will then update
-  *       our window structure's position elements. */
- libwms_recvresponse(token,&resp);
+ libwms_dorequest(&req,&resp);
 }
 
 
 DEFINE_PUBLIC_ALIAS(wm_window_bring_to_front,libwm_window_bring_to_front);
 INTERN bool WMCALL
 libwm_window_bring_to_front(struct wm_window *__restrict self) {
- struct wms_request req; unsigned int token;
+ struct wms_request req;
  struct wms_response resp;
  req.r_command = WMS_COMMAND_TOFRONT;
  req.r_flags   = WMS_COMMAND_FNORMAL;
  req.r_tofront.fw_winid = self->w_winid;
- token = libwms_sendrequest(&req);
- libwms_recvresponse(token,&resp);
+ libwms_dorequest(&req,&resp);
  return resp.r_answer == WMS_RESPONSE_TOFRONT_OK;
 }
 
 DEFINE_PUBLIC_ALIAS(wm_window_chstat,libwm_window_chstat);
 INTERN u16 WMCALL
 libwm_window_chstat(struct wm_window *__restrict self, u16 mask, u16 flag) {
- struct wms_request req; unsigned int token;
+ struct wms_request req;
  struct wms_response resp; u16 result;
  if (flag & ~(WM_WINDOW_STATE_FHIDDEN|WM_WINDOW_STATE_FFOCUSED))
      error_throw(E_INVALID_ARGUMENT);
@@ -100,8 +193,7 @@ libwm_window_chstat(struct wm_window *__restrict self, u16 mask, u16 flag) {
  req.r_chwin.cw_mask  = mask;
  req.r_chwin.cw_flag  = flag;
  /* Window fields are actually updated by `WM_WINDOWEVENT_STATE_CHANGE' events. */
- token = libwms_sendrequest(&req);
- libwms_recvresponse(token,&resp);
+ libwms_dorequest(&req,&resp);
  if (resp.r_answer                 != WMS_RESPONSE_EVENT ||
      resp.r_event.e_type           != WM_EVENT_WINDOW ||
      resp.r_event.e_window.w_event != WM_WINDOWEVENT_STATE_CHANGE)
@@ -117,17 +209,18 @@ DEFINE_PUBLIC_ALIAS(wm_window_draw,libwm_window_draw);
 INTERN void WMCALL
 libwm_window_draw(struct wm_window *__restrict self,
                   unsigned int mode) {
- struct wms_request req; unsigned int token;
+ struct wms_request req;
  struct wms_response resp;
  if (mode & ~(WM_WINDOW_DRAW_FASYNC|WM_WINDOW_DRAW_FVSYNC))
      error_throw(E_INVALID_ARGUMENT);
  req.r_command          = WMS_COMMAND_DRAWALL;
  req.r_flags            = mode;
  req.r_drawall.dw_winid = self->w_winid;
- token = libwms_sendrequest(&req);
- if (!(mode & WM_WINDOW_DRAW_FASYNC)) {
-  /* Wait for the ACK. */
-  libwms_recvresponse(token,&resp);
+ if (mode & WM_WINDOW_DRAW_FASYNC) {
+  libwms_sendrequest(&req);
+ } else {
+  /* Also wait for an ACK. */
+  libwms_dorequest(&req,&resp);
  }
 }
 
@@ -138,7 +231,7 @@ libwm_window_draw_rect(struct wm_window *__restrict self,
                        int xmin, int ymin,
                        unsigned int xsiz, unsigned int ysiz,
                        unsigned int mode) {
- struct wms_request req; unsigned int token;
+ struct wms_request req;
  struct wms_response resp;
  if (mode & ~(WM_WINDOW_DRAW_FASYNC|WM_WINDOW_DRAW_FVSYNC))
      error_throw(E_INVALID_ARGUMENT);
@@ -174,10 +267,11 @@ libwm_window_draw_rect(struct wm_window *__restrict self,
   wm_surface_unlock(self);
  }
  /* Send the request. */
- token = libwms_sendrequest(&req);
- if (!(mode & WM_WINDOW_DRAW_FASYNC)) {
+ if (mode & WM_WINDOW_DRAW_FASYNC) {
+  libwms_sendrequest(&req);
+ } else {
   /* Wait for the ACK. */
-  libwms_recvresponse(token,&resp);
+  libwms_dorequest(&req,&resp);
  }
  return;
 empty_unlock:
@@ -191,8 +285,7 @@ empty:
  req.r_drawone.dw_winid = self->w_winid;
  req.r_drawone.dw_xsiz  = 0;
  req.r_drawone.dw_ysiz  = 0;
- token = libwms_sendrequest(&req);
- libwms_recvresponse(token,&resp);
+ libwms_dorequest(&req,&resp);
 }
 
 DEFINE_PUBLIC_ALIAS(wm_window_draw_rects,libwm_window_draw_rects);
@@ -244,19 +337,9 @@ libwm_window_close(struct wm_window *__restrict self) {
 }
 
 DEFINE_PUBLIC_ALIAS(wm_window_getid,libwm_window_getid);
-INTERN ATTR_CONST wms_window_id_t WMCALL
+INTERN ATTR_NOTHROW ATTR_CONST wms_window_id_t WMCALL
 libwm_window_getid(struct wm_window *__restrict self) {
  return self->w_winid;
-}
-
-
-PRIVATE void WMCALL
-libwm_window_register(struct wm_window *__restrict win) {
- /* TODO: Insert into global window_id -> window hash table. */
-}
-PRIVATE void WMCALL
-libwm_window_delete(struct wm_window *__restrict win) {
- /* TODO: Remove from global window_id -> window hash table. */
 }
 
 
@@ -282,6 +365,9 @@ libwm_window_create(int pos_x, int pos_y, unsigned int size_x, unsigned int size
   result->w_titlesz  = 18;
   result->w_features = features;
   result->w_mode     = mode;
+  result->w_events   = eventops;
+  result->w_userdata = userdata;
+  atomic_rwlock_init(&result->s_lock);
   if (features & WM_WINDOW_FEAT_FNOBORDER)
       result->w_titlesz -= result->w_bordersz,
       result->w_bordersz = 0;
@@ -298,11 +384,15 @@ libwm_window_create(int pos_x, int pos_y, unsigned int size_x, unsigned int size
                                    result->w_titlesz);
   req.r_mkwin.mw_state = state;
 
-  /* Send the request. */
-  token = libwms_sendrequest(&req);
-
-  /* Receive the response. */
-  result->w_winfd = libwms_recvresponse_fd(token,&resp);
+  mutex_get(&libwms_lock);
+  TRY {
+   /* Send the request. */
+   token = libwms_sendrequest(&req);
+   /* Receive the response. */
+   result->w_winfd = libwms_recvresponse_fd(token,&resp);
+  } FINALLY {
+   mutex_put(&libwms_lock);
+  }
 
   if (resp.r_answer != WMS_RESPONSE_MKWIN_OK)
       error_throw(E_NOT_IMPLEMENTED);
@@ -384,20 +474,12 @@ libwm_window_resize(struct wm_window *__restrict self,
 
 
 
-DEFINE_PUBLIC_ALIAS(wm_window_fromid,libwm_window_fromid);
-INTERN REF struct wm_window *WMCALL
-libwm_window_fromid(wms_window_id_t id) {
- /* TODO: Search global window_id -> window hash table.
-  * NOTE: Windows with a reference counter of ZERO(0) must be returned! */
- return NULL;
-}
-
-
 INTERN ATTR_NOTHROW void WMCALL
 libwm_window_destroy(struct wm_window *__restrict self) {
  struct wm_window *EXCEPT_VAR xself = self;
  struct wms_request req;
  /* First off: Remove the window from the global id->window hash table. */
+ assert(self->s_refcnt == 0);
  libwm_window_delete(self);
  /* Invoke a user-defined window-fini callback. */
  if (self->w_events &&

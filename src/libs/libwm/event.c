@@ -33,11 +33,13 @@
 #include <unistd.h>
 #include <except.h>
 #include <string.h>
+#include <syslog.h>
 #include <sys/poll.h>
 #include <kos/sched/semaphore.h>
 #include <kos/futex.h>
 #include <linux/futex.h>
 #include <sys/mman.h>
+#include <sys/socket.h>
 
 #include "libwm.h"
 
@@ -79,7 +81,8 @@ process_event(union wm_event *__restrict evt) {
  struct wm_winevent_ops *event_ops;
  assert(evt->e_common.c_window);
  if (evt->e_type == WM_EVENT_WINDOW) {
-  struct wm_window *win = evt->e_window.w_window;
+  struct wm_window *EXCEPT_VAR win;
+  win = evt->e_window.w_window;
   atomic_rwlock_write(&win->s_lock);
   TRY {
    /* Update window characteristics changed by outside events. */
@@ -150,21 +153,19 @@ process_event(union wm_event *__restrict evt) {
   }
  }
  if ((event_ops = evt->e_common.c_window->w_events) != NULL) {
-  void (WMCALL *func)(union wm_event const *__restrict info);
+  bool (WMCALL *func)(union wm_event const *__restrict info);
   /* Directly invoke event callbacks (meant for GUI applications...) */
   switch (evt->e_type) {
-  case WM_EVENT_KEY:    func = (void(WMCALL *)(union wm_event const *__restrict))event_ops->wo_key; break;
-  case WM_EVENT_MOUSE:  func = (void(WMCALL *)(union wm_event const *__restrict))event_ops->wo_mouse; break;
-  case WM_EVENT_WINDOW: func = (void(WMCALL *)(union wm_event const *__restrict))event_ops->wo_window; break;
+  case WM_EVENT_KEY:    func = (bool(WMCALL *)(union wm_event const *__restrict))event_ops->wo_key; break;
+  case WM_EVENT_MOUSE:  func = (bool(WMCALL *)(union wm_event const *__restrict))event_ops->wo_mouse; break;
+  case WM_EVENT_WINDOW: func = (bool(WMCALL *)(union wm_event const *__restrict))event_ops->wo_window; break;
   default: func = event_ops->wo_event; break;
   }
   /* When not implement, fallback to using the default event handler. */
   if (!func) func = event_ops->wo_event;
   /* Invoke the event callback, if implemented. */
-  if (func) {
-   (*func)(evt);
-   return true;
-  }
+  if (func && (*func)(evt))
+      return true;
  }
  return false;
 }
@@ -179,10 +180,14 @@ libwm_event_dealwith(union wm_event *__restrict evt) {
  /* Copy the event and enqueue it in the chain of pending events. */
  pending = (struct pending_event *)Xmalloc(sizeof(struct pending_event));
  memcpy(&pending->pe_event,evt,sizeof(union wm_event));
+ libwm_window_incref(pending->pe_event.e_common.c_window);
+ pending->pe_next = NULL;
  atomic_rwlock_write(&pending_lock);
- if ((pending->pe_next = pending_front) == NULL)
-      pending_back = pending; /* First event */
- pending_front = pending;
+ assert((pending_back != NULL) == (pending_front != NULL));
+ if (!pending_back)
+      pending_front = pending;
+ else pending_back->pe_next = pending;
+ pending_back = pending;
  atomic_rwlock_endwrite(&pending_lock);
  /* Signal the addition by generating a ticket. */
  semaphore_release(&pending_avail,1);
@@ -194,39 +199,107 @@ INTERN void WMCALL libwm_event_process(void) {
  union wm_event evt;
  if (wm_event_trywait(&evt)) {
   /* Empty all event queues. */
+  do libwm_window_decref(evt.e_common.c_window);
   while (libwm_event_trywait(&evt));
  } else {
   /* Wait for events until we can process at least one. */
   do
       libwm_poll_events();
   while (!libwm_event_trywait(&evt));
+  libwm_window_decref(evt.e_common.c_window);
  }
 }
 
 DEFINE_PUBLIC_ALIAS(wm_event_trywait,libwm_event_trywait);
 INTERN bool WMCALL
-libwm_event_trywait(union wm_event *__restrict result) {
- struct pending_event *evt;
- atomic_rwlock_write(&pending_lock);
- evt = pending_front;
- if (evt) {
-  pending_front = evt->pe_next;
-  assert((pending_back == evt) ==
-         (pending_front == NULL));
-  if (pending_back == evt)
-      pending_back = NULL;
-  atomic_rwlock_endwrite(&pending_lock);
-  /* Copy the event into the provided buffer. */
-  TRY {
-   memcpy(result,&evt->pe_event,sizeof(union wm_event));
-  } FINALLY {
-   free(evt);
+libwm_event_trywait(union wm_event *__restrict result_) {
+ union wm_event *EXCEPT_VAR result = result_;
+again:
+ if (semaphore_tryacquire(&pending_avail)) {
+  struct pending_event *evt;
+  atomic_rwlock_write(&pending_lock);
+  evt = pending_front;
+  if likely(evt) {
+   pending_front = evt->pe_next;
+   assert((pending_back == evt) ==
+          (pending_front == NULL));
+   if (pending_back == evt)
+       pending_back = NULL;
+   atomic_rwlock_endwrite(&pending_lock);
+   /* Copy the event into the provided buffer. */
+   TRY {
+    memcpy(result,&evt->pe_event,sizeof(union wm_event));
+   } FINALLY {
+    free(evt);
+   }
+#if 0
+   syslog(LOG_DEBUG,"FROM QUEUE: %u -> %u\n",
+          result->e_common.c_type,
+          result->e_common.c_window->w_winid);
+#endif
+   return true;
   }
-  return true;
+  atomic_rwlock_endwrite(&pending_lock);
  }
- atomic_rwlock_endwrite(&pending_lock);
- /* TODO: Using O_NONBLOCK, try to read an event packet from the server socket. */
-
+ /* Using `MSG_DONTWAIT', try to read an event packet from the server socket. */
+ if (mutex_try(&libwms_lock)) {
+  struct wms_response resp;
+  bool EXCEPT_VAR event_ok = true;
+  TRY {
+   if (Xrecv(libwms_socket,&resp,sizeof(struct wms_response),MSG_DONTWAIT) !=
+                                 sizeof(struct wms_response))
+       event_ok = false;
+  } FINALLY {
+   if (FINALLY_WILL_RETHROW && error_code() == E_WOULDBLOCK) {
+    event_ok = false;
+    FINALLY_WILL_RETHROW = false;
+   }
+   mutex_put(&libwms_lock);
+  }
+  if (event_ok) {
+   if (resp.r_answer != WMS_RESPONSE_EVENT)
+       goto again;
+   resp.r_event.e_common.c_window = libwm_window_fromid(resp.r_event.e_common.c_winid);
+   if unlikely(!resp.r_event.e_common.c_window)
+       goto again;
+   TRY {
+    /* Try to process generic events. */
+    if (process_event(&resp.r_event)) {
+     libwm_window_decref(resp.r_event.e_common.c_window);
+     goto again;
+    }
+    /* Ensure proper event order by checking if there are new pending events. */
+    if unlikely(ATOMIC_READ(pending_front) != NULL) {
+     /* Appending the event as pending. */
+     struct pending_event *pending;
+     pending = (struct pending_event *)Xmalloc(sizeof(struct pending_event));
+     memcpy(&pending->pe_event,&resp.r_event,sizeof(union wm_event)); /* Inherit reference to `c_window' */
+     atomic_rwlock_write(&pending_lock);
+     assert((pending_back != NULL) == (pending_front != NULL));
+     if (!pending_back)
+          pending_front = pending;
+     else pending_back->pe_next = pending;
+     pending_back = pending;
+     atomic_rwlock_endwrite(&pending_lock);
+     /* Signal the addition by generating a ticket. */
+     semaphore_release(&pending_avail,1);
+     goto again;
+    }
+    /* Return the event to the caller. */
+    memcpy(result,&resp.r_event,sizeof(union wm_event));
+   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+    libwm_window_decref(resp.r_event.e_common.c_window);
+    error_rethrow();
+   }
+   /* Event was loaded directly from the socket. */
+#if 0
+   syslog(LOG_DEBUG,"FROM SOCKET: %u -> %u\n",
+          result->e_common.c_type,
+          result->e_common.c_window->w_winid);
+#endif
+   return true;
+  }
+ }
  return false;
 }
 
