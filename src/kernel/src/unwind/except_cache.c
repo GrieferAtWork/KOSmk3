@@ -634,10 +634,8 @@ except_cache_lookup(struct except_handler *__restrict iter,
 
  /* Do a quick prediction if allocation of a
   * new cache entry could succeed right now. */
- if (ATOMIC_READ(is_allocating_cache_entry)) {
-  asm("int3");
+ if (ATOMIC_READ(is_allocating_cache_entry))
      goto lookup_fallback;
- }
 
  /* Construct a new info descriptor. */
  info = allocate_exception_info(mod,app,iter,end,app->a_loadaddr,rel_ip);

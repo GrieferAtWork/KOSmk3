@@ -231,6 +231,9 @@ draw_cursor(Display *__restrict d,
 
 PRIVATE void WMCALL
 undraw_cursor(Display *__restrict d, unsigned int x, unsigned int y) {
+#if 0
+ draw_cursor(d,x,y);
+#else
  struct rect r;
  r.r_xmin = x;
  r.r_ymin = y;
@@ -246,6 +249,7 @@ undraw_cursor(Display *__restrict d, unsigned int x, unsigned int y) {
  {
   Display_RedrawRect(d,r);
  }
+#endif
 }
 
 
