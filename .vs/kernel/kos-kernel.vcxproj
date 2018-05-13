@@ -164,6 +164,7 @@
     <ClCompile Include="..\..\src\kernel\src\unwind\debug_line.c" />
     <ClCompile Include="..\..\src\kernel\src\unwind\eh_frame.c" />
     <ClCompile Include="..\..\src\kernel\src\unwind\eh_unwind.c" />
+    <ClCompile Include="..\..\src\kernel\src\unwind\fde_cache.c" />
     <ClCompile Include="..\..\src\kernel\src\unwind\linker.c" />
     <ClCompile Include="..\..\src\kernel\src\vm\corebase.c" />
     <ClCompile Include="..\..\src\kernel\src\vm\environ.c" />

@@ -66,8 +66,7 @@ decode_uleb128(byte_t **__restrict ptext) {
 
 /* Decode a pointer, as seen in `FDE' descriptors. */
 INTERN uintptr_t KCALL
-decode_pointer(byte_t **__restrict ptext, u8 encoding,
-               struct eh_relinfo *relinfo) {
+decode_pointer(byte_t **__restrict ptext, u8 encoding) {
  uintptr_t result;
  byte_t *text = *ptext;
  /* Relative encoding formats. */
@@ -76,8 +75,7 @@ decode_pointer(byte_t **__restrict ptext, u8 encoding,
   result = (uintptr_t)text; /* Relative to here. */
   break;
  case DW_EH_PE_textrel:
-  result = relinfo ? relinfo->er_textaddr : 0;
-  break;
+  /* ??? */
  case DW_EH_PE_datarel:
   /* ??? */
  case DW_EH_PE_funcrel:
@@ -137,15 +135,20 @@ decode_pointer(byte_t **__restrict ptext, u8 encoding,
 PUBLIC bool KCALL
 eh_findfde(byte_t *__restrict eh_frame_start,
            size_t eh_frame_size, uintptr_t ip,
-           struct fde_info *__restrict result,
-           struct eh_relinfo *relinfo) {
+           struct fde_info *__restrict result) {
  byte_t *end = eh_frame_start+eh_frame_size;
  byte_t *reader = eh_frame_start,*next;
  byte_t *cie_reader,*fde_reader;
+#if 0
+ debug_printf("eh_findfde(%p,%Iu,%p)\n",eh_frame_start,eh_frame_size,ip);
+#endif
+
  while (reader < end) {
   size_t length; u32 cie_offset;
-  char *cie_augstr;
+  char *cie_augstr; struct CIE *cie;
+#if 0
   result->fi_fde = (struct FDE *)reader;
+#endif
   length = (size_t)*(u32 *)reader;
   reader += 4;
   if unlikely((u32)length == (u32)-1) {
@@ -161,24 +164,27 @@ eh_findfde(byte_t *__restrict eh_frame_start,
   cie_offset = *(u32 *)reader; /* f_cieptr */
   if (cie_offset == 0)
       goto next_chunk; /* This is a CIE, not an FDE */
-  result->fi_cie = (struct CIE *)(reader - cie_offset);
+  cie = (struct CIE *)(reader - cie_offset);
+#if 0
+  result->fi_cie = cie;
+#endif
   fde_reader = reader+4;
 
 #if 1
-  if (!((byte_t *)result->fi_cie >= eh_frame_start &&
-        (byte_t *)result->fi_cie < end))
+  if (!((byte_t *)cie >= eh_frame_start &&
+        (byte_t *)cie < end))
       break;
 #else
-  assertf((byte_t *)result->fi_cie >= eh_frame_start &&
-          (byte_t *)result->fi_cie < end,
+  assertf((byte_t *)cie >= eh_frame_start &&
+          (byte_t *)cie < end,
           "Invalid CIE pointer (%p not in %p...%p)\n"
           "cie_offset = %I32u (%#I32x)\n",
-          result->fi_cie,eh_frame_start,end-1,
+          cie,eh_frame_start,end-1,
           cie_offset,cie_offset);
 #endif
 
   /* Load the augmentation string of the associated CIE. */
-  cie_reader  = (byte_t *)result->fi_cie;
+  cie_reader  = (byte_t *)cie;
   cie_reader += 4;                        /* c_length */
   if (((u32 *)cie_reader)[-1] == (u32)-1) {
 #if __SIZEOF_POINTER__ > 4
@@ -217,7 +223,7 @@ eh_findfde(byte_t *__restrict eh_frame_start,
      result->fi_enclsda = *cie_reader++;
     } else if (*aug_iter == 'P') {
      result->fi_encperso = *cie_reader++;
-     result->fi_persofun = decode_pointer(&cie_reader,result->fi_encperso,relinfo);
+     result->fi_persofun = decode_pointer(&cie_reader,result->fi_encperso);
     } else if (*aug_iter == 'R') {
      result->fi_encptr = *cie_reader++;
     } else {
@@ -227,8 +233,8 @@ eh_findfde(byte_t *__restrict eh_frame_start,
    /* `aug_end' now points at `c_initinstr' */
    cie_reader = aug_end;
   }
-  result->fi_pcbegin = decode_pointer(&fde_reader,result->fi_encptr,relinfo);
-  result->fi_pcend   = decode_pointer(&fde_reader,result->fi_encptr & 0xf,relinfo);
+  result->fi_pcbegin = decode_pointer(&fde_reader,result->fi_encptr);
+  result->fi_pcend   = decode_pointer(&fde_reader,result->fi_encptr & 0xf);
   if (__builtin_add_overflow(result->fi_pcbegin,
                              result->fi_pcend,
                             &result->fi_pcend))
@@ -239,7 +245,7 @@ eh_findfde(byte_t *__restrict eh_frame_start,
   /* Found it! - Save the pointer to the initial instruction set. */
   result->fi_inittext = cie_reader;
   /* Figure out the max length of that instruction set. */
-  cie_reader  = (byte_t *)result->fi_cie;
+  cie_reader  = (byte_t *)cie;
   length      = *(u32 *)cie_reader;
   cie_reader += 4;
 #if __SIZEOF_POINTER__ > 4
@@ -253,7 +259,9 @@ eh_findfde(byte_t *__restrict eh_frame_start,
   result->fi_initsize = (size_t)(cie_reader-result->fi_inittext);
   if (cie_reader < result->fi_inittext)
       result->fi_initsize = 0; /* Shouldn't happen... */
+#if 0
   result->fi_augstr = cie_augstr; /* XXX: Do we actually need this later? */
+#endif
   /* Parse augmentation data of the FDE. */
   if (cie_augstr[0] == 'z') {
    uintptr_t aug_length; byte_t *aug_end;
@@ -263,8 +271,7 @@ eh_findfde(byte_t *__restrict eh_frame_start,
     if (*cie_augstr == 'L') {
      if unlikely(fde_reader == aug_end) break;
      result->fi_lsdaaddr = decode_pointer(&fde_reader,
-                                           result->fi_enclsda,
-                                           relinfo);
+                                           result->fi_enclsda);
     } else if (*cie_augstr == 'S') {
      result->fi_sigframe = 1;
     }
@@ -276,14 +283,12 @@ eh_findfde(byte_t *__restrict eh_frame_start,
   if unlikely(fde_reader > next)
      result->fi_evalsize = 0; /* Shouldn't happen... */
 
-  /* Save the given relocation information, so it can be re-used later on. */
-  result->fi_relinfo = relinfo;
+#if 0
   if (result->fi_lsdaaddr != 0) {
-   debug_printf("result->fi_persofun = %p\n",
-                 result->fi_persofun);
-   debug_printf("result->fi_lsdaaddr = %p\n",
-                 result->fi_lsdaaddr);
+   debug_printf("result->fi_persofun = %p\n",result->fi_persofun);
+   debug_printf("result->fi_lsdaaddr = %p\n",result->fi_lsdaaddr);
   }
+#endif
 
   return true;
 next_chunk:

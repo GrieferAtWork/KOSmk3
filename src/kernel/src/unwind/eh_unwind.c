@@ -108,7 +108,7 @@ DECL_BEGIN
 
 INTDEF intptr_t  KCALL decode_sleb128(byte_t **__restrict ptext);
 INTDEF uintptr_t KCALL decode_uleb128(byte_t **__restrict ptext);
-INTDEF uintptr_t KCALL decode_pointer(byte_t **__restrict ptext, u8 encoding, struct eh_relinfo *relinfo);
+INTDEF uintptr_t KCALL decode_pointer(byte_t **__restrict ptext, u8 encoding);
 
 
 struct dw_register {
@@ -268,8 +268,7 @@ dw_parse_instruction(struct dw_state *__restrict self) {
 
  TARGET(DW_CFA_set_loc)
   /* Decode the PC pointer according to FDE pointer encoding. */
-  self->s_pc = decode_pointer(&text,self->s_fde->fi_encptr,
-                                    self->s_fde->fi_relinfo);
+  self->s_pc = decode_pointer(&text,self->s_fde->fi_encptr);
   DEBUGF("DW_CFA_set_loc(%Iu)\n",self->s_pc);
   result = 1;
   break;

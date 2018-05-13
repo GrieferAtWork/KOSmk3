@@ -196,6 +196,17 @@ struct module_type {
 
 
 #ifdef __CC__
+struct fde_info_cache; /* Defined in `<unwind/eh_frame.h>' */
+struct fde_cache {
+    atomic_rwlock_t        fc_lock;   /* The lock of this cache. */
+    struct fde_info_cache *fc_tree;   /* [0..1][lock(fc_lock)][owned] The head of this FDE cache tree. */
+    /* The LEVEL0 and SEMI0 are lazily calculated the first time a cache node is saved (hence the `WRITE_ONCE').
+     * Their values are calculated to best fit the max address range potentially mapped by `m_imagemin...m_imageend'. */
+    unsigned int           fc_level0; /* [lock(fc_lock,WRITE_ONCE)] The initial level when searching for cached FDE entries. */
+    image_rva_t            fc_semi0;  /* [lock(fc_lock,WRITE_ONCE)] The initial semi when searching for cached FDE entries. */
+};
+
+
 struct module {
     ATOMIC_DATA ref_t             m_refcnt;    /* Module reference counter. */
     struct module_type           *m_type;      /* [1..1][const] Module type and associated operations. */
@@ -226,6 +237,13 @@ struct module {
         struct dl_section         m_eh_frame;  /* The `.eh_frame' section (NOTE: You can assume that this section has `SHF_ALLOC' set if it exists).
                                                 * NOTE: `ds_base' is actually an `image_rva_t' */
     }                             m_sect;      /* [valid_if(MODULE_FSECTLOADED)] Special section data. */
+    struct fde_cache              m_fde_cache; /* A lazy cache for image-relative FDE entries, used to
+                                                * speed up stack unwinding during exception handling.
+                                                * Without this cache, FDE lookup time would be linear to the number
+                                                * of FDE data blocks stored in the module's `.eh_frame' section.
+                                                * And that's just unacceptable considering how often we need to lookup
+                                                * various FDE entries, especially in large binaries like the kernel. */
+    /* TODO: Add a second cache that is similar to `m_fde_cache' for exception handlers. */
     struct module_debug          *m_debug;     /* [0..1][lock(WRITE_ONCE)] Module debug information (for addr2line) */
 };
 

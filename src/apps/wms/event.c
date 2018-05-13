@@ -34,6 +34,7 @@
 #include <string.h>
 #include <syslog.h>
 #include <malloc.h>
+#include <fcntl.h>
 
 #include "render.h"
 #include "bind.h"
@@ -265,7 +266,7 @@ INTERN int MouseRelayThread(void *arg) {
    resp.r_event.e_mouse.m_type = WM_EVENT_MOUSE;
    if (!Xread(wms_mouse,&resp.r_event.e_mouse.m_packet,
               sizeof(struct mouse_packet)))
-       error_throw(E_INVALID_ARGUMENT); /* EOF? */
+        error_throw(E_INVALID_ARGUMENT); /* EOF? */
    /* Invert movement in Y to account for the fact that y=0 is at the top. */
    resp.r_event.e_mouse.m_packet.mp_rely = -resp.r_event.e_mouse.m_packet.mp_rely;
    new_mouse_display_x = mouse_display_x + (int)resp.r_event.e_mouse.m_packet.mp_relx;
@@ -353,7 +354,7 @@ INTERN int MouseRelayThread(void *arg) {
                           hover_window->w_posx + (int)resp.r_event.e_mouse.m_clrelx,
                           hover_window->w_posy + (int)resp.r_event.e_mouse.m_clrely);
 #ifdef CONFIG_COPYRECT_DO_OUTLINE
-      /* Doing a full redraw here allow one to better see the redraw rects. */
+      /* Doing a full redraw here allows one to better see the redraw rects. */
       if (redraw_full_on_move)
           Display_Redraw(d);
 #endif

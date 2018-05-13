@@ -49,9 +49,6 @@ linker_findexcept_consafe(uintptr_t ip, u16 exception_code,
 INTDEF struct except_handler kernel_except_start[];
 INTDEF struct except_handler kernel_except_end[];
 INTDEF byte_t kernel_except_size[];
-INTDEF byte_t kernel_ehframe_start[];
-INTDEF byte_t kernel_ehframe_end[];
-INTDEF byte_t kernel_ehframe_size[];
 
 
 /* Lookup the application at `ip' and load the FDE entry associated with `ip'.
@@ -83,9 +80,7 @@ linker_findfde(uintptr_t ip, struct fde_info *__restrict result) {
    /* Can only search the kernel itself. */
    if (effective_vm != &vm_kernel)
        return false;
-   return eh_findfde((byte_t *)kernel_ehframe_start,
-                     (size_t)kernel_ehframe_size,
-                      ip,result,NULL);
+   return kernel_eh_findfde(ip,result);
   }
  }
  TRY {
@@ -114,11 +109,22 @@ linker_findfde(uintptr_t ip, struct fde_info *__restrict result) {
   else {
    struct module *mod = app->a_module;
    /* Lookup FDE information. */
-   fde_ok = eh_findfde((byte_t *)
-                      ((uintptr_t)mod->m_sect.m_eh_frame.ds_base + app->a_loadaddr),
-                                  mod->m_sect.m_eh_frame.ds_size,
-                        ip,result,NULL);
-   /* XXX: `relinfo'? */
+   fde_ok = fde_cache_lookup(&mod->m_fde_cache,result,ip - app->a_loadaddr);
+   if (fde_ok) {
+    /* Convert into absolute FDE information. */
+    fde_info_mkabs(result,app->a_loadaddr);
+   } else {
+    fde_ok = eh_findfde((byte_t *)
+                       ((uintptr_t)mod->m_sect.m_eh_frame.ds_base + app->a_loadaddr),
+                                   mod->m_sect.m_eh_frame.ds_size,
+                         ip,result);
+    if (fde_ok) {
+     /* We managed to find something! now to cache it. */
+     fde_info_mkrel(result,app->a_loadaddr);
+     fde_cache_insert(mod,result);
+     fde_info_mkabs(result,app->a_loadaddr);
+    }
+   }
   }
  } FINALLY {
   application_decref(app);

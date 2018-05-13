@@ -507,6 +507,9 @@
     <ClCompile Include="..\..\src\kernel\src\vm\phys.c">
       <Filter>kernel\src\vm</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\unwind\fde_cache.c">
+      <Filter>kernel\src\unwind</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">

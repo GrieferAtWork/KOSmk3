@@ -38,6 +38,7 @@
 #include <fs/linker.h>
 #include <fs/driver.h>
 #include <unwind/debug_line.h>
+#include <unwind/eh_frame.h>
 #include <string.h>
 #include <except.h>
 #include <stdlib.h>
@@ -334,6 +335,7 @@ module_destroy(struct module *__restrict self) {
      driver_decref(self->m_driver);
  if (self->m_path)
      path_decref(self->m_path);
+ fde_cache_fini(&self->m_fde_cache);
  kfree(self);
 }
 
@@ -343,6 +345,7 @@ REF struct module *KCALL module_alloc(void) {
  result = (REF struct module *)kmalloc(sizeof(struct module),
                                        GFP_SHARED|GFP_CALLOC);
  result->m_refcnt = 1;
+ atomic_rwlock_cinit(&result->m_fde_cache.fc_lock);
  return result;
 }
 

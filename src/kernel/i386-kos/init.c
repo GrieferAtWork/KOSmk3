@@ -40,6 +40,7 @@
 #include <fs/node.h>
 #include <fs/path.h>
 #include <kernel/environ.h>
+#include <unwind/eh_frame.h>
 #include <string.h>
 #include <except.h>
 #include <stdlib.h>
@@ -234,6 +235,18 @@ void KCALL x86_switch_to_userspace(void) {
    struct meminfo *iter = _mem_info_v;
    /* Update the kernel module range. */
    kernel_module.m_imageend = (uintptr_t)kernel_rwnf_end_raw;
+
+#if 0 /* Not required, because the kernel's FDE cache is intended to keep
+       * on including cache information for the kernel's .free section.
+       * This is required so we can keep on using unwind information for
+       * functions we relocated from `.free' (such as the sysenter segment) */
+   /* Must clear the kernel's FDE cache, because if it was used, it will
+    * have optimized itself for the kernel module's memory layout, which
+    * we just changed. - Clearing the cache will cause it to re-calculate
+    * those optimizations the next time it is used. */
+   fde_cache_clear(&kernel_module.m_fde_cache);
+#endif
+
    /* Remove the node for the .free section from the kernel VM. */
    asserte(vm_pop_nodes(&vm_kernel,
                        (vm_vpage_t)kernel_free_minpage,

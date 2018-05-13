@@ -20,6 +20,7 @@
 #define GUARD_KERNEL_INCLUDE_UNWIND_EH_FRAME_H 1
 
 #include <hybrid/compiler.h>
+#include <hybrid/list/atree.h>
 #include <kos/types.h>
 #include <stdbool.h>
 
@@ -147,43 +148,50 @@ struct FDE {
 
 
 struct fde_info {
-    struct CIE        *fi_cie;       /* [1..1] Starting address of the associated CIE. */
-    struct FDE        *fi_fde;       /* [1..1] Starting address of the associated FDE. */
-    struct eh_relinfo *fi_relinfo;   /* [0..1] Relocation information. */
-    uintptr_t          fi_pcbegin;   /* [< fi_pcend] PC (Program counter) starting address. */
-    uintptr_t          fi_pcend;     /* [> fi_pcbegin] PC (Program counter) ending address. */
-    char              *fi_augstr;    /* [1..1] Augmentation string pointed to by `fi_cie' */
+#if 0 /* These were never actually used... */
+    struct CIE        *fi_cie;       /* [1..1] Starting address of the associated CIE (absolute). */
+    struct FDE        *fi_fde;       /* [1..1] Starting address of the associated FDE (absolute). */
+    char              *fi_augstr;    /* [1..1] Augmentation string pointed to by `fi_cie' (absolute) */
+#endif
+    uintptr_t          fi_pcbegin;   /* [< fi_pcend] PC (Program counter) starting address (absolute). */
+    uintptr_t          fi_pcend;     /* [> fi_pcbegin] PC (Program counter) ending address (absolute). */
     uintptr_t          fi_codealign; /* Code alignment. (Multiplied with the delta argument of an advance location instruction) */
     intptr_t           fi_dataalign; /* Data alignment. (Multiplied with the register offset argument of an offset instruction) */
-    uintptr_t          fi_persofun;  /* [0..1] Address of a personality handler function. */
-    uintptr_t          fi_lsdaaddr;  /* [0..1] Address of a language-specific data block. */
+    uintptr_t          fi_persofun;  /* [0..1] Address of a personality handler function. (absolute) */
+    uintptr_t          fi_lsdaaddr;  /* [0..1] Address of a language-specific data block. (absolute) */
+    eh_instr_t        *fi_inittext;  /* [0..fi_initsize] Pointer to initial EH instructions (usually describing compiler-generated frames) (absolute) */
     size_t             fi_initsize;  /* Max size of the `fi_inittext' block in bytes. */
-    eh_instr_t        *fi_inittext;  /* [0..fi_initsize] Pointer to initial EH instructions (usually describing compiler-generated frames) */
+    eh_instr_t        *fi_evaltext;  /* [0..fi_evalsize] Pointer to FDE-specific EH instructions (This is the meat of it all) (absolute) */
     size_t             fi_evalsize;  /* Max size of the `fi_evaltext' block in bytes. */
-    eh_instr_t        *fi_evaltext;  /* [0..fi_evalsize] Pointer to FDE-specific EH instructions (This is the meat of it all) */
     uintptr_t          fi_retreg;    /* Return register number. */
     u8                 fi_encptr;    /* Encoding used for pointers (One of `DW_EH_PE_*') */
     u8                 fi_enclsda;   /* Encoding used for LSDA (One of `DW_EH_PE_*') */
     u8                 fi_encperso;  /* Encoding used for personality function pointer (One of `DW_EH_PE_*') */
     u8                 fi_sigframe;  /* Non-zero if this is a signal frame. */
 };
-struct eh_relinfo {
-    /* Relocations information required by `eh_findfde()'. */
-    uintptr_t   er_textaddr; /* Starting address of the `.text' section. */
+
+struct fde_info_cache {
+    ATREE_XNODE(struct fde_info_cache) ic_node; /* [0..1][owned] Address tree node of this cache entry. */
+    size_t                             ic_size; /* [const] Heap-size of this FDE info cache data block. */
+    struct fde_info                    ic_info; /* [const] FDE Info associated with this cache.
+                                                 * NOTE: All fields marked as `(absolute)' are made relative
+                                                 *       to the load address of the image before being saved
+                                                 *       in this cache.
+                                                 * Also: The `fi_pcend' field is modified to contain the MAX
+                                                 *       address, rather than the END address (meaning it is
+                                                 *       1 lower than what is documented as the END address),
+                                                 *       thus allowing it to be used as ATREE node range
+                                                 *       identifier. */
 };
 
 
 /* Find the FDE associated with a given `ip' by
  * searching the given `eh_frame' section.
- * If not found, `false' is returned.
- * @param: relinfo: When non-NULL, additional relocation information.
- * WARNING: Do not call this function if the origin
- *          of `eh_frame_start' cannot be trusted. */
+ * If not found, `false' is returned. */
 FUNDEF bool KCALL
 eh_findfde(byte_t *__restrict eh_frame_start,
            size_t eh_frame_size, uintptr_t ip,
-           struct fde_info *__restrict result,
-           struct eh_relinfo *relinfo);
+           struct fde_info *__restrict result);
 
 struct cpu_context;
 
@@ -215,6 +223,49 @@ FUNDEF bool KCALL eh_jmp(struct fde_info *__restrict info,
 #define EH_FNORMAL               0x0000 /* Normal flags. */
 #define EH_FRESTRICT_USERSPACE   0x0001 /* Validate user-space pointers before dereferencing them. */
 #define EH_FDONT_UNWIND_SIGFRAME 0x0002 /* Don't unwind signal frames. (for use with `eh_return') */
+
+
+#ifdef CONFIG_BUILDING_KERNEL_CORE
+/* Utility functions for working with FDE caches. */
+struct fde_cache;
+struct module;
+
+/* Finalize the given FDE cache. */
+INTDEF ATTR_NOTHROW void KCALL fde_cache_fini(struct fde_cache *__restrict self);
+
+/* Clear the FDE cache (should be called during `kernel_cc_invoke()') */
+INTDEF ATTR_NOTHROW void KCALL fde_cache_clear(struct fde_cache *__restrict self);
+
+/* Convert the given FDE info data block to/from image-relative addresses.
+ * Also: Converting to relative addresses will subtract 1 from `fi_pcend',
+ *       and converting to absolute will add 1 to `fi_pcend'. */
+INTDEF ATTR_NOTHROW void KCALL fde_info_mkabs(struct fde_info *__restrict self, uintptr_t loadaddr);
+INTDEF ATTR_NOTHROW void KCALL fde_info_mkrel(struct fde_info *__restrict self, uintptr_t loadaddr);
+
+/* Lookup relative, cached FDE information for `relative_ip'
+ * Upon success (return == true), the caller must convert extracted
+ * information to absolute addresses using `fde_info_mkabs()'
+ * NOTE: If this function fails to acquire a lock on the cache
+ *       after the caller has disabled preemption, `false' is
+ *       returned and the function will not block. */
+INTDEF ATTR_NOTHROW bool KCALL
+fde_cache_lookup(struct fde_cache *__restrict self,
+                 struct fde_info *__restrict rel_info,
+                 uintptr_t relative_ip);
+/* Insert the given `rel_info' into the FDE cache, but don't do
+ * so if another info block for the same, or an overlapping FDE
+ * entry has already been cached, or if allocation of a new FDE
+ * entry is impossible when using the `GFP_NOMAP' flag. */
+INTDEF ATTR_NOTHROW void KCALL
+fde_cache_insert(struct module *__restrict self,
+                 struct fde_info const *__restrict rel_info);
+
+/* Find an FDE entry belonging to the kernel core. */
+INTDEF bool KCALL
+kernel_eh_findfde(uintptr_t ip,
+                  struct fde_info *__restrict result);
+#endif
+
 
 DECL_END
 

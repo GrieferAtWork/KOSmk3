@@ -1036,10 +1036,10 @@ heap_alloc_untraced(struct heap *__restrict self,
  iter = &self->h_size[HEAP_BUCKET_OF(result.hp_siz)];
  end  =  COMPILER_ENDOF(self->h_size);
  HEAP_ASSERTF(iter >= self->h_size &&
-         iter <  COMPILER_ENDOF(self->h_size),
-         "HEAP_BUCKET_OF(%Iu) = %Iu/%Iu",
-         result.hp_siz,HEAP_BUCKET_OF(result.hp_siz),
-         COMPILER_LENOF(self->h_size));
+              iter <  COMPILER_ENDOF(self->h_size),
+             "HEAP_BUCKET_OF(%Iu) = %Iu/%Iu",
+              result.hp_siz,HEAP_BUCKET_OF(result.hp_siz),
+              COMPILER_LENOF(self->h_size));
 search_heap:
  heap_validate_all();
  atomic_rwlock_write(&self->h_lock);
@@ -1054,8 +1054,8 @@ search_heap:
   chain = *iter;
   while (chain &&
         (HEAP_ASSERTF(IS_ALIGNED(MFREE_SIZE(chain),HEAP_ALIGNMENT),
-                           "MFREE_SIZE(chain) = 0x%Ix",
-                            MFREE_SIZE(chain)),
+                                "MFREE_SIZE(chain) = 0x%Ix",
+                                 MFREE_SIZE(chain)),
          MFREE_SIZE(chain) < result.hp_siz))
          chain = chain->mf_lsize.le_next;
   if (!chain) continue;

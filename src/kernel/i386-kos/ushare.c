@@ -61,10 +61,8 @@ sysenter_pregion_ctl(struct vm_region *__restrict UNUSED(self),
   bool result;
  case REGION_CTL_FFIND_FDE:
   /* Find FDE information for the effectively mapped text. */
-  result = eh_findfde(kernel_ehframe_start,
-                     (size_t)kernel_ehframe_size,
-                     (uintptr_t)x86_sysenter_ushare_base+address,
-                     (struct fde_info *)arg,NULL);
+  result = kernel_eh_findfde((uintptr_t)x86_sysenter_ushare_base+address,
+                             (struct fde_info *)arg);
   if (result) {
    ((struct fde_info *)arg)->fi_pcbegin -= (uintptr_t)x86_sysenter_ushare_base;
    ((struct fde_info *)arg)->fi_pcend   -= (uintptr_t)x86_sysenter_ushare_base;
