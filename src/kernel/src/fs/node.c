@@ -333,12 +333,11 @@ inode_loadattr(struct inode *__restrict self) {
 
 /* Truncate the length of the given INode.
  * @param: mode: Set of `DIRECTORY_REMOVE_F*'
- * @throw: E_FILESYSTEM_ERROR.ERROR_FS_ACCESS_ERROR:          [...]
- * @throw: E_FILESYSTEM_ERROR.ERROR_FS_READONLY_FILESYSTEM:   [...]
- * @throw: E_FILESYSTEM_ERROR.ERROR_FS_TRUNCATE_GREATER_SIZE: [...] */
+ * @throw: E_FILESYSTEM_ERROR.ERROR_FS_ACCESS_ERROR:        [...]
+ * @throw: E_FILESYSTEM_ERROR.ERROR_FS_READONLY_FILESYSTEM: [...] */
 PUBLIC void KCALL
 inode_truncate(struct inode *__restrict EXCEPT_VAR self,
-               pos_t new_smaller_size) {
+               pos_t new_size) {
  struct inode *EXCEPT_VAR xself = self;
  inode_access(self,W_OK);
  if (!self->i_ops->io_file.f_truncate)
@@ -347,11 +346,19 @@ inode_truncate(struct inode *__restrict EXCEPT_VAR self,
  TRY {
   if unlikely(INODE_ISCLOSED(self))
      throw_fs_error(ERROR_FS_FILE_NOT_FOUND);
-  if unlikely(new_smaller_size >= self->i_attr.a_size)
-     throw_fs_error(ERROR_FS_TRUNCATE_GREATER_SIZE);
-  (*self->i_ops->io_file.f_truncate)(self,new_smaller_size);
-  /* Update the size attribute. */
-  self->i_attr.a_size = new_smaller_size;
+  if unlikely(new_size != self->i_attr.a_size) {
+   if (new_size > self->i_attr.a_size) {
+    /* Ignore the enlarge operator not being implemented. */
+    if (self->i_ops->io_file.f_enlarge)
+      (*self->i_ops->io_file.f_enlarge)(self,new_size);
+   } else {
+    (*self->i_ops->io_file.f_truncate)(self,new_size);
+   }
+   /* Update the size attribute. */
+   self->i_attr.a_size = new_size;
+   /* Mark the INode as having changed. */
+   inode_changed(self);
+  }
  } FINALLY {
   rwlock_endwrite(&xself->i_lock);
  }

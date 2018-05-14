@@ -188,7 +188,7 @@ INTERN_ENTRY(libc_procenv)
 SYMEND(libc_procenv)
 .cfi_endproc
 
-EXPORT(_errno,                     libc_dos_errno);    /* DOS */
+EXPORT(__DSYM(_errno),             libc_dos_errno);    /* DOS */
 EXPORT(__get_doserrno,             libc_dos_geterrno); /* DOS */
 EXPORT(__set_doserrno,             libc_dos_seterrno); /* DOS */
 EXPORT(__doserrno,                 libc_nt_errno);     /* NT */
@@ -196,6 +196,7 @@ EXPORT(__get_nterrno,              libc_nt_geterrno);  /* NT */
 EXPORT(__set_nterrno,              libc_nt_seterrno);  /* NT */
 EXPORT(__errno,                    libc_errno);        /* Cygwin */
 EXPORT(__errno_location,           libc_errno);        /* GLibC */
+EXPORT(_errno,                     libc_errno);        /* KOS (Mk2 defined this one?) */
 EXPORT(__get_errno,                libc_geterrno);     /* KOS */
 EXPORT(__set_errno,                libc_seterrno);     /* KOS */
 

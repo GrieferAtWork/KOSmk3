@@ -294,18 +294,19 @@ DEFINE_SYSCALL3(ftruncate,
 DEFINE_SYSCALL2(ftruncate,fd_t,fd,u64,length)
 #endif
 {
- REF struct inode *EXCEPT_VAR node;
- /* Lookup the user-path. */
- node = handle_get_inode(fd);
+ REF struct handle EXCEPT_VAR hnd;
+ hnd = handle_get(fd);
  TRY {
-  /* Truncate the INode. */
+  /* Check for write permissions. */
+  if ((hnd.h_flag & IO_ACCMODE) == IO_RDONLY)
+       throw_fs_error(ERROR_FS_ACCESS_ERROR);
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
-  inode_truncate(node,(pos_t)len_hi << 32 | (pos_t)len_lo);
+  handle_truncate(hnd,(pos_t)len_hi << 32 | (pos_t)len_lo);
 #else
-  inode_truncate(node,length);
+  handle_truncate(hnd,length);
 #endif
  } FINALLY {
-  inode_decref(node);
+  handle_decref(hnd);
  }
  return 0;
 }
@@ -833,8 +834,19 @@ DEFINE_SYSCALL4(openat,
  }
  TRY {
   /* Truncate the generated handle if the caller requested us doing so. */
-  if (flags & O_TRUNC)
-      handle_truncate(result,0);
+  if (flags & O_TRUNC) {
+   /* Check for write permissions.
+    * POSIX leaves this part undefined, but we deal with it as an error scenario. */
+   if ((flags & O_ACCMODE) == O_RDONLY)
+        throw_fs_error(ERROR_FS_ACCESS_ERROR);
+   /* POSIX states that O_TRUNC should be ignored for
+    * open() operations that aren't regular files, so
+    * we filter everything, except for regular handles
+    * referring to regular INodes. */
+   if ((result.h_type == HANDLE_TYPE_FFILE && INODE_ISREG(result.h_object.o_file->f_node)) ||
+       (result.h_type == HANDLE_TYPE_FINODE && INODE_ISREG(result.h_object.o_inode)))
+        handle_truncate(result,0);
+  }
   /* With a handle now opened, turn it into a descriptor. */
   result_fd = handle_put(result);
  } FINALLY {

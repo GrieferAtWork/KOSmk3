@@ -407,9 +407,6 @@ struct __ATTR_PACKED exception_data_buffer_too_small {
 #define ERROR_FS_READONLY_FILESYSTEM   0x000b /* [ERRNO(EROFS)]        The filesystem has been mounted as read-only, or associated block-device cannot be written to during some
                                                *                       operation that either requires (e.g. `mkdir()') or requests (e.g.: `open(...,O_WRONLY)') write permissions
                                                *                       In some cases, this error may also be thrown instead of `ERROR_FS_UNSUPPORTED_FUNCTION'. */
-#define ERROR_FS_TRUNCATE_GREATER_SIZE 0x000d /* [ERRNO(EINVAL)]       The `truncate()' or `ftruncate()' function was called with an argument greater than
-                                               *                       the file's current length (It's called TRUNCATE not setlength or something...)
-                                               *                       XXX: Posix allows truncate() to increase the length of a file... */
 #define ERROR_FS_ACCESS_ERROR          0x000e /* [ERRNO(EACCES)]       The calling process does not have sufficient permissions for the operation. */
 #define ERROR_FS_DISK_FULL             0x000f /* [ERRNO(ENOSPC)]       The associated disk is full or insufficient space is available to complete the operation. */
 #define ERROR_FS_RMDIR_REGULAR         0x0010 /* [ERRNO(ENOTDIR)]     `rmdir()' cannot be used to remove a non-directory file. */

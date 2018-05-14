@@ -104,7 +104,7 @@ struct handle_types_struct {
     size_t               (KCALL *ht_readdir[HANDLE_TYPE_FCOUNT])(void *__restrict ptr, USER CHECKED struct dirent *buf, size_t bufsize, int mode, iomode_t flags);
     size_t               (KCALL *ht_pread[HANDLE_TYPE_FCOUNT])(void *__restrict ptr, USER CHECKED void *buf, size_t bufsize, pos_t pos, iomode_t flags);
     size_t               (KCALL *ht_pwrite[HANDLE_TYPE_FCOUNT])(void *__restrict ptr, USER CHECKED void const *buf, size_t bufsize, pos_t pos, iomode_t flags);
-    void                 (KCALL *ht_truncate[HANDLE_TYPE_FCOUNT])(void *__restrict ptr, pos_t new_smaller_size);
+    void                 (KCALL *ht_truncate[HANDLE_TYPE_FCOUNT])(void *__restrict ptr, pos_t new_size);
     /* Allocate disk space.
      * @throw: E_INVALID_ARGUMENT: The given `mode' isn't supported (same as not implementing this operator) */
     void                 (KCALL *ht_allocate[HANDLE_TYPE_FCOUNT])(void *__restrict ptr, int mode, pos_t start, pos_t length, iomode_t flags);
@@ -144,7 +144,7 @@ DATDEF struct handle_types_struct const handle_types;
 #define handle_preadf(x,buf,bufsize,pos,flags)    (*handle_types.ht_pread[(x).h_type])((x).h_ptr,buf,bufsize,pos,flags)
 #define handle_pwrite(x,buf,bufsize,pos)          (*handle_types.ht_pwrite[(x).h_type])((x).h_ptr,buf,bufsize,pos,(x).h_flag)
 #define handle_pwritef(x,buf,bufsize,pos,flags)   (*handle_types.ht_pwrite[(x).h_type])((x).h_ptr,buf,bufsize,pos,flags)
-#define handle_truncate(x,new_smaller_size)       SAFECALL_KCALL_VOID_2(handle_types.ht_truncate[(x).h_type],(x).h_ptr,new_smaller_size)
+#define handle_truncate(x,new_size)               SAFECALL_KCALL_VOID_2(handle_types.ht_truncate[(x).h_type],(x).h_ptr,new_size)
 #define handle_allocate(x,mode,start,length)      SAFECALL_KCALL_VOID_5(handle_types.ht_allocate[(x).h_type],(x).h_ptr,mode,start,length,(x).h_flag)
 #define handle_ioctl(x,cmd,arg)                   SAFECALL_KCALL_4(handle_types.ht_ioctl[(x).h_type],(x).h_ptr,cmd,arg,(x).h_flag)
 #define handle_ioctlf(x,cmd,arg,flags)            SAFECALL_KCALL_4(handle_types.ht_ioctl[(x).h_type],(x).h_ptr,cmd,arg,flags)

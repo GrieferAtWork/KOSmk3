@@ -194,6 +194,26 @@ struct inode_operations {
          *       directory) */
         void (KCALL *f_truncate)(struct inode *__restrict self,
                                  pos_t new_smaller_size);
+        /* [0..1]
+         * [locked(WRITE(self->i_lock))]
+         * [valid_if(f_truncate != NULL)]
+         * The opposite of `f_truncate': Increase the size of the file.
+         * @assume(new_greater_size > self->i_attr.a_size);
+         * Upon success, the caller will update `self->i_attr.a_size'
+         * to be equal to `new_greater_size', as well as set the `INODE_FCHANGED'
+         * flag and add the node to its superblock's changed-list. However it is
+         * the responsibility of this function to update `i_attr.a_blocks'.
+         * Most filesystem types manage file sizes lazily and only allocate file
+         * data when something is actually written. Because of that, this operator
+         * not actually being implemented is interpreted as the filesystem behaving
+         * in such a manner, meaning that its absence is dealt with by updating the
+         * file's size and to equal `new_greater_size', and setting the `INODE_FCHANGED'
+         * flag, but not informing the underlying filesystem in any other manner.
+         * -> As a matter of fact, I can't think of a single filesystem where that
+         *    behavior doesn't already suffice when it comes to symbolically allocating
+         *    new file data. */
+        void (KCALL *f_enlarge)(struct inode *__restrict self,
+                                pos_t new_greater_size);
 
         /* [0..1]
          * [locked(WRITE(self->i_lock))]
@@ -805,15 +825,14 @@ FUNDEF void KCALL inode_changed(struct inode *__restrict self);
 FUNDEF void KCALL inode_loadattr(struct inode *__restrict self);
 
 
-/* Truncate the length of the given INode.
+/* Change the size (in bytes) of the given INode.
  * @param: mode: Set of `DIRECTORY_REMOVE_F*'
- * @throw: E_FILESYSTEM_ERROR.ERROR_FS_ACCESS_ERROR:          [...]
- * @throw: E_FILESYSTEM_ERROR.ERROR_FS_FILE_NOT_FOUND:        [...]
- * @throw: E_FILESYSTEM_ERROR.ERROR_FS_READONLY_FILESYSTEM:   [...]
- * @throw: E_FILESYSTEM_ERROR.ERROR_FS_TRUNCATE_GREATER_SIZE: [...] */
+ * @throw: E_FILESYSTEM_ERROR.ERROR_FS_ACCESS_ERROR:        [...]
+ * @throw: E_FILESYSTEM_ERROR.ERROR_FS_FILE_NOT_FOUND:      [...]
+ * @throw: E_FILESYSTEM_ERROR.ERROR_FS_READONLY_FILESYSTEM: [...] */
 FUNDEF void KCALL
 inode_truncate(struct inode *__restrict self,
-               pos_t new_smaller_size);
+               pos_t new_size);
 
 /* Return information on hard limits for the given INode.
  * @param: name: One of `_PC_*' from `<bits/confname.h>'

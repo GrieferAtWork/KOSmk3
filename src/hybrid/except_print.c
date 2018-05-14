@@ -618,7 +618,6 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
   case ERROR_FS_FILE_ALREADY_EXISTS:   PRINTF("\t\tThe target of a `rename()' or `link()' operation already exists, or `O_EXCL' was passed to `open()', and the file already exists\n"); break;
   case ERROR_FS_UNSUPPORTED_FUNCTION:  PRINTF("\t\tSome function required for the current operation is not supported by the filesystem\n"); break;
   case ERROR_FS_READONLY_FILESYSTEM:   PRINTF("\t\tThe filesystem has been mounted as read-only, or associated block-device cannot be written to during some operation that either requires\n"); break;
-  case ERROR_FS_TRUNCATE_GREATER_SIZE: PRINTF("\t\tThe `truncate()' or `ftruncate()' function was called with an argument greater than the file's current length\n"); break;
   case ERROR_FS_ACCESS_ERROR:          PRINTF("\t\tThe calling process does not have sufficient permissions for the operation\n"); break;
   case ERROR_FS_DISK_FULL:             PRINTF("\t\tThe associated disk is full or insufficient space is available to complete the operation\n"); break;
   case ERROR_FS_RMDIR_REGULAR:         PRINTF("\t\t`rmdir()' cannot be used to remove a non-directory file\n"); break;

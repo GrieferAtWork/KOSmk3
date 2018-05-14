@@ -39,7 +39,6 @@ DECL_BEGIN
 INTERN errno_t FCALL
 libc_exception_errno(struct exception_info *__restrict info) {
  errno_t result = EPERM;
- /*PRINTF("libc_exception_errno()\n");*/
  switch (info->e_error.e_code) {
  case E_BADALLOC:
   if (info->e_error.e_badalloc.ba_resource == ERROR_BADALLOC_HANDLE)
@@ -106,7 +105,6 @@ libc_exception_errno(struct exception_info *__restrict info) {
   case ERROR_FS_FILE_ALREADY_EXISTS:   result = EEXIST; break;
   case ERROR_FS_UNSUPPORTED_FUNCTION:  result = EPERM; break;
   case ERROR_FS_READONLY_FILESYSTEM:   result = EROFS; break;
-  case ERROR_FS_TRUNCATE_GREATER_SIZE: result = EINVAL; break;
   case ERROR_FS_ACCESS_ERROR:          result = EACCES; break;
   case ERROR_FS_DISK_FULL:             result = ENOSPC; break;
   case ERROR_FS_RMDIR_REGULAR:         result = ENOTDIR; break;

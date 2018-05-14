@@ -294,10 +294,14 @@ __REDIRECT_EXCEPT_(__LIBC,__PORT_KOSONLY_ALT(readdir) __NONNULL((2)) __WUNUSED,
                                  * of re-invoking the xreaddir() system call and inspecting its return
                                  * value for being equal to ZERO(0).
                                  * However, that check is still required, as this flag may be ignored
-                                 * for no apparent reason.
+                                 * for no reason immediately apparent (if the EOF entry can't fit into
+                                 * the buffer, there's no way of knowing if there's a missing entry that's
+                                 * supposed to go into the buffer, or if it was actually an EOF entry).
+                                 * Additionally, no eof entry may be written if xreaddir() is invoked
+                                 * on a directory handle who's stream position is at the end of the directory.
                                  * For usage, see the example below, as well as `READDIR_MULTIPLE_ISEOF()' */
-#define READDIR_MODEMASK 0x001f /* Mask for the readdir() mode. */
-#define READDIR_FLAGMASK 0xc000 /* Mask of known readdir() flags. */
+#define READDIR_MODEMASK 0x001f /* Mask for the xreaddir() mode. */
+#define READDIR_FLAGMASK 0xc000 /* Mask of known xreaddir() flags. */
 #define READDIR_MODEMAX  0x0003 /* Mask recognized mode ID. */
 #define READDIR_MULTIPLE 0x0003 /* Read as many directory entries as can fit into the buffer.
                                  * If at least one entry could be read, return the combined size
@@ -322,7 +326,7 @@ __REDIRECT_EXCEPT_(__LIBC,__PORT_KOSONLY_ALT(readdir) __NONNULL((2)) __WUNUSED,
  * >>     }
  * >>     // Process entries that were read.
  * >>     for (;;) {
- * >>         // This check if only required when `READDIR_WANTEOF' is passed.
+ * >>         // This check is only required when `READDIR_WANTEOF' is passed.
  * >>         if (READDIR_MULTIPLE_ISEOF(iter))
  * >>             goto done;
  * >>         printf("Entry: %q\n",iter->d_name);
