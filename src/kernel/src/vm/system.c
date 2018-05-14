@@ -305,11 +305,18 @@ try_invoke_inode_mmap:
       }
       break;
 
+     {
+      struct character_device *dev;
+     case HANDLE_TYPE_FDEVICE_STREAM:
+      dev = (struct character_device *)hnd.h_object.o_device_stream->ds_device;
+      goto do_mmap_device;
      case HANDLE_TYPE_FDEVICE:
+      dev = hnd.h_object.o_character_device;
+do_mmap_device:
       /* Special case for device memory mappings. */
-      if (hnd.h_object.o_device->d_type != DEVICE_TYPE_FCHARDEV)
+      if (dev->c_device.d_type != DEVICE_TYPE_FCHARDEV)
           goto cannot_mmap_handle;
-      if (!hnd.h_object.o_character_device->c_ops->c_file.f_mmap)
+      if (!dev->c_ops->c_file.f_mmap)
           goto cannot_mmap_handle;
       TRY {
        pos_t mmap_start;
@@ -320,9 +327,9 @@ try_invoke_inode_mmap:
        mmap_start -= info->mi_virt.mv_begin;
        if (mmap_start & (PAGESIZE-1))
            error_throw(E_INVALID_ARGUMENT);
-       region = (*hnd.h_object.o_character_device->c_ops->c_file.f_mmap)(hnd.h_object.o_character_device,
-                                                                        (vm_raddr_t)VM_ADDR2PAGE(mmap_start),
-                                                                        &region_start);
+       region = (*dev->c_ops->c_file.f_mmap)(dev,
+                                            (vm_raddr_t)VM_ADDR2PAGE(mmap_start),
+                                            &region_start);
        /* Check if we're able to map the entirety of the request. */
        if (__builtin_add_overflow(region_start,num_pages,&region_end) ||
            region_end > region->vr_size) {
@@ -330,10 +337,11 @@ try_invoke_inode_mmap:
         error_throw(E_INVALID_ARGUMENT);
        }
       } FINALLY {
-       device_decref(hnd.h_object.o_device);
+       handle_decref(hnd);
       }
       is_extenal_region = true;
       goto got_regions; /* XXX: Skip across finally is intended */
+     }
       
      default:
 cannot_mmap_handle:

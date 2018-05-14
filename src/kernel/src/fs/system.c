@@ -520,11 +520,8 @@ read_dynamic_again:
    }
   }
  } FINALLY {
-  if (FINALLY_WILL_RETHROW)
-      error_printf("READLINK FAILED\n");
   inode_decref(&node->sl_node);
  }
- debug_printf("READLINK -> %Id\n",result);
  return result;
 }
 

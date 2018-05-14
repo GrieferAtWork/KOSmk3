@@ -98,6 +98,7 @@ DEFINE_HANDLE_REFERENCE_FUNCTIONS(pipewriter)
 DEFINE_HANDLE_REFERENCE_FUNCTIONS(socket)
 DEFINE_HANDLE_REFERENCE_FUNCTIONS(futex)
 DEFINE_HANDLE_REFERENCE_FUNCTIONS(futex_handle)
+DEFINE_HANDLE_REFERENCE_FUNCTIONS(device_stream)
 #undef DEFINE_HANDLE_REFERENCE_FUNCTIONS
 #undef DEFINE_HANDLE_REFERENCE_FUNCTIONS_EX
 
@@ -875,16 +876,17 @@ close_symbolic_handle(fd_t fd) {
 
 /* Lookup handles, given their FileDescriptor number.
  * The following implicit conversions are performed:
- *    - HANDLE_TYPE_FFILE        --> HANDLE_TYPE_FINODE
- *    - HANDLE_TYPE_FFILE        --> HANDLE_TYPE_FPATH
- *    - HANDLE_TYPE_FPATH        --> HANDLE_TYPE_FINODE
- *    - HANDLE_TYPE_FSUPERBLOCK  --> HANDLE_TYPE_FDEVICE
- *    - HANDLE_TYPE_FDEVICE      --> HANDLE_TYPE_FSUPERBLOCK
+ *    - HANDLE_TYPE_FFILE          --> HANDLE_TYPE_FINODE
+ *    - HANDLE_TYPE_FFILE          --> HANDLE_TYPE_FPATH
+ *    - HANDLE_TYPE_FPATH          --> HANDLE_TYPE_FINODE
+ *    - HANDLE_TYPE_FSUPERBLOCK    --> HANDLE_TYPE_FDEVICE
+ *    - HANDLE_TYPE_FDEVICE        --> HANDLE_TYPE_FSUPERBLOCK
  *     (Only for block-devices that have superblock
  *      associated; uses `block_device_getsuper()')
- *    - HANDLE_TYPE_FTHREAD      --> HANDLE_TYPE_FVM
- *    - HANDLE_TYPE_FVM          --> HANDLE_TYPE_FAPPLICATION (The root application)
- *    - HANDLE_TYPE_FAPPLICATION --> HANDLE_TYPE_FMODULE
+ *    - HANDLE_TYPE_FDEVICE_STREAM --> HANDLE_TYPE_FDEVICE
+ *    - HANDLE_TYPE_FTHREAD        --> HANDLE_TYPE_FVM
+ *    - HANDLE_TYPE_FVM            --> HANDLE_TYPE_FAPPLICATION (The root application)
+ *    - HANDLE_TYPE_FAPPLICATION   --> HANDLE_TYPE_FMODULE
  * NOTE: Substitution is allowed to recurse, meaning that
  *      `HANDLE_TYPE_FTHREAD --> HANDLE_TYPE_FMODULE' can be done by
  *       going through `HANDLE_TYPE_FVM' and `HANDLE_TYPE_FAPPLICATION'
@@ -932,6 +934,12 @@ KCALL handle_get_device(fd_t fd) {
  struct handle hnd = handle_get(fd);
  if (hnd.h_type == HANDLE_TYPE_FDEVICE)
      return hnd.h_object.o_device;
+ if (hnd.h_type == HANDLE_TYPE_FDEVICE_STREAM) {
+  result = hnd.h_object.o_device_stream->ds_device;
+  device_incref(result);
+  device_stream_decref(hnd.h_object.o_device_stream);
+  return result;
+ }
  if (hnd.h_type == HANDLE_TYPE_FSUPERBLOCK) {
   result = &hnd.h_object.o_superblock->s_device->b_device;
   device_incref(result);
@@ -953,8 +961,24 @@ KCALL handle_get_superblock(fd_t fd) {
      return hnd.h_object.o_superblock;
  if (hnd.h_type == HANDLE_TYPE_FDEVICE &&
      hnd.h_object.o_device->d_type == DEVICE_TYPE_FBLOCKDEV) {
-  result = block_device_getsuper(hnd.h_object.o_block_device);
-  device_decref(hnd.h_object.o_device);
+  REF struct block_device *EXCEPT_VAR dev;
+  dev = hnd.h_object.o_block_device;
+  TRY {
+   result = block_device_getsuper(hnd.h_object.o_block_device);
+  } FINALLY {
+   block_device_decref(dev);
+  }
+  return result;
+ }
+ if (hnd.h_type == HANDLE_TYPE_FDEVICE_STREAM &&
+     hnd.h_object.o_device_stream->ds_device->d_type == DEVICE_TYPE_FBLOCKDEV) {
+  REF struct device_stream *EXCEPT_VAR stream;
+  stream = hnd.h_object.o_device_stream;
+  TRY {
+   result = block_device_getsuper((struct block_device *)hnd.h_object.o_device_stream->ds_device);
+  } FINALLY {
+   device_stream_decref(stream);
+  }
   return result;
  }
  handle_decref(hnd);
@@ -992,8 +1016,24 @@ KCALL handle_get_superblock_relaxed(fd_t fd) {
  }
  if (hnd.h_type == HANDLE_TYPE_FDEVICE &&
      hnd.h_object.o_device->d_type == DEVICE_TYPE_FBLOCKDEV) {
-  result = block_device_getsuper(hnd.h_object.o_block_device);
-  device_decref(hnd.h_object.o_device);
+  REF struct block_device *EXCEPT_VAR dev;
+  dev = hnd.h_object.o_block_device;
+  TRY {
+   result = block_device_getsuper(hnd.h_object.o_block_device);
+  } FINALLY {
+   block_device_decref(dev);
+  }
+  return result;
+ }
+ if (hnd.h_type == HANDLE_TYPE_FDEVICE_STREAM &&
+     hnd.h_object.o_device_stream->ds_device->d_type == DEVICE_TYPE_FBLOCKDEV) {
+  REF struct device_stream *EXCEPT_VAR stream;
+  stream = hnd.h_object.o_device_stream;
+  TRY {
+   result = block_device_getsuper((struct block_device *)hnd.h_object.o_device_stream->ds_device);
+  } FINALLY {
+   device_stream_decref(stream);
+  }
   return result;
  }
  handle_decref(hnd);

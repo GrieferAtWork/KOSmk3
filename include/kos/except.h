@@ -283,16 +283,6 @@ typedef __UINT16_TYPE__ except_t;
 #endif
 
 
-/* TODO: Add an exception for each of these. */
-//#define ILL_ILLOPC    1 /* Illegal opcode. */
-//#define ILL_ILLOPN    2 /* Illegal operand. */
-//#define ILL_ILLADR    3 /* Illegal addressing mode. */
-//#define ILL_ILLTRP    4 /* Illegal trap. */
-//#define ILL_PRVOPC    5 /* Privileged opcode. */
-//#define ILL_PRVREG    6 /* Privileged register. */
-
-
-
 /* Error flags. */
 #define ERR_FNORMAL      0x0000 /* Normal exception context flags. */
 #define ERR_FRESUMABLE   0x0001 /* Execution can be continued after the error. */
@@ -456,7 +446,7 @@ struct __ATTR_PACKED exception_data_filesystem_error {
 #define ERROR_NET_ALREADY_LISTENING      0x000a /* [ERRNO(EALREADY)]        The socket has already started listening. */
 #define ERROR_NET_CANNOT_LISTEN          0x000b /* [ERRNO(EOPNOTSUPP)]      The socket doesn't implement the `listen(2)' function. */
 #define ERROR_NET_CANNOT_ACCEPT          0x000c /* [ERRNO(EOPNOTSUPP)]      The socket doesn't implement the `accept(2)' function. */
-#define ERROR_NET_INVALID_SOCKET_ADDRESS 0x000d /* [ERRNO(EINVAL)]          The socket address passed to `connect()', `bind()', or `sendto()' is malformed (usually thrown if the it's too small). */
+#define ERROR_NET_INVALID_SOCKET_ADDRESS 0x000d /* [ERRNO(EINVAL)]          The socket address passed to `connect()', `bind()', or `sendto()' is malformed (usually thrown if it's too small). */
 #define ERROR_NET_INVALID_ADDRESS_FAMILY 0x000e /* [ERRNO(EAFNOSUPPORT)]    The address family specified in a call to `connect()', `bind()', or `sendto()' isn't implemented by the socket. */
 #define ERROR_NET_CONNECTION_REFUSED     0x000f /* [ERRNO(ECONNREFUSED)]    Failed to connect to an address with no one listen(2)-ing on the other end. */
 #define ERROR_NET_ADDRESS_IN_USE         0x0010 /* [ERRNO(EADDRINUSE)]      Local address is already in use (mainly by `bind()'). */

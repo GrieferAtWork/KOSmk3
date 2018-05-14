@@ -97,7 +97,6 @@ KCALL __device_alloc(u16 device_type, size_t struct_size,
 #define device_alloc(device_type,struct_size) \
       __device_alloc(device_type,struct_size,&this_driver)
 
-
 /* Destroy a previously allocated device. */
 FUNDEF ATTR_NOTHROW void KCALL device_destroy(struct device *__restrict self);
 
@@ -185,8 +184,11 @@ FUNDEF void KCALL device_stat(struct device *__restrict self, USER CHECKED struc
 /* Synchronizes the page buffer of a block-device, or try to invoke the `c_sync'
  * operator of character devices, but ignore it if that operator is missing. */
 FUNDEF void KCALL device_sync(struct device *__restrict self);
-/* Tries to invoke the `c_open' operator of character
- * devices, or simply re-return a handle to the given device. */
+/* Tries to invoke the `c_open' operator of character devices,
+ * or simply re-return a handle to the given character device.
+ * When used to open a block device, `block_device_open_stream'
+ * is invoked to construct a stream-style wrapper for accessing
+ * the device with an independent file offset. */
 FUNDEF REF struct handle KCALL device_open(struct device *__restrict self, struct path *__restrict p, oflag_t open_mode);
 /* @throw: E_NOT_IMPLEMENTED: Current-position reading isn't supported (e.g.: block devices). */
 FUNDEF size_t KCALL device_read(struct device *__restrict self, USER CHECKED void *buf, size_t bufsize, iomode_t flags);
@@ -399,6 +401,13 @@ block_device_write(struct block_device *__restrict self,
 FUNDEF void KCALL
 block_device_sync(struct block_device *__restrict self);
 
+/* Returns a stream-enabled handle for the given block device
+ * that can be used to seek() and read() / write() in a way that
+ * will forward the call to the pread() and pwrite() operators. */
+FUNDEF REF struct handle KCALL
+block_device_open_stream(struct block_device *__restrict self,
+                         struct path *__restrict p, oflag_t open_mode)
+                         ASMNAME("device_open_stream");
 
 /* Automatically repartition the block device,
  * reloading the base+size of all partitions.
@@ -435,14 +444,23 @@ block_device_partition(struct block_device *__restrict self,
                        minor_t partition_number,
                        u8 const partition_guid[16]);
 
-
-
 /* Try to return a pointer to a superblock that is using
  * the given block-device as filesystem storage location.
- * Otherwise, return NULL. */
+ * Otherwise, return NULL.
+ * @throw: E_WOULDBLOCK: Preemption has been disabled and the operation would have blocked. */
 FUNDEF REF struct superblock *KCALL
 block_device_getsuper(struct block_device *__restrict self);
 
+
+
+/* A convenience function that returns a wrapper handle for a character
+ * device which can be used to invoke the pread() and pwrite() operations
+ * without the need of implementing a seek() function, and an associated
+ * custom kernel object. */
+FUNDEF REF struct handle KCALL
+character_device_open_stream(struct character_device *__restrict self,
+                             struct path *__restrict p, oflag_t open_mode)
+                             ASMNAME("device_open_stream");
 
 
 struct character_device_ops {
@@ -452,7 +470,12 @@ struct character_device_ops {
     /* [0..1] Open the character device as a regular file.
      *  NOTE: When this operator isn't implemented, the character device
      *        itself will be opened as a handle, meaning that handle operators
-     *        will invoke the callbacks defined below. */
+     *        will invoke the callbacks defined below.
+     *  HINT: To support stream-style seek() functions that forward read() and write() to the
+     *       `f_pread()' and `f_pwrite()' operators, assign `character_device_open_stream'
+     *        for this object and implement the `f_stat()' operator which is required
+     *        to fill in the `st_size' member in order to allow the emulated seek() function
+     *        to determine the seek position in the event of a `SEEK_END' request. */
     REF struct handle (KCALL *c_open)(struct character_device *__restrict self,
                                       struct path *__restrict p, oflag_t open_mode);
 
@@ -470,7 +493,7 @@ struct character_device_ops {
          *       all other fields will have been initialized to ZERO(0).
          * NOTE: The only place where this operator is invoked is if the
          *       user invoked `fstat()' on a file descriptor referring
-         *       to a device.
+         *       to a device, or in order to emulate streaming behavior.
          *       Invoking `stat()' on an INode referring to a character
          *       device will _NOT_ invoke this operator, but only present
          *       information available through the INode itself. */
@@ -480,7 +503,6 @@ struct character_device_ops {
         /* [0..1] Synchronize unwritten data.
          *  NOTE: When not implemented, ignore as a no-op. */
         void (KCALL *f_sync)(struct character_device *__restrict self);
-
 
         /* [0..1] Read data from the device.
          * @param: flags: Read mode flags (Usually used for `IO_NONBLOCK')
@@ -577,12 +599,37 @@ KCALL __character_device_alloc(size_t struct_size,
 #define CHARACTER_DEVICE_ALLOC(T) \
   ((T *)character_device_alloc(sizeof(T)))
 
-
-
-
-
 #endif /* __CC__ */
 
+
+
+
+#ifdef __CC__
+struct device_stream {
+    /* A handle type used to emulate streaming functions on a
+     * device that normally doesn't implement seek() functionality.
+     * The most important example of this is using `open(2)' to
+     * access a block device, which will return a device stream
+     * handle that can be used to seamlessly wrap any sort of
+     * device in order to emulate read(), write() and seek()
+     * by calling forward to pread(), pwrite() and stat()
+     * Besides reference counting function, the interface to
+     * this type is entirely implemented as handle operators
+     * associated with `HANDLE_TYPE_FDEVICE_STREAM'. */
+    ATOMIC_DATA ref_t  ds_refcnt; /* Handle reference counter. */
+    REF struct device *ds_device; /* [1..1][const] The device being emulated. */
+    REF struct path   *ds_path;   /* [1..1][const] The path used to open the device. */
+    ATOMIC_DATA pos_t  ds_offset; /* The current file offset within the device. */
+};
+
+/* Destroy a previously allocated device_stream. */
+FUNDEF ATTR_NOTHROW void KCALL device_stream_destroy(struct device_stream *__restrict self);
+
+/* Increment/decrement the reference counter of the given device_stream `x' */
+#define device_stream_incref(x)  ATOMIC_FETCHINC((x)->ds_refcnt)
+#define device_stream_decref(x) (ATOMIC_DECFETCH((x)->ds_refcnt) || (device_stream_destroy(x),0))
+
+#endif /* __CC__ */
 
 
 

@@ -26,7 +26,9 @@
 #include <kernel/sections.h>
 #include <kernel/vm.h>
 #include <sched/task.h>
+#include <fs/pipe.h>
 #include <fs/handle.h>
+#include <fs/device.h>
 #include <except.h>
 
 DECL_BEGIN
@@ -124,6 +126,7 @@ illegal_poll(void *__restrict UNUSED(ptr),
     macro(socket,HANDLE_TYPE_FSOCKET) \
     macro(futex,HANDLE_TYPE_FFUTEX) \
     macro(futex_handle,HANDLE_TYPE_FFUTEX_HANDLE) \
+    macro(device_stream,HANDLE_TYPE_FDEVICE_STREAM) \
 /**/
 
 #define DEFINE_WEAK_OPS(name,id) \

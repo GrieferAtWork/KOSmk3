@@ -112,6 +112,7 @@
     <ClCompile Include="..\..\src\kernel\src\fs\autopart.c" />
     <ClCompile Include="..\..\src\kernel\src\fs\canonbuffer.c" />
     <ClCompile Include="..\..\src\kernel\src\fs\device.c" />
+    <ClCompile Include="..\..\src\kernel\src\fs\device_stream.c" />
     <ClCompile Include="..\..\src\kernel\src\fs\driver.c" />
     <ClCompile Include="..\..\src\kernel\src\fs\file.c" />
     <ClCompile Include="..\..\src\kernel\src\fs\handle.c" />

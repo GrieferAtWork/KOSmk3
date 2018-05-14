@@ -338,6 +338,8 @@ device_open(struct device *__restrict self,
   me = (struct character_device *)self;
   if (me->c_ops->c_open)
       return (*me->c_ops->c_open)(me,p,open_mode);
+ } else {
+  return block_device_open_stream((struct block_device *)self,p,open_mode);
  }
  /* Fallback: return a handle for the device itself. */
  result.h_mode = HANDLE_MODE(HANDLE_TYPE_FDEVICE,

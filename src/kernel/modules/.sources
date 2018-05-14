@@ -47,6 +47,12 @@ BEGIN MODULE("kernel.pe")
 	SOURCE("pe/*.c")
 END
 
+BEGIN MODULE("kernel.memdev")
+	SET_OUTPUT("/bin/memdev.mod")
+	SET_DISKFILE("/mod/memdev.mod")
+
+	SOURCE("memdev/*.c")
+END
 
 BEGIN MODULE("kernel.ext2fs")
 	SET_OUTPUT("/bin/ext2fs.mod")

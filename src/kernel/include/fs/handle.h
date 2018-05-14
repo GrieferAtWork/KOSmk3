@@ -84,6 +84,7 @@ struct PACKED handle {
             REF struct socket              *o_socket;              /* [1..1][const][HANDLE_TYPE_FSOCKET] */
             REF struct futex               *o_futex;               /* [1..1][const][HANDLE_TYPE_FFUTEX] */
             REF struct futex_handle        *o_futex_handle;        /* [1..1][const][HANDLE_TYPE_FFUTEX_HANDLE] */
+            REF struct device_stream       *o_device_stream;       /* [1..1][const][HANDLE_TYPE_FDEVICE_STREAM] */
         }                                   h_object;              /* [const] The object pointed to by this handle. */
     };
 };
@@ -255,16 +256,17 @@ handle_fcntl(fd_t fd, unsigned int cmd, UNCHECKED USER void *arg);
 
 /* Lookup handles, given their FileDescriptor number.
  * The following implicit conversions are performed:
- *    - HANDLE_TYPE_FFILE        --> HANDLE_TYPE_FINODE
- *    - HANDLE_TYPE_FFILE        --> HANDLE_TYPE_FPATH
- *    - HANDLE_TYPE_FPATH        --> HANDLE_TYPE_FINODE
- *    - HANDLE_TYPE_FSUPERBLOCK  --> HANDLE_TYPE_FDEVICE
- *    - HANDLE_TYPE_FDEVICE      --> HANDLE_TYPE_FSUPERBLOCK
+ *    - HANDLE_TYPE_FFILE          --> HANDLE_TYPE_FINODE
+ *    - HANDLE_TYPE_FFILE          --> HANDLE_TYPE_FPATH
+ *    - HANDLE_TYPE_FPATH          --> HANDLE_TYPE_FINODE
+ *    - HANDLE_TYPE_FSUPERBLOCK    --> HANDLE_TYPE_FDEVICE
+ *    - HANDLE_TYPE_FDEVICE        --> HANDLE_TYPE_FSUPERBLOCK
  *     (Only for block-devices that have superblock
  *      associated; uses `block_device_getsuper()')
- *    - HANDLE_TYPE_FTHREAD      --> HANDLE_TYPE_FVM
- *    - HANDLE_TYPE_FVM          --> HANDLE_TYPE_FAPPLICATION (The root application)
- *    - HANDLE_TYPE_FAPPLICATION --> HANDLE_TYPE_FMODULE
+ *    - HANDLE_TYPE_FDEVICE_STREAM --> HANDLE_TYPE_FDEVICE
+ *    - HANDLE_TYPE_FTHREAD        --> HANDLE_TYPE_FVM
+ *    - HANDLE_TYPE_FVM            --> HANDLE_TYPE_FAPPLICATION (The root application)
+ *    - HANDLE_TYPE_FAPPLICATION   --> HANDLE_TYPE_FMODULE
  * NOTE: Substitution is allowed to recurse, meaning that
  *      `HANDLE_TYPE_FTHREAD --> HANDLE_TYPE_FMODULE' can be done by
  *       going through `HANDLE_TYPE_FVM' and `HANDLE_TYPE_FAPPLICATION'
@@ -273,8 +275,7 @@ handle_fcntl(fd_t fd, unsigned int cmd, UNCHECKED USER void *arg);
  *    In other words meaning that `file', `path', `inode',
  *    `device' and `superblock' handles are accepted.
  * @throw: E_INVALID_HANDLE: The given file descriptor number does not match
- *                           the required type, or isn't associated with a handle.
- */
+ *                           the required type, or isn't associated with a handle. */
 FUNDEF REF struct handle KCALL handle_get(fd_t fd);
 FUNDEF ATTR_RETNONNULL REF struct device *KCALL handle_get_device(fd_t fd);
 FUNDEF ATTR_RETNONNULL REF struct superblock *KCALL handle_get_superblock(fd_t fd);

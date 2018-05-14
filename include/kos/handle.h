@@ -47,7 +47,8 @@ __SYSDECL_BEGIN
 #define HANDLE_TYPE_FSOCKET              0x0010 /* [NAME("socket")]              `struct socket' */
 #define HANDLE_TYPE_FFUTEX               0x0011 /* [NAME("futex")]               `struct futex' */
 #define HANDLE_TYPE_FFUTEX_HANDLE        0x0012 /* [NAME("futex_handle")]        `struct futex_handle' */
-#define HANDLE_TYPE_FCOUNT               0x0013 /* Amount of handle types. */
+#define HANDLE_TYPE_FDEVICE_STREAM       0x0013 /* [NAME("device_stream")]       `struct device_stream' */
+#define HANDLE_TYPE_FCOUNT               0x0014 /* Amount of handle types. */
 
 /* Handle kinds (for use with `ERROR_INVALID_HANDLE_FWRONGKIND') */
 #define HANDLE_KIND_FANY      0x0000 /* Any kind of handle was expected (set for reasons other than `ERROR_INVALID_HANDLE_FWRONGKIND') */
