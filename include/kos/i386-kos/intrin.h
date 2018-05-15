@@ -121,6 +121,37 @@ __FORCELOCAL void (__lock_rorw)(__UINT16_TYPE__ volatile *__x, __UINT8_TYPE__ __
 __FORCELOCAL void (__lock_rorl)(__UINT32_TYPE__ volatile *__x, __UINT8_TYPE__ __y) { __asm__(__X86_LOCK_PREFIX "rorl %1, %0" : "+g" (*__x) : "nc" (__y) : "cc"); }
 #undef __X86_LOCK_PREFIX
 
+
+/* Segment read/write operators. */
+__FORCELOCAL __UINT8_TYPE__ (__readfsb)(__UINTPTR_TYPE__ __offset) { __UINT8_TYPE__ __result; __asm__("movb %%fs:%1, %0" : "=q" (__result) : "m" (*(__UINT8_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL __UINT8_TYPE__ (__readgsb)(__UINTPTR_TYPE__ __offset) { __UINT8_TYPE__ __result; __asm__("movb %%gs:%1, %0" : "=q" (__result) : "m" (*(__UINT8_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL __UINT16_TYPE__ (__readfsw)(__UINTPTR_TYPE__ __offset) { __UINT16_TYPE__ __result; __asm__("movw %%fs:%1, %0" : "=r" (__result) : "m" (*(__UINT16_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL __UINT16_TYPE__ (__readgsw)(__UINTPTR_TYPE__ __offset) { __UINT16_TYPE__ __result; __asm__("movw %%gs:%1, %0" : "=r" (__result) : "m" (*(__UINT16_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL __UINT32_TYPE__ (__readfsl)(__UINTPTR_TYPE__ __offset) { __UINT32_TYPE__ __result; __asm__("movl %%fs:%1, %0" : "=r" (__result) : "m" (*(__UINT32_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL __UINT32_TYPE__ (__readgsl)(__UINTPTR_TYPE__ __offset) { __UINT32_TYPE__ __result; __asm__("movl %%gs:%1, %0" : "=r" (__result) : "m" (*(__UINT32_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL void (__writefsb)(__UINTPTR_TYPE__ __offset, __UINT8_TYPE__ __val) { __asm__("movb %1, %%fs:%0" : : "m" (*(__UINT8_TYPE__ *)__offset), "q" (__val)); }
+__FORCELOCAL void (__writegsb)(__UINTPTR_TYPE__ __offset, __UINT8_TYPE__ __val) { __asm__("movb %1, %%gs:%0" : : "m" (*(__UINT8_TYPE__ *)__offset), "q" (__val)); }
+__FORCELOCAL void (__writefsw)(__UINTPTR_TYPE__ __offset, __UINT16_TYPE__ __val) { __asm__("movw %1, %%fs:%0" : : "m" (*(__UINT16_TYPE__ *)__offset), "r" (__val)); }
+__FORCELOCAL void (__writegsw)(__UINTPTR_TYPE__ __offset, __UINT16_TYPE__ __val) { __asm__("movw %1, %%gs:%0" : : "m" (*(__UINT16_TYPE__ *)__offset), "r" (__val)); }
+__FORCELOCAL void (__writefsl)(__UINTPTR_TYPE__ __offset, __UINT32_TYPE__ __val) { __asm__("movl %1, %%fs:%0" : : "m" (*(__UINT32_TYPE__ *)__offset), "r" (__val)); }
+__FORCELOCAL void (__writegsl)(__UINTPTR_TYPE__ __offset, __UINT32_TYPE__ __val) { __asm__("movl %1, %%gs:%0" : : "m" (*(__UINT32_TYPE__ *)__offset), "r" (__val)); }
+#ifdef __x86_64__
+__FORCELOCAL __UINT64_TYPE__ (__readfsq)(__UINTPTR_TYPE__ __offset) { __UINT64_TYPE__ __result; __asm__("movq %%fs:%1, %0" : "=r" (__result) : "m" (*(__UINT64_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL __UINT64_TYPE__ (__readgsq)(__UINTPTR_TYPE__ __offset) { __UINT64_TYPE__ __result; __asm__("movq %%gs:%1, %0" : "=r" (__result) : "m" (*(__UINT64_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL void (__writefsq)(__UINTPTR_TYPE__ __offset, __UINT64_TYPE__ __val) { __asm__("movq %1, %%fs:%0" : : "m" (*(__UINT64_TYPE__ *)__offset), "r" (__val)); }
+__FORCELOCAL void (__writegsq)(__UINTPTR_TYPE__ __offset, __UINT64_TYPE__ __val) { __asm__("movq %1, %%gs:%0" : : "m" (*(__UINT64_TYPE__ *)__offset), "r" (__val)); }
+__FORCELOCAL void *(__readfsptr)(__UINTPTR_TYPE__ __offset) { return (void *)__readfsq(__offset); }
+__FORCELOCAL void *(__readgsptr)(__UINTPTR_TYPE__ __offset) { return (void *)__readgsq(__offset); }
+__FORCELOCAL void (__writefsptr)(__UINTPTR_TYPE__ __offset, void *__val) { __writefsq(__offset,(__UINT64_TYPE__)__val); }
+__FORCELOCAL void (__writegsptr)(__UINTPTR_TYPE__ __offset, void *__val) { __writegsq(__offset,(__UINT64_TYPE__)__val); }
+#else /* __x86_64__ */
+__FORCELOCAL void *(__readfsptr)(__UINTPTR_TYPE__ __offset) { return (void *)__readfsl(__offset); }
+__FORCELOCAL void *(__readgsptr)(__UINTPTR_TYPE__ __offset) { return (void *)__readgsl(__offset); }
+__FORCELOCAL void (__writefsptr)(__UINTPTR_TYPE__ __offset, void *__val) { __writefsl(__offset,(__UINT32_TYPE__)__val); }
+__FORCELOCAL void (__writegsptr)(__UINTPTR_TYPE__ __offset, void *__val) { __writegsl(__offset,(__UINT32_TYPE__)__val); }
+#endif /* !__x86_64__ */
+
+
 __SYSDECL_END
 
 #endif /* !_KOS_I386_KOS_INTRIN_H */

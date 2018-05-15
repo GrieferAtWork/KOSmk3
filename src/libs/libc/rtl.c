@@ -109,7 +109,7 @@ EXPORT(vsyslog,libc_vsyslog);
 
 
 
-INTERN ATTR_NORETURN void FCALL
+CRT_EXCEPT_CORE ATTR_NORETURN void FCALL
 libc_error_rethrow_at(struct cpu_context *__restrict context) {
  assertf(context != &error_info()->e_context,
          "Remember how this function is allowed to modify the context? "
@@ -124,18 +124,18 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
  libc_cpu_setcontext(context);
 }
 
-INTERN void ATTR_CDECL
+CRT_EXCEPT_CORE void ATTR_CDECL
 libc_error_fprintf(FILE *fp, char const *reason, ...) {
  va_list args;
  va_start(args,reason);
  libc_error_vfprintf(fp,reason,args);
  va_end(args);
 }
-INTERN void LIBCCALL
+CRT_EXCEPT_CORE void LIBCCALL
 libc_error_vprintf(char const *reason, va_list args) {
  libc_error_vfprintf(NULL,reason,args);
 }
-INTERN void ATTR_CDECL
+CRT_EXCEPT_CORE void ATTR_CDECL
 libc_error_printf(char const *reason, ...) {
  va_list args;
  va_start(args,reason);
@@ -144,7 +144,7 @@ libc_error_printf(char const *reason, ...) {
 }
 
 
-INTERN ATTR_NORETURN void FCALL
+CRT_EXCEPT_CORE ATTR_NORETURN void FCALL
 libc_error_unhandled_exception(void) {
  struct task_segment *thread = libc_current();
  /* Deal with special errors that should not be
@@ -186,7 +186,7 @@ libc_error_unhandled_exception(void) {
  _libc_exit(1);
 }
 
-INTERN ATTR_NORETURN void FCALL
+CRT_EXCEPT_CORE ATTR_NORETURN void FCALL
 libc_os_error_unhandled_exception(void) {
  void (FCALL *handler)(void);
  /* NOTE: We don't directory call `libc_error_unhandled_exception()'
@@ -218,9 +218,14 @@ EXPORT(error_fprintf,            libc_error_fprintf);
 
 
 EXPORT(except_errno,libc_except_errno);
-INTERN int FCALL libc_except_errno(void) {
+CRT_EXCEPT_CORE int FCALL libc_except_errno(void) {
  libc_seterrno(libc_exception_errno(libc_error_info()));
  return EXCEPT_EXECUTE_HANDLER;
+}
+
+EXPORT(except_geterrno,libc_except_geterrno);
+CRT_EXCEPT_CORE errno_t FCALL libc_except_geterrno(void) {
+ return libc_exception_errno(libc_error_info());
 }
 
 

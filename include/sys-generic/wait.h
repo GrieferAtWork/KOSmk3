@@ -126,6 +126,61 @@ __REDIRECT_EXCEPT(__LIBC,,__pid_t,__LIBCCALL,wait3,(__WAIT_STATUS __stat_loc, in
 #ifdef __USE_MISC
 __REDIRECT_EXCEPT(__LIBC,,__pid_t,__LIBCCALL,wait4,(__pid_t __pid, __WAIT_STATUS __stat_loc, int __options, struct rusage *__usage),(__pid,__stat_loc,__options,__usage))
 #endif /* __USE_MISC */
+
+#ifdef __USE_KOS3
+/* >> detach(2)
+ * Detach the descriptor of `PID' from the thread that
+ * would have received a signal when it changes state,
+ * as well as prevent the thread from turning into a
+ * zombie once it dies.
+ * For simplicity, think of it like this:
+ *   - pthread_create()  -->  clone()
+ *   - pthread_join()    -->  wait()
+ *   - pthread_detach()  -->  detach()  // Linux's missing link, now implemented
+ * Before this is done, the thread referred to by this is one of the following:
+ *   - The leader of the process that called `fork()' or `clone()' without
+ *    `CLONE_PARENT' to create the thread referred to by `PID'
+ *   - The creator of the process containing a thread that called
+ *    `clone()' with `CLONE_PARENT', which then created the thread
+ *     referred to by `PID'.
+ *   - Even if the thread doesn't deliver a signal upon it terminating,
+ *     the process that would have received such a signal is still relevant.
+ *   -> In other words: The thread `PID' must be one of your children,
+ *                      or you had to have been assigned as its child.
+ * If the calling thread isn't part of that process that will receive
+ * the signal if the thread dies without being detached first, then
+ * the call fails by throwing an `E_ILLEGAL_OPERATION'.
+ * If the thread had already been detached, then the call fails by
+ * throwing an `E_ILLEGAL_OPERATION' as well.
+ * Upon success, the thread referred to by `PID' will clean up its own
+ * PID descriptor without the need of anyone to wait() for it, a behavior
+ * that linux implements using `CLONE_THREAD' (which you shouldn't use,
+ * because it's flawed by design)
+ * Once detached, any further use of PID results in a race condition
+ * (which linux neglects to mention for `CLONE_THREAD'), because there
+ * is no way of ensuring that PID still refers to the original thread,
+ * as another thread may have been created using the same PID, after
+ * the detached thread exited.
+ * NOTE: If a thread is crated using clone() with `CLONE_DETACHED' set,
+ *       it will behave effectively as though this function had already
+ *       bee called.
+ * @throw: E_ILLEGAL_OPERATION: The calling process isn't the recipient of signals
+ *                              delivered when `PID' changes state. This can either
+ *                              be because `PID' has already been detached, or because
+ *                              YOU CAN'T DETACH SOMEONE ELSE'S THREAD!
+ *                              Another possibility is that the thread was already
+ *                              detached, then exited, following which a new thread
+ *                              got created and had been assigned the PID of your
+ *                              ancient, no longer existent thread.
+ * @throw: E_PROCESS_EXITED:    The process referred to by `PID' doesn't exist.
+ *                              This could mean that it had already been detached
+ *                              and exited, or that the `PID' is just invalid (which
+ *                              would also be the case if it was valid at some point) */
+__REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,detach,(__pid_t __pid),(__pid))
+#ifdef __USE_EXCEPT
+__LIBC void (__LIBCCALL Xdetach)(__pid_t __pid);
+#endif /* __USE_EXCEPT */
+#endif /* __USE_KOS3 */
 #endif /* !__KERNEL__ */
 
 __SYSDECL_END

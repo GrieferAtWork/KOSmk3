@@ -112,6 +112,7 @@ DECL_BEGIN
 #define CRT_RARE_DATA        INTERN ATTR_SECTION(".data.crt.rare")        /* Rarely used .data. */
 #define CRT_RARE_RODATA      INTERN ATTR_SECTION(".rodata.crt.rare")      /* Rarely used .rodata. */
 #define CRT_DRARE            INTERN ATTR_SECTION(".data.crt.rare")        /* Rarely used CRT functions (usually for dealing with errors). */
+#define CRT_EXCEPT_CORE      INTERN ATTR_SECTION(".text.crt.except.core") /* Exception-related functions. */
 #define CRT_EXCEPT           INTERN ATTR_SECTION(".text.crt.except")      /* Exception-related functions. */
 #define CRT_EXCEPT_RARE      INTERN ATTR_SECTION(".text.crt.except.rare") /* Exception-related functions. */
 #define CRT_TIMER            INTERN ATTR_SECTION(".text.crt.timer")       /* Timer (periodic timer)-related functions. */

@@ -164,7 +164,8 @@ typedef __UINT16_TYPE__ except_t;
  *   0000 ... 0000     Reserved exception code that can be used to indicate a no-error situation.
  *                     However, that DOESN'T mean you can do something like `if (error_code() == E_OK) ...'
  *   0001 ... 00ff     Standard, software-generated exception codes
- *   0100 ... 7fff     User-defined exception codes (not standartized; application specific)
+ *   0100 ... 01ff     Exception codes for some standard, system libraries (e.g. `E_DEADLOCK' for pthread is in here)
+ *   0200 ... 7fff     User-defined exception codes (not standartized; application specific)
  *                     NOTE: In kernel-space, codes `0800 ... 08ff' are reserved for kernel-specific uses.
  *   8000 ... efff     Reserved for future use.
  *   f000 ... f0ff     Standard, software-generated signal codes.
@@ -190,7 +191,9 @@ typedef __UINT16_TYPE__ except_t;
 /* Macros for addressing bounds of error code ranges documented above */
 #define ERRORCODE_STDERROR_MIN       0x0001
 #define ERRORCODE_STDERROR_MAX       0x00ff
-#define ERRORCODE_USERERROR_MIN      0x0100
+#define ERRORCODE_LIBERROR_MIN       0x0100
+#define ERRORCODE_LIBERROR_MAX       0x01ff
+#define ERRORCODE_USERERROR_MIN      0x0200
 #define ERRORCODE_USERERROR_MAX      0x7fff
 #define ERRORCODE_RESERVED1_MIN      0x8000
 #define ERRORCODE_RESERVED1_MAX      0xefff

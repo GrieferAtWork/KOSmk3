@@ -43,7 +43,7 @@ DECL_BEGIN
  * When the thread terminates, the kernel will attempt to write ZERO(0) to this
  * address (failure to do this is silently ignored), before broadcasting the
  * signal of a futex at `vm_getfutex(THIS_TID_ADDRESS)' (should that futex exists)
- * This functionality is used to implement user-space thread_join() functionality. */
+ * This is used to implement user-space thread_join() functionality. */
 PUBLIC ATTR_PERTASK USER UNCHECKED VIRT pid_t *_this_tid_address = NULL;
 
 DEFINE_PERTASK_CLEANUP(userthread_signal);

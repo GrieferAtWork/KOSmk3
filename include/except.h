@@ -389,6 +389,9 @@ __LIBC errno_t (__FCALL exception_errno)(struct exception_info *__restrict __inf
  * This functionality is used by libc for implementing wrappers
  * around system calls that require large setup / teardown. */
 __LIBC int (__FCALL except_errno)(void);
+
+/* Return the `errno' value of the currently active exception. */
+__LIBC errno_t (__FCALL except_geterrno)(void);
 #endif /* !__KERNEL__ */
 
 /* The internal function used for unwinding the stack,

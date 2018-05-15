@@ -488,7 +488,19 @@ INTERN void KCALL task_clone_pid(struct task *__restrict new_thread, u32 flags) 
   pid->tp_task = new_thread;
   COMPILER_WRITE_BARRIER();
 
-  if (!(flags & CLONE_THREAD)) {
+#if 1
+  /* See my rant about `COMPATIBILITY WITH LINUX' in <bits/sched.h>
+   * about why KOS implements behavior for `CLONE_DETACHED' when
+   * linux doesn't. */
+  if (!(flags & CLONE_DETACHED))
+#else
+  /* From what I understand, specifying ZERO(0) as CSIGNAL will
+   * create the new thread in a detached state in which it will
+   * not generate a signal normally allowing the caller to wait
+   * for it. */
+  if ((flags & CSIGNAL) != 0)
+#endif
+  {
    REF struct task *parent = NULL;
    struct task *parent_leader;
    parent_leader = get_this_process();
@@ -502,10 +514,13 @@ INTERN void KCALL task_clone_pid(struct task *__restrict new_thread, u32 flags) 
    /* Add the PID descriptor to the parent process's chain of children. */
 #define PROCESS (FORTASK(parent_leader,_this_group).tg_process)
    sig_get(&PROCESS.h_cldevent);
-   if unlikely(!TASK_ISTERMINATING(parent_leader)) {
+   if likely(!TASK_ISTERMINATING(parent_leader)) {
     /* Add the PID to the chain of children. */
     LIST_INSERT(PROCESS.h_children,pid,tp_siblings);
-    thread_pid_incref(pid); /* The reference stored in the `tp_siblings' chain. */
+    /* The reference stored in the `tp_siblings' chain.
+     * NOTE: This is the reference that must be wait(2)-ed
+     *       for in order to kill zombies! */
+    thread_pid_incref(pid);
    }
    sig_put(&PROCESS.h_cldevent);
 #undef PROCESS
@@ -513,6 +528,45 @@ INTERN void KCALL task_clone_pid(struct task *__restrict new_thread, u32 flags) 
        task_decref(parent);
   }
  }
+}
+
+DEFINE_SYSCALL1(xdetach,pid_t,pid) {
+ REF struct thread_pid *thread;
+ struct thread_pid *iter;
+ struct task *my_process;
+ thread = pid_lookup(pid);
+ TRY {
+  my_process = get_this_process();
+#define PROCESS (FORTASK(my_process,_this_group).tg_process)
+  sig_get(&PROCESS.h_cldevent);
+  /* Make sure that `thread' is one of our children. */
+  iter = PROCESS.h_children;
+  for (;;) {
+   if (!iter) {
+    /* Didn't find it... */
+    sig_put(&PROCESS.h_cldevent);
+    error_throw(E_ILLEGAL_OPERATION);
+   }
+   if (iter == thread)
+       break; /* Found it! */
+   iter = iter->tp_siblings.le_next;
+  }
+  /* Remove the thread from the our list of children,
+   * inheriting the reference that would have kept it
+   * alive as a zombie. */
+  LIST_REMOVE(thread,tp_siblings);
+  sig_put(&PROCESS.h_cldevent);
+  /* Drop the reference taken out of the `tp_siblings' chain.
+   * NOTE: This is the reference that would have kept it alive as a zombie. */
+  assertf(thread->tp_refcnt >= 2,
+         "But we've got a second one from `pid_lookup()'");
+  ATOMIC_FETCHDEC(thread->tp_refcnt);
+#undef PROCESS
+ } FINALLY {
+  /* Drop the reference returned by `pid_lookup()' */
+  thread_pid_decref(thread);
+ }
+ return 0;
 }
 
 

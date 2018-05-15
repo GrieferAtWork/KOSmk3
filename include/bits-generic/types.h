@@ -382,6 +382,7 @@ typedef __INT64_TYPE__          __time64_t;
 #endif
 
 #if defined(__CC__) && !defined(__CPROTO__)
+#undef  __errno_t
 #undef  __blkcnt_t
 #undef  __blkaddr_t
 #undef  __dev_t
@@ -401,6 +402,7 @@ typedef __INT64_TYPE__          __time64_t;
 #undef  __ref_t
 #undef  __sysno_t
 #undef  __time_t
+typedef int                  __errno_t;
 typedef __FS_SLONG_TYPE      __fsint_t;
 typedef __FS_SLONG_TYPE      __fsword_t;
 typedef __FS_SLONG_TYPE      __off_t; /* File offset. */
@@ -430,6 +432,7 @@ typedef __jtime64_t          __jtime_t;
 #define __dev_t              __dev_t
 #define __fsblkcnt_t         __fsblkcnt_t
 #define __fsfilcnt_t         __fsfilcnt_t
+#define __errno_t            __errno_t
 #define __fsint_t            __fsint_t
 #define __fsuint_t           __fsuint_t
 #define __fsword_t           __fsword_t

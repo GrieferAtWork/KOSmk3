@@ -1083,6 +1083,12 @@ DEFINE_SYSCALL(waitid,5,     Esys|Xsys)
 
 DEFINE_SYSCALL(wait4,4,      E|X)
 
+DEFINE_SYSCALL(xdetach,1,    Esys|Xsys)
+DEFINE_INTERN_ALIAS(libc_detach,Esys_xdetach)
+DEFINE_INTERN_ALIAS(libc_Xdetach,Xsys_xdetach)
+EXPORT(detach,libc_detach)
+EXPORT(Xdetach,libc_Xdetach)
+
 DEFINE_SYSCALL(pselect6,6,   Esys|Xsys)
 DEFINE_SYSCALL(ppoll,5,      Esys|Xsys)
 DEFINE_SYSCALL(xppoll,6,     Esys|Xsys)

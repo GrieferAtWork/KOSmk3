@@ -393,11 +393,18 @@ task_fork_impl(void *UNUSED(arg),
 #else
  memcpy(&user_state,context,sizeof(struct x86_gpregs));
 #endif
- interrupt_getipsp((uintptr_t *)&user_state.c_eip,
-                   (uintptr_t *)&user_state.c_esp);
- user_state.c_eflags = context->c_eflags;
- user_state.c_cs     = context->c_iret.ir_cs;
- user_state.c_ss     = context->c_iret.ir_ss;
+ {
+  struct x86_irregs_user *iret;
+  pflag_t was = PREEMPTION_PUSHOFF();
+  /* Copy from the original IRET tail. */
+  iret                = x86_interrupt_getiret();
+  user_state.c_eip    = iret->ir_eip;
+  user_state.c_esp    = iret->ir_useresp;
+  user_state.c_eflags = iret->ir_eflags;
+  user_state.c_cs     = iret->ir_cs;
+  user_state.c_ss     = iret->ir_ss;
+  PREEMPTION_POP(was);
+ }
  /* Return ZERO(0) in the child process. */
  user_state.c_gpregs.gp_eax = 0;
 

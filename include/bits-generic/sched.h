@@ -26,8 +26,197 @@
 #include <hybrid/malloc.h>
 #include <bits/types.h>
 #include <features.h>
+#ifdef __USE_KOS
+#include <bits/signum.h>
+#endif /* __USE_KOS */
 
 __SYSDECL_BEGIN
+
+/* KOS Interpretation of the `CLONE_DETACHED' and `CLONE_THREAD' flags:
+ *   - First off all: Linux's implementation is flawed by design
+ *     and includes rare race conditions that have never been
+ *     patched and could lead to system calls taking pids operating
+ *     on a thread other than the one intended by the caller.
+ *     Additionally, there is no way to circumvent this race condition,
+ *     whereas KOS implements a dedicated `detach(2)' system call to
+ *     define dedicated behavior for dealing with the case resulting
+ *     in problems on linux (See the mile-long paragraph below)
+ *
+ * CLONE_DETACHED:
+ *   - This flag is completely DISCONNECTED from `CLONE_THREAD'
+ *     and must be passed explicitly to make use of its behavior.
+ *     Note that on linux, its behavior is implied by `CLONE_THREAD'.
+ *     - `CLONE_DETACHED' will prevent the thread from
+ *       turning into a zombie once it terminates.
+ *     - Passing this flag has the safe effect as calling `detach(2)'.
+ *       with the returned PID immediately after `clone(2)' returns.
+ *   
+ * CLONE_THREAD:
+ *   - Has _NO_ influence on the behavior of `wait(2)' (unlike in linux)
+ *   - Has _NOTHING_ to do with the thread possibly turning into a zombie
+ *   - The only thing it does, is control if the thread is added to the
+ *     calling process (if set), or be setup as its own process (if not set)
+ *
+ * CLONE_PARENT:
+ *   - Setup the new thread as a child of the parent of the calling process,
+ *     the same way as it would have been set up if the original fork()-er
+ *     that created the calling process had done a second fork() to create
+ *     the thread created by the clone() call to which this flag is passed.
+ *     On linux, the behavior is the same, but instead of functioning on
+ *     a process-parent-basis, it functions on a thread-parent-basis.
+ *     It should be noted that KOS does not track thread parents, but
+ *     only the parents of whole processes.
+ *
+ * CSIGNAL:
+ *   - The signal number send upon termination of the thread created
+ *     by clone(2), to the thread referred to by `getppid(2)'
+ *   - When ZERO(0) no signal is sent, but `wait(2)' is _NOT_ affected (unlike in linux)
+ *   - _NEVER_ Has any influence on the behavior of `wait(2)' (unlike in linux)
+ *   - It doesn't make any difference if `SIGCHLD' is used, or some other signal. (unlike in linux)
+ *
+ * gettid():
+ *   - Your own TID
+ *
+ * getpid():
+ *   - Returns the TID of the leader of the current process.
+ *   - That leader is the first thread that was added to the process,
+ *     aka. the thread created by `fork(2)' or `clone(2)' without
+ *     the `CLONE_THREAD' flag being passed.
+ *
+ * getppid():
+ *   - Returns what getpid() would return in the thread did the fork(),
+ *     clone() without `CLONE_PARENT', or the thread that created the
+ *     thread that created you using clone() with `CLONE_PARENT'.
+ *
+ * __WNOTHREAD / __WALL / __WCLONE:
+ *   - Currently not allowed (any they have no place in KOS's interpretation of POSIX)
+ *
+ * NOTES (that should hopefully clear up this mess):
+ *   - Process (pid):       A group of threads
+ *   - Thread (tid):        A SINGLE F-ING THREAD! WHAT'S SO HARD ABOUT THIS?
+ *   - Thread Group (tgid): Did you mean process? Because there is no such thing as a tgid, lol!
+ *   - A PID is always the TID of the leader of that process!
+ */
+
+ 
+/* SERIOUSLY F$CK COMPATIBILITY WITH LINUX!
+ * And here's why I'm doing it right, even though I'm breaking compatibility
+ * with a system which in its core is ONE BIG RACE CONDITION ABOUT TO HAPPEN:
+ *
+ * At one point, linux also had a `CLONE_DETACHED' flag.
+ * Nowadays that flag barely has any documentation left, but the documentation
+ * that still exists states `It's being ignored and its behavior was absorbed
+ * by the CLONE_THREAD flag'.
+ * What I'm guessing it used to do (and once again does right here and now),
+ * is that it allows the thread to >> reap itself when exiting <<.
+ * How why is that important? Well although (possibly intentionally obscured), the
+ * `CLONE_THREAD' flag states the following (http://man7.org/linux/man-pages/man2/clone.2.html):
+ *  """
+ *           When a CLONE_THREAD thread terminates, the thread that created it using
+ *           clone() is not sent a SIGCHLD (or other termination) signal; nor can the
+ *           status of such a thread be obtained using wait(2).
+ *           (The thread is said to be detached.)
+ *  """
+ * Now what can be gather from this?
+ *  #1  As plainly stated, you can't use wait(2) to join the thread.
+ *      OK. Makes sense. - That's the basic idea of what one would
+ *      refer to as a detach-mechanism.
+ *  #2  Since wait(2) is normally used to reap zombie processes,
+ *      this must also mean that the thread will be able to:
+ *      >> reap itself when exiting << (see above)
+ *      because otherwise we'd end up with a bunch of unreapable
+ *      zombies eating up all of our brains (memory), so the kernel
+ *      must be able to free the TID descriptor of the thread as
+ *      soon as it dies, _without_ any additional input required
+ *      from user-space.
+ *      OK. Makes sense. - Again, that's what one would expect
+ *      from the behavior of a detach-mechanism.
+ *
+ * Well. The problem here is that this is all implied behavior of
+ * the `CLONE_THREAD' flag used to create new threads in linux.
+ * However, just so you truly understand what the problem is, take
+ * a look at the set of flags used by the pthread library found
+ * on any linux system to create new threads using clone(2):
+ * >> const int clone_flags = (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM
+ * >>                        | CLONE_SIGHAND | CLONE_THREAD          // <<< RIGHT HERE!!
+ * >>                        | CLONE_SETTLS | CLONE_PARENT_SETTID
+ * >>                        | CLONE_CHILD_CLEARTID
+ * >>                        | 0);
+ * It's using the `CLONE_THREAD' flag!
+ * Now I'm not saying that it shouldn't, but you should realize that
+ * as soon as one starts making use of `CLONE_THREAD', the training
+ * wheels cleanly come off, and you have no way of safely using the
+ * thread's TID in ANY OTHER SYSTEM CALL without running the chance
+ * of the following happening:
+ *  #1 You read out the TID from wherever you wrote it.
+ *     Assuming that you're using the `set_tid_address()'
+ *     functionality to have the kernel ZERO it out when the
+ *     thread dies, you check if that happened and error out
+ *     if what you get is a tid equal to ZERO.
+ *  #2 You do the system call, say `tgkill()' as invoked by `pthread_kill()',
+ *     but any number of other calls would work just as well, such as
+ *     `sched_setaffinity()' invoked by `pthread_setaffinity()', or
+ *     `rt_tgsigqueueinfo()' used by `pthread_sigqueue()'
+ *  #3 Between the time that you read the TID and the time
+ *     that the underlying system call evaluates the TID
+ *     in order to translate it back into the kernel's thread
+ *     structure (in KOS that would be `struct thread_pid'),
+ *     the thread terminates.
+ *     Ok. No problem. That would just mean that there'd be
+ *     no thread associated with the TID, causing the system
+ *     call to fail with ESRCH, as defined by POSIX.
+ *     However, consider this:
+ *       Another thread was creating a new thread at just the
+ *       right time, and just before the kernel was assigning 
+ *       it a PID, the thread you were trying to access terminates
+ *       and releases its PID.
+ *       And as a result of this, as is the very principal of
+ *       resource allocation, the kernel decides to re-use the
+ *       PID, causing your system call (say tgkill invoked pthread_kill)
+ *       to suddenly refer to a brand new, but unrelated process.
+ *     AND THERE YOU HAVE IT! A RACE CONDITION OF THE WORST MAGNITUDE!
+ *     Because this is a race condition by DESIGN! _This_ can't
+ *     easily be fixed by patching a bug. This is a fundamental
+ *     flaw in how threads are implemented in linux.
+ * -> Now I'm guessing linux tries to hide this problem by trying its
+ *    darn hardest not to re-use TIDs for as long as possible, but the
+ *    problem still stands, and _COULD_ _HAPPEN_.
+ *    And simply never re-using TIDs isn't an answer either. Because
+ *    that would mean that eventually it'd run out of IDs to hand out.
+ * And if you think this isn't a problem, tell that to this code:
+ *
+ * Somewhere in the programming of the life support
+ * systems of a space station, or whatever:
+ * >> void stop_unrelated_workers() {
+ * >>     pthread_kill(unrelated_worker,SIGKILL);
+ * >>     // (Remember what we just learned this could do if
+ * >>     //  the race condition I described were to happen)
+ * >> }
+ *
+ *
+ * Meanwhile, in a different part of the code:
+ * >> void *vent_open(void *vent) {
+ * >>     while (!try_open_vent(vent))
+ * >>         try_harder("Or people will die :(");
+ * >>     return VENT_OPEN_OK;
+ * >> }
+ * >> void enable_oxygen_ventilation_system(void) {
+ * >>     pthread_create(&vent_worker_0,&vent_open,get_vent(0));
+ * >>     pthread_create(&vent_worker_1,&vent_open,get_vent(1));
+ * >>     pthread_create(&vent_worker_2,&vent_open,get_vent(2));
+ * >>     pthread_create(&vent_worker_3,&vent_open,get_vent(3));
+ * >>
+ * >>     pthread_join(vent_worker_3);
+ * >>     pthread_join(vent_worker_2);
+ * >>     pthread_join(vent_worker_1);
+ * >>     pthread_join(vent_worker_0);
+ * >> }
+ *
+ * Yea. Tell that to the Astronaut that suffocated
+ * because their air supply wouldn't engage...
+ */
+
+
 
 #ifdef __USE_GNU
 /* Cloning flags. */
@@ -126,8 +315,8 @@ __SYSDECL_BEGIN
 
 /* Generic set of clone flags implementing behavior
  * that one would expect for a thread or process. */
-#define CLONE_NEW_THREAD    (CLONE_THREAD|CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_IO)
-#define CLONE_NEW_PROCESS   (0) /* Same flags as used by fork() */
+#define CLONE_NEW_THREAD    (0|CLONE_THREAD|CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_IO)
+#define CLONE_NEW_PROCESS   (SIGCHLD) /* Same flags as used by fork() */
 
 #endif /* __USE_KOS */
 
