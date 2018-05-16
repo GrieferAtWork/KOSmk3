@@ -995,7 +995,7 @@ EXPORT_STRONG(__fcntl,libc_fcntl)
 
 DEFINE_SYSCALL(ioctl,3,      E|X)
 DEFINE_SYSCALL(execve,3,     E|X)
-DEFINE_SYSCALL(sched_yield,0,F|sys)
+DEFINE_SYSCALL(sched_yield,0,E|X)
 
 DEFINE_SYSCALL(fork,0,       E|X)
 DEFINE_INTERN_ALIAS(libc_vfork,libc_fork)

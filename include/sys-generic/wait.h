@@ -163,7 +163,15 @@ __REDIRECT_EXCEPT(__LIBC,,__pid_t,__LIBCCALL,wait4,(__pid_t __pid, __WAIT_STATUS
  * the detached thread exited.
  * NOTE: If a thread is crated using clone() with `CLONE_DETACHED' set,
  *       it will behave effectively as though this function had already
- *       bee called.
+ *       be called.
+ * NOTE: If the thread already has terminated, detaching it will kill
+ *       its zombie the same way wait() would.
+ * NOTE: Passing ZERO(0) for `PID' will detach the calling thread.
+ *       However, this operation fails if the calling thread isn't
+ *       part of the same process as the parent process of the thread.
+ *       In other words, the child of a fork() can't do this, and
+ *       neither can the spawnee of clone(CLONE_THREAD|CLONE_PARENT),
+ *       clone(0) or clone(CLONE_PARENT).
  * @throw: E_ILLEGAL_OPERATION: The calling process isn't the recipient of signals
  *                              delivered when `PID' changes state. This can either
  *                              be because `PID' has already been detached, or because

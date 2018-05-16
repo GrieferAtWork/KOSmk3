@@ -117,7 +117,7 @@ __SYSDECL_BEGIN
  *           status of such a thread be obtained using wait(2).
  *           (The thread is said to be detached.)
  *  """
- * Now what can be gather from this?
+ * Now what can be gathered from this?
  *  #1  As plainly stated, you can't use wait(2) to join the thread.
  *      OK. Makes sense. - That's the basic idea of what one would
  *      refer to as a detach-mechanism.
@@ -306,10 +306,10 @@ __SYSDECL_BEGIN
  *       munmap()'ed once the thread exists, meaning it's the perfect solution
  *       for simple user-space multithreading that doesn't require -pthread. */
 #ifndef CLONE_CHILDSTACK_AUTO
-#if 1 /* ARCH_STACK_GROWS_DOWN */
-#   define CLONE_CHILDSTACK_AUTO ((void *)0)
-#else
+#ifdef __ARCH_STACK_GROWS_UP
 #   define CLONE_CHILDSTACK_AUTO ((void *)-1)
+#else
+#   define CLONE_CHILDSTACK_AUTO ((void *)0)
 #endif
 #endif /* !CLONE_CHILDSTACK_AUTO */
 

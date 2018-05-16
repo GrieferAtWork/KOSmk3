@@ -18,12 +18,14 @@
  */
 #ifndef GUARD_HYBRID_EXCEPT_ERRNO_C
 #define GUARD_HYBRID_EXCEPT_ERRNO_C 1
+#define _EXCEPT_SOURCE 1
 
 #include "hybrid.h"
 #include <hybrid/compiler.h>
 #include <except.h>
 #include <kos/handle.h>
 #include <errno.h>
+#include <pthread.h>
 #ifndef __KERNEL__
 #include "../libs/libc/rtl.h"
 #include <syslog.h>
@@ -145,6 +147,7 @@ libc_exception_errno(struct exception_info *__restrict info) {
 #ifdef E_UNICODE_ERROR
  case E_UNICODE_ERROR:    result = EILSEQ; break;
 #endif
+ case E_DEADLOCK:         result = EDEADLK; break;
  default: break; /* What 'you gonna do? */
  }
  return result;

@@ -17,23 +17,30 @@
  * 3. This notice may not be removed or altered from any source distribution. *
  */
 
+#define LIBRARY_NOSTDLIB(name) \
+	PROJECT(name) \
+	L_FLAGS("-nostdlib") \
+	LIB("gcc") \
+	C_FLAGS("-fPIC") \
+	C_FLAGS("-static-libgcc") \
+	L_FLAGS("-static-libgcc") \
+	C_FLAGS("-shared") \
+	L_FLAGS("-shared")
+#define LIBRARY(name) \
+	LIBRARY_NOSTDLIB(name) \
+	LIBPATH("/bin") \
+	LIB("c")
+
+
 
 BEGIN
-	BEGIN PROJECT("libs.libc")
-
-		L_FLAGS("-nostdlib")
+	BEGIN LIBRARY_NOSTDLIB("libs.libc")
 		SET_OUTPUT("/bin/libc.so")
 		SET_DISKFILE("/lib/libc.so")
 
-		LIB("gcc")
-		DEFINE("__BUILDING_LIBC")
-		C_FLAGS("-static-libgcc")
-		L_FLAGS("-static-libgcc")
 		C_FLAGS("-ffreestanding")
 		L_FLAGS("-ffreestanding")
-		C_FLAGS("-shared")
-		C_FLAGS("-fPIC")
-		L_FLAGS("-shared")
+		DEFINE("__BUILDING_LIBC")
 
 		SOURCE("libc/*.c")
 		SOURCE("libc/stdio/*.c")
@@ -53,23 +60,18 @@ BEGIN
 		FI
 	END
 
-	BEGIN PROJECT("libs.libwm")
-
-		L_FLAGS("-nostdlib")
+	BEGIN LIBRARY("libs.libwm")
 		SET_OUTPUT("/bin/libwm.so")
 		SET_DISKFILE("/lib/libwm.so")
-
-		LIB("gcc")
-		LIB("c")
-		LIBPATH("/bin")
 		DEFINE("__BUILDING_LIBWM")
-		C_FLAGS("-static-libgcc")
-		L_FLAGS("-static-libgcc")
-		C_FLAGS("-shared")
-		C_FLAGS("-fPIC")
-		L_FLAGS("-shared")
-
 		SOURCE("libwm/*.c")
+	END
+
+	BEGIN LIBRARY("libs.libpthread")
+		SET_OUTPUT("/bin/libpthread.so")
+		SET_DISKFILE("/lib/libpthread.so")
+		DEFINE("__BUILDING_LIBPTHREAD")
+		SOURCE("libpthread/*.c")
 	END
 
 	BEGIN

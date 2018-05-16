@@ -153,7 +153,6 @@ EXPORT(sched_setparam,             libc_sched_setparam);
 EXPORT(sched_getparam,             libc_sched_getparam);
 EXPORT(sched_setscheduler,         libc_sched_setscheduler);
 EXPORT(sched_getscheduler,         libc_sched_getscheduler);
-EXPORT(sched_yield,                libc_sched_yield);
 EXPORT(sched_get_priority_max,     libc_sched_get_priority_max);
 EXPORT(sched_get_priority_min,     libc_sched_get_priority_min);
 EXPORT(sched_setaffinity,          libc_sched_setaffinity);

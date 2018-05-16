@@ -534,7 +534,14 @@ DEFINE_SYSCALL1(xdetach,pid_t,pid) {
  REF struct thread_pid *thread;
  struct thread_pid *iter;
  struct task *my_process;
- thread = pid_lookup(pid);
+ if (pid == 0) {
+  thread = THIS_THREAD_PID;
+  if (!thread)
+       error_throw(E_ILLEGAL_OPERATION);
+  thread_pid_incref(thread);
+ } else {
+  thread = pid_lookup(pid);
+ }
  TRY {
   my_process = get_this_process();
 #define PROCESS (FORTASK(my_process,_this_group).tg_process)
