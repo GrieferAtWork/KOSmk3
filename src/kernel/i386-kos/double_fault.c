@@ -148,6 +148,7 @@ INTERN void FCALL c_x86_double_fault_handler(void) {
 #endif
 
  /* Unwind the stack. */
+ /* TODO: This code is broken. - Rewrite it! */
  {
   struct fde_info fde;
   struct exception_handler_info hand;

@@ -1000,7 +1000,7 @@ task_queue_rpc_user(struct task *__restrict thread,
 #define TASK_RPC_SYNC   0x0001 /* Synchronize execution of the RPC.
                                 * When set, `task_queue_rpc()' will not return until after
                                 * the given `func()' has been executed and has returned. */
-#define TASK_RPC_SINGLE 0x4000 /* Optional, optimization flag:
+#define TASK_RPC_SINGLE 0x0010 /* Optional, optimization flag:
                                 * Check if the given `func' and `arg' have already been
                                 * scheduled with the same `mode & TASK_RPC_USER' combination.
                                 * If so, the implementation is allowed not to schedule the
@@ -1009,6 +1009,15 @@ task_queue_rpc_user(struct task *__restrict thread,
                                 * RPC callback has finished.
                                 * NOTE: This function can be ignored if the implementation
                                 *       chooses not to support it (as KOS currently does). */
+#define TASK_RPC_USYNC  0x4000 /* An extension to `TASK_RPC_USER': The RPC is not executed
+                                * when the thread get preempted forceably at the end of its
+                                * quantum. Rather, it only gets served when the thread performs
+                                * some blocking operation.
+                                * This flag is used to implement synchronous user-space RPCs
+                                * that aren't executed arbitrarily, but rather only when the
+                                * thread performs some blocking operation.
+                                * Additionally, don't serve this type of RPC from an interrupt.
+                                * Only serve it from a blocking system call. */
 #define TASK_RPC_USER   0x8000 /* FLAG: Rather than execute the RPC immediately, interrupt the
                                 *       current system call that is being executed by the task
                                 *       by throwing an `E_INTERRUPT' error.
@@ -1197,6 +1206,8 @@ task_enumerate_running(REF struct task **__restrict buf, size_t buf_length) {
 #define TASK_USERCTX_FMASK               0x00ff
 
 #define TASK_USERCTX_FLAG_FMASK          0x00f0 /* Mask for context flags. */
+#define TASK_USERCTX_FTIMER              0x0010 /* The interrupt happened because of a timed interrupt,
+                                                 * rather than the thread performing a blocking operation. */
 #define TASK_USERCTX_TYPE(x) ((x) & TASK_USERCTX_TYPE_FMASK)
 #define TASK_USERCTX_TYPE_FMASK          0x000f /* Mask for the basic context type. (One of `TASK_USERCTX_TYPE_*') */
 #define TASK_USERCTX_TYPE_WITHINUSERCODE 0x0000 /* Serve RPC functions with `context' referring to the CPU

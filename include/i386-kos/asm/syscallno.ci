@@ -395,6 +395,10 @@ __XSYSCALL(__NR_xppoll,sys_xppoll) /* An extended version of ppoll() that can al
                                     * without the need of creating a futex handle using `FUTEX_WAITFD' */
 #define __NR_xdetach      0x40000027
 __XSYSCALL(__NR_xdetach,sys_xdetach)
+#define __NR_xqueue_job   0x40000028
+__XSYSCALL(__NR_xqueue_job,sys_xqueue_job)
+#define __NR_xserve_job   0x40000029
+__XSYSCALL(__NR_xserve_job,sys_xserve_job)
 
 
 /* Dynamic linker system calls.

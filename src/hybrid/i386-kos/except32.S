@@ -211,7 +211,7 @@ SYMEND(libc_error_info)
 EXPORT(error_info,libc_error_info)
 
 
-#if 1
+#if 0
 INTERN_ENTRY(libc_error_handled)
 	ret
 SYMEND(libc_error_handled)

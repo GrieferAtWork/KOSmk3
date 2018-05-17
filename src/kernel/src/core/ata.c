@@ -50,6 +50,12 @@
 
 DECL_BEGIN
 
+#if 0
+#define Ata_ServeRPC() (void)0
+#else
+#define Ata_ServeRPC() task_serve()
+#endif
+
 #define Ata_ResetBusInterruptCounter() \
  (Ata_BusInterruptCounter[0] = Ata_BusInterruptCounter[1] = 0)
 INTERN volatile unsigned int Ata_BusInterruptCounter[2] = { 0, 0 };
@@ -179,7 +185,7 @@ Ata_FlushBuffers(u16 bus, u8 command) {
 }
 LOCAL void KCALL
 Ata_ReadDataUsing48BitLBA(u16 bus, u8 drive, u64 lba, void *buffer, u16 num_blocks) {
- task_serve();
+ Ata_ServeRPC();
  mutex_get(&Ata_SubSystemLock);
  TRY {
   Ata_WaitForBusy(bus);
@@ -203,7 +209,7 @@ Ata_ReadDataUsing48BitLBA(u16 bus, u8 drive, u64 lba, void *buffer, u16 num_bloc
 }
 LOCAL void KCALL
 Ata_WriteDataUsing48BitLBA(u16 bus, u8 drive, u64 lba, void const *buffer, u16 num_blocks) {
- task_serve();
+ Ata_ServeRPC();
  mutex_get(&Ata_SubSystemLock);
  TRY {
   Ata_WaitForBusy(bus);
@@ -228,7 +234,7 @@ Ata_WriteDataUsing48BitLBA(u16 bus, u8 drive, u64 lba, void const *buffer, u16 n
 }
 LOCAL void KCALL
 Ata_ReadDataUsing28BitLBA(u16 bus, u8 drive, u32 lba, void *buffer, u8 num_blocks) {
- task_serve();
+ Ata_ServeRPC();
  mutex_get(&Ata_SubSystemLock);
  TRY {
   Ata_WaitForBusy(bus);
@@ -250,7 +256,7 @@ Ata_ReadDataUsing28BitLBA(u16 bus, u8 drive, u32 lba, void *buffer, u8 num_block
 }
 LOCAL void KCALL
 Ata_WriteDataUsing28BitLBA(u16 bus, u8 drive, u32 lba, void const *buffer, u8 num_blocks) {
- task_serve();
+ Ata_ServeRPC();
  mutex_get(&Ata_SubSystemLock);
  TRY {
   Ata_WaitForBusy(bus);
@@ -274,7 +280,7 @@ Ata_WriteDataUsing28BitLBA(u16 bus, u8 drive, u32 lba, void const *buffer, u8 nu
 LOCAL void KCALL
 Ata_ReadDataUsingCHSAddressing(u16 bus, u8 drive, u8 sector, u8 head,
                                u16 cylinder, void *buffer, u8 num_blocks) {
- task_serve();
+ Ata_ServeRPC();
  mutex_get(&Ata_SubSystemLock);
  TRY {
   Ata_WaitForBusy(bus);
@@ -297,7 +303,7 @@ Ata_ReadDataUsingCHSAddressing(u16 bus, u8 drive, u8 sector, u8 head,
 LOCAL void KCALL
 Ata_WriteDataUsingCHSAddressing(u16 bus, u8 drive, u8 sector, u8 head,
                                 u16 cylinder, void const *buffer, u8 num_blocks) {
- task_serve();
+ Ata_ServeRPC();
  mutex_get(&Ata_SubSystemLock);
  TRY {
   Ata_WaitForBusy(bus);
@@ -597,7 +603,7 @@ PRIVATE void KCALL
 AtaPI_ReadDataFromSector(u16 bus, u8 drive, u32 lba, void *buffer) {
  u8 status; size_t size;
  u8 read_cmd[12] = { 0xA8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
- task_serve();
+ Ata_ServeRPC();
  mutex_get(&Ata_SubSystemLock);
  TRY {
   Ata_ResetBusInterruptCounter();

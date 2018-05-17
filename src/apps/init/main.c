@@ -72,6 +72,7 @@
 #include <dirent.h>
 #include <sched.h>
 #include <sys/wait.h>
+#include <kos/rpc.h>
 #include <kos/thread.h>
 #include <kos/environ.h>
 #include <asm/cpu-flags.h>
@@ -104,43 +105,44 @@ my_handler(int signo, siginfo_t *info, ucontext_t *context) {
  syslog(LOG_DEBUG,"context = %p\n",context);
 }
 
-void vm86_map_identity(void) {
- struct mmap_info info;
- memset(&info,0,sizeof(info));
- info.mi_addr            = 0;
- info.mi_prot            = PROT_READ|PROT_WRITE|PROT_EXEC;
- info.mi_flags           = MAP_PRIVATE|MAP_FIXED;
- info.mi_xflag           = XMAP_USHARE;
- info.mi_size            = USHARE_X86_VM86BIOS_FSIZE;
- info.mi_align           = PAGESIZE;
- info.mi_gap             = 0;
- info.mi_tag             = NULL;
- info.mi_ushare.mu_name  = USHARE_X86_VM86BIOS_FNAME;
- info.mi_ushare.mu_start = 0;
- Xxmmap(&info);
+
+
+PRIVATE int LIBCCALL my_thread(void *arg) {
+ syslog(LOG_DEBUG,"my_thread() #1\n");
+ pause();
+ syslog(LOG_DEBUG,"my_thread() #2\n");
+ pause();
+ syslog(LOG_DEBUG,"my_thread() #3\n");
+ pause();
+ syslog(LOG_DEBUG,"my_thread() #4\n");
+ return 0;
 }
 
-void test_vm86(void) {
- struct cpu_context context; pid_t child;
- byte_t *text;
- memset(&context,0,sizeof(context));
 
- /* Map the identity page for the X86 bios. */
- vm86_map_identity();
+PRIVATE unsigned int LIBCCALL my_rpc(void *arg) {
+ syslog(LOG_DEBUG,"my_rpc(%p)\n",arg);
+ /*asm("int3");*/
+ return RPC_RETURN_INTERRUPT;
+}
 
- text    = (byte_t *)0x10000;
- text[0] = 0xcd;
- text[1] = 0x15;
- text[2] = 0xcc;
 
- context.c_eflags        = EFLAGS_VM;
- context.c_cs            = ((uintptr_t)text & ~0xffff)/16;
- context.c_eip           = (uintptr_t)text & 0xffff;
- context.c_gpregs.gp_eax = 0xe801;
- context.c_gpregs.gp_esp = 0x7c00;
-
- child = Xxclone(&context,CLONE_VM|CLONE_THREAD,NULL,NULL,NULL);
- while (waitpid(child,NULL,WEXITED) < 0 && errno == EINTR);
+void test_rpc(void) {
+ pid_t child_pid;
+ Xclone(&my_thread,CLONE_CHILDSTACK_AUTO,
+        CLONE_NEW_THREAD |
+        CLONE_CHILD_CLEARTID |
+        CLONE_PARENT_SETTID,
+        NULL,
+       &child_pid);
+ syslog(LOG_DEBUG,"#1\n");
+ while (!sched_yield());
+ syslog(LOG_DEBUG,"#3\n");
+//  syslog(LOG_DEBUG,"SCHEDULE FIRST RPC -- %d\n",sched_yield());
+//  syslog(LOG_DEBUG,"SCHEDULE FIRST RPC -- %d\n",sched_yield());
+ queue_rpc(child_pid,&my_rpc,(void *)1,RPC_FSYNCHRONOUS|RPC_FWAITFOR);
+ queue_rpc(child_pid,&my_rpc,(void *)2,RPC_FSYNCHRONOUS|RPC_FWAITFOR);
+ queue_rpc(child_pid,&my_rpc,(void *)3,RPC_FSYNCHRONOUS|RPC_FWAITFOR);
+ Xwaitpid(child_pid,NULL,WEXITED);
 }
 
 
@@ -153,7 +155,7 @@ int main(int argc, char *argv[]) {
  act.sa_flags     = SA_SIGINFO;
  Xsigaction(SIGCHLD,&act,NULL);
 
- /*test_vm86();*/
+//  test_rpc();
 
  assert(strcmp("foo","foo") == 0);
  assert(strcmp("foo","bar") != 0);

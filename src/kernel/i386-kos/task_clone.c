@@ -257,14 +257,14 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
        EFLAGS_AC|EFLAGS_VIF|EFLAGS_VIP))
        error_throw(E_INVALID_ARGUMENT);
    if (!user_context->c_iret.ir_cs)
-        user_context->c_iret.ir_cs = X86_USER_CS;
+        user_context->c_iret.ir_cs = X86_SEG_USER_CS;
    if (!user_context->c_iret.ir_ss)
-        user_context->c_iret.ir_ss = X86_USER_DS;
+        user_context->c_iret.ir_ss = X86_SEG_USER_SS;
    if (!__verw(user_context->c_iret.ir_ss))
         throw_invalid_segment(user_context->c_iret.ir_ss,X86_REGISTER_SEGMENT_SS);
    /* Ensure ring #3 (This is _highly_ important. Without this,
     * user-space would be executed as kernel-code; autsch...) */
-   if (!(user_context->c_iret.ir_cs & 3) || !__verr(user_context->c_iret.ir_cs))
+   if ((user_context->c_iret.ir_cs & 3) != 3 || !__verr(user_context->c_iret.ir_cs))
         throw_invalid_segment(user_context->c_iret.ir_cs,X86_REGISTER_SEGMENT_CS);
 #ifndef CONFIG_NO_X86_SEGMENTATION
    /* Segment registers set to ZERO are set to their default values. */
@@ -350,7 +350,6 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
    *       core on which it is actually allowed to run. */
   new_task->t_cpu = THIS_CPU;
 #endif
-
 
   /* Start the new thread. */
   task_start(new_task);

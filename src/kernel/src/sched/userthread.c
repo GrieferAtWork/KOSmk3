@@ -54,7 +54,7 @@ INTERN void KCALL userthread_signal(void) {
  if (!pid_addr) return; /* Don't do anything when this is NULL. */
  TRY {
   validate_writable(pid_addr,sizeof(pid_t));
-  ATOMIC_STORE(pid_addr,0);
+  ATOMIC_STORE(*pid_addr,0);
   COMPILER_WRITE_BARRIER();
   /* Also try to signal a futex at the address. */
   futex_object = vm_getfutex(pid_addr);

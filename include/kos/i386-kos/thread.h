@@ -210,6 +210,7 @@ struct __ATTR_PACKED task_segment
       (((rel_faultaddr) & 0xffff) | ((rel_faultaddr) & 0x30000) << 14)
 #define X86_ENCODE_PFSYSCALL_BITS 18 /* 16 ID bits; +1 for xsyscalls; +1 for exception mode. */
 #define X86_ENCODE_PFSYSCALL_SIZE (1 << X86_ENCODE_PFSYSCALL_BITS)
+#define X86_ENCODE_PFSYSCALL_XBIT 0x20000 /* Exception bit. */
 
 
 __SYSDECL_END

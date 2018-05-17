@@ -1,0 +1,138 @@
+/* Copyright (c) 2018 Griefer@Work                                            *
+ *                                                                            *
+ * This software is provided 'as-is', without any express or implied          *
+ * warranty. In no event will the authors be held liable for any damages      *
+ * arising from the use of this software.                                     *
+ *                                                                            *
+ * Permission is granted to anyone to use this software for any purpose,      *
+ * including commercial applications, and to alter it and redistribute it     *
+ * freely, subject to the following restrictions:                             *
+ *                                                                            *
+ * 1. The origin of this software must not be misrepresented; you must not    *
+ *    claim that you wrote the original software. If you use this software    *
+ *    in a product, an acknowledgement in the product documentation would be  *
+ *    appreciated but is not required.                                        *
+ * 2. Altered source versions must be plainly marked as such, and must not be *
+ *    misrepresented as being the original software.                          *
+ * 3. This notice may not be removed or altered from any source distribution. *
+ */
+#ifndef GUARD_LIBS_LIBC_I386_KOS_RPC_C
+#define GUARD_LIBS_LIBC_I386_KOS_RPC_C 1
+#define __EXPOSE_CPU_CONTEXT 1
+
+#include "rpc.h"
+#include "../futex.h"
+#include <hybrid/atomic.h>
+#include <stdint.h>
+#include <kos/rpc.h>
+#include <kos/futex.h>
+
+DECL_BEGIN
+
+struct fast_rpc_regs {
+    u32 mode;
+    u32 edx;
+    u32 ecx;
+    u32 eax;
+    u32 eip;
+    u32 eflags;
+};
+
+CRT_KOS unsigned int FCALL
+libc_invoke_rpc_fast(rpc_t func, void *arg,
+                     struct fast_rpc_regs *__restrict regs) {
+ unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
+ struct fast_rpc_regs *EXCEPT_VAR xregs;
+ /* Only a noexcept system call needs a guard. */
+ if (!(regs->mode & RPC_REASON_NOEXCEPT))
+       return (*func)(arg);
+ xregs = regs;
+ LIBC_TRY {
+  result = (*func)(arg);
+ } LIBC_EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+  xregs->eax = -libc_except_errno();
+  error_handled();
+ }
+ return RPC_RETURN_RESUME;
+}
+
+INTDEF void ASMCALL x86_rpc_entry_fast(void);
+
+
+struct waitfor_rpc_data {
+    rpc_t   func;
+    void   *arg;
+    futex_t done;  /* Set to ZERO and broadcast when the RPC has finished. */
+};
+
+CRT_KOS unsigned int LIBCCALL
+fast_waitfor_rpc_wrapper(struct waitfor_rpc_data *__restrict data) {
+ unsigned int result;
+ struct waitfor_rpc_data *EXCEPT_VAR xdata = data;
+ TRY {
+  result = (*data->func)(data->arg);
+ } FINALLY {
+  ATOMIC_WRITE(xdata->done,0);
+  libc_futex_wake(&xdata->done,SIZE_MAX);
+ }
+ return result;
+}
+
+
+
+EXPORT(queue_rpc,libc_queue_rpc);
+CRT_KOS bool LIBCCALL
+libc_queue_rpc(pid_t pid, rpc_t func, void *arg,
+               unsigned int mode) {
+ struct cpu_context context;
+ bool result;
+ if (mode & ~(RPC_FSYNCHRONOUS|RPC_FASYNCHRONOUS|RPC_FWAITBEGIN|RPC_FWAITFOR))
+     error_throw(E_INVALID_ARGUMENT);
+ context.c_eflags        = 0;
+ if (mode & RPC_FWAITFOR) {
+  struct waitfor_rpc_data data;
+  data.func = func;
+  data.arg  = arg;
+  data.done = 1;
+  context.c_eip           = (uintptr_t)&x86_rpc_entry_fast;
+  context.c_gpregs.gp_ecx = (uintptr_t)&fast_waitfor_rpc_wrapper;
+  context.c_gpregs.gp_edx = (uintptr_t)&data;
+  result = libc_queue_job(pid,&context,
+                         (mode & ~RPC_FWAITFOR)|
+                          JOB_FWAITBEGIN|
+                          X86_JOB_FSAVE_RETURN|
+                          X86_JOB_FLOAD_RETURN|
+                          X86_JOB_FSAVE_CREGS|
+                          X86_JOB_FLOAD_CREGS);
+  if (result) {
+   /* Wait for the RPC to finish. */
+   /* TODO: This hangs if the thread dies... */
+   libc_Xfutex_wait_inf(&data.done,1);
+  }
+ } else {
+  context.c_eip           = (uintptr_t)&x86_rpc_entry_fast;
+  context.c_gpregs.gp_ecx = (uintptr_t)func;
+  context.c_gpregs.gp_edx = (uintptr_t)arg;
+  /* Invoke the RPC */
+  result = libc_queue_job(pid,&context,mode|
+                          X86_JOB_FSAVE_RETURN|
+                          X86_JOB_FLOAD_RETURN|
+                          X86_JOB_FSAVE_CREGS|
+                          X86_JOB_FLOAD_CREGS);
+ }
+ return result;
+}
+
+EXPORT(queue_interrupt,libc_queue_interrupt);
+CRT_KOS bool LIBCCALL
+libc_queue_interrupt(pid_t pid, rpc_interrupt_t func,
+                     void *arg, unsigned int mode) {
+ /* TODO */
+ return false;
+}
+
+
+
+DECL_END
+
+#endif /* !GUARD_LIBS_LIBC_I386_KOS_RPC_C */

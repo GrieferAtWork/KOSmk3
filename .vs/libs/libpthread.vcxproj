@@ -20,11 +20,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\libs\libpthread\libpthread.h" />
+    <ClInclude Include="..\..\src\libs\libpthread\misc.h" />
     <ClInclude Include="..\..\src\libs\libpthread\thread.h" />
     <ClInclude Include="..\..\src\libs\libpthread\threadattr.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\libs\libpthread\libpthread.c" />
+    <ClCompile Include="..\..\src\libs\libpthread\misc.c" />
     <ClCompile Include="..\..\src\libs\libpthread\thread.c" />
     <ClCompile Include="..\..\src\libs\libpthread\threadattr.c" />
   </ItemGroup>

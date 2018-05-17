@@ -113,16 +113,13 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
      context->c_eip = (uintptr_t)hand.ehi_entry;
      assert(hand.ehi_desc.ed_type == EXCEPT_DESC_TYPE_BYPASS); /* XXX: What should we do here? */
 
-     /* Allocate the stack-save area. */
      CPU_CONTEXT_SP(*context) -= hand.ehi_desc.ed_safe;
+     error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(*context);
      if (!(hand.ehi_desc.ed_flags&EXCEPT_DESC_FDEALLOC_CONTINUE)) {
       /* Must allocate stack memory at the back and copy data there. */
       sp -= hand.ehi_desc.ed_safe;
       memcpy((void *)sp,(void *)CPU_CONTEXT_SP(*context),hand.ehi_desc.ed_safe);
-      error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(*context);
       CPU_CONTEXT_SP(*context) = sp;
-     } else {
-      error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(*context);
      }
      if (hand.ehi_desc.ed_flags & EXCEPT_DESC_FDISABLE_PREEMPTION)
          context->c_eflags &= ~EFLAGS_IF;
@@ -134,11 +131,11 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
       goto no_handler;
      }
 
+     error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(*context);
      /* Restore the original SP to restore the stack as
       * it were when the exception originally occurred.
       * Without this, it would be impossible to continue
       * execution after an exception occurred. */
-     error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(*context);
      CPU_CONTEXT_SP(*context) = sp;
     }
 #if 0
@@ -249,29 +246,26 @@ error_rethrow_at_user(USER CHECKED struct user_exception_info *except_info,
     /* Override the IP to use the entry point.  */
     context->c_context.c_eip = (uintptr_t)hand.ehi_entry;
     assert(hand.ehi_desc.ed_type == EXCEPT_DESC_TYPE_BYPASS); /* XXX: What should we do here? */
-    /* Allocate the stack-save area. */
     CPU_CONTEXT_SP(context->c_context) -= hand.ehi_desc.ed_safe;
+    except_info->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(context->c_context);
     if (!(hand.ehi_desc.ed_flags&EXCEPT_DESC_FDEALLOC_CONTINUE)) {
      /* Must allocate stack memory at the back and copy data there. */
      sp -= hand.ehi_desc.ed_safe;
      validate_writable((void *)sp,hand.ehi_desc.ed_safe);
-     COMPILER_WRITE_BARRIER();
+     validate_readable((void *)CPU_CONTEXT_SP(context->c_context),hand.ehi_desc.ed_safe);
+     COMPILER_BARRIER();
      memcpy((void *)sp,(void *)CPU_CONTEXT_SP(context->c_context),hand.ehi_desc.ed_safe);
-     except_info->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(context->c_context);
-     CPU_CONTEXT_SP(context->c_context) = sp;
-    } else {
-     except_info->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(context->c_context);
     }
    } else {
     /* Jump to the entry point of this exception handler. */
     if (!eh_jmp(&info,&context->c_context,(uintptr_t)hand.ehi_entry,
                  EH_FRESTRICT_USERSPACE))
          return false;
+    except_info->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(context->c_context);
     /* Restore the original SP to restore the stack as
      * it were when the exception originally occurred.
      * Without this, it would be impossible to continue
      * execution after an exception occurred. */
-    except_info->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(context->c_context);
     CPU_CONTEXT_SP(context->c_context) = sp;
    }
    return true;

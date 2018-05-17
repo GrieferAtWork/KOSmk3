@@ -90,6 +90,9 @@
     <ClCompile Include="..\..\src\libs\libc\chtime.c" />
     <ClCompile Include="..\..\src\libs\libc\stat.c" />
     <ClCompile Include="..\..\src\libs\libc\futex.c" />
+    <ClCompile Include="..\..\src\libs\libc\i386-kos\rpc.c">
+      <Filter>i386-kos</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\libs\libc\libc.h" />
@@ -140,6 +143,9 @@
     <ClInclude Include="..\..\src\libs\libc\chtime.h" />
     <ClInclude Include="..\..\src\libs\libc\stat.h" />
     <ClInclude Include="..\..\src\libs\libc\futex.h" />
+    <ClInclude Include="..\..\src\libs\libc\i386-kos\rpc.h">
+      <Filter>i386-kos</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="i386-kos">
@@ -212,6 +218,9 @@
       <Filter>i386-kos</Filter>
     </None>
     <None Include="..\..\src\libs\libc\i386-kos\entry32.S">
+      <Filter>i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\libs\libc\i386-kos\rpc32.S">
       <Filter>i386-kos</Filter>
     </None>
   </ItemGroup>

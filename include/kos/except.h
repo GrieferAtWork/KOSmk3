@@ -647,7 +647,10 @@ struct except_desc {
                                   * before more additional information is optionally pushed onto the stack,
                                   * based on flags defined above (XXX: No such flags exist, yet).
                                   * This value should never be smaller than 4/8 because it must
-                                  * include the exception handler return address. */
+                                  * include the exception handler return address.
+                                  * When an exception handler is loaded from such a location,
+                                  * `xrt_free_sp' is set to `CFA + ed_safe' (in the direction
+                                  * in which the stack grows) */
     __UINT16_TYPE__ __ed_pad;    /* ... */
 };
 #endif /* __CC__ */

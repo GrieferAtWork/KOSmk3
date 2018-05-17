@@ -24,6 +24,7 @@
 #include <hybrid/compiler.h>
 #include <hybrid/atomic.h>
 #include <kos/types.h>
+#include <kos/rpc.h>
 #include <kernel/debug.h>
 #include <kernel/sections.h>
 #include <kernel/malloc.h>
@@ -46,6 +47,7 @@ struct rpc_slot {
     void            *rs_arg;  /* [?..?] Argument passed to `ars_fun' */
 #define RPC_SLOT_FNORMAL 0x0000
 #define RPC_SLOT_FUSER   TASK_RPC_USER
+#define RPC_SLOT_FUSYNC  TASK_RPC_USYNC
     uintptr_t        rs_flag; /* Set of `RPC_SLOT_F*' */
     struct sig      *rs_done; /* [0..1] A signal that will be broadcast when the RPC has finished, or NULL.
                                *  HINT: This signal is used for synchronous execution of RPC commands. */
@@ -200,11 +202,47 @@ again:
                    TASK_STATE_FINTERRUPTED));
    return;
   }
-  /* Take away the first RPC */
-  PERTASK_DEC(my_rpc.ri_cnt);
-  memcpy((void *)&slot,&PERTASK(my_rpc.ri_vec)[0],sizeof(struct rpc_slot));
-  memmove(&PERTASK(my_rpc.ri_vec)[0],&PERTASK(my_rpc.ri_vec)[1],
-           PERTASK_GET(my_rpc.ri_cnt)*sizeof(struct rpc_slot));
+#if 1 /* XXX: This right here is actually incorrect.
+       *      However if we only checked for the context being
+       *      a system call, these types of RPC callbacks would
+       *      be left dangling and cause an infinite loop when
+       *      task_serve() throws an E_INTERRUPT to get back to
+       *      user-space, at which point we are called to handle
+       *      the RPC, yet us refusing to do so means that the
+       *      next task_serve() will throw the E_INTERRUPT again... */
+  if (mode & TASK_USERCTX_FTIMER)
+#else
+  if (TASK_USERCTX_TYPE(mode) != TASK_USERCTX_TYPE_INTR_SYSCALL)
+#endif
+  {
+   /* When run from a timed preemption interrupt, don't serve RPCs
+    * that have been created using the `RPC_SLOT_FUSYNC' flag. */
+   size_t i,count = PERTASK_GET(my_rpc.ri_cnt);
+   struct rpc_info *me = &PERTASK(my_rpc);
+   for (i = 0;;) {
+    assert(i < count);
+    if (!(me->ri_vec[i].rs_flag & RPC_SLOT_FUSYNC))
+          break; /* This one can be served. */
+    ++i;
+    if (i >= count) {
+     /* All remaining RPC callbacks have the `RPC_SLOT_FUSYNC' flag set. */
+     ATOMIC_FETCHAND(THIS_TASK->t_state,
+                   ~(TASK_STATE_FINTERRUPTING));
+     return;
+    }
+   }
+   /* Take the RPC at index `i' */
+   --me->ri_cnt;
+   memcpy((void *)&slot,&me->ri_vec[i],sizeof(struct rpc_slot));
+   memmove(&me->ri_vec[i],&me->ri_vec[i+1],
+           (me->ri_cnt-i)*sizeof(struct rpc_slot));
+  } else {
+   /* Just take away the first RPC */
+   PERTASK_DEC(my_rpc.ri_cnt);
+   memcpy((void *)&slot,&PERTASK(my_rpc.ri_vec)[0],sizeof(struct rpc_slot));
+   memmove(&PERTASK(my_rpc.ri_vec)[0],&PERTASK(my_rpc.ri_vec)[1],
+            PERTASK_GET(my_rpc.ri_cnt)*sizeof(struct rpc_slot));
+  }
   ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINTERRUPTING);
   TRY {
    /* Execute the RPC. */
@@ -366,7 +404,8 @@ done_serving:
 
 
 PRIVATE bool KCALL
-signal_interrupt(struct task *__restrict thread) {
+signal_interrupt(struct task *__restrict thread,
+                 unsigned int mode) {
  u16 state;
  do {
   state = ATOMIC_READ(thread->t_state);
@@ -380,8 +419,14 @@ signal_interrupt(struct task *__restrict thread) {
                              (state & ~(TASK_STATE_FINTERRUPTING)) |
                                        (TASK_STATE_FINTERRUPTED)));
  /* If the thread wasn't already interrupted, wake it now. */
- if (!(state & TASK_STATE_FINTERRUPTED))
-     return task_wake_for_rpc(thread);
+ if (!(state & TASK_STATE_FINTERRUPTED)) {
+  /* NOTE: Restrict outself to a regular wakeup, because we're not
+   *       supposed to interrupt user-space (as `task_wake_for_rpc()'
+   *       would do) in order to get the thread to serve RPCs. */
+  if (mode & TASK_RPC_USYNC)
+      return task_wake(thread);
+  return task_wake_for_rpc(thread);
+ }
  return true;
 }
 
@@ -396,7 +441,8 @@ task_queue_rpc(struct task *__restrict thread,
  if unlikely((mode & RPC_SLOT_FUSER) &&
              (thread->t_flags & TASK_FKERNELJOB))
     return false;
-
+ assertf(!(mode & RPC_SLOT_FUSYNC) || (mode & RPC_SLOT_FUSER),
+         "The `TASK_RPC_NOIRQ' flag can only be used with `TASK_RPC_USER'");
  if (thread == THIS_TASK) {
   INCSTAT(ts_qrpc);
   if (mode & TASK_RPC_USER) {
@@ -441,7 +487,7 @@ task_queue_rpc(struct task *__restrict thread,
  if (!slot) return false; /* Thread is terminating. */
  slot->rs_fun  = func;
  slot->rs_arg  = arg;
- slot->rs_flag = mode & RPC_SLOT_FUSER;
+ slot->rs_flag = mode & (RPC_SLOT_FUSER|RPC_SLOT_FUSYNC);
  if (mode & TASK_RPC_SYNC) {
   /* Special case: Must synchronize with the completion of the RPC. */
   struct sig done_sig = SIG_INIT;
@@ -463,7 +509,7 @@ task_queue_rpc(struct task *__restrict thread,
   /* Clear the interrupting-bit and set the interrupted-bit.
    * If this was successful, wake the thread. */
   COMPILER_BARRIER();
-  if (!signal_interrupt(thread)) {
+  if (!signal_interrupt(thread,mode)) {
    if (!task_disconnect())
         return false; /* Thread has terminated. */
    INCSTAT(ts_qrpc);
@@ -478,12 +524,15 @@ task_queue_rpc(struct task *__restrict thread,
   /* Unlock the interrupt-subsystem of the thread,
    * then set the interrupted flag and wake the task. */
   COMPILER_WRITE_BARRIER();
-  if (!signal_interrupt(thread))
+  if (!signal_interrupt(thread,mode))
        return false; /* Thread has terminated. */
   INCSTAT(ts_qrpc);
  }
  return true;
 }
+
+
+
 
 
 DECL_END

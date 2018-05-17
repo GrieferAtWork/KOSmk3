@@ -60,14 +60,14 @@ linker_findfde(uintptr_t ip, struct fde_info *__restrict result) {
  struct vm *EXCEPT_VAR effective_vm; struct vm_node *node;
  effective_vm = ip >= KERNEL_BASE ? &vm_kernel : THIS_VM;
 #ifdef NDEBUG
- if (!vm_tryacquire(effective_vm))
+ if (!vm_tryacquire_read(effective_vm))
 #endif
  {
   if (PREEMPTION_ENABLED()) {
    u16 EXCEPT_VAR old_state;
    old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
    TRY {
-    vm_acquire(effective_vm);
+    vm_acquire_read(effective_vm);
    } FINALLY {
     if (!(old_state & TASK_STATE_FDONTSERVE))
           ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
@@ -90,12 +90,12 @@ linker_findfde(uintptr_t ip, struct fde_info *__restrict result) {
     reloffset  = VM_NODE_MINADDR(node);
     reloffset += node->vn_start * PAGESIZE;
     vm_region_incref(region);
-    vm_release(effective_vm);
+    vm_release_read(effective_vm);
     goto invoke_region; /* XXX: Skip over FINALLY is intentional */
    }
   }
  } FINALLY {
-  vm_release(effective_vm);
+  vm_release_read(effective_vm);
  }
  if (!app) return false;
  TRY {
@@ -153,14 +153,14 @@ linker_findexcept(uintptr_t ip, u16 exception_code,
  struct vm *EXCEPT_VAR effective_vm; struct vm_node *node;
  effective_vm = ip >= KERNEL_BASE ? &vm_kernel : THIS_VM;
 #ifdef NDEBUG
- if (!vm_tryacquire(effective_vm))
+ if (!vm_tryacquire_read(effective_vm))
 #endif
  {
   if (PREEMPTION_ENABLED()) {
    u16 EXCEPT_VAR old_state;
    old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
    TRY {
-    vm_acquire(effective_vm);
+    vm_acquire_read(effective_vm);
    } FINALLY {
     if (!(old_state & TASK_STATE_FDONTSERVE))
           ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
@@ -179,7 +179,7 @@ linker_findexcept(uintptr_t ip, u16 exception_code,
    application_incref(app);
   }
  } FINALLY {
-  vm_release(effective_vm);
+  vm_release_read(effective_vm);
  }
  if (!app) return false;
  TRY {

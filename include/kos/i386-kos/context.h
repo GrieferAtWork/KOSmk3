@@ -98,32 +98,32 @@ __SYSDECL_BEGIN
 
 #if defined(__x86_64__) || !defined(__KERNEL__)
 struct __ATTR_PACKED x86_gpregs64 {
-     __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r15);   /* General purpose register #15 */
-     __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r14);   /* General purpose register #14 */
-     __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r13);   /* General purpose register #13 */
-     __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r12);   /* General purpose register #12 */
-     __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r11);   /* General purpose register #11 */
-     __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r10);   /* General purpose register #10 */
-     __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r9);    /* General purpose register #9 */
-     __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r8);    /* General purpose register #8 */
-     __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_edi);   /* Destination pointer */
-     __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_esi);   /* Source pointer */
-     __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_ebp);   /* Frame base pointer */
-     __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_ebx);   /* Base register */
-     __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_edx);   /* Data register */
-     __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_ecx);   /* Count register */
-     __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_eax);   /* Accumulator register */
+    __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r15);   /* General purpose register #15 */
+    __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r14);   /* General purpose register #14 */
+    __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r13);   /* General purpose register #13 */
+    __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r12);   /* General purpose register #12 */
+    __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r11);   /* General purpose register #11 */
+    __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r10);   /* General purpose register #10 */
+    __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r9);    /* General purpose register #9 */
+    __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_r8);    /* General purpose register #8 */
+    __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_edi);   /* Destination pointer */
+    __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_esi);   /* Source pointer */
+    __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_ebp);   /* Frame base pointer */
+    __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_ebx);   /* Base register */
+    __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_edx);   /* Data register */
+    __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_ecx);   /* Count register */
+    __ULONG64_TYPE__            __X86_CONTEXT_SYMBOL(gp_eax);   /* Accumulator register */
 };
 #endif
 struct __ATTR_PACKED x86_gpregs32 {
-     __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_edi);   /* Destination pointer */
-     __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_esi);   /* Source pointer */
-     __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_ebp);   /* Frame base pointer */
-     __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_esp);   /* Stack pointer */
-     __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_ebx);   /* Base register */
-     __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_edx);   /* Data register */
-     __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_ecx);   /* Count register */
-     __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_eax);   /* Accumulator register */
+    __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_edi);   /* Destination pointer */
+    __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_esi);   /* Source pointer */
+    __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_ebp);   /* Frame base pointer */
+    __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_esp);   /* Stack pointer */
+    __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_ebx);   /* Base register */
+    __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_edx);   /* Data register */
+    __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_ecx);   /* Count register */
+    __ULONG32_TYPE__            __X86_CONTEXT_SYMBOL(gp_eax);   /* Accumulator register */
 };
 #endif /* __CC__ */
 
@@ -176,10 +176,10 @@ struct __ATTR_PACKED x86_segments64 {
 };
 #endif
 struct __ATTR_PACKED x86_segments32 {
-    __UINT32_TYPE__              __X86_CONTEXT_SYMBOL(sg_gs); /* G segment register */
-    __UINT32_TYPE__              __X86_CONTEXT_SYMBOL(sg_fs); /* F segment register */
-    __UINT32_TYPE__              __X86_CONTEXT_SYMBOL(sg_es); /* E (source) segment register */
-    __UINT32_TYPE__              __X86_CONTEXT_SYMBOL(sg_ds); /* D (destination) segment register */
+    __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(sg_gs); /* G segment register */
+    __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(sg_fs); /* F segment register */
+    __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(sg_es); /* E (source) segment register */
+    __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(sg_ds); /* D (destination) segment register */
 };
 #endif /* __CC__ */
 

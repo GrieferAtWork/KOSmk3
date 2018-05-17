@@ -16,21 +16,19 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef _KOS_THREAD_H
-#define _KOS_THREAD_H 1
+#ifndef GUARD_LIBS_LIBPTHREAD_MISC_H
+#define GUARD_LIBS_LIBPTHREAD_MISC_H 1
 
-#include <__stdinc.h>
-#include <hybrid/host.h>
+#include "libpthread.h"
+#include <kos/types.h>
 
-#if defined(__i386__) || defined(__x86_64__)
-#include "i386-kos/thread.h"
-#else
-#error "Unsupported arch"
-#endif
+DECL_BEGIN
 
-__DECL_BEGIN
+typedef pthread_once_t thread_once_t;
 
+INTDEF errno_t LIBPCALL thread_once(thread_once_t *__restrict once_control, void (*init_routine)(void));
+INTDEF void LIBPCALL Xthread_once(thread_once_t *__restrict once_control, void (*init_routine)(void));
 
-__DECL_END
+DECL_END
 
-#endif /* !_KOS_THREAD_H */
+#endif /* !GUARD_LIBS_LIBPTHREAD_MISC_H */

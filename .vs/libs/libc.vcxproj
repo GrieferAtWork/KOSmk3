@@ -50,6 +50,7 @@
     <ClCompile Include="..\..\src\libs\libc\heap.c" />
     <ClCompile Include="..\..\src\libs\libc\i386-kos\entry.c" />
     <ClCompile Include="..\..\src\libs\libc\i386-kos\malloc.c" />
+    <ClCompile Include="..\..\src\libs\libc\i386-kos\rpc.c" />
     <ClCompile Include="..\..\src\libs\libc\i386-kos\syscall.c" />
     <ClCompile Include="..\..\src\libs\libc\malloc.c" />
     <ClCompile Include="..\..\src\libs\libc\malloc_d.c" />
@@ -97,6 +98,7 @@
     <ClInclude Include="..\..\src\libs\libc\futex.h" />
     <ClInclude Include="..\..\src\libs\libc\group.h" />
     <ClInclude Include="..\..\src\libs\libc\heap.h" />
+    <ClInclude Include="..\..\src\libs\libc\i386-kos\rpc.h" />
     <ClInclude Include="..\..\src\libs\libc\libc.h" />
     <ClInclude Include="..\..\src\libs\libc\malloc.h" />
     <ClInclude Include="..\..\src\libs\libc\misc.h" />
@@ -140,6 +142,7 @@
     <None Include="..\..\src\libs\libc\i386-kos\errno32.S" />
     <None Include="..\..\src\libs\libc\i386-kos\errno64.S" />
     <None Include="..\..\src\libs\libc\i386-kos\malloc32.S" />
+    <None Include="..\..\src\libs\libc\i386-kos\rpc32.S" />
     <None Include="..\..\src\libs\libc\i386-kos\setjmp32.S" />
     <None Include="..\..\src\libs\libc\i386-kos\syscall32.S" />
     <None Include="..\..\src\libs\libc\i386-kos\syscall64.S" />

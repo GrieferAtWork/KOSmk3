@@ -50,8 +50,9 @@
 DECL_BEGIN
 
 #ifndef CONFIG_NO_X86_SEGMENTATION
-INTDEF ATTR_NORETURN void KCALL
-throw_invalid_segment(u16 segment_index, u16 segment_register);
+INTDEF ATTR_NORETURN void (KCALL throw_invalid_segment)(u16 segment_index, u16 segment_register);
+#define throw_invalid_segment(segment_index,segment_register) \
+       __EXCEPT_INVOKE_THROW_NORETURN(throw_invalid_segment(segment_index,segment_register))
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 
@@ -142,7 +143,7 @@ x86_sigreturn_impl(void *UNUSED(arg),
       throw_invalid_segment(context->c_iret.ir_ss,X86_REGISTER_SEGMENT_SS);
   /* Ensure ring #3 (This is _highly_ important. Without this,
    * user-space would be executed as kernel-code; autsch...) */
-  if (!(context->c_iret.ir_cs&3) || !__verr(context->c_iret.ir_cs))
+  if ((context->c_iret.ir_cs & 3) != 3 || !__verr(context->c_iret.ir_cs))
       throw_invalid_segment(context->c_iret.ir_cs,X86_REGISTER_SEGMENT_CS);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Must fix register values, as otherwise userspace wouldn't be able to handle the exception. */
@@ -156,7 +157,7 @@ x86_sigreturn_impl(void *UNUSED(arg),
       xcontext->c_segments.sg_gs = X86_SEG_USER_GS;
   if (xcontext->c_iret.ir_ss && !__verw(xcontext->c_iret.ir_ss))
       xcontext->c_iret.ir_ss = X86_SEG_USER_SS;
-  if (!(xcontext->c_iret.ir_cs&3) || !__verr(xcontext->c_iret.ir_cs))
+  if ((xcontext->c_iret.ir_cs & 3) != 3 || !__verr(xcontext->c_iret.ir_cs))
       xcontext->c_iret.ir_cs = X86_SEG_USER_CS;
   error_rethrow();
  }

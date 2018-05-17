@@ -30,6 +30,10 @@ DECL_BEGIN
 #define EXPORT(public_name,internal_name) \
    DEFINE_PUBLIC_ALIAS(public_name,internal_name)
 
+#ifndef __errno_t_defined
+#define __errno_t_defined 1
+typedef int errno_t;
+#endif /* !__errno_t_defined */
 
 DECL_END
 

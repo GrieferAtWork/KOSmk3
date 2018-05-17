@@ -27,12 +27,6 @@
 
 DECL_BEGIN
 
-#ifndef __errno_t_defined
-#define __errno_t_defined 1
-typedef int errno_t;
-#endif /* !__errno_t_defined */
-
-
 typedef struct thread_attr ThreadAttr;
 struct thread_attr {
     /* NOTE: The layout of this structure has

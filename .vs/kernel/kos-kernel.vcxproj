@@ -77,6 +77,7 @@
     <ClCompile Include="..\..\src\kernel\i386-kos\init.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\interrupt.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\ipi.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\job.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\linker.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\memory.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\multiboot.c" />

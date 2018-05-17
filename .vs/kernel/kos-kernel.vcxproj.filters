@@ -516,6 +516,9 @@
     <ClCompile Include="..\..\src\kernel\src\fs\device_stream.c">
       <Filter>kernel\src\fs</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\job.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">

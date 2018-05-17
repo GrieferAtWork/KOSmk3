@@ -132,6 +132,15 @@ struct userstack *KCALL task_alloc_userstack(void) {
   result->us_pagemin = VM_VPAGE_MAX+1;
   result->us_pageend = 0;
   COMPILER_WRITE_BARRIER();
+#if 0 /* TODO: For some reason, the VM is locked with 2 locks after a clone(),
+       *       when there is no reason for it to be. The locks go away shortly
+       *       after, but this might be some situation I though to be rare,
+       *       actually being quite common... Investigate this. -> Performace! */
+ debug_printf("TASK_ALLOC_USERSTACK #1.3 (%p,%p,%p)\n",
+             ((u32 *)&THIS_VM->vm_lock)[0],
+             ((u32 *)&THIS_VM->vm_lock)[1],
+             ((u32 *)&THIS_VM->vm_lock)[2]);
+#endif
 
   TRY {
    /* Map the stack region to a suitable location. */
@@ -148,6 +157,9 @@ struct userstack *KCALL task_alloc_userstack(void) {
   } FINALLY {
    vm_region_decref(stack_region);
   }
+#if 0
+ debug_printf("TASK_ALLOC_USERSTACK #1.4\n");
+#endif
   /* Save the region location.
    * NOTE: The reason why this looks so weird is because of a race
    *       condition arising from the fact that we're no longer

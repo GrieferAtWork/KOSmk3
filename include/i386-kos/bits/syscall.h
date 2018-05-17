@@ -184,6 +184,8 @@ for (local line: fp) {
 #define SYS_xvm_region_create __NR_xvm_region_create
 #define SYS_xppoll __NR_xppoll
 #define SYS_xdetach __NR_xdetach
+#define SYS_xqueue_job __NR_xqueue_job
+#define SYS_xserve_job __NR_xserve_job
 #define SYS_xfdlopenat __NR_xfdlopenat
 #define SYS_xdlclose __NR_xdlclose
 #define SYS_xdlsym __NR_xdlsym

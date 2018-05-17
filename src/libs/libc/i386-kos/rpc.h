@@ -16,21 +16,26 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef _KOS_THREAD_H
-#define _KOS_THREAD_H 1
+#ifndef GUARD_LIBS_LIBC_I386_KOS_RPC_H
+#define GUARD_LIBS_LIBC_I386_KOS_RPC_H 1
 
-#include <__stdinc.h>
-#include <hybrid/host.h>
+#include "../libc.h"
+#include <stdbool.h>
+#include <kos/types.h>
+#include <kos/rpc.h>
 
-#if defined(__i386__) || defined(__x86_64__)
-#include "i386-kos/thread.h"
-#else
-#error "Unsupported arch"
-#endif
+DECL_BEGIN
 
-__DECL_BEGIN
+struct cpu_context;
+
+INTDEF bool LIBCCALL libc_queue_rpc(pid_t pid, rpc_t func, void *arg, unsigned int mode);
+INTDEF bool LIBCCALL libc_queue_interrupt(pid_t pid, rpc_interrupt_t func, void *arg, unsigned int mode);
+INTDEF bool LIBCCALL libc_rpc_serve(void);
+INTDEF void LIBCCALL libc_rpc_pushoff(void);
+INTDEF void LIBCCALL libc_rpc_pop(void);
+INTDEF bool LIBCCALL libc_queue_job(pid_t pid, struct cpu_context const *__restrict job, unsigned int mode);
 
 
-__DECL_END
+DECL_END
 
-#endif /* !_KOS_THREAD_H */
+#endif /* !GUARD_LIBS_LIBC_I386_KOS_RPC_H */

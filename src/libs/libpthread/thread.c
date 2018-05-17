@@ -117,7 +117,8 @@ thread_Xcreate(ThreadAttributes const *attr,
   clone_flags = (/* NOTE: `CLONE_THREAD' does _NOT_ mean detached in KOS! */
                  CLONE_THREAD | CLONE_VM | CLONE_FS |
                  CLONE_FILES | CLONE_SIGHAND |
-                 CLONE_IO | CLONE_CHILD_CLEARTID);
+                 CLONE_IO | CLONE_CHILD_CLEARTID |
+                 CLONE_PARENT_SETTID);
   if (result->t_attr.ta_flags & THREADATTR_FDETACHSTATE)
       clone_flags |= CLONE_DETACHED;
   /* If the user didn't define a stack for the thread,

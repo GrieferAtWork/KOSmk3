@@ -36,11 +36,8 @@
 
 DECL_BEGIN
 
-PUBLIC bool KCALL
-should_restart_syscall(syscall_ulong_t sysno,
-                       unsigned int context) {
+INTERN u8 KCALL restart_syscall_mode(syscall_ulong_t sysno) {
  u8 mode;
- debug_printf("should_restart_syscall(%p,%x)\n",sysno,context);
  sysno &= ~0x80000000;
  if (sysno <= __NR_syscall_max)
   mode = x86_syscall_restart[sysno];
@@ -49,6 +46,14 @@ should_restart_syscall(syscall_ulong_t sysno,
  else {
   mode = X86_SYSCALL_RESTART_FAUTO;
  }
+ return mode;
+}
+
+PUBLIC bool KCALL
+should_restart_syscall(syscall_ulong_t sysno,
+                       unsigned int context) {
+ u8 mode = restart_syscall_mode(sysno);
+ debug_printf("should_restart_syscall(%p,%x)\n",sysno,context);
  switch (mode) {
 
  case X86_SYSCALL_RESTART_FAUTO:

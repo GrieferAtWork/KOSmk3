@@ -1497,7 +1497,6 @@ serve_rpc:
       /* Found a user-space exception handler! */
       if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS)
           info.e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK;
-      useg->ts_xcurrent.e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(unwind.c_context);
       if (hand.ehi_flag & EXCEPTION_HANDLER_FDESCRIPTOR) {
        /* Unwind the stack to the caller-site. */
        if (!eh_return(&fde,&unwind.c_context,EH_FRESTRICT_USERSPACE|EH_FDONT_UNWIND_SIGFRAME))
@@ -1505,17 +1504,18 @@ serve_rpc:
        /* Override the IP to use the entry point.  */
        unwind.c_context.c_eip = (uintptr_t)hand.ehi_entry;
        assert(hand.ehi_desc.ed_type == EXCEPT_DESC_TYPE_BYPASS); /* XXX: What should we do here? */
+       CPU_CONTEXT_SP(unwind.c_context) -= hand.ehi_desc.ed_safe;
+       useg->ts_xcurrent.e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(unwind.c_context);
 
        /* Allocate the stack-save area. */
-       CPU_CONTEXT_SP(unwind.c_context) -= hand.ehi_desc.ed_safe;
        if (!(hand.ehi_desc.ed_flags&EXCEPT_DESC_FDEALLOC_CONTINUE)) {
         uintptr_t sp = context->c_iret.ir_useresp;
         /* Must allocate stack memory at the back and copy data there. */
         sp -= hand.ehi_desc.ed_safe;
         validate_writable((void *)sp,hand.ehi_desc.ed_safe);
-        COMPILER_WRITE_BARRIER();
-        memcpy((void *)sp,(void *)CPU_CONTEXT_SP(unwind.c_context),
-                hand.ehi_desc.ed_safe);
+        validate_readable((void *)CPU_CONTEXT_SP(unwind.c_context),hand.ehi_desc.ed_safe);
+        COMPILER_BARRIER();
+        memcpy((void *)sp,(void *)CPU_CONTEXT_SP(unwind.c_context),hand.ehi_desc.ed_safe);
         CPU_CONTEXT_SP(unwind.c_context) = sp;
        }
       } else {
@@ -1523,6 +1523,7 @@ serve_rpc:
        if (!eh_jmp(&fde,&unwind.c_context,(uintptr_t)hand.ehi_entry,
                     EH_FRESTRICT_USERSPACE))
             goto cannot_unwind;
+       useg->ts_xcurrent.e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(unwind.c_context);
        /* Restore the original SP to restore the stack as
         * it was when the exception originally occurred.
         * Without this, it would be impossible to continue

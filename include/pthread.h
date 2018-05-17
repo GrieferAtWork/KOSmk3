@@ -84,9 +84,9 @@ __SYSDECL_BEGIN
  * The naive exception version would look like this:
  * >> void Xpthread_create(pthread_t *newthread, pthread_attr_t const *attr, void *(*start_routine)(void *arg), void *arg);
  * But I think that we could improve on this by having the function return the
- * thread handle directory, like other functions such as `pthread_self()' already do:
+ * thread handle directly, like other functions such as `pthread_self()' already do:
  * >> pthread_t Xpthread_create(pthread_attr_t const *attr, void *(*start_routine)(void *arg), void *arg);
- * And this. Is exactly how the exception-enabled version of
+ * And this is exactly how the exception-enabled version of
  * `pthread_create' looks like, as can be seen further down below.
  * However because of this and various other similar cases, the regular pthread
  * functions are not re-mapped when `_EXCEPT_API' is defined. Use of exceptions
@@ -248,6 +248,16 @@ __LIBP __NONNULL((3)) void (__LIBPCALL Xpthread_setaffinity_np)(pthread_t __th, 
 __LIBP __NONNULL((3)) void (__LIBPCALL Xpthread_getaffinity_np)(pthread_t __th, size_t __cpusetsize, cpu_set_t *__cpuset);
 #endif /* __USE_EXCEPT */
 #endif
+
+/* NOTE: This one has an exception-version for the same reason that Xpthread_yield() exists.
+ *       At some point I might introduce a realtime mode for user-space which will cause
+ *       yield()-functions to fail by throwing an `E_WOULD_BLOCK' error.
+ *      (And this one will try to yield for an in-progress callback being run by another thread) */
+__LIBP __NONNULL((1,2)) __errno_t (__LIBPCALL pthread_once)(pthread_once_t *__restrict __once_control, void (*__init_routine)(void));
+#ifdef __USE_EXCEPT
+__LIBP __NONNULL((1,2)) void (__LIBPCALL Xpthread_once)(pthread_once_t *__restrict __once_control, void (*__init_routine)(void));
+#endif /* __USE_EXCEPT */
+
 
 
 __SYSDECL_END

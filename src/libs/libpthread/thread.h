@@ -31,11 +31,6 @@
 
 DECL_BEGIN
 
-#ifndef __errno_t_defined
-#define __errno_t_defined 1
-typedef int errno_t;
-#endif /* !__errno_t_defined */
-
 typedef struct thread Thread;
 typedef struct thread_attributes ThreadAttributes;
 typedef void *(*ThreadMain)(void *__arg);

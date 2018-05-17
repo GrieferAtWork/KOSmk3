@@ -90,7 +90,9 @@ PUBLIC ATTR_NOTHROW bool KCALL
 packetbuffer_close(struct packetbuffer *__restrict self) {
  bool result;
  result = ATOMIC_FETCHOR(self->pb_limt,PBUFFER_LIMT_FCLOSED);
- if (result) sig_broadcast(&self->pb_stat);
+ if (result)
+     sig_broadcast(&self->pb_stat),
+     sig_broadcast(&self->pb_read);
  return result;
 }
 

@@ -147,7 +147,7 @@ SYMEND(x86_pic_acknowledge)
 3:	INCSTAT(ts_uswitch)
 	/* Serve RPC functions if we were preempted while in user-space. */
 	movl   %esp, %ecx /* `struct cpu_hostcontext_user *__restrict context' */
-	movl    $(TASK_USERCTX_TYPE_WITHINUSERCODE), %edx
+	movl    $(TASK_USERCTX_FTIMER|TASK_USERCTX_TYPE_WITHINUSERCODE), %edx
 	call    task_serve_before_user
 #ifdef CONFIG_NO_TASKSTAT
 1:
