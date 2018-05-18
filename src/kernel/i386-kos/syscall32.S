@@ -133,13 +133,19 @@ SYMEND(x86_xsyscall_restart)
 
 
 /* Weakly redirect all unimplemented system calls. */
+#if X86_SYSCALL_RESTART_FAUTO != 0
+#define __SET_RESTART(x)  restart_##x = X86_SYSCALL_RESTART_FAUTO;
+#else
+#define __SET_RESTART(x)  /* nothing */
+#endif
+
 #ifdef CONFIG_NO_X86_SYSENTER
 #define __SYSCALL(id,sym) \
 	.hidden sym, restart_##sym; \
 	.global sym, restart_##sym; \
 	.weak sym, restart_##sym; \
 	sym = x86_bad_syscall; \
-	restart_##sym = X86_SYSCALL_RESTART_FAUTO;
+	__SET_RESTART(sym)
 #else
 #define __SYSCALL(id,sym) \
 	.hidden sym, argc_##sym, restart_##sym; \
@@ -147,7 +153,7 @@ SYMEND(x86_xsyscall_restart)
 	.weak sym, argc_##sym, restart_##sym; \
 	sym = x86_bad_syscall; \
 	argc_##sym = 6; \
-	restart_##sym = X86_SYSCALL_RESTART_FAUTO;
+	__SET_RESTART(sym)
 #endif
 #define __XSYSCALL(id,sym)     __SYSCALL(id,sym)
 #include <asm/syscallno.ci>
