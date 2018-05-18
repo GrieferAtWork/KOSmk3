@@ -28,6 +28,11 @@
 #include <except.h>
 #include <string.h>
 
+#ifndef __KERNEL__
+#include "../../libs/libc/rtl.h"
+#include <syslog.h>
+#endif
+
 DECL_BEGIN
 
 EXPORT(__rtl_next_instruction,libc_next_instruction);
@@ -176,18 +181,30 @@ PRIVATE opflag_t const x86_asm_0f[256/(1+!!SMALL_OPFLAG)] = {
 #define MODRM_RM_SIB            MODRM_RM(MODRM_SIBREGISTER) /* When used with MOD 00, 01 or 10, an SIB byte follows. */
 
 
+#undef CONFIG_CODE16
+//#define CONFIG_CODE16 1
+
 INTERN u8 *FCALL
 libc_next_instruction(u8 *__restrict ip) {
  u8 data;
+#ifdef CONFIG_CODE16
  unsigned char has_16b = 2;
+#else
+ unsigned char has_16b = 4;
+#endif
  size_t suffix = 0;
 again:
  data = *ip++;
  data = F_GET(x86_asm_common,data);
 main_switch:
  switch (data) {
+#ifdef CONFIG_CODE16
  case F_PFX16 : if (has_16b != 2) break;
                 has_16b = 4; /* fallthrough */
+#else
+ case F_PFX16 : if (has_16b != 4) break;
+                has_16b = 2; /* fallthrough */
+#endif
  case F_PFX   : goto again;
  case F_1B    : done_p1: ip += 1; break;
  case F_24B   : ip += has_16b; break;
@@ -202,7 +219,7 @@ main_switch:
                  *         has 8/16/32 bits of immediate data) */
                 if ((data&MODRM_REG_MASK) == 0) {
                  if (ip[-2] == 0xf6) suffix += 1;
-                 else               suffix += has_16b;
+                 else                suffix += has_16b;
                 }
                 goto modrm_fetched;
  case F_SPEC2 : data = *ip++;
@@ -243,7 +260,12 @@ INTERN u8 *FCALL
 libc_prev_instruction(u8 *__restrict ip) {
  unsigned int count; u8 *result;
  /* `15' is the max instruction length on X86 */
- for (count = 1; count <= 15; ++count) {
+#if 1
+ for (count = 15; count != 0; --count)
+#else
+ for (count = 1; count <= 15; ++count)
+#endif
+ {
   /* Load the next instruction offset from here.
    * If it equals the given instruction pointer, we've
    * found the starting address of the previous instruction! */
@@ -251,6 +273,10 @@ libc_prev_instruction(u8 *__restrict ip) {
   if (result == (void *)ip)
       return ip - count;
  }
+#if !defined(__KERNEL__) && 0
+ libc_syslog(LOG_DEBUG,"Unknown instruction:\n"
+             "%$[hex]\n",15,ip - 15);
+#endif
  return NULL;
 }
 
