@@ -54,11 +54,47 @@ __DECL_BEGIN
 
 
 
-/* RPC return codes. */
-#define RPC_RETURN_RESTART         0 /* Restart the system call that was interrupted by the RPC. */
-#define RPC_RETURN_RESTART_SYSCALL 1 /* Restart the system call that was interrupted by the RPC,
+/* RPC return codes.
+ * The actual return behavior is performed like this (in that order):
+ * >> if (!(reason & RPC_REASON_SYSCALL))    RESUME();
+ * >> if (return == RPC_RETURN_RESUME)       RESUME();
+ * >> if (reason & RPC_REASON_FMUST_RESTART) RESTART();
+ * >> if (return == RPC_RETURN_RESTART) {
+ * >>     if (reason & RPC_REASON_FSHOULD_RESTART)
+ * >>         RESTART();
+ * >>     INTERRUPT();
+ * >> }
+ * >> if (return == RPC_RETURN_INTERRUPT)
+ * >>     INTERRUPT();
+ * >> RESTART();
+ * RESUME:
+ *   Resume execution at the saved register state.
+ *   This behavior is forced when is wasn't a system call
+ *   that was interrupted (only possible for asynchronous RPCs)
+ * RESTART:
+ *   Rewind to re-execute the last instruction in the
+ *   calling context, using the saved register state.
+ *   Only done if the RPC interrupted a system call!
+ * INTERRUPT:
+ *   Throw an `E_INTERRUPT' exception (which may be
+ *   translated into `EINTR' if the interrupted system
+ *   call as invoked without exception support)
+ *   >> if (reason & RPC_REASON_NOEXCEPT) {
+ *   >>     errno = EINTR;
+ *   >>     return ERROR_RETURN;
+ *   >> }
+ *   >> error_throw(E_INTERRUPT);
+ * NOTES:
+ *   - Exceptions thrown by a RPC function that interrupted
+ *     a system call invoked without exceptions enabled will
+ *     have the exception it threw translated into an errno.
+ */
+#define RPC_RETURN_RESTART         0 /* Restart the system call that was interrupted by the RPC,
                                       * but only if the `RPC_REASON_FSHOULD_RESTART' reason flag is set.
-                                      * Otherwise, throw an error like `RPC_RETURN_INTERRUPT' would. */
+                                      * Otherwise, throw an error like `RPC_RETURN_INTERRUPT' would.
+                                      * The behavior caused by this return value mirrors that of
+                                      * a POSIX_SIGNAL with the SA_RESTART flag set. */
+#define RPC_RETURN_FORCE_RESTART   1 /* Restart the system call that was interrupted by the RPC. */
 #define RPC_RETURN_INTERRUPT       2 /* Don't restart the system call, but throw an E_INTERRUPT exception.
                                       * Just like any other exception thrown by an RPC invoked by an
                                       * interrupted system call, the exception will either be propagated
@@ -71,11 +107,12 @@ __DECL_BEGIN
                                       *       implement additional behavior for system calls when
                                       *       they were used to interrupt them. */
 
+
+
 /* An RPC callback executed by a target thread.
  * @param: arg: The argument passed to `queue_rpc'
- * @return: * : One of `RPC_RETURN_*' describing how the
- *              interrupt operation should fail, or be
- *              restarted.
+ * @return: * : One of `RPC_RETURN_*' describing how the interrupt
+ *              operation should fail, or be restarted.
  *        NOTE: The return value is ignored for asynchronous RPC callbacks! */
 #ifdef __CC__
 typedef unsigned int (__LIBCCALL *rpc_t)(void *__arg);
@@ -99,6 +136,9 @@ typedef unsigned int (__LIBCCALL *rpc_interrupt_t)(void *__arg, struct cpu_conte
 #endif /* __CC__ */
 
 
+
+
+
 #ifdef __CC__
 #ifndef __KERNEL__
 /* Queue an RPC callback, or interrupt, to-be executed the thread `PID'.
@@ -111,10 +151,31 @@ typedef unsigned int (__LIBCCALL *rpc_interrupt_t)(void *__arg, struct cpu_conte
  * @throw: E_SEGFAULT:       The given `JOB' is faulty.
  * @throw: E_PROCESS_EXITED: The given PID is invalid, or the associated thread was detached and died. */
 __LIBC __BOOL (__LIBCCALL queue_rpc)(__pid_t __pid, rpc_t __func, void *__arg, unsigned int __mode);
+
+/* Same as `queue_rpc()', but the queued function is
+ * invoked with 3 arguments, rather than a single.
+ * Because of the requirement of generating a full cpu_context,
+ * this version is slightly slower than `queue_rpc()', however
+ * using this one, an RPC is able to manipulate the location
+ * where the RPC will return to (s.a. `RPC_RETURN_RESUME')
+ * @param: MODE:   Set of `RPC_F*'
+ * @return: true:  The RPC was successfully enqueued.
+ *                 WARNING: Unless `RPC_FWAITFOR' is passed as well, there is no way
+ *                          of confirming that the RPC finished, or even started.
+ * @return: false: The thread terminated before execution of the RPC could be completed.
+ * @throw: E_BADALLOC:       Failed to allocate the internal descriptor for the RPC.
+ * @throw: E_SEGFAULT:       The given `JOB' is faulty.
+ * @throw: E_PROCESS_EXITED: The given PID is invalid, or the associated thread was detached and died. */
 __LIBC __BOOL (__LIBCCALL queue_interrupt)(__pid_t __pid, rpc_interrupt_t __func, void *__arg, unsigned int __mode);
 #endif /* !__KERNEL__ */
 #endif /* __CC__ */
-#define RPC_FSYNCHRONOUS  0x0000 /* The RPC will be served once the thread attempts a blocking operation. */
+#define RPC_FSYNCHRONOUS  0x0000 /* The RPC will be served once the thread attempts a blocking operation.
+                                  * Note that certain kernel operations that can normally block will not
+                                  * trigger synchronous RPC servings. These include any code invoked by
+                                  * hardware interrupts, or CPU exceptions/traps (including #PF when not
+                                  * used to execute a system call), as well as exception propagation.
+                                  * Note however that asynchronous RPCs can truly be handled between
+                                  * any 2 instruction (even while already inside an ASYNC RPC callback) */
 #define RPC_FASYNCHRONOUS 0x0001 /* The RPC will be served at a random point in time, or once the thread attempts a blocking operation.
                                   * Note however that the RPC will not be served while the thread is in kernel-space!
                                   * Asynchronous interrupts can only happen while in user-space, so as far as they go,

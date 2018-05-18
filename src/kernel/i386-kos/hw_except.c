@@ -561,7 +561,8 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
    //error_print_other_thread();
    error_print_vm();
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-   error_printf("Unwind failure\n");
+   //error_printf("Unwind failure\n");
+   error_handled();
   }
   if (!(old_state & TASK_STATE_FDONTSERVE))
         ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);

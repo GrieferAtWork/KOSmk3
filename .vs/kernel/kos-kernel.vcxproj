@@ -33,6 +33,7 @@
     <None Include="..\..\src\hybrid\format-scanner-impl.c.inl" />
     <None Include="..\..\src\hybrid\i386-kos\context32.S" />
     <None Include="..\..\src\hybrid\i386-kos\except32.S" />
+    <None Include="..\..\src\hybrid\i386-kos\instruction-ops.c.inl" />
     <None Include="..\..\src\hybrid\i386-kos\string32.S" />
     <None Include="..\..\src\hybrid\memory-template.c.inl" />
     <None Include="..\..\src\hybrid\string-template.c.inl" />

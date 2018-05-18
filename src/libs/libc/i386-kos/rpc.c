@@ -52,23 +52,24 @@ libc_invoke_rpc_fast(rpc_t func, void *arg,
  } LIBC_EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   xregs->eax = -libc_except_errno();
   error_handled();
+  result = RPC_RETURN_RESUME;
  }
- return RPC_RETURN_RESUME;
+ return result;
 }
 
 INTDEF void ASMCALL x86_rpc_entry_fast(void);
 
 
-struct waitfor_rpc_data {
+struct fast_waitfor_rpc_data {
     rpc_t   func;
     void   *arg;
     futex_t pending;  /* Set to ZERO and broadcast when the RPC has finished. */
 };
 
 CRT_KOS unsigned int LIBCCALL
-fast_waitfor_rpc_wrapper(struct waitfor_rpc_data *__restrict data) {
+fast_waitfor_rpc_wrapper(struct fast_waitfor_rpc_data *__restrict data) {
  unsigned int result;
- struct waitfor_rpc_data *EXCEPT_VAR xdata = data;
+ struct fast_waitfor_rpc_data *EXCEPT_VAR xdata = data;
  TRY {
   result = (*data->func)(data->arg);
  } FINALLY {
@@ -90,10 +91,10 @@ libc_queue_rpc(pid_t pid, rpc_t func, void *arg,
      error_throw(E_INVALID_ARGUMENT);
  context.c_eflags        = 0;
  if (mode & RPC_FWAITFOR) {
-  struct waitfor_rpc_data data;
-  data.func = func;
-  data.arg  = arg;
-  data.pending = 1;
+  struct fast_waitfor_rpc_data data;
+  data.func               = func;
+  data.arg                = arg;
+  data.pending            = 1;
   context.c_eip           = (uintptr_t)&x86_rpc_entry_fast;
   context.c_gpregs.gp_ecx = (uintptr_t)&fast_waitfor_rpc_wrapper;
   context.c_gpregs.gp_edx = (uintptr_t)&data;
@@ -130,12 +131,112 @@ libc_queue_rpc(pid_t pid, rpc_t func, void *arg,
  return result;
 }
 
+
+
+
+struct full_rpc_regs {
+    u32                mode;
+    struct cpu_context ctx;
+};
+
+CRT_KOS unsigned int FCALL
+libc_invoke_rpc_full(rpc_interrupt_t func, void *arg,
+                     struct full_rpc_regs *__restrict regs) {
+ unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
+ struct full_rpc_regs *EXCEPT_VAR xregs;
+ /* Only a noexcept system call needs a guard. */
+ if (!(regs->mode & RPC_REASON_NOEXCEPT))
+       return (*func)(arg,&regs->ctx,regs->mode);
+ xregs = regs;
+ LIBC_TRY {
+  result = (*func)(arg,&regs->ctx,regs->mode);
+ } LIBC_EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+  xregs->ctx.c_gpregs.gp_eax = -libc_except_errno();
+  error_handled();
+  result = RPC_RETURN_RESUME;
+ }
+ return result;
+}
+
+INTDEF void ASMCALL x86_rpc_entry_full(void);
+
+
+struct full_waitfor_rpc_data {
+    rpc_interrupt_t func;
+    void           *arg;
+    futex_t         pending;  /* Set to ZERO and broadcast when the RPC has finished. */
+};
+
+CRT_KOS unsigned int LIBCCALL
+full_waitfor_rpc_wrapper(struct full_waitfor_rpc_data *__restrict data,
+                         struct cpu_context *__restrict ctx, unsigned int reason) {
+ unsigned int result;
+ struct full_waitfor_rpc_data *EXCEPT_VAR xdata = data;
+ TRY {
+  result = (*data->func)(data->arg,ctx,reason);
+ } FINALLY {
+  ATOMIC_WRITE(xdata->pending,0);
+  libc_futex_wake(&xdata->pending,SIZE_MAX);
+ }
+ return result;
+}
+
+
+
 EXPORT(queue_interrupt,libc_queue_interrupt);
 CRT_KOS bool LIBCCALL
 libc_queue_interrupt(pid_t pid, rpc_interrupt_t func,
                      void *arg, unsigned int mode) {
- /* TODO */
- return false;
+ struct cpu_context context;
+ bool result;
+ if (mode & ~(RPC_FSYNCHRONOUS|RPC_FASYNCHRONOUS|RPC_FWAITBEGIN|RPC_FWAITFOR))
+     error_throw(E_INVALID_ARGUMENT);
+ context.c_eflags        = 0;
+ if (mode & RPC_FWAITFOR) {
+  struct full_waitfor_rpc_data data;
+  data.func               = func;
+  data.arg                = arg;
+  data.pending            = 1;
+  context.c_eip           = (uintptr_t)&x86_rpc_entry_full;
+  context.c_gpregs.gp_ecx = (uintptr_t)&full_waitfor_rpc_wrapper;
+  context.c_gpregs.gp_edx = (uintptr_t)&data;
+  result = libc_queue_job(pid,&context,
+                         (mode & ~RPC_FWAITFOR)|
+                          JOB_FWAITBEGIN|
+                          X86_JOB_FSAVE_RETURN|
+                          X86_JOB_FLOAD_RETURN|
+                          X86_JOB_FSAVE_STACK|
+                          X86_JOB_FSAVE_SEGMENTS|
+                          X86_JOB_FSAVE_CREGS|
+                          X86_JOB_FLOAD_CREGS|
+                          X86_JOB_FSAVE_PREGS);
+  if (result) {
+   struct pollfutex poll_ftx[1];
+   struct pollpid   poll_pid[1];
+   /* Wait for the RPC to finish.
+    * NOTE: Since the thread might terminate before it can
+    *       do so, we must also wait for that to happen. */
+   pollfutex_init_wait(&poll_ftx[0],&data.pending,1);
+   pollpid_init(&poll_pid[0],P_PID,pid,WEXITED,NULL,NULL);
+   libc_Xxppoll64(NULL,0,poll_ftx,1,poll_pid,1,NULL,NULL);
+   /* Check if the RPC-pending field has been cleared. */
+   result = ATOMIC_READ(data.pending) == 0;
+  }
+ } else {
+  context.c_eip           = (uintptr_t)&x86_rpc_entry_full;
+  context.c_gpregs.gp_ecx = (uintptr_t)func;
+  context.c_gpregs.gp_edx = (uintptr_t)arg;
+  /* Invoke the RPC */
+  result = libc_queue_job(pid,&context,mode|
+                          X86_JOB_FSAVE_RETURN|
+                          X86_JOB_FLOAD_RETURN|
+                          X86_JOB_FSAVE_STACK|
+                          X86_JOB_FSAVE_SEGMENTS|
+                          X86_JOB_FSAVE_CREGS|
+                          X86_JOB_FLOAD_CREGS|
+                          X86_JOB_FSAVE_PREGS);
+ }
+ return result;
 }
 
 

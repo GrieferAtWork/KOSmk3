@@ -25,7 +25,6 @@
 
 
 .section .text.crt.rpc
-INTERN_ENTRY(x86_rpc_entry_fast)
 	/* ESP:
 	 *        [+0]   u32  jf_mode
 	 *        [+4]   u32  jf_edx
@@ -41,6 +40,9 @@ INTERN_ENTRY(x86_rpc_entry_fast)
 	.cfi_rel_offset %eax,    12
 	.cfi_rel_offset %eip,    16
 	.cfi_rel_offset %eflags, 20
+	nop /* This counteracts the -1 adjustment done by tracebacks. */
+	.align 16
+INTERN_ENTRY(x86_rpc_entry_fast)
 	/* ECX: rpc_t func */
 	/* EDX: void *arg */
 	/* Invoke the RPC function. */
@@ -56,30 +58,29 @@ DEFINE_INTERN(libc_invoke_rpc_fast)
 	cmpl    $(RPC_RETURN_RESUME), %eax
 	je      .fast_rpc_resume /* The RPC explicitly wants us to resume -> Resume */
 	testl   $(RPC_REASON_FMUST_RESTART), 0(%esp)
-	jz      .fast_rpc_restart /* The system call must be restarted. */
-	cmpl    $(RPC_RETURN_RESTART_SYSCALL), %eax
+	jnz     .fast_rpc_restart /* The system call must be restarted. */
+	cmpl    $(RPC_RETURN_RESTART), %eax
 	je      .fast_rpc_maybe_restart /* The system call can be restarted. */
 	cmpl    $(RPC_RETURN_INTERRUPT), %eax
 	je      .fast_rpc_interrupt /* The RPC wants us to signal an interrupt. */
+	/* DEFAULT: RPC_RETURN_FORCE_RESTART */
 
 .fast_rpc_restart:
 	.cfi_remember_state
 
 	/* Exchange jf_eip and jf_eflags, and repeat the last instruction. */
-	movl    16(%esp), %eax
-	pushl_cfi %eax
+	movl    16(%esp), %ecx
 	call    libc_prev_instruction
-	addl    $4, %esp
-	.cfi_adjust_cfa_offset -4
 	/* XXX: What if EAX is NULL now? (I mean, it shouldn't, but what if?) */
 	xchgl   20(%esp), %eax
 	.cfi_rel_offset %eip,    20
-	.cfi_rel_offset %eflags, 16
+	.cfi_register   %eflags, %eax
 	movl    %eax, 16(%esp)
-
-	/* Load the saved context (see above) */
+	.cfi_rel_offset %eflags, 16
 	addl    $4, %esp /* jf_mode */
 	.cfi_adjust_cfa_offset -4
+
+	/* Load the saved context (see above) */
 	popl_cfi_r %edx
 	popl_cfi_r %ecx
 	popl_cfi_r %eax
@@ -92,8 +93,9 @@ DEFINE_INTERN(libc_invoke_rpc_fast)
 	movl    16(%esp), %eax
 	xchgl   20(%esp), %eax
 	.cfi_rel_offset %eip,    20
-	.cfi_rel_offset %eflags, 16
+	.cfi_register   %eflags, %eax
 	movl    %eax, 16(%esp)
+	.cfi_rel_offset %eflags, 16
 
 	/* Load the saved context (see above) */
 	addl    $4, %esp /* jf_mode */
@@ -119,6 +121,168 @@ DEFINE_INTERN(libc_invoke_rpc_fast)
 	jmp     .fast_rpc_resume
 	.cfi_endproc
 SYMEND(x86_rpc_entry_fast)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.section .text.crt.rpc
+	/* ESP:
+	 *        [+0]   u32  jf_mode
+	 *        [+4]   u32  jf_edi
+	 *        [+8]   u32  jf_esi
+	 *        [+12]  u32  jf_ebp
+	 *        [+16]  u32  jf_esp
+	 *        [+20]  u32  jf_ebx
+	 *        [+24]  u32  jf_edx
+	 *        [+28]  u32  jf_ecx
+	 *        [+32]  u32  jf_eax
+	 *        [+36]  u32  jf_gs
+	 *        [+40]  u32  jf_fs
+	 *        [+44]  u32  jf_es
+	 *        [+48]  u32  jf_ds
+	 *        [+52]  u32  jf_eip
+	 *        [+56]  u32  jf_eflags
+	 *        [+60]  u32  jf_cs
+	 *        [+64]  u32  jf_ss
+	 */
+	.cfi_startproc simple
+	.cfi_def_cfa    %esp,    68
+	.cfi_rel_offset %edi,    4
+	.cfi_rel_offset %esi,    8
+	.cfi_rel_offset %ebp,    12
+/*	.cfi_rel_offset %esp,    16 */
+	.cfi_rel_offset %ebx,    20
+	.cfi_rel_offset %edx,    24
+	.cfi_rel_offset %ecx,    28
+	.cfi_rel_offset %eax,    32
+#ifndef CONFIG_NO_X86_SEGMENTATION
+	.cfi_rel_offset %gs,     36
+	.cfi_rel_offset %fs,     40
+	.cfi_rel_offset %es,     44
+	.cfi_rel_offset %ds,     48
+#endif
+	.cfi_rel_offset %eip,    52
+	.cfi_rel_offset %eflags, 56
+/*	.cfi_rel_offset %cs,     60 */
+/*	.cfi_rel_offset %ss,     64 */
+	nop /* This counteracts the -1 adjustment done by tracebacks. */
+	.align 16
+INTERN_ENTRY(x86_rpc_entry_full)
+	/* ECX: rpc_t func */
+	/* EDX: void *arg */
+	/* Invoke the RPC function. */
+	pushl_cfi %esp
+DEFINE_INTERN(libc_invoke_rpc_full)
+	call    libc_invoke_rpc_full
+	/*addl    $4, %esp*/
+	.cfi_adjust_cfa_offset -4
+
+	/* If the RPC didn't interrupt a system call, always resume execution. */
+	testl   $(RPC_REASON_SYSCALL), 0(%esp)
+	jz      .full_rpc_resume /* Wasn't a system call -> Just resume */
+	cmpl    $(RPC_RETURN_RESUME), %eax
+	je      .full_rpc_resume /* The RPC explicitly wants us to resume -> Resume */
+	testl   $(RPC_REASON_FMUST_RESTART), 0(%esp)
+	jnz     .full_rpc_restart /* The system call must be restarted. */
+	cmpl    $(RPC_RETURN_RESTART), %eax
+	je      .full_rpc_maybe_restart /* The system call can be restarted. */
+	cmpl    $(RPC_RETURN_INTERRUPT), %eax
+	je      .full_rpc_interrupt /* The RPC wants us to signal an interrupt. */
+	/* DEFAULT: RPC_RETURN_FORCE_RESTART */
+
+	.cfi_remember_state
+.full_rpc_restart:
+	/* Exchange jf_eip and jf_eflags, and repeat the last instruction. */
+	movl    52(%esp), %ecx
+	call    libc_prev_instruction
+	/* XXX: What if EAX is NULL now? (I mean, it shouldn't, but what if?) */
+	xchgl   56(%esp), %eax
+	.cfi_rel_offset %eip,    56
+	.cfi_register   %eflags, %eax
+	movl    %eax, 52(%esp)
+	.cfi_rel_offset %eflags, 52
+
+	/* Load the saved context (see above) */
+	addl    $4, %esp /* jf_mode */
+	.cfi_adjust_cfa_offset -4
+
+.full_rpc_load_context:
+	popl_cfi_r %edi
+	popl_cfi_r %esi
+	popl_cfi_r %ebp
+	movl  0(%esp), %eax  /* ESP */
+	subl  $8, %eax       /* Make space for a small return tail. */
+	movl  16(%esp), %ecx /* EAX */
+	movl  %ecx, 0(%eax)
+	movl  40(%esp), %ecx /* EIP */
+	movl  %ecx, 4(%eax)
+/*	popl_cfi_r %esp */ /* TODO */
+	addl  $4, %esp
+	.cfi_adjust_cfa_offset -4
+	popl_cfi_r %ebx
+	popl_cfi_r %edx
+	popl_cfi_r %ecx
+/*	popl_cfi_r %eax */
+	.cfi_undefined %eax
+	addl  $4, %esp
+	.cfi_adjust_cfa_offset -4
+#ifndef CONFIG_NO_X86_SEGMENTATION
+	popl_cfi_r %gs
+	popl_cfi_r %fs
+	popl_cfi_r %es
+	popl_cfi_r %ds
+#else
+	addl  $16, %esp
+	.cfi_adjust_cfa_offset -16
+#endif
+/*	movw  8(%esp), %cs */
+/*	movw  12(%esp), %ss */
+	popfl_cfi_r
+	.cfi_def_cfa %eax, 8
+	/* Load the new stack. */
+	movl  %eax, %esp
+	.cfi_def_cfa_register %esp
+	.cfi_rel_offset %eax, 0
+	.cfi_rel_offset %eip, 4
+	popl_cfi_r %eax
+	ret
+	.cfi_restore_state
+.full_rpc_resume:
+	.cfi_remember_state
+	/* Exchange jf_eip and jf_eflags */
+	movl    16(%esp), %eax
+	xchgl   20(%esp), %eax
+	.cfi_rel_offset %eip,    20
+	.cfi_register   %eflags, %eax
+	movl    %eax, 16(%esp)
+	.cfi_rel_offset %eflags, 16
+	jmp     .full_rpc_load_context
+
+	.cfi_restore_state
+.full_rpc_maybe_restart:
+	testl   $(RPC_REASON_FSHOULD_RESTART), 0(%esp) /* jf_mode */
+	jnz     .full_rpc_restart
+.full_rpc_interrupt:
+	testl   $(RPC_REASON_NOEXCEPT), 0(%esp) /* jf_mode */
+	jnz     1f
+	movl    $(E_INTERRUPT), %ecx
+	call    libc_error_throw
+
+1:	/* Emulate the system call returning -EINTR */
+	movl    $-EINTR, %eax
+	jmp     .full_rpc_resume
+	.cfi_endproc
+SYMEND(x86_rpc_entry_full)
 
 
 
