@@ -26,6 +26,7 @@
 #include <kernel/debug.h>
 #include <kernel/interrupt.h>
 #include <kernel/vm.h>
+#include <kernel/panic.h>
 #include <unwind/eh_frame.h>
 #include <sched/userstack.h>
 #include <unwind/linker.h>
@@ -223,21 +224,8 @@ core_assertion_failure(char const *expr, DEBUGINFO,
              debug_printf("\n");
  cpu_getcontext(&context);
  task_disconnect();
- THIS_TASK->t_sched.sched_ring.re_prev = THIS_TASK;
- THIS_TASK->t_sched.sched_ring.re_next = THIS_TASK;
- THIS_CPU->c_sleeping                  = NULL;
-#ifndef CONFIG_NO_SMP
- THIS_CPU->c_pending                   = NULL;
-#endif
-#ifdef CONFIG_VM_USE_RWLOCK
- vm_kernel.vm_lock.rw_state = 0;
- THIS_VM->vm_lock.rw_state  = 0;
-#else
- vm_kernel.vm_lock.m_ind = 0;
- THIS_VM->vm_lock.m_ind  = 0;
-#endif
- COMPILER_WRITE_BARRIER();
- PREEMPTION_ENABLE();
+ kernel_panic_shootdown();
+ kernel_panic_lockall(PANIC_LOCK_GENERIC);
  for (;; ++frame_id) {
   struct fde_info finfo;
   if (frame_id >= 2) {

@@ -277,7 +277,7 @@ PUBLIC bool KCALL task_serve(void) {
   /* When already inside an RPC callback, only serve
    * interrupts when that callback set the recursion flag. */
   if ((state & TASK_STATE_FINRPC) &&
-     !PERTASK_TESTF(this_task.t_flags,TASK_FRPCRECURSION))
+      !PERTASK_TESTF(this_task.t_flags,TASK_FRPCRECURSION))
        return false;
   /* Enable preemption while serving RPC functions. */
   PREEMPTION_ENABLE();
@@ -410,6 +410,8 @@ signal_interrupt(struct task *__restrict thread,
  return true;
 }
 
+INTDEF ATTR_PERTASK struct sig task_join_signal;
+
 PUBLIC bool KCALL
 task_queue_rpc(struct task *__restrict thread,
                task_rpc_t func, void *arg,
@@ -477,6 +479,9 @@ task_queue_rpc(struct task *__restrict thread,
   assertf(!task_isconnected(),
           "Calling thread is already connected during "
           "synchronous call to `task_queue_rpc()'");
+#if CONFIG_TASK_STATIC_CONNECTIONS >= 1
+  task_connect(&done_sig);
+#else
   TRY {
    task_connect(&done_sig);
   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
@@ -485,6 +490,7 @@ task_queue_rpc(struct task *__restrict thread,
    ATOMIC_FETCHAND(thread->t_state,~TASK_STATE_FINTERRUPTING);
    error_rethrow();
   }
+#endif
 
   /* Clear the interrupting-bit and set the interrupted-bit.
    * If this was successful, wake the thread. */
@@ -497,8 +503,13 @@ task_queue_rpc(struct task *__restrict thread,
   }
   INCSTAT(ts_qrpc);
 
-  /* Wait for the done-signal to be sent. */
-  task_wait();
+  /* Wait for the done-signal to be sent.
+   * NOTE: `task_serve_before_exit()' is kind-of cheaty in that
+   *        it will broadcast USER|SYNC RPCs, but set the thread's
+   *        join-signal as the sender even though we aren't
+   *        connected to it (s.a. `sig_altsend()'). */
+  if (task_wait() != &done_sig)
+      return false;
  } else {
   slot->rs_done = NULL;
   /* Unlock the interrupt-subsystem of the thread,
@@ -511,6 +522,58 @@ task_queue_rpc(struct task *__restrict thread,
  return true;
 }
 
+INTERN ATTR_NOTHROW void KCALL task_serve_before_exit(void) {
+ u16 state; size_t EXCEPT_VAR i;
+ struct rpc_info *EXCEPT_VAR rpc;
+ /* Wait for a lock to the FINTERRUPTING bit. */
+ while ((state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FINTERRUPTING),
+        (state & TASK_STATE_FINTERRUPTING)))
+         task_yield();
+ /* Clear the INTERRUPTING and INTERRUPTED flags,
+  * now that we've locked them for a moment.
+  * This is enough to ensure that all threads that may have
+  * been trying to queue new RPCs while the caller set the
+  * `TASK_STATE_FTERMINATING' flag got the message that the
+  * thread has started terminating, meaning that even though
+  * we're about to unlock the INTERRUPTING bit again, we can
+  * be sure that no new RPCs will ever be queued again. */
+ ATOMIC_FETCHAND(THIS_TASK->t_state,
+                (TASK_STATE_FINTERRUPTING|TASK_STATE_FINTERRUPTED));
+ /* Indicate that we're now serving RPCs. */
+ ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FINRPC);
+ assert(state & TASK_STATE_FTERMINATING);
+ assert(!(state & TASK_STATE_FTERMINATED));
+ rpc = &PERTASK(my_rpc);
+ for (i = 0; i < rpc->ri_cnt; ++i) {
+  struct rpc_slot *EXCEPT_VAR slot;
+  slot = &rpc->ri_vec[i];
+  INCSTAT(ts_xrpc);
+  if (slot->rs_flag & RPC_SLOT_FUSER) {
+   /* Special case for user-signals. */
+   if (slot->rs_done) {
+    /* Broadcast RPC completion using the join-signal.
+     * This way, the sender will know that the RPC was never completed. */
+    sig_altbroadcast(slot->rs_done,&PERTASK(task_join_signal));
+   }
+  } else {
+   TRY {
+    (*slot->rs_fun)(slot->rs_arg);
+   } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+    except_t code = error_code();
+    if (code != E_EXIT_THREAD &&
+        code != E_EXIT_PROCESS)
+        error_printf("Unhandled exception in RPC during `task_exit()'");
+    error_handled();
+   }
+   if (slot->rs_done)
+       sig_broadcast(slot->rs_done);
+  }
+ }
+ /* Indicate that no more RPCs are remaining. */
+ rpc->ri_cnt = 0;
+ /* Indicate that we're done serving RPCs. */
+ ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINRPC);
+}
 
 
 

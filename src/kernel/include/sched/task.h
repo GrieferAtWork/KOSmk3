@@ -507,6 +507,20 @@ FUNDEF USER struct user_task_segment *KCALL task_alloc_userseg(void);
  *                (Interrupts are still disabled if the caller had disabled them) */
 FUNDEF bool KCALL task_serve(void);
 
+#ifdef CONFIG_BUILDING_KERNEL_CORE
+/* Serve all remaining RPC callbacks after the `TASK_STATE_FTERMINATING' flag
+ * has already been set, but before the `TASK_STATE_FTERMINATED' flag is.
+ * `TASK_RPC_USER' - callbacks will not be executed and will not trigger
+ * any exception to be thrown. Additionally, using them alongside `TASK_RPC_SYNC'
+ * will cause the sender to be woken, but fail by returning `false'.
+ * Other RPCs are handled normally, but any exceptions they might throw are
+ * ignored, with exceptions other than `E_EXIT_THREAD' or `E_EXIT_PROCESS'
+ * getting dumped to the system log.
+ * Upon return of this function, it is guarantied that the
+ * `TASK_STATE_FINTERRUPTED' flag will no longer be set. */
+INTDEF ATTR_NOTHROW void KCALL task_serve_before_exit(void);
+#endif
+
 /* Recursively begin/end `task_serve()' being nothrow. */
 FUNDEF ATTR_NOTHROW void (KCALL task_nothrow_serve)(void);
 FUNDEF void (KCALL task_nothrow_end)(void);

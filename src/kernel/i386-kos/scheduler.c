@@ -1088,40 +1088,8 @@ PUBLIC ATTR_NORETURN void KCALL task_exit(void) {
   assertf(!(old_state&TASK_STATE_FTERMINATING),
             "Recursive call to `task_exit()'");
  }
-
- while (PERTASK_TESTF(this_task.t_state,TASK_STATE_FINTERRUPTED)) {
-  /* With the flag now set, serve all remaining RPCs. */
-  TRY {
-   /* XXX: This `task_serve()' will throw an `E_INTERRUPT' exception if
-    *      there are any RPC callbacks left with the `TASK_RPC_USER' flag
-    *      set. - How should we deal with those? */
-   task_serve();
-  } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
-   /* XXX: Seriously: What should we do now?
-    *         I mean: We couldn't propagate the error, but
-    *                 we might want to log it somewhere? */
-   except_t code = error_code();
-   if (code != E_EXIT_PROCESS &&
-       code != E_EXIT_THREAD) {
-    /*assert(code == error_info()->e_error.e_code);*/
-    COMPILER_READ_BARRIER();
-    ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
-    debug_printf("BEGIN_PRINT_ERROR (%x)\n",code);
-#if 0
-    asm("int3");
-#else
-    error_printf("Error in task_serve() during task_exit()\n");
-#endif
-    debug_printf("DONE_PRINT_ERROR (%x)\n",code);
-    ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
-    error_handled();
-    /*if (code == E_INTERRUPT)*/
-        goto done_rpc; /* ??? (See problem above...) */
-   }
-  }
- }
-
-done_rpc:
+ /* With the flag now set, serve all remaining RPCs. */
+ task_serve_before_exit();
  assert(PREEMPTION_ENABLED());
 
  {
@@ -1750,13 +1718,10 @@ cannot_signal:;
       errorinfo_copy_to_user(useg,&info,context);
       /* Set the user-defined context that should be used for UEH handlers. */
       ueh_sp = useg->ts_ueh_sp;
-      COMPILER_READ_BARRIER();
+      COMPILER_BARRIER();
       if (ueh_sp)
           CPU_CONTEXT_SP(*context) = (uintptr_t)ueh_sp;
       CPU_CONTEXT_IP(*context) = (uintptr_t)ueh.ds_base;
-      debug_printf("ueh.ms_base = %p\n",ueh.ds_base);
-      debug_printf("ueh.ms_size = %p\n",ueh.ds_size);
-      debug_printf("ueh.ms_type = %p\n",ueh.ds_type);
 #ifndef CONFIG_NO_X86_SEGMENTATION
       /* Set the user-space TLS segment to ensure
        * that the thread can read exception information. */
