@@ -1030,6 +1030,260 @@ sig_broadcast_channel_locked(struct sig *__restrict self,
 }
 
 
+/* Alternate signal sender functions.
+ * Although they easily could be, these are not used to
+ * implement their regular counterparts, so-as to ensure
+ * that those functions operate as efficiently as possible. */
+PRIVATE ATTR_NOTHROW bool KCALL
+sig_altsendone_locked(struct sig *__restrict self,
+                      struct sig *sender, bool unlock) {
+ struct task_connection *primary,*next_con,*last_con;
+ struct task_connections *cons;
+ bool wake_ok = false;
+ assert(sender != NULL);
+ assert(sig_holding(self));
+again:
+ primary = SIG_GETCON(self);
+ if (!primary) {
+  if (unlock)
+      sig_put(self);
+  return false;
+ }
+ cons = primary->tc_conn;
+ if likely(ATOMIC_CMPXCH(cons->tcs_sig,NULL,sender)) {
+  if likely(cons == &FORTASK(cons->tcs_tsk,my_connections)) {
+   wake_ok = task_wake(cons->tcs_tsk);
+   if (wake_ok)
+       wake_ok = !((uintptr_t)primary->tc_sig & TASK_CONNECTION_SIG_FGHOST);
+  } else {
+   wake_ok = false;
+  }
+ }
+ assert(TASK_CONNECTION_GETSIG(primary) == self);
+ next_con = primary->tc_next;
+ last_con = primary->tc_last;
+ COMPILER_READ_BARRIER();
+ primary->tc_pself = NULL;
+ assert(TASK_CONNECTION_GETSIG(primary) == self);
+ COMPILER_WRITE_BARRIER();
+ assertf((last_con == primary) == (next_con == NULL),
+         "last_con = %p\n"
+         "con      = %p\n"
+         "next_con = %p\n",
+         last_con,primary,next_con);
+ if (!next_con) {
+  ATOMIC_WRITE(self->s_ptr,unlock ? 0 : SIG_FLOCKBIT);
+ } else {
+  assert(TASK_CONNECTION_GETSIG(next_con) == self);
+  assert(next_con->tc_pself == &primary->tc_next);
+  next_con->tc_last = last_con;
+  COMPILER_WRITE_BARRIER();
+  if (!unlock) *(uintptr_t *)&next_con |= SIG_FLOCKBIT;
+  ATOMIC_WRITE(self->s_ptr,(uintptr_t)next_con);
+ }
+ if unlikely(!wake_ok) {
+  if (unlock)
+      sig_get(self);
+  goto again;
+ }
+ return true;
+}
+PUBLIC ATTR_NOTHROW size_t KCALL
+sig_altsend(struct sig *__restrict self,
+            struct sig *sender, size_t max_threads) {
+ size_t result = 0;
+ if (!ATOMIC_READ(self->s_ptr)) goto done;
+ while (result < max_threads) {
+  bool altsend_ok;
+  sig_get(self);
+  altsend_ok = sig_altsendone_locked(self,sender,true);
+  if (!altsend_ok) break;
+  ++result;
+ }
+done:
+ return result;
+}
+
+PUBLIC ATTR_NOTHROW size_t KCALL
+sig_altbroadcast(struct sig *__restrict self,
+                 struct sig *sender) {
+ size_t result = 0;
+ if (!ATOMIC_READ(self->s_ptr)) goto done;
+ for (;;) {
+  bool altsend_ok;
+  sig_get(self);
+  altsend_ok = sig_altsendone_locked(self,sender,true);
+  if (!altsend_ok) break;
+  ++result;
+ }
+done:
+ return result;
+}
+
+PUBLIC ATTR_NOTHROW size_t KCALL
+sig_altsend_locked(struct sig *__restrict self,
+                   struct sig *sender,
+                   size_t max_threads) {
+ size_t result = 0;
+ while (result < max_threads &&
+        sig_altsendone_locked(self,sender,false))
+        ++result;
+ return result;
+}
+PUBLIC ATTR_NOTHROW size_t KCALL
+sig_altbroadcast_locked(struct sig *__restrict self,
+                        struct sig *sender) {
+ size_t result = 0;
+ while (sig_altsendone_locked(self,sender,false))
+        ++result;
+ return result;
+}
+
+/* Channel-based signal delivery. */
+PRIVATE ATTR_NOTHROW bool KCALL
+sig_altsendone_channel_locked(struct sig *__restrict self,
+                              struct sig *sender,
+                              uintptr_t signal_mask, bool unlock) {
+ struct task_connection *primary,*target;
+ struct task_connection *next_con,*last_con;
+ struct task_connections *cons;
+ bool wake_ok = false;
+ assert(sig_holding(self));
+again:
+ primary = SIG_GETCON(self);
+ if (!primary) {
+stop_altsending:
+  if (unlock)
+      sig_put(self);
+  return false;
+ }
+
+ target = primary;
+ for (;;) {
+  assert(TASK_CONNECTION_GETSIG(target) == self);
+  cons = target->tc_conn;
+  if ((cons->tcs_chn & signal_mask) != 0)
+       break;
+  target = target->tc_next;
+  if (!target)
+       goto stop_altsending;
+ }
+ if likely(ATOMIC_CMPXCH(cons->tcs_sig,NULL,sender)) {
+  if likely(cons == &FORTASK(cons->tcs_tsk,my_connections)) {
+   wake_ok = task_wake(cons->tcs_tsk);
+   if (wake_ok)
+       wake_ok = !((uintptr_t)primary->tc_sig & TASK_CONNECTION_SIG_FGHOST);
+  } else {
+   wake_ok = false;
+  }
+ }
+ assert(TASK_CONNECTION_GETSIG(target) == self);
+ if (target == primary) {
+  next_con = primary->tc_next;
+  last_con = primary->tc_last;
+  COMPILER_READ_BARRIER();
+  primary->tc_pself = NULL;
+  assert(TASK_CONNECTION_GETSIG(primary) == self);
+  COMPILER_WRITE_BARRIER();
+  assertf((last_con == primary) == (next_con == NULL),
+          "last_con = %p\n"
+          "con      = %p\n"
+          "next_con = %p\n",
+          last_con,primary,next_con);
+
+  if (!next_con) {
+   ATOMIC_WRITE(self->s_ptr,unlock ? 0 : SIG_FLOCKBIT);
+  } else {
+   assert(TASK_CONNECTION_GETSIG(next_con) == self);
+   assert(next_con->tc_pself == &primary->tc_next);
+   next_con->tc_last = last_con;
+   COMPILER_WRITE_BARRIER();
+   if (!unlock) *(uintptr_t *)&next_con |= SIG_FLOCKBIT;
+   ATOMIC_WRITE(self->s_ptr,(uintptr_t)next_con);
+  }
+ } else {
+  if ((*target->tc_pself = target->tc_next) != NULL) {
+   assert(primary->tc_last != target);
+   assert(target->tc_next->tc_pself == &target->tc_next);
+   target->tc_next->tc_pself = target->tc_pself;
+  } else {
+   assert(primary->tc_last == target);
+   primary->tc_last = COMPILER_CONTAINER_OF(target->tc_pself,
+                                            struct task_connection,
+                                            tc_next);
+  }
+  COMPILER_WRITE_BARRIER();
+  target->tc_pself = NULL;
+  COMPILER_WRITE_BARRIER();
+  if (unlock)
+      sig_put(self);
+ }
+ if unlikely(!wake_ok) {
+  if (unlock)
+      sig_get(self);
+  goto again;
+ }
+ return true;
+}
+
+PUBLIC ATTR_NOTHROW size_t KCALL
+sig_altsend_channel(struct sig *__restrict self,
+                    struct sig *sender,
+                    uintptr_t signal_mask,
+                    size_t max_threads) {
+ size_t result = 0;
+ if (!ATOMIC_READ(self->s_ptr)) goto done;
+ while (result < max_threads) {
+  bool altsend_ok;
+  sig_get(self);
+  altsend_ok = sig_altsendone_channel_locked(self,sender,signal_mask,true);
+  if (!altsend_ok) break;
+  ++result;
+ }
+done:
+ return result;
+}
+
+PUBLIC ATTR_NOTHROW size_t KCALL
+sig_altbroadcast_channel(struct sig *__restrict self,
+                         struct sig *sender,
+                         uintptr_t signal_mask) {
+ size_t result = 0;
+ if (!ATOMIC_READ(self->s_ptr)) goto done;
+ for (;;) {
+  bool altsend_ok;
+  sig_get(self);
+  altsend_ok = sig_altsendone_channel_locked(self,sender,signal_mask,true);
+  if (!altsend_ok) break;
+  ++result;
+ }
+done:
+ return result;
+}
+
+PUBLIC ATTR_NOTHROW size_t KCALL
+sig_altsend_channel_locked(struct sig *__restrict self,
+                           struct sig *sender,
+                           uintptr_t signal_mask,
+                           size_t max_threads) {
+ size_t result = 0;
+ while (result < max_threads &&
+        sig_altsendone_channel_locked(self,sender,signal_mask,false))
+        ++result;
+ return result;
+}
+PUBLIC ATTR_NOTHROW size_t KCALL
+sig_altbroadcast_channel_locked(struct sig *__restrict self,
+                                struct sig *sender,
+                                uintptr_t signal_mask) {
+ size_t result = 0;
+ while (sig_altsendone_channel_locked(self,sender,signal_mask,false))
+        ++result;
+ return result;
+}
+
+
+
 
 
 
@@ -1058,6 +1312,14 @@ DEFINE_PUBLIC_ALIAS(sig_send_channel_p,sig_send_channel);
 DEFINE_PUBLIC_ALIAS(sig_broadcast_channel_p,sig_broadcast_channel);
 DEFINE_PUBLIC_ALIAS(sig_send_channel_locked_p,sig_send_channel_locked);
 DEFINE_PUBLIC_ALIAS(sig_broadcast_channel_locked_p,sig_broadcast_channel_locked);
+DEFINE_PUBLIC_ALIAS(sig_altsend_p,sig_altsend);
+DEFINE_PUBLIC_ALIAS(sig_altbroadcast_p,sig_altbroadcast);
+DEFINE_PUBLIC_ALIAS(sig_altsend_locked_p,sig_altsend_locked);
+DEFINE_PUBLIC_ALIAS(sig_altbroadcast_locked_p,sig_altbroadcast_locked);
+DEFINE_PUBLIC_ALIAS(sig_altsend_channel_p,sig_altsend_channel);
+DEFINE_PUBLIC_ALIAS(sig_altbroadcast_channel_p,sig_altbroadcast_channel);
+DEFINE_PUBLIC_ALIAS(sig_altsend_channel_locked_p,sig_altsend_channel_locked);
+DEFINE_PUBLIC_ALIAS(sig_altbroadcast_channel_locked_p,sig_altbroadcast_channel_locked);
 
 
 

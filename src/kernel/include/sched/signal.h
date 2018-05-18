@@ -125,6 +125,48 @@ FUNDEF ATTR_NOTHROW size_t KCALL sig_broadcast_channel_p(struct sig *__restrict 
 FUNDEF ATTR_NOTHROW size_t KCALL sig_send_channel_locked_p(struct sig *__restrict self, uintptr_t signal_mask, size_t max_threads);
 FUNDEF ATTR_NOTHROW size_t KCALL sig_broadcast_channel_locked_p(struct sig *__restrict self, uintptr_t signal_mask);
 
+/* Alternative signal sender functions:
+ *  - Operate the same way as their regular counterparts
+ *  - Able to use a custom `sender' signal that is returned
+ *    to the caller of `task_wait()' as the origin of the
+ *    signal, rather than the signal that was actually used.
+ *  - Be careful when using this, as improper use may result
+ *    in unexpected behavior where `task_wait()' returns a
+ *    signal to which the waiting task wasn't even connected,
+ *    while in fact it really wasn't connected to it.
+ *  - `sender' must not necessarily be a `struct sig', but
+ *    can also be an arbitrary data pointer. However one thing
+ *    that it is not allowed to be, is a NULL-pointer, as that
+ *    value is internally used to indicate a signal that hasn't
+ *    been sent yet.
+ *  - This functionality hasn't gotten much use yet, however
+ *    it is getting used by kernel-space RPC acknowledgement
+ *    to indicate to user-RPCs that the thread did receive the
+ *    RPC, however was unable to execute it as the RPC was
+ *    scheduled past the point of no return, after which the
+ *    thread will never again return to user-space (after an `exit()')
+ *    In that case, the thread waiting for the RPC will read a
+ *    sender signal not matching the expected value of the
+ *    ack-signal, but the thread's join-signal, which is then
+ *    interpreted as the thread's inability to serve further
+ *    user-space RPCs. */
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altsend(struct sig *__restrict self, struct sig *sender, size_t max_threads);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altbroadcast(struct sig *__restrict self, struct sig *sender);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altsend_locked(struct sig *__restrict self, struct sig *sender, size_t max_threads);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altbroadcast_locked(struct sig *__restrict self, struct sig *sender);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altsend_channel(struct sig *__restrict self, struct sig *sender, uintptr_t signal_mask, size_t max_threads);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altbroadcast_channel(struct sig *__restrict self, struct sig *sender, uintptr_t signal_mask);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altsend_channel_locked(struct sig *__restrict self, struct sig *sender, uintptr_t signal_mask, size_t max_threads);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altbroadcast_channel_locked(struct sig *__restrict self, struct sig *sender, uintptr_t signal_mask);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altsend_p(struct sig *__restrict self, struct sig *sender, size_t max_threads);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altbroadcast_p(struct sig *__restrict self, struct sig *sender);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altsend_locked_p(struct sig *__restrict self, struct sig *sender, size_t max_threads);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altbroadcast_locked_p(struct sig *__restrict self, struct sig *sender);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altsend_channel_p(struct sig *__restrict self, struct sig *sender, uintptr_t signal_mask, size_t max_threads);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altbroadcast_channel_p(struct sig *__restrict self, struct sig *sender, uintptr_t signal_mask);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altsend_channel_locked_p(struct sig *__restrict self, struct sig *sender, uintptr_t signal_mask, size_t max_threads);
+FUNDEF ATTR_NOTHROW size_t KCALL sig_altbroadcast_channel_locked_p(struct sig *__restrict self, struct sig *sender, uintptr_t signal_mask);
+
 
 DECL_END
 #endif /* __CC__ */

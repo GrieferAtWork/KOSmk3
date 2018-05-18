@@ -194,8 +194,8 @@ LOCAL u64 ATTR_CDECL SYSC_##name(__SYSCALL_DECL(argc,argv))
 #define X86_SYSCALL_RESTART_FDONT  0x01
 #define X86_SYSCALL_RESTART_FMUST  0x02
 #define __X64_DEFINE_SYSCALL_RESTART(name,mode) \
-__asm__(".hidden restart_sys_" #name "\n" \
-        ".global restart_sys_" #name "\n" \
+__asm__(".hidden restart_sys_" #name "\n\t" \
+        ".global restart_sys_" #name "\n\t" \
         ".set restart_sys_" #name ", " PP_PRIVATE_STR(mode))
 
 
