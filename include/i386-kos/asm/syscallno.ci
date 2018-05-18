@@ -399,6 +399,8 @@ __XSYSCALL(__NR_xdetach,sys_xdetach)
 __XSYSCALL(__NR_xqueue_job,sys_xqueue_job)
 #define __NR_xserve_job   0x40000029
 __XSYSCALL(__NR_xserve_job,sys_xserve_job)
+#define __NR_xnosignal    0x4000002a
+__XSYSCALL(__NR_xnosignal,sys_xnosignal)
 
 
 /* Dynamic linker system calls.

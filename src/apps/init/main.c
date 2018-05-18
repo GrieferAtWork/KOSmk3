@@ -122,7 +122,7 @@ PRIVATE int LIBCCALL my_thread(void *arg) {
 PRIVATE unsigned int LIBCCALL my_rpc(void *arg) {
  syslog(LOG_DEBUG,"my_rpc(%p)\n",arg);
  /*asm("int3");*/
- return RPC_RETURN_INTERRUPT;
+ return RPC_RETURN_RESTART;
 }
 
 

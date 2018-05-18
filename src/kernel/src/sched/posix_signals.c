@@ -838,10 +838,10 @@ again:
   while ((iter = *piter) != NULL) {
    assert(iter->sq_info.si_signo != 0);
    assert(iter->sq_info.si_signo < _NSIG+1);
-   if (!block ||
-      (iter->sq_info.si_signo == SIGKILL+1) ||
-      (iter->sq_info.si_signo == SIGSTOP+1) ||
-      !__sigismember(&block->sb_sigset,iter->sq_info.si_signo-1)) {
+   if ((iter->sq_info.si_signo == SIGKILL+1) ||
+       (iter->sq_info.si_signo == SIGSTOP+1) ||
+       (!PERTASK_TESTF(this_task.t_flags,TASK_FNOSIGNALS) &&
+       (!block || !__sigismember(&block->sb_sigset,iter->sq_info.si_signo-1)))) {
     *piter = iter->sq_chain.le_next;
 #ifdef CONFIG_SIGPENDING_TRACK_MASK
     {
@@ -1045,7 +1045,7 @@ signal_raise_thread(struct task *__restrict thread,
 
 
 /* Test for pending signals in the calling thread. */
-PRIVATE void KCALL signal_test(void) {
+INTERN void KCALL posix_signal_test(void) {
  /* Check for signal handlers that are not being blocked
   * and invoke their associated actions, suspending or resuming
   * execution, terminating the process, or simply executing
@@ -1072,10 +1072,10 @@ PRIVATE void KCALL signal_test(void) {
   mutex_get(pending_lock);
   iter = pending[i]->sp_queue;
   for (; iter; iter = iter->sq_chain.le_next) {
-   if (!block ||
-      (iter->sq_info.si_signo == SIGKILL+1) ||
-      (iter->sq_info.si_signo == SIGSTOP+1) ||
-      !__sigismember(&block->sb_sigset,iter->sq_info.si_signo-1)) {
+   if ((iter->sq_info.si_signo == SIGKILL+1) ||
+       (iter->sq_info.si_signo == SIGSTOP+1) ||
+       (!PERTASK_TESTF(this_task.t_flags,TASK_FNOSIGNALS) &&
+       (!block || !__sigismember(&block->sb_sigset,iter->sq_info.si_signo-1)))) {
     mutex_put(pending_lock);
     /* Return to userspace immediately to check for signals. */
     task_queue_rpc_user(THIS_TASK,&posix_signal_rpc,NULL,TASK_RPC_USER);
@@ -1151,7 +1151,7 @@ signal_chmask(USER CHECKED sigset_t const *mask,
   break;
  }
  /* Test for signals that have been unblocked. */
- signal_test();
+ posix_signal_test();
 }
 
 

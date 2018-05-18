@@ -171,6 +171,8 @@ task_serve_before_user(struct cpu_hostcontext_user *__restrict context,
  if (PERTASK_TESTF(this_task.t_state,TASK_STATE_FINTERRUPTED)) {
   /* Serve RPC function calls. */
   struct rpc_slot EXCEPT_VAR slot;
+  struct rpc_slot *vec;
+  size_t i,count;
 again:
   while (ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FINTERRUPTING) &
                                            TASK_STATE_FINTERRUPTING)
@@ -182,27 +184,17 @@ again:
                    TASK_STATE_FINTERRUPTED));
    return;
   }
-#if 1 /* XXX: This right here is actually incorrect.
-       *      However if we only checked for the context being
-       *      a system call, these types of RPC callbacks would
-       *      be left dangling and cause an infinite loop when
-       *      task_serve() throws an E_INTERRUPT to get back to
-       *      user-space, at which point we are called to handle
-       *      the RPC, yet us refusing to do so means that the
-       *      next task_serve() will throw the E_INTERRUPT again... */
-  if (mode & TASK_USERCTX_FTIMER)
-#else
-  if (TASK_USERCTX_TYPE(mode) != TASK_USERCTX_TYPE_INTR_SYSCALL)
-#endif
-  {
+  vec = PERTASK_GET(my_rpc.ri_vec);
+  if (mode & TASK_USERCTX_FTIMER) {
    /* When run from a timed preemption interrupt, don't serve RPCs
     * that have been created using the `RPC_SLOT_FUSYNC' flag. */
-   size_t i,count = PERTASK_GET(my_rpc.ri_cnt);
-   struct rpc_info *me = &PERTASK(my_rpc);
-   for (i = 0;;) {
+   i = 0;
+   count = PERTASK_GET(my_rpc.ri_cnt);
+   for (;;) {
     assert(i < count);
-    if (!(me->ri_vec[i].rs_flag & RPC_SLOT_FUSYNC))
+    if (!(vec[i].rs_flag & RPC_SLOT_FUSYNC))
           break; /* This one can be served. */
+next_rpc:
     ++i;
     if (i >= count) {
      /* All remaining RPC callbacks have the `RPC_SLOT_FUSYNC' flag set. */
@@ -212,15 +204,25 @@ again:
     }
    }
    /* Take the RPC at index `i' */
-   --me->ri_cnt;
-   memcpy((void *)&slot,&me->ri_vec[i],sizeof(struct rpc_slot));
-   memmove(&me->ri_vec[i],&me->ri_vec[i+1],
-           (me->ri_cnt-i)*sizeof(struct rpc_slot));
+   if ((vec[0].rs_flag & RPC_SLOT_FUASYNC) &&
+        PERTASK_TESTF(this_task.t_flags,TASK_FNOSIGNALS))
+        goto next_rpc;
+   PERTASK_DEC(my_rpc.ri_cnt);
+   memcpy((void *)&slot,&vec[i],sizeof(struct rpc_slot));
+   memmove(&vec[i],&vec[i+1],
+           (PERTASK_GET(my_rpc.ri_cnt)-i)*sizeof(struct rpc_slot));
   } else {
    /* Just take away the first RPC */
+   if ((vec[0].rs_flag & RPC_SLOT_FUASYNC) &&
+        PERTASK_TESTF(this_task.t_flags,TASK_FNOSIGNALS)) {
+    /* Mustn't handle this RPC right now! */
+    i     = 1;
+    count = PERTASK_GET(my_rpc.ri_cnt);
+    goto next_rpc;
+   }
    PERTASK_DEC(my_rpc.ri_cnt);
-   memcpy((void *)&slot,&PERTASK(my_rpc.ri_vec)[0],sizeof(struct rpc_slot));
-   memmove(&PERTASK(my_rpc.ri_vec)[0],&PERTASK(my_rpc.ri_vec)[1],
+   memcpy((void *)&slot,&vec[0],sizeof(struct rpc_slot));
+   memmove(&vec[0],&vec[1],
             PERTASK_GET(my_rpc.ri_cnt)*sizeof(struct rpc_slot));
   }
   ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINTERRUPTING);
@@ -260,10 +262,12 @@ again:
  * @return: true:  At least one RPC function was served.
  * @return: false: No RPC functions were served. */
 PUBLIC bool KCALL task_serve(void) {
+ bool result = false;
  u16 EXCEPT_VAR state = PERTASK_GET(this_task.t_state);
  if (state & TASK_STATE_FINTERRUPTED) {
   /* Serve RPC function calls. */
   struct rpc_slot EXCEPT_VAR slot;
+  struct rpc_slot *vec;
   struct task_connections connections;
 #ifndef NDEBUG
   u32 old_nothrow_serve_recursion;
@@ -291,16 +295,36 @@ continue_serving:
          task_yield();
   if (!PERTASK_TEST(my_rpc.ri_cnt)) {
    /* No more RPCs (delete the interrupted-flag) */
+done_serving_2:
    ATOMIC_FETCHAND(THIS_TASK->t_state,
                  ~(TASK_STATE_FINTERRUPTING|TASK_STATE_FINTERRUPTED|
                   (state & TASK_STATE_FINRPC ? 0 : TASK_STATE_FINRPC)));
 done_serving:
    task_pop_connections(&connections);
-   return true;
+   return result;
   }
-  if (PERTASK_GET(my_rpc.ri_vec)[0].rs_flag & RPC_SLOT_FUSER) {
-   /* Remaining RPC must be called before returning to user-space. */
+  vec = PERTASK_GET(my_rpc.ri_vec);
+  if (vec[0].rs_flag & RPC_SLOT_FUSER) {
    assert(!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB));
+   if ((vec[0].rs_flag & RPC_SLOT_FUASYNC) &&
+        PERTASK_TESTF(this_task.t_flags,TASK_FNOSIGNALS)) {
+    /* Don't serve async user RPCs right now. */
+    size_t i = 1;
+    size_t count = PERTASK_GET(my_rpc.ri_cnt);
+    for (; i < count; ++i) {
+     if (vec[i].rs_flag & RPC_SLOT_FUASYNC)
+         continue;
+     PERTASK_DEC(my_rpc.ri_cnt);
+     memcpy((void *)&slot,&vec[i],sizeof(struct rpc_slot));
+     memmove(&vec[i],&vec[i+1],
+            (PERTASK_GET(my_rpc.ri_cnt)-i)*sizeof(struct rpc_slot));
+     goto do_exec_rpc;
+    }
+    ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINTERRUPTING);
+    /* All remaining RPCs are served later! */
+    goto done_serving_2;
+   }
+   /* Remaining RPC must be called before returning to user-space. */
    ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINTERRUPTING);
    if (PERTASK_TEST(this_task.t_nothrow_serve)) {
     error_info()->e_error.e_code = E_INTERRUPT;
@@ -315,9 +339,10 @@ done_serving:
   }
   /* Take away the first RPC */
   PERTASK_DEC(my_rpc.ri_cnt);
-  memcpy((void *)&slot,&PERTASK(my_rpc.ri_vec)[0],sizeof(struct rpc_slot));
-  memmove(&PERTASK(my_rpc.ri_vec)[0],&PERTASK(my_rpc.ri_vec)[1],
+  memcpy((void *)&slot,&vec[0],sizeof(struct rpc_slot));
+  memmove(&vec[0],&vec[1],
            PERTASK_GET(my_rpc.ri_cnt)*sizeof(struct rpc_slot));
+do_exec_rpc:
   ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINTERRUPTING);
 #ifndef NDEBUG
   old_nothrow_serve_recursion = PERTASK_GET(this_task.t_nothrow_serve);
@@ -376,6 +401,7 @@ done_serving:
     } /* FINALLY_WILL_RETHROW */
    }
   }
+  result = true;
   goto continue_serving;
  }
  return false;
@@ -425,6 +451,8 @@ task_queue_rpc(struct task *__restrict thread,
     return false;
  assertf(!(mode & RPC_SLOT_FUSYNC) || (mode & RPC_SLOT_FUSER),
          "The `TASK_RPC_NOIRQ' flag can only be used with `TASK_RPC_USER'");
+ assertf(!(mode & RPC_SLOT_FUASYNC) || (mode & RPC_SLOT_FUSER),
+         "The `RPC_SLOT_FUASYNC' flag can only be used with `TASK_RPC_USER'");
  if (thread == THIS_TASK) {
   INCSTAT(ts_qrpc);
   if (mode & TASK_RPC_USER) {
@@ -469,7 +497,7 @@ task_queue_rpc(struct task *__restrict thread,
  if (!slot) return false; /* Thread is terminating. */
  slot->rs_fun  = func;
  slot->rs_arg  = arg;
- slot->rs_flag = mode & (RPC_SLOT_FUSER|RPC_SLOT_FUSYNC);
+ slot->rs_flag = mode & (RPC_SLOT_FUSER|RPC_SLOT_FUSYNC|RPC_SLOT_FUASYNC);
  if (mode & TASK_RPC_SYNC) {
   /* Special case: Must synchronize with the completion of the RPC. */
   struct sig done_sig = SIG_INIT;
@@ -575,6 +603,23 @@ INTERN ATTR_NOTHROW void KCALL task_serve_before_exit(void) {
  ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINRPC);
 }
 
+
+INTDEF void KCALL posix_signal_test(void);
+PUBLIC void KCALL task_clear_nosignals(void) {
+ u16 flags;
+ flags = ATOMIC_FETCHAND(THIS_TASK->t_flags,~TASK_FNOSIGNALS);
+ if (!(flags & TASK_FNOSIGNALS)) return;
+ /* Check for async user-RPCs and re-set the INTERRUPTED flag if
+  * there are unhandled RPCs (likely ones with the `RPC_SLOT_FUASYNC'
+  * flag set, although there might be others due to race conditions)
+  * still left to be executed. */
+ if (PERTASK_GET(my_rpc.ri_cnt) != 0)
+     ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_STATE_FINTERRUPTED);
+ /* Check for posix signals. */
+ posix_signal_test();
+ /* Check for pending RPCs */
+ task_serve();
+}
 
 
 

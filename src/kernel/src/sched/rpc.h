@@ -34,8 +34,9 @@ struct rpc_slot {
     task_rpc_t       rs_fun;  /* [1..1] the function that should be called. */
     void            *rs_arg;  /* [?..?] Argument passed to `ars_fun' */
 #define RPC_SLOT_FNORMAL 0x0000
-#define RPC_SLOT_FUSER   TASK_RPC_USER
+#define RPC_SLOT_FUASYNC TASK_RPC_UASYNC
 #define RPC_SLOT_FUSYNC  TASK_RPC_USYNC
+#define RPC_SLOT_FUSER   TASK_RPC_USER
     uintptr_t        rs_flag; /* Set of `RPC_SLOT_F*' */
     struct sig      *rs_done; /* [0..1] A signal that will be broadcast when the RPC has finished, or NULL.
                                *  HINT: This signal is used for synchronous execution of RPC commands. */

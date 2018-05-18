@@ -303,6 +303,7 @@ INTDEF size_t LIBCCALL Xsys_xreaddirf(fd_t fd, struct dirent *buf, size_t bufsiz
 INTDEF errno_t LIBCCALL Xsys_xunwind(struct cpu_context *ccontext, struct fpu_context *fcontext, sigset_t *signal_set, size_t sigset_size);
 INTDEF ssize_t LIBCCALL Xsys_xaddr2line(void *abs_pc, struct dl_addr2line *buf, size_t bufsize);
 INTDEF size_t LIBCCALL Xsys_xppoll(struct poll_info *info, struct timespec64 const *tsp, sigset_t const *signal_set, size_t sigset_size);
+INTDEF void LIBCCALL Xsys_xnosignal(int mode);
 
 /* Networking functions. */
 INTDEF fd_t LIBCCALL sys_socket(int domain, int type, int protocol);

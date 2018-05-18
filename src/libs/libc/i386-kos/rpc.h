@@ -31,8 +31,8 @@ struct cpu_context;
 INTDEF bool LIBCCALL libc_queue_rpc(pid_t pid, rpc_t func, void *arg, unsigned int mode);
 INTDEF bool LIBCCALL libc_queue_interrupt(pid_t pid, rpc_interrupt_t func, void *arg, unsigned int mode);
 INTDEF bool LIBCCALL libc_rpc_serve(void);
-INTDEF void LIBCCALL libc_rpc_pushoff(void);
-INTDEF void LIBCCALL libc_rpc_pop(void);
+INTDEF ATTR_NOTHROW bool LIBCCALL libc_rpc_pushoff(void);
+INTDEF bool LIBCCALL libc_rpc_pop(void);
 INTDEF bool LIBCCALL libc_queue_job(pid_t pid, struct cpu_context const *__restrict job, unsigned int mode);
 
 

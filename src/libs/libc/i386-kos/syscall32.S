@@ -1257,6 +1257,7 @@ EXPORT(queue_job,libc_queue_job)
 DEFINE_SYSCALL(xserve_job,0, Xsys)
 DEFINE_INTERN_ALIAS(libc_rpc_serve,Xsys_xserve_job)
 EXPORT(rpc_serve,libc_rpc_serve)
+DEFINE_SYSCALL(xnosignal,1,  Xsys)
 
 DEFINE_SYSCALL(xreset_debug_data,3,sys)
 DEFINE_SYSCALL(xfind_modified_address,3,sys)

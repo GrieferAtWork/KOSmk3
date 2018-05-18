@@ -16,12 +16,47 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
+#include "../libc.h"
 #include <hybrid/compiler.h>
 #include <hybrid/asm.h>
 #include <asm/cfi.h>
 #include <kos/rpc.h>
+#include <kos/thread.h>
 #include <errno.h>
 #include <except.h>
+
+
+.section .text.crt.rpc
+.cfi_startproc
+INTERN_ENTRY(libc_rpc_pushoff)
+	movl %taskseg:USER_TASK_SEGMENT_OFFSETOF_NO_RPC, %ecx
+	incl %ecx
+	movl %ecx, %taskseg:USER_TASK_SEGMENT_OFFSETOF_NO_RPC
+	xorl %eax, %eax
+	cmpl $1, %ecx
+	sete %al
+	jne  1f
+	pushl_cfi $1
+	call Xsys_xnosignal
+	addl $4, %esp
+	.cfi_adjust_cfa_offset -4
+1:	ret
+SYMEND(libc_rpc_pushoff)
+EXPORT(rpc_pushoff,libc_rpc_pushoff)
+
+INTERN_ENTRY(libc_rpc_pop)
+	xorl %eax, %eax
+	decl %taskseg:USER_TASK_SEGMENT_OFFSETOF_NO_RPC
+	setz %al
+	jnz  1f
+	pushl_cfi $0
+	call Xsys_xnosignal
+	addl $4, %esp
+	.cfi_adjust_cfa_offset -4
+1:	ret
+SYMEND(libc_rpc_pop)
+EXPORT(rpc_pop,libc_rpc_pop)
+.cfi_endproc
 
 
 .section .text.crt.rpc

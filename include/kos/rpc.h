@@ -105,7 +105,11 @@ __DECL_BEGIN
                                       *       may have updated `*CTX', in which case the updated
                                       *       variant is loaded, allowing well-timed RPCs to
                                       *       implement additional behavior for system calls when
-                                      *       they were used to interrupt them. */
+                                      *       they were used to interrupt them.
+                                      * WARNING: Returning this from an `rpc_t' will leave the system call return
+                                      *          value undefined (or at least have it contain unexpected values)!
+                                      *          This value should only be returned from an `rpc_interrupt_t'
+                                      *          after it modified the provided `struct cpu_context' */
 
 
 
@@ -175,7 +179,13 @@ __LIBC __BOOL (__LIBCCALL queue_interrupt)(__pid_t __pid, rpc_interrupt_t __func
                                   * hardware interrupts, or CPU exceptions/traps (including #PF when not
                                   * used to execute a system call), as well as exception propagation.
                                   * Note however that asynchronous RPCs can truly be handled between
-                                  * any 2 instruction (even while already inside an ASYNC RPC callback) */
+                                  * any 2 instruction (even while already inside an ASYNC RPC callback)
+                                  * Also note that this does not necessarily imply that it was a system
+                                  * call which got interrupted. - user-space RPCs are also served by the
+                                  * kernel when an exception is propagated into user-space, meaning that
+                                  * a system call throwing an exception will serve RPCs, as well as any
+                                  * operation that can trigger a hardware exception (like DIVIDE_BY_ZERO)
+                                  * will server synchronous RPCs as well! */
 #define RPC_FASYNCHRONOUS 0x0001 /* The RPC will be served at a random point in time, or once the thread attempts a blocking operation.
                                   * Note however that the RPC will not be served while the thread is in kernel-space!
                                   * Asynchronous interrupts can only happen while in user-space, so as far as they go,
@@ -185,21 +195,27 @@ __LIBC __BOOL (__LIBCCALL queue_interrupt)(__pid_t __pid, rpc_interrupt_t __func
 #define RPC_FWAITBEGIN    0x0002 /* Wait until the thread has acknowledged the RPC.
                                   * WARNING: Anything might still go wrong before, or during execution
                                   *          of `FUNC', including the thread being kill(2)-ed off, or
-                                  *          some other `RPC_FSYNCHRONOUS' RPC being executed ontop. */
+                                  *          some other `RPC_FASYNCHRONOUS' RPC being executed ontop. */
 #define RPC_FWAITFOR      0x0004 /* Wait for execution of the RPC to finish. (Implemented in user-space) */
 
 #ifdef __CC__
 #ifndef __KERNEL__
 /* Test for pending RPC callbacks to be served, and serve them synchronously.
- * @return: true:  RPC jobs have been served.
- * @return: false: Nothing had to be served.
- * @throw: * :     An exception thrown by an RPC callback. */
+ * @return: true:  RPC jobs have been served. (meaning that the
+ *                 states of thread-local variables may have changed)
+ * @return: false: Nothing was served.
+ * @throw: * :     An exception thrown by an RPC callback.
+ * NOTE: Just so you know, synchronous RPCs are
+ *       _NOT_ served by calls to `sched_yield()'! */
 __LIBC __BOOL (__LIBCCALL rpc_serve)(void);
 
 /* Recursively disable reception of asynchronous RPC callbacks.
- * NOTE: The last call to `rpc_pop()' will also serve RPCs. */
-__LIBC ATTR_NOTHROW void (__LIBCCALL rpc_pushoff)(void);
-__LIBC void (__LIBCCALL rpc_pop)(void);
+ * NOTE: This also temporarily disables delivery of asynchronous
+ *       posix signals with the exception of `SIGKILL' and `SIGSTOP'
+ * @return: true:  The ASYNC-RPC-serve state changed.
+ * @return: false: The ASYNC-RPC-serve state didn't change. */
+__LIBC __ATTR_NOTHROW __BOOL (__LIBCCALL rpc_pushoff)(void);
+__LIBC __BOOL (__LIBCCALL rpc_pop)(void);
 #endif /* !__KERNEL__ */
 
 

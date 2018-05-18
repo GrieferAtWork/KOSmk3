@@ -1023,6 +1023,8 @@ task_queue_rpc_user(struct task *__restrict thread,
                                 * RPC callback has finished.
                                 * NOTE: This function can be ignored if the implementation
                                 *       chooses not to support it (as KOS currently does). */
+#define TASK_RPC_UASYNC 0x2000 /* An extension to `TASK_RPC_USER': The RPC is not
+                                * executed when the `TASK_FNOSIGNALS' flag is set. */
 #define TASK_RPC_USYNC  0x4000 /* An extension to `TASK_RPC_USER': The RPC is not executed
                                 * when the thread get preempted forceably at the end of its
                                 * quantum. Rather, it only gets served when the thread performs
@@ -1120,7 +1122,11 @@ FUNDEF bool KCALL task_unshare_fs(void);       /* CLONE_FS */
 FUNDEF bool KCALL task_unshare_sighand(void);  /* CLONE_SIGHAND */
 FUNDEF bool KCALL task_unshare_vm(void);       /* CLONE_FS */
 
-
+/* Clear the `TASK_FNOSIGNALS' bit for the calling thread, and test
+ * for async user-signals, resetting the `TASK_STATE_FINTERRUPTED'
+ * flag if some exist, before proceeding to check for posix signals,
+ * as well as user-RPCs. */
+FUNDEF void KCALL task_clear_nosignals(void);
 
 /* Enumerate all threads in existence, including those that haven't
  * been started yet, as well as those that have already terminated.

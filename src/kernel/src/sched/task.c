@@ -777,6 +777,19 @@ DEFINE_SYSCALL3(getcpu,
 }
 
 
+DEFINE_SYSCALL1(xnosignal,unsigned int,mode) {
+ if (mode > 1)
+     error_throw(E_INVALID_ARGUMENT);
+ if (mode == 0)
+     task_clear_nosignals();
+ else {
+  /* Set the nosignals flag. */
+  ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_FNOSIGNALS);
+ }
+ return 0;
+}
+
+
 DECL_END
 
 #endif /* !GUARD_KERNEL_SRC_SCHED_TASK_C */

@@ -267,8 +267,11 @@ DEFINE_SYSCALL3(xqueue_job,pid_t,upid,
  TRY {
   unsigned int rpc_mode;
   rpc_mode = TASK_RPC_USER;
-  if (!(mode & JOB_FASYNCHRONOUS))
-        rpc_mode |= TASK_RPC_USYNC;
+  if (mode & JOB_FASYNCHRONOUS)
+      rpc_mode |= TASK_RPC_UASYNC;
+  else {
+      rpc_mode |= TASK_RPC_USYNC;
+  }
   if unlikely(target == THIS_TASK) {
    struct urpc_data *EXCEPT_VAR data;
    /* Special case: Send an RPC to ourself. */

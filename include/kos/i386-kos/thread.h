@@ -38,6 +38,7 @@ __SYSDECL_BEGIN
 #define __USER_TASK_SEGMENT_OFFSETOF_EFORMAT    (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+3)
 #define __USER_TASK_SEGMENT_OFFSETOF_ERRNO      (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+4)
 #define __USER_TASK_SEGMENT_OFFSETOF_DOS_ERRNO  (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+8)
+#define __USER_TASK_SEGMENT_OFFSETOF_NO_RPC     (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+12)
 #define __USER_TASK_SEGMENT_OFFSETOF_TID        (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16)
 #define __USER_TASK_SEGMENT_OFFSETOF_PROCESS    (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
 #define __USER_TASK_SEGMENT_OFFSETOF_UEH        (2*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
@@ -56,6 +57,7 @@ __SYSDECL_BEGIN
 #define USER_TASK_SEGMENT_OFFSETOF_EFORMAT    __USER_TASK_SEGMENT_OFFSETOF_EFORMAT
 #define USER_TASK_SEGMENT_OFFSETOF_ERRNO      __USER_TASK_SEGMENT_OFFSETOF_ERRNO
 #define USER_TASK_SEGMENT_OFFSETOF_DOS_ERRNO  __USER_TASK_SEGMENT_OFFSETOF_DOS_ERRNO
+#define USER_TASK_SEGMENT_OFFSETOF_NO_RPC     __USER_TASK_SEGMENT_OFFSETOF_NO_RPC
 #define USER_TASK_SEGMENT_OFFSETOF_TID        __USER_TASK_SEGMENT_OFFSETOF_TID
 #define USER_TASK_SEGMENT_OFFSETOF_PROCESS    __USER_TASK_SEGMENT_OFFSETOF_PROCESS
 #define USER_TASK_SEGMENT_OFFSETOF_UEH        __USER_TASK_SEGMENT_OFFSETOF_UEH
@@ -132,7 +134,7 @@ struct __ATTR_PACKED task_segment
      __UINT8_TYPE__             ts_eformat;    /* The format for the most recent errno value (One of `TASK_ERRNO_F*'). */
      __UINT32_TYPE__            ts_errno;      /* The `errno' value used by libc. */
      __UINT32_TYPE__            ts_dos_errno;  /* The `errno' value used by libc (in DOS emulation). */
-     __UINT32_TYPE__          __ts_pad2;       /* ... */
+     __UINT32_TYPE__            ts_no_rpc;     /* Recursion counter for disable-async-user-space RPCs + posix signal delivery (s.a. `rpc_pushoff()'). */
      __pid_t                    ts_tid;        /* The thread ID of this thread (as returned by `gettid()')
                                                 * This field is originally initialized by the kernel, but
                                                 * after that only ever used by user-space.
