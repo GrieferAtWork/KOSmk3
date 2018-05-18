@@ -729,7 +729,7 @@ FUNDEF struct vm_corepair KCALL vm_corealloc(void);
 #define VM_OFFSETOF_PHYSDIR  PAGEDIR_SIZE
 
 #undef CONFIG_VM_USE_RWLOCK
-//#define CONFIG_VM_USE_RWLOCK  1
+#define CONFIG_VM_USE_RWLOCK  1
 
 #ifdef __CC__
 struct vm {
@@ -756,8 +756,10 @@ struct vm {
 #define vm_tryacquire(x)      rwlock_trywrite(&(x)->vm_lock)
 #define vm_acquire(x)         rwlock_write(&(x)->vm_lock)
 #define vm_release(x)         rwlock_endwrite(&(x)->vm_lock)
+#define vm_release_any(x)     rwlock_end(&(x)->vm_lock)
 #define vm_holding(x)         rwlock_writing(&(x)->vm_lock)
 #define vm_tryacquire_read(x) rwlock_tryread(&(x)->vm_lock)
+#define vm_tryacquire_read_nothrow(x) rwlock_tryread_nothrow(&(x)->vm_lock)
 #define vm_acquire_read(x)    rwlock_read(&(x)->vm_lock)
 #define vm_release_read(x)    rwlock_endread(&(x)->vm_lock)
 #define vm_holding_read(x)    rwlock_reading(&(x)->vm_lock)
@@ -765,8 +767,10 @@ struct vm {
 #define vm_tryacquire(x)      mutex_try(&(x)->vm_lock)
 #define vm_acquire(x)         mutex_get(&(x)->vm_lock)
 #define vm_release(x)         mutex_put(&(x)->vm_lock)
+#define vm_release_any(x)    (mutex_put(&(x)->vm_lock),0)
 #define vm_holding(x)         mutex_holding(&(x)->vm_lock)
 #define vm_tryacquire_read(x) mutex_try(&(x)->vm_lock)
+#define vm_tryacquire_read_nothrow(x) mutex_try(&(x)->vm_lock)
 #define vm_acquire_read(x)    mutex_get(&(x)->vm_lock)
 #define vm_release_read(x)   (mutex_put(&(x)->vm_lock),0)
 #define vm_holding_read(x)    mutex_holding(&(x)->vm_lock)

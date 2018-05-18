@@ -37,35 +37,15 @@
 #include <except.h>
 #include <kos/safecall.h>
 
+#include "rpc.h"
+
 DECL_BEGIN
 
-/* Amount of static RPC slots before dynamic ones must be allocated. */
-#define CONFIG_STATIC_RPC_SLOTS  2
-
-struct rpc_slot {
-    task_rpc_t       rs_fun;  /* [1..1] the function that should be called. */
-    void            *rs_arg;  /* [?..?] Argument passed to `ars_fun' */
-#define RPC_SLOT_FNORMAL 0x0000
-#define RPC_SLOT_FUSER   TASK_RPC_USER
-#define RPC_SLOT_FUSYNC  TASK_RPC_USYNC
-    uintptr_t        rs_flag; /* Set of `RPC_SLOT_F*' */
-    struct sig      *rs_done; /* [0..1] A signal that will be broadcast when the RPC has finished, or NULL.
-                               *  HINT: This signal is used for synchronous execution of RPC commands. */
+INTERN ATTR_PERTASK struct rpc_info my_rpc = {
+    .ri_cnt = 0,
+    .ri_siz = CONFIG_STATIC_RPC_SLOTS
 };
 
-struct rpc_info {
-    size_t           ri_cnt;  /* Amount of RPC buffers in use. */
-    size_t           ri_siz;  /* Allocated size of `ri_vec' vector. */
-    struct rpc_slot *ri_vec;  /* [0..ri_cnt|alloc(ri_siz)][owned_if(!= ri_sbuf)]
-                               * Vector of RPC callbacks. */
-#if CONFIG_STATIC_RPC_SLOTS != 0
-    struct rpc_slot  ri_sbuf[CONFIG_STATIC_RPC_SLOTS]; /* Static (aka. preallocated) RPC buffer. */
-#endif
-};
-
-PRIVATE ATTR_PERTASK struct rpc_info my_rpc = {
-    .ri_siz = CONFIG_STATIC_RPC_SLOTS,
-};
 
 #if CONFIG_STATIC_RPC_SLOTS != 0
 DEFINE_PERTASK_INIT(rpc_init);
@@ -89,7 +69,7 @@ INTERN void KCALL rpc_fini(struct task *__restrict thread) {
 /* Allocate a new RPC slot and set the `TASK_STATE_FINTERRUPTING' bit.
  * Returns NULL and clear the `TASK_STATE_FINTERRUPTING'
  * bit if the `TASK_STATE_FTERMINATING' bit has been set. */
-PRIVATE struct rpc_slot *KCALL
+INTERN struct rpc_slot *KCALL
 rpc_alloc(struct task *__restrict thread) {
  struct rpc_info *info;
  u16 state;

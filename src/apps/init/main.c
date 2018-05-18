@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
  act.sa_flags     = SA_SIGINFO;
  Xsigaction(SIGCHLD,&act,NULL);
 
-//  test_rpc();
+ test_rpc();
 
  assert(strcmp("foo","foo") == 0);
  assert(strcmp("foo","bar") != 0);

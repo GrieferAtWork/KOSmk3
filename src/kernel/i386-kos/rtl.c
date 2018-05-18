@@ -41,35 +41,6 @@
 
 DECL_BEGIN
 
-INTDEF byte_t kernel_ehframe_start[];
-INTDEF byte_t kernel_ehframe_end[];
-INTDEF byte_t kernel_ehframe_size[];
-
-INTDEF struct except_handler kernel_except_start[];
-INTDEF struct except_handler kernel_except_end[];
-
-INTERN struct except_handler *LIBCCALL
-error_findhnd(uintptr_t ip) {
- struct except_handler *iter;
- /* Same as `linker_findfde()' - Eventually, we must search through modules here. */
- for (iter = kernel_except_start;
-      iter < kernel_except_end; ++iter) {
-  if (ip <  (uintptr_t)iter->eh_begin) continue;
-  if (ip >= (uintptr_t)iter->eh_end) continue;
-  if (iter->eh_flag&EXCEPTION_HANDLER_FHASMASK) {
-   /* Check for the error code mask to match. */
-   if (iter->eh_mask != error_code())
-       continue;
-  }
-  if (iter->eh_entry >= (uintptr_t)iter->eh_begin &&
-      iter->eh_entry <  (uintptr_t)iter->eh_end)
-      debug_printf("WARNING: Overlapping handler %p in %p...%p\n",
-                   iter->eh_entry,iter->eh_begin,iter->eh_end);
-  return iter;
- }
- return NULL;
-}
-
 INTERN void KCALL print_tb(struct cpu_context *__restrict context) {
  struct cpu_context ctx = *context;
  bool is_first = true;

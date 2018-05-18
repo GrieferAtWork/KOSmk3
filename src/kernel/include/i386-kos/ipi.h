@@ -41,9 +41,7 @@ DECL_BEGIN
                                          * If the task is the one that got preempted by the IPI, the
                                          * CPU will continue execution of the next task in line.
                                          * However, if the task is the last one running on that CPU,
-                                         * it cannot be unscheduled.
-                                         * NOTE: Sending this 
-                                         */
+                                         * it cannot be unscheduled. */
 #define X86_IPI_WAKETASK         0x0006 /* Wake a given task. */
 #define X86_IPI_WAKETASK_FOR_RPC 0x0007 /* Wake a given task or serve interrupts if preempted in user-space. */
 #define X86_IPI_WAKETASK_P       0x0008 /* Wake a given task and schedule it following another. */
@@ -74,6 +72,7 @@ DECL_BEGIN
                                          *          system call tracing, as it can actually be used
                                          *          to modify the interrupt vector, or GDT/LDT table
                                          *          in a non-destructive way. */
+#define X86_IPI_PANIC_SHUTDOWN   0x000c /* Shutdown the CPU for the purposes of a kernel panic. */
 
 #define X86_IPI_FNORMAL  0x0000 /* Normal IPI flags. */
 

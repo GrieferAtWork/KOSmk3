@@ -128,10 +128,10 @@ INTDEF fd_t LIBCCALL libc_Xfutex_waitfd_bitset(futex_t *uaddr, futex_t probe_val
 /* Advanced ppoll() with integration for polling futex objects. */
 struct pollfd;
 struct pollfutex;
-INTDEF ssize_t LIBCCALL libc_xppoll(struct pollfd *ufds, size_t nfds, struct pollfutex *uftx, size_t nftx, struct timespec const *tsp, sigset_t *sig);
-INTDEF ssize_t LIBCCALL libc_xppoll64(struct pollfd *ufds, size_t nfds, struct pollfutex *uftx, size_t nftx, struct timespec64 const *tsp, sigset_t *sig);
-INTDEF size_t LIBCCALL libc_Xxppoll(struct pollfd *ufds, size_t nfds, struct pollfutex *uftx, size_t nftx, struct timespec const *tsp, sigset_t *sig);
-INTDEF size_t LIBCCALL libc_Xxppoll64(struct pollfd *ufds, size_t nfds, struct pollfutex *uftx, size_t nftx, struct timespec64 const *tsp, sigset_t *sig);
+INTDEF ssize_t LIBCCALL libc_xppoll(struct pollfd *ufds, size_t nfds, struct pollfutex *uftx, size_t nftx, struct pollpid *upid, size_t npid, struct timespec const *tsp, sigset_t *sig);
+INTDEF ssize_t LIBCCALL libc_xppoll64(struct pollfd *ufds, size_t nfds, struct pollfutex *uftx, size_t nftx, struct pollpid *upid, size_t npid, struct timespec64 const *tsp, sigset_t *sig);
+INTDEF size_t LIBCCALL libc_Xxppoll(struct pollfd *ufds, size_t nfds, struct pollfutex *uftx, size_t nftx, struct pollpid *upid, size_t npid, struct timespec const *tsp, sigset_t *sig);
+INTDEF size_t LIBCCALL libc_Xxppoll64(struct pollfd *ufds, size_t nfds, struct pollfutex *uftx, size_t nftx, struct pollpid *upid, size_t npid, struct timespec64 const *tsp, sigset_t *sig);
 
 
 

@@ -62,7 +62,7 @@ INTDEF void ASMCALL x86_rpc_entry_fast(void);
 struct waitfor_rpc_data {
     rpc_t   func;
     void   *arg;
-    futex_t done;  /* Set to ZERO and broadcast when the RPC has finished. */
+    futex_t pending;  /* Set to ZERO and broadcast when the RPC has finished. */
 };
 
 CRT_KOS unsigned int LIBCCALL
@@ -72,8 +72,8 @@ fast_waitfor_rpc_wrapper(struct waitfor_rpc_data *__restrict data) {
  TRY {
   result = (*data->func)(data->arg);
  } FINALLY {
-  ATOMIC_WRITE(xdata->done,0);
-  libc_futex_wake(&xdata->done,SIZE_MAX);
+  ATOMIC_WRITE(xdata->pending,0);
+  libc_futex_wake(&xdata->pending,SIZE_MAX);
  }
  return result;
 }
@@ -93,7 +93,7 @@ libc_queue_rpc(pid_t pid, rpc_t func, void *arg,
   struct waitfor_rpc_data data;
   data.func = func;
   data.arg  = arg;
-  data.done = 1;
+  data.pending = 1;
   context.c_eip           = (uintptr_t)&x86_rpc_entry_fast;
   context.c_gpregs.gp_ecx = (uintptr_t)&fast_waitfor_rpc_wrapper;
   context.c_gpregs.gp_edx = (uintptr_t)&data;
@@ -105,9 +105,16 @@ libc_queue_rpc(pid_t pid, rpc_t func, void *arg,
                           X86_JOB_FSAVE_CREGS|
                           X86_JOB_FLOAD_CREGS);
   if (result) {
-   /* Wait for the RPC to finish. */
-   /* TODO: This hangs if the thread dies... */
-   libc_Xfutex_wait_inf(&data.done,1);
+   struct pollfutex poll_ftx[1];
+   struct pollpid   poll_pid[1];
+   /* Wait for the RPC to finish.
+    * NOTE: Since the thread might terminate before it can
+    *       do so, we must also wait for that to happen. */
+   pollfutex_init_wait(&poll_ftx[0],&data.pending,1);
+   pollpid_init(&poll_pid[0],P_PID,pid,WEXITED,NULL,NULL);
+   libc_Xxppoll64(NULL,0,poll_ftx,1,poll_pid,1,NULL,NULL);
+   /* Check if the RPC-pending field has been cleared. */
+   result = ATOMIC_READ(data.pending) == 0;
   }
  } else {
   context.c_eip           = (uintptr_t)&x86_rpc_entry_fast;

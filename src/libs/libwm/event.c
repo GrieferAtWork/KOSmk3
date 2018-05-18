@@ -68,7 +68,7 @@ PRIVATE void WMCALL libwm_poll_events(void) {
  pfds[0].events = POLLIN;
  semaphore_poll(&pending_avail,pftx);
  /* Wait for one of the events to become triggered. */
- Xxppoll(pfds,1,pftx,1,NULL,NULL);
+ Xxppoll(pfds,1,pftx,1,NULL,0,NULL,NULL);
 }
 
 

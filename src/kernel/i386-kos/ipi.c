@@ -301,6 +301,15 @@ newcpu_continue:
   COMPILER_WRITE_BARRIER();
   break;
 
+ case X86_IPI_PANIC_SHUTDOWN:
+  /* Since preemption is disabled, and we're not supposed to
+   * come back, all we really need to do is HLT forever.
+   * NOTE: A single hlt should be enough, but since this is
+   *       a kernel panic we're talking about, there may be
+   *       some NMIs on their way... */
+  for (;;) asm("hlt");
+  break;
+
  default: break;
  }
  return X86_IPI_CONTINUE;

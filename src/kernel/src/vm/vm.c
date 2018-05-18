@@ -448,7 +448,7 @@ INTERN struct vm_node *KCALL this_vm_getnode(vm_vpage_t page) {
 PUBLIC struct vm_node *KCALL vm_getnode(vm_vpage_t page) {
  struct vm *effective_vm;
  effective_vm = page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
- assert(vm_holding(effective_vm) || !PREEMPTION_ENABLED());
+ assert(vm_holding_read(effective_vm) || !PREEMPTION_ENABLED());
  return vm_node_tree_locate(effective_vm->vm_map,page);
 }
 FUNDEF struct vm_node *KCALL
@@ -458,7 +458,7 @@ vm_getanynode(vm_vpage_t min_page, vm_vpage_t max_page) {
  assertf((min_page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM) == effective_vm,
          "Effective VM of virtual address range %p...%p is ambiguous",
          VM_PAGE2ADDR(min_page),VM_PAGE2ADDR(max_page+1)-1);
- assert(vm_holding(effective_vm));
+ assert(vm_holding_read(effective_vm));
  return vm_findany(effective_vm,min_page,max_page);
 }
 
@@ -1034,7 +1034,7 @@ vm_getfree(vm_vpage_t hint, size_t num_pages,
  if (hint < X86_KERNEL_BASE_PAGE ||
     (hint == X86_KERNEL_BASE_PAGE && (mode&VM_GETFREE_FBELOW)))
      effective_vm = THIS_VM;
- assert(vm_holding(effective_vm));
+ assert(vm_holding_read(effective_vm));
  /* Check if the request is too large to ever map. */
  if unlikely(num_pages > VM_VPAGE_MAX+1)
     goto no_such_page;

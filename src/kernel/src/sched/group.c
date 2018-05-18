@@ -354,7 +354,7 @@ INTERN void KCALL task_startup_group(u32 UNUSED(flags)) {
   struct exception_info *reason;
   atomic_rwlock_endwrite(&leader_group->tg_process.h_lock);
   /* Just exit the thread if the leader is dead. */
-  reason                  = error_info();
+  reason                          = error_info();
   reason->e_error.e_code          = E_EXIT_THREAD;
   reason->e_error.e_flag          = ERR_FNORMAL;
   reason->e_error.e_exit.e_status = get_this_process()->t_segment.ts_xcurrent.e_error.e_exit.e_status;
@@ -789,7 +789,7 @@ DEFINE_SYSCALL0(setsid) {
 }
 
 
-PRIVATE void KCALL
+INTERN void KCALL
 get_rusage(struct thread_pid *__restrict pid,
            USER CHECKED struct rusage *ru) {
  (void)pid; /* XXX: implement this? */
@@ -946,8 +946,8 @@ child_died:
     COMPILER_WRITE_BARRIER();
     if (wstatus) *wstatus = exit_info.si_status; /* CAUTION: SEGFAULT */
     if (infop) memcpy(infop,&exit_info,sizeof(siginfo_t)); /* CAUTION: SEGFAULT */
-    COMPILER_WRITE_BARRIER();
     if (ru) get_rusage(child,ru);
+    COMPILER_WRITE_BARRIER();
    } FINALLY {
     thread_pid_decref(child);
    }
@@ -985,8 +985,8 @@ child_died:
    /* Copy information to user-space. */
    if (wstatus) *wstatus = info.si_status; /* CAUTION: SEGFAULT */
    if (infop) memcpy(infop,&info,sizeof(siginfo_t)); /* CAUTION: SEGFAULT */
-   COMPILER_WRITE_BARRIER();
    if (ru) get_rusage(child,ru);
+   COMPILER_WRITE_BARRIER();
    return result;
   }
   /* Fallback: All other events (`CLD_EXITED', `CLD_KILLED', `CLD_DUMPED')
@@ -1027,7 +1027,7 @@ DEFINE_SYSCALL4(wait4,pid_t,upid,
                 USER UNCHECKED struct rusage *,ru) {
  int which;
  pid_t result;
- if (options & ~(WNOHANG|WUNTRACED|WCONTINUED|WEXITED))
+ if (options & ~(WNOHANG|WSTOPPED|WCONTINUED|WEXITED))
      error_throw(E_INVALID_ARGUMENT);
  options |= WEXITED;
  validate_writable_opt(wstatus,sizeof(int));

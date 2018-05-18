@@ -136,7 +136,8 @@ again:
 
 INTDEF ATTR_NOTHROW struct vm_node *KCALL this_vm_getnode(vm_vpage_t page);
 PUBLIC ATTR_RETNONNULL REF
-struct futex *KCALL vm_futex(VIRT void *addr) {
+struct futex *KCALL vm_futex(VIRT void *addr_) {
+ VIRT void *EXCEPT_VAR addr = addr_;
  struct vm *EXCEPT_VAR my_vm = THIS_VM;
  struct vm_node *node;
  struct futex *new_futex;
@@ -151,7 +152,7 @@ again:
  if unlikely(!node) {
   struct exception_info *info;
 bad_addr_unlock:
-  vm_release_read(my_vm);
+  COMPILER_UNUSED(vm_release_read(my_vm));
 bad_addr:
   info                               = error_info();
   info->e_error.e_code               = E_SEGFAULT;
@@ -230,24 +231,27 @@ insert_futex_into_iter:
   goto insert_futex_into_iter;
 done:;
  } FINALLY {
-  vm_release_read(my_vm);
+  if (vm_release_read(my_vm))
+      goto again;
  }
  return result;
 }
 
-PUBLIC REF struct futex *KCALL vm_getfutex(VIRT void *addr) {
+PUBLIC REF struct futex *KCALL vm_getfutex(VIRT void *addr_) {
+ VIRT void *EXCEPT_VAR addr = addr_;
  struct vm *EXCEPT_VAR my_vm = THIS_VM;
  struct vm_node *node;
  struct futex *new_futex;
  struct futex *COMPILER_IGNORE_UNINITIALIZED(result);
  atomic_rwptr_t *iter;
- assert((uintptr_t)addr);
+again:
+ /*assert((uintptr_t)addr);*/
  if ((uintptr_t)addr >= KERNEL_BASE) goto fail;
  vm_acquire_read(my_vm);
  node = this_vm_getnode(VM_ADDR2PAGE((uintptr_t)addr));
  if unlikely(!node) {
 fail_unlock:
-  vm_release_read(my_vm);
+  COMPILER_UNUSED(vm_release_read(my_vm));
 fail:
   return NULL;
  }
@@ -278,7 +282,8 @@ fail:
   goto fail_unlock;
 done:;
  } FINALLY {
-  vm_release_read(my_vm);
+  if (vm_release_read(my_vm))
+      goto again;
  }
  return result;
 }

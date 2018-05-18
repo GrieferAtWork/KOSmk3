@@ -69,12 +69,12 @@ struct task;
 
 #define RWLOCK_MODE_FREADING   0x00 /* MODE: ZERO, One or more threads are holding read locks. */
 #define RWLOCK_MODE_FUPGRADING 0x01 /* MODE: A reader is being upgraded to a writer, or
-                                     *        a writer is attempting to acquire a lock.
-                                     *        New readers must wait until the rwlock
-                                     *        has returned to `RWLOCK_MODE_FREADING'
-                                     *        before acquiring a shared lock. */
+                                     *       a writer is attempting to acquire a lock.
+                                     *       New readers must wait until the rwlock
+                                     *       has returned to `RWLOCK_MODE_FREADING'
+                                     *       before acquiring a shared lock. */
 #define RWLOCK_MODE_FWRITING   0x02 /* MODE: The rwlock is being owned
-                                     *        exclusively by a single thread. */
+                                     *       exclusively by a single thread. */
 
 
 #define RWLOCK_FNORMAL 0x00 /* Normal flags. */
@@ -170,13 +170,27 @@ FORCELOCAL bool KCALL rwlock_tryread(struct rwlock *__restrict self);
 FORCELOCAL ATTR_NOTHROW bool KCALL rwlock_trywrite(struct rwlock *__restrict self);
 FORCELOCAL ATTR_NOTHROW bool KCALL rwlock_tryupgrade(struct rwlock *__restrict self);
 
+/* Same as `rwlock_tryread()', but don't attempt to exceed previously allocated
+ * read-lock caches by allocating new memory (or if memory is allocated, allocate
+ * only from other caches, meaning that RPCs are never served, and an exception
+ * can never be thrown unless the caller has disabled preemption) */
+FORCELOCAL ATTR_NOTHROW bool KCALL rwlock_tryread_nothrow(struct rwlock *__restrict self);
+
 #ifndef __INTELLISENSE__
 FUNDEF bool KCALL __os_rwlock_tryread(struct rwlock *__restrict self) ASMNAME("rwlock_tryread");
+FUNDEF bool KCALL __os_rwlock_tryread_nothrow(struct rwlock *__restrict self) ASMNAME("rwlock_tryread_nothrow");
 FUNDEF ATTR_NOTHROW bool KCALL __os_rwlock_trywrite(struct rwlock *__restrict self) ASMNAME("rwlock_trywrite");
 FUNDEF bool KCALL __os_rwlock_tryupgrade(struct rwlock *__restrict self) ASMNAME("rwlock_tryupgrade");
 FORCELOCAL bool KCALL
 rwlock_tryread(struct rwlock *__restrict self) {
  if (!__os_rwlock_tryread(self))
+      return false;
+ COMPILER_READ_BARRIER();
+ return true;
+}
+FORCELOCAL bool KCALL
+rwlock_tryread_nothrow(struct rwlock *__restrict self) {
+ if (!__os_rwlock_tryread_nothrow(self))
       return false;
  COMPILER_READ_BARRIER();
  return true;

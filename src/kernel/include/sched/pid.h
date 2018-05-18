@@ -188,8 +188,8 @@ FUNDEF void KCALL pidns_destroy(struct pidns *__restrict self);
  *                   (set to `1' for the init-process of the namespace)
  *                    When ZERO, or already in use, new PIDs are randomly
  *                    generated until one is found that isn't in use already. */
-FUNDEF ATTR_RETNONNULL ATTR_MALLOC REF
-struct thread_pid *KCALL pidns_newpid(struct pidns *__restrict self, pid_t fixed_pid);
+FUNDEF ATTR_RETNONNULL ATTR_MALLOC REF struct thread_pid *
+KCALL pidns_newpid(struct pidns *__restrict self, pid_t fixed_pid);
 
 /* Lookup the a PID descriptor matching the
  * given PID in the calling thread's PID namespace.

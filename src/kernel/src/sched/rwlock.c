@@ -35,37 +35,11 @@
 #include <string.h>
 #include <bits/poll.h>
 
+#include "rwlock.h"
+
 DECL_BEGIN
 
-#undef CONFIG_LOG_RWLOCKS
-#if !defined(NDEBUG) && 0
-#define CONFIG_LOG_RWLOCKS 1
-#endif
-
-
-/* A dummy R/W lock pointer. */
-#define READLOCK_DUMMYLOCK  ((struct rwlock *)-1)
-
-struct read_lock {
-    uintptr_t      rl_recursion; /* [valid_if(rl_rwlock != NULL && rl_rwlock != READLOCK_DUMMYLOCK)]
-                                  *  Amount of recursive read-locks held. */
-    struct rwlock *rl_rwlock;    /* [valid_if(!= NULL && != READLOCK_DUMMYLOCK)] Associated R/W-lock. */
-};
-#define CONFIG_TASK_STATIC_READLOCKS 4
-
-
-#define RWLOCK_HASH(x) ((uintptr_t)(x) / HEAP_ALIGNMENT)
-struct read_locks {
-    struct read_lock  rls_sbuf[CONFIG_TASK_STATIC_READLOCKS];
-    size_t            rls_use; /* Amount of read-locks in use. */
-    size_t            rls_cnt; /* Amount of non-NULL R/W locks. */
-    size_t            rls_msk; /* Allocated hash-mask of the read-hash-vector. */
-    struct read_lock *rls_vec; /* [1..rls_msk+1][owned_if(!= rls_sbuf)]
-                                * Hash-vector of thread-locally held read-locks.
-                                * As hash-index, use `RWLOCK_HASH()' */
-};
-
-PRIVATE ATTR_PERTASK struct read_locks my_readlocks = {
+INTERN ATTR_PERTASK struct read_locks my_readlocks = {
     .rls_use = 0,
     .rls_cnt = 0,
     .rls_msk = CONFIG_TASK_STATIC_READLOCKS-1
@@ -90,8 +64,8 @@ readlocks_fini(struct task *__restrict thread) {
 }
 
 /* Find an existing read-lock descriptor for `lock', or return NULL. */
-PRIVATE ATTR_NOTHROW struct read_lock *KCALL
-find_readlock(struct rwlock *__restrict lock) {
+INTERN ATTR_NOTHROW struct read_lock *KCALL
+rwlock_find_readlock(struct rwlock *__restrict lock) {
  uintptr_t i,perturb;
  struct read_locks *locks;
  struct read_lock *lockdesc;
@@ -110,47 +84,16 @@ find_readlock(struct rwlock *__restrict lock) {
 }
 
 /* Return a read-lock descriptor for `lock', or allocate a new one. */
-PRIVATE ATTR_RETNONNULL struct read_lock *KCALL
-get_readlock(struct rwlock *__restrict lock) {
+INTERN ATTR_RETNONNULL struct read_lock *KCALL
+rwlock_get_readlock(struct rwlock *__restrict lock) {
  uintptr_t j,perturb;
  struct read_locks *locks;
  struct read_lock *lockdesc;
  struct read_lock *result;
  locks = &PERTASK(my_readlocks);
+again:
  assert(locks->rls_use <= locks->rls_cnt);
  assert(locks->rls_cnt <= locks->rls_msk);
- if (locks->rls_cnt == locks->rls_msk) {
-  struct read_lock *old_vector;
-  struct read_lock *EXCEPT_VAR new_vector;
-  size_t new_mask,i;
-  /* Must re-hash the readlock hash-vector. */
-  new_mask   = (locks->rls_msk << 1)|1;
-  new_vector = (struct read_lock *)kmalloc((new_mask+1)*
-                                            sizeof(struct read_lock),
-                                            GFP_SHARED|GFP_CALLOC);
-  old_vector = locks->rls_vec;
-  TRY {
-   for (i = 0; i <= locks->rls_msk; ++i) {
-    struct rwlock *heldlock = old_vector[i].rl_rwlock;
-    if (!heldlock || heldlock == READLOCK_DUMMYLOCK) continue;
-    perturb = j = RWLOCK_HASH(heldlock) & new_mask;
-    for (;; j = ((j << 2) + j + perturb + 1),perturb >>= 5) {
-     lockdesc = &new_vector[j & new_mask];
-     if (lockdesc->rl_rwlock) continue;
-     memcpy(lockdesc,&old_vector[i],sizeof(struct read_lock));
-     break;
-    }
-   }
-  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-   kfree(new_vector);
-   error_rethrow();
-  }
-  locks->rls_cnt = locks->rls_use; /* Dismiss dummy entries. */
-  locks->rls_vec = new_vector;
-  locks->rls_msk = new_mask;
-  if (old_vector != locks->rls_sbuf)
-      kfree(old_vector);
- }
  result = NULL;
  perturb = j = RWLOCK_HASH(lock) & locks->rls_msk;
  for (;; j = ((j << 2) + j + perturb + 1),perturb >>= 5) {
@@ -159,8 +102,51 @@ get_readlock(struct rwlock *__restrict lock) {
       return lockdesc; /* Existing descriptor. */
   if (!lockdesc->rl_rwlock) {
    /* End of chain (if no dummy was found, use this entry). */
-   if (!result)
-        result = lockdesc;
+   if (!result) {
+    if (locks->rls_cnt == locks->rls_msk) {
+     struct read_lock *old_vector;
+     struct read_lock *EXCEPT_VAR new_vector;
+     size_t new_mask,i;
+     /* Must re-hash the readlock hash-vector. */
+     new_mask   = (locks->rls_msk << 1)|1;
+     /* NOTE: Memory must be locked in-core, because otherwise the following loop can happen:
+      *   #1: #PF
+      *   #2: EXCEPTION
+      *   #3: EXCEPTION: tryread(VM)  (To find the associated FDE)
+      *   #4: FIND_READLOCK(VM)
+      *   #5: #PF
+      */
+     new_vector = (struct read_lock *)kmalloc((new_mask+1)*
+                                               sizeof(struct read_lock),
+                                               GFP_SHARED|GFP_CALLOC|
+                                               GFP_LOCKED);
+     old_vector = locks->rls_vec;
+     TRY {
+      for (i = 0; i <= locks->rls_msk; ++i) {
+       struct rwlock *heldlock = old_vector[i].rl_rwlock;
+       if (!heldlock || heldlock == READLOCK_DUMMYLOCK) continue;
+       perturb = j = RWLOCK_HASH(heldlock) & new_mask;
+       for (;; j = ((j << 2) + j + perturb + 1),perturb >>= 5) {
+        lockdesc = &new_vector[j & new_mask];
+        if (lockdesc->rl_rwlock) continue;
+        memcpy(lockdesc,&old_vector[i],sizeof(struct read_lock));
+        break;
+       }
+      }
+     } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+      kfree(new_vector);
+      error_rethrow();
+     }
+     locks->rls_cnt = locks->rls_use; /* Dismiss dummy entries. */
+     locks->rls_vec = new_vector;
+     locks->rls_msk = new_mask;
+     if (old_vector != locks->rls_sbuf)
+         kfree(old_vector);
+     goto again;
+    }
+    ++locks->rls_cnt;
+    result = lockdesc;
+   }
    break;
   }
   if (lockdesc->rl_rwlock == READLOCK_DUMMYLOCK) {
@@ -175,13 +161,54 @@ get_readlock(struct rwlock *__restrict lock) {
  result->rl_recursion = 0;
  result->rl_rwlock = lock;
  ++locks->rls_use;
- ++locks->rls_cnt;
+ return result;
+}
+
+/* Return a read-lock descriptor for `lock', or allocate a new one. */
+INTERN struct read_lock *KCALL
+rwlock_get_readlock_nothrow(struct rwlock *__restrict lock) {
+ uintptr_t j,perturb;
+ struct read_locks *locks;
+ struct read_lock *lockdesc;
+ struct read_lock *result = NULL;
+ locks = &PERTASK(my_readlocks);
+ assert(locks->rls_use <= locks->rls_cnt);
+ assert(locks->rls_cnt <= locks->rls_msk);
+ perturb = j = RWLOCK_HASH(lock) & locks->rls_msk;
+ for (;; j = ((j << 2) + j + perturb + 1),perturb >>= 5) {
+  lockdesc = &locks->rls_vec[j & locks->rls_msk];
+  if (lockdesc->rl_rwlock == lock)
+      return lockdesc; /* Existing descriptor. */
+  if (!lockdesc->rl_rwlock) {
+   /* End of chain (if no dummy was found, use this entry). */
+   if (!result) {
+    if (locks->rls_cnt == locks->rls_msk)
+        return NULL;
+    result = lockdesc;
+    ++locks->rls_cnt;
+   }
+   break;
+  }
+  if (lockdesc->rl_rwlock == READLOCK_DUMMYLOCK) {
+   /* Re-use dummy locks. */
+   if (!result)
+        result = lockdesc;
+  }
+ }
+ if (!result) goto done;
+ /* New descriptor. */
+ assert(result->rl_rwlock == NULL ||
+        result->rl_rwlock == READLOCK_DUMMYLOCK);
+ result->rl_recursion = 0;
+ result->rl_rwlock = lock;
+ ++locks->rls_use;
+done:
  return result;
 }
 
 /* Delete the given rlock. */
-PRIVATE void KCALL
-del_readlock(struct read_lock *__restrict rlock) {
+INTERN void KCALL
+rwlock_delete_readlock(struct read_lock *__restrict rlock) {
  assert(PERTASK_TEST(my_readlocks.rls_use));
  assert(PERTASK_TEST(my_readlocks.rls_cnt));
  assert(rlock >= PERTASK_GET(my_readlocks.rls_vec));
@@ -199,7 +226,7 @@ rwlock_reading(struct rwlock *__restrict self) {
      return false;
  if (self->rw_mode == RWLOCK_MODE_FWRITING)
      return self->rw_xowner == THIS_TASK;
- lock = find_readlock(self);
+ lock = rwlock_find_readlock(self);
  assert(!lock || lock->rl_recursion != 0);
  return lock != NULL;
 }
@@ -217,11 +244,11 @@ __os_rwlock_tryread(struct rwlock *__restrict self) {
    ++self->rw_xind;
    return true;
   }
-  assertf(!find_readlock(self),
+  assertf(!rwlock_find_readlock(self),
           "You can't be holding read locks when another thread is writing");
   return false;
  }
- desc = get_readlock(self);
+ desc = rwlock_get_readlock(self);
  if (desc->rl_recursion) {
   /* Recursive read-lock. */
   assert(self->rw_mode != RWLOCK_MODE_FWRITING);
@@ -241,7 +268,55 @@ __os_rwlock_tryread(struct rwlock *__restrict self) {
    * to be acquired. */
   if (__RWLOCK_MODE(control_word) != RWLOCK_MODE_FREADING) {
    /* This also deals with upgrade-mode. */
-   del_readlock(desc);
+   rwlock_delete_readlock(desc);
+   return false;
+  }
+ } while (!ATOMIC_CMPXCH_WEAK(self->rw_state,control_word,
+                              __RWLOCK_INCIND(control_word)));
+ /* Initial read-lock. */
+ desc->rl_recursion = 1;
+ return true;
+}
+
+PUBLIC ATTR_NOTHROW bool KCALL
+__os_rwlock_tryread_nothrow(struct rwlock *__restrict self) {
+ struct read_lock *desc;
+ u32 control_word;
+#ifdef CONFIG_LOG_RWLOCKS
+ debug_printf("[RWLOCK][%p] TRY_READ(%p)\n",THIS_TASK,self);
+#endif
+ if (self->rw_mode == RWLOCK_MODE_FWRITING) {
+  if (self->rw_xowner == THIS_TASK) {
+   /* Recursive read-after-write. */
+   ++self->rw_xind;
+   return true;
+  }
+  assertf(!rwlock_find_readlock(self),
+          "You can't be holding read locks when another thread is writing");
+  return false;
+ }
+ desc = rwlock_get_readlock_nothrow(self);
+ if (!desc) return false; /* Failed to allocate more read locks. */
+ if (desc->rl_recursion) {
+  /* Recursive read-lock. */
+  assert(self->rw_mode != RWLOCK_MODE_FWRITING);
+  assert(self->rw_scnt != 0);
+#if 0 /* Thread that already have a read-lock can still acquire
+       * more, even if the rw-lock is in upgrade mode. */
+  if (self->rw_mode == RWLOCK_MODE_FUPGRADING)
+      return false;
+#endif
+  ++desc->rl_recursion;
+  return true;
+ }
+ do {
+  control_word = ATOMIC_READ(self->rw_state);
+  /* Only allow acquisition when the lock is in read-mode.
+   * In upgrade or write-mode, we cannot allow more locks
+   * to be acquired. */
+  if (__RWLOCK_MODE(control_word) != RWLOCK_MODE_FREADING) {
+   /* This also deals with upgrade-mode. */
+   rwlock_delete_readlock(desc);
    return false;
   }
  } while (!ATOMIC_CMPXCH_WEAK(self->rw_state,control_word,
@@ -267,11 +342,11 @@ __os_rwlock_timedread(struct rwlock *__restrict self,
    ++self->rw_xind;
    return true;
   }
-  assertf(!find_readlock(self),
+  assertf(!rwlock_find_readlock(self),
           "You can't be holding read locks when another thread is writing");
-  desc = get_readlock(self);
+  desc = rwlock_get_readlock(self);
  } else {
-  desc = get_readlock(self);
+  desc = rwlock_get_readlock(self);
   if (desc->rl_recursion) {
    /* Recursive read-lock. */
    assert(self->rw_mode != RWLOCK_MODE_FWRITING);
@@ -311,7 +386,7 @@ acquire_read_lock:
    }
    if (!task_waitfor(abs_timeout)) {
     /* Timeout... (delete the read-descriptor) */
-    del_readlock(desc);
+    rwlock_delete_readlock(desc);
     return false;
    }
    goto acquire_read_lock;
@@ -341,7 +416,7 @@ again:
    ++self->rw_xind;
    return true;
   }
-  assertf(!find_readlock(self),
+  assertf(!rwlock_find_readlock(self),
           "You can't be holding read locks when another thread is writing");
  case RWLOCK_MODE_FUPGRADING:
   return false;
@@ -351,7 +426,7 @@ again:
  /* Read-mode. */
  if (__RWLOCK_IND(control_word) == 0) {
   /* Direct switch to write-mode. */
-  assertf(!find_readlock(self),"Without any read-locks, how can you be holding any?");
+  assertf(!rwlock_find_readlock(self),"Without any read-locks, how can you be holding any?");
   if (!ATOMIC_CMPXCH(self->rw_state,control_word,
                      __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1)))
        goto again;
@@ -361,7 +436,7 @@ got_lock:
  } else {
   bool caller_has_lock;
   assert(__RWLOCK_IND(control_word) >= 1);
-  caller_has_lock = find_readlock(self) != NULL;
+  caller_has_lock = rwlock_find_readlock(self) != NULL;
   /* Must use upgrade-mode to acquire the lock. */
   if (caller_has_lock && __RWLOCK_IND(control_word) == 1) {
    /* We seem to be the only reader. - Try to do an atomic upgrade. */
@@ -396,7 +471,7 @@ again:
    ++self->rw_xind;
    return true;
   }
-  assertf(!find_readlock(self),
+  assertf(!rwlock_find_readlock(self),
           "You can't be holding read locks when another thread is writing");
   /* Wait for the write-mode to finish. */
 wait_for_endwrite:
@@ -418,7 +493,7 @@ wait_for_endwrite:
 
  case RWLOCK_MODE_FUPGRADING:
   /* Lock is in upgrade-mode. */
-  if (find_readlock(self)) {
+  if (rwlock_find_readlock(self)) {
    struct exception_info *info;
    /* The caller is holding read-locks, that must be removed to prevent
     * a deadlock situation. For this purposes, the `E_RETRY_RWLOCK'
@@ -439,7 +514,7 @@ wait_for_endwrite:
   /* Read-mode. */
   if (__RWLOCK_IND(control_word) == 0) {
    /* Direct switch to write-mode. */
-   assertf(!find_readlock(self),"Without any read-locks, how can you be holding any?");
+   assertf(!rwlock_find_readlock(self),"Without any read-locks, how can you be holding any?");
    if (!ATOMIC_CMPXCH(self->rw_state,control_word,
                       __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1)))
         goto again;
@@ -449,7 +524,7 @@ got_lock:
   } else {
    bool caller_has_lock;
    assert(__RWLOCK_IND(control_word) >= 1);
-   caller_has_lock = find_readlock(self) != NULL;
+   caller_has_lock = rwlock_find_readlock(self) != NULL;
    /* Must use upgrade-mode to acquire the lock. */
    if (caller_has_lock && __RWLOCK_IND(control_word) == 1) {
     /* We seem to be the only reader. - Try to do an atomic upgrade. */
@@ -519,7 +594,7 @@ PRIVATE void KCALL kill_reader(struct rwlock *__restrict lock) {
  struct exception_info *info;
  /* Check if the calling thread has a read-lock on `lock',
   * and throw an `E_RETRY_RWLOCK' exception if it does. */
- if (!find_readlock(lock))
+ if (!rwlock_find_readlock(lock))
       return;
 #if 0
  debug_printf("KILL_READER: %u for %p\n",posix_gettid(),lock);
@@ -608,7 +683,7 @@ again:
    ++self->rw_xind;
    return true;
   }
-  assertf(!find_readlock(self),
+  assertf(!rwlock_find_readlock(self),
           "You can't be holding read locks when another thread is writing");
   /* Wait for the write-mode to finish. */
 wait_for_endwrite:
@@ -630,7 +705,7 @@ wait_for_endwrite:
 
  case RWLOCK_MODE_FUPGRADING:
   /* Lock is in upgrade-mode. */
-  if (find_readlock(self)) {
+  if (rwlock_find_readlock(self)) {
    struct exception_info *info;
    /* The caller is holding read-locks, that must be removed to prevent
     * a deadlock situation. For this purposes, the `E_RETRY_RWLOCK'
@@ -651,7 +726,7 @@ wait_for_endwrite:
   /* Read-mode. */
   if (__RWLOCK_IND(control_word) == 0) {
    /* Direct switch to write-mode. */
-   assertf(!find_readlock(self),"Without any read-locks, how can you be holding any?");
+   assertf(!rwlock_find_readlock(self),"Without any read-locks, how can you be holding any?");
    if (!ATOMIC_CMPXCH(self->rw_state,control_word,
                       __RWLOCK_STATE(RWLOCK_MODE_FWRITING,1)))
         goto again;
@@ -661,7 +736,7 @@ got_lock:
   } else {
    bool caller_has_lock;
    assert(__RWLOCK_IND(control_word) >= 1);
-   caller_has_lock = find_readlock(self) != NULL;
+   caller_has_lock = rwlock_find_readlock(self) != NULL;
    /* Must use upgrade-mode to acquire the lock. */
    if (caller_has_lock && __RWLOCK_IND(control_word) == 1) {
     /* We seem to be the only reader. - Try to do an atomic upgrade. */
@@ -759,7 +834,7 @@ again:
  default: break;
  }
  /* Read-mode. */
- assertf(find_readlock(self),"You're not holding any read-locks");
+ assertf(rwlock_find_readlock(self),"You're not holding any read-locks");
  assertf(__RWLOCK_IND(control_word) >= 1,
          "Inconsistent R/W-lock state: You're holding "
          "read-locks that the lock knows nothing about");
@@ -806,7 +881,7 @@ again:
   struct exception_info *info;
  case RWLOCK_MODE_FUPGRADING:
   /* Lock is in upgrade-mode. */
-  assertf(find_readlock(self),"You're not holding any read-locks");
+  assertf(rwlock_find_readlock(self),"You're not holding any read-locks");
   /* The caller is holding read-locks, that must be removed to prevent
    * a deadlock situation. For this purposes, the `E_RETRY_RWLOCK'
    * exception exists. */
@@ -824,7 +899,7 @@ again:
   struct rwlock *EXCEPT_VAR xself;
  default:
   /* Read-mode. */
-  assertf(find_readlock(self),"You're not holding any read-locks");
+  assertf(rwlock_find_readlock(self),"You're not holding any read-locks");
   assertf(__RWLOCK_IND(control_word) >= 1,
           "Inconsistent R/W-lock state: You're holding "
           "read-locks that the lock knows nothing about");
@@ -904,7 +979,7 @@ __os_rwlock_downgrade(struct rwlock *__restrict self) {
          "Inconsistent R/W-lock state");
  if (self->rw_xind == 1) {
   /* Increment the read-recursion for the lock. */
-  get_readlock(self)->rl_recursion += 1;
+  rwlock_get_readlock(self)->rl_recursion += 1;
   /* Do the downgrade (keep the level#1 indirection as reader-counter). */
   ATOMIC_WRITE(self->rw_mode,RWLOCK_MODE_FREADING);
   /* Signal the downgrade. */
@@ -931,7 +1006,7 @@ __os_rwlock_endwrite(struct rwlock *__restrict self) {
   /* Clear the owner-field. */
   ATOMIC_WRITE(self->rw_xowner,NULL);
   /* If our thread has older read-locks, restore them. */
-  desc = find_readlock(self);
+  desc = rwlock_find_readlock(self);
   assert(!desc || desc->rl_rwlock == self);
   if (desc) {
    assert(desc->rl_recursion != 0);
@@ -970,7 +1045,7 @@ __os_rwlock_end(struct rwlock *__restrict self) {
    /* Clear the owner-field. */
    ATOMIC_WRITE(self->rw_xowner,NULL);
    /* If our thread has older read-locks, restore them. */
-   desc = find_readlock(self);
+   desc = rwlock_find_readlock(self);
    if (desc) {
     assert(desc->rl_recursion != 0);
     /* Downgrade to read-mode (keep the indirection of `1'). */
@@ -988,7 +1063,7 @@ __os_rwlock_end(struct rwlock *__restrict self) {
  } else {
   struct read_lock *desc;
   /* Drop a read-lock. */
-  desc = find_readlock(self);
+  desc = rwlock_find_readlock(self);
   assertf(desc,
           "You're not holding any read-locks\n"
           "self                          = %p\n"
@@ -1005,7 +1080,7 @@ __os_rwlock_end(struct rwlock *__restrict self) {
    struct exception_info *error;
    /* Last read-lock is being removed. (decrement the
     * reader-counter of the lock and delete the descriptor) */
-   del_readlock(desc);
+   rwlock_delete_readlock(desc);
    do {
     control_word = ATOMIC_READ(self->rw_state);
     assert(__RWLOCK_MODE(control_word) != RWLOCK_MODE_FWRITING);
@@ -1050,7 +1125,7 @@ rwlock_poll(struct rwlock *__restrict self, unsigned int mode) {
  if (__RWLOCK_MODE(state) == RWLOCK_MODE_FREADING) {
   result = POLLIN; /* Read locks are available. */
   if (__RWLOCK_IND(state) == 0 ||
-     (__RWLOCK_IND(state) == 1 && get_readlock(self)))
+     (__RWLOCK_IND(state) == 1 && rwlock_get_readlock(self)))
       result |= POLLOUT; /* No [other] readers -> Write lock is available. */
  } else if (self->rw_xowner == THIS_TASK) {
   /* Caller is holding the write-lock. */

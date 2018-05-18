@@ -54,7 +54,6 @@ __asm__(".hidden x86_double_fault_handler\n"
 INTDEF void KCALL print_tb(struct cpu_context *__restrict context);
 
 INTERN void FCALL c_x86_double_fault_handler(void) {
-
  struct cpu_context context;
  struct exception_info *info = error_info();
  struct x86_tss *tss = &PERCPU(x86_cputss);
@@ -132,6 +131,25 @@ INTERN void FCALL c_x86_double_fault_handler(void) {
    info->e_error.e_flag              &= ~ERR_FRESUMABLE;
    info->e_error.e_segfault.sf_vaddr  = (void *)cr2;
    info->e_error.e_segfault.sf_reason = 0; /* XXX: Not strictly correct... */
+  }
+ }
+
+ {
+  uintptr_t base = (uintptr_t)PERTASK_GET(this_task.t_stackmin);
+  uintptr_t end = (uintptr_t)PERTASK_GET(this_task.t_stackend);
+  if (base < context.c_esp)
+      base = context.c_esp;
+  debug_printf("SEARCH %p...%p\n",base,end-1);
+  debug_printf("STACK  %p...%p\n",
+               PERTASK_GET(this_task.t_stackmin),
+              (uintptr_t)PERTASK_GET(this_task.t_stackend)-1);
+  while (base < end) {
+   uintptr_t ptr = *(uintptr_t *)base;
+   base += sizeof(uintptr_t);
+   if (ptr >= (uintptr_t)kernel_start && ptr < (uintptr_t)kernel_end_raw) {
+    debug_printf("%%{vinfo:kernel-i686-kos.bin:%p:%p:%%f(%%l,%%c) : %%n : %%p : Potential kernel address}\n",
+                 ptr,ptr);
+   }
   }
  }
 

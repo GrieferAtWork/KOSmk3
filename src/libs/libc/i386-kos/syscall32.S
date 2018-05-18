@@ -1091,7 +1091,7 @@ EXPORT(Xdetach,libc_Xdetach)
 
 DEFINE_SYSCALL(pselect6,6,   Esys|Xsys)
 DEFINE_SYSCALL(ppoll,5,      Esys|Xsys)
-DEFINE_SYSCALL(xppoll,6,     Esys|Xsys)
+DEFINE_SYSCALL(xppoll,4,     Esys|Xsys)
 
 DEFINE_SYSCALL(pipe,1,       E|X)
 DEFINE_SYSCALL(pipe2,2,      E|X)

@@ -59,26 +59,8 @@ linker_findfde(uintptr_t ip, struct fde_info *__restrict result) {
  REF struct vm_region *EXCEPT_VAR region; uintptr_t reloffset;
  struct vm *EXCEPT_VAR effective_vm; struct vm_node *node;
  effective_vm = ip >= KERNEL_BASE ? &vm_kernel : THIS_VM;
-#ifdef NDEBUG
- if (!vm_tryacquire_read(effective_vm))
-#endif
- {
-  if (PREEMPTION_ENABLED()) {
-   u16 EXCEPT_VAR old_state;
-   old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
-   TRY {
-    vm_acquire_read(effective_vm);
-   } FINALLY {
-    if (!(old_state & TASK_STATE_FDONTSERVE))
-          ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
-   }
-  } else {
-   /* Can only search the kernel itself. */
-   if (effective_vm != &vm_kernel)
-       return false;
-   return kernel_eh_findfde(ip,result);
-  }
- }
+findfde_again:
+ vm_acquire_read(effective_vm);
  TRY {
   node = vm_getnode(VM_ADDR2PAGE(ip));
   if (node) {
@@ -90,12 +72,14 @@ linker_findfde(uintptr_t ip, struct fde_info *__restrict result) {
     reloffset  = VM_NODE_MINADDR(node);
     reloffset += node->vn_start * PAGESIZE;
     vm_region_incref(region);
-    vm_release_read(effective_vm);
+    if (vm_release_read(effective_vm))
+        goto findfde_again;
     goto invoke_region; /* XXX: Skip over FINALLY is intentional */
    }
   }
  } FINALLY {
-  vm_release_read(effective_vm);
+  if (vm_release_read(effective_vm))
+      goto findfde_again;
  }
  if (!app) return false;
  TRY {
@@ -145,33 +129,15 @@ invoke_region:
  *       caused by the associated application suddenly being unmapped.
  * @return: true:  Successfully located an exception handler.
  * @return: false: Could not find an exception handler for `ip' */
-FUNDEF bool KCALL
+PUBLIC bool KCALL
 linker_findexcept(uintptr_t ip, u16 exception_code,
                   struct exception_handler_info *__restrict result) {
  REF struct application *EXCEPT_VAR app = NULL;
  bool COMPILER_IGNORE_UNINITIALIZED(except_ok);
  struct vm *EXCEPT_VAR effective_vm; struct vm_node *node;
  effective_vm = ip >= KERNEL_BASE ? &vm_kernel : THIS_VM;
-#ifdef NDEBUG
- if (!vm_tryacquire_read(effective_vm))
-#endif
- {
-  if (PREEMPTION_ENABLED()) {
-   u16 EXCEPT_VAR old_state;
-   old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
-   TRY {
-    vm_acquire_read(effective_vm);
-   } FINALLY {
-    if (!(old_state & TASK_STATE_FDONTSERVE))
-          ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
-   }
-  } else {
-   /* Can only search the kernel itself. */
-   if (effective_vm != &vm_kernel)
-       return false;
-   return kernel_findexcept(ip,exception_code,result);
-  }
- }
+findexcept_again:
+ vm_acquire_read(effective_vm);
  TRY {
   node = vm_getnode(VM_ADDR2PAGE(ip));
   if (node && node->vn_notify == &application_notify) {
@@ -179,7 +145,8 @@ linker_findexcept(uintptr_t ip, u16 exception_code,
    application_incref(app);
   }
  } FINALLY {
-  vm_release_read(effective_vm);
+  if (vm_release_read(effective_vm))
+      goto findexcept_again;
  }
  if (!app) return false;
  TRY {
@@ -201,6 +168,118 @@ linker_findexcept(uintptr_t ip, u16 exception_code,
  }
  return except_ok;
 }
+
+
+
+INTERN ATTR_NOTHROW bool KCALL
+except_findfde(uintptr_t ip, struct fde_info *__restrict result) {
+ REF struct vm_region *region; uintptr_t reloffset;
+ struct vm *effective_vm; struct vm_node *node;
+ assert(THIS_TASK->t_state & TASK_STATE_FDONTSERVE);
+ effective_vm = ip >= KERNEL_BASE ? &vm_kernel : THIS_VM;
+ if (!vm_tryacquire_read_nothrow(effective_vm)) {
+  if (PREEMPTION_ENABLED()) {
+   vm_acquire(effective_vm);
+  } else {
+   /* Can only search the kernel itself. */
+   if (effective_vm != &vm_kernel)
+       return false;
+   return kernel_eh_findfde(ip,result);
+  }
+ }
+ node = vm_getnode(VM_ADDR2PAGE(ip));
+ if (!node) { COMPILER_UNUSED(vm_release_any(effective_vm)); return false; }
+ if (node->vn_notify == &application_notify) {
+  REF struct application *app; struct module *mod;
+  app = (REF struct application *)node->vn_closure;
+  application_incref(app);
+  COMPILER_UNUSED(vm_release_any(effective_vm));
+  if (!module_loadexcept(app) &&
+      !app->a_module->m_sect.m_eh_frame.ds_size) {
+app_failed:
+   application_decref(app);
+   return false;
+  }
+  mod = app->a_module;
+  /* Lookup FDE information. */
+  if (fde_cache_lookup(&mod->m_fde_cache,result,ip - app->a_loadaddr)) {
+   /* Convert into absolute FDE information. */
+   fde_info_mkabs(result,app->a_loadaddr);
+  } else {
+   if (!eh_findfde((byte_t *)
+                   ((uintptr_t)mod->m_sect.m_eh_frame.ds_base + app->a_loadaddr),
+                               mod->m_sect.m_eh_frame.ds_size,
+                     ip,result))
+        goto app_failed;
+   /* We managed to find something! now to cache it. */
+   fde_info_mkrel(result,app->a_loadaddr);
+   fde_cache_insert(mod,result);
+   fde_info_mkabs(result,app->a_loadaddr);
+  }
+  return true;
+ }
+ region = node->vn_region;
+ if (region->vr_ctl != NULL) {
+  bool fde_ok;
+  /* Make `ip' become relative to the region. */
+  reloffset  = VM_NODE_MINADDR(node);
+  reloffset += node->vn_start * PAGESIZE;
+  vm_region_incref(region);
+  COMPILER_UNUSED(vm_release_any(effective_vm));
+  /* Perform a region control command to find the FDE. */
+  fde_ok = (*region->vr_ctl)(region,REGION_CTL_FFIND_FDE,
+                             ip-reloffset,result) != 0;
+  vm_region_decref(region);
+  result->fi_pcbegin += reloffset;
+  result->fi_pcend   += reloffset;
+  return fde_ok;
+ }
+ COMPILER_UNUSED(vm_release_any(effective_vm));
+ return false;
+}
+
+INTERN ATTR_NOTHROW bool KCALL
+except_findexcept(uintptr_t ip, u16 exception_code,
+                  struct exception_handler_info *__restrict result) {
+ struct vm *effective_vm; struct vm_node *node;
+ REF struct application *app; bool except_ok;
+ assert(THIS_TASK->t_state & TASK_STATE_FDONTSERVE);
+ effective_vm = ip >= KERNEL_BASE ? &vm_kernel : THIS_VM;
+ if (!vm_tryacquire_read_nothrow(effective_vm)) {
+  if (PREEMPTION_ENABLED()) {
+   vm_acquire(effective_vm);
+  } else {
+   /* Can only search the kernel itself. */
+   if (effective_vm != &vm_kernel)
+       return false;
+   return kernel_findexcept(ip,exception_code,result);
+  }
+ }
+ node = vm_getnode(VM_ADDR2PAGE(ip));
+ if (!node || node->vn_notify != &application_notify) {
+  COMPILER_UNUSED(vm_release_any(effective_vm));
+  return false;
+ }
+ app = (REF struct application *)node->vn_closure;
+ application_incref(app);
+ COMPILER_UNUSED(vm_release_any(effective_vm));
+ except_ok = false;
+ if (module_loadexcept(app) ||
+     app->a_module->m_sect.m_except.ds_size) {
+  struct module *mod = app->a_module;
+  struct except_handler *iter;
+  iter = (struct except_handler *)((uintptr_t)mod->m_sect.m_except.ds_base+
+                                              app->a_loadaddr);
+  except_ok = except_cache_lookup(iter,
+                                 (struct except_handler *)((uintptr_t)iter+
+                                                            mod->m_sect.m_except.ds_size),
+                                  ip - app->a_loadaddr,exception_code,
+                                  app,result);
+ }
+ application_decref(app);
+ return except_ok;
+}
+
 
 
 DECL_END

@@ -54,6 +54,7 @@ __DECL_BEGIN
 
 
 
+/* RPC return codes. */
 #define RPC_RETURN_RESTART         0 /* Restart the system call that was interrupted by the RPC. */
 #define RPC_RETURN_RESTART_SYSCALL 1 /* Restart the system call that was interrupted by the RPC,
                                       * but only if the `RPC_REASON_FSHOULD_RESTART' reason flag is set.

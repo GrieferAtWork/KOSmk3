@@ -42,6 +42,7 @@
 #include <except.h>
 #include <string.h>
 #include <sched/group.h>
+#include <sched/pid.h>
 #include <sched/async_signal.h>
 #include <sched/userstack.h>
 #include <sched/posix_signals.h>
@@ -1813,40 +1814,201 @@ KCALL vm_getfutex_consafe(VIRT void *addr) {
  return TASK_EVAL_CONSAFE(vm_getfutex(addr));
 }
 
+
+INTDEF void KCALL
+get_rusage(struct thread_pid *__restrict pid,
+           USER CHECKED struct rusage *ru);
+
+LOCAL bool KCALL
+poll_pid(USER CHECKED struct pollpid *__restrict pinfo) {
+ struct pollpid info;
+ struct task *my_process;
+ struct threadgroup *my_group;
+ struct thread_pid *EXCEPT_VAR child;
+ size_t my_indirection;
+ memcpy(&info,pinfo,sizeof(struct pollpid));
+ COMPILER_READ_BARRIER();
+ info.pp_pid;
+ my_process     = get_this_process();
+ my_group       = &FORTASK(my_process,_this_group);
+ my_indirection = FORTASK(my_process,_this_pid) ? FORTASK(my_process,_this_pid)->tp_ns->pn_indirection : 0;
+ /* Always connect to the child-event signal that
+  * child processes broadcast when they change state. */
+ if (!task_connected(&my_group->tg_process.h_cldevent))
+      task_connect(&my_group->tg_process.h_cldevent);
+ /* Enumerate child processes. */
+ sig_get(&my_group->tg_process.h_cldevent);
+ child = my_group->tg_process.h_children;
+ for (; child; child = child->tp_siblings.le_next) {
+  bool has_write_lock = false;
+  assert(child->tp_siblings.le_pself);
+  /* Check if this child process matches requested criteria. */
+  if (info.pp_which == P_PID) {
+   if (child->tp_pids[my_indirection] != info.pp_pid)
+       continue;
+  }
+
+  atomic_rwlock_read(&child->tp_task_lock);
+check_child_again:
+  /* XXX: We're not tracking the PGID in the PID descriptor,
+   *      but apparently POSIX wants us to remember a thread's
+   *      process group, even after the thread has died...
+   *      As a kind-of crappy work-around, right now we simply
+   *      ignore the child's PGID if the thread has already been
+   *      destroyed. */
+  if (info.pp_which == P_PGID && child->tp_task) {
+   struct processgroup *child_group;
+   struct thread_pid *child_group_pid;
+   pid_t thread_pgid;
+   child_group = &FORTASK(FORTASK(child->tp_task,_this_group).tg_leader,_this_group).tg_process.h_procgroup;
+   atomic_rwlock_read(&child_group->pg_lock);
+   child_group_pid = FORTASK(child_group->pg_leader,_this_pid);
+   thread_pgid     = child_group_pid ? child_group_pid->tp_pids[my_indirection] : 0;
+   atomic_rwlock_endread(&child_group->pg_lock);
+   /* Match process group IDs. */
+   if (thread_pgid != info.pp_pid) {
+continue_next_child_unlock:
+    if (has_write_lock)
+         atomic_rwlock_endwrite(&child->tp_task_lock);
+    else atomic_rwlock_endread(&child->tp_task_lock);
+    continue;
+   }
+  }
+  if (!child->tp_task ||
+      !ATOMIC_READ(child->tp_task->t_refcnt) ||
+       TASK_ISTERMINATED(child->tp_task)) {
+child_died:
+   /* The thread has died. */
+   if (has_write_lock)
+        atomic_rwlock_endwrite(&child->tp_task_lock);
+   else atomic_rwlock_endread(&child->tp_task_lock);
+   if (!(info.pp_options & WEXITED)) continue; /* Don't wait for exited child processes. */
+   /* Remove this child's zombie corpse when `WNOWAIT' isn't set. */
+   if (!(info.pp_options & WNOWAIT)) {
+    LIST_REMOVE(child,tp_siblings); /* Inherit reference. */
+    child->tp_siblings.le_pself = NULL;
+    child->tp_siblings.le_next  = NULL;
+   } else {
+    thread_pid_incref(child);
+   }
+   sig_put(&my_group->tg_process.h_cldevent);
+   TRY {
+    siginfo_t exit_info;
+    /* Disconnect from the state-change notification signal. */
+    task_disconnect();
+    /* Collect information in this child. */
+    memset(&exit_info,0,sizeof(siginfo_t));
+    exit_info.si_signo  = SIGCHLD;
+    exit_info.si_code   = child->tp_event;
+    exit_info.si_status = child->tp_status.w_status;
+    if (exit_info.si_code != CLD_EXITED &&
+        exit_info.si_code != CLD_KILLED &&
+        exit_info.si_code != CLD_DUMPED) {
+     /* Shouldn't get here? */
+     exit_info.si_status = CLD_EXITED;
+     exit_info.si_status = __W_EXITCODE(0,0);
+    }
+    exit_info.si_pid = child->tp_pids[my_indirection];
+    exit_info.si_uid = 0; /* TODO */
+    COMPILER_WRITE_BARRIER();
+    pinfo->pp_result = child->tp_pids[my_indirection];
+    if (info.pp_info)
+        memcpy(info.pp_info,&exit_info,sizeof(siginfo_t)); /* CAUTION: SEGFAULT */
+    if (info.pp_ru) get_rusage(child,info.pp_ru);
+    COMPILER_WRITE_BARRIER();
+   } FINALLY {
+    thread_pid_decref(child);
+   }
+   return true;
+  }
+  if (child->tp_event == 0) {
+   /* Track the number of potential child process to join.
+    * If there are none, we mustn't wait and fail with -ECHILD. */
+   goto continue_next_child_unlock;
+  }
+  if (!has_write_lock) {
+   has_write_lock = true;
+   if (!atomic_rwlock_upgrade(&child->tp_task_lock))
+        goto check_child_again;
+  }
+  /* An event happened in this child.
+   * Check if it matches our criteria (stop/continue). */
+  if (((child->tp_event == CLD_CONTINUED) && (info.pp_options & WCONTINUED)) ||
+      ((child->tp_event == CLD_STOPPED) && (info.pp_options & WSTOPPED))) {
+   siginfo_t child_info;
+   sig_put(&my_group->tg_process.h_cldevent);
+   /* Collect information in this child. */
+   memset(&child_info,0,sizeof(siginfo_t));
+   child_info.si_signo   = SIGCHLD;
+   child_info.si_code    = child->tp_event;
+   child_info.si_status  = child->tp_status.w_status;
+   child_info.si_pid     = child->tp_pids[my_indirection];
+   child_info.si_uid     = 0; /* TODO */
+   atomic_rwlock_endwrite(&child->tp_task_lock);
+   task_disconnect();
+   COMPILER_WRITE_BARRIER();
+   pinfo->pp_result = child->tp_pids[my_indirection];
+   /* Copy information to user-space. */
+   if (info.pp_info)
+       memcpy(info.pp_info,&child_info,sizeof(siginfo_t)); /* CAUTION: SEGFAULT */
+   if (info.pp_ru) get_rusage(child,info.pp_ru);
+   COMPILER_WRITE_BARRIER();
+   return true;
+  }
+  /* Fallback: All other events (`CLD_EXITED', `CLD_KILLED', `CLD_DUMPED')
+   *           are handled as the child having exited. */
+  goto child_died;
+ }
+ sig_put(&my_group->tg_process.h_cldevent);
+ return false;
+}
+
+
 DEFINE_SYSCALL_DONTRESTART(xppoll);
-DEFINE_SYSCALL6(xppoll,
-                USER UNCHECKED struct pollfd *,ufds_,size_t,nfds_,
-                USER UNCHECKED struct pollfutex *,uftx_,size_t,nftx_,
+DEFINE_SYSCALL4(xppoll,
+                USER UNCHECKED struct poll_info *,uinfo,
                 USER UNCHECKED struct timespec const *,tsp,
-                USER UNCHECKED struct pselect6_sig *,sig) {
- USER UNCHECKED sigset_t const *EXCEPT_VAR xsigmask = NULL;
- size_t EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(xsigsetsize);
- USER UNCHECKED struct pollfd *EXCEPT_VAR ufds = ufds_;
- USER UNCHECKED struct pollfutex *EXCEPT_VAR uftx = uftx_;
+                USER UNCHECKED sigset_t const *,signal_set,
+                size_t,sigset_size) {
+ USER UNCHECKED sigset_t const *EXCEPT_VAR xsigmask = signal_set;
+ size_t EXCEPT_VAR xsigsetsize = sigset_size;
+ USER UNCHECKED struct pollfd *EXCEPT_VAR ufds;
+ USER UNCHECKED struct pollfutex *EXCEPT_VAR uftx;
+ USER UNCHECKED struct pollpid *EXCEPT_VAR upid;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
- size_t EXCEPT_VAR nfds = nfds_;
- size_t EXCEPT_VAR nftx = nftx_;
+ size_t EXCEPT_VAR nfds;
+ size_t EXCEPT_VAR nftx;
+ size_t EXCEPT_VAR npid;
  size_t EXCEPT_VAR i; sigset_t old_blocking;
  REF struct futex **EXCEPT_VAR futex_vec = NULL;
  size_t EXCEPT_VAR futex_cnt;
- if (sig) {
-  validate_readable(sig,sizeof(*sig));
-  xsigmask    = sig->set;
-  xsigsetsize = sig->setsz;
- }
+ /* Load user-space poll descriptors. */
+ validate_readable(uinfo,sizeof(*uinfo));
+ COMPILER_READ_BARRIER();
+ ufds = uinfo->i_ufdvec;
+ nfds = uinfo->i_ufdcnt;
+ uftx = uinfo->i_ftxvec;
+ nftx = uinfo->i_ftxcnt;
+ upid = uinfo->i_pidvec;
+ npid = uinfo->i_pidcnt;
+ COMPILER_READ_BARRIER();
+ /* Validate the extracted vectors. */
+ validate_readablem(ufds,nfds,sizeof(*ufds));
+ validate_readablem(uftx,nftx,sizeof(*uftx));
+ validate_readablem(upid,npid,sizeof(*upid));
+ validate_readable_opt(tsp,sizeof(*tsp));
+
  /* Must restrict the number of futexes because of the malloca() below. */
  if unlikely(nftx > 0x1000)
     error_throw(E_INVALID_ARGUMENT);
 
- /* */if (!xsigmask);
- else if (xsigsetsize > sizeof(sigset_t)) {
-  error_throw(E_INVALID_ARGUMENT);
+ /* */if (!signal_set);
+ else {
+  if (xsigsetsize > sizeof(sigset_t))
+      error_throw(E_INVALID_ARGUMENT);
+  validate_readable(signal_set,sigset_size);
+  signal_chmask(signal_set,&old_blocking,sigset_size,SIGNAL_CHMASK_FBLOCK);
  }
- validate_readablem(ufds,nfds,sizeof(*ufds));
- validate_readablem(uftx,nftx,sizeof(*uftx));
- validate_readable_opt(tsp,sizeof(*tsp));
- if (xsigmask)
-     signal_chmask(xsigmask,&old_blocking,xsigsetsize,SIGNAL_CHMASK_FBLOCK);
  TRY {
   futex_vec = (REF struct futex **)calloca(nftx*sizeof(REF struct futex *));
   futex_cnt = 0;
@@ -1856,6 +2018,7 @@ scan_again:
   /* Clear the channel mask. Individual channels
    * may be re-opened by poll-callbacks as needed. */
   task_channelmask(0);
+  /* Scan file descriptors. */
   for (i = 0; i < nfds; ++i) {
    struct handle EXCEPT_VAR hnd;
    TRY {
@@ -1883,6 +2046,7 @@ scan_again:
     ufds[i].revents = POLLERR;
    }
   }
+  /* Scan futex objects. */
   for (i = 0; i < nftx; ++i) {
    REF struct futex *EXCEPT_VAR ftx;
    USER UNCHECKED futex_t *uaddr = uftx[i].pf_futex;
@@ -2109,6 +2273,12 @@ scan_again:
     uftx[i].pf_status = POLLFUTEX_STATUS_BADFUTEX;
    }
   }
+  /* Scan PIDs. */
+  for (i = 0; i < npid; ++i) {
+   if (poll_pid(&upid[i]))
+       ++result;
+  }
+
   if (result) {
    /* At least one of the handles has been signaled. */
    task_udisconnect();

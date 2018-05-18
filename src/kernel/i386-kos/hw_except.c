@@ -135,17 +135,32 @@ again:
  if (!PERTASK_TEST(mall_leak_nocore))
 #endif
  {
+  /* TODO: Disable RPC serving in here. (An arbitrary memory access causing
+   *       an RPC serve really isn't something that any sort of code expects,
+   *       especially when you start considering LOA for memory-mapped files...) */
   TRY {
    bool EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(vm_ok);
    struct vm *EXCEPT_VAR effective_vm;
    struct task_connections old_connections;
    struct task_connections *EXCEPT_VAR pold_connections = &old_connections;
    vm_vpage_t fault_page = VM_ADDR2PAGE((uintptr_t)fault_address);
+   u16 EXCEPT_VAR old_state;
    effective_vm = fault_page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
 
    /* Preserve the set of active task connections while faulting. */
    task_push_connections(&old_connections);
    COMPILER_BARRIER();
+   /* This right here is a long-debated change:
+    *    Don't serve RPCs while fetching the faulting page.
+    *    Synchronous RPC users doesn't expect LOA/ALOA to serve RPCs.
+    * While it is the right thing to do this, it does pose some problems,
+    * since page loading _IS_ very much capable of blocking, meaning that
+    * when it does, there's no way to interrupt it while it does so...
+    * However if we didn't, then all hell would break loose, considering
+    * that any access to memory that hasn't been locked could lead to
+    * RPCs being served, which in turn have full access to _ANY_ thread-local
+    * variable, at which point stuff starts getting ~real~ weird. */
+   old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
    TRY {
 #ifndef CONFIG_NO_VIO
     bool EXCEPT_VAR has_vm_lock = true;
@@ -248,6 +263,9 @@ again:
    } FINALLY {
     /* Restore task connections. */
     task_pop_connections(pold_connections);
+    /* Restore the old RPC configuration. */
+    if (!(old_state & TASK_STATE_FDONTSERVE))
+          ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
    }
    /* If the VM says the error is OK, return without throwing a SEGFAULT. */
    if (vm_ok)
@@ -693,35 +711,6 @@ INTERN void KCALL
 x86_interrupt_handler(struct cpu_anycontext *__restrict context,
                       register_t intno, register_t errcode) {
  struct exception_info *info;
-#if 0
- struct cpu_context dup;
- struct fde_info unwind_info;
- bool is_first = true;
- debug_printf("Unhandled interrupt #%X at %p (ecode %X, LASTERROR = %x)\n",
-              intno,context->c_eip,errcode,error_code());
- debug_printf("EAX %p  ECX %p  EDX %p  EBX %p  EIP %p\n"
-              "ESP %p  EBP %p  ESI %p  EDI %p  ---\n",
-              context->c_gpregs.gp_eax,
-              context->c_gpregs.gp_ecx,
-              context->c_gpregs.gp_edx,
-              context->c_gpregs.gp_ebx,
-              context->c_eip,
-              X86_ANYCONTEXT32_ESP(*context),
-              context->c_gpregs.gp_ebp,
-              context->c_gpregs.gp_esi,
-              context->c_gpregs.gp_edi);
- dup       = context->c_host;
- dup.c_esp = X86_ANYCONTEXT32_ESP(*context);
- for (;;) {
-  debug_printf("%[vinfo:%f(%l,%c) : %n : %p] : ESP %p, EBP %p\n",
-              (uintptr_t)dup.c_eip-1,dup.c_esp,dup.c_gpregs.gp_ebp);
-  if (!linker_findfde(is_first ? dup.c_eip : dup.c_eip-1,&unwind_info)) break;
-  if (!eh_return(&unwind_info,&dup,EH_FNORMAL)) break;
-  is_first = false;
- }
- //for (;;) __asm__("hlt");
-#endif
-
  /* Re-enable interrupts if they were enabled before. */
  if (context->c_eflags & EFLAGS_IF)
      x86_interrupt_enable();

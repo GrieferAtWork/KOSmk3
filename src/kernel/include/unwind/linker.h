@@ -81,6 +81,9 @@ FUNDEF bool KCALL linker_findexcept_consafe(uintptr_t ip, u16 exception_code,
 
 
 #ifdef CONFIG_BUILDING_KERNEL_CORE
+INTDEF ATTR_NOTHROW bool KCALL except_findfde(uintptr_t ip, struct fde_info *__restrict result);
+INTDEF ATTR_NOTHROW bool KCALL except_findexcept(uintptr_t ip, u16 exception_code, struct exception_handler_info *__restrict result);
+
 /* Utility functions for working with EXCEPT caches. */
 struct except_cache;
 struct module;

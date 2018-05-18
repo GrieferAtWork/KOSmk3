@@ -82,6 +82,7 @@
     <ClCompile Include="..\..\src\kernel\i386-kos\memory.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\multiboot.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\paging.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\panic.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\posix_signals.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\rtl.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\safecall.c" />
@@ -141,6 +142,7 @@
     <ClCompile Include="..\..\src\kernel\src\kernel\malloc.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\meminfo.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\memory.c" />
+    <ClCompile Include="..\..\src\kernel\src\kernel\panic.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\syscall.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\sysconf.c" />
     <ClCompile Include="..\..\src\kernel\src\kernel\system.c" />
@@ -251,6 +253,7 @@
     <ClInclude Include="..\..\src\kernel\include\kernel\malloc.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\memory.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\paging.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\panic.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\profile.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\sections.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\syscall.h" />
@@ -288,6 +291,8 @@
     <ClInclude Include="..\..\src\kernel\src\core\fat.h" />
     <ClInclude Include="..\..\src\kernel\src\dev\ps2-keymaps.h" />
     <ClInclude Include="..\..\src\kernel\src\fs\autopart.h" />
+    <ClInclude Include="..\..\src\kernel\src\sched\rpc.h" />
+    <ClInclude Include="..\..\src\kernel\src\sched\rwlock.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{86D226C5-EF62-4562-AC06-E6A753DFA7CF}</ProjectGuid>

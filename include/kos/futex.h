@@ -34,7 +34,7 @@ typedef __uint32_t  futex_t;
 typedef __uintptr_t futex_channel_t;
 #endif /* !__futex_t_defined */
 
-
+#ifdef __CRT_KOS
 #ifndef __pollfutex_defined
 #define __pollfutex_defined 1
 struct pollfutex {
@@ -78,10 +78,78 @@ struct pollfutex {
 };
 #endif /* !__pollfutex_defined */
 
+/* Initialization helpers for pollfutex objects. */
+__FORCELOCAL struct pollfutex *(__LIBCCALL pollfutex_init_wait)
+(struct pollfutex *__restrict __self, futex_t *__uaddr, futex_t __proble_value) {
+ __self->pf_futex  = __uaddr;
+ __self->pf_action = FUTEX_WAIT;
+ __self->pf_status = POLLFUTEX_STATUS_NOEVENT;
+ __self->pf_val    = __proble_value;
+ return __self;
+}
 
+
+#ifndef __pollpid_defined
+#define __pollpid_defined 1
+struct __siginfo_struct;
+struct pollpid {
+    /* Descriptor of a PID when using the xppoll() system call.
+     * NOTE: Polling a PID for an event will not reset that event,
+     *       like performing a call to wait(2) would, nor does it
+     *       kill a PID's zombie, regardless of the `WNOHANG' flag.
+     *       In other words, polling a PID is just that:
+     *       wait for something to happen to the thread.
+     * NOTE: Posix describes a special behavior for wait(2) when
+     *       SIGCHLD is being ignored. This behavior does _NOT_
+     *       come into action when polling a PID.
+     * >> This functionality is required to safely implement the
+     *    WAITFOR flag for user-space RPCs, due to the fact that
+     *    the receiving thread may die after having acknowledged
+     *    the RPC, but before having completed it.
+     * HINT: This is the only way of waiting for a thread/process
+     *       while also providing a timeout, without the use of
+     *       futex exit signals. */
+    __pid_t                    pp_pid;     /* PID of the process to poll() (Requires the same permissions as wait()) */
+    __pid_t                    pp_result;  /* The PID that got triggered. */
+    __uint16_t                 pp_which;   /* One of `P_*' (e.g. P_PGID) describing the kind of PID that `pp_pid' is.
+                                            * When set of `P_ALL', `pp_pid' is ignored. */
+    __uint16_t                 pp_options; /* Set of `W*' describing what to wait for. */
+#if __SIZEOF_POINTER__ > 4
+    __uint32_t               __pp_pad;     /* ... */
+#endif
+    struct __siginfo_struct   *pp_info;    /* [0..1] When non-NULL, filled with information on what happened. */
+    struct rusage             *pp_ru;      /* [0..1] When non-NULL, filled with rusage information. */
+};
+#endif /* !__pollpid_defined */
+
+/* Initialization helpers for pollpid objects. */
+__FORCELOCAL struct pollpid *(__LIBCCALL pollpid_init)
+(struct pollpid *__restrict __self, int __which, __pid_t __pid, int __options,
+ struct __siginfo_struct *__info, struct rusage *__ru) {
+ __self->pp_pid     = __pid;
+ __self->pp_result  = 0;
+ __self->pp_which   = __which;
+ __self->pp_options = __options;
+ __self->pp_info    = __info;
+ __self->pp_ru      = __ru;
+ return __self;
+}
+
+#if defined(__KERNEL__) || defined(__BUILDING_LIBC)
+struct poll_info {
+    USER UNCHECKED struct pollfd    *i_ufdvec; /* [0..i_cnt] Vector of poll descriptors. */
+    size_t                           i_ufdcnt; /* Number of elements. */
+    USER UNCHECKED struct pollfutex *i_ftxvec; /* [0..i_cnt] Vector of poll descriptors. */
+    size_t                           i_ftxcnt; /* Number of elements. */
+    USER UNCHECKED struct pollpid   *i_pidvec; /* [0..i_cnt] Vector of poll descriptors. */
+    size_t                           i_pidcnt; /* Number of elements. */
+};
+#endif
+#endif /* __CRT_KOS */
 
 struct pollfd;
 
+#if !defined(__KERNEL__) && defined(__CRT_KOS)
 /* An extension to the poll() / select() family of system calls,
  * that allows the user to not only wait for file descriptors to
  * become ready, but also wait for an arbitrary number of futex
@@ -94,20 +162,36 @@ struct pollfd;
  *       more functionality, and uses less system resources, as
  *       well as not requiring additional file descriptor indices.
  * @return: 0 : The given timeout has expired.
- * @return: * : The sum of available futexes and handles combined.
- */
-__REDIRECT_EXCEPT_TM64(__LIBC,,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xppoll,(struct pollfd *__ufds, __size_t __nfds, struct pollfutex *__uftx, __size_t __nftx, struct timespec const *__tsp, __sigset_t *sig),(__ufds,__nfds,__uftx,__nftx,__tsp,sig))
+ * @return: * : The sum of available futexes and handles combined. */
+__REDIRECT_EXCEPT_TM64(__LIBC,,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xppoll,
+                      (struct pollfd *__ufds, __size_t __nfds,
+                       struct pollfutex *__uftx, __size_t __nftx,
+                       struct pollpid *__upid, __size_t __npid,
+                       struct timespec const *__abs_timeout, __sigset_t *sig),
+                      (__ufds,__nfds,__uftx,__nftx,__upid,__npid,__abs_timeout,sig))
 #ifdef __USE_TIME64
-__REDIRECT_EXCEPT(__LIBC,,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xppoll64,(struct pollfd *__ufds, __size_t __nfds, struct pollfutex *__uftx, __size_t __nftx, struct __timespec64 const *__tsp, __sigset_t *sig),(__ufds,__nfds,__uftx,__nftx,__tsp,sig))
+__REDIRECT_EXCEPT(__LIBC,,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xppoll64,
+                 (struct pollfd *__ufds, __size_t __nfds,
+                  struct pollfutex *__uftx, __size_t __nftx,
+                  struct pollpid *__upid, __size_t __npid,
+                  struct __timespec64 const *__abs_timeout, __sigset_t *sig),
+                 (__ufds,__nfds,__uftx,__nftx,__upid,__npid,__abs_timeout,sig))
 #endif /* __USE_TIME64 */
 #ifdef __USE_EXCEPT
-__REDIRECT_TM64(__LIBC,,__size_t,__LIBCCALL,Xxppoll,(struct pollfd *__ufds, __size_t __nfds, struct pollfutex *__uftx, __size_t __nftx, struct timespec const *__tsp, __sigset_t *sig),(__ufds,__nfds,__uftx,__nftx,__tsp,sig))
+__REDIRECT_TM64(__LIBC,,__size_t,__LIBCCALL,Xxppoll,
+               (struct pollfd *__ufds, __size_t __nfds,
+                struct pollfutex *__uftx, __size_t __nftx,
+                struct pollpid *__upid, __size_t __npid,
+                struct timespec const *__abs_timeout, __sigset_t *sig),
+               (__ufds,__nfds,__uftx,__nftx,__upid,__npid,__abs_timeout,sig))
 #ifdef __USE_TIME64
-__LIBC __size_t (__LIBCCALL Xxppoll64)(struct pollfd *__ufds, __size_t __nfds, struct pollfutex *__uftx, __size_t __nftx, struct __timespec64 const *__tsp, __sigset_t *sig);
+__LIBC __size_t (__LIBCCALL Xxppoll64)(struct pollfd *__ufds, __size_t __nfds,
+                                       struct pollfutex *__uftx, __size_t __nftx,
+                                       struct pollpid *__upid, __size_t __npid,
+                                       struct __timespec64 const *__abs_timeout, __sigset_t *sig);
 #endif /* __USE_TIME64 */
 #endif /* __USE_EXCEPT */
 
-#if !defined(__KERNEL__) && defined(__CRT_KOS)
 #if !defined(__NO_ATTR_FORCEINLINE) && !defined(__NO_builtin_constant_p)
 __REDIRECT_EXCEPT_XVOID_(__LIBC,,int,__LIBCCALL,__os_futex_wait_inf,(futex_t *__uaddr, futex_t __probe_value),futex_wait_inf,(__uaddr,__probe_value))
 __REDIRECT_EXCEPT_XVOID_(__LIBC,,int,__LIBCCALL,__os_futex_wait_inf_cmpxch,(futex_t *__uaddr, futex_t __old_value, futex_t __new_value, futex_t *__update_target),futex_wait_inf_cmpxch,(__uaddr,__old_value,__new_value,__update_target))

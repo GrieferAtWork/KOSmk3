@@ -441,8 +441,7 @@ KCALL kernel_insmod(struct module *__restrict mod,
                     size_t module_commandline_length) {
  struct module *EXCEPT_VAR xmod = mod;
  REF struct driver *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(result);
-again:
- vm_acquire_read(&vm_kernel);
+ vm_acquire(&vm_kernel);
  TRY {
   struct module_patcher EXCEPT_VAR patcher;
   /* Load drivers as though they were dependencies of the kernel itself. */
@@ -465,8 +464,7 @@ again:
    patcher_fini((struct module_patcher *)&patcher);
   }
  } FINALLY {
-  if (vm_release_read(&vm_kernel))
-      goto again;
+  vm_release(&vm_kernel);
  }
  if (ATOMIC_FETCHOR(result->d_app.a_flags,APPLICATION_FDIDINIT) &
                                           APPLICATION_FDIDINIT) {

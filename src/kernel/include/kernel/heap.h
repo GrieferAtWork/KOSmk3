@@ -156,16 +156,13 @@ DATDEF struct heap kernel_heaps[__GFP_HEAPCOUNT];
 FUNDEF struct heapptr KCALL __os_heap_alloc_untraced(struct heap *__restrict self, size_t num_bytes, gfp_t flags) ASMNAME("heap_alloc_untraced");
 FUNDEF struct heapptr KCALL __os_heap_align_untraced(struct heap *__restrict self, size_t min_alignment, ptrdiff_t offset, size_t num_bytes, gfp_t flags) ASMNAME("heap_align_untraced");
 FUNDEF size_t KCALL __os_heap_allat_untraced(struct heap *__restrict self, VIRT void *__restrict ptr, size_t num_bytes, gfp_t flags) ASMNAME("heap_allat_untraced");
-FUNDEF void KCALL __os_heap_free_untraced(struct heap *__restrict self, VIRT void *ptr, size_t num_bytes, gfp_t flags) ASMNAME("heap_free_untraced");
 FUNDEF struct heapptr KCALL __os_heap_realloc_untraced(struct heap *__restrict self, VIRT void *old_ptr, size_t old_bytes, size_t new_bytes, gfp_t alloc_flags, gfp_t free_flags) ASMNAME("heap_realloc_untraced");
 FUNDEF struct heapptr KCALL __os_heap_realign_untraced(struct heap *__restrict self, VIRT void *old_ptr, size_t old_bytes, size_t min_alignment, ptrdiff_t offset, size_t new_bytes, gfp_t alloc_flags, gfp_t free_flags) ASMNAME("heap_realign_untraced");
 FUNDEF struct heapptr KCALL __os_heap_alloc(struct heap *__restrict self, size_t num_bytes, gfp_t flags) ASMNAME("heap_alloc");
 FUNDEF struct heapptr KCALL __os_heap_align(struct heap *__restrict self, size_t min_alignment, ptrdiff_t offset, size_t num_bytes, gfp_t flags) ASMNAME("heap_align");
 FUNDEF size_t KCALL __os_heap_allat(struct heap *__restrict self, VIRT void *__restrict ptr, size_t num_bytes, gfp_t flags) ASMNAME("heap_allat");
-FUNDEF void KCALL __os_heap_free(struct heap *__restrict self, VIRT void *ptr, size_t num_bytes, gfp_t flags) ASMNAME("heap_free");
 FUNDEF struct heapptr KCALL __os_heap_realloc(struct heap *__restrict self, VIRT void *old_ptr, size_t old_bytes, size_t new_bytes, gfp_t alloc_flags, gfp_t free_flags) ASMNAME("heap_realloc");
 FUNDEF struct heapptr KCALL __os_heap_realign(struct heap *__restrict self, VIRT void *old_ptr, size_t old_bytes, size_t min_alignment, ptrdiff_t offset, size_t new_bytes, gfp_t alloc_flags, gfp_t free_flags) ASMNAME("heap_realign");
-
 
 #ifndef __OMIT_HEAP_CONSTANT_P_WRAPPERS
 /* Allocate at least `num_bytes' of dynamic memory,
@@ -420,6 +417,20 @@ heap_free(struct heap *__restrict self,
 FUNDEF ATTR_NOTHROW void KCALL
 heap_free_untraced(struct heap *__restrict self,
                    VIRT void *ptr, size_t num_bytes, gfp_t flags);
+
+#if 0
+/* Tries to allocate memory from cache. If no cached memory is available, `return.hp_siz == 0'
+ * Additionally, this function never throws an exception or blocks, meaning that it's kind-of
+ * a combination between GFP_NOMAP and GFP_ATOMIC, just without the exceptions...
+ * NOTE: The returned memory is always untraced!
+ * The intended use of this function is for light-weight caches, as well as RTL
+ * components which themself might be invoked during exception handling, and
+ * stack unwinding.
+ * If the function fails to lock the heap and preemption has been disabled,
+ * the error szenario of returning `return.hp_siz == 0' happens, too. */
+FUNDEF ATTR_NOTHROW struct heapptr KCALL
+heap_alloc_nothrow(struct heap *__restrict self, size_t num_bytes, gfp_t flags);
+#endif
 
 
 /* Truncate the given heap, releasing unmapping free memory chunks

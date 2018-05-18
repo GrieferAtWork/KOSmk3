@@ -45,6 +45,7 @@ struct dl_addr2line;
 struct cpu_context;
 struct fpu_context;
 struct sockaddr;
+struct poll_info;
 
 
 /* ===================================================================================== */
@@ -182,7 +183,7 @@ INTDEF ssize_t LIBCCALL sys_xreaddirf(fd_t fd, struct dirent *buf, size_t bufsiz
 INTDEF errno_t LIBCCALL sys_xunwind_except(struct exception_info *except_info, struct cpu_context *dispatcher_ccontext, struct fpu_context *dispatcher_fcontext);
 INTDEF errno_t LIBCCALL sys_xunwind(struct cpu_context *ccontext, struct fpu_context *fcontext, sigset_t *signal_set, size_t sigset_size);
 INTDEF ssize_t LIBCCALL sys_xaddr2line(void *abs_pc, struct dl_addr2line *buf, size_t bufsize);
-INTDEF ssize_t LIBCCALL Esys_xppoll(struct pollfd *ufds, size_t nfds, struct pollfutex *uftx, size_t nftx, struct timespec64 const *tsp, void *sig);
+INTDEF ssize_t LIBCCALL Esys_xppoll(struct poll_info *info, struct timespec64 const *tsp, sigset_t const *signal_set, size_t sigset_size);
 
 
 
@@ -301,7 +302,7 @@ INTDEF syscall_slong_t LIBCCALL Xsys_xioctlf(fd_t fd, unsigned long cmd, oflag_t
 INTDEF size_t LIBCCALL Xsys_xreaddirf(fd_t fd, struct dirent *buf, size_t bufsize, int mode, oflag_t flags);
 INTDEF errno_t LIBCCALL Xsys_xunwind(struct cpu_context *ccontext, struct fpu_context *fcontext, sigset_t *signal_set, size_t sigset_size);
 INTDEF ssize_t LIBCCALL Xsys_xaddr2line(void *abs_pc, struct dl_addr2line *buf, size_t bufsize);
-INTDEF size_t LIBCCALL Xsys_xppoll(struct pollfd *ufds, size_t nfds, struct pollfutex *uftx, size_t nftx, struct timespec64 const *tsp, void *sig);
+INTDEF size_t LIBCCALL Xsys_xppoll(struct poll_info *info, struct timespec64 const *tsp, sigset_t const *signal_set, size_t sigset_size);
 
 /* Networking functions. */
 INTDEF fd_t LIBCCALL sys_socket(int domain, int type, int protocol);

@@ -51,6 +51,8 @@ INTERN ATTR_NORETURN void FCALL
 libc_error_rethrow_at(struct cpu_context *__restrict context) {
  struct fde_info info;
  struct exception_handler_info hand;
+ struct task_connections cons;
+ struct task_connections *EXCEPT_VAR pcons = &cons;
  bool is_first = true; u16 old_state;
  /* Safe the original stack-pointer. */
  uintptr_t sp = CPU_CONTEXT_SP(*context);
@@ -87,6 +89,7 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
   * of hours to figure that this is what was crashing the kernel...)
   */
  old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
+ task_push_connections(&cons);
  TRY {
   for (;;) {
    /* Account for the fact that return addresses point to the
@@ -96,13 +99,13 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
    if (CPU_CONTEXT_IP(*context) < KERNEL_BASE &&
      !(THIS_TASK->t_flags & TASK_FKERNELJOB))
        goto no_handler; /* Exception must be propagated to userspace. */
-   if (!linker_findfde_consafe(CPU_CONTEXT_IP(*context),&info)) {
+   if (!except_findfde(CPU_CONTEXT_IP(*context),&info)) {
     debug_printf("No frame at %p\n",CPU_CONTEXT_IP(*context));
     goto no_handler;
    }
    is_first = false;
    /* Search for a suitable exception handler (in reverse order!). */
-   if (linker_findexcept_consafe(CPU_CONTEXT_IP(*context),error_code(),&hand)) {
+   if (except_findexcept(CPU_CONTEXT_IP(*context),error_code(),&hand)) {
      if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS)
          error_info()->e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK;
     if (hand.ehi_flag & EXCEPTION_HANDLER_FDESCRIPTOR) {
@@ -152,6 +155,7 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
 #endif
     if (!(old_state&TASK_STATE_FDONTSERVE))
           ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
+    task_pop_connections(&cons);
     cpu_setcontext(context);
     /* Never get here... */
    }
@@ -173,7 +177,9 @@ cannot_unwind:
                 context->c_gpregs.gp_ebp,context->c_segments.sg_fs);
 #endif
   }
+  task_pop_connections(&cons);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+  task_pop_connections(pcons);
   debug_printf("\n\n\n"
                "Exception occurred while unwinding another exception\n"
                "\n\n\n");
