@@ -201,12 +201,10 @@ x86_handle_illegal_instruction(struct x86_anycontext *__restrict context) {
  struct exception_info *info; u16 flags;
  byte_t *EXCEPT_VAR text; u32 opcode;
  bool is_user;
-
  flags = 0;
  text = (byte_t *)context->c_eip;
  is_user = ((xcontext->c_eflags & EFLAGS_VM) ||
             (xcontext->c_iret.ir_cs & 3));
-
 next_byte:
  opcode = 0;
 extend_instruction:
@@ -1187,6 +1185,7 @@ throw_exception:
          sizeof(struct cpu_context));
  /* Throw the error. */
  error_rethrow_atuser((struct cpu_context *)xcontext);
+ return;
 illegal_addressing_mode:
  info                 = error_info();
  info->e_error.e_code = E_ILLEGAL_INSTRUCTION;
