@@ -52,6 +52,7 @@ __SYSDECL_BEGIN
 /* An integral type that can be modified atomically, without the
    possibility of a signal arriving in the middle of the operation.  */
 
+#ifdef __CC__
 __NAMESPACE_STD_BEGIN
 typedef __sig_atomic_t sig_atomic_t;
 __NAMESPACE_STD_END
@@ -213,12 +214,12 @@ __REDIRECT_EXCEPT(__LIBC,__PORT_NODOS,__sighandler_t,__LIBCCALL,sigset,(int __si
 __LIBC __PORT_NODOS int (__LIBCCALL __libc_current_sigrtmin)(void);
 __LIBC __PORT_NODOS int (__LIBCCALL __libc_current_sigrtmax)(void);
 #endif /* __CRT_GLC */
-
 #else /* !__KERNEL__ */
 #define sigismember(set,sig) __sigismember(set,sig)
 #define sigaddset(set,sig)   __sigaddset(set,sig)
 #define sigdelset(set,sig)   __sigdelset(set,sig)
 #endif /* !__KERNEL__ */
+#endif /* __CC__ */
 
 __SYSDECL_END
 

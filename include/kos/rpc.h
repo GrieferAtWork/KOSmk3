@@ -194,7 +194,7 @@ __LIBC __BOOL (__LIBCCALL queue_interrupt)(__pid_t __pid, rpc_interrupt_t __func
                                   * you can view any system call as though it as an atomic operation.
                                   * Additionally, serving of asynchronous interrupts can be disabled
                                   * locally though use of `rpc_pushoff()' and `rpc_pop()'. */
-#define RPC_FWAITBEGIN    0x0002 /* Wait until the thread has acknowledged the RPC.
+#define RPC_FWAITACK      0x0002 /* Wait until the thread has acknowledged the RPC.
                                   * WARNING: Anything might still go wrong before, or during execution
                                   *          of `FUNC', including the thread being kill(2)-ed off, or
                                   *          some other `RPC_FASYNCHRONOUS' RPC being executed ontop. */
@@ -242,7 +242,7 @@ __LIBC __BOOL (__LIBCCALL queue_job)(__pid_t __pid, struct cpu_context const *__
 #endif /* __CC__ */
 #define JOB_FSYNCHRONOUS  RPC_FSYNCHRONOUS  /* Serve the job synchronously */
 #define JOB_FASYNCHRONOUS RPC_FASYNCHRONOUS /* Serve the job asynchronously */
-#define JOB_FWAITBEGIN    RPC_FWAITBEGIN    /* Wait for ACK */
+#define JOB_FWAITACK      RPC_FWAITACK      /* Wait for ACK */
 #define JOB_FPRESERVE     0xff00 /* Arch-specific mask of what to push onto the job's
                                   * stack, as well as which registers to load from `JOB'.
                                   * On X86, this is a set of `X86_JOB_FSAVE_*' and `X86_JOB_FLOAD_*' */

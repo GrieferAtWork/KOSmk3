@@ -233,77 +233,33 @@ __SYSDECL_BEGIN
 
 
 
-#ifdef __USE_GNU
+#if defined(__USE_GNU) || defined(__USE_KOS)
 /* Cloning flags. */
-#ifndef CSIGNAL
 #define CSIGNAL              0x000000ff /* Signal mask to be sent at exit. */
-#endif /* !CSIGNAL */
-#ifndef CLONE_VM
 #define CLONE_VM             0x00000100 /* Set if VM shared between processes. */
-#endif /* !CLONE_VM */
-#ifndef CLONE_FS
 #define CLONE_FS             0x00000200 /* Set if fs info shared between processes. */
-#endif /* !CLONE_FS */
-#ifndef CLONE_FILES
 #define CLONE_FILES          0x00000400 /* Set if open files shared between processes. */
-#endif /* !CLONE_FILES */
-#ifndef CLONE_SIGHAND
 #define CLONE_SIGHAND        0x00000800 /* Set if signal handlers shared. */
-#endif /* !CLONE_SIGHAND */
-#ifndef CLONE_PTRACE
+/*      CLONE_               0x00001000  * ... */
 #define CLONE_PTRACE         0x00002000 /* Set if tracing continues on the child. */
-#endif /* !CLONE_PTRACE */
-#ifndef CLONE_VFORK
 #define CLONE_VFORK          0x00004000 /* Set if the parent wants the child to wake it up on mm_release. */
-#endif /* !CLONE_VFORK */
-#ifndef CLONE_PARENT
 #define CLONE_PARENT         0x00008000 /* Set if we want to have the same parent as the cloner. */
-#endif /* !CLONE_PARENT */
-#ifndef CLONE_THREAD
 #define CLONE_THREAD         0x00010000 /* Set to add to same thread group. */
-#endif /* !CLONE_THREAD */
-#ifndef CLONE_NEWNS
 #define CLONE_NEWNS          0x00020000 /* Set to create new namespace. */
-#endif /* !CLONE_NEWNS */
-#ifndef CLONE_SYSVSEM
 #define CLONE_SYSVSEM        0x00040000 /* Set to shared SVID SEM_UNDO semantics. */
-#endif /* !CLONE_SYSVSEM */
-#ifndef CLONE_SETTLS
 #define CLONE_SETTLS         0x00080000 /* Set TLS info. */
-#endif /* !CLONE_SETTLS */
-#ifndef CLONE_PARENT_SETTID
 #define CLONE_PARENT_SETTID  0x00100000 /* Store TID in userlevel buffer before MM copy. */
-#endif /* !CLONE_PARENT_SETTID */
-#ifndef CLONE_CHILD_CLEARTID
 #define CLONE_CHILD_CLEARTID 0x00200000 /* Register exit futex and memory location to clear. */
-#endif /* !CLONE_CHILD_CLEARTID */
-#ifndef CLONE_DETACHED
 #define CLONE_DETACHED       0x00400000 /* Create clone detached. */
-#endif /* !CLONE_DETACHED */
-#ifndef CLONE_UNTRACED
 #define CLONE_UNTRACED       0x00800000 /* Set if the tracing process can't force CLONE_PTRACE on this clone. */
-#endif /* !CLONE_UNTRACED */
-#ifndef CLONE_CHILD_SETTID
 #define CLONE_CHILD_SETTID   0x01000000 /* Store TID in userlevel buffer in the child. */
-#endif /* !CLONE_CHILD_SETTID */
-#ifndef CLONE_NEWUTS
 #define CLONE_NEWUTS         0x04000000 /* New utsname group. */
-#endif /* !CLONE_NEWUTS */
-#ifndef CLONE_NEWIPC
+/*      CLONE_               0x02000000  * ... */
 #define CLONE_NEWIPC         0x08000000 /* New ipcs. */
-#endif /* !CLONE_NEWIPC */
-#ifndef CLONE_NEWUSER
 #define CLONE_NEWUSER        0x10000000 /* New user namespace. */
-#endif /* !CLONE_NEWUSER */
-#ifndef CLONE_NEWPID
 #define CLONE_NEWPID         0x20000000 /* New pid namespace. */
-#endif /* !CLONE_NEWPID */
-#ifndef CLONE_NEWNET
 #define CLONE_NEWNET         0x40000000 /* New network namespace. */
-#endif /* !CLONE_NEWNET */
-#ifndef CLONE_IO
 #define CLONE_IO             0x80000000 /* Clone I/O context. */
-#endif /* !CLONE_IO */
 
 #ifdef __USE_KOS
 /* Value passed for 'CHILD_STACK' to 'clone()':
@@ -334,14 +290,13 @@ __SYSDECL_BEGIN
 #define CLONE_NEW_PROCESS   (SIGCHLD) /* Same flags as used by fork() */
 
 #endif /* __USE_KOS */
-
-#endif /* __USE_GNU */
+#endif /* __USE_GNU || __USE_KOS */
 
 #ifdef __CC__
 struct sched_param { int __sched_priority; };
 
 #ifndef __KERNEL__
-#ifdef __USE_GNU
+#if defined(__USE_GNU) || defined(__USE_KOS)
 __VREDIRECT_EXCEPT(__LIBC,,__pid_t,__LIBCCALL,clone,(int (__LIBCCALL *__fn)(void *__arg), void *__child_stack, int __flags, void *__arg, ...),TODO,(__fn,__child_stack,__flags,__arg),__arg)
 __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,unshare,(int __flags),(__flags))
 __REDIRECT_EXCEPT(__LIBC,,int,__LIBCCALL,sched_getcpu,(void),())
@@ -360,7 +315,7 @@ __LIBC void (__LIBCCALL Xunshare)(int __flags);
 __LIBC int (__LIBCCALL Xsched_getcpu)(void);
 __LIBC void (__LIBCCALL Xsetns)(__fd_t __fd, int __nstype);
 #endif /* __USE_EXCEPT */
-#endif /* __USE_GNU */
+#endif /* __USE_GNU || __USE_KOS */
 #endif /* !__KERNEL__ */
 #endif /* __CC__ */
 

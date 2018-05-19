@@ -29,7 +29,7 @@
 #include <kos/futex.h>
 #include <errno.h>
 
-DECL_BEGIN
+__DECL_BEGIN
 
 /* A simple, but fully featured user-space semaphore,
  * implemented using futex() functionality. */
@@ -234,9 +234,6 @@ __LOCAL __size_t (__LIBCCALL semaphore_release)(struct semaphore *__restrict __s
 }
 #endif
 
-
-
-DECL_END
-
+__DECL_END
 
 #endif /* !_KOS_SCHED_SEMAPHORE_H */

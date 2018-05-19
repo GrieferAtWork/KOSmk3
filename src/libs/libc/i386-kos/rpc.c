@@ -87,7 +87,7 @@ libc_queue_rpc(pid_t pid, rpc_t func, void *arg,
                unsigned int mode) {
  struct cpu_context context;
  bool result;
- if (mode & ~(RPC_FSYNCHRONOUS|RPC_FASYNCHRONOUS|RPC_FWAITBEGIN|RPC_FWAITFOR))
+ if (mode & ~(RPC_FSYNCHRONOUS|RPC_FASYNCHRONOUS|RPC_FWAITACK|RPC_FWAITFOR))
      error_throw(E_INVALID_ARGUMENT);
  context.c_eflags        = 0;
  if (mode & RPC_FWAITFOR) {
@@ -100,7 +100,7 @@ libc_queue_rpc(pid_t pid, rpc_t func, void *arg,
   context.c_gpregs.gp_edx = (uintptr_t)&data;
   result = libc_queue_job(pid,&context,
                          (mode & ~RPC_FWAITFOR)|
-                          JOB_FWAITBEGIN|
+                          JOB_FWAITACK|
                           X86_JOB_FSAVE_RETURN|
                           X86_JOB_FLOAD_RETURN|
                           X86_JOB_FSAVE_CREGS|
@@ -191,7 +191,7 @@ libc_queue_interrupt(pid_t pid, rpc_interrupt_t func,
                      void *arg, unsigned int mode) {
  struct cpu_context context;
  bool result;
- if (mode & ~(RPC_FSYNCHRONOUS|RPC_FASYNCHRONOUS|RPC_FWAITBEGIN|RPC_FWAITFOR))
+ if (mode & ~(RPC_FSYNCHRONOUS|RPC_FASYNCHRONOUS|RPC_FWAITACK|RPC_FWAITFOR))
      error_throw(E_INVALID_ARGUMENT);
  context.c_eflags        = 0;
  if (mode & RPC_FWAITFOR) {
@@ -204,7 +204,7 @@ libc_queue_interrupt(pid_t pid, rpc_interrupt_t func,
   context.c_gpregs.gp_edx = (uintptr_t)&data;
   result = libc_queue_job(pid,&context,
                          (mode & ~RPC_FWAITFOR)|
-                          JOB_FWAITBEGIN|
+                          JOB_FWAITACK|
                           X86_JOB_FSAVE_RETURN|
                           X86_JOB_FLOAD_RETURN|
                           X86_JOB_FSAVE_STACK|

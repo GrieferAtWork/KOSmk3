@@ -253,7 +253,7 @@ DEFINE_SYSCALL3(xqueue_job,pid_t,upid,
  REF struct task *EXCEPT_VAR target;
  bool COMPILER_IGNORE_UNINITIALIZED(result);
  validate_readable(job,sizeof(struct x86_usercontext));
- if (mode & ~(JOB_FSYNCHRONOUS|JOB_FASYNCHRONOUS|JOB_FWAITBEGIN|
+ if (mode & ~(JOB_FSYNCHRONOUS|JOB_FASYNCHRONOUS|JOB_FWAITACK|
               X86_JOB_FSAVE_RETURN|X86_JOB_FLOAD_RETURN|
               X86_JOB_FSAVE_STACK|X86_JOB_FLOAD_STACK|
               X86_JOB_FSAVE_SEGMENTS|X86_JOB_FLOAD_SEGMENTS|
@@ -292,7 +292,7 @@ DEFINE_SYSCALL3(xqueue_job,pid_t,upid,
    /* `task_queue_rpc_user()' will have thrown an exception to get
     * back to user-space so it can serve our RPC wrapper function. */
    __builtin_unreachable();
-  } else if (mode & JOB_FWAITBEGIN) {
+  } else if (mode & JOB_FWAITACK) {
    struct urpc_data data;
    /* We must wait for the job to be acknowledged,
     * so we can pass context data via our own stack! */

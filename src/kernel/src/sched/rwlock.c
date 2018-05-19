@@ -453,7 +453,7 @@ PUBLIC bool KCALL
 __os_rwlock_timedwrite(struct rwlock *__restrict self,
                        jtime_t abs_timeout) {
 #if 0
- return __os_rwlock_timedwrite_agressive(self,abs_timeout);
+ return __os_rwlock_timedwrite_aggressive(self,abs_timeout);
 #else
  u32 control_word;
  assertf(!task_isconnected(),
@@ -665,7 +665,7 @@ rwlock_kill_readers(struct rwlock *__restrict self) {
 
 
 PUBLIC bool KCALL
-__os_rwlock_timedwrite_agressive(struct rwlock *__restrict self,
+__os_rwlock_timedwrite_aggressive(struct rwlock *__restrict self,
                                  jtime_t abs_timeout) {
  u32 control_word;
  assertf(!task_isconnected(),

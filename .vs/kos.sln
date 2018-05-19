@@ -631,6 +631,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sched", "sched", "{AEFAA316-8C86-4A25-ABE9-E6DF1568550F}"
 	ProjectSection(SolutionItems) = preProject
 		..\include\kos\sched\mutex.h = ..\include\kos\sched\mutex.h
+		..\include\kos\sched\rwlock.h = ..\include\kos\sched\rwlock.h
 		..\include\kos\sched\semaphore.h = ..\include\kos\sched\semaphore.h
 	EndProjectSection
 EndProject

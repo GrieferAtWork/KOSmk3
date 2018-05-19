@@ -32,7 +32,9 @@
 #include <kernel/bind.h>
 #include <kernel/malloc.h>
 #include <sched/pid.h>
+#include <sched/group.h>
 #include <sched/userstack.h>
+#include <sched/task.h>
 #include <assert.h>
 #include <string.h>
 #include <except.h>
@@ -455,6 +457,9 @@ setup_user_segment(USER CHECKED struct user_task_segment *__restrict self) {
  self->ts_self       = self;
  self->ts_tid        = posix_gettid();
  self->ts_process    = PERVM(vm_environ);
+ self->ts_type       = PERTASK_GET(_this_group.tg_leader) == THIS_TASK
+                     ? THREAD_TYPE_MAINTHREAD
+                     : THREAD_TYPE_WORKER;
 #if defined(__i386__) || defined(__x86_64__)
  self->ts_x86sysbase = PERTASK_GET(x86_sysbase);
 #endif

@@ -67,12 +67,15 @@ INTERN void *FCALL libc_dynamic_tls_addr(TLS_index *__restrict index) {
 
 INTERN void LIBCCALL libc_free_dynamic_tls(void) {
  struct dynamic_tls *dyntls,*next;
- dyntls = GET_DYNAMIC_TLS();
+ struct task_segment *me = libc_current();
+ dyntls = me->ts_tls;
  while (dyntls) {
   next = dyntls->dt_next;
   libc_free(dyntls);
   dyntls = next;
  }
+ /* Free the thread's read locks */
+ libc_free(me->ts_locks);
 }
 
 EXPORT(exit_thread,libc_exit_thread);
@@ -85,6 +88,15 @@ libc_exit_thread(int exit_code) {
   *       the calling process! */
  sys_exit(exit_code);
 }
+
+EXPORT(_endthreadex,libc_endthreadex);
+#if __SIZEOF_INT__ == 4
+DEFINE_INTERN_ALIAS(libc_endthreadex,libc_exit_thread);
+#else
+CRT_DOS void LIBCCALL libc_endthreadex(u32 exitcode) {
+ libc_exit_thread((int)exitcode);
+}
+#endif
 
 
 DECL_END

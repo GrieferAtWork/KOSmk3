@@ -156,6 +156,12 @@ INTERN ATTR_NORETURN void LIBPCALL thread_exit(void *retval) {
   /* Drop a reference from the calling thread's controller. */
   thread_decref(me);
  }
+ if (__current()->ts_type == THREAD_TYPE_MAINTHREAD) {
+  /* POSIX wants pthread_exit() invoked from the main() thread to
+   * wait until all worker threads have exited before exiting the
+   * process. */
+  while (waitid(P_ALL,0,NULL,WEXITED|WONLYTHREADS) >= 0);
+ }
  exit_thread(0);
 }
 
@@ -227,7 +233,8 @@ thread_Xtryjoin(Thread *__restrict self, void **thread_return) {
      return false;
  if (thread_return)
     *thread_return = self->t_exitval;
- /* Destroy the thread descriptor. */
+ /* Detach, and destroy the thread descriptor. */
+ detach(self->t_realtid);
  thread_destroy(self);
  return true;
 }

@@ -36,9 +36,9 @@ struct read_lock {
                                   *  Amount of recursive read-locks held. */
     struct rwlock *rl_rwlock;    /* [valid_if(!= NULL && != READLOCK_DUMMYLOCK)] Associated R/W-lock. */
 };
-#define CONFIG_TASK_STATIC_READLOCKS 4
 
 
+#define CONFIG_TASK_STATIC_READLOCKS 2
 #define RWLOCK_HASH(x) ((uintptr_t)(x) / HEAP_ALIGNMENT)
 struct read_locks {
     struct read_lock  rls_sbuf[CONFIG_TASK_STATIC_READLOCKS];

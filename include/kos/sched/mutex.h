@@ -20,6 +20,9 @@
 #define _KOS_SCHED_MUTEX_H 1
 
 #include <__stdinc.h>
+#ifdef __KERNEL__
+#include <sched/mutex.h>
+#else /* __KERNEL__ */
 #include <hybrid/__atomic.h>
 #include <hybrid/typecore.h>
 #include <hybrid/timespec.h>
@@ -27,7 +30,7 @@
 #include <features.h>
 #include <kos/futex.h>
 
-DECL_BEGIN
+__DECL_BEGIN
 
 typedef struct mutex mutex_t;
 
@@ -135,8 +138,7 @@ __BOOL (__LIBCCALL mutex_try)(struct mutex *__restrict __self) {
 }
 #endif
 
-
-DECL_END
-
+__DECL_END
+#endif /* !__KERNEL__ */
 
 #endif /* !_KOS_SCHED_MUTEX_H */

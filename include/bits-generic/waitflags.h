@@ -45,36 +45,31 @@ __SYSDECL_BEGIN
    <http://www.gnu.org/licenses/>.  */
 
 /* Bits in the third argument to `waitpid'. */
-#ifndef WNOHANG
 #define WNOHANG     1 /* Don't block waiting. */
-#endif /* !WNOHANG */
-#ifndef WUNTRACED
 #define WUNTRACED   2 /* Report status of stopped children. */
-#endif /* !WUNTRACED */
 
 /* Bits in the fourth argument to `waitid'. */
-#ifndef WSTOPPED
 #define WSTOPPED    2 /* Report stopped child (same as WUNTRACED). */
-#endif /* !WSTOPPED */
-#ifndef WEXITED
 #define WEXITED     4 /* Report dead child. */
-#endif /* !WEXITED */
-#ifndef WCONTINUED
 #define WCONTINUED  8 /* Report continued child. */
-#endif /* !WCONTINUED */
-#ifndef WNOWAIT
+#if defined(__USE_KOS3) && __KOS_VERSION__ >= 300
+#define WONLYTHREADS 0x8000 /* Only wait for children created within the current
+                             * process, and with the `CLONE_THREAD' flag set. */
+#endif
 #define WNOWAIT     0x01000000 /* Don't reap, just poll status. */
-#endif /* !WNOWAIT */
+#ifdef __KOS__
+#define WNOREAP     WNOWAIT    /* Don't reap, just poll status (doesn't this name make more sense than `WNOWAIT'?). */
+#endif
 
-#ifndef __WNOTHREAD
+#if defined(__KOS__) && __KOS_VERSION__ >= 300
+#define __WNOTHREAD __COMPILER_DEPRECATED_EXPR_("`__WNOTHREAD' is not supposed in KOS",0x20000000)
+#define __WALL      __COMPILER_DEPRECATED_EXPR_("`__WALL' is not supposed in KOS",     0x40000000)
+#define __WCLONE    __COMPILER_DEPRECATED_EXPR_("`__WCLONE' is not supposed in KOS",   0x80000000)
+#else
 #define __WNOTHREAD 0x20000000 /* Don't wait on children of other threads in this group */
-#endif /* !__WNOTHREAD */
-#ifndef __WALL
 #define __WALL      0x40000000 /* Wait for any child. */
-#endif /* !__WALL */
-#ifndef __WCLONE
 #define __WCLONE    0x80000000 /* Wait for cloned process. */
-#endif /* !__WCLONE */
+#endif
 
 /* The following values are used by the `waitid' function. */
 #if defined(__USE_XOPEN) || defined(__USE_XOPEN2K8)

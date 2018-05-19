@@ -103,6 +103,7 @@ typedef union {
 #endif
 
 
+#ifdef __CC__
 #ifndef __KERNEL__
 __REDIRECT_EXCEPT(__LIBC,,__pid_t,__LIBCCALL,wait,(__WAIT_STATUS __stat_loc),(__stat_loc))
 __REDIRECT_EXCEPT(__LIBC,,__pid_t,__LIBCCALL,waitpid,(__pid_t __pid, __WAIT_STATUS __stat_loc, int __options),(__pid,__stat_loc,__options))
@@ -190,6 +191,7 @@ __LIBC void (__LIBCCALL Xdetach)(__pid_t __pid);
 #endif /* __USE_EXCEPT */
 #endif /* __USE_KOS3 */
 #endif /* !__KERNEL__ */
+#endif /* __CC__ */
 
 __SYSDECL_END
 

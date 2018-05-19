@@ -294,20 +294,20 @@ rwlock_timedwrite(struct rwlock *__restrict self,
  *                         See the section on `parallel-upgrade' above.
  * @return: true:  Successfully acquire a write lock.
  * @return: false: The given timeout has expired. */
-FORCELOCAL bool KCALL rwlock_timedwrite_agressive(struct rwlock *__restrict self, jtime_t abs_timeout);
+FORCELOCAL bool KCALL rwlock_timedwrite_aggressive(struct rwlock *__restrict self, jtime_t abs_timeout);
 #ifdef __INTELLISENSE__
-void KCALL rwlock_write_agressive(struct rwlock *__restrict self);
+void KCALL rwlock_write_aggressive(struct rwlock *__restrict self);
 #else
-#define rwlock_write_agressive(self) (void)rwlock_timedwrite_agressive(self,JTIME_INFINITE)
+#define rwlock_write_aggressive(self) (void)rwlock_timedwrite_aggressive(self,JTIME_INFINITE)
 
 FUNDEF bool KCALL
-__os_rwlock_timedwrite_agressive(struct rwlock *__restrict self,
-                                 jtime_t abs_timeout)
-                                 ASMNAME("rwlock_timedwrite_agressive");
+__os_rwlock_timedwrite_aggressive(struct rwlock *__restrict self,
+                                  jtime_t abs_timeout)
+                                  ASMNAME("rwlock_timedwrite_aggressive");
 FORCELOCAL bool KCALL
-rwlock_timedwrite_agressive(struct rwlock *__restrict self,
-                            jtime_t abs_timeout) {
- if (!__os_rwlock_timedwrite_agressive(self,abs_timeout))
+rwlock_timedwrite_aggressive(struct rwlock *__restrict self,
+                             jtime_t abs_timeout) {
+ if (!__os_rwlock_timedwrite_aggressive(self,abs_timeout))
       return false;
  COMPILER_BARRIER();
  return true;

@@ -44,6 +44,7 @@
 
 __SYSDECL_BEGIN
 
+#ifdef __CC__
 #ifndef __KERNEL__
 __LIBC int (__LIBCCALL pthread_sigmask)(int __how, const __sigset_t *__restrict __newmask, __sigset_t *__restrict __oldmask);
 __LIBC int (__LIBCCALL pthread_kill)(pthread_t __threadid, int __signo);
@@ -51,6 +52,7 @@ __LIBC int (__LIBCCALL pthread_kill)(pthread_t __threadid, int __signo);
 __LIBC int (__LIBCCALL pthread_sigqueue)(pthread_t __threadid, int __signo, union sigval const __value);
 #endif /* __USE_GNU */
 #endif /* __KERNEL__ */
+#endif /* __CC__ */
 
 __SYSDECL_END
 

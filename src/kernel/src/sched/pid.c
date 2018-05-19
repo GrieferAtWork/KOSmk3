@@ -711,6 +711,7 @@ DEFINE_SYSCALL0(getpid) {
  return posix_getpid();
 }
 DEFINE_SYSCALL_MUSTRESTART(getppid);
+
 DEFINE_SYSCALL0(getppid) {
  return posix_getppid();
 }

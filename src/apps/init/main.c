@@ -23,6 +23,7 @@
 #define __EXPOSE_CPU_CONTEXT 1
 #define __EXPOSE_STAT_STRUCTURES 1
 
+#include <kos/sched/rwlock.h>
 #include <parts/kos3/sys/wstat.h>
 #include <parts/kos3/sys/ustat.h>
 #include <parts/kos3/wstdlib.h>

@@ -35,6 +35,7 @@ __SYSDECL_BEGIN
 #define __TASK_SEGMENT_SIZE                (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZE)
 #endif
 #define __USER_TASK_SEGMENT_OFFSETOF_STATE      (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE)
+#define __USER_TASK_SEGMENT_OFFSETOF_TYPE       (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+2)
 #define __USER_TASK_SEGMENT_OFFSETOF_EFORMAT    (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+3)
 #define __USER_TASK_SEGMENT_OFFSETOF_ERRNO      (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+4)
 #define __USER_TASK_SEGMENT_OFFSETOF_DOS_ERRNO  (__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+8)
@@ -45,9 +46,10 @@ __SYSDECL_BEGIN
 #define __USER_TASK_SEGMENT_OFFSETOF_UEH_SP     (3*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
 #define __USER_TASK_SEGMENT_OFFSETOF_X86SYSBASE (4*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
 #define __USER_TASK_SEGMENT_OFFSETOF_TLS        (5*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
-#define __USER_TASK_SEGMENT_OFFSETOF_PTHREAD    (6*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __USER_TASK_SEGMENT_OFFSETOF_LOCKS      (6*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __USER_TASK_SEGMENT_OFFSETOF_PTHREAD    (7*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
 #ifndef CONFIG_NO_DOS_COMPAT
-#define __USER_TASK_SEGMENT_OFFSETOF_TIB        (7*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __USER_TASK_SEGMENT_OFFSETOF_TIB        (8*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
 #define __USER_TASK_SEGMENT_OFFSETOF_NT_ERRNO   (__USER_TASK_SEGMENT_OFFSETOF_TIB+13*__SIZEOF_POINTER__)
 #endif /* !CONFIG_NO_DOS_COMPAT */
 
@@ -55,6 +57,7 @@ __SYSDECL_BEGIN
 #define TASK_SEGMENT_OFFSETOF_SELF            __TASK_SEGMENT_OFFSETOF_SELF
 #define TASK_SEGMENT_OFFSETOF_XCURRENT        __TASK_SEGMENT_OFFSETOF_XCURRENT
 #define USER_TASK_SEGMENT_OFFSETOF_STATE      __USER_TASK_SEGMENT_OFFSETOF_STATE
+#define USER_TASK_SEGMENT_OFFSETOF_TYPE       __USER_TASK_SEGMENT_OFFSETOF_TYPE
 #define USER_TASK_SEGMENT_OFFSETOF_EFORMAT    __USER_TASK_SEGMENT_OFFSETOF_EFORMAT
 #define USER_TASK_SEGMENT_OFFSETOF_ERRNO      __USER_TASK_SEGMENT_OFFSETOF_ERRNO
 #define USER_TASK_SEGMENT_OFFSETOF_DOS_ERRNO  __USER_TASK_SEGMENT_OFFSETOF_DOS_ERRNO
@@ -65,6 +68,7 @@ __SYSDECL_BEGIN
 #define USER_TASK_SEGMENT_OFFSETOF_UEH_SP     __USER_TASK_SEGMENT_OFFSETOF_UEH_SP
 #define USER_TASK_SEGMENT_OFFSETOF_X86SYSBASE __USER_TASK_SEGMENT_OFFSETOF_X86SYSBASE
 #define USER_TASK_SEGMENT_OFFSETOF_TLS        __USER_TASK_SEGMENT_OFFSETOF_TLS
+#define USER_TASK_SEGMENT_OFFSETOF_LOCKS      __USER_TASK_SEGMENT_OFFSETOF_LOCKS
 #define USER_TASK_SEGMENT_OFFSETOF_PTHREAD    __USER_TASK_SEGMENT_OFFSETOF_PTHREAD
 #ifndef CONFIG_NO_DOS_COMPAT
 #define USER_TASK_SEGMENT_OFFSETOF_TIB        __USER_TASK_SEGMENT_OFFSETOF_TIB
@@ -132,7 +136,9 @@ struct __ATTR_PACKED task_segment
                                                 * is entered, and must be unset manually if user-space wishes to re-enable
                                                 * unhandled exception handling. */
      __UINT16_TYPE__            ts_state;      /* Thread state (Set of `THREAD_STATE_F*') */
-     __UINT8_TYPE__           __ts_pad1;       /* ... */
+#define THREAD_TYPE_MAINTHREAD  0x0000         /* This is the main() thread */
+#define THREAD_TYPE_WORKER      0x0001         /* This is a clone()-ed worder thread */
+     __UINT8_TYPE__             ts_type;       /* The type of thread (One of `THREAD_TYPE_*') */
      __UINT8_TYPE__             ts_eformat;    /* The format for the most recent errno value (One of `TASK_ERRNO_F*'). */
      __UINT32_TYPE__            ts_errno;      /* The `errno' value used by libc. */
      __UINT32_TYPE__            ts_dos_errno;  /* The `errno' value used by libc (in DOS emulation). */
@@ -157,16 +163,20 @@ struct __ATTR_PACKED task_segment
                                                 * Or more precisely: `0xc0ffffff - X86_ENCODE_PFSYSCALL_SIZE'
                                                 * NOTE: Additionally, this address is aligned on a 16 byte boundary. */
 #ifdef __BUILDING_LIBC
-     struct dynamic_tls        *ts_tls;        /* [0..1] Dynamically allocated TLS memory. */
+     struct dynamic_tls        *ts_tls;        /* [0..1][owned] Dynamically allocated TLS memory. */
+     struct readlocks          *ts_locks;      /* [0..1][owned] Read-locks held by this thread. */
 #else
      __UINTPTR_TYPE__         __ts_tls;        /* Internal pointer used by the libc library. */
+     __UINTPTR_TYPE__         __ts_locks;      /* Internal pointer used by the libc library. */
 #endif
 #ifdef __BUILDING_LIBPTHREAD
      struct thread             *ts_pthread;    /* [0..1] Pointer to the descriptor of the current thread. */
 #else
      __UINTPTR_TYPE__         __ts_pthread;    /* Internal pointer used by the pthread library. */
 #endif
-#ifdef __KERNEL__
+#if defined(__KERNEL__) || \
+    defined(__BUILDING_LIBC) || \
+    defined(__BUILDING_LIBPTHREAD)
 #ifndef CONFIG_NO_DOS_COMPAT
      struct nt_tib              ts_tib;        /* The NT-compatible TIB block (Since this block's location may change,
                                                 * user-space should access it using the %fs register, not this pointer) */

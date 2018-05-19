@@ -277,6 +277,7 @@ typedef __UINT16_TYPE__ except_t;
                                                   *     `http://man7.org/linux/man-pages/man7/signal.7.html')
                                                   *  #3: Restart the system call if the interrupt wasn't caused by a posix_signal,
                                                   *      or if it was caused by a posix_signal with the `SA_RESTART' flag set. */
+#define __E_RETRY_RWLOCK         0xf001          /* The thread should re-attempt to acquire an R/W-lock. */
 
 /* RTL / Special exception codes. */
 #define E_EXIT_THREAD            0xfe00          /* [ERRNO(EINTR)] The thread is supposed to terminate. */
@@ -290,7 +291,7 @@ typedef __UINT16_TYPE__ except_t;
 /* Kernel-specific exception codes. */
 #define E_DRIVER_CLOSED          0x0800          /* Attempted to register a new global hook using a closed driver. */
 #define E_USER_RESUME            0xf800          /* Resume execution in user-space (weakened form of `E_INTERRUPT') */
-#define E_RETRY_RWLOCK           0xf810          /* The thread should re-attempt to acquire an R/W-lock. */
+#define E_RETRY_RWLOCK           __E_RETRY_RWLOCK/* The thread should re-attempt to acquire an R/W-lock. */
 #endif
 
 
@@ -495,11 +496,9 @@ struct __ATTR_PACKED exception_data_exit {
 #endif
 };
 
-#ifdef __KERNEL__
 struct __ATTR_PACKED exception_data_retry_rwlock {
-    void                *e_rwlock_ptr; /* Address of the R/W-lock in question. */
+    struct rwlock       *e_rwlock_ptr; /* Address of the R/W-lock in question. */
 };
-#endif
 
 #endif /* __CC__ */
 
@@ -542,6 +541,7 @@ struct exception_data {
 #ifdef E_INVALID_SEGMENT
         struct exception_data_invalid_segment     e_invalid_segment;     /* E_INVALID_SEGMENT. */
 #endif
+        struct exception_data_retry_rwlock      __e_retry_rwlock;        /* __E_RETRY_RWLOCK */
 #ifdef __KERNEL__
         struct exception_data_retry_rwlock        e_retry_rwlock;        /* E_RETRY_RWLOCK */
 #endif

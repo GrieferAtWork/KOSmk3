@@ -455,5 +455,9 @@ void __builtin_va_end(__builtin_va_list &__ap);
 #define __SYSDECL_END   __pragma(warning(pop)) __DECL_END
 #endif
 
+#define __COMPILER_DEPRECATED_EXPR(val) \
+   __pragma(message(__FILE__ "(" __PP_STR(__LINE__) ") : Warning : Deprecated value")) val
+#define __COMPILER_DEPRECATED_EXPR_(msg,val) \
+   __pragma(message(__FILE__ "(" __PP_STR(__LINE__) ") : Warning : " msg)) val
 
 

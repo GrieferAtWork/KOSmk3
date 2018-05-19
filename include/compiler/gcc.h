@@ -641,3 +641,10 @@ __extension__ typedef unsigned long long __ulonglong_t;
 #   define __NULLPTR ((void *)0)
 #endif
 
+#ifndef __INTELLISENSE__
+#define __COMPILER_DEPRECATED_EXPR(val) \
+   ({ __pragma(message("Warning: Deprecated value")) (val); })
+#define __COMPILER_DEPRECATED_EXPR_(msg,val) \
+   ({ __pragma(message("Warning: " msg)) (val); })
+#endif
+

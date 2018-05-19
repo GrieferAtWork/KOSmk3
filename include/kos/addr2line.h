@@ -80,7 +80,8 @@ __LIBC __PORT_KOSONLY __size_t (__LIBCCALL Xxdladdr2line)(void *__abs_pc, struct
  * @return: 0 / true:                   Successfully unwound the stack-frame.
  * @return: -1 (errno = EPERM) / false: Failed to unwind the stack-frame
  *                                     (no unwind information present, or corrupted register state)
- * @throw: E_SEGFAULT: One of the given pointers is faulty. */
+ * @throw: E_SEGFAULT: One of the given structure pointers is faulty.
+ *               NOTE: Not thrown if a memory read during the unwind process causes a segfault! */
 __REDIRECT_EXCEPT(__LIBC,__PORT_KOSONLY __WUNUSED,int,__LIBCCALL,xunwind,
                  (struct cpu_context *__restrict __cpu_context,
                   struct fpu_context *__fpu_context, __sigset_t *__signal_set),

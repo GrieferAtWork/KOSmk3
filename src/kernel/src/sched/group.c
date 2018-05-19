@@ -831,7 +831,7 @@ reapall_check:
      if (task_disconnect()) goto reapall_again;
      return -ECHILD;
     }
-    if (!(options & WNOWAIT)) {
+    if (!(options & WNOREAP)) {
      for (; child; child = child->tp_siblings.le_next) {
       if (!child->tp_task ||
           !ATOMIC_READ(child->tp_task->t_refcnt) ||
@@ -883,9 +883,13 @@ again:
    if (child->tp_pids[my_indirection] != upid)
        continue;
   }
-
   atomic_rwlock_read(&child->tp_task_lock);
 check_child_again:
+  if ((options & WONLYTHREADS) && child->tp_task &&
+       FORTASK(child->tp_task,_this_group).tg_leader != get_this_process()) {
+   atomic_rwlock_endread(&child->tp_task_lock);
+   continue; /* Not a thread of this process. */
+  }
   assert(!child->tp_task ||
           FORTASK(child->tp_task,_this_pid) == child);
   /* XXX: We're not tracking the PGID in the PID descriptor,
@@ -922,8 +926,8 @@ child_died:
         atomic_rwlock_endwrite(&child->tp_task_lock);
    else atomic_rwlock_endread(&child->tp_task_lock);
    if (!(options & WEXITED)) continue; /* Don't wait for exited child processes. */
-   /* Remove this child's zombie corpse when `WNOWAIT' isn't set. */
-   if (!(options & WNOWAIT)) {
+   /* Remove this child's zombie corpse when `WNOREAP' isn't set. */
+   if (!(options & WNOREAP)) {
     LIST_REMOVE(child,tp_siblings); /* Inherit reference. */
     child->tp_siblings.le_pself = NULL;
     child->tp_siblings.le_next  = NULL;
@@ -1020,8 +1024,10 @@ DEFINE_SYSCALL_DONTRESTART(waitid);
 DEFINE_SYSCALL5(waitid,int,which,pid_t,upid,
                 USER UNCHECKED siginfo_t *,infop,int,options,
                 USER UNCHECKED struct rusage *,ru) {
- if (options & ~(WNOHANG|WNOWAIT|WEXITED|WSTOPPED|WCONTINUED) ||
+ if (options & ~(WNOHANG|WNOREAP|WEXITED|WSTOPPED|WCONTINUED|WONLYTHREADS) ||
    !(options & (WEXITED|WSTOPPED|WCONTINUED)))
+     error_throw(E_INVALID_ARGUMENT);
+ if ((unsigned int)which > P_PGID)
      error_throw(E_INVALID_ARGUMENT);
  validate_writable_opt(infop,sizeof(siginfo_t));
  validate_writable_opt(ru,sizeof(struct rusage));
@@ -1034,7 +1040,14 @@ DEFINE_SYSCALL4(wait4,pid_t,upid,
                 USER UNCHECKED struct rusage *,ru) {
  int which;
  pid_t result;
- if (options & ~(WNOHANG|WSTOPPED|WCONTINUED|WEXITED))
+ if (options & ~(WNOHANG|WSTOPPED|WCONTINUED|
+                 /* POSIX doesn't allow the following 2 options,
+                  * however besides portability, I see no reason
+                  * why they shouldn't be allowed. */
+                 WEXITED|WNOREAP|
+                 /* KOS extension: Only wait for threads (not child processes). */
+                 WONLYTHREADS
+                 ))
      error_throw(E_INVALID_ARGUMENT);
  options |= WEXITED;
  validate_writable_opt(wstatus,sizeof(int));

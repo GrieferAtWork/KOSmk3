@@ -436,10 +436,6 @@ EXPORT(_endthread,libc_endthread);
 CRT_DOS void LIBCCALL libc_endthread(void) {
  libc_endthreadex(0);
 }
-EXPORT(_endthreadex,libc_endthreadex);
-CRT_DOS void LIBCCALL libc_endthreadex(u32 exitcode) {
- sys_exit((int)exitcode);
-}
 
 
 DECL_END

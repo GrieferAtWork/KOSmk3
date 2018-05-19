@@ -1850,6 +1850,11 @@ poll_pid(USER CHECKED struct pollpid *__restrict pinfo) {
 
   atomic_rwlock_read(&child->tp_task_lock);
 check_child_again:
+  if ((info.pp_options & WONLYTHREADS) && child->tp_task &&
+       FORTASK(child->tp_task,_this_group).tg_leader != get_this_process()) {
+   atomic_rwlock_endread(&child->tp_task_lock);
+   continue; /* Not a thread of this process. */
+  }
   /* XXX: We're not tracking the PGID in the PID descriptor,
    *      but apparently POSIX wants us to remember a thread's
    *      process group, even after the thread has died...
@@ -1883,8 +1888,8 @@ child_died:
         atomic_rwlock_endwrite(&child->tp_task_lock);
    else atomic_rwlock_endread(&child->tp_task_lock);
    if (!(info.pp_options & WEXITED)) continue; /* Don't wait for exited child processes. */
-   /* Remove this child's zombie corpse when `WNOWAIT' isn't set. */
-   if (!(info.pp_options & WNOWAIT)) {
+   /* Remove this child's zombie corpse when `WNOREAP' isn't set. */
+   if (!(info.pp_options & WNOREAP)) {
     LIST_REMOVE(child,tp_siblings); /* Inherit reference. */
     child->tp_siblings.le_pself = NULL;
     child->tp_siblings.le_next  = NULL;

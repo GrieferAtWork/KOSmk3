@@ -29,6 +29,7 @@
 #include "exit.h"
 #include "system.h"
 #include "stdio.h"
+#include "tls.h"
 
 #include <hybrid/compiler.h>
 #include <kos/context.h>
@@ -150,7 +151,7 @@ libc_error_unhandled_exception(void) {
  /* Deal with special errors that should not be
   * caught by the unhandled exception handler. */
  if (thread->ts_xcurrent.e_error.e_code == E_EXIT_THREAD)
-     sys_exit(thread->ts_xcurrent.e_error.e_exit.e_status); /* Exit the thread. */
+     libc_exit_thread(thread->ts_xcurrent.e_error.e_exit.e_status); /* Exit the thread. */
  if (thread->ts_xcurrent.e_error.e_code == E_EXIT_PROCESS)
      libc_exit(thread->ts_xcurrent.e_error.e_exit.e_status); /* Exit the process. */
  if (thread->ts_ueh &&
@@ -180,7 +181,7 @@ libc_error_unhandled_exception(void) {
 #endif /* CONFIG_LIBC_USES_NEW_STDIO */
 
  if (thread->ts_state & THREAD_STATE_FALONE)
-     sys_exit(1); /* Only exit the thread. */
+     libc_exit_thread(1); /* Only exit the thread. */
 
  /* TODO: Create a coredump */
  _libc_exit(1);
@@ -209,6 +210,11 @@ DEFINE_PUBLIC_WEAK_ALIAS("__$$OS$error_unhandled_exception",
                          libc_os_error_unhandled_exception);
 
 
+#undef __error_rethrow_at
+#undef error_unhandled_exception
+#undef error_printf
+#undef error_vprintf
+#undef error_fprintf
 EXPORT(__error_rethrow_at,       libc_error_rethrow_at);
 EXPORT(error_unhandled_exception,libc_error_unhandled_exception);
 EXPORT(error_printf,             libc_error_printf);

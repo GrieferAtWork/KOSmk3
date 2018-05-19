@@ -92,6 +92,7 @@ __SYSDECL_BEGIN
 #define __WCOREFLAG             0x80
 #endif /* !__WCOREFLAG */
 
+#ifdef __CC__
 #ifdef __USE_MISC
 #ifdef __COMPILER_HAVE_PRAGMA_PUSHMACRO
 #pragma push_macro("wait")
@@ -164,6 +165,7 @@ union wait {
 #pragma pop_macro("wait")
 #endif
 #endif /* __USE_MISC */
+#endif /* __CC__ */
 
 __SYSDECL_END
 

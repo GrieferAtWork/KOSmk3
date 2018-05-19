@@ -28,6 +28,7 @@
 
 DECL_BEGIN
 
+#ifdef __CC__
 #ifndef __futex_t_defined
 #define __futex_t_defined 1
 typedef __uint32_t  futex_t;
@@ -1032,11 +1033,13 @@ struct task_segment;
 /* Basic thread-local context control functions. */
 #ifdef __BUILDING_LIBC
 __REDIRECT(__LIBC,__WUNUSED __ATTR_CONST __ATTR_NOTHROW,__pid_t,__LIBCCALL,__gettid,(void),libc_gettid,())
+__REDIRECT(__LIBC,__WUNUSED __ATTR_CONST __ATTR_NOTHROW,__pid_t,__LIBCCALL,gettid,(void),libc_gettid,())
 __REDIRECT(__LIBC,__WUNUSED __ATTR_RETNONNULL __ATTR_CONST __ATTR_NOTHROW,struct task_segment *,__LIBCCALL,__current,(void),libc_current,())
 __REDIRECT(__LIBC,__ATTR_NOTHROW,int,__LIBCCALL,__sched_yield,(void),libc_sched_yield,())
 #else
 /* Return the TID of the calling thread, as read from `__current()->ts_tid' */
 __REDIRECT(__LIBC,__WUNUSED __ATTR_CONST __ATTR_NOTHROW,__pid_t,__LIBCCALL,__gettid,(void),gettid,())
+__LIBC __WUNUSED __ATTR_CONST __ATTR_NOTHROW __pid_t (__LIBCCALL gettid)(void);
 /* Return a pointer to the calling thread's task segment, that is a block of memory
  * mapped by the kernel, often addressable by some means using an arch-specific TLS register.
  * On X86, the %fs / %gs segment registers are used for this. */
@@ -1120,6 +1123,7 @@ __REDIRECT(__LIBC,__ATTR_NOTHROW,int,__LIBCCALL,__sched_yield,(void),sched_yield
 #endif
 
 #endif
+#endif /* __CC__ */
 
 
 DECL_END

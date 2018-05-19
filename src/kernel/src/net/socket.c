@@ -281,7 +281,7 @@ socket_shutdown(struct socket *__restrict self, u16 how) {
   *  - If we do this, we can use shutdown() to interrupt blocking
   *    operations such as recv(), send() or accept(), causing them
   *    to loop around and notice that the socket has been shut down! */
- rwlock_write_agressive(&self->s_lock);
+ rwlock_write_aggressive(&self->s_lock);
  new_bits = ATOMIC_FETCHOR(self->s_state,how);
  /* Figure out which bits become enabled by this shutdown command. */
  new_bits = how & ~new_bits;

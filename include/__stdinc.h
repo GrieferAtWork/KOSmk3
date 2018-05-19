@@ -124,6 +124,10 @@
 #ifndef __COMPILER_IGNORE_UNINITIALIZED
 #define __COMPILER_IGNORE_UNINITIALIZED(var) var
 #endif
+#ifndef __COMPILER_DEPRECATED_EXPR
+#define __COMPILER_DEPRECATED_EXPR(val)      val
+#define __COMPILER_DEPRECATED_EXPR_(msg,val) val
+#endif
 
 #define __COMPILER_OFFSETAFTER(s,m) ((__SIZE_TYPE__)(&((s *)0)->m+1))
 #ifdef __INTELLISENSE__

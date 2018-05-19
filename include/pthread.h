@@ -111,6 +111,7 @@ __SYSDECL_BEGIN
 #define PTHREAD_SCOPE_PROCESS   1
 
 
+#ifdef __CC__
 struct sched_param;
 
 /* PThread attribute functions. */
@@ -257,7 +258,7 @@ __LIBP __NONNULL((1,2)) __errno_t (__LIBPCALL pthread_once)(pthread_once_t *__re
 #ifdef __USE_EXCEPT
 __LIBP __NONNULL((1,2)) void (__LIBPCALL Xpthread_once)(pthread_once_t *__restrict __once_control, void (*__init_routine)(void));
 #endif /* __USE_EXCEPT */
-
+#endif /* __CC__ */
 
 
 __SYSDECL_END

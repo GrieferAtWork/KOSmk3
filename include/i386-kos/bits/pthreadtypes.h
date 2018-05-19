@@ -76,6 +76,7 @@ __SYSDECL_BEGIN
 #   define __SIZEOF_PTHREAD_BARRIERATTR_T 4
 #endif
 
+#ifdef __CC__
 typedef __UINTPTR_TYPE__ pthread_t;
 
 union pthread_attr_t {
@@ -227,6 +228,7 @@ typedef union {
 #ifndef __x86_64__
 #define __cleanup_fct_attribute   __attribute__((__regparm__(1)))
 #endif
+#endif /* __CC__ */
 
 __SYSDECL_END
 
