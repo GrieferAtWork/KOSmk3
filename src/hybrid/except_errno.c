@@ -76,8 +76,10 @@ libc_exception_errno(struct exception_info *__restrict info) {
  case E_STACK_OVERFLOW:         result = EFAULT; break; /* Barely questionable... */
  case E_UNHANDLED_INTERRUPT:    result = EFAULT; break; /* Definitely questionable... */
  case E_UNKNOWN_SYSTEMCALL:     result = ENOSYS; break;
+#if 0 /* EPERM is already the default. */
  case E_ILLEGAL_OPERATION:      result = EPERM; break;
- case E_NOT_IMPLEMENTED:        result = ENOSYS; break;
+ case E_NOT_IMPLEMENTED:        result = EPERM; break;
+#endif
  case E_INVALID_ALIGNMENT:      result = EFAULT; break;
 #ifdef E_INVALID_SEGMENT
  case E_INVALID_SEGMENT:        result = EINVAL; break;

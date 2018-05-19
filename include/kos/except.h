@@ -234,7 +234,7 @@ typedef __UINT16_TYPE__ except_t;
 #define E_OK                     0x0000          /* Never thrown; may be used to indicate error-less state */
 #define E_BADALLOC               0x0001          /* [ERRNO(ENOMEM)] Failed to allocate sufficient resources. */
 #define E_INVALID_ARGUMENT       0x0002          /* [ERRNO(EINVAL)] Invalid argument. */
-#define E_NOT_IMPLEMENTED        0x0003          /* [ERRNO(ENOSYS)] Unimplemented function. */
+#define E_NOT_IMPLEMENTED        0x0003          /* [ERRNO(EPERM)] Unimplemented function. */
 #define E_INVALID_HANDLE         0x0004          /* [ERRNO(EBADF)] Bad file descriptor. */
 #define E_WOULDBLOCK             0x0005          /* [ERRNO(EWOULDBLOCK)] A blocking call was attempted when non-blocking behavior was requested. */
 #define E_NO_DATA                0x0006          /* [ERRNO(ENODATA)] No data is available. */
