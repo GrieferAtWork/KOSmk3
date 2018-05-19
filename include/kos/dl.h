@@ -69,6 +69,7 @@ struct module_basic_info {
 #define APPLICATION_FNORMAL  0x0000 /* Normal application flags. */
 #define APPLICATION_FDIDINIT 0x0001 /* [lock(WRITE_ONCE)] Custom module initializers have been executed. */
 #define APPLICATION_FDIDFINI 0x0002 /* [lock(WRITE_ONCE)] Custom module finalizers have been executed. */
+#define APPLICATION_FHASTLS  0x0004 /* [lock(CLEAR_ONCE)] The application has a static TLS segment. */
 #ifdef __KERNEL__
 #define APPLICATION_FCLOSING 0x0200 /* [lock(WRITE_ONCE)] A driver is being closed and must not be used to create new global hooks. */
 #endif /* __KERNEL__ */

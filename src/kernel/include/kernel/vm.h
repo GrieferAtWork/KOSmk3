@@ -626,7 +626,8 @@ typedef void *(KCALL *vm_notify_t)(void *closure, unsigned int command,
                                      * NOTE: `addr' and `num_pages' point to the mapping location of the associated node in `THIS_VM'. */
 #define VM_NOTIFY_RESTORE_VM 0x0005 /* Notification: Same as `VM_NOTIFY_RESTORE', but used if the new VM differs from the old one (NOTE: Called in the context of the new VM)
                                      * NOTE: Called in the context of the VM in which the node is being restored.
-                                     * NOTE: `addr' and `num_pages' point to the mapping location of the associated node in `THIS_VM'. */
+                                     * NOTE: `addr' and `num_pages' point to the mapping location of the associated node in `THIS_VM'.
+                                     * @param: arg: [TYPE(struct vm *)] The old VM. */
 #define VM_NOTIFY_DELETE     0x0006 /* [NOEXCEPT] Notification: Delete the mapping after it has been extracted.
                                      * NOTE: This callback's VM context is undefined, and so are the `addr' and `num_pages' arguments. */
 #define VM_NOTIFY_CLONE      0x0007 /* Called during `vm_clone()'

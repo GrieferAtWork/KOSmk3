@@ -180,6 +180,7 @@
     <ClCompile Include="..\..\src\kernel\src\vm\region-io.c" />
     <ClCompile Include="..\..\src\kernel\src\vm\region.c" />
     <ClCompile Include="..\..\src\kernel\src\vm\system.c" />
+    <ClCompile Include="..\..\src\kernel\src\vm\tls.c" />
     <ClCompile Include="..\..\src\kernel\src\vm\ushare.c" />
     <ClCompile Include="..\..\src\kernel\src\vm\vm.c" />
   </ItemGroup>
@@ -259,6 +260,7 @@
     <ClInclude Include="..\..\src\kernel\include\kernel\sections.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\syscall.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\sysconf.h" />
+    <ClInclude Include="..\..\src\kernel\include\kernel\tls.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\user.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\ushare.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\version.h" />

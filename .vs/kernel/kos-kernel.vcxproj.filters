@@ -528,6 +528,9 @@
     <ClCompile Include="..\..\src\kernel\src\kernel\panic.c">
       <Filter>kernel\src\kernel</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\vm\tls.c">
+      <Filter>kernel\src\vm</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">
@@ -859,6 +862,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\kernel\src\sched\rpc.h">
       <Filter>kernel\src\sched</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\kernel\tls.h">
+      <Filter>kernel\include\kernel</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

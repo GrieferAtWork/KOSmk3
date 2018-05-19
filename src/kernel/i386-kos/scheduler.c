@@ -1110,11 +1110,14 @@ PUBLIC ATTR_NORETURN void KCALL task_exit(void) {
  if (!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB)) {
   if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG)) {
    /* Delete the user task segment. */
-   assert(IS_ALIGNED((uintptr_t)PERTASK_GET(this_task.t_userseg),PAGEALIGN));
+   struct task *me = THIS_TASK;
+   vm_vpage_t min_page,max_page;
    assert(THIS_VM != &vm_kernel);
-   vm_unmap(VM_ADDR2PAGE((uintptr_t)PERTASK_GET(this_task.t_userseg)),
-            CEILDIV(sizeof(struct task_segment),PAGESIZE),
-            VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT|VM_UNMAP_SYNC,THIS_TASK);
+   min_page = VM_ADDR2PAGE((uintptr_t)TASK_USERSEG_MIN(me));
+   max_page = VM_ADDR2PAGE((uintptr_t)TASK_USERSEG_MAX(me));
+   vm_unmap(min_page,(max_page-min_page)+1,
+            VM_UNMAP_TAG|VM_UNMAP_NOEXCEPT|
+            VM_UNMAP_SYNC,me);
   }
  }
 
@@ -1417,7 +1420,9 @@ serve_rpc:
           "The caller should convert the register state to `int $0x80' "
           "prior to exception propagation");
   if (TASK_USERCTX_TYPE(mode) == TASK_USERCTX_TYPE_INTR_SYSCALL &&
-    !(context->c_gpregs.gp_eax & 0x80000000)) {
+    !(context->c_gpregs.gp_eax & 0x80000000) &&
+      /* Don't translate RTL exceptions! */
+     !ERRORCODE_ISRTLPRIORITY(info.e_error.e_code)) {
    /* Translate the exception into an errno. */
 #if 0
    error_printf("Translate to errno\n");

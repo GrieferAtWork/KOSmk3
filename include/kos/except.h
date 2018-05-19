@@ -219,6 +219,14 @@ typedef __UINT16_TYPE__ except_t;
  * when checking how an exception should be propagated to user-space. */
 #define ERRORCODE_ISLOWPRIORITY(x)   ((x) >= ERRORCODE_STDSIGNAL_MIN && (x) <= ERRORCODE_USERSIGNAL_MAX)
 #define ERRORCODE_ISHIGHPRIORITY(x)  ((x) >= ERRORCODE_RTL_MIN && (x) <= ERRORCODE_UNHANDLED_MAX)
+/* Check for RTL-priority exceptions. Exceptions matching this
+ * check are always propagated between the kernel and user-space,
+ * irregardless of whether or not a system call was invoked with
+ * or without exceptions enabled.
+ * This is only meant for exceptions like `E_EXIT_THREAD', who's
+ * sole purpose is to unwind the stack and safely terminate a
+ * thread. */
+#define ERRORCODE_ISRTLPRIORITY(x)   ((x) >= ERRORCODE_RTL_MIN && (x) <= ERRORCODE_RTL_MAX)
 
 
 
@@ -271,9 +279,9 @@ typedef __UINT16_TYPE__ except_t;
                                                   *      or if it was caused by a posix_signal with the `SA_RESTART' flag set. */
 
 /* RTL / Special exception codes. */
-#define E_EXIT_THREAD            0xfe00          /* The thread is supposed to terminate. */
-#define E_EXIT_PROCESS           0xfe01          /* The entire process is supposed to terminate. */
-#define E_NONCONTINUABLE         0xfefe          /* Attempted to resume a non-continuable exception. */
+#define E_EXIT_THREAD            0xfe00          /* [ERRNO(EINTR)] The thread is supposed to terminate. */
+#define E_EXIT_PROCESS           0xfe01          /* [ERRNO(EINTR)] The entire process is supposed to terminate. */
+#define E_NONCONTINUABLE         0xfefe          /* [ERRNO(EPERM)] Attempted to resume a non-continuable exception. */
 #define E_UNHANDLED_INTERRUPT    0xfeff          /* [ERRNO(EFAULT)] Unhandled system interrupt. */
 
 

@@ -49,7 +49,11 @@ libc_exception_errno(struct exception_info *__restrict info) {
    result = ENOMEM;
   }
   break;
- case E_INTERRUPT:              result = EINTR; break;
+ case E_EXIT_THREAD:
+ case E_EXIT_PROCESS:
+ case E_INTERRUPT:
+  result = EINTR;
+  break;
  case E_INVALID_HANDLE:
   result = EBADF;
   if (info->e_error.e_invalid_handle.h_reason == ERROR_INVALID_HANDLE_FWRONGKIND) {

@@ -151,6 +151,8 @@ libc_invoke_rpc_full(rpc_interrupt_t func, void *arg,
  LIBC_TRY {
   result = (*func)(arg,&regs->ctx,regs->mode);
  } LIBC_EXCEPT (EXCEPT_EXECUTE_HANDLER) {
+  if (ERRORCODE_ISRTLPRIORITY(error_code()))
+      error_rethrow();
   xregs->ctx.c_gpregs.gp_eax = -libc_except_errno();
   error_handled();
   result = RPC_RETURN_RESUME;

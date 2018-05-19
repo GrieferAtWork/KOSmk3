@@ -106,8 +106,10 @@ my_handler(int signo, siginfo_t *info, ucontext_t *context) {
 }
 
 
+PRIVATE ATTR_THREAD int thread_local_x = 42;
 
 PRIVATE int LIBCCALL my_thread(void *arg) {
+ syslog(LOG_DEBUG,"thread_local_x = %p:%d\n",&thread_local_x,thread_local_x);
  syslog(LOG_DEBUG,"my_thread() #1\n");
  pause();
  syslog(LOG_DEBUG,"my_thread() #2\n");
@@ -115,11 +117,15 @@ PRIVATE int LIBCCALL my_thread(void *arg) {
  syslog(LOG_DEBUG,"my_thread() #3\n");
  pause();
  syslog(LOG_DEBUG,"my_thread() #4\n");
+ syslog(LOG_DEBUG,"thread_local_x = %p:%d\n",&thread_local_x,thread_local_x);
  return 0;
 }
 
 
+
 PRIVATE unsigned int LIBCCALL my_rpc(void *arg) {
+ syslog(LOG_DEBUG,"thread_local_x = %p:%d\n",&thread_local_x,thread_local_x);
+ ++thread_local_x;
  syslog(LOG_DEBUG,"my_rpc(%p)\n",arg);
  /*asm("int3");*/
  return RPC_RETURN_RESTART;
@@ -154,6 +160,10 @@ int main(int argc, char *argv[]) {
  act.sa_sigaction = &my_handler;
  act.sa_flags     = SA_SIGINFO;
  Xsigaction(SIGCHLD,&act,NULL);
+
+ syslog(LOG_DEBUG,"thread_local_x = %p:%d\n",&thread_local_x,thread_local_x);
+ thread_local_x = 7;
+ syslog(LOG_DEBUG,"thread_local_x = %p:%d\n",&thread_local_x,thread_local_x);
 
  test_rpc();
 

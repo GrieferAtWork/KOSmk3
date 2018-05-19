@@ -26,6 +26,7 @@
 #include <hybrid/sync/atomic-rwlock.h>
 #include <kernel/sections.h>
 #include <kernel/vm.h>
+#include <kernel/tls.h>
 #include <kos/bound.h>
 #include <kos/dl.h>
 #include <kos/types.h>
@@ -235,6 +236,13 @@ struct module {
         image_rva_t               m_size;      /* [const] The module length (in bytes), offset from `m_fixedbase' */
     };
     image_rva_t                   m_entry;     /* [valid_if(MODULE_FENTRY)] Image entry point. */
+    image_rva_t                   m_tlsmin;    /* [const][valid_if(!= m_tlsend)][<= m_tlsend]
+                                                * Image-relative starting address of a static TLS template. */
+    image_rva_t                   m_tlsend;    /* [const][valid_if(!= m_tlsmin)][>= m_tlsmin]
+                                                * Image-relative end address of a static TLS template. */
+    size_t                        m_tlstplsz;  /* [const][valid_if(m_tlsmin != m_tlsend)]
+                                                * Size of the in-memory TLS template (the difference between
+                                                * this and `m_tlsend-m_tlsmin' is ZERO-initialized). */
     u16                           m_flags;     /* Module flags (Set of `MODULE_F*') */
     u16                           m_recent;    /* [INTERNAL] How often has this module been used recently. */
 #if __SIZEOF_POINTER__ > 4
@@ -257,6 +265,9 @@ struct module {
     struct except_cache           m_exc_cache; /* Same as `m_fde_cache', but used to cache exception handlers. */
     struct module_debug          *m_debug;     /* [0..1][lock(WRITE_ONCE)] Module debug information (for addr2line) */
 };
+#define MODULE_HASTLS(x)  ((x)->m_tlsmin != (x)->m_tlsend)
+#define MODULE_TLSSIZE(x) ((x)->m_tlsend - (x)->m_tlsmin)
+
 
 /* Destroy a previously allocated module. */
 FUNDEF ATTR_NOTHROW void KCALL module_destroy(struct module *__restrict self);
@@ -367,6 +378,9 @@ struct application {
                                                    * ZERO(0), the application has been unmapped).
                                                    * NOTE: When non-ZERO, holds a reference to `a_refcnt' */
     ATOMIC_DATA ref_t                 a_loadcnt;  /* Amount of times the application was opened by user-space. */
+    VIRT tls_addr_t                   a_tlsoff;   /* [const][valid_if(MODULE_HASTLS(a_module))]
+                                                   *  Relative offset from the user-space TLS register to the end of TLS data
+                                                   * (added to image-local TLS offsets to gain application-local offsets) */
     VIRT uintptr_t                    a_loadaddr; /* [const] Application load address (in the associated VM)
                                                    * NOTE: Applications are private to VMs, so you
                                                    *       should only ever be able to get your hands

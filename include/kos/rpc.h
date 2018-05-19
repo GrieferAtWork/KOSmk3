@@ -88,7 +88,9 @@ __DECL_BEGIN
  *   - Exceptions thrown by a RPC function that interrupted
  *     a system call invoked without exceptions enabled will
  *     have the exception it threw translated into an errno.
- */
+ *   - An exception to this rule are high-priority exceptions,
+ *     as indicated by `ERRORCODE_ISRTLPRIORITY()', which are
+ *     always propagated. */
 #define RPC_RETURN_RESTART         0 /* Restart the system call that was interrupted by the RPC,
                                       * but only if the `RPC_REASON_FSHOULD_RESTART' reason flag is set.
                                       * Otherwise, throw an error like `RPC_RETURN_INTERRUPT' would.

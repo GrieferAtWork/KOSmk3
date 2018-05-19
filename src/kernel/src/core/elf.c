@@ -548,18 +548,39 @@ Elf_NewApplication(struct module_patcher *__restrict self) {
     dyn_index = i;
     /* Map all segments that haven't been mapped yet. */
     for (++i; i < mod->e_phnum; ++i) {
-     if (mod->e_phdr[i].p_type != PT_LOAD) continue;
-     /* Map application segments. */
-     vm_mapat(loadpage + VM_ADDR2PAGE(mod->e_phdr[i].p_vaddr),
-              vector[i]->vr_size,0,vector[i],force_prot|(
+     switch (mod->e_phdr[i].p_type) {
+
+     case PT_LOAD:
+      /* Map application segments. */
+      vm_mapat(loadpage + VM_ADDR2PAGE(mod->e_phdr[i].p_vaddr),
+               vector[i]->vr_size,0,vector[i],force_prot|(
 #if PF_X == PROT_EXEC && PF_W == PROT_WRITE && PF_R == PROT_READ
-              mod->e_phdr[i].p_flags & (PF_X|PF_W|PF_R)),
+               mod->e_phdr[i].p_flags & (PF_X|PF_W|PF_R)),
 #else
-            ((mod->e_phdr[i].p_flags&PF_X) ? PROT_EXEC : 0)|
-            ((mod->e_phdr[i].p_flags&PF_W) ? PROT_WRITE : 0)|
-            ((mod->e_phdr[i].p_flags&PF_R) ? PROT_READ : 0)),
+             ((mod->e_phdr[i].p_flags&PF_X) ? PROT_EXEC : 0)|
+             ((mod->e_phdr[i].p_flags&PF_W) ? PROT_WRITE : 0)|
+             ((mod->e_phdr[i].p_flags&PF_R) ? PROT_READ : 0)),
 #endif
-             &application_notify,app);
+              &application_notify,app);
+      break;
+
+     case PT_TLS:
+      if (MODULE_HASTLS(app->a_module)) {
+       assert(mod->e_phdr[i].p_vaddr  == app->a_module->m_tlsmin);
+       assert(mod->e_phdr[i].p_vaddr+
+              mod->e_phdr[i].p_memsz  == app->a_module->m_tlsend);
+       assert(mod->e_phdr[i].p_filesz == app->a_module->m_tlstplsz);
+       /* Allocate a static TLS segment for the application. */
+       app->a_tlsoff = tls_alloc((void *)(loadaddr + mod->e_phdr[i].p_vaddr),
+                                  mod->e_phdr[i].p_filesz,
+                                  mod->e_phdr[i].p_memsz,
+                                  mod->e_phdr[i].p_align);
+       ATOMIC_FETCHOR(app->a_flags,APPLICATION_FHASTLS);
+      }
+      break;
+
+     default: break;
+     }
     }
 
     /* Relocations + dynamic linking, 'n stuff. */
@@ -590,8 +611,22 @@ Elf_NewApplication(struct module_patcher *__restrict self) {
       patcher_require_string(self,name,strlen(name));
      }
     }
-
    } break;
+
+   case PT_TLS:
+    if (MODULE_HASTLS(app->a_module)) {
+     assert(mod->e_phdr[i].p_vaddr  == app->a_module->m_tlsmin);
+     assert(mod->e_phdr[i].p_vaddr+
+            mod->e_phdr[i].p_memsz  == app->a_module->m_tlsend);
+     assert(mod->e_phdr[i].p_filesz == app->a_module->m_tlstplsz);
+     /* Allocate a static TLS segment for the application. */
+     app->a_tlsoff = tls_alloc((void *)(loadaddr + mod->e_phdr[i].p_vaddr),
+                                mod->e_phdr[i].p_filesz,
+                                mod->e_phdr[i].p_memsz,
+                                mod->e_phdr[i].p_align);
+     ATOMIC_FETCHOR(app->a_flags,APPLICATION_FHASTLS);
+    }
+    break;
 
    default: break;
    }
@@ -667,6 +702,10 @@ Elf_PatchApplication(struct module_patcher *__restrict self) {
      patcher_setaltpath(self,strtab + mod->e_dyn.di_runpath);
  if (mod->e_dyn.di_flags & DYN_FTEXTREL)
      make_writable(mod,loadaddr,app);
+ /* Initialize this application's static TLS segment. */
+ if (app->a_flags & APPLICATION_FHASTLS)
+     tls_init(app->a_tlsoff,(void *)(loadaddr + app->a_module->m_tlsmin),
+              app->a_module->m_tlstplsz,MODULE_TLSSIZE(app->a_module));
  for (relocation_group = 0;
       relocation_group < RELINFO_COUNT; ++relocation_group) {
   Elf_Word ent = mod->e_dyn.di_reloc[relocation_group].ri_relent;
@@ -1042,18 +1081,34 @@ Elf_LoadModule(REF struct module *__restrict self) {
   uintptr_t image_min = (uintptr_t)-1,image_end = 0;
   for (i = 0; i < hdr.e_phnum; ++i) {
    uintptr_t phdr_begin,phdr_end;
-   if (result->e_phdr[i].p_type != PT_LOAD) continue;
    phdr_begin = result->e_phdr[i].p_vaddr;
    phdr_end   = phdr_begin + result->e_phdr[i].p_memsz;
-   if unlikely(phdr_end < phdr_begin) {
+   if unlikely(phdr_end <= phdr_begin) {
     /* Broken entry... */
     result->e_phdr[i].p_type = PT_NULL;
     continue;
    }
-   if (image_end < phdr_end)
-       image_end = phdr_end;
-   if (image_min > phdr_begin)
-       image_min = phdr_begin;
+   switch (result->e_phdr[i].p_type) {
+   case PT_LOAD:
+    if (image_end < phdr_end)
+        image_end = phdr_end;
+    if (image_min > phdr_begin)
+        image_min = phdr_begin;
+    break;
+
+   case PT_TLS:
+    if unlikely(MODULE_HASTLS(self)) {
+     /* We already had a TLS segment... */
+     result->e_phdr[i].p_type = PT_NULL;
+     break;
+    }
+    self->m_tlsmin   = phdr_begin;
+    self->m_tlsend   = phdr_end;
+    self->m_tlstplsz = result->e_phdr[i].p_filesz;
+    break;
+
+   default: break;
+   }
   }
   if unlikely(image_min >= image_end)
      goto fail_r;

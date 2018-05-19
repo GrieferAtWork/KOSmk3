@@ -601,6 +601,26 @@ application_notify(void *closure, unsigned int code,
       application_incref(self);
   break;
 
+#if 0 /* XXX: Free TLS in the old vm? */
+ case VM_NOTIFY_RESTORE_VM:
+  break;
+#endif
+
+ case VM_NOTIFY_UNMAP:
+  /* Free the TLS segment, if the application had one. */
+  if (self->a_flags & APPLICATION_FHASTLS) {
+   uintptr_t tls_min = self->a_loadaddr + self->a_module->m_tlsmin;
+   uintptr_t tls_end = self->a_loadaddr + self->a_module->m_tlsend;
+   tls_min = FLOORDIV(tls_min,PAGESIZE);
+   tls_end = CEILDIV(tls_end,PAGESIZE);
+   if (tls_min < addr+num_pages && tls_end > addr) {
+    /* Free the TLS allocation of this application. */
+    if (ATOMIC_FETCHAND(self->a_flags,~APPLICATION_FHASTLS) & APPLICATION_FHASTLS)
+        tls_free(self->a_tlsoff);
+   }
+  }
+  break;
+
  case VM_NOTIFY_DECREF:
   assert(self->a_refcnt != 0);
   assert(self->a_mapcnt != 0);

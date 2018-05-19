@@ -99,15 +99,16 @@ PUBLIC ATTR_PERTASK struct taskstat _this_stat = { 0 };
 
 INTERN ATTR_SECTION(".data.pertask.head")
 struct task task_template = {
-     .t_refcnt    = 2,
+     .t_refcnt     = 2,
 #ifndef CONFIG_NO_SMP
-     .t_cpu       = &_boot_cpu,     /* Default CPU... */
+     .t_cpu        = &_boot_cpu,     /* Default CPU... */
 #endif /* !CONFIG_NO_SMP */
-     .t_addrlimit = KERNEL_BASE,
-     .t_vm        = NULL,           /* Must be initialized by the user. */
-     .t_temppage  = VM_VPAGE_MAX+1, /* Initialized to ~unallocated~ */
-     .t_flags     = TASK_FNORMAL,
-     .t_state     = TASK_STATE_FINITIAL,
+     .t_addrlimit  = KERNEL_BASE,
+     .t_userseg_sz = sizeof(struct user_task_segment),
+     .t_vm         = NULL,           /* Must be initialized by the user. */
+     .t_temppage   = VM_VPAGE_MAX+1, /* Initialized to ~unallocated~ */
+     .t_flags      = TASK_FNORMAL,
+     .t_state      = TASK_STATE_FINITIAL,
 };
 
 
@@ -446,113 +447,6 @@ task_alloc_stack(struct task *__restrict thread,
  memsetl(thread->t_stackmin,0xcccccccc,(num_pages * PAGESIZE) / 4);
 #endif
 }
-
-
-
-#define USERSEG_SIZE  CEILDIV(sizeof(struct user_task_segment),PAGESIZE)
-
-
-/* Assert user-space task segment offsets. */
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_self) == TASK_SEGMENT_OFFSETOF_SELF);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_xcurrent) == TASK_SEGMENT_OFFSETOF_XCURRENT);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_state) == USER_TASK_SEGMENT_OFFSETOF_STATE);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_eformat) == USER_TASK_SEGMENT_OFFSETOF_EFORMAT);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_errno) == USER_TASK_SEGMENT_OFFSETOF_ERRNO);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_dos_errno) == USER_TASK_SEGMENT_OFFSETOF_DOS_ERRNO);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_tid) == USER_TASK_SEGMENT_OFFSETOF_TID);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_process) == USER_TASK_SEGMENT_OFFSETOF_PROCESS);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_ueh) == USER_TASK_SEGMENT_OFFSETOF_UEH);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_ueh_sp) == USER_TASK_SEGMENT_OFFSETOF_UEH_SP);
-#if defined(__i386__) || defined(__x86_64__)
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_x86sysbase) == USER_TASK_SEGMENT_OFFSETOF_X86SYSBASE);
-#endif
-#ifndef CONFIG_NO_DOS_COMPAT
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_tib) == USER_TASK_SEGMENT_OFFSETOF_TIB);
-STATIC_ASSERT(offsetof(struct user_task_segment,ts_tib.nt_errno) == USER_TASK_SEGMENT_OFFSETOF_NT_ERRNO);
-#endif /* !CONFIG_NO_DOS_COMPAT */
-
-
-PRIVATE void KCALL
-setup_user_segment(USER CHECKED struct user_task_segment *__restrict self) {
- /* Setup default values of the user-space thread segment.
-  * NOTE: All other values are pre-initialized to all ZEROes. */
- self->ts_self       = self;
- self->ts_tid        = posix_gettid();
- self->ts_process    = PERVM(vm_environ);
-#if defined(__i386__) || defined(__x86_64__)
- self->ts_x86sysbase = PERTASK_GET(x86_sysbase);
-#endif
-#ifndef CONFIG_NO_DOS_COMPAT
- /* Fill in the DOS-compatible TIB data block */
- {
-  struct userstack *stack = PERTASK_GET(_this_user_stack);
-  if (stack) {
-   self->ts_tib.nt_stack_top = (void *)VM_PAGE2ADDR(stack->us_pageend);
-   self->ts_tib.nt_stack_min = (void *)VM_PAGE2ADDR(stack->us_pagemin);
-  }
-  self->ts_tib.nt_pid = posix_getpid();
-  self->ts_tib.nt_tid = self->ts_tid;
-  self->ts_tib.nt_teb = &self->ts_tib;
-  self->ts_tib.nt_tls = self->ts_tib.nt_tlsdata;
- }
-#endif
-}
-
-INTERN void *KCALL
-userseg_notify(void *closure, unsigned int code,
-               vm_vpage_t addr, size_t num_pages,
-               void *arg) {
- switch (code) {
-
- case VM_NOTIFY_INCREF:
-  break;
- case VM_NOTIFY_CLONE:
-  if (closure != THIS_TASK)
-      return VM_NOTIFY_CLONE_FLOOSE;
-  break;
-
- default:
-  return NULL;
- }
- return closure;
-}
-
-PUBLIC USER struct user_task_segment *KCALL task_alloc_userseg(void) {
- REF struct vm_region *EXCEPT_VAR region;
- USER struct user_task_segment *COMPILER_IGNORE_UNINITIALIZED(new_segment);
- assert(!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB));
- if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG))
-     return PERTASK_GET(this_task.t_userseg);
- /* Allocate a new region for the user-space thread segment. */
- region = vm_region_alloc(USERSEG_SIZE);
- TRY {
-
-  /* Setup user-space segments to be ZERO-initialized. */
-  region->vr_init           = VM_REGION_INIT_FFILLER;
-  region->vr_setup.s_filler = 0;
-
-  /* Map the stack a suitable location, using arch-specific hints. */
-  new_segment = (USER struct user_task_segment *)vm_map(VM_USERSEG_HINT,
-                                                        USERSEG_SIZE,
-                                                        1,
-                                                        0,
-                                                        VM_USERSEG_MODE,
-                                                        0,
-                                                        region,
-                                                        PROT_READ|PROT_WRITE,
-                                                       &userseg_notify,
-                                                        THIS_TASK);
-  PERTASK_SET(this_task.t_userseg,new_segment);
- } FINALLY {
-  vm_region_decref(region);
- }
- ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_FOWNUSERSEG);
- COMPILER_WRITE_BARRIER();
- setup_user_segment(new_segment);
- return new_segment;
-}
-
-
 
 
 PRIVATE struct vm_region singlepage_reserved_region = {

@@ -24,6 +24,9 @@
 #include <fs/node.h>
 #include <fs/path.h>
 #include <string.h>
+#include <sched/group.h>
+#include <sched/pid.h>
+#include <stdio.h>
 
 #include "inode.h"
 
@@ -119,10 +122,38 @@ not_a_pid:
 }
 
 
+struct thread_enum_data {
+    directory_enum_callback_t callback;
+    void                     *arg;
+};
+
+PRIVATE bool KCALL
+Enum_Threads(struct task *__restrict thread, void *arg) {
+ struct thread_enum_data *data = (struct thread_enum_data *)arg;
+ struct thread_pid *pid = FORTASK(thread,_this_pid);
+ char thread_name[16]; pid_t pidno;
+ if (FORTASK(thread,_this_group).tg_leader != thread)
+     goto done;
+ if (!pid) goto done;
+ pidno = posix_gettid_viewpid(pid);
+ /* Enumerate this thread. */
+ (*data->callback)(thread_name,
+                   sprintf(thread_name,"%u",pidno),
+                   DT_DIR,
+                   PROCFS_INODE_MKINO(pidno,
+                                      PROCFS_CLASS_FNORMAL,
+                                      PROCFS_INODE_P),
+                   data->arg);
+done:
+ return true;
+}
+
+
 PRIVATE void KCALL
 Root_Enum(struct directory_node *__restrict UNUSED(node),
           directory_enum_callback_t callback, void *arg) {
  unsigned int i;
+ struct thread_enum_data data;
  for (i = 0; i < COMPILER_LENOF(root_directory); ++i) {
   if (!root_directory[i]) continue;
   (*callback)(root_directory[i]->de_name,
@@ -132,6 +163,9 @@ Root_Enum(struct directory_node *__restrict UNUSED(node),
               arg);
  }
  /* TODO: Enumerate PIDs of running processes. */
+ data.callback = callback;
+ data.arg      = arg;
+ task_foreach_running(&Enum_Threads,&data);
 }
 
 

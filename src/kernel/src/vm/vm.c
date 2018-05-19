@@ -689,6 +689,7 @@ INTDEF void KCALL
 vmapps_destroy(struct vmapps *__restrict self);
 
 
+INTDEF void KCALL tls_clear_allocations(void);
 PUBLIC void KCALL vm_unmap_userspace(void) {
  struct vm *EXCEPT_VAR uservm = THIS_VM;
  struct vm_node *nodes,*next;
@@ -754,6 +755,8 @@ PUBLIC void KCALL vm_unmap_userspace(void) {
     }
    }
   }
+  /* Clear all user-space TLS allocations. */
+  tls_clear_allocations();
  } FINALLY {
   vm_release(uservm);
  }
@@ -3143,21 +3146,20 @@ INTERN void KCALL task_vm_clone(struct task *__restrict new_thread, u32 flags) {
      new_thread->t_flags  |= PERTASK_GET(this_task.t_flags) & TASK_FUSEREXCEPT;
     }
     if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG)) {
+     struct task *me = THIS_TASK;
      if (flags & CLONE_SETTLS) {
       /* A new, explicit user-segment will be defined. - Unmap the copy of the old one. */
       vm_delete_useg(&new_thread->t_vm->vm_map,
-                     VM_ADDR2PAGE((uintptr_t)PERTASK_GET(this_task.t_userseg)),
-                     VM_ADDR2PAGE((uintptr_t)PERTASK_GET(this_task.t_userseg)+
-                                   sizeof(struct user_task_segment)-1),
+                     VM_ADDR2PAGE((uintptr_t)TASK_USERSEG_MIN(me)),
+                     VM_ADDR2PAGE((uintptr_t)TASK_USERSEG_MAX(me)),
                      VM_SEMI0,
                      VM_LEVEL0,
                      THIS_TASK);
      } else {
       /* Replace references to the user-segment in the new VM. */
       vm_update_useg(new_thread->t_vm->vm_map,
-                     VM_ADDR2PAGE((uintptr_t)new_thread->t_userseg),
-                     VM_ADDR2PAGE((uintptr_t)new_thread->t_userseg+
-                                   sizeof(struct user_task_segment)-1),
+                     VM_ADDR2PAGE((uintptr_t)TASK_USERSEG_MIN(me)),
+                     VM_ADDR2PAGE((uintptr_t)TASK_USERSEG_MAX(me)),
                      VM_SEMI0,
                      VM_LEVEL0,
                      THIS_TASK,

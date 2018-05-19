@@ -282,16 +282,17 @@ DATDEF struct cpu *const cpu_vector[CONFIG_MAX_CPU_COUNT];
 #define TASK_OFFSETOF_VM            (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__)
 #define TASK_OFFSETOF_VMTASKS       (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__*2)
 #define TASK_OFFSETOF_USERSEG       (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__*4)
-#define TASK_OFFSETOF_STACKMIN      (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__*5)
-#define TASK_OFFSETOF_STACKEND      (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__*6)
-#define TASK_OFFSETOF_TEMPPAGE      (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__*7)
-#define TASK_OFFSETOF_SCHED         (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__*8)
-#define TASK_OFFSETOF_ADDR2LIMIT    (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__*10)
-#define TASK_OFFSETOF_TIMEOUT       (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__*11)
-#define TASK_OFFSETOF_FLAGS         (TASK_OFFSETOF_VM_LOCK+__SIZEOF_JTIME_T__+__SIZEOF_POINTER__*11)
-#define TASK_OFFSETOF_STATE         (TASK_OFFSETOF_VM_LOCK+__SIZEOF_JTIME_T__+__SIZEOF_POINTER__*11+2)
-#define TASK_OFFSETOF_NOTHROW_SERVE (TASK_OFFSETOF_VM_LOCK+__SIZEOF_JTIME_T__+__SIZEOF_POINTER__*11+4)
-#define TASK_OFFSETOF_DATA          (TASK_OFFSETOF_VM_LOCK+__SIZEOF_JTIME_T__+__SIZEOF_POINTER__*11+8)
+#define TASK_OFFSETOF_USERSEG_SZ    (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__*5)
+#define TASK_OFFSETOF_STACKMIN      (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__*6)
+#define TASK_OFFSETOF_STACKEND      (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__*7)
+#define TASK_OFFSETOF_TEMPPAGE      (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__*8)
+#define TASK_OFFSETOF_SCHED         (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__*9)
+#define TASK_OFFSETOF_ADDR2LIMIT    (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__*11)
+#define TASK_OFFSETOF_TIMEOUT       (TASK_OFFSETOF_VM_LOCK+__SIZEOF_POINTER__*12)
+#define TASK_OFFSETOF_FLAGS         (TASK_OFFSETOF_VM_LOCK+__SIZEOF_JTIME_T__+__SIZEOF_POINTER__*12)
+#define TASK_OFFSETOF_STATE         (TASK_OFFSETOF_VM_LOCK+__SIZEOF_JTIME_T__+__SIZEOF_POINTER__*12+2)
+#define TASK_OFFSETOF_NOTHROW_SERVE (TASK_OFFSETOF_VM_LOCK+__SIZEOF_JTIME_T__+__SIZEOF_POINTER__*12+4)
+#define TASK_OFFSETOF_DATA          (TASK_OFFSETOF_VM_LOCK+__SIZEOF_JTIME_T__+__SIZEOF_POINTER__*12+8)
 
 #ifdef __CC__
 struct task {
@@ -328,10 +329,22 @@ struct task {
                                                *  >> PUT(NEW_VM->vm_lock);
                                                */
     USER struct user_task_segment
-                                *t_userseg;   /* [?..?][owned_if(TASK_FOWNUSERSEG)][lock(THIS_TASK)]
+                                *t_userseg;   /* [?..?][owned_if(TASK_FOWNUSERSEG)]
+                                               *       [const_if(TASK_FOWNUSERSEG)]
+                                               * [lock(THIS_TASK)]
                                                *  A pointer to this task's user-segment.
                                                *  During a context switch, the user-space TLS mechanism
                                                *  is updated to use this pointer as base address. */
+    size_t                       t_userseg_sz;/* [if(TASK_FOWNUSERSEG,[INTERNAL(const)])]
+                                               * [if(!TASK_FOWNUSERSEG,[lock(THIS_TASK)])]
+                                               * Size of `t_userseg' in bytes.
+                                               * NOTE: When the thread's user-segment is managed by
+                                               *       the kernel, this field is part of TLS management
+                                               *       and must not be modified by other components!
+                                               *       Otherwise, this field isn't actually used and
+                                               *       should be considered PRIVATE to its thread.
+                                               * NOTE: Additionally, in threads for which `TASK_FOWNUSERSEG'
+                                               *       is set, `TASK_USERSEG_BEGIN()' is page-aligned! */
     HOST VIRT void              *t_stackmin;  /* Lowest address of the host (kernel) stack.
                                                * NOTE: When the `TASK_FNOHOSTSTACK' flag isn't set,
                                                *       this address must be page-aligned. */
@@ -400,6 +413,12 @@ struct task {
     u32                          t_nothrow_serve; /* Recursion counter for `task_serve()' to be NOTHROW. */
     /* PERTASK data goes here... */
 };
+
+#define TASK_USERSEG_BEGIN(self) (((byte_t *)(self)->t_userseg + sizeof(struct user_task_segment)) - (self)->t_userseg_sz)
+#define TASK_USERSEG_END(self)    ((byte_t *)(self)->t_userseg + sizeof(struct user_task_segment))
+#define TASK_USERSEG_MIN(self)   (((byte_t *)(self)->t_userseg + sizeof(struct user_task_segment)) - (self)->t_userseg_sz)
+#define TASK_USERSEG_MAX(self)    ((byte_t *)(self)->t_userseg + (sizeof(struct user_task_segment) - 1))
+#define TASK_USERSEG_SIZE(self)   ((self)->t_userseg_sz)
 
 /* Intended to be used like `PERTASK(this_task.foo)'
  * Same as `THIS_TASK->foo', but allows for use of `PERTASK_GET' and friends. */
