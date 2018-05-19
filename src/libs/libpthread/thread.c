@@ -156,12 +156,7 @@ INTERN ATTR_NORETURN void LIBPCALL thread_exit(void *retval) {
   /* Drop a reference from the calling thread's controller. */
   thread_decref(me);
  }
- /* NOTE: This is not the libc exit() function (that one calls SYS_exit_group)
-  *       Due to historic reasons, the `SYS_exit' system call only terminates
-  *       the calling thread, and the `SYS_exit_group' system call terminates
-  *       the calling process! */
- syscall(SYS_exit,0);
- __builtin_unreachable();
+ exit_thread(0);
 }
 
 EXPORT(pthread_detach,thread_detach);

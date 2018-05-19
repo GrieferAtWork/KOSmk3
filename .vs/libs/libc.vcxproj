@@ -52,7 +52,6 @@
     <ClCompile Include="..\..\src\libs\libc\i386-kos\malloc.c" />
     <ClCompile Include="..\..\src\libs\libc\i386-kos\rpc.c" />
     <ClCompile Include="..\..\src\libs\libc\i386-kos\syscall.c" />
-    <ClCompile Include="..\..\src\libs\libc\i386-kos\tls.c" />
     <ClCompile Include="..\..\src\libs\libc\malloc.c" />
     <ClCompile Include="..\..\src\libs\libc\malloc_d.c" />
     <ClCompile Include="..\..\src\libs\libc\malloc_f.c" />
@@ -72,6 +71,7 @@
     <ClCompile Include="..\..\src\libs\libc\stdio_wapi.c" />
     <ClCompile Include="..\..\src\libs\libc\sync.c" />
     <ClCompile Include="..\..\src\libs\libc\time.c" />
+    <ClCompile Include="..\..\src\libs\libc\tls.c" />
     <ClCompile Include="..\..\src\libs\libc\tty.c" />
     <ClCompile Include="..\..\src\libs\libc\unicode.c" />
     <ClCompile Include="..\..\src\libs\libc\unistd.c" />
@@ -117,6 +117,7 @@
     <ClInclude Include="..\..\src\libs\libc\sync.h" />
     <ClInclude Include="..\..\src\libs\libc\system.h" />
     <ClInclude Include="..\..\src\libs\libc\time.h" />
+    <ClInclude Include="..\..\src\libs\libc\tls.h" />
     <ClInclude Include="..\..\src\libs\libc\tty.h" />
     <ClInclude Include="..\..\src\libs\libc\unicode.h" />
     <ClInclude Include="..\..\src\libs\libc\unistd.h" />

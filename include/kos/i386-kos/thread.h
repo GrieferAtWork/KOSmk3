@@ -44,9 +44,10 @@ __SYSDECL_BEGIN
 #define __USER_TASK_SEGMENT_OFFSETOF_UEH        (2*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
 #define __USER_TASK_SEGMENT_OFFSETOF_UEH_SP     (3*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
 #define __USER_TASK_SEGMENT_OFFSETOF_X86SYSBASE (4*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
-#define __USER_TASK_SEGMENT_OFFSETOF_PTHREAD    (5*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __USER_TASK_SEGMENT_OFFSETOF_TLS        (5*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __USER_TASK_SEGMENT_OFFSETOF_PTHREAD    (6*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
 #ifndef CONFIG_NO_DOS_COMPAT
-#define __USER_TASK_SEGMENT_OFFSETOF_TIB        (6*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
+#define __USER_TASK_SEGMENT_OFFSETOF_TIB        (7*__SIZEOF_POINTER__+__USEREXCEPTION_INFO_SIZE+16+__SIZEOF_PID_T__)
 #define __USER_TASK_SEGMENT_OFFSETOF_NT_ERRNO   (__USER_TASK_SEGMENT_OFFSETOF_TIB+13*__SIZEOF_POINTER__)
 #endif /* !CONFIG_NO_DOS_COMPAT */
 
@@ -63,6 +64,7 @@ __SYSDECL_BEGIN
 #define USER_TASK_SEGMENT_OFFSETOF_UEH        __USER_TASK_SEGMENT_OFFSETOF_UEH
 #define USER_TASK_SEGMENT_OFFSETOF_UEH_SP     __USER_TASK_SEGMENT_OFFSETOF_UEH_SP
 #define USER_TASK_SEGMENT_OFFSETOF_X86SYSBASE __USER_TASK_SEGMENT_OFFSETOF_X86SYSBASE
+#define USER_TASK_SEGMENT_OFFSETOF_TLS        __USER_TASK_SEGMENT_OFFSETOF_TLS
 #define USER_TASK_SEGMENT_OFFSETOF_PTHREAD    __USER_TASK_SEGMENT_OFFSETOF_PTHREAD
 #ifndef CONFIG_NO_DOS_COMPAT
 #define USER_TASK_SEGMENT_OFFSETOF_TIB        __USER_TASK_SEGMENT_OFFSETOF_TIB
@@ -154,6 +156,11 @@ struct __ATTR_PACKED task_segment
                                                 * On i386, this value is located between `0xc0000000 ... 0xc0fbffff'
                                                 * Or more precisely: `0xc0ffffff - X86_ENCODE_PFSYSCALL_SIZE'
                                                 * NOTE: Additionally, this address is aligned on a 16 byte boundary. */
+#ifdef __BUILDING_LIBC
+     struct dynamic_tls        *ts_tls;        /* [0..1] Dynamically allocated TLS memory. */
+#else
+     __UINTPTR_TYPE__         __ts_tls;        /* Internal pointer used by the libc library. */
+#endif
 #ifdef __BUILDING_LIBPTHREAD
      struct thread             *ts_pthread;    /* [0..1] Pointer to the descriptor of the current thread. */
 #else

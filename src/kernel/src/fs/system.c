@@ -2666,7 +2666,7 @@ do_enum_operator:
 
   {
    size_t i,count;
-  case MODULE_INFO_REQUIREMENTS:
+  case MODULE_INFO_CLASS_REQUIREMENTS:
    result = app->a_requirec * sizeof(void *);
    /* Figure out how many handles can fit into the the user-space buffer. */
    count  = bufsize / sizeof(void *);
@@ -2677,6 +2677,20 @@ do_enum_operator:
     void *module_handle;
     module_handle = (void *)APPLICATION_MAPBEGIN(app->a_requirev[i]);
     ((void **)buf)[i] = module_handle;
+   }
+  } break;
+
+  {
+   struct module_tls_info *info;
+  case MODULE_INFO_CLASS_TLS:
+   result = sizeof(struct module_tls_info);
+   if (bufsize < sizeof(struct module_tls_info))
+       break;
+   info = (struct module_tls_info *)buf;
+   if ((info->ti_tls_size = MODULE_TLSSIZE(app->a_module)) != 0) {
+    info->ti_tls_align     = app->a_module->m_tlsalign;
+    info->ti_template_base = (void *)(app->a_loadaddr + app->a_module->m_tlsmin);
+    info->ti_template_size = app->a_module->m_tlstplsz;
    }
   } break;
 

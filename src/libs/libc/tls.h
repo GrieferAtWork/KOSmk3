@@ -16,30 +16,54 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef GUARD_LIBS_LIBC_I386_KOS_TLS_C
-#define GUARD_LIBS_LIBC_I386_KOS_TLS_C 1
+#ifndef GUARD_LIBS_LIBC_TLS_H
+#define GUARD_LIBS_LIBC_TLS_H 1
 
-#include "../libc.h"
-#include "../rtl.h"
+#include "libc.h"
+#include "sched.h"
 #include <kos/thread.h>
 #include <hybrid/compiler.h>
-#include <syslog.h>
+#include <hybrid/host.h>
+
+#if defined(__i386__) || defined(__x86_64__)
+#include <kos/intrin.h>
+#include <stddef.h>
+#ifdef __ASM_TASK_SEGMENT_ISGS
+#define GET_DYNAMIC_TLS()  (struct dynamic_tls *)__readfsptr(offsetof(struct task_segment,ts_tls))
+#define SET_DYNAMIC_TLS(v)  __writefsptr(offsetof(struct task_segment,ts_tls),v)
+#else
+#define GET_DYNAMIC_TLS()  (struct dynamic_tls *)__readgsptr(offsetof(struct task_segment,ts_tls))
+#define SET_DYNAMIC_TLS(v)  __writegsptr(offsetof(struct task_segment,ts_tls),v)
+#endif
+#else
+#define GET_DYNAMIC_TLS()  (libc_current()->ts_tls)
+#define SET_DYNAMIC_TLS(v) (libc_current()->ts_tls = (v))
+#endif
+
 
 DECL_BEGIN
 
+
+struct dynamic_tls {
+    struct dynamic_tls *dt_next;    /* [0..1] Next dyn_tls segment. */
+    uintptr_t           dt_module;  /* [const] Module handle to which this segment is bound. */
+    byte_t              dt_data[1]; /* Segment TLS data. */
+};
+
+
+
+
 typedef struct {
-    uintptr_t ti_moduleid;
-    uintptr_t ti_tlsoffset;
+    uintptr_t ti_moduleid;  /* [if(& 1, == MODULE_TLS_OFFSET << 1)]
+                             * [if(!(& 1), == MODULE_HANDLE)] */
+    uintptr_t ti_tlsoffset; /* Offset into the module's TLS segment. */
 } TLS_index;
 
-INTERN void *FCALL x86_dynamic_tls_addr(TLS_index *__restrict index) {
- libc_syslog(LOG_DEBUG,"TODO: x86_dynamic_tls_addr(%p,%p) -- Lazy allocation\n",
-             index->ti_moduleid,
-             index->ti_tlsoffset);
- return (void *)index;
-}
+INTDEF void *FCALL libc_dynamic_tls_addr(TLS_index *__restrict index);
+INTDEF void LIBCCALL libc_free_dynamic_tls(void);
+INTDEF ATTR_NORETURN void LIBCCALL libc_exit_thread(int exit_code);
 
 
 DECL_END
 
-#endif /* !GUARD_LIBS_LIBC_I386_KOS_TLS_C */
+#endif /* !GUARD_LIBS_LIBC_TLS_H */

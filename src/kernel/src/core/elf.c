@@ -1237,6 +1237,18 @@ Elf_LoadModule(REF struct module *__restrict self) {
     self->m_tlsend   = phdr_end;
     self->m_tlstplsz = result->e_phdr[i].p_filesz;
     self->m_tlsalign = result->e_phdr[i].p_align;
+    if (self->m_tlstplsz > result->e_phdr[i].p_memsz)
+        self->m_tlstplsz = result->e_phdr[i].p_memsz;
+    assert(MODULE_TLSSIZE(self) == result->e_phdr[i].p_memsz);
+
+    /* Ensure that `self->m_tlsalign' is a valid power-of-2 alignment. */
+    if unlikely(!self->m_tlsalign) self->m_tlsalign = 1;
+    else if unlikely((self->m_tlsalign & (self->m_tlsalign-1)) != 0) {
+     size_t temp = 1;
+     while (temp < self->m_tlsalign && !(temp & ((size_t)1 << ((sizeof(temp)*8)-1))))
+            temp <<= 1;
+     self->m_tlsalign = temp;
+    }
     break;
 
    default: break;

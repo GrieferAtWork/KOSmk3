@@ -94,8 +94,8 @@ INTERN_ENTRY(libc_thread_entry)
 	pushl    %edx             /* arg */
 	call    *%ecx             /* (*fn)(arg) */
 	movl     %eax, (%esp)     /* result = (*fn)(arg); */
-DEFINE_INTERN(sys_exit)
-	call     sys_exit         /* exit(result); // NOTE: Only exits the thread; not the process. */
+DEFINE_INTERN(libc_exit_thread)
+	call     libc_exit_thread /* exit_thread(result); */
 SYMEND(libc_thread_entry)
 
 

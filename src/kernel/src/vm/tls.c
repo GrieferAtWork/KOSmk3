@@ -139,15 +139,9 @@ tls_alloc_impl(USER CHECKED void *template_base,
  struct vm_tls *me = &PERVM(my_tls);
  assert(num_bytes != 0);
  assert(vm_holding(THIS_VM));
- if (template_size > num_bytes)
-     template_size = num_bytes;
- if unlikely(!tls_alignment) tls_alignment = 1;
- else if unlikely((tls_alignment & (tls_alignment-1)) != 0) {
-  size_t temp = 1;
-  while (temp < tls_alignment && !(temp & ((size_t)1 << ((sizeof(temp)*8)-1))))
-         temp <<= 1;
-  tls_alignment = temp;
- }
+ assert(template_size <= num_bytes);
+ assert(tls_alignment);
+ assert((tls_alignment & (tls_alignment -1 )) == 0);
 #if VM_TLS_PREALLOC != 0
  if (!me->vt_vec) {
   me->vt_vec = me->vt_sbuf;
@@ -398,8 +392,7 @@ tls_init_impl(uintptr_t base, USER CHECKED void *template_base,
               size_t template_size, size_t num_bytes) {
  struct vm *EXCEPT_VAR myvm = THIS_VM;
  assert(vm_holding_read(myvm));
- if (template_size > num_bytes)
-     template_size = num_bytes;
+ assert(template_size <= num_bytes);
  atomic_rwlock_read(&myvm->vm_tasklock);
  TRY {
   struct task *thread;

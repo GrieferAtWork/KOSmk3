@@ -39,8 +39,8 @@ PUBLIC_ENTRY(___tls_get_addr)
 	addl      %taskseg:0, %eax /* THREAD_SEGMENT_ADDRESS */
 	ret
 1:	movl      %eax, %ecx
-DEFINE_INTERN(x86_dynamic_tls_addr)
-	call      x86_dynamic_tls_addr
+DEFINE_INTERN(libc_dynamic_tls_addr)
+	call      libc_dynamic_tls_addr
 	ret
 	.cfi_endproc
 SYMEND(___tls_get_addr)

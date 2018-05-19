@@ -110,7 +110,7 @@ struct module_path_info {
     unsigned int    pi_format;   /* [IN] The format in which to generate the path (Set of `REALPATH_F*'). */
     __uintptr_t     pi_loadaddr; /* [OUT] The load address of the module (Same as `MODULE_INFO_CLASS_BASIC::mi_loadaddr') */
     char           *pi_path;     /* [IN(0..pi_pathlen)][OUT] Filled with a NUL-terminated representation of the module's path. */
-    size_t          pi_pathlen;  /* [IN|OUT] Updated with the required buffer size. */
+    __size_t        pi_pathlen;  /* [IN|OUT] Updated with the required buffer size. */
 };
 #endif /* __CC__ */
 
@@ -123,10 +123,10 @@ struct module_path_info {
 #define MODULE_INFO_CLASS_SYMBOL 0x0003 /* Module symbol lookup. */
 #ifdef __CC__
 struct dl_symbol {
-    u16        ds_type; /* Type type (One of `MODULE_SYMBOL_*') */
-    u16      __ds_pad[(sizeof(void *)-2)/2]; /* ... */
-    VIRT void *ds_base; /* [1..1] Symbol base address. */
-    size_t     ds_size; /* Symbol size in bytes, or `0' if unknown. */
+    __uint16_t   ds_type; /* Type type (One of `MODULE_SYMBOL_*') */
+    __uint16_t __ds_pad[(sizeof(void *)-2)/2]; /* ... */
+    __VIRT void *ds_base; /* [1..1] Symbol base address. */
+    __size_t     ds_size; /* Symbol size in bytes, or `0' if unknown. */
 };
 struct module_symbol_info {
     /* [MODULE_INFO_CLASS_SYMBOL] */
@@ -142,12 +142,12 @@ struct module_symbol_info {
 struct dl_section {
     void         *ds_base;      /* [1..ds_size][valid_if(ds_size && ds_flags & SHF_ALLOC)]
                                  * Image-relative section base address. */
-    size_t        ds_size;      /* Section size in bytes. */
-    pos64_t       ds_offset;    /* [valid_if(ds_size)] Absolute offset into the associated file where section data starts.
+    __size_t      ds_size;      /* Section size in bytes. */
+    __pos64_t     ds_offset;    /* [valid_if(ds_size)] Absolute offset into the associated file where section data starts.
                                  * NOTE: In special sections, if the associated module has no file, this field is undefined. */
-    u16           ds_type;      /* [valid_if(ds_size)] Section type (One of `SHT_*' from <elf.h>) */
-    u16           ds_flags;     /* [valid_if(ds_size)] Section Flags (Set of `SHF_*' from <elf.h>) */
-    u32           ds_entsize;   /* [valid_if(ds_size)] Size of data-entries contained (or ZERO(0) if not used) */
+    __uint16_t    ds_type;      /* [valid_if(ds_size)] Section type (One of `SHT_*' from <elf.h>) */
+    __uint16_t    ds_flags;     /* [valid_if(ds_size)] Section Flags (Set of `SHF_*' from <elf.h>) */
+    __uint32_t    ds_entsize;   /* [valid_if(ds_size)] Size of data-entries contained (or ZERO(0) if not used) */
 };
 struct module_section_info {
     /* [MODULE_INFO_CLASS_SECTION] */
@@ -173,14 +173,28 @@ struct module_callback_info {
 
 
 
-#define MODULE_INFO_REQUIREMENTS 0x0007 /* Enumerate module dependencies. */
+#define MODULE_INFO_CLASS_REQUIREMENTS 0x0007 /* Enumerate module dependencies. */
 #ifdef __CC__
 struct module_requirements_info {
-    /* [MODULE_INFO_REQUIREMENTS] */
+    /* [MODULE_INFO_CLASS_REQUIREMENTS] */
     void *ri_deps[1]; /* [0..*RETURN/sizeof(void *)] Vector of handles for module dependencies. */
 };
 #endif /* __CC__ */
 
+
+#define MODULE_INFO_CLASS_TLS 0x0008 /* Module TLS information. */
+#ifdef __CC__
+struct module_tls_info {
+    /* [MODULE_INFO_CLASS_TLS] */
+    __size_t ti_tls_size;      /* Total size of the TLS segment.
+                                * When ZERO(0), the module doesn't have a TLS segment. */
+    __size_t ti_tls_align;     /* [!0][!(. & (. - 1))] Minimum alignment required for TLS segment instances. */
+    void    *ti_template_base; /* [valid_if(ti_tls_size)][1..1] Base address of the TLS initialization template. */
+    __size_t ti_template_size; /* [valid_if(ti_tls_size)][<= ti_tls_size]
+                                * Size of the TLS initialization template (in bytes).
+                                * Any difference between this and `ti_tls_size' is initialized with all ZEROes. */
+};
+#endif /* __CC__ */
 
 
 #ifndef __KERNEL__
