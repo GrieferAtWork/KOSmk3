@@ -16,56 +16,30 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef GUARD_KERNEL_INCLUDE_I386_KOS_ELF_H
-#define GUARD_KERNEL_INCLUDE_I386_KOS_ELF_H 1
+#ifndef GUARD_LIBS_LIBC_I386_KOS_TLS_C
+#define GUARD_LIBS_LIBC_I386_KOS_TLS_C 1
 
+#include "../libc.h"
+#include "../rtl.h"
+#include <kos/thread.h>
 #include <hybrid/compiler.h>
-#include <elf.h>
+#include <syslog.h>
 
 DECL_BEGIN
 
-#ifdef __x86_64__
-#define EM_HOST  EM_X86_64
-#else
-#define EM_HOST  EM_386
-#endif
+typedef struct {
+    uintptr_t ti_moduleid;
+    uintptr_t ti_tlsoffset;
+} TLS_index;
 
-#undef CONFIG_ELF_USING_RELA
-#ifdef __x86_64__
-#define CONFIG_ELF_USING_RELA 1
-#endif
-
-#ifdef __x86_64__
-#define R_NONE      R_X86_64_NONE
-#define R_32        R_X86_64_32
-#define R_PC32      R_X86_64_PC32
-#define R_COPY      R_X86_64_COPY
-#define R_GLOB_DAT  R_X86_64_GLOB_DAT
-#define R_JMP_SLOT  R_X86_64_JMP_SLOT
-#define R_RELATIVE  R_X86_64_RELATIVE
-#define R_16        R_X86_64_16
-#define R_PC16      R_X86_64_PC16
-#define R_8         R_X86_64_8
-#define R_PC8       R_X86_64_PC8
-#define R_64        R_X86_64_64
-#define R_PC64      R_X86_64_PC64
-#else
-#define R_NONE      R_386_NONE
-#define R_32        R_386_32
-#define R_PC32      R_386_PC32
-#define R_COPY      R_386_COPY
-#define R_GLOB_DAT  R_386_GLOB_DAT
-#define R_JMP_SLOT  R_386_JMP_SLOT
-#define R_RELATIVE  R_386_RELATIVE
-#define R_16        R_386_16
-#define R_PC16      R_386_PC16
-#define R_8         R_386_8
-#define R_PC8       R_386_PC8
-#endif
-
-typedef uintptr_t Elf_RelValue;
+INTERN void *FCALL x86_dynamic_tls_addr(TLS_index *__restrict index) {
+ libc_syslog(LOG_DEBUG,"TODO: x86_dynamic_tls_addr(%p,%p) -- Lazy allocation\n",
+             index->ti_moduleid,
+             index->ti_tlsoffset);
+ return (void *)index;
+}
 
 
 DECL_END
 
-#endif /* !GUARD_KERNEL_INCLUDE_I386_KOS_ELF_H */
+#endif /* !GUARD_LIBS_LIBC_I386_KOS_TLS_C */

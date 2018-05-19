@@ -1216,6 +1216,89 @@ patcher_symaddr(struct module_patcher *__restrict self,
  return NULL;
 }
 
+
+PRIVATE struct kernel_symbol_info KCALL
+impl_patcher_symainfo(struct module_patcher *__restrict self,
+                      USER CHECKED char const *__restrict name,
+                      u32 hash, bool search_current) {
+ struct kernel_symbol_info result,weak_result; size_t i;
+ weak_result.si_symbol.ds_type = MODULE_SYMBOL_INVALID;
+ /* Deep binding prefers the module itself above others. */
+ if (self->mp_flags & DL_OPEN_FDEEPBIND) {
+  if (!search_current) goto done;
+  result.si_symbol = (*self->mp_app->a_module->m_type->m_symbol)(self->mp_app,name,hash);
+  if (result.si_symbol.ds_type != MODULE_SYMBOL_INVALID) {
+   result.si_defmod = self->mp_app;
+   if (result.si_symbol.ds_type == MODULE_SYMBOL_NORMAL)
+       goto done;
+   weak_result = result;
+  }
+ }
+
+ /* Search upper modules first. */
+ if (self->mp_prev) {
+  result = impl_patcher_symainfo(self->mp_prev,name,hash,true);
+  if (result.si_symbol.ds_type != MODULE_SYMBOL_INVALID) {
+   if (result.si_symbol.ds_type == MODULE_SYMBOL_NORMAL)
+       goto done;
+   weak_result = result;
+  }
+ }
+
+
+ /* Search dependencies in ascending order. */
+ for (i = 0; i < self->mp_requirec; ++i) {
+  struct application *dep = self->mp_requirev[i];
+  result.si_symbol = (*dep->a_module->m_type->m_symbol)(dep,name,hash);
+  if (result.si_symbol.ds_type != MODULE_SYMBOL_INVALID) {
+   result.si_defmod = dep;
+   if (result.si_symbol.ds_type == MODULE_SYMBOL_NORMAL) goto done;
+   weak_result = result;
+  }
+ }
+
+ /* Search the module being patched itself. */
+ if (!(self->mp_flags & DL_OPEN_FDEEPBIND)) {
+  result.si_symbol = (*self->mp_app->a_module->m_type->m_symbol)(self->mp_app,name,hash);
+  if (result.si_symbol.ds_type != MODULE_SYMBOL_INVALID) {
+   result.si_defmod = self->mp_app;
+   if (result.si_symbol.ds_type == MODULE_SYMBOL_NORMAL) goto done;
+   weak_result = result;
+  }
+ }
+ return weak_result;
+done:
+ return result;
+}
+
+
+PUBLIC struct kernel_symbol_info KCALL
+patcher_syminfo(struct module_patcher *__restrict self,
+                USER CHECKED char const *__restrict name,
+                u32 hash, bool search_current) {
+ struct kernel_symbol_info result;
+ result = impl_patcher_symainfo(self,name,hash,search_current);
+ if (result.si_symbol.ds_type != MODULE_SYMBOL_INVALID)
+     return result;
+ if (self->mp_apptype & APPLICATION_TYPE_FDRIVER) {
+  /* Special symbols provided for drivers. */
+  assertf(patcher_symhash(ELFNAME_THIS_DRIVER) == ELFHASH_THIS_DRIVER,
+          "`ELFHASH_THIS_DRIVER' should be 0x%x",
+          patcher_symhash(ELFNAME_THIS_DRIVER));
+  if (hash == ELFHASH_THIS_DRIVER &&
+      strcmp(name,ELFNAME_THIS_DRIVER) == 0) {
+   result.si_symbol.ds_type = MODULE_SYMBOL_NORMAL;
+   result.si_symbol.ds_base = (void *)self->mp_app;
+   result.si_symbol.ds_size = sizeof(struct driver);
+   result.si_defmod         = self->mp_app;
+   return result;
+  }
+ }
+ result.si_symbol.ds_type = MODULE_SYMBOL_INVALID;
+ return result;
+}
+
+
 PUBLIC u32 KCALL
 patcher_symhash(USER CHECKED char const *__restrict name) {
  /* HINT: This is the same hashing algorithm used by ELF. */

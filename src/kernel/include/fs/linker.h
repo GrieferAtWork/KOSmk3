@@ -104,6 +104,18 @@ patcher_symaddr(struct module_patcher *__restrict self,
                 USER CHECKED char const *__restrict name,
                 u32 hash, bool search_current);
 
+struct kernel_symbol_info {
+    struct dl_symbol    si_symbol; /* The associated symbol. */
+    struct application *si_defmod; /* [1..1][valid_if(si_symbol.ds_type != MODULE_SYMBOL_INVALID)]
+                                    * The application that defines this symbol. */
+};
+
+/* Lookup a symbol alongside extended information. */
+FUNDEF struct kernel_symbol_info KCALL
+patcher_syminfo(struct module_patcher *__restrict self,
+                USER CHECKED char const *__restrict name,
+                u32 hash, bool search_current);
+
 /* Return the hash for a given symbol name. */
 FUNDEF u32 KCALL patcher_symhash(USER CHECKED char const *__restrict name);
 
@@ -243,6 +255,8 @@ struct module {
     size_t                        m_tlstplsz;  /* [const][valid_if(m_tlsmin != m_tlsend)]
                                                 * Size of the in-memory TLS template (the difference between
                                                 * this and `m_tlsend-m_tlsmin' is ZERO-initialized). */
+    size_t                        m_tlsalign;  /* [const][valid_if(m_tlsmin != m_tlsend)]
+                                                * Alignment requirements of the module's TLS segment. */
     u16                           m_flags;     /* Module flags (Set of `MODULE_F*') */
     u16                           m_recent;    /* [INTERNAL] How often has this module been used recently. */
 #if __SIZEOF_POINTER__ > 4

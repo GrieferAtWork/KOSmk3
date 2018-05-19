@@ -68,7 +68,7 @@ struct fast_waitfor_rpc_data {
 
 CRT_KOS unsigned int LIBCCALL
 fast_waitfor_rpc_wrapper(struct fast_waitfor_rpc_data *__restrict data) {
- unsigned int result;
+ unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
  struct fast_waitfor_rpc_data *EXCEPT_VAR xdata = data;
  TRY {
   result = (*data->func)(data->arg);
@@ -172,7 +172,7 @@ struct full_waitfor_rpc_data {
 CRT_KOS unsigned int LIBCCALL
 full_waitfor_rpc_wrapper(struct full_waitfor_rpc_data *__restrict data,
                          struct cpu_context *__restrict ctx, unsigned int reason) {
- unsigned int result;
+ unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
  struct full_waitfor_rpc_data *EXCEPT_VAR xdata = data;
  TRY {
   result = (*data->func)(data->arg,ctx,reason);

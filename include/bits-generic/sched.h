@@ -35,20 +35,21 @@ __SYSDECL_BEGIN
 /* KOS Interpretation of the `CLONE_DETACHED' and `CLONE_THREAD' flags:
  *   - First off all: Linux's implementation is flawed by design
  *     and includes rare race conditions that have never been
- *     patched and could lead to system calls taking pids operating
+ *     patched and could lead to system calls taking pids, operating
  *     on a thread other than the one intended by the caller.
  *     Additionally, there is no way to circumvent this race condition,
  *     whereas KOS implements a dedicated `detach(2)' system call to
- *     define dedicated behavior for dealing with the case resulting
- *     in problems on linux (See the mile-long paragraph below)
+ *     define explicit behavior for dealing with the case resulting in
+ *     problems on linux (See the second mile-long comment after this one)
  *
  * CLONE_DETACHED:
  *   - This flag is completely DISCONNECTED from `CLONE_THREAD'
  *     and must be passed explicitly to make use of its behavior.
  *     Note that on linux, its behavior is implied by `CLONE_THREAD'.
  *     - `CLONE_DETACHED' will prevent the thread from
- *       turning into a zombie once it terminates.
- *     - Passing this flag has the safe effect as calling `detach(2)'.
+ *       turning into a zombie once it terminates, allowing
+ *       it to reap itself.
+ *     - Passing this flag has the safe effect as calling `detach(2)'
  *       with the returned PID immediately after `clone(2)' returns.
  *   
  * CLONE_THREAD:
@@ -68,9 +69,9 @@ __SYSDECL_BEGIN
  *     only the parents of whole processes.
  *
  * CSIGNAL:
- *   - The signal number send upon termination of the thread created
- *     by clone(2), to the thread referred to by `getppid(2)'
- *   - When ZERO(0) no signal is sent, but `wait(2)' is _NOT_ affected (unlike in linux)
+ *   - The signal number send upon termination of the thread created by clone(2),
+ *     to the any thread apart of the process referred to by its `getppid(2)'
+ *   - When ZERO(0), no signal is sent, but `wait(2)' is _NOT_ affected (unlike in linux)
  *   - _NEVER_ Has any influence on the behavior of `wait(2)' (unlike in linux)
  *   - It doesn't make any difference if `SIGCHLD' is used, or some other signal. (unlike in linux)
  *
@@ -89,14 +90,19 @@ __SYSDECL_BEGIN
  *     thread that created you using clone() with `CLONE_PARENT'.
  *
  * __WNOTHREAD / __WALL / __WCLONE:
- *   - Currently not allowed (any they have no place in KOS's interpretation of POSIX)
+ *   - Currently not allowed (none of them have any place in KOS's interpretation of POSIX)
  *
  * NOTES (that should hopefully clear up this mess):
  *   - Process (pid):       A group of threads
  *   - Thread (tid):        A SINGLE F-ING THREAD! WHAT'S SO HARD ABOUT THIS?
  *   - Thread Group (tgid): Did you mean process? Because there is no such thing as a tgid, lol!
  *   - A PID is always the TID of the leader of that process!
+ *   - A PGID is always the PID of the leader of that group!
+ *   - An SID is always the GPID of the leader of that session!
  */
+
+
+
 
  
 /* SERIOUSLY F$CK COMPATIBILITY WITH LINUX!
@@ -109,7 +115,7 @@ __SYSDECL_BEGIN
  * by the CLONE_THREAD flag'.
  * What I'm guessing it used to do (and once again does right here and now),
  * is that it allows the thread to >> reap itself when exiting <<.
- * How why is that important? Well although (possibly intentionally obscured), the
+ * Now why is that important? Well although (possibly intentionally obscured), the
  * `CLONE_THREAD' flag states the following (http://man7.org/linux/man-pages/man2/clone.2.html):
  *  """
  *           When a CLONE_THREAD thread terminates, the thread that created it using
@@ -165,6 +171,9 @@ __SYSDECL_BEGIN
  *     Ok. No problem. That would just mean that there'd be
  *     no thread associated with the TID, causing the system
  *     call to fail with ESRCH, as defined by POSIX.
+ *    (Again: There won't be anything associated with the TID
+ *            because using CLONE_THREAD means that the thread
+ *            will have reaped itself when exit(2)ing)
  *     However, consider this:
  *       Another thread was creating a new thread at just the
  *       right time, and just before the kernel was assigning 
@@ -172,7 +181,7 @@ __SYSDECL_BEGIN
  *       and releases its PID.
  *       And as a result of this, as is the very principal of
  *       resource allocation, the kernel decides to re-use the
- *       PID, causing your system call (say tgkill invoked pthread_kill)
+ *       PID, causing your system call (say tgkill invoked by pthread_kill)
  *       to suddenly refer to a brand new, but unrelated process.
  *     AND THERE YOU HAVE IT! A RACE CONDITION OF THE WORST MAGNITUDE!
  *     Because this is a race condition by DESIGN! _This_ can't

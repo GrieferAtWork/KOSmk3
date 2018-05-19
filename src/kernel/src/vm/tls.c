@@ -281,6 +281,9 @@ memory_in_use:
       /* Map the node into memory. */
       vm_insert_and_activate_node(myvm,extend_node);
 
+      /* `extend_node' stole this reference. */
+      extend_region = NULL;
+
      } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
       assert(extend_region->vr_part0.vp_refcnt == 1);
       extend_region->vr_part0.vp_refcnt = 0;
@@ -288,8 +291,12 @@ memory_in_use:
       error_rethrow();
      }
     } FINALLY {
-     vm_region_decref(extend_region);
+     if (extend_region)
+         vm_region_decref(extend_region);
     }
+    /* Try to merge the new segment with what was already there before. */
+    vm_merge_before(myvm,expand_base + tls_footprint);
+
     /* With all that done and complete, update the thread's
      * user-space thread segment base address to indicate
      * the availability of the new memory. */
@@ -329,7 +336,12 @@ PUBLIC ATTR_NOTHROW void KCALL tls_free_impl(uintptr_t base) {
  state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
  vm_acquire(myvm);
  for (i = 0;; ++i) {
-  assertf(i < me->vt_cnt,"No TLS segment at %p\n",base);
+  if (i == me->vt_cnt)
+      return; /* Segment may have already been deleted.
+               * This can happen due to static TLS expansion,
+               * where a single thread can have multiple consecutive
+               * TLS segments that aren't merged because merging
+               * may have failed arbitrarily. */
   if (me->vt_vec[i].te_base == base) break;
  }
  if (me->vt_vec[i].te_align == me->vt_align) {

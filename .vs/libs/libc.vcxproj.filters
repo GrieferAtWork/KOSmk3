@@ -93,6 +93,9 @@
     <ClCompile Include="..\..\src\libs\libc\i386-kos\rpc.c">
       <Filter>i386-kos</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\libs\libc\i386-kos\tls.c">
+      <Filter>i386-kos</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\libs\libc\libc.h" />

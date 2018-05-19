@@ -496,6 +496,30 @@ no_symbols:
 }
 
 
+PRIVATE ATTR_NOINLINE void KCALL
+Application_AllocateStaticTLSSegment(struct application *__restrict app) {
+ if (app->a_flags & APPLICATION_FHASTLS) return;
+ if (MODULE_HASTLS(app->a_module)) {
+  struct module *mod = app->a_module;
+  TRY {
+   /* Allocate a static TLS segment for the application. */
+   app->a_tlsoff = tls_alloc((void *)(app->a_loadaddr +
+                                      mod->m_tlsmin),
+                              mod->m_tlstplsz,
+                              MODULE_TLSSIZE(mod),
+                              mod->m_tlsalign);
+  } CATCH (E_BADALLOC) {
+   /* Ignore failure to allocate the application's TLS segment.
+    * In this case, TLS allocations are performed at runtime. */
+   if (error_info()->e_error.e_badalloc.ba_resource != ERROR_BADALLOC_VIRTMEMORY)
+       error_rethrow();
+   error_handled();
+   return;
+  }
+ }
+ ATOMIC_FETCHOR(app->a_flags,APPLICATION_FHASTLS);
+}
+
 
 
 
@@ -565,18 +589,7 @@ Elf_NewApplication(struct module_patcher *__restrict self) {
       break;
 
      case PT_TLS:
-      if (MODULE_HASTLS(app->a_module)) {
-       assert(mod->e_phdr[i].p_vaddr  == app->a_module->m_tlsmin);
-       assert(mod->e_phdr[i].p_vaddr+
-              mod->e_phdr[i].p_memsz  == app->a_module->m_tlsend);
-       assert(mod->e_phdr[i].p_filesz == app->a_module->m_tlstplsz);
-       /* Allocate a static TLS segment for the application. */
-       app->a_tlsoff = tls_alloc((void *)(loadaddr + mod->e_phdr[i].p_vaddr),
-                                  mod->e_phdr[i].p_filesz,
-                                  mod->e_phdr[i].p_memsz,
-                                  mod->e_phdr[i].p_align);
-       ATOMIC_FETCHOR(app->a_flags,APPLICATION_FHASTLS);
-      }
+      Application_AllocateStaticTLSSegment(app);
       break;
 
      default: break;
@@ -614,18 +627,7 @@ Elf_NewApplication(struct module_patcher *__restrict self) {
    } break;
 
    case PT_TLS:
-    if (MODULE_HASTLS(app->a_module)) {
-     assert(mod->e_phdr[i].p_vaddr  == app->a_module->m_tlsmin);
-     assert(mod->e_phdr[i].p_vaddr+
-            mod->e_phdr[i].p_memsz  == app->a_module->m_tlsend);
-     assert(mod->e_phdr[i].p_filesz == app->a_module->m_tlstplsz);
-     /* Allocate a static TLS segment for the application. */
-     app->a_tlsoff = tls_alloc((void *)(loadaddr + mod->e_phdr[i].p_vaddr),
-                                mod->e_phdr[i].p_filesz,
-                                mod->e_phdr[i].p_memsz,
-                                mod->e_phdr[i].p_align);
-     ATOMIC_FETCHOR(app->a_flags,APPLICATION_FHASTLS);
-    }
+    Application_AllocateStaticTLSSegment(app);
     break;
 
    default: break;
@@ -713,6 +715,7 @@ Elf_PatchApplication(struct module_patcher *__restrict self) {
   Elf_Rel *end = (Elf_Rel *)((uintptr_t)iter + mod->e_dyn.di_reloc[relocation_group].ri_relsiz);
   assert(iter >= end || ent);
   for (; iter < end; *(uintptr_t *)&iter += ent) {
+   char const *sym_name; u32 sym_hash;
    bool extern_sym = false;
    Elf_Sym *sym; Elf_RelValue value;
    byte_t *reladdr    = (byte_t *)(loadaddr + iter->r_offset);
@@ -732,23 +735,109 @@ Elf_PatchApplication(struct module_patcher *__restrict self) {
    if (reladdr < image_min)
        error_throw(E_NOT_EXECUTABLE);
 #endif
-#ifdef R_RELATIVE
-   if (type == R_RELATIVE) {
+#if defined(R_RELATIVE)
+   switch (type) {
+   case R_RELATIVE:
     vm_cow_ptr(reladdr);
     *(uintptr_t *)reladdr += (uintptr_t)loadaddr;
     continue;
+
+    /* Arch-specific relocations. */
+#if defined(__x86_64__) || defined(__i386__)
+   {
+    struct kernel_symbol_info symbol;
+#if defined(__x86_64__)
+    /* ... */
+#elif defined(__i386__)
+   case R_386_TLS_DTPMOD32:
+   case R_386_TLS_DTPOFF32:
+#endif
+    if unlikely(symid >= mod->e_dyn.di_symcnt)
+       error_throw(E_NOT_EXECUTABLE);
+    sym   = (Elf_Sym *)(symtab + (symid * mod->e_dyn.di_syment));
+    symbol.si_symbol.ds_base = (void *)(loadaddr + sym->st_value);
+    if (sym->st_shndx != SHN_UNDEF) {
+     /* Link against local symbols by default. */
+     if (ELF_ST_TYPE(sym->st_info) == STT_TLS)
+         symbol.si_symbol.ds_base = (void *)(sym->st_value + (app->a_tlsoff - MODULE_TLSSIZE(app->a_module)));
+     else if (sym->st_shndx == SHN_ABS)
+         symbol.si_symbol.ds_base = (void *)sym->st_value;
+got_symbol_ex:
+     symbol.si_symbol.ds_size = sym->st_size;
+     symbol.si_defmod         = app;
+    } else {
+     sym_name = strtab+sym->st_name;
+#ifdef CONFIG_HIGH_KERNEL
+     if (sym_name >= strtab_end)
+         error_throw(E_NOT_EXECUTABLE);
+#else
+     if (sym_name < strtab)
+         error_throw(E_NOT_EXECUTABLE);
+#endif
+     /* Find the symbol within shared libraries. */
+     sym_hash = patcher_symhash(sym_name);
+     symbol = patcher_syminfo(self,sym_name,sym_hash,false);
+     /* NOTE: Weak symbols are linked as NULL when not found. */
+     if (symbol.si_symbol.ds_type == MODULE_SYMBOL_INVALID) {
+      if (ELF_ST_BIND(sym->st_info) != STB_WEAK) goto patch_failed;
+      symbol.si_symbol.ds_base = (void *)0;
+      goto got_symbol_ex;
+     }
+    }
+    switch (type) {
+
+#if defined(__x86_64__)
+    /* ... */
+#elif defined(__i386__)
+    case R_386_TLS_DTPMOD32:
+#endif
+     vm_cow_ptr(reladdr);
+     if (symbol.si_defmod->a_flags & APPLICATION_FHASTLS) {
+      value   = (symbol.si_defmod->a_tlsoff - MODULE_TLSSIZE(symbol.si_defmod->a_module));
+      value <<= 1;
+      /* Libc's version of `__tls_get_addr()' uses
+       * this bit to detect static TLS allocation. */
+      value  |= 1;
+      *(uintptr_t *)reladdr = value;
+     } else {
+      value = symbol.si_defmod->a_loadaddr;
+      *(uintptr_t *)reladdr = CEIL_ALIGN(value,2);
+     }
+     break;
+
+#if defined(__x86_64__)
+    /* ... */
+#elif defined(__i386__)
+    case R_386_TLS_DTPOFF32:
+#endif
+     value  = (uintptr_t)symbol.si_symbol.ds_base;
+     value -= (symbol.si_defmod->a_tlsoff - MODULE_TLSSIZE(symbol.si_defmod->a_module));
+     vm_cow_ptr(reladdr);
+     *(uintptr_t *)reladdr = value;
+     break;
+
+    default: __builtin_unreachable();
+    }
+
+    continue;
+   } break;
+#endif
+
+   default: break;
    }
-#endif /* R_RELATIVE */
+#endif /* ... */
+
    if unlikely(symid >= mod->e_dyn.di_symcnt)
       error_throw(E_NOT_EXECUTABLE);
    sym   = (Elf_Sym *)(symtab + (symid * mod->e_dyn.di_syment));
    value = (Elf_RelValue)loadaddr + sym->st_value;
    if (sym->st_shndx != SHN_UNDEF) {
     /* Link against local symbols by default. */
-    if (sym->st_shndx == SHN_ABS)
+    if (ELF_ST_TYPE(sym->st_info) == STT_TLS)
+        value = sym->st_value + (app->a_tlsoff - MODULE_TLSSIZE(app->a_module));
+    else if (sym->st_shndx == SHN_ABS)
         value = (uintptr_t)sym->st_value;
    } else {
-    char const *sym_name; u32 sym_hash;
 find_extern:
     if (sym->st_shndx != SHN_UNDEF &&
        (mod->e_dyn.di_flags & DYN_FSYMBOLIC)) {
@@ -770,7 +859,9 @@ find_extern:
     if ((self->mp_flags & DL_OPEN_FDEEPBIND) &&
         (sym->st_shndx != SHN_UNDEF)) {
      value = (Elf_RelValue)loadaddr+sym->st_value;
-     if (sym->st_shndx == SHN_ABS)
+     if (ELF_ST_TYPE(sym->st_info) == STT_TLS)
+         value = sym->st_value + (app->a_tlsoff - MODULE_TLSSIZE(app->a_module));
+     else if (sym->st_shndx == SHN_ABS)
          value = (Elf_RelValue)sym->st_value;
     } else {
      /* Find the symbol within shared libraries. */
@@ -780,6 +871,7 @@ find_extern:
      /* NOTE: Weak symbols are linked as NULL when not found. */
      if (!value) {
       if (ELF_ST_BIND(sym->st_info) == STB_WEAK) goto got_symbol;
+patch_failed:
       debug_printf(COLDSTR("[ELF] Failed to patch symbol %q in %q\n"),
                    sym_name,app->a_module->m_path->p_dirent->de_name);
       error_throw(E_NOT_EXECUTABLE);
@@ -904,17 +996,54 @@ symend_overflow:
     break;
 #endif
 
+    /* Arch-specific relocations. */
+#if defined(__x86_64__)
+    /* ... */
+#elif defined(__i386__)
+   case R_386_TLS_TPOFF:
+    vm_cowl(reladdr);
+    *(u32 *)reladdr += (u32)value;
+    break;
+   case R_386_TLS_TPOFF32:
+    vm_cowl(reladdr);
+    *(u32 *)reladdr -= (u32)value;
+    break;
+#endif
+
+#define R_386_GOT32        3            /* 32 bit GOT entry */
+#define R_386_PLT32        4            /* 32 bit PLT address */
+#define R_386_GOTOFF       9            /* 32 bit offset to GOT */
+#define R_386_GOTPC        10           /* 32 bit PC relative offset to GOT */
+#define R_386_32PLT        11
+#define R_386_TLS_IE       15           /* Address of GOT entry for static TLS block offset */
+#define R_386_TLS_GOTIE    16           /* GOT entry for static TLS block offset */
+#define R_386_TLS_LE       17           /* Offset relative to static TLS block */
+
+#define R_386_TLS_GD       18           /* Direct 32 bit for GNU version of general dynamic thread local data */
+#define R_386_TLS_LDM      19           /* Direct 32 bit for GNU version of local dynamic thread local data in LE code */
+#define R_386_TLS_GD_32    24           /* Direct 32 bit for general dynamic thread local data */
+#define R_386_TLS_GD_PUSH  25           /* Tag for pushl in GD TLS code */
+#define R_386_TLS_GD_CALL  26           /* Relocation for call to __tls_get_addr() */
+#define R_386_TLS_GD_POP   27           /* Tag for popl in GD TLS code */
+#define R_386_TLS_LDM_32   28           /* Direct 32 bit for local dynamic thread local data in LE code */
+#define R_386_TLS_LDM_PUSH 29           /* Tag for pushl in LDM TLS code */
+#define R_386_TLS_LDM_CALL 30           /* Relocation for call to __tls_get_addr() in LDM code */
+#define R_386_TLS_LDM_POP  31           /* Tag for popl in LDM TLS code */
+#define R_386_TLS_LDO_32   32           /* Offset relative to TLS block */
+#define R_386_TLS_IE_32    33           /* GOT entry for negated static TLS block offset */
+#define R_386_TLS_LE_32    34           /* Negated offset relative to static TLS block */
+
    {
     char *sym_name;
    default:
     sym_name = strtab+sym->st_name;
     if (sym_name < strtab || sym_name >= strtab_end)
         sym_name = "??" "?";
-    debug_printf(COLDSTR("[ELF] Unknown relocation #%u at %p(%p) = %q (%#I8x with symbol %#x; %q) in `%q'\n"),
+    debug_printf(COLDSTR("[ELF] Unknown relocation #%u at %p(%p) = %p (%#I8x with symbol %#x; %q) in `%[path]'\n"),
                ((uintptr_t)iter-(loadaddr + mod->e_dyn.di_reloc[relocation_group].ri_rel))/
                                             mod->e_dyn.di_reloc[relocation_group].ri_relent,
                  iter,iter->r_offset,value,type,(unsigned)(ELF_R_SYM(iter->r_info)),
-                 sym_name,app->a_module->m_path->p_dirent->de_name);
+                 sym_name,app->a_module->m_path);
    } break;
    }
   }
@@ -985,7 +1114,9 @@ broken_hash:
      if (symtab_iter->st_shndx == SHN_UNDEF) goto end; /* Symbol not defined by this library. */
      result.ds_base = (void *)symtab_iter->st_value;
      result.ds_size = symtab_iter->st_size;
-     if (symtab_iter->st_shndx != SHN_ABS)
+     if (ELF_ST_TYPE(symtab_iter->st_info) == STT_TLS)
+       *(uintptr_t *)&result.ds_base += (app->a_tlsoff - MODULE_TLSSIZE(app->a_module));
+     else if (symtab_iter->st_shndx != SHN_ABS)
        *(uintptr_t *)&result.ds_base += load_addr;
      result.ds_type = MODULE_SYMBOL_NORMAL;
      if (ELF_ST_BIND(symtab_iter->st_info) == STB_WEAK)
@@ -1105,6 +1236,7 @@ Elf_LoadModule(REF struct module *__restrict self) {
     self->m_tlsmin   = phdr_begin;
     self->m_tlsend   = phdr_end;
     self->m_tlstplsz = result->e_phdr[i].p_filesz;
+    self->m_tlsalign = result->e_phdr[i].p_align;
     break;
 
    default: break;

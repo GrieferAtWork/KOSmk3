@@ -16,56 +16,52 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef GUARD_KERNEL_INCLUDE_I386_KOS_ELF_H
-#define GUARD_KERNEL_INCLUDE_I386_KOS_ELF_H 1
-
+#include "../libc.h"
 #include <hybrid/compiler.h>
-#include <elf.h>
-
-DECL_BEGIN
-
-#ifdef __x86_64__
-#define EM_HOST  EM_X86_64
-#else
-#define EM_HOST  EM_386
-#endif
-
-#undef CONFIG_ELF_USING_RELA
-#ifdef __x86_64__
-#define CONFIG_ELF_USING_RELA 1
-#endif
-
-#ifdef __x86_64__
-#define R_NONE      R_X86_64_NONE
-#define R_32        R_X86_64_32
-#define R_PC32      R_X86_64_PC32
-#define R_COPY      R_X86_64_COPY
-#define R_GLOB_DAT  R_X86_64_GLOB_DAT
-#define R_JMP_SLOT  R_X86_64_JMP_SLOT
-#define R_RELATIVE  R_X86_64_RELATIVE
-#define R_16        R_X86_64_16
-#define R_PC16      R_X86_64_PC16
-#define R_8         R_X86_64_8
-#define R_PC8       R_X86_64_PC8
-#define R_64        R_X86_64_64
-#define R_PC64      R_X86_64_PC64
-#else
-#define R_NONE      R_386_NONE
-#define R_32        R_386_32
-#define R_PC32      R_386_PC32
-#define R_COPY      R_386_COPY
-#define R_GLOB_DAT  R_386_GLOB_DAT
-#define R_JMP_SLOT  R_386_JMP_SLOT
-#define R_RELATIVE  R_386_RELATIVE
-#define R_16        R_386_16
-#define R_PC16      R_386_PC16
-#define R_8         R_386_8
-#define R_PC8       R_386_PC8
-#endif
-
-typedef uintptr_t Elf_RelValue;
+#include <hybrid/asm.h>
+#include <asm/cfi.h>
+#include <kos/rpc.h>
+#include <kos/thread.h>
+#include <errno.h>
+#include <except.h>
 
 
-DECL_END
+.section .text.crt.tls
+PUBLIC_ENTRY(___tls_get_addr)
+	.cfi_startproc
+	testl     $1, 0(%eax)
+	jz        1f
+	/* TLS memory has been allocated at a static offset! */
+	movl      0(%eax), %edx
+	sarl      $1, %edx
+	movl      4(%eax),    %eax /* ti_tlsoffset */
+	addl      %edx,       %eax /* MODULE_TLS_OFFSET */
+	addl      %taskseg:0, %eax /* THREAD_SEGMENT_ADDRESS */
+	ret
+1:	movl      %eax, %ecx
+DEFINE_INTERN(x86_dynamic_tls_addr)
+	call      x86_dynamic_tls_addr
+	ret
+	.cfi_endproc
+SYMEND(___tls_get_addr)
 
-#endif /* !GUARD_KERNEL_INCLUDE_I386_KOS_ELF_H */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

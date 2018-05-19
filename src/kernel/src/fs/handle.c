@@ -955,7 +955,7 @@ KCALL handle_get_device(fd_t fd) {
 }
 PUBLIC ATTR_RETNONNULL REF struct superblock *
 KCALL handle_get_superblock(fd_t fd) {
- REF struct superblock *result;
+ REF struct superblock *COMPILER_IGNORE_UNINITIALIZED(result);
  struct handle hnd = handle_get(fd);
  if (hnd.h_type == HANDLE_TYPE_FSUPERBLOCK)
      return hnd.h_object.o_superblock;
@@ -990,7 +990,7 @@ KCALL handle_get_superblock(fd_t fd) {
 }
 PUBLIC ATTR_RETNONNULL REF struct superblock *
 KCALL handle_get_superblock_relaxed(fd_t fd) {
- REF struct superblock *result;
+ REF struct superblock *COMPILER_IGNORE_UNINITIALIZED(result);
  struct handle hnd = handle_get(fd);
  if (hnd.h_type == HANDLE_TYPE_FSUPERBLOCK)
      return hnd.h_object.o_superblock;

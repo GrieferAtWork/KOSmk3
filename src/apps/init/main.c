@@ -107,7 +107,6 @@ my_handler(int signo, siginfo_t *info, ucontext_t *context) {
 
 
 PRIVATE ATTR_THREAD int thread_local_x = 42;
-
 PRIVATE int LIBCCALL my_thread(void *arg) {
  syslog(LOG_DEBUG,"thread_local_x = %p:%d\n",&thread_local_x,thread_local_x);
  syslog(LOG_DEBUG,"my_thread() #1\n");
@@ -161,6 +160,7 @@ int main(int argc, char *argv[]) {
  act.sa_flags     = SA_SIGINFO;
  Xsigaction(SIGCHLD,&act,NULL);
 
+ syslog(LOG_DEBUG,"__current()->ts_self = %p\n",__current()->ts_self);
  syslog(LOG_DEBUG,"thread_local_x = %p:%d\n",&thread_local_x,thread_local_x);
  thread_local_x = 7;
  syslog(LOG_DEBUG,"thread_local_x = %p:%d\n",&thread_local_x,thread_local_x);

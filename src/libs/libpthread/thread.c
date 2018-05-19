@@ -105,7 +105,7 @@ INTERN ATTR_RETNONNULL Thread *LIBPCALL
 thread_Xcreate(ThreadAttributes const *attr,
                ThreadMain entry, void *arg) {
  Thread *EXCEPT_VAR result;
- u32 clone_flags;
+ u32 COMPILER_IGNORE_UNINITIALIZED(clone_flags);
  result = (Thread *)Xcalloc(1,sizeof(Thread));
  TRY {
   /* Copy thread attributes. */
