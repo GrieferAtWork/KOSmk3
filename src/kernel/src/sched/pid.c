@@ -90,11 +90,21 @@ PUBLIC void KCALL task_signal_event(int event_code, int status) {
  struct thread_pid *parent_pid;
  siginfo_t taskevent;
  assert(event_code != 0);
-
  if (!pid) return; /* Cannot signal parent without PID descriptor. */
  if (!pid->tp_siblings.le_pself) return; /* Not part of the sibling chain (lazy check). */
+ if (get_this_process() != THIS_TASK) {
+  /* Special case: A secondary thread has exited. */
+  atomic_rwlock_write(&pid->tp_task_lock);
+  assert(pid->tp_task == THIS_TASK);
+  pid->tp_event           = event_code;
+  pid->tp_status.w_status = status;
+  atomic_rwlock_endwrite(&pid->tp_task_lock);
+  sig_broadcast(&FORTASK(get_this_process(),_this_group).tg_process.h_cldevent);
+  return;
+ }
  parent = task_get_parent();
- if (!parent) return; /* Parent is gone, or there is no parent. */
+ if (!parent)
+      return; /* Parent is gone, or there is no parent. */
  assert(parent->t_refcnt != 0);
  memset(&taskevent,0,sizeof(siginfo_t));
  parent_leader       = FORTASK(parent,_this_group).tg_leader;
@@ -365,7 +375,7 @@ thread_pid_destroy(struct thread_pid *__restrict self) {
  struct pidns *iter;
  assert(self->tp_task == NULL);
  assertf(self->tp_siblings.le_pself == NULL,
-         "self->tp_siblings.le_pself = %p",
+        "self->tp_siblings.le_pself = %p",
          self->tp_siblings.le_pself);
  /* Remove the thread PID from all associated namespaces. */
  iter = self->tp_ns;
@@ -505,6 +515,18 @@ INTERN void KCALL task_clone_pid(struct task *__restrict new_thread, u32 flags) 
    struct task *parent_leader;
    parent_leader = get_this_process();
    if (flags & CLONE_PARENT) {
+#if 1
+    /* Cloning the parent when creating a new thread doesn't make sense.
+     * You'd be creating a thread that you're parent process would have
+     * to wait() for, without even knowing of its existance. And because
+     * it is a thread, it won't even trigger a posix_signal during a state
+     * change, or really be connected to the parent process in any other
+     * way. (Remember that thread-parents are tracked on a per-process
+     * basis, so the thread would have no way of knowing that it's supposed
+     * to have a different parent that all the other threads in its process) */
+    if (flags & CLONE_THREAD)
+        error_throw(E_INVALID_ARGUMENT);
+#endif
     /* Try to use the parent of the calling thread as parent of the new
      * one, rather use the current thread as parent. */
     parent = task_get_parent();

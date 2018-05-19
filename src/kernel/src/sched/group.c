@@ -92,7 +92,7 @@ threadgroup_clone(struct task *__restrict new_thread, u32 flags) {
   /* Setup the new thread as a child-process of the caller. */
   if (flags & CLONE_PARENT) {
    /* Re-use the parent of the current process. */
-   new_group->tg_process.h_parent = PERTASK_GET(_this_group.tg_process.h_parent);
+   new_group->tg_process.h_parent = FORTASK(get_this_process(),_this_group).tg_process.h_parent;
    if (new_group->tg_process.h_parent)
     task_weakref_incref(new_group->tg_process.h_parent);
    else {
@@ -869,8 +869,13 @@ again:
 
  /* Enumerate child processes. */
  sig_get(&my_group->tg_process.h_cldevent);
- child = my_group->tg_process.h_children;
- for (; child; child = child->tp_siblings.le_next) {
+ for (child = my_group->tg_process.h_children,
+      assert(!child ||
+              child->tp_siblings.le_pself == &my_group->tg_process.h_children);
+      child;
+      assert(!child->tp_siblings.le_next ||
+              child->tp_siblings.le_next->tp_siblings.le_pself == &child->tp_siblings.le_next),
+      child = child->tp_siblings.le_next) {
   bool has_write_lock = false;
   assert(child->tp_siblings.le_pself);
   /* Check if this child process matches requested criteria. */
@@ -881,6 +886,8 @@ again:
 
   atomic_rwlock_read(&child->tp_task_lock);
 check_child_again:
+  assert(!child->tp_task ||
+          FORTASK(child->tp_task,_this_pid) == child);
   /* XXX: We're not tracking the PGID in the PID descriptor,
    *      but apparently POSIX wants us to remember a thread's
    *      process group, even after the thread has died...

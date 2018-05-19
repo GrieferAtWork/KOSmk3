@@ -57,6 +57,9 @@ __SYSDECL_BEGIN
  *   - Has _NOTHING_ to do with the thread possibly turning into a zombie
  *   - The only thing it does, is control if the thread is added to the
  *     calling process (if set), or be setup as its own process (if not set)
+ *   - Will _NOT_ trigger a posix_signal to be sent to the parent process.
+ *     Because this is a thread, and thread parents are tracked on a per-process
+ *     basis, the parent process mustn't be bothered about this.
  *
  * CLONE_PARENT:
  *   - Setup the new thread as a child of the parent of the calling process,
@@ -67,6 +70,8 @@ __SYSDECL_BEGIN
  *     a process-parent-basis, it functions on a thread-parent-basis.
  *     It should be noted that KOS does not track thread parents, but
  *     only the parents of whole processes.
+ *   - Cannot be used with `CLONE_THREAD'. Attempting to do so anyways will
+ *     cause `clone()' to fail with an `E_INVALID_ARGUMENT' exception.
  *
  * CSIGNAL:
  *   - The signal number send upon termination of the thread created by clone(2),
@@ -74,6 +79,7 @@ __SYSDECL_BEGIN
  *   - When ZERO(0), no signal is sent, but `wait(2)' is _NOT_ affected (unlike in linux)
  *   - _NEVER_ Has any influence on the behavior of `wait(2)' (unlike in linux)
  *   - It doesn't make any difference if `SIGCHLD' is used, or some other signal. (unlike in linux)
+ *   - Ignored when `CLONE_THREAD' is set.
  *
  * gettid():
  *   - Your own TID
@@ -340,6 +346,14 @@ __VREDIRECT_EXCEPT(__LIBC,,__pid_t,__LIBCCALL,clone,(int (__LIBCCALL *__fn)(void
 __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,unshare,(int __flags),(__flags))
 __REDIRECT_EXCEPT(__LIBC,,int,__LIBCCALL,sched_getcpu,(void),())
 __REDIRECT_EXCEPT_XVOID(__LIBC,,int,__LIBCCALL,setns,(__fd_t __fd, int __nstype),(__fd,__nstype))
+#ifdef __USE_KOS3
+/* Exits the current thread by invoking the SYS_exit system call,
+ * after performing some additional cleanup not done by the kernel.
+ * Assuming that the calling thread was constructed by `clone()',
+ * calling this function has the same effect as returning `EXIT_CODE'
+ * from `clone()'s `FN' callback. */
+__LIBC __ATTR_NORETURN void (__LIBCCALL exit_thread)(int __exit_code);
+#endif /* __USE_KOS3 */
 #ifdef __USE_EXCEPT
 __LIBC __pid_t (__LIBCCALL Xclone)(int (__LIBCCALL *__fn)(void *__arg), void *__child_stack, int __flags, void *__arg, ...);
 __LIBC void (__LIBCCALL Xunshare)(int __flags);
