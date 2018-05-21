@@ -47,7 +47,7 @@ __SYSDECL_BEGIN
 #define FUTEX_CMP_REQUEUE_PI  0x0c
 
 
-#if defined(__KOS__) && (defined(__USE_KOS) || defined(__KERNEL__))
+#ifdef __KOS__
 /* Robust waiter functions that ensure that all bits from
  * `val3' are set while atomically entering a wait-state.
  * These are useful for implementing a single-futex semaphore object
@@ -65,15 +65,18 @@ __SYSDECL_BEGIN
  *          will be woken is any undefined time between it starting
  *          to sleep on the futex, and it getting triggered by another
  *          thread. */
+#define FUTEX_NOP             0x1f /* Does nothing. (futex() returns ZERO(0)) */
 #define FUTEX_WAIT_MASK       0x10 /* >> if ((*uaddr & val) == (u32)uaddr2) {
                                     * >>      *uaddr |= val3;
                                     * >>      WAIT(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
                                     * >> } */
-#define FUTEX_WAIT_MASK_GHOST 0x30 /* >> if ((*uaddr & val) == (u32)uaddr2) {
+#define FUTEX_WAIT_MASK_GHOST 0x30 /* The ghost variant of `FUTEX_WAIT_MASK' */
+#define FUTEX_WAIT_NMASK      0x11 /* >> if ((*uaddr & val) != (u32)uaddr2) {
                                     * >>      *uaddr |= val3;
-                                    * >>      WAIT_GHOST(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
+                                    * >>      WAIT(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
                                     * >> } */
-#define FUTEX_WAIT_CMPXCH     0x11 /* A highly advanced version of a futex_wait operation that atomically
+#define FUTEX_WAIT_NMASK_GHOST 0x31/* The ghost variant of `FUTEX_WAIT_NMASK' */
+#define FUTEX_WAIT_CMPXCH     0x14 /* A highly advanced version of a futex_wait operation that atomically
                                     * does all of the following (read, compare, write, wake and wait):
                                     * >> if (uaddr2) {
                                     * >>     u32 old_value;
@@ -103,8 +106,8 @@ __SYSDECL_BEGIN
                                     * NOTE: When `uaddr2' matches `uaddr', the function will return
                                     *       immediately, as you're just going to wake up yourself
                                     *       before actually being un-scheduled. */
-#define FUTEX_WAIT_CMPXCH_GHOST 0x41/* The ghost variant of `FUTEX_WAIT_CMPXCH' */
-#define FUTEX_WAIT_CMPXCH2    0x12 /* Very similar to `FUTEX_WAIT_CMPXCH', but only trigger `uaddr' if the exchange failed:
+#define FUTEX_WAIT_CMPXCH_GHOST 0x44/* The ghost variant of `FUTEX_WAIT_CMPXCH' */
+#define FUTEX_WAIT_CMPXCH2    0x15 /* Very similar to `FUTEX_WAIT_CMPXCH', but only trigger `uaddr' if the exchange failed:
                                     * >> u32 old_value;
                                     * >> old_value = ATOMIC_CMPXCH_VAL(*uaddr,val,val3);
                                     * >> if (old_value == val) {
@@ -124,7 +127,7 @@ __SYSDECL_BEGIN
                                     * NOTE: When `uaddr2' matches `uaddr', the function will return
                                     *       immediately, as you're just going to wake up yourself
                                     *       before actually being un-scheduled. */
-#define FUTEX_WAIT_CMPXCH2_GHOST 0x32/* The ghost variant of `FUTEX_WAIT_CMPXCH2' */
+#define FUTEX_WAIT_CMPXCH2_GHOST 0x35/* The ghost variant of `FUTEX_WAIT_CMPXCH2' */
 #define FUTEX_WAIT_GHOST      0x20 /* >> if (*uaddr == val)
                                     * >>      WAIT_GHOST(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
                                     * Same as `FUTEX_WAIT', but when being woken using a val3 that

@@ -262,7 +262,7 @@ next_rpc:
  * @return: true:  At least one RPC function was served.
  * @return: false: No RPC functions were served. */
 PUBLIC bool KCALL task_serve(void) {
- bool result = false;
+ /* TODO: Get rid of `task_nothrow_serve()' and rewrite this function. */
  u16 EXCEPT_VAR state = PERTASK_GET(this_task.t_state);
  if (state & TASK_STATE_FINTERRUPTED) {
   /* Serve RPC function calls. */
@@ -301,7 +301,7 @@ done_serving_2:
                   (state & TASK_STATE_FINRPC ? 0 : TASK_STATE_FINRPC)));
 done_serving:
    task_pop_connections(&connections);
-   return result;
+   return true;
   }
   vec = PERTASK_GET(my_rpc.ri_vec);
   if (vec[0].rs_flag & RPC_SLOT_FUSER) {
@@ -320,7 +320,6 @@ done_serving:
             (PERTASK_GET(my_rpc.ri_cnt)-i)*sizeof(struct rpc_slot));
      goto do_exec_rpc;
     }
-    ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FINTERRUPTING);
     /* All remaining RPCs are served later! */
     goto done_serving_2;
    }
@@ -401,7 +400,6 @@ do_exec_rpc:
     } /* FINALLY_WILL_RETHROW */
    }
   }
-  result = true;
   goto continue_serving;
  }
  return false;

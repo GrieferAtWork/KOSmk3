@@ -301,13 +301,15 @@ DEFINE_SYSCALL6(futex,
 #else
 #define val2  ((u32)(uintptr_t)utime)
 #endif
- validate_readable(uaddr,sizeof(*uaddr));
-
  switch (op & FUTEX_CMD_MASK) {
+
+ case FUTEX_NOP:
+  break;
 
  case FUTEX_WAIT_BITSET:
   task_channelmask((uintptr_t)val3);
  case FUTEX_WAIT:
+  validate_readable(uaddr,sizeof(*uaddr));
   if (ATOMIC_READ(*uaddr) != (u32)val)
       return -EAGAIN;
   ftx = vm_futex(uaddr);
@@ -335,6 +337,7 @@ DEFINE_SYSCALL6(futex,
  case FUTEX_WAIT_BITSET_GHOST:
   task_channelmask((uintptr_t)val3);
  case FUTEX_WAIT_GHOST:
+  validate_readable(uaddr,sizeof(*uaddr));
   if (ATOMIC_READ(*uaddr) != (u32)val)
       return -EAGAIN;
   ftx = vm_futex(uaddr);
@@ -360,6 +363,7 @@ DEFINE_SYSCALL6(futex,
   break;
 
  case FUTEX_WAIT_MASK:
+  validate_readable(uaddr,sizeof(*uaddr));
   if ((ATOMIC_READ(*uaddr) & (u32)val) != (u32)(uintptr_t)uaddr2)
        return -EAGAIN;
   /* Connect to the futex. */
@@ -373,17 +377,13 @@ do_wait_mask:
       { result = -EAGAIN; goto done_mask; }
    while (!ATOMIC_CMPXCH(*uaddr,old_value,old_value|(u32)val3));
    /* Check the address again. */
-   if ((old_value & (u32)val) == (u32)(uintptr_t)uaddr2)
-       result = -EAGAIN;
-   else {
-    if (utime) {
-     /* Must do the wait. */
-     validate_readable(utime,sizeof(struct timespec64));
-     if (!task_waitfor_tmabs(utime))
-          result = -ETIMEDOUT;
-    } else {
-     task_wait();
-    }
+   if (utime) {
+    /* Must do the wait. */
+    validate_readable(utime,sizeof(struct timespec64));
+    if (!task_waitfor_tmabs(utime))
+         result = -ETIMEDOUT;
+   } else {
+    task_wait();
    }
 done_mask:
    ;
@@ -393,7 +393,38 @@ done_mask:
   }
   break;
 
+ case FUTEX_WAIT_NMASK:
+  validate_readable(uaddr,sizeof(*uaddr));
+  if ((ATOMIC_READ(*uaddr) & (u32)val) == (u32)(uintptr_t)uaddr2)
+       return -EAGAIN;
+  /* Connect to the futex. */
+  ftx = vm_futex(uaddr);
+  task_connect(&ftx->f_sig);
+do_wait_nmask:
+  TRY {
+   u32 old_value;
+   /* Atomically set bits from val3, while also ensuring that the mask still applies. */
+   do if (((old_value = ATOMIC_READ(*uaddr)) & (u32)val) == (u32)(uintptr_t)uaddr2)
+      { result = -EAGAIN; goto done_nmask; }
+   while (!ATOMIC_CMPXCH(*uaddr,old_value,old_value|(u32)val3));
+   if (utime) {
+    /* Must do the wait. */
+    validate_readable(utime,sizeof(struct timespec64));
+    if (!task_waitfor_tmabs(utime))
+         result = -ETIMEDOUT;
+   } else {
+    task_wait();
+   }
+done_nmask:
+   ;
+  } FINALLY {
+   task_disconnect(); /* In case the second access to `*uaddr' faults. */
+   futex_decref(ftx);
+  }
+  break;
+
  case FUTEX_WAIT_MASK_GHOST:
+  validate_readable(uaddr,sizeof(*uaddr));
   if ((ATOMIC_READ(*uaddr) & (u32)val) != (u32)(uintptr_t)uaddr2)
        return -EAGAIN;
   /* Connect to the futex. */
@@ -401,7 +432,17 @@ done_mask:
   task_connect_ghost(&ftx->f_sig);
   goto do_wait_mask;
 
+ case FUTEX_WAIT_NMASK_GHOST:
+  validate_readable(uaddr,sizeof(*uaddr));
+  if ((ATOMIC_READ(*uaddr) & (u32)val) == (u32)(uintptr_t)uaddr2)
+       return -EAGAIN;
+  /* Connect to the futex. */
+  ftx = vm_futex(uaddr);
+  task_connect_ghost(&ftx->f_sig);
+  goto do_wait_nmask;
+
  case FUTEX_WAIT_CMPXCH:
+  validate_readable(uaddr,sizeof(*uaddr));
   if (ATOMIC_CMPXCH(*uaddr,val,val3)) {
    /* Must still trigger the second futex, if it was defined. */
    if (!uaddr2)
@@ -454,6 +495,7 @@ do_wait_cmpxch:
   break;
 
  case FUTEX_WAIT_CMPXCH_GHOST:
+  validate_readable(uaddr,sizeof(*uaddr));
   if (ATOMIC_CMPXCH(*uaddr,val,val3)) {
    /* Must still trigger the second futex, if it was defined. */
    if (!uaddr2)
@@ -474,6 +516,7 @@ do_wait_cmpxch:
   goto do_wait_cmpxch;
 
  case FUTEX_WAIT_CMPXCH2:
+  validate_readable(uaddr,sizeof(*uaddr));
   if (ATOMIC_CMPXCH(*uaddr,val,val3))
       return -EAGAIN;
   /* Connect to the futex. */
@@ -511,6 +554,7 @@ do_wait_cmpxch2:
   break;
 
  case FUTEX_WAIT_CMPXCH2_GHOST:
+  validate_readable(uaddr,sizeof(*uaddr));
   if (ATOMIC_CMPXCH(*uaddr,val,val3))
       return -EAGAIN;
   /* Connect to the futex. */
@@ -520,6 +564,7 @@ do_wait_cmpxch2:
 
  case FUTEX_WAKE_BITSET:
   if (val3 != FUTEX_BITSET_MATCH_ANY) {
+   validate_readable(uaddr,sizeof(*uaddr));
    ftx = vm_getfutex(uaddr);
    if (ftx) {
     result = sig_send_channel(&ftx->f_sig,
@@ -531,6 +576,7 @@ do_wait_cmpxch2:
   }
   ATTR_FALLTHROUGH
  case FUTEX_WAKE:
+  validate_readable(uaddr,sizeof(*uaddr));
   ftx = vm_getfutex(uaddr);
   if (ftx) {
    result = sig_send(&ftx->f_sig,(size_t)val);
@@ -541,6 +587,7 @@ do_wait_cmpxch2:
  {
   u32 caller_tid;
  case FUTEX_LOCK_PI:
+  validate_readable(uaddr,sizeof(*uaddr));
   caller_tid = posix_gettid();
   if (ATOMIC_CMPXCH(*uaddr,0,caller_tid))
       return 0;
@@ -574,6 +621,7 @@ done_lock_pi:;
  {
   u32 caller_tid,value;
  case FUTEX_UNLOCK_PI:
+  validate_readable(uaddr,sizeof(*uaddr));
   caller_tid = posix_gettid();
   for (;;) {
    value = ATOMIC_CMPXCH_VAL(*uaddr,caller_tid,0);
@@ -604,6 +652,7 @@ done_lock_pi:;
    error_throw(E_NOT_IMPLEMENTED);
   }
   /* Lookup the futex at the given address. */
+  validate_readable(uaddr,sizeof(*uaddr));
   hresult.h_mode = HANDLE_MODE(HANDLE_TYPE_FFUTEX,0);
   hresult.h_object.o_futex = vm_futex(uaddr);
   TRY {
@@ -623,6 +672,7 @@ done_lock_pi:;
   if (val2 & ~(O_ACCMODE|O_CLOEXEC|O_CLOFORK|O_NONBLOCK))
       error_throw(E_INVALID_ARGUMENT);
   /* Lookup the futex at the given address. */
+  validate_readable(uaddr,sizeof(*uaddr));
   ftx = vm_futex(uaddr);
   hresult.h_mode = HANDLE_MODE(HANDLE_TYPE_FFUTEX_HANDLE,
                                IO_FROM_O(val2));

@@ -58,7 +58,6 @@ INTDEF int LIBCCALL libc_name_to_handle_at(fd_t dfd, char const *name, struct fi
 INTDEF int LIBCCALL libc_open_by_handle_at(int mountdirfd, struct file_handle *handle, int flags);
 INTDEF int LIBCCALL libc_fallocate(fd_t fd, int mode, pos32_t offset, pos32_t len);
 INTDEF int LIBCCALL libc_fallocate64(fd_t fd, int mode, pos64_t offset, pos64_t len);
-INTDEF pid_t LIBCCALL libc_gettid(void);
 INTDEF pid_t LIBCCALL libc_getpid(void);
 INTDEF int LIBCCALL libc_pipe(int pipedes[2]);
 INTDEF int LIBCCALL libc_pipe2(int pipedes[2], int flags);

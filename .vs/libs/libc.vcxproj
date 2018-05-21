@@ -61,6 +61,7 @@
     <ClCompile Include="..\..\src\libs\libc\realpath.c" />
     <ClCompile Include="..\..\src\libs\libc\regex.c" />
     <ClCompile Include="..\..\src\libs\libc\rtl.c" />
+    <ClCompile Include="..\..\src\libs\libc\rwlock.c" />
     <ClCompile Include="..\..\src\libs\libc\sched.c" />
     <ClCompile Include="..\..\src\libs\libc\socket\netdb.c" />
     <ClCompile Include="..\..\src\libs\libc\socket\socket.c" />
@@ -109,6 +110,7 @@
     <ClInclude Include="..\..\src\libs\libc\realpath.h" />
     <ClInclude Include="..\..\src\libs\libc\regex.h" />
     <ClInclude Include="..\..\src\libs\libc\rtl.h" />
+    <ClInclude Include="..\..\src\libs\libc\rwlock.h" />
     <ClInclude Include="..\..\src\libs\libc\sched.h" />
     <ClInclude Include="..\..\src\libs\libc\socket\socket.h" />
     <ClInclude Include="..\..\src\libs\libc\stat.h" />

@@ -1397,47 +1397,47 @@ DATDEF struct vm   _boot_vm   ASMNAME("boot_vm_start");
 #define TASK_POLL_BEFORE_CONNECT(...) (void)0
 #elif CONFIG_YIELD_BEFORE_CONNECT == 1
 #define TASK_POLL_BEFORE_CONNECT(...) \
-   do{ task_yield(); __VA_ARGS__; }__WHILE0
+   do{ if (!task_tryyield()) break; __VA_ARGS__; }__WHILE0
 #elif CONFIG_YIELD_BEFORE_CONNECT == 2
 #define TASK_POLL_BEFORE_CONNECT(...) \
-   do{ task_yield(); __VA_ARGS__; \
-       task_yield(); __VA_ARGS__; \
+   do{ if (!task_tryyield()) break; __VA_ARGS__; \
+       if (!task_tryyield()) break; __VA_ARGS__; \
    }__WHILE0
 #elif CONFIG_YIELD_BEFORE_CONNECT == 3
 #define TASK_POLL_BEFORE_CONNECT(...) \
-   do{ task_yield(); __VA_ARGS__; \
-       task_yield(); __VA_ARGS__; \
-       task_yield(); __VA_ARGS__; \
+   do{ if (!task_tryyield()) break; __VA_ARGS__; \
+       if (!task_tryyield()) break; __VA_ARGS__; \
+       if (!task_tryyield()) break; __VA_ARGS__; \
    }__WHILE0
 #elif CONFIG_YIELD_BEFORE_CONNECT == 4
 #define TASK_POLL_BEFORE_CONNECT(...) \
-   do{ task_yield(); __VA_ARGS__; \
-       task_yield(); __VA_ARGS__; \
-       task_yield(); __VA_ARGS__; \
-       task_yield(); __VA_ARGS__; \
+   do{ if (!task_tryyield()) break; __VA_ARGS__; \
+       if (!task_tryyield()) break; __VA_ARGS__; \
+       if (!task_tryyield()) break; __VA_ARGS__; \
+       if (!task_tryyield()) break; __VA_ARGS__; \
    }__WHILE0
 #elif CONFIG_YIELD_BEFORE_CONNECT == 5
 #define TASK_POLL_BEFORE_CONNECT(...) \
-   do{ task_yield(); __VA_ARGS__; \
-       task_yield(); __VA_ARGS__; \
-       task_yield(); __VA_ARGS__; \
-       task_yield(); __VA_ARGS__; \
-       task_yield(); __VA_ARGS__; \
+   do{ if (!task_tryyield()) break; __VA_ARGS__; \
+       if (!task_tryyield()) break; __VA_ARGS__; \
+       if (!task_tryyield()) break; __VA_ARGS__; \
+       if (!task_tryyield()) break; __VA_ARGS__; \
+       if (!task_tryyield()) break; __VA_ARGS__; \
    }__WHILE0
 #elif CONFIG_YIELD_BEFORE_CONNECT == 6
 #define TASK_POLL_BEFORE_CONNECT(...) \
-   do{ task_yield(); __VA_ARGS__; \
-       task_yield(); __VA_ARGS__; \
-       task_yield(); __VA_ARGS__; \
-       task_yield(); __VA_ARGS__; \
-       task_yield(); __VA_ARGS__; \
-       task_yield(); __VA_ARGS__; \
+   do{ if (!task_tryyield()) break; __VA_ARGS__; \
+       if (!task_tryyield()) break; __VA_ARGS__; \
+       if (!task_tryyield()) break; __VA_ARGS__; \
+       if (!task_tryyield()) break; __VA_ARGS__; \
+       if (!task_tryyield()) break; __VA_ARGS__; \
+       if (!task_tryyield()) break; __VA_ARGS__; \
    }__WHILE0
 #else
 #define TASK_POLL_BEFORE_CONNECT(...) \
    do{ unsigned int __poll_count = CONFIG_YIELD_BEFORE_CONNECT; \
        do { \
-           task_yield(); \
+           if (!task_tryyield()) break; \
            __VA_ARGS__; \
        } while (--__poll_count); \
    }__WHILE0

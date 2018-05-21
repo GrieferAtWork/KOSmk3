@@ -110,7 +110,7 @@ void KCALL kernel_panic_lockall(unsigned int mode) {
  /* Reset read-locks */
  FORTASK(thread,my_readlocks).rls_use = 0;
  FORTASK(thread,my_readlocks).rls_cnt = 0;
- FORTASK(thread,my_readlocks).rls_msk = 0;
+ FORTASK(thread,my_readlocks).rls_msk = CONFIG_TASK_STATIC_READLOCKS-1;
  FORTASK(thread,my_readlocks).rls_vec = FORTASK(thread,my_readlocks).rls_sbuf;
  
  /* Delete pending RPCs. */

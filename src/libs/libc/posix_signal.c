@@ -24,6 +24,7 @@
 #include "system.h"
 #include "errno.h"
 #include "unistd.h"
+#include "sched.h"
 
 #include <bits/signum.h>
 #include <errno.h>

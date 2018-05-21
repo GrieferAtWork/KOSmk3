@@ -70,7 +70,9 @@ PUBLIC bool KCALL task_suspend(jtime_t abs_timeout) {
    }
    COMPILER_READ_BARRIER();
    /* Serve RPC functions before sleeping. */
+   assert(!PREEMPTION_ENABLED());
    if (task_serve()) continue;
+   assert(!PREEMPTION_ENABLED());
    /* Wait until we're no longer suspended. */
    if (!task_sleep(abs_timeout))
         return false;

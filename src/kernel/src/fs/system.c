@@ -2060,6 +2060,9 @@ scan_again:
     validate_writable(uaddr,sizeof(futex_t));
     switch (uftx[i].pf_action) {
 
+    case FUTEX_NOP:
+     break;
+
     {
      futex_t probe_value;
     case FUTEX_WAIT_BITSET:
@@ -2145,6 +2148,35 @@ scan_again:
       task_connect_ghost(&ftx->f_sig);
       /* Atomically set bits from val3, while also ensuring that the mask still applies. */
       do if (((old_value = ATOMIC_READ(*uaddr)) & probe_mask) != probe_value) {
+       uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
+       ++result;
+       break;
+      } while (!ATOMIC_CMPXCH(*uaddr,old_value,old_value|enable_bits));
+     }
+    } break;
+
+    {
+     futex_t probe_mask;
+     futex_t probe_value;
+     futex_t enable_bits;
+    case FUTEX_WAIT_NMASK:
+    case FUTEX_WAIT_NMASK_GHOST:
+     probe_mask  = (futex_t)(uintptr_t)uftx[i].pf_val;
+     probe_value = (futex_t)(uintptr_t)uftx[i].pf_uaddr2;
+     enable_bits = (futex_t)(uintptr_t)uftx[i].pf_val3;
+     COMPILER_READ_BARRIER();
+     if ((ATOMIC_READ(*uaddr) & probe_mask) == probe_value) {
+      uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
+      ++result;
+     } else {
+      u32 old_value;
+      ftx = vm_futex_consafe(uaddr);
+      COMPILER_BARRIER();
+      futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
+      COMPILER_BARRIER();
+      task_connect_ghost(&ftx->f_sig);
+      /* Atomically set bits from val3, while also ensuring that the mask still applies. */
+      do if (((old_value = ATOMIC_READ(*uaddr)) & probe_mask) == probe_value) {
        uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
        ++result;
        break;

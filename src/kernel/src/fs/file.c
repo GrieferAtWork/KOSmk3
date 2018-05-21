@@ -850,7 +850,7 @@ read_entry_pos_0:
    assert(entry);
    assert(buffer->odb_end > buffer->odb_buf);
    assert(entry >= buffer->odb_buf);
-   assert((uintptr_t)entry <= (uintptr_t)buffer->odb_end+sizeof(ino_t));
+   assert((uintptr_t)entry <= (uintptr_t)buffer->odb_end+sizeof(ino_t)); /* TODO: This one failed during testing... */
    if unlikely(entry >= buffer->odb_end) {
     buffer = buffer->odb_next;
     if unlikely(!buffer) return 0; /* End of directory */

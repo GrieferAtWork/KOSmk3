@@ -94,6 +94,7 @@
       <Filter>i386-kos</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\libs\libc\tls.c" />
+    <ClCompile Include="..\..\src\libs\libc\rwlock.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\libs\libc\libc.h" />
@@ -148,6 +149,7 @@
       <Filter>i386-kos</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\libs\libc\tls.h" />
+    <ClInclude Include="..\..\src\libs\libc\rwlock.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="i386-kos">

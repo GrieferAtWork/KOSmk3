@@ -845,6 +845,10 @@ again:
        goto again;
   /* Atomically upgraded to write-mode. */
   self->rw_xowner = THIS_TASK;
+  /* TODO: Decrement the recursion counter of our read-lock, and delete
+   *       it if that counter reaches ZERO(0) (it's an upgrade, so it
+   *       replaces the last read-lock with a write-lock, meaning a
+   *       non-recursive read-lock has to go away!) */
   return true;
  }
  return false;

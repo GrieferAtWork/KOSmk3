@@ -42,77 +42,20 @@ __DECL_BEGIN
 
 typedef struct rwlock rwlock_t;
 
-
-#ifdef __BUILDING_LIBC
-struct readlock {
-    __UINTPTR_TYPE__   rl_thread; /* [const][== gettid()] The PID of the thread holding this readlock. */
-    __UINTPTR_TYPE__   rl_count;  /* Number of recursive read-locks held by this thread. */
-    struct rwlock     *rl_lock;   /* [0..1] The R/W-lock associated with this read-lock. */
-    struct readlock) **rl_pself;  /* [1..1][valid_if(rl_lock != NULL)][lock(rl_lock->r_rl_lock)]
-                                   * Self-pointer in the chain of read-locks. */
-    struct readlock)  *rl_next;   /* [0..1][valid_if(rl_lock != NULL)][lock(rl_lock->r_rl_lock)]
-                                   * Next readlock for the same R/W-lock. */
-};
-struct readlocks {
-    __SIZE_TYPE__      rls_use;   /* Amount of read-locks in use. */
-    __SIZE_TYPE__      rls_cnt;   /* Amount of non-NULL R/W locks. */
-    __SIZE_TYPE__      rls_msk;   /* Allocated hash-mask of the read-hash-vector. */
-    struct readlock    rls_vec[]; /* [1..rls_msk+1][owned_if(!= rls_sbuf)]
-                                   * Hash-vector of thread-locally held read-locks.
-                                   * As hash-index, use `RWLOCK_HASH()' */
-};
-
-#define RWLOCK_MODE_INDMASK      0x0fffffff /* R/W-lock indirection mask. */
-#define RWLOCK_MODE_FRWAITERS    0x10000000 /* Bit indicating that there are threads waiting to acquire a read-lock. */
-#define RWLOCK_MODE_FWWAITERS    0x20000000 /* Bit indicating that there is a thread waiting to acquire a write-lock. */
-#define RWLOCK_MODE_FMASK        0xc0000000 /* Mode mask. */
-#define RWLOCK_MODE_FREADING     0x00000000 /* MODE: ZERO, One or more threads are holding read locks. */
-#define RWLOCK_MODE_FUPGRADING   0x40000000 /* MODE: A reader is being upgraded to a writer, or
-                                             *       a writer is attempting to acquire a lock.
-                                             *       New readers must wait until the rwlock
-                                             *       has returned to `RWLOCK_MODE_FREADING'
-                                             *       before acquiring a shared lock. */
-#define RWLOCK_MODE_FWRITING     0x80000000 /* MODE: The rwlock is being owned exclusively by a single thread. */
-#define RWLOCK_STATE(mode,ind)   ((mode) | (ind))
-#define RWLOCK_MODE(state)       ((state) & RWLOCK_MODE_FMASK)
-#define RWLOCK_IND(state)        ((state) & RWLOCK_MODE_INDMASK)
-#define RWLOCK_INCIND(state)     ((state) + 1)
-#define RWLOCK_DECIND(state)     ((state) - 1)
-#else
-#define __RWLOCK_MODE_INDMASK    0x0fffffff /* R/W-lock indirection mask. */
-#define __RWLOCK_MODE_FRWAITERS  0x10000000 /* Bit indicating that there are threads waiting to acquire a read-lock. */
-#define __RWLOCK_MODE_FWWAITERS  0x20000000 /* Bit indicating that there is a thread waiting to acquire a write-lock. */
-#define __RWLOCK_MODE_FMASK      0xc0000000 /* Mode mask. */
-#define __RWLOCK_MODE_FREADING   0x00000000 /* MODE: ZERO, One or more threads are holding read locks. */
-#define __RWLOCK_MODE_FUPGRADING 0x40000000 /* MODE: A reader is being upgraded to a writer, or
-                                             *       a writer is attempting to acquire a lock.
-                                             *       New readers must wait until the rwlock
-                                             *       has returned to `RWLOCK_MODE_FREADING'
-                                             *       before acquiring a shared lock. */
-#define __RWLOCK_MODE_FWRITING   0x80000000 /* MODE: The rwlock is being owned exclusively by a single thread. */
-#define __RWLOCK_STATE(mode,ind) ((mode) | (ind))
-#define __RWLOCK_MODE(state)     ((state) & __RWLOCK_MODE_FMASK)
-#define __RWLOCK_IND(state)      ((state) & __RWLOCK_MODE_INDMASK)
-#define __RWLOCK_INCIND(state)   ((state) + 1)
-#define __RWLOCK_DECIND(state)   ((state) - 1)
-#endif
-
 struct __ATTR_PACKED rwlock {
     union __ATTR_PACKED {
-        __ATOMIC_DATA futex_t             __RWLOCK_SYMBOL(rw_state); /* R/W-lock state & signal. */
-        __UINTPTR_TYPE__                  __RWLOCK_SYMBOL(rw_align); /* ... */
+        __ATOMIC_DATA futex_t __RWLOCK_SYMBOL(rw_state); /* R/W-lock state & signal. */
+        __UINTPTR_TYPE__      __RWLOCK_SYMBOL(rw_align); /* ... */
     };
-#define __RWLOCK_CHANNEL_DOWNGRADE        0x0001 /* R/W-lock futex downgrade channel (broadcast on: write -> read / none, read -> none) */
-#define __RWLOCK_CHANNEL_UNSHARE          0x0002 /* R/W-lock futex unshare channel (send(1) on: read+upgrade when the last reader goes away) */
     union __ATTR_PACKED {
 #ifdef __BUILDING_LIBC
-#define __RWLOCK_HLOCK_LOCKBIT            0x0001
-        __ATOMIC_DATA __UINTPTR_TYPE__    __RWLOCK_SYMBOL(rw_hlock); /* Mask `__RWLOCK_HLOCK_LOCKBIT' is used to lock the  */
-        struct __RWLOCK_SYMBOL(readlock) *__RWLOCK_SYMBOL(rw_locks); /* [lock(__RWLOCK_HLOCK_LOCKBIT)] Chain of different threads holding read-locks. */
+        struct readlock      *__RWLOCK_SYMBOL(rw_locks); /* [lock(RWLOCK_MODE_IRDLOCKBIT)]
+                                                          * Chain of different threads holding read-locks. */
+        struct task_segment  *__RWLOCK_SYMBOL(rw_owner); /* The owner of the R/W-lock. */
 #else
-        void                             *__RWLOCK_SYMBOL(rw_locks); /* Internal field */
+        void                 *__RWLOCK_SYMBOL(rw_locks); /* Internal field */
+        void                 *__RWLOCK_SYMBOL(rw_owner); /* Internal field */
 #endif
-        __UINTPTR_TYPE__                  __RWLOCK_SYMBOL(rw_owner); /* Internal field */
     };
 };
 
@@ -134,7 +77,7 @@ __REDIRECT(__LIBC,__WUNUSED __ATTR_NOTHROW,__BOOL,__LIBCCALL,__os_rwlock_tryupgr
 __REDIRECT(__LIBC,__WUNUSED __ATTR_NOTHROW,__BOOL,__LIBCCALL,__os_rwlock_end,(rwlock_t *__restrict __self),rwlock_end,(__self))
 __REDIRECT(__LIBC,__WUNUSED __ATTR_NOTHROW,__BOOL,__LIBCCALL,__os_rwlock_endread,(rwlock_t *__restrict __self),rwlock_endread,(__self))
 __REDIRECT_VOID(__LIBC,__ATTR_NOTHROW,__LIBCCALL,__os_rwlock_endwrite,(rwlock_t *__restrict __self),rwlock_endwrite,(__self))
-__REDIRECT_VOID(__LIBC,__ATTR_NOTHROW,__LIBCCALL,__os_rwlock_downgrade,(rwlock_t *__restrict __self),rwlock_downgrade,(__self))
+__REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_rwlock_downgrade,(rwlock_t *__restrict __self),rwlock_downgrade,(__self))
 __REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_rwlock_read,(rwlock_t *__restrict __self),rwlock_read,(__self))
 __REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_rwlock_write,(rwlock_t *__restrict __self),rwlock_write,(__self))
 __REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_rwlock_upgrade,(rwlock_t *__restrict __self),rwlock_upgrade,(__self))
@@ -181,8 +124,9 @@ __LIBC __ATTR_NOTHROW unsigned int
 
 
 
-/* Downgrade a write-lock held by the calling thread into a read-lock. */
-__FORCELOCAL __ATTR_NOTHROW void
+/* Downgrade a write-lock held by the calling thread into a read-lock.
+ * @throw: E_BADALLOC: Failed to allocate a read-lock descriptor. */
+__FORCELOCAL void
 (__LIBCCALL rwlock_downgrade)(rwlock_t *__restrict __self) {
  __COMPILER_WRITE_BARRIER();
  __os_rwlock_downgrade(__self);
@@ -550,11 +494,11 @@ __FORCELOCAL __BOOL (__LIBCCALL rwlock_timedupgrade64_aggressive)(rwlock_t *__re
 #endif /* __USE_TIME64 */
 
 
-__REDIRECT(__LIBC,__WUNUSED __ATTR_NOTHROW,__BOOL,__LIBCCALL,__os_rwlock_tryupgrade_s,(rwlock_t *__restrict __self),rwlock_tryupgrade_s,(__self))
-__REDIRECT(__LIBC,__WUNUSED __ATTR_NOTHROW,__BOOL,__LIBCCALL,__os_rwlock_end_s,(rwlock_t *__restrict __self),rwlock_end_s,(__self))
-__REDIRECT(__LIBC,__WUNUSED __ATTR_NOTHROW,__BOOL,__LIBCCALL,__os_rwlock_endread_s,(rwlock_t *__restrict __self),rwlock_endread_s,(__self))
-__REDIRECT_VOID(__LIBC,__ATTR_NOTHROW,__LIBCCALL,__os_rwlock_endwrite_s,(rwlock_t *__restrict __self),rwlock_endwrite_s,(__self))
-__REDIRECT_VOID(__LIBC,__ATTR_NOTHROW,__LIBCCALL,__os_rwlock_downgrade_s,(rwlock_t *__restrict __self),rwlock_downgrade_s,(__self))
+__REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_rwlock_tryupgrade_s,(rwlock_t *__restrict __self),rwlock_tryupgrade_s,(__self))
+__REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_rwlock_end_s,(rwlock_t *__restrict __self),rwlock_end_s,(__self))
+__REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_rwlock_endread_s,(rwlock_t *__restrict __self),rwlock_endread_s,(__self))
+__REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_rwlock_endwrite_s,(rwlock_t *__restrict __self),rwlock_endwrite_s,(__self))
+__REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_rwlock_downgrade_s,(rwlock_t *__restrict __self),rwlock_downgrade_s,(__self))
 __REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_rwlock_upgrade_s,(rwlock_t *__restrict __self),rwlock_upgrade_s,(__self))
 __REDIRECT_VOID(__LIBC,,__LIBCCALL,__os_rwlock_upgrade_aggressive_s,(rwlock_t *__restrict __self),rwlock_upgrade_aggressive_s,(__self))
 #ifdef __USE_TIME_BITS64
@@ -581,11 +525,11 @@ __REDIRECT(__LIBC,__WUNUSED,__BOOL,__LIBCCALL,__os_rwlock_timedupgrade64_aggress
  * The non-safe versions will cause undefined behavior under these circumstances,
  * or will trigger assertion failures when libc was built in debug mode. */
 /* Downgrade a write-lock held by the calling thread into a read-lock. */
-__FORCELOCAL __ATTR_NOTHROW void (__LIBCCALL rwlock_downgrade_s)(rwlock_t *__restrict __self) { __COMPILER_WRITE_BARRIER(); __os_rwlock_downgrade_s(__self); }
-__FORCELOCAL __WUNUSED __ATTR_NOTHROW __BOOL (__LIBCCALL rwlock_end_s)(rwlock_t *__restrict __self) { __COMPILER_BARRIER(); return __os_rwlock_end_s(__self); }
-__FORCELOCAL __WUNUSED __ATTR_NOTHROW __BOOL (__LIBCCALL rwlock_endread_s)(rwlock_t *__restrict __self) { __COMPILER_READ_BARRIER(); return __os_rwlock_endread_s(__self); }
-__FORCELOCAL __ATTR_NOTHROW void (__LIBCCALL rwlock_endwrite_s)(rwlock_t *__restrict __self) { __COMPILER_BARRIER(); __os_rwlock_endwrite_s(__self); }
-__FORCELOCAL __WUNUSED __ATTR_NOTHROW __BOOL (__LIBCCALL rwlock_tryupgrade_s)(rwlock_t *__restrict __self) { if (!__os_rwlock_tryupgrade_s(__self)) return 0; __COMPILER_WRITE_BARRIER(); return 1; }
+__FORCELOCAL void (__LIBCCALL rwlock_downgrade_s)(rwlock_t *__restrict __self) { __COMPILER_WRITE_BARRIER(); __os_rwlock_downgrade_s(__self); }
+__FORCELOCAL __WUNUSED __BOOL (__LIBCCALL rwlock_end_s)(rwlock_t *__restrict __self) { __COMPILER_BARRIER(); return __os_rwlock_end_s(__self); }
+__FORCELOCAL __WUNUSED __BOOL (__LIBCCALL rwlock_endread_s)(rwlock_t *__restrict __self) { __COMPILER_READ_BARRIER(); return __os_rwlock_endread_s(__self); }
+__FORCELOCAL void (__LIBCCALL rwlock_endwrite_s)(rwlock_t *__restrict __self) { __COMPILER_BARRIER(); __os_rwlock_endwrite_s(__self); }
+__FORCELOCAL __WUNUSED __BOOL (__LIBCCALL rwlock_tryupgrade_s)(rwlock_t *__restrict __self) { if (!__os_rwlock_tryupgrade_s(__self)) return 0; __COMPILER_WRITE_BARRIER(); return 1; }
 __FORCELOCAL void (__LIBCCALL rwlock_upgrade_s)(rwlock_t *__restrict __self) { __COMPILER_BARRIER(); __os_rwlock_upgrade_s(__self); }
 __FORCELOCAL void (__LIBCCALL rwlock_upgrade_aggressive_s)(rwlock_t *__restrict __self) { __COMPILER_BARRIER(); __os_rwlock_upgrade_aggressive_s(__self); }
 __FORCELOCAL __BOOL (__LIBCCALL rwlock_timedupgrade_s)(rwlock_t *__restrict __self, struct timespec const *__abs_timeout) {
