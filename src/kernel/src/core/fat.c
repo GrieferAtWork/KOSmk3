@@ -1936,16 +1936,20 @@ INTERN void KCALL
 Fat_DeleteClusterChain(struct superblock *__restrict self,
                        FatClusterIndex first_delete_index,
                        iomode_t flags) {
- Fat *fat = self->s_fsdata;
- assert(mutex_holding(&fat->f_fat_lock));
- while (first_delete_index < fat->f_cluster_eof) {
-  FatClusterIndex next;
-  /* Read the next link. */
-  next = Fat_GetFatIndirection(self,first_delete_index,flags);
-  /* Mark the link as being unused now. */
-  Fat_SetFatIndirection(self,first_delete_index,FAT_CLUSTER_UNUSED,flags);
-  /* Continue deleting all entries from the chain. */
-  first_delete_index = next;
+ Fat *EXCEPT_VAR fat = self->s_fsdata;
+ mutex_get(&fat->f_fat_lock);
+ TRY {
+  while (first_delete_index < fat->f_cluster_eof) {
+   FatClusterIndex next;
+   /* Read the next link. */
+   next = Fat_GetFatIndirection(self,first_delete_index,flags);
+   /* Mark the link as being unused now. */
+   Fat_SetFatIndirection(self,first_delete_index,FAT_CLUSTER_UNUSED,flags);
+   /* Continue deleting all entries from the chain. */
+   first_delete_index = next;
+  }
+ } FINALLY {
+  mutex_put(&fat->f_fat_lock);
  }
 }
 

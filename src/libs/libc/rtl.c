@@ -224,7 +224,7 @@ EXPORT(error_fprintf,            libc_error_fprintf);
 
 
 EXPORT(except_errno,libc_except_errno);
-CRT_EXCEPT_CORE int FCALL libc_except_errno(void) {
+CRT_EXCEPT_CORE int (FCALL libc_except_errno)(void) {
  libc_seterrno(libc_exception_errno(libc_error_info()));
  return EXCEPT_EXECUTE_HANDLER;
 }
