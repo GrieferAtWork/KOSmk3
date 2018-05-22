@@ -29,7 +29,7 @@
 #define error_throw_current()               __EXCEPT_INVOKE_THROW_T(__BOOL,libc_error_throw_current())
 #define error_rethrow()                     __EXCEPT_INVOKE_THROW_NORETURN(libc_error_rethrow())
 #define error_continue(retry)               __EXCEPT_INVOKE_THROW_NORETURN(libc_error_continue(retry))
-#define error_except(mode)                  __EXCEPT_INVOKE_THROW_NORETURN(libc_error_except(mode))
+#define error_except(mode)                  __EXCEPT_INVOKE_THROW(libc_error_except(mode))
 #define __error_rethrow_at(context)         __EXCEPT_INVOKE_THROW_NORETURN(libc_error_rethrow_at(context))
 #define error_code()                        libc_error_code()
 #define error_info()                        libc_error_info()
@@ -948,7 +948,8 @@ INTDEF void ATTR_CDECL libc_error_printf(char const *__restrict reason, ...);
 INTDEF void LIBCCALL libc_error_vprintf(char const *__restrict reason, va_list args);
 INTDEF errno_t FCALL libc_exception_errno(struct exception_info *__restrict info);
 #ifndef CONFIG_LIBC_LIMITED_API
-INTDEF int FCALL libc_except_errno(void);
+INTDEF int (FCALL libc_except_errno)(void);
+#define libc_except_errno() (libc_except_errno(),EXCEPT_EXECUTE_HANDLER)
 INTDEF errno_t FCALL libc_except_geterrno(void);
 INTDEF void ATTR_CDECL libc_error_fprintf(__FILE *__restrict fp, char const *__restrict reason, ...);
 INTDEF void LIBCCALL libc_error_vfprintf(__FILE *__restrict fp, char const *__restrict reason, va_list args);

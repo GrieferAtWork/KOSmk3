@@ -225,7 +225,7 @@ __LIBC __EXCEPT_NORETURN void (__FCALL error_continue)(int __retry);
  * Otherwise, it will invoke `error_continue(mode == EXCEPT_CONTINUE_RETRY)' */
 __LIBC void (__FCALL error_except)(int __mode);
 #ifndef error_except
-#define error_except(mode) __EXCEPT_INVOKE_THROW_NORETURN((error_except)(mode))
+#define error_except(mode) __EXCEPT_INVOKE_THROW((error_except)(mode))
 #endif
 
 /* Return the current exception code, or a
@@ -389,6 +389,9 @@ __LIBC errno_t (__FCALL exception_errno)(struct exception_info *__restrict __inf
  * This functionality is used by libc for implementing wrappers
  * around system calls that require large setup / teardown. */
 __LIBC int (__FCALL except_errno)(void);
+#ifndef __INTELLISENSE__
+#define except_errno()    (except_errno(),EXCEPT_EXECUTE_HANDLER)
+#endif
 
 /* Return the `errno' value of the currently active exception. */
 __LIBC errno_t (__FCALL except_geterrno)(void);
