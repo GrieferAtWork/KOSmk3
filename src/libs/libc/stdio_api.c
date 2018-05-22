@@ -374,7 +374,7 @@ libc_fopencookie(void *__restrict magic_cookie,
   * assign a stub function if the user didn't specify that one. */
  if (!result->fb_ops.cio_close)
       result->fb_ops.cio_close = &stub_close;
- if ((mode & O_ACCMODE) == O_WRONLY)
+ if ((mode & O_ACCMODE) == O_RDONLY)
       result->fb_flag |= FILE_BUFFER_FREADONLY;
  FileBuffer_Register(result);
 done:
@@ -395,7 +395,7 @@ libc_Xfopencookie_impl(void *__restrict magic_cookie,
   * assign a stub function if the user didn't specify that one. */
  if (!result->fb_ops.cio_close)
       result->fb_ops.cio_close = &stub_close;
- if ((mode & O_ACCMODE) == O_WRONLY)
+ if ((mode & O_ACCMODE) == O_RDONLY)
       result->fb_flag |= FILE_BUFFER_FREADONLY;
  return result;
 }
@@ -482,7 +482,7 @@ libc_Xfopenat(fd_t dfd, char const *__restrict filename,
  LIBC_TRY {
   result = FileBuffer_XAlloc();
   result->fb_file = fd;
-  if ((mode & O_ACCMODE) == O_WRONLY)
+  if ((mode & O_ACCMODE) == O_RDONLY)
        result->fb_flag |= FILE_BUFFER_FREADONLY;
  } LIBC_EXCEPT(EXCEPT_EXECUTE_HANDLER) {
   sys_close(fd);
@@ -506,7 +506,7 @@ libc_fdopen(fd_t fd, char const *__restrict modes) {
  result = FileBuffer_Alloc();
  if unlikely(!result) goto done;
  result->fb_file = fd;
- if ((mode & O_ACCMODE) == O_WRONLY)
+ if ((mode & O_ACCMODE) == O_RDONLY)
       result->fb_flag |= FILE_BUFFER_FREADONLY;
  FileBuffer_Register(result);
 done:
@@ -521,7 +521,7 @@ libc_Xfdopen(fd_t fd, char const *__restrict modes) {
     libc_error_throw(E_INVALID_ARGUMENT);
  result = FileBuffer_XAlloc();
  result->fb_file = fd;
- if ((mode & O_ACCMODE) == O_WRONLY)
+ if ((mode & O_ACCMODE) == O_RDONLY)
       result->fb_flag |= FILE_BUFFER_FREADONLY;
  FileBuffer_Register(result);
  return result;
@@ -604,7 +604,7 @@ libc_Xfdreopen(fd_t fd, char const *__restrict modes,
    }
    /* Delete the nofd flag, because now we definitely have one. */
    self->fb_flag &= ~(__IO_FILE_IONOFD|FILE_BUFFER_FREADONLY);
-   if ((mode & O_ACCMODE) == O_WRONLY)
+   if ((mode & O_ACCMODE) == O_RDONLY)
         self->fb_flag |= FILE_BUFFER_FREADONLY;
   } LIBC_FINALLY {
    FileBuffer_Unlock(self);
