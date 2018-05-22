@@ -1301,7 +1301,6 @@ Fat_TruncateINode(struct inode *__restrict self,
                                    IO_RDONLY);
  if (delete_start >= fat->f_cluster_eof)
      return; /* Already truncated. */
- node->i_clusterc = new_cluster_count;
  if (new_cluster_count != 0) {
   /* Cut off the previous cluster. */
   Fat_SetFatIndirection(self->i_super,
@@ -1313,6 +1312,9 @@ Fat_TruncateINode(struct inode *__restrict self,
  }
  /* Now delete the chain of clusters that just got truncated. */
  Fat_DeleteClusterChain(self->i_super,delete_start,IO_RDWR);
+ /* Mark the (now) latest cluster as an EOF cluster. */
+ node->i_clusterv[new_cluster_count] = fat->f_cluster_eof_marker;
+ node->i_clusterc = new_cluster_count + 1;
 }
 
 
