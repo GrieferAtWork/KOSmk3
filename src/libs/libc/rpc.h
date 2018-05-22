@@ -19,7 +19,7 @@
 #ifndef GUARD_LIBS_LIBC_I386_KOS_RPC_H
 #define GUARD_LIBS_LIBC_I386_KOS_RPC_H 1
 
-#include "../libc.h"
+#include "libc.h"
 #include <stdbool.h>
 #include <kos/types.h>
 #include <kos/rpc.h>

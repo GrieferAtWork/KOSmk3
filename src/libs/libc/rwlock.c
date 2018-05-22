@@ -23,7 +23,7 @@
 #include "rwlock.h"
 #include "malloc.h"
 #include "futex.h"
-#include "i386-kos/rpc.h"
+#include "rpc.h"
 #include <kos/heap.h>
 #include <kos/types.h>
 #include <kos/sched/rwlock.h>
@@ -305,11 +305,11 @@ libc_rwlock_poll(rwlock_t *__restrict self,
    futex_t need_state = RWLOCK_MODE_FREADING;
    if (libc_rwlock_getread(self))
        need_state = RWLOCK_INCIND(need_state);
-   pollfutex_init_wait_nmask(descr,
-                            &self->rw_state,
-                             RWLOCK_MODE_FMASK|RWLOCK_MODE_INDMASK,
-                             need_state,
-                             RWLOCK_MODE_FWWAITERS);
+   pollfutex_init_wait_nmask_bitset(descr,
+                                   &self->rw_state,
+                                    RWLOCK_MODE_FMASK|RWLOCK_MODE_INDMASK,
+                                    need_state,
+                                    RWLOCK_MODE_FWWAITERS);
   } else /*if (how & POLLIN) */{
    pollfutex_init_nop(descr);
   }
@@ -338,18 +338,18 @@ wait_for_endwrite:
   result = 0;
   if (how & POLLOUT) {
    /* Configure to wait until there are no readers. */
-   pollfutex_init_wait_nmask(descr,
-                            &self->rw_state,
-                             RWLOCK_MODE_FMASK|RWLOCK_MODE_INDMASK,
-                             RWLOCK_STATE(RWLOCK_MODE_FREADING,0),
-                             RWLOCK_MODE_FWWAITERS);
+   pollfutex_init_wait_nmask_bitset(descr,
+                                   &self->rw_state,
+                                    RWLOCK_MODE_FMASK|RWLOCK_MODE_INDMASK,
+                                    RWLOCK_STATE(RWLOCK_MODE_FREADING,0),
+                                    RWLOCK_MODE_FWWAITERS);
   } else {
    /* Configure to wait until there are only readers. */
-   pollfutex_init_wait_nmask(descr,
-                            &self->rw_state,
-                             RWLOCK_MODE_FMASK,
-                             RWLOCK_MODE_FREADING,
-                             RWLOCK_MODE_FRWAITERS);
+   pollfutex_init_wait_nmask_bitset(descr,
+                                   &self->rw_state,
+                                    RWLOCK_MODE_FMASK,
+                                    RWLOCK_MODE_FREADING,
+                                    RWLOCK_MODE_FRWAITERS);
   }
   break;
 
@@ -521,7 +521,7 @@ libc_rwlock_trywrite(rwlock_t *__restrict self) {
    return false;
 
   case RWLOCK_MODE_FWRITING:
-   /* The R/W-lock is in write-mode. -
+   /* The R/W-lock is in write-mode.
     * Check if we're the ones holding that lock. */
    if (self->rw_owner == GET_CURRENT()) {
     /* We are the owner! */
@@ -939,7 +939,7 @@ wait_unshare:
   }
 
   case RWLOCK_MODE_FWRITING:
-   /* The R/W-lock is in write-mode. -
+   /* The R/W-lock is in write-mode.
     * Check if we're the ones holding that lock. */
    if (self->rw_owner == GET_CURRENT()) {
     /* We are the owner! */
@@ -1049,7 +1049,7 @@ wait_unshare:
   }
 
   case RWLOCK_MODE_FWRITING:
-   /* The R/W-lock is in write-mode. -
+   /* The R/W-lock is in write-mode.
     * Check if we're the ones holding that lock. */
    assertf(self->rw_owner == GET_CURRENT(),
            "Assuming you called, rwlock_read(), you must have already been holding "
@@ -1214,7 +1214,7 @@ wait_unshare:
   }
 
   case RWLOCK_MODE_FWRITING:
-   /* The R/W-lock is in write-mode. -
+   /* The R/W-lock is in write-mode.
     * Check if we're the ones holding that lock. */
    if (self->rw_owner == GET_CURRENT()) {
     /* We are the owner! */
@@ -1324,7 +1324,7 @@ wait_unshare:
   }
 
   case RWLOCK_MODE_FWRITING:
-   /* The R/W-lock is in write-mode. -
+   /* The R/W-lock is in write-mode.
     * Check if we're the ones holding that lock. */
    assertf(self->rw_owner == GET_CURRENT(),
            "Assuming you called, rwlock_read(), you must have already been holding "
@@ -1760,7 +1760,7 @@ wait_unshare:
   }
 
   case RWLOCK_MODE_FWRITING:
-   /* The R/W-lock is in write-mode. -
+   /* The R/W-lock is in write-mode.
     * Check if we're the ones holding that lock. */
    if (self->rw_owner != GET_CURRENT())
        error_throw(E_ILLEGAL_OPERATION);
@@ -1863,7 +1863,7 @@ wait_unshare:
   }
 
   case RWLOCK_MODE_FWRITING:
-   /* The R/W-lock is in write-mode. -
+   /* The R/W-lock is in write-mode.
     * Check if we're the ones holding that lock. */
    if (self->rw_owner != GET_CURRENT())
        error_throw(E_ILLEGAL_OPERATION);

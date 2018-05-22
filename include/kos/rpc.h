@@ -203,6 +203,10 @@ __LIBC __BOOL (__LIBCCALL queue_interrupt)(__pid_t __pid, rpc_interrupt_t __func
 #ifdef __CC__
 #ifndef __KERNEL__
 /* Test for pending RPC callbacks to be served, and serve them synchronously.
+ * NOTE: Any pending asynchronous RPCs are served as well (causing TRUE to be
+ *       returned, also), but also note that new ones may be scheduled by other
+ *       threads before the functions returns, at which point they can still be
+ *       served at any arbitrary point in time.
  * @return: true:  RPC jobs have been served. (meaning that the
  *                 states of thread-local variables may have changed)
  * @return: false: Nothing was served.

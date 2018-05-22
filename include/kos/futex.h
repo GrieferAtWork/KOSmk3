@@ -125,6 +125,28 @@ __FORCELOCAL struct pollfutex *(__LIBCCALL pollfutex_init_wait_nmask)
  __self->pf_val3   = __enable_bits;
  return __self;
 }
+__FORCELOCAL struct pollfutex *(__LIBCCALL pollfutex_init_wait_mask_bitset)
+(struct pollfutex *__restrict __self, futex_t *__uaddr,
+ futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits) {
+ __self->pf_futex  = __uaddr;
+ __self->pf_action = FUTEX_WAIT_MASK_BITSET;
+ __self->pf_status = POLLFUTEX_STATUS_NOEVENT;
+ __self->pf_val    = __probe_mask;
+ __self->pf_val2   = __probe_value;
+ __self->pf_val3   = __enable_bits;
+ return __self;
+}
+__FORCELOCAL struct pollfutex *(__LIBCCALL pollfutex_init_wait_nmask_bitset)
+(struct pollfutex *__restrict __self, futex_t *__uaddr,
+ futex_t __probe_mask, futex_t __probe_value, futex_t __enable_bits) {
+ __self->pf_futex  = __uaddr;
+ __self->pf_action = FUTEX_WAIT_NMASK_BITSET;
+ __self->pf_status = POLLFUTEX_STATUS_NOEVENT;
+ __self->pf_val    = __probe_mask;
+ __self->pf_val2   = __probe_value;
+ __self->pf_val3   = __enable_bits;
+ return __self;
+}
 __FORCELOCAL struct pollfutex *(__LIBCCALL pollfutex_init_wait_cmpxch)
 (struct pollfutex *__restrict __self, futex_t *__uaddr,
  futex_t __old_value, futex_t __new_value, futex_t *__update_target) {

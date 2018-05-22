@@ -145,11 +145,9 @@
     <ClInclude Include="..\..\src\libs\libc\chtime.h" />
     <ClInclude Include="..\..\src\libs\libc\stat.h" />
     <ClInclude Include="..\..\src\libs\libc\futex.h" />
-    <ClInclude Include="..\..\src\libs\libc\i386-kos\rpc.h">
-      <Filter>i386-kos</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\libs\libc\tls.h" />
     <ClInclude Include="..\..\src\libs\libc\rwlock.h" />
+    <ClInclude Include="..\..\src\libs\libc\rpc.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="i386-kos">

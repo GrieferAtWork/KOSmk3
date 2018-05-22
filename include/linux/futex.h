@@ -133,7 +133,8 @@ __SYSDECL_BEGIN
                                             * >>      *uaddr |= val3;
                                             * >>      WAIT(uaddr, mask = val3, utime);
                                             * >> } */
-#define FUTEX_NOP                     0x1f /* Does nothing. (futex() returns ZERO(0)) */
+#define FUTEX_NOP                     0x1f /* Does nothing. (futex() returns ZERO(0))
+                                            * Mainly intended for `xppoll()' when a condition is already available. */
 #define FUTEX_WAIT_GHOST              0x20 /* >> while (*uaddr == val)
                                             * >>      WAIT_GHOST(uaddr, mask = FUTEX_BITSET_MATCH_ANY, utime);
                                             * Same as `FUTEX_WAIT', but when being woken using a val3 that

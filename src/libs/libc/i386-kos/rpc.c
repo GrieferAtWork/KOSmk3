@@ -20,7 +20,7 @@
 #define GUARD_LIBS_LIBC_I386_KOS_RPC_C 1
 #define __EXPOSE_CPU_CONTEXT 1
 
-#include "rpc.h"
+#include "../rpc.h"
 #include "../futex.h"
 #include <hybrid/atomic.h>
 #include <stdint.h>

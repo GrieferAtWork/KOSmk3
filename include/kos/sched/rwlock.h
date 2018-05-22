@@ -42,19 +42,41 @@ __DECL_BEGIN
 
 typedef struct rwlock rwlock_t;
 
-struct __ATTR_PACKED rwlock {
-    union __ATTR_PACKED {
+struct rwlock {
+    /* User-space R/W-lock (only takes up 2 pointers!)
+     * As far as functionality and semantics go, this R/W-lock behaves the same
+     * as its kernel-space equivalent found in `/src/kernel/include/sched/rwlock.h'
+     * That means that it uses exceptions to unwind readers, as well as offering a
+     * way of manually killing off readers in order to aggressively acquire write locks.
+     * All locks operate recursively, meaning that this R/W-lock implementation supports
+     * read-after-write, and more importantly: write-after-read, as well as all the
+     * usual functions which include upgrade(), downgrade() and try_(read|write|upgrade)().
+     * Also, in order to make it easier to expose this structure to untrusted code, *_s
+     * versions of context-sensitive functions are provided which will throw an exception
+     * when it is detected that they have been called from an invalid context.
+     * NOTE:
+     *   In order to solve the write-after-read problem, you are _REQUIRED_ to make use
+     *   of KOS's exception system. s.a. `rwlock_end()' / `rwlock_endread()'
+     * As far as implementation goes, this R/W-lock makes heavy use of the quite
+     * useful `FUTEX_WAIT_NMASK_BITSET' futex operation, which allows it to atomically
+     * keep track of pending readers/writers (yes: releasing a lock will only invoke
+     * a futex_wake() system call if it is know that readers/writers are waiting), as
+     * well as easily mask lock state bits, as well as atomically set waiter-chain bits,
+     * which then double as futex channel masks.
+     * All-in-all, it is a _very_ efficient design that is probably just as efficient
+     * as the kernel-space version. */
+    union {
         __ATOMIC_DATA futex_t __RWLOCK_SYMBOL(rw_state); /* R/W-lock state & signal. */
         __UINTPTR_TYPE__      __RWLOCK_SYMBOL(rw_align); /* ... */
     };
-    union __ATTR_PACKED {
+    union {
 #ifdef __BUILDING_LIBC
-        struct readlock      *__RWLOCK_SYMBOL(rw_locks); /* [lock(RWLOCK_MODE_IRDLOCKBIT)]
-                                                          * Chain of different threads holding read-locks. */
-        struct task_segment  *__RWLOCK_SYMBOL(rw_owner); /* The owner of the R/W-lock. */
+        struct readlock      *rw_locks;   /* [lock(RWLOCK_MODE_IRDLOCKBIT)]
+                                           * Chain of different threads holding read-locks. */
+        struct task_segment  *rw_owner;   /* The owner of the R/W-lock. */
 #else
-        void                 *__RWLOCK_SYMBOL(rw_locks); /* Internal field */
-        void                 *__RWLOCK_SYMBOL(rw_owner); /* Internal field */
+        void                 *__rw_locks; /* Internal field */
+        void                 *__rw_owner; /* Internal field */
 #endif
     };
 };
@@ -139,6 +161,18 @@ __FORCELOCAL void
  * thread was chosen to be unwound in order to allow another thread to acquire
  * a write lock, or upgrade a read-lock into a write-lock. (as is the basis
  * of how recursive write-locks are implemented by KOS)
+ * >>     struct rwlock *EXCEPT_VAR my_lock = GET_LOCK();
+ * >> again:
+ * >>     rwlock_read(my_lock);
+ * >>     TRY {
+ * >>         ...
+ * >>         if (need_write_lock)
+ * >>             rwlock_upgrade(my_lock);
+ * >>         ...
+ * >>     } FINALLY {
+ * >>         if (rwlock_end(my_lock))
+ * >>             goto again;
+ * >>     }
  * @return: true:  The lock was released (it was a read-lock by the way), but
  *                 the calling thread must loop back and re-acquire the read-lock
  *                 because another thread needed to get a write-lock, and this
@@ -159,6 +193,15 @@ __FORCELOCAL __WUNUSED __ATTR_NOTHROW __BOOL
  * thread was chosen to be unwound in order to allow another thread to acquire
  * a write lock, or upgrade a read-lock into a write-lock. (as is the basis
  * of how recursive write-locks are implemented by KOS)
+ * >>     struct rwlock *EXCEPT_VAR my_lock = GET_LOCK();
+ * >> again:
+ * >>     rwlock_read(my_lock);
+ * >>     TRY {
+ * >>         ...
+ * >>     } FINALLY {
+ * >>         if (rwlock_endread(my_lock))
+ * >>             goto again;
+ * >>     }
  * @return: true:  The lock was released, but the calling thread must loop back and re-acquire
  *                 the read-lock because another thread needed to get a write-lock, and this
  *                 thread's read-lock stood in the way of it getting it.
@@ -187,7 +230,12 @@ __FORCELOCAL __WUNUSED __BOOL
  return 1;
 }
 
-/* Same as `rwlock_tryread()', but return `false' on E_BADALLOC. */
+/* Same as `rwlock_tryread()', but return `false' on `E_BADALLOC'.
+ * Also note that this function does _NOT_ clobber `error_info()', even
+ * when `false' is returned after an exception was thrown internally.
+ * Instead, exception information will be restored if that happened.
+ * @errno(UNDEFINED): Failed to acquire a read-lock.
+ * @errno(ENOMEM):   `rwlock_tryread()' would have thrown an `E_BADALLOC'. */
 __FORCELOCAL __WUNUSED __ATTR_NOTHROW __BOOL
 (__LIBCCALL rwlock_tryread_nothrow)(rwlock_t *__restrict __self) {
  if (!__os_rwlock_tryread_nothrow(__self)) return 0;
@@ -577,8 +625,6 @@ __FORCELOCAL __BOOL (__LIBCCALL rwlock_timedupgrade64_aggressive_s)(rwlock_t *__
 
 
 
-
-
 /* Helper macros for safely acquiring / releasing a read-lock.
  * NOTE: Use of these requires inclusion of <except.h> */
 #define RWLOCK_BEGIN_READ(self) \
@@ -593,8 +639,6 @@ __rlock_retry: \
             goto __rlock_retry; \
     } \
 }__WHILE0
-
-
 
 
 #endif /* __CC__ */

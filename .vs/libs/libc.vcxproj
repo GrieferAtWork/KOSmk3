@@ -100,7 +100,6 @@
     <ClInclude Include="..\..\src\libs\libc\futex.h" />
     <ClInclude Include="..\..\src\libs\libc\group.h" />
     <ClInclude Include="..\..\src\libs\libc\heap.h" />
-    <ClInclude Include="..\..\src\libs\libc\i386-kos\rpc.h" />
     <ClInclude Include="..\..\src\libs\libc\libc.h" />
     <ClInclude Include="..\..\src\libs\libc\malloc.h" />
     <ClInclude Include="..\..\src\libs\libc\misc.h" />
@@ -109,6 +108,7 @@
     <ClInclude Include="..\..\src\libs\libc\posix_signal.h" />
     <ClInclude Include="..\..\src\libs\libc\realpath.h" />
     <ClInclude Include="..\..\src\libs\libc\regex.h" />
+    <ClInclude Include="..\..\src\libs\libc\rpc.h" />
     <ClInclude Include="..\..\src\libs\libc\rtl.h" />
     <ClInclude Include="..\..\src\libs\libc\rwlock.h" />
     <ClInclude Include="..\..\src\libs\libc\sched.h" />
