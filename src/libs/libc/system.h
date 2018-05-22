@@ -122,7 +122,7 @@ INTDEF mode_t LIBCCALL sys_umask(mode_t mask);
 INTDEF int LIBCCALL sys_mprotect(void *start, size_t len, int prot);
 INTDEF errno_t LIBCCALL sys_swapon(char const *specialfile, int flags);
 INTDEF errno_t LIBCCALL sys_swapoff(char const *specialfile);
-INTDEF syscall_slong_t LIBCCALL sys_futex(u32 *uaddr, int op, u32 val, struct timespec64 const *utime, u32 *uaddr2, u32 val3);
+INTDEF syscall_slong_t LIBCCALL Esys_futex(u32 *uaddr, int op, u32 val, struct timespec64 const *utime, u32 *uaddr2, u32 val3);
 INTDEF errno_t LIBCCALL sys_sysinfo(struct sysinfo *info);
 INTDEF errno_t LIBCCALL sys_sigaltstack(struct sigaltstack const *new_stack, struct sigaltstack *old_stack);
 INTDEF pid_t LIBCCALL sys_set_tid_address(pid_t *addr);

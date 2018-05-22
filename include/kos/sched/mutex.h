@@ -50,25 +50,25 @@ struct mutex {
 __FORCELOCAL __ATTR_NOTHROW __BOOL (__LIBCCALL mutex_try)(struct mutex *__restrict __self);
 
 /* Acquire/release a mutex.
- * @return:  0: Successfully acquired the mutex.
- * @return: -1: The calling thread was interrupted. (errno = EINTR)
- * @return: -1: The kernel failed to allocate the futex state. (errno = ENOMEM)
- * @return: -1: The given timeout has expired. (errno = ETIMEDOUT) */
+ * @return:  0 / true:  Successfully acquired the mutex.
+ * @return: -1 / false: The given timeout has expired. (errno = ETIMEDOUT)
+ * @throw: E_INTERRUPT: The calling thread was interrupted.
+ * @throw: E_BADALLOC:  The kernel failed to allocate the futex state. */
 __LIBC void (__LIBCCALL mutex_put)(struct mutex *__restrict __self);
-__REDIRECT_EXCEPT_TM64(__LIBC,,int,__LIBCCALL,mutex_get_timed,
+__REDIRECT_EXCEPT_TM64(__LIBC,,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,mutex_get_timed,
                       (struct mutex *__restrict __self, struct timespec *__abs_timeout),
                       (__self,__abs_timeout))
 #ifdef __USE_TIME64
-__REDIRECT_EXCEPT(__LIBC,int,__LIBCCALL,mutex_get_timed64,
+__REDIRECT_EXCEPT(__LIBC,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,mutex_get_timed64,
                  (struct mutex *__restrict __self, struct __timespec64 *__abs_timeout),
                  (__self,__abs_timeout))
 #endif
 #ifdef __USE_EXCEPT
-__REDIRECT_TM64(__LIBC,,int,__LIBCCALL,Xmutex_get_timed,
+__REDIRECT_TM64(__LIBC,,__BOOL,__LIBCCALL,Xmutex_get_timed,
                (struct mutex *__restrict __self, struct timespec *__abs_timeout),
                (__self,__abs_timeout));
 #ifdef __USE_TIME64
-__LIBC int (__LIBCCALL Xmutex_get_timed64)(struct mutex *__restrict __self, struct __timespec64 *__abs_timeout);
+__LIBC __BOOL (__LIBCCALL Xmutex_get_timed64)(struct mutex *__restrict __self, struct __timespec64 *__abs_timeout);
 #endif
 #endif /* __USE_EXCEPT */
 #ifdef __INTELLISENSE__

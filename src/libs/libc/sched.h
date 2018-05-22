@@ -58,6 +58,7 @@ INTDEF int LIBCCALL libc_sched_getparam(pid_t pid, struct sched_param *param);
 INTDEF int LIBCCALL libc_sched_setscheduler(pid_t pid, int policy, struct sched_param const *param);
 INTDEF int LIBCCALL libc_sched_getscheduler(pid_t pid);
 INTDEF int LIBCCALL libc_sched_yield(void);
+INTDEF int LIBCCALL libc_Xsched_yield(void);
 INTDEF int LIBCCALL libc_sched_get_priority_max(int algorithm);
 INTDEF int LIBCCALL libc_sched_get_priority_min(int algorithm);
 INTDEF int LIBCCALL libc_sched_setaffinity(pid_t pid, size_t cpusetsize, __cpu_set_t const *cpuset);

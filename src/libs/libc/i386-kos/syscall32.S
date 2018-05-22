@@ -995,7 +995,7 @@ EXPORT_STRONG(__fcntl,libc_fcntl)
 
 DEFINE_SYSCALL(ioctl,3,      E|X)
 DEFINE_SYSCALL(execve,3,     E|X)
-DEFINE_SYSCALL(sched_yield,0,E|X)
+DEFINE_SYSCALL(sched_yield,0,E|X|sys)
 
 DEFINE_SYSCALL(fork,0,       E|X)
 DEFINE_INTERN_ALIAS(libc_vfork,libc_fork)
@@ -1129,10 +1129,10 @@ DEFINE_SYSCALL(swapon,2,     E|X)
 DEFINE_SYSCALL(swapoff,1,    E|X)
 
 DEFINE_SYSCALL(futex,6,      Esys|Xsys)
-DEFINE_INTERN_ALIAS(libc_futex64,Esys_futex)
-DEFINE_INTERN_ALIAS(libc_Xfutex64,Xsys_futex)
-EXPORT(futex64,libc_futex64)
-EXPORT(Xfutex64,libc_Xfutex64)
+//DEFINE_INTERN_ALIAS(libc_futex64,Esys_futex)
+//DEFINE_INTERN_ALIAS(libc_Xfutex64,Xsys_futex)
+//EXPORT(futex64,libc_futex64)
+//EXPORT(Xfutex64,libc_Xfutex64)
 
 
 DEFINE_SYSCALL(sysinfo,1,    E|X)

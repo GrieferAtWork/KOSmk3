@@ -23,7 +23,10 @@
 #include "sync.h"
 #include "unistd.h"
 #include "sched.h"
+#include "futex.h"
+#include "rtl.h"
 
+#include <syslog.h>
 #include <kos/futex.h>
 #include <kos/sched/mutex.h>
 #include <hybrid/atomic.h>
@@ -49,19 +52,12 @@ libc_mutex_get_timed64(struct mutex *__restrict self,
                        struct timespec64 *abs_timeout) {
  u32 old_futex;
  pid_t caller = libc_gettid();
-again:
  old_futex = ATOMIC_CMPXCH_VAL(self->__m_futex,0,(u32)caller);
  if (old_futex == 0) { ok_initial: self->__m_rec = 1; ok: return 0; }
  if ((old_futex & FUTEX_TID_MASK) == (u32)caller) { ++self->__m_rec; goto ok; }
-
- THREAD_POLL_BEFORE_CONNECT({
-  if (ATOMIC_CMPXCH(self->__m_futex,0,(u32)caller))
-      goto ok_initial;
- });
-
- if (libc_futex64(&self->__m_futex,FUTEX_LOCK_PI,0,abs_timeout,NULL,0))
+ if (libc_futex_lock64(&self->__m_futex,abs_timeout))
      return -1;
- goto again;
+ goto ok_initial;
 }
 
 EXPORT(mutex_put,libc_mutex_put);
@@ -101,20 +97,12 @@ EXPORT(Xmutex_get_timed64,libc_Xmutex_get_timed64);
 INTERN int LIBCCALL
 libc_Xmutex_get_timed64(struct mutex *__restrict self,
                         struct timespec64 *abs_timeout) {
- u32 old_futex;
- pid_t caller = libc_gettid();
-again:
+ u32 old_futex; pid_t caller = libc_gettid();
  old_futex = ATOMIC_CMPXCH_VAL(self->__m_futex,0,(u32)caller);
  if (old_futex == 0) { ok_initial: self->__m_rec = 1; ok: return 0; }
  if ((old_futex & FUTEX_TID_MASK) == (u32)caller) { ++self->__m_rec; goto ok; }
-
- THREAD_POLL_BEFORE_CONNECT({
-  if (ATOMIC_CMPXCH(self->__m_futex,0,(u32)caller))
-      goto ok_initial;
- });
-
- libc_Xfutex64(&self->__m_futex,FUTEX_LOCK_PI,0,abs_timeout,NULL,0);
- goto again;
+ if (!libc_Xfutex_lock64(&self->__m_futex,abs_timeout)) return false;
+ goto ok_initial;
 }
 
 
