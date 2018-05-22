@@ -164,9 +164,13 @@ inode_destroy(struct inode *__restrict self) {
 
 PUBLIC size_t KCALL
 inode_read(struct inode *__restrict self_,
-           CHECKED USER void *buf, size_t bufsize,
-           pos_t pos, iomode_t flags) {
+           CHECKED USER void *buf_, size_t bufsize_,
+           pos_t pos_, iomode_t flags_) {
  struct inode *EXCEPT_VAR self = self_;
+ CHECKED USER void *EXCEPT_VAR buf = buf_;
+ size_t EXCEPT_VAR bufsize = bufsize_;
+ pos_t EXCEPT_VAR pos = pos_;
+ iomode_t EXCEPT_VAR flags = flags_;
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
 again:
  rwlock_readf(&self->i_lock,flags);
@@ -441,8 +445,9 @@ inode_pathconf(struct inode *__restrict self, int name) {
 
 PUBLIC void KCALL
 inode_stat(struct inode *__restrict self_,
-           USER CHECKED struct stat64 *result) {
+           USER CHECKED struct stat64 *result_) {
  struct inode *EXCEPT_VAR self = self_;
+ USER CHECKED struct stat64 *EXCEPT_VAR result = result_;
  struct block_device *superdev;
 again:
  rwlock_read(&self->i_lock);
@@ -961,9 +966,12 @@ read_directory:
  * the directory entry to retrieve the associated INode. */
 PUBLIC WUNUSED REF struct inode *KCALL
 directory_getnode(struct directory_node *__restrict self_,
-                  CHECKED USER char const *__restrict name,
-                  u16 namelen, uintptr_t hash) {
+                  CHECKED USER char const *__restrict name_,
+                  u16 namelen_, uintptr_t hash_) {
  struct directory_node *EXCEPT_VAR self = self_;
+ CHECKED USER char const *EXCEPT_VAR name = name_;
+ u16 EXCEPT_VAR namelen = namelen_;
+ uintptr_t EXCEPT_VAR hash = hash_;
  struct directory_entry *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(entry);
  REF struct inode *COMPILER_IGNORE_UNINITIALIZED(result);
 again:
@@ -992,9 +1000,12 @@ again:
 }
 PUBLIC WUNUSED REF struct inode *KCALL
 directory_getcasenode(struct directory_node *__restrict self_,
-                      CHECKED USER char const *__restrict name,
-                      u16 namelen, uintptr_t hash) {
+                      CHECKED USER char const *__restrict name_,
+                      u16 namelen_, uintptr_t hash_) {
  struct directory_node *EXCEPT_VAR self = self_;
+ CHECKED USER char const *EXCEPT_VAR name = name_;
+ u16 EXCEPT_VAR namelen = namelen_;
+ uintptr_t EXCEPT_VAR hash = hash_;
  struct directory_entry *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(entry);
  REF struct inode *COMPILER_IGNORE_UNINITIALIZED(result);
 again:
