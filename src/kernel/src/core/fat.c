@@ -1070,8 +1070,11 @@ Fat32_PRead(struct inode *__restrict self,
  size_t result = bufsize;
  inode_loadattr(self);
  /* Truncate the effective read-size. */
- if (pos + result > self->i_attr.a_size)
-     result = self->i_attr.a_size - pos;
+ if (pos + result > self->i_attr.a_size) {
+  if (pos >= self->i_attr.a_size)
+      return 0;
+  result = self->i_attr.a_size - pos;
+ }
  result = Fat32_ReadFromINode(self,(byte_t *)buf,result,pos,flags);
  return result;
 }
