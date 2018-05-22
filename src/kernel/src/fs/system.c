@@ -2130,11 +2130,18 @@ scan_again:
      futex_t probe_mask;
      futex_t probe_value;
      futex_t enable_bits;
+    case FUTEX_WAIT_MASK_BITSET:
+    case FUTEX_WAIT_MASK_BITSET_GHOST:
+     enable_bits = (futex_t)(uintptr_t)uftx[i].pf_val3;
+     COMPILER_READ_BARRIER();
+     task_openchannel(enable_bits);
+     goto do_mask;
     case FUTEX_WAIT_MASK:
     case FUTEX_WAIT_MASK_GHOST:
+     enable_bits = (futex_t)(uintptr_t)uftx[i].pf_val3;
+do_mask:
      probe_mask  = (futex_t)(uintptr_t)uftx[i].pf_val;
      probe_value = (futex_t)(uintptr_t)uftx[i].pf_uaddr2;
-     enable_bits = (futex_t)(uintptr_t)uftx[i].pf_val3;
      COMPILER_READ_BARRIER();
      if ((ATOMIC_READ(*uaddr) & probe_mask) != probe_value) {
       uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
@@ -2159,11 +2166,18 @@ scan_again:
      futex_t probe_mask;
      futex_t probe_value;
      futex_t enable_bits;
+    case FUTEX_WAIT_NMASK_BITSET:
+    case FUTEX_WAIT_NMASK_BITSET_GHOST:
+     enable_bits = (futex_t)(uintptr_t)uftx[i].pf_val3;
+     COMPILER_READ_BARRIER();
+     task_openchannel(enable_bits);
+     goto do_nmask;
     case FUTEX_WAIT_NMASK:
     case FUTEX_WAIT_NMASK_GHOST:
+     enable_bits = (futex_t)(uintptr_t)uftx[i].pf_val3;
+do_nmask:
      probe_mask  = (futex_t)(uintptr_t)uftx[i].pf_val;
      probe_value = (futex_t)(uintptr_t)uftx[i].pf_uaddr2;
-     enable_bits = (futex_t)(uintptr_t)uftx[i].pf_val3;
      COMPILER_READ_BARRIER();
      if ((ATOMIC_READ(*uaddr) & probe_mask) == probe_value) {
       uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
@@ -2188,6 +2202,7 @@ scan_again:
      futex_t old_value;
      futex_t new_value;
      futex_t *uaddr2;
+     u32 real_old_value;
     case FUTEX_WAIT_CMPXCH:
     case FUTEX_WAIT_CMPXCH_GHOST:
      old_value = (futex_t)uftx[i].pf_val;
@@ -2195,70 +2210,17 @@ scan_again:
      uaddr2    = uftx[i].pf_uaddr2;
      validate_writable_opt(uaddr2,sizeof(*uaddr2));
      COMPILER_READ_BARRIER();
-     if (ATOMIC_CMPXCH(*uaddr,old_value,new_value)) {
-      if (uaddr2) {
-       /* Save the old futex value in the provided uaddr2 */
-       ATOMIC_WRITE(*uaddr2,old_value);
-       /* Broadcast a futex located at the given address. */
-       ftx = vm_getfutex_consafe(uaddr2);
-       if (ftx) {
-        size_t thread_count;
-        thread_count = sig_broadcast(&ftx->f_sig);
-        futex_decref(ftx);
-        COMPILER_BARRIER();
-        uftx[i].pf_result = thread_count;
-        COMPILER_WRITE_BARRIER();
-       }
-      }
-      uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
-      ++result;
-     } else {
-      u32 real_old_value;
-      /* The initial CMPXCH failed. - Connect to the futex at that address. */
-      ftx = vm_futex_consafe(uaddr);
-      COMPILER_BARRIER();
-      futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
-      COMPILER_BARRIER();
-      task_connect_ghost(&ftx->f_sig);
-      /* Now that we're connected, try the CMPXCH again, this
-       * time storing the old value in uaddr2 (if provided). */
-      real_old_value = ATOMIC_CMPXCH_VAL(*uaddr,old_value,new_value);
-      if (uaddr2) {
-       /* Save the old futex value in the provided uaddr2 */
-       ATOMIC_WRITE(*uaddr2,real_old_value);
-       /* Broadcast a futex located at the given address. */
-       ftx = vm_getfutex_consafe(uaddr2);
-       if (ftx) {
-        size_t thread_count;
-        thread_count = sig_broadcast(&ftx->f_sig);
-        futex_decref(ftx);
-        COMPILER_BARRIER();
-        uftx[i].pf_result = thread_count;
-        COMPILER_WRITE_BARRIER();
-       }
-      }
-      if (real_old_value == old_value) {
-       /* The futex entered the required state while we were connected to it. */
-       uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
-       ++result;
-      }
-     }
-    } break;
-
-    {
-     futex_t old_value;
-     futex_t new_value;
-     futex_t *uaddr2;
-    case FUTEX_WAIT_CMPXCH2:
-    case FUTEX_WAIT_CMPXCH2_GHOST:
-     old_value = (futex_t)uftx[i].pf_val;
-     new_value = (futex_t)uftx[i].pf_val3;
-     uaddr2    = uftx[i].pf_uaddr2;
-     validate_writable(uaddr2,sizeof(*uaddr2));
-     COMPILER_READ_BARRIER();
-     if (ATOMIC_CMPXCH(*uaddr,old_value,new_value)) {
+     ftx = vm_futex_consafe(uaddr);
+     COMPILER_BARRIER();
+     futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
+     COMPILER_BARRIER();
+     task_connect_ghost(&ftx->f_sig);
+     /* Now that we're connected, try the CMPXCH again, this
+      * time storing the old value in uaddr2 (if provided). */
+     real_old_value = ATOMIC_CMPXCH_VAL(*uaddr,old_value,new_value);
+     if (uaddr2) {
       /* Save the old futex value in the provided uaddr2 */
-      ATOMIC_WRITE(*uaddr2,old_value);
+      ATOMIC_WRITE(*uaddr2,real_old_value);
       /* Broadcast a futex located at the given address. */
       ftx = vm_getfutex_consafe(uaddr2);
       if (ftx) {
@@ -2269,36 +2231,52 @@ scan_again:
        uftx[i].pf_result = thread_count;
        COMPILER_WRITE_BARRIER();
       }
+     }
+     if (real_old_value != old_value) {
+      /* The futex entered the required state while we were connected to it. */
       uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
       ++result;
-     } else {
-      u32 real_old_value;
-      /* The initial CMPXCH failed. - Connect to the futex at that address. */
-      ftx = vm_futex_consafe(uaddr);
-      COMPILER_BARRIER();
-      futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
-      COMPILER_BARRIER();
-      task_connect_ghost(&ftx->f_sig);
-      /* Now that we're connected, try the CMPXCH again, this
-       * time storing the old value in uaddr2 (if provided). */
-      real_old_value = ATOMIC_CMPXCH_VAL(*uaddr,old_value,new_value);
-      if (real_old_value == old_value) {
-       /* Save the old futex value in the provided uaddr2 */
-       ATOMIC_WRITE(*uaddr2,real_old_value);
-       /* Broadcast a futex located at the given address. */
-       ftx = vm_getfutex_consafe(uaddr2);
-       if (ftx) {
-        size_t thread_count;
-        thread_count = sig_broadcast(&ftx->f_sig);
-        futex_decref(ftx);
-        COMPILER_BARRIER();
-        uftx[i].pf_result = thread_count;
-        COMPILER_WRITE_BARRIER();
-       }
-       /* The futex entered the required state while we were connected to it. */
-       uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
-       ++result;
+     }
+    } break;
+
+    {
+     futex_t old_value;
+     futex_t new_value;
+     futex_t *uaddr2;
+     u32 real_old_value;
+    case FUTEX_WAIT_CMPXCH2:
+    case FUTEX_WAIT_CMPXCH2_GHOST:
+     old_value = (futex_t)uftx[i].pf_val;
+     new_value = (futex_t)uftx[i].pf_val3;
+     uaddr2    = uftx[i].pf_uaddr2;
+     validate_writable(uaddr2,sizeof(*uaddr2));
+     COMPILER_READ_BARRIER();
+     /* The initial CMPXCH failed. - Connect to the futex at that address. */
+     ftx = vm_futex_consafe(uaddr);
+     COMPILER_BARRIER();
+     futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
+     COMPILER_BARRIER();
+     task_connect_ghost(&ftx->f_sig);
+     /* Now that we're connected, try the CMPXCH again, this
+      * time storing the old value in uaddr2 (if provided). */
+     real_old_value = ATOMIC_CMPXCH_VAL(*uaddr,old_value,new_value);
+     if (real_old_value == old_value) {
+      /* Save the old futex value in the provided uaddr2 */
+      ATOMIC_WRITE(*uaddr2,real_old_value);
+      /* Broadcast a futex located at the given address. */
+      ftx = vm_getfutex_consafe(uaddr2);
+      if (ftx) {
+       size_t thread_count;
+       thread_count = sig_broadcast(&ftx->f_sig);
+       futex_decref(ftx);
+       COMPILER_BARRIER();
+       uftx[i].pf_result = thread_count;
+       COMPILER_WRITE_BARRIER();
       }
+     } else {
+      /* The futex entered the required state while we were connected to it. */
+      uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
+      ++result;
      }
     } break;
 
