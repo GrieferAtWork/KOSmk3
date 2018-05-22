@@ -31,18 +31,21 @@
 #include <kos/intrin.h>
 #include <stddef.h>
 #ifdef __ASM_TASK_SEGMENT_ISGS
-#define GET_LOCKS()   (struct readlocks *)__readfsptr(offsetof(struct task_segment,ts_locks))
+#define GET_LOCKS()   ((struct readlocks *)__readfsptr(offsetof(struct task_segment,ts_locks)))
 #define SET_LOCKS(v)   __writefsptr(offsetof(struct task_segment,ts_locks),v)
-#define GET_CURRENT() (struct task_segment *)__readfsptr(offsetof(struct task_segment,ts_self))
+#define GET_CURRENT() ((struct task_segment *)__readfsptr(offsetof(struct task_segment,ts_self)))
+#define GET_TID()      __readfsl(offsetof(struct task_segment,ts_tid))
 #else
-#define GET_LOCKS()  (struct readlocks *)__readgsptr(offsetof(struct task_segment,ts_locks))
+#define GET_LOCKS()   ((struct readlocks *)__readgsptr(offsetof(struct task_segment,ts_locks)))
 #define SET_LOCKS(v)  __writegsptr(offsetof(struct task_segment,ts_locks),v)
-#define GET_CURRENT() (struct task_segment *)__readgsptr(offsetof(struct task_segment,ts_self))
+#define GET_CURRENT() ((struct task_segment *)__readgsptr(offsetof(struct task_segment,ts_self)))
+#define GET_TID()      __readgsl(offsetof(struct task_segment,ts_tid))
 #endif
 #else
 #define GET_LOCKS()   (libc_current()->ts_locks)
 #define SET_LOCKS(v)  (libc_current()->ts_locks = (v))
 #define GET_CURRENT()  libc_current()
+#define GET_TID()      libc_gettid()
 #endif
 
 
@@ -52,11 +55,12 @@ DECL_BEGIN
 struct readlock {
     uintptr_t          rl_thread; /* [const][== gettid()] The PID of the thread holding this readlock. */
     size_t             rl_count;  /* [lock(PRIVATE(THIS_TASK))] Number of recursive read-locks held by this thread. */
-    struct rwlock     *rl_lock;   /* [1..1][valid_if(rl_count != 0)] The R/W-lock associated with this read-lock. */
-    struct readlock  **rl_pself;  /* [1..1][valid_if(rl_count != 0 && !rwlock_writing(rl_lock))]
+#define READLOCK_DUMMY ((struct rwlock *)-1)
+    struct rwlock     *rl_lock;   /* [0..1] The R/W-lock associated with this read-lock. */
+    struct readlock  **rl_pself;  /* [1..1][valid_if(rl_lock != 0 && !rwlock_writing(rl_lock))]
                                    * [lock(rl_lock:RWLOCK_MODE_IRDLOCKBIT)]
                                    * Self-pointer in the chain of read-locks. */
-    struct readlock   *rl_next;   /* [0..1][valid_if(rl_count != 0 && !rwlock_writing(rl_lock))]
+    struct readlock   *rl_next;   /* [0..1][valid_if(rl_lock != 0 && !rwlock_writing(rl_lock))]
                                    * [lock(rl_lock:RWLOCK_MODE_IRDLOCKBIT)]
                                    * Next readlock for the same R/W-lock. */
 };
@@ -68,6 +72,9 @@ struct readlocks {
                                    * Hash-vector of thread-locally held read-locks.
                                    * As hash-index, use `RWLOCK_HASH()' */
 };
+#define READLOCKS_INITIAL_MASK  3
+#define SIZEOF_READLOCKS(msk) (offsetof(struct readlocks,rls_vec)+((msk)+1)*sizeof(struct readlocks))
+#define RWLOCK_HASH(x) ((uintptr_t)(x) / HEAP_ALIGNMENT)
 
 #define RWLOCK_MODE_IRDLOCKBIT   0x08000000 /* indicates that `rw_locks' is locked. */
 #define RWLOCK_MODE_INDMASK      0x07ffffff /* R/W-lock indirection mask. */
