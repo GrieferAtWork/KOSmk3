@@ -61,6 +61,7 @@ typedef __minor_t   minor_t;
 #define DV_PS2_MOUSE2     MKDEV(0x101,3) /* Same as `DV_PS2_KEYBOARD1', but for the second PS/2 port. */
 #define DV_ETHERNET       MKDEV(0x102,0) /* KOS character device for ethernet adapters. */
 #define DV_VGA            MKDEV(0x103,0) /* KOS vga driver. */
+#define DV_BOCHS_VBE      MKDEV(0x103,1) /* KOS bochs VBE driver. */
 
 __DECL_END
 

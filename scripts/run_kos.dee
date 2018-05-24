@@ -171,7 +171,7 @@ function run_qemu(bin,tap) {
 		//"-net","nic,model=rtl8139","-net","user",
 		//"-net","nic,model=ne2k_pci","-net","user",
 #endif
-		//"-vga","std",
+		"-vga","std",
 		(kernel_args ? ["-append","\""+
 			" ".join(for (local a: kernel_args) if (a) a)
 		+"\""] : [])...,

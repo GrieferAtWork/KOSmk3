@@ -290,6 +290,8 @@ FORCELOCAL void FCALL pci_write(pci_addr_t base, pci_reg_t reg, u32 value) { ass
 #define PCI_RESOURCE_FMEM32  0x0001 /* Needs a 32-bit memory address. */
 #define PCI_RESOURCE_FMEM64  0x0004 /* Needs a 64-bit memory address. */
 #define PCI_RESOURCE_FIO     0x8000 /* I/O resource. */
+#define PCI_RESOURCE_ISIO(x)    ((x)&PCI_RESOURCE_FIO)
+#define PCI_RESOURCE_ISMEM(x) (!((x)&PCI_RESOURCE_FIO))
 #ifdef __CC__
 struct pci_resource {
     PHYS uintptr_t pr_begin; /* Base address of the resource (either in I/O, or in memory) */

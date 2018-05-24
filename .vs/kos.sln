@@ -170,6 +170,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kos", "kos", "{AF58F0E7-5058-4D46-B809-727D330670C2}"
 	ProjectSection(SolutionItems) = preProject
 		..\include\kos\addr2line.h = ..\include\kos\addr2line.h
+		..\include\kos\bochs-vbe.h = ..\include\kos\bochs-vbe.h
 		..\include\kos\bound.h = ..\include\kos\bound.h
 		..\include\kos\context.h = ..\include\kos\context.h
 		..\include\kos\dl.h = ..\include\kos\dl.h
@@ -853,6 +854,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "memdev", "kernel\modules\me
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libpthread", "libs\libpthread.vcxproj", "{A65BC291-BCC6-4F5D-A542-692FEE94AAC5}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bochs-vbe", "kernel\modules\bochs-vbe.vcxproj", "{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|i386 = Debug|i386
@@ -1139,6 +1142,22 @@ Global
 		{A65BC291-BCC6-4F5D-A542-692FEE94AAC5}.Release|x64.ActiveCfg = Release|x64
 		{A65BC291-BCC6-4F5D-A542-692FEE94AAC5}.Release|x64.Build.0 = Release|x64
 		{A65BC291-BCC6-4F5D-A542-692FEE94AAC5}.Release|x86_64.ActiveCfg = Release|Win32
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Debug|i386.ActiveCfg = Debug|Win32
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Debug|Mixed Platforms.Build.0 = Debug|Win32
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Debug|Win32.ActiveCfg = Debug|Win32
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Debug|Win32.Build.0 = Debug|Win32
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Debug|x64.ActiveCfg = Debug|x64
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Debug|x64.Build.0 = Debug|x64
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Debug|x86_64.ActiveCfg = Debug|Win32
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Release|i386.ActiveCfg = Release|Win32
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Release|Mixed Platforms.ActiveCfg = Release|Win32
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Release|Mixed Platforms.Build.0 = Release|Win32
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Release|Win32.ActiveCfg = Release|Win32
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Release|Win32.Build.0 = Release|Win32
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Release|x64.ActiveCfg = Release|x64
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Release|x64.Build.0 = Release|x64
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}.Release|x86_64.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -1200,5 +1219,6 @@ Global
 		{94A101F0-ABBB-4604-8725-D36AC554286A} = {0FCFED54-A8E5-4F4B-9F91-01AD614D377C}
 		{0381476B-7AFC-4C42-9145-086F273092A8} = {0FCFED54-A8E5-4F4B-9F91-01AD614D377C}
 		{A65BC291-BCC6-4F5D-A542-692FEE94AAC5} = {32E3FF1B-B00D-4518-A8E6-4D91B19412B3}
+		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960} = {0FCFED54-A8E5-4F4B-9F91-01AD614D377C}
 	EndGlobalSection
 EndGlobal

@@ -86,6 +86,7 @@ AllocatePCIDeviceRessource(struct pci_device *__restrict dev,
                            struct pci_resource *__restrict res) {
 #if 0
 #if 0
+#if 0
  /* Allocate PCI resources (memory and I/O ranges). */
  if (res->pr_flags&PCI_RESOURCE_IO) {
   ioaddr_t addr;
@@ -122,6 +123,7 @@ AllocatePCIDeviceRessource(struct pci_device *__restrict dev,
  {
   error_throw(E_BADALLOC);
  }
+#endif
 }
 
 PRIVATE ATTR_FREETEXT
@@ -278,6 +280,7 @@ PRIVATE ATTR_FREETEXT void KCALL CheckPCIBus(pci_bus_t bus) {
  for (device = 0; device < 32; device++)
       CheckPCIDev(bus,device);
 }
+
 DEFINE_DRIVER_PREINIT(pci_discover);
 PRIVATE ATTR_USED ATTR_FREETEXT void KCALL pci_discover(void) {
  /* TODO: Check if PCI is even available? */

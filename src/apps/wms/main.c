@@ -31,6 +31,7 @@
 #include <sys/wait.h>
 #include <kos/kernctl.h>
 #include <kos/heap.h>
+#include <kos/bochs-vbe.h>
 #include <string.h>
 #include <malloc.h>
 #include <syslog.h>
@@ -178,37 +179,49 @@ void print_bios_vga_mode(int mode) {
 
 
 int main(int argc, char *argv[]) {
+ fd_t EXCEPT_VAR bochs_vbe;
  /* Setup all the bindings. */
  wms_keyboard = Xopen(WMS_PATH_KEYBOARD,O_RDWR);
  wms_mouse    = Xopen(WMS_PATH_MOUSE,O_RDWR);
  wms_display  = Xopen(WMS_PATH_DISPLAY,O_RDWR);
 
+ bochs_vbe = open("/dev/bochs-vbe",O_RDWR);
+
  TRY {
 
   /* Switch to graphics mode. */
-#if 0
-  //print_bios_vga_mode(0x12);
-  Xioctl(wms_display,VGA_SETMODE_DEFAULT,VGA_DEFAULT_MODE_GFX640X480_16);
-  Xioctl(wms_display,VGA_SETPAL_DEFAULT,VGA_DEFAULT_PAL_GFX16);
-  default_display.d_sizex  = 640;
-  default_display.d_sizey  = 480;
-  default_display.d_stride = 640/8;
-  default_display.d_bpp    = 1;
-#else
-  Xioctl(wms_display,VGA_SETMODE_DEFAULT,VGA_DEFAULT_MODE_GFX320X200_256);
-  Xioctl(wms_display,VGA_SETPAL_DEFAULT,VGA_DEFAULT_PAL_GFX256);
-  default_display.d_sizex  = 320;
-  default_display.d_sizey  = 200;
-  default_display.d_stride = 320;
-  default_display.d_bpp    = 8;
-#endif
+  if (bochs_vbe >= 0) {
+   /* Make use of BOCHS VBE extensions. */
+   struct bochs_vbe_format format;
+   format.vf_resx = 1024;
+   format.vf_resy = 768;
+   /* XXX: Larger BPP values? */
+   format.vf_bpp  = 8;
+   Xioctl(bochs_vbe,BOCHS_VBE_SETFORMAT,&format);
+   Xioctl(bochs_vbe,BOCHS_VBE_SETENABLE,BOCHS_VBE_FENABLED);
+   Xioctl(bochs_vbe,BOCHS_VBE_GETFORMAT,&format);
+   default_display.d_sizex  = format.vf_resx;
+   default_display.d_sizey  = format.vf_resy;
+   default_display.d_stride = format.vf_resx;
+   default_display.d_bpp    = format.vf_bpp;
+   default_display.d_screen = (byte_t *)Xmmap(0,8*1024*1024,PROT_READ|PROT_WRITE,
+                                              MAP_PRIVATE,bochs_vbe,0);
+   Xioctl(wms_display,VGA_SETPAL_DEFAULT,VGA_DEFAULT_PAL_GFX256);
 
-  /* Map VGA Display memory. */
-  default_display.d_screen = (byte_t *)Xmmap(0,8192*4*4,PROT_READ|PROT_WRITE,
-                                             MAP_PRIVATE,wms_display,0);
+  } else {
+   Xioctl(wms_display,VGA_SETMODE_DEFAULT,VGA_DEFAULT_MODE_GFX320X200_256);
+   Xioctl(wms_display,VGA_SETPAL_DEFAULT,VGA_DEFAULT_PAL_GFX256);
+   default_display.d_sizex  = 320;
+   default_display.d_sizey  = 200;
+   default_display.d_stride = 320;
+   default_display.d_bpp    = 8;
+
+   /* Map VGA Display memory. */
+   default_display.d_screen = (byte_t *)Xmmap(0,8192*4*4,PROT_READ|PROT_WRITE,
+                                              MAP_PRIVATE,wms_display,0);
+  }
   default_display.d_backgrnd = (byte_t *)Xcalloc(default_display.d_sizey,
                                                  default_display.d_stride);
-#if 1
   {
    unsigned int x,y;
    for (y = 0; y < default_display.d_sizey; ++y) {
@@ -217,30 +230,6 @@ int main(int argc, char *argv[]) {
     }
    }
   }
-#else
-  {
-   unsigned int x,y;
-   memset(default_display.d_screen,0,8192*4*4);
-   //memset(default_display.d_screen,0xff,8192*4*1);
-   for (y = 0; y < default_display.d_sizey; ++y) {
-    for (x = 0; x < default_display.d_sizex; ++x) {
-     byte_t color = (x+y) & 0xf;
-     byte_t mask  = 1 << (x & 7);
-     unsigned int addr = x/8+y*default_display.d_stride;
-     if (color > 1) default_display.d_screen[addr+0*8192*4] |= mask;
-     else           default_display.d_screen[addr+0*8192*4] &= ~mask;
-     //if (color > 2) default_display.d_screen[addr+1*8192*4] |= mask;
-     //else           default_display.d_screen[addr+1*8192*4] &= ~mask;
-     //if (color > 4) default_display.d_screen[addr+2*8192*4] |= mask;
-     //else           default_display.d_screen[addr+2*8192*4] &= ~mask;
-     //if (color > 8) default_display.d_screen[addr+3*8192*4] |= mask;
-     //else           default_display.d_screen[addr+3*8192*4] &= ~mask;
-     //Background_PutPixel(&default_display,x,y,x+y);
-    }
-   }
-  }
-  pause();
-#endif
 
   default_display.d_backvisi.r_strips = RECT_STRIP_ALLOC(1);
   default_display.d_backvisi.r_strips->rs_blkc            = 1;
@@ -290,6 +279,8 @@ int main(int argc, char *argv[]) {
    }
   }
  } FINALLY {
+  if (bochs_vbe >= 0)
+      ioctl(bochs_vbe,BOCHS_VBE_SETENABLE,BOCHS_VBE_FDISABLED);
   /* Return to text mode. */
   ioctl(wms_display,VGA_RESET,
         VGA_RESET_FMODE|

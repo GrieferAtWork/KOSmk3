@@ -68,6 +68,13 @@ BEGIN MODULE("kernel.unix-domain")
 	SOURCE("unix-domain/*.c")
 END
 
+BEGIN MODULE("kernel.bochs-vbe")
+	SET_OUTPUT("/bin/bochs-vbe.mod")
+	SET_DISKFILE("/mod/bochs-vbe.mod")
+
+	SOURCE("bochs-vbe/*.c")
+END
+
 IF ($TARGET_ARCH == i?86)
 	BEGIN MODULE("kernel.a.out")
 		SET_OUTPUT("/bin/a.out.mod")

@@ -296,9 +296,12 @@ int main(int argc, char *argv[]) {
   mount("/dev/hdc1","/mount",NULL,0,NULL);
  }
 
-#if 0
- if (kernctl(KERNEL_CONTROL_INSMOD,"/mod/vga.mod",NULL) >= 0)
-     Xexecl("/bin/wms","wms","/bin/wm","wm",(char *)NULL);
+
+#if 1
+ if (kernctl(KERNEL_CONTROL_INSMOD,"/mod/vga.mod",NULL) >= 0) {
+  kernctl(KERNEL_CONTROL_INSMOD,"/mod/bochs-vbe.mod",NULL);
+  Xexecl("/bin/wms","wms","/bin/wm","wm",(char *)NULL);
+ }
 #endif
 
 #if 0
