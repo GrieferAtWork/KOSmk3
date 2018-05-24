@@ -29,7 +29,7 @@
 #include "specstrings.h"
 #include "basetsd.h"
 
-DECL_BEGIN
+__DECL_BEGIN
 
 #define ANYSIZE_ARRAY 1
 #define RESTRICTED_POINTER
@@ -5701,7 +5701,7 @@ __CRT_INLINE PVOID GetFiberData(VOID) { return *(PVOID *)GetCurrentFiber(); }
 #define ACTIVATION_CONTEXT_SECTION_CLR_SURROGATES (9)
 #define ACTIVATION_CONTEXT_SECTION_APPLICATION_SETTINGS (10)
 
-DECL_END
+__DECL_END
 
 #endif /* _WINNT_ */
 

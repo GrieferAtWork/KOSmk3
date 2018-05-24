@@ -414,17 +414,20 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
   /* Map entire E2 tables (Using `X86_PAGE_F4MIB' if available). */
   e2_entry = &X86_PDIR_E2_IDENTITY[e2_index];
   e2_data  = e2_entry->p_data;
+#if 0 /* XXX: This doesn't seem to be working... */
   if (x86_config_enable_pse &&
       e2_index < VEC2_SHARE_BEGIN) {
    /* Override the E2 entries data. */
-   e2_entry->p_data = (perm & PAGEDIR_MAP_FUNMAP) ? X86_PAGE_ABSENT : edata;
+   e2_entry->p_data = (perm & PAGEDIR_MAP_FUNMAP) ? X86_PAGE_ABSENT : (edata|X86_PAGE_F4MIB);
    COMPILER_WRITE_BARRIER();
    /* Free a previously allocated E1 vector at this location. */
    if (!(e2_data&X86_PAGE_F4MIB) &&
         (e2_data&X86_PAGE_FADDR) != X86_PAGE_ABSENT)
          page_free(VM_ADDR2PAGE(e2_data),1);
    edata += 1024*PAGESIZE;
-  } else if (perm & PAGEDIR_MAP_FUNMAP) {
+  } else
+#endif
+  if (perm & PAGEDIR_MAP_FUNMAP) {
    if (e2_index < VEC2_SHARE_BEGIN) {
     /* When unmapping, we can simply get rid of this E1 vector. */
     e2_entry->p_data = X86_PAGE_ABSENT;

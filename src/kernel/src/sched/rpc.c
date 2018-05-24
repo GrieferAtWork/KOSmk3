@@ -564,7 +564,7 @@ INTERN ATTR_NOTHROW void KCALL task_serve_before_exit(void) {
   * we're about to unlock the INTERRUPTING bit again, we can
   * be sure that no new RPCs will ever be queued again. */
  ATOMIC_FETCHAND(THIS_TASK->t_state,
-                (TASK_STATE_FINTERRUPTING|TASK_STATE_FINTERRUPTED));
+               ~(TASK_STATE_FINTERRUPTING|TASK_STATE_FINTERRUPTED));
  /* Indicate that we're now serving RPCs. */
  ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FINRPC);
  assert(state & TASK_STATE_FTERMINATING);

@@ -169,9 +169,6 @@ int main(int argc, char *argv[]) {
  syslog(LOG_DEBUG,"thread_local_x = %p:%d\n",&thread_local_x,thread_local_x);
 
  test_rpc();
- __builtin_alloca(7);
- __builtin_alloca_with_align(10,8);
- __builtin__exit(0);
 
  assert(strcmp("foo","foo") == 0);
  assert(strcmp("foo","bar") != 0);

@@ -705,7 +705,9 @@ PUBLIC NOIRQ ATTR_HOTTEXT bool KCALL task_sleep(jtime_t abs_timeout) {
 
  /* Enter a sleeping-task state. */
  INCSTAT(ts_sleep);
- assertf(caller->t_state & TASK_STATE_FSTARTED,"caller = %p",caller);
+ assertf(caller->t_state & TASK_STATE_FSTARTED,
+         "caller = %p(%.8I32x)",caller,
+         caller->t_state);
  caller->t_state  |= TASK_STATE_FSLEEPING;
  caller->t_timeout = abs_timeout;
  COMPILER_WRITE_BARRIER();

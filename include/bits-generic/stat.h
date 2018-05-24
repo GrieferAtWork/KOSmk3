@@ -734,7 +734,7 @@ union{
 #ifdef __USE_LARGEFILE64
 struct __kos_stat64 {
     __dev_t           st_dev;
-#ifdef __USE_KOS
+#if defined(__USE_KOS) || defined(__KERNEL__)
 union{
     __ino64_t         st_ino;
     __ino32_t         st_ino32;
@@ -752,7 +752,7 @@ union{
 #else
     __dev_t         __st_rdev;
 #endif
-#ifdef __USE_KOS
+#if defined(__USE_KOS) || defined(__KERNEL__)
 union{
     __pos64_t         st_size;
     __pos32_t         st_size32;
@@ -766,7 +766,7 @@ union{
 #else
     __blksize_t     __st_blksize;
 #endif
-#ifdef __USE_KOS
+#if defined(__USE_KOS) || defined(__KERNEL__)
 union{
     __blkcnt64_t      st_blocks;
     __blkcnt32_t      st_blocks32;
