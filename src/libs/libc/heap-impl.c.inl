@@ -29,6 +29,7 @@
 #include "heap.h"
 #include "rtl.h"
 
+#include <hybrid/bit.h>
 #include <hybrid/section.h>
 #include <hybrid/minmax.h>
 #include <hybrid/align.h>
@@ -104,7 +105,7 @@
 #endif
 #endif
 
-#define LOCAL_HEAP_BUCKET_OF(size)   (((__SIZEOF_SIZE_T__*8)-__HEAP_CLZ(size))-LOCAL_HEAP_BUCKET_OFFSET)
+#define LOCAL_HEAP_BUCKET_OF(size)   (((__SIZEOF_SIZE_T__*8)-clz(size))-LOCAL_HEAP_BUCKET_OFFSET)
 #define LOCAL_HEAP_BUCKET_COUNT       ((__SIZEOF_SIZE_T__*8)-(LOCAL_HEAP_BUCKET_OFFSET-1))
 
 

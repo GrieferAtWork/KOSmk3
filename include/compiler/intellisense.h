@@ -928,15 +928,50 @@ template<class T, class ...Args> struct ____INTELLISENSE_classify<T(Args...,...)
 template<class T, class C, class ...Args> struct ____INTELLISENSE_classify<T(C::*)(Args...)> {enum{__val=11};};
 template<class T, class C, class ...Args> struct ____INTELLISENSE_classify<T(C::*)(Args...,...)> {enum{__val=11};};
 #define __builtin_classify_type(...) (::__intern::____INTELLISENSE_classify<__typeof__(__VA_ARGS__)>::__val)
+
+template<class T> struct ____INTELLISENSE_isarith { enum{__val=false}; };
+template<class T> struct ____INTELLISENSE_isarith<T &>: ____INTELLISENSE_isarith<T> {};
+template<> struct ____INTELLISENSE_isarith<bool> { enum{__val=true}; };
+template<> struct ____INTELLISENSE_isarith<wchar_t> { enum{__val=true}; };
+template<> struct ____INTELLISENSE_isarith<char> { enum{__val=true}; };
+template<> struct ____INTELLISENSE_isarith<signed char> { enum{__val=true}; };
+template<> struct ____INTELLISENSE_isarith<unsigned char> { enum{__val=true}; };
+template<> struct ____INTELLISENSE_isarith<short> { enum{__val=true}; };
+template<> struct ____INTELLISENSE_isarith<unsigned short> { enum{__val=true}; };
+template<> struct ____INTELLISENSE_isarith<int> { enum{__val=true}; };
+template<> struct ____INTELLISENSE_isarith<unsigned int> { enum{__val=true}; };
+template<> struct ____INTELLISENSE_isarith<long> { enum{__val=true}; };
+template<> struct ____INTELLISENSE_isarith<unsigned long> { enum{__val=true}; };
+template<> struct ____INTELLISENSE_isarith<long long> { enum{__val=true}; };
+template<> struct ____INTELLISENSE_isarith<unsigned long long> { enum{__val=true}; };
+
+template<bool COND, class S> struct ____INTELLISENSE_enableif { typedef S __type; };
+template<class S> struct ____INTELLISENSE_enableif<false,S> {};
+
+template<class T, class S> struct ____INTELLISENSE_enableif_at {};
+template<class T, class S> struct ____INTELLISENSE_enableif_at<T *,S> { typedef S __type; };
+template<class S> struct ____INTELLISENSE_enableif_at<bool,S> { typedef S __type; };
+template<class S> struct ____INTELLISENSE_enableif_at<wchar_t,S> { typedef S __type; };
+template<class S> struct ____INTELLISENSE_enableif_at<char,S> { typedef S __type; };
+template<class S> struct ____INTELLISENSE_enableif_at<signed char,S> { typedef S __type; };
+template<class S> struct ____INTELLISENSE_enableif_at<unsigned char,S> { typedef S __type; };
+template<class S> struct ____INTELLISENSE_enableif_at<short,S> { typedef S __type; };
+template<class S> struct ____INTELLISENSE_enableif_at<unsigned short,S> { typedef S __type; };
+template<class S> struct ____INTELLISENSE_enableif_at<int,S> { typedef S __type; };
+template<class S> struct ____INTELLISENSE_enableif_at<unsigned int,S> { typedef S __type; };
+template<class S> struct ____INTELLISENSE_enableif_at<long,S> { typedef S __type; };
+template<class S> struct ____INTELLISENSE_enableif_at<unsigned long,S> { typedef S __type; };
+template<class S> struct ____INTELLISENSE_enableif_at<long long,S> { typedef S __type; };
+template<class S> struct ____INTELLISENSE_enableif_at<unsigned long long,S> { typedef S __type; };
 }
 
 int __builtin_va_arg_pack(void);
 __declspec(noreturn) void __builtin_abort(void);
 __declspec(noreturn) void __builtin_unreachable(void);
 __declspec(noreturn) void __builtin_trap(void);
-__declspec(noreturn) void __builtin_exit(void);
-__declspec(noreturn) void __builtin__exit(void);
-__declspec(noreturn) void __builtin__Exit(void);
+__declspec(noreturn) void __builtin_exit(int exit_code);
+__declspec(noreturn) void __builtin__exit(int exit_code);
+__declspec(noreturn) void __builtin__Exit(int exit_code);
 
 __SIZE_TYPE__ __builtin_strlen(char const *s);
 int __builtin_strcmp(char const *a, char const *b);
@@ -945,7 +980,8 @@ char *__builtin_strchr(char const *s, int needle);
 char *__builtin_strrchr(char const *s, int needle);
 
 
-void *__builtin_alloca(__SIZE_TYPE__ s);
+void *__builtin_alloca(__SIZE_TYPE__ num_bytes);
+void *__builtin_alloca_with_align(__SIZE_TYPE__ num_bytes, __SIZE_TYPE__ align);
 long __builtin_expect(long val, long expect);
 int __builtin_ffs(int x);
 int __builtin_clz(unsigned int x);
@@ -978,9 +1014,30 @@ int __builtin_setjmp(void *);
 __declspec(noreturn) void __builtin_longjmp(void *, int);
 
 
-template<class type1, class type2, class type3> bool __builtin_add_overflow(type1 a, type2 b, type3 *res);
-template<class type1, class type2, class type3> bool __builtin_sub_overflow(type1 a, type2 b, type3 *res);
-template<class type1, class type2, class type3> bool __builtin_mul_overflow(type1 a, type2 b, type3 *res);
+template<class type1, class type2, class type3>
+typename __intern::____INTELLISENSE_enableif<
+     __intern::____INTELLISENSE_isarith<type1>::__val &&
+     __intern::____INTELLISENSE_isarith<type2>::__val &&
+     __intern::____INTELLISENSE_isarith<type3>::__val,
+     bool>::__type
+__builtin_add_overflow(type1 a, type2 b, type3 *res);
+
+template<class type1, class type2, class type3>
+typename __intern::____INTELLISENSE_enableif<
+     __intern::____INTELLISENSE_isarith<type1>::__val &&
+     __intern::____INTELLISENSE_isarith<type2>::__val &&
+     __intern::____INTELLISENSE_isarith<type3>::__val,
+     bool>::__type
+__builtin_sub_overflow(type1 a, type2 b, type3 *res);
+
+template<class type1, class type2, class type3>
+typename __intern::____INTELLISENSE_enableif<
+     __intern::____INTELLISENSE_isarith<type1>::__val &&
+     __intern::____INTELLISENSE_isarith<type2>::__val &&
+     __intern::____INTELLISENSE_isarith<type3>::__val,
+     bool>::__type
+__builtin_mul_overflow(type1 a, type2 b, type3 *res);
+
 bool __builtin_sadd_overflow(int a, int b, int *res);
 bool __builtin_saddl_overflow(long int a, long int b, long int *res);
 bool __builtin_saddll_overflow(long long int a, long long int b, long long int *res);
@@ -1052,23 +1109,6 @@ void __builtin_va_copy(__builtin_va_list &dst_ap, __builtin_va_list &src_ap);
 #define __GCC_ATOMIC_LLONG_LOCK_FREE    1
 #define __GCC_ATOMIC_POINTER_LOCK_FREE  1
 
-
-namespace __intern {
-template<class T, class S> struct ____INTELLISENSE_enableif_at {};
-template<class T, class S> struct ____INTELLISENSE_enableif_at<T *,S> { typedef S __type; };
-template<class S> struct ____INTELLISENSE_enableif_at<bool,S> { typedef S __type; };
-template<class S> struct ____INTELLISENSE_enableif_at<char,S> { typedef S __type; };
-template<class S> struct ____INTELLISENSE_enableif_at<signed char,S> { typedef S __type; };
-template<class S> struct ____INTELLISENSE_enableif_at<unsigned char,S> { typedef S __type; };
-template<class S> struct ____INTELLISENSE_enableif_at<signed short,S> { typedef S __type; };
-template<class S> struct ____INTELLISENSE_enableif_at<unsigned short,S> { typedef S __type; };
-template<class S> struct ____INTELLISENSE_enableif_at<signed int,S> { typedef S __type; };
-template<class S> struct ____INTELLISENSE_enableif_at<unsigned int,S> { typedef S __type; };
-template<class S> struct ____INTELLISENSE_enableif_at<signed long,S> { typedef S __type; };
-template<class S> struct ____INTELLISENSE_enableif_at<unsigned long,S> { typedef S __type; };
-template<class S> struct ____INTELLISENSE_enableif_at<signed long long,S> { typedef S __type; };
-template<class S> struct ____INTELLISENSE_enableif_at<unsigned long long,S> { typedef S __type; };
-}
 
 template<class T>          typename ::__intern::____INTELLISENSE_enableif_at<T,T>::__type __atomic_load_n(T const volatile *ptr, int memorder);
 template<class T>          typename ::__intern::____INTELLISENSE_enableif_at<T,void>::__type __atomic_load(T const volatile *ptr, T *ret, int memorder);

@@ -53,10 +53,8 @@ STATIC_ASSERT_MSG(GFP_ATOMIC == IO_NONBLOCK,
                   "Code is allowed to assume that these flags are identical");
 
 #if defined(NDEBUG) || 1
-#define heap_validate(heap)     (void)0
-#define heap_validate_all()     (void)0
-#define heap_novalidate_begin() (void)0
-#define heap_novalidate_end()   (void)0
+#define heap_validate(heap)    (void)0
+#define heap_validate_all()    (void)0
 #endif
 
 #if defined(NDEBUG) || 0
@@ -279,16 +277,14 @@ PUBLIC void (KCALL heap_validate)(struct heap *__restrict self) {
     if (fault_start < (u8 *)iter->mf_data)
         fault_start = (u8 *)iter->mf_data;
     debug_printf("\n\n\n");
-    format_hexdump(&debug_printer,NULL,
-                   fault_start,16+2*((u8 *)faulting_address-fault_start),
-                   16,FORMAT_HEXDUMP_FLAG_ADDRESS);
-    debug_printf("\n");
     assertf(0,
+            "%$[hex]\n"
             "\tIllegal USE-AFTER-FREE of <%p>\n"
             "Free node:     %p...%p\n"
             "Node offset:   %Iu (%#Ix)\n"
             "Expected byte: %.2I8x\n"
             "Found byte:    %.2I8x",
+            16+2*((u8 *)faulting_address-fault_start),fault_start,
             faulting_address,
             MFREE_MIN(iter),MFREE_MAX(iter),
            (uintptr_t)faulting_address-MFREE_MIN(iter),

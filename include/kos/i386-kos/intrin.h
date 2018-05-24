@@ -51,7 +51,11 @@ __FORCELOCAL __UINT8_TYPE__ (__dal)(__UINT8_TYPE__ __x) { __UINT8_TYPE__ __resul
 __FORCELOCAL void (__hlt)(void) { __asm__ __volatile__("hlt" : : : "memory"); }
 __FORCELOCAL void (__into)(void) { __asm__("into"); }
 __FORCELOCAL void (__int3)(void) { __asm__("int {$}3"); }
+#if defined(__INTELLISENSE__) || (defined(__OPTIMIZE__) && 0)
 __FORCELOCAL void (__int)(__UINT8_TYPE__ __intno) { __asm__("int %0" : : "N" (__intno)); }
+#else
+#define __int(intno) __XBLOCK({ __asm__("int {$}" __PP_STR(intno)); (void)0; })
+#endif
 __FORCELOCAL void (__invd)(void) { __asm__ __volatile__("invd"); }
 __FORCELOCAL void (__wbinvd)(void) { __asm__ __volatile__("wbinvd"); }
 __FORCELOCAL void (__invlpg)(void *__p) { __asm__ __volatile__("invlpg" : : "m" (*(int *)__p)); }
@@ -83,6 +87,16 @@ __FORCELOCAL __UINT64_TYPE__ (__rdtsc)(void) { __UINT64_TYPE__ __result; __asm__
 __FORCELOCAL void (__wrmsr)(__UINT32_TYPE__ __id, __UINT64_TYPE__ __val) { __asm__ __volatile__("wrmsr" : : "c" (__id), "A" (__val)); }
 __FORCELOCAL __ATTR_NORETURN void (__sysenter)(void) { __asm__ __volatile__("sysenter"); __builtin_unreachable(); }
 __FORCELOCAL __ATTR_NORETURN void (__sysexit)(__UINT32_TYPE__ __uesp, __UINT32_TYPE__ __ueip) { __asm__ __volatile__("sysexit" : : "c" (__uesp), "d" (__ueip)); __builtin_unreachable(); }
+__FORCELOCAL void (__movsb)(void *__restrict __dst, void const *__restrict __src, __SIZE_TYPE__ __count) { __asm__("rep; movsb" : "+D" (__dst), "+S" (__src), "+c" (__count), "=m" (__COMPILER_ASM_BUFFER(__UINT8_TYPE__,__count,__dst)) : "m" (__COMPILER_ASM_BUFFER(__UINT8_TYPE__,__count,__src))); }
+__FORCELOCAL void (__movsw)(void *__restrict __dst, void const *__restrict __src, __SIZE_TYPE__ __count) { __asm__("rep; movsw" : "+D" (__dst), "+S" (__src), "+c" (__count), "=m" (__COMPILER_ASM_BUFFER(__UINT16_TYPE__,__count,__dst)) : "m" (__COMPILER_ASM_BUFFER(__UINT16_TYPE__,__count,__src))); }
+__FORCELOCAL void (__movsl)(void *__restrict __dst, void const *__restrict __src, __SIZE_TYPE__ __count) { __asm__("rep; movsl" : "+D" (__dst), "+S" (__src), "+c" (__count), "=m" (__COMPILER_ASM_BUFFER(__UINT32_TYPE__,__count,__dst)) : "m" (__COMPILER_ASM_BUFFER(__UINT32_TYPE__,__count,__src))); }
+__FORCELOCAL void (__stosb)(void *__restrict __dst, __UINT8_TYPE__  __byte , __SIZE_TYPE__ __count) { __asm__("rep; stosb" : "+D" (__dst), "+c" (__count), "=m" (__COMPILER_ASM_BUFFER(__UINT8_TYPE__,__count,__dst)) : "a" (__byte)); }
+__FORCELOCAL void (__stosw)(void *__restrict __dst, __UINT16_TYPE__ __word , __SIZE_TYPE__ __count) { __asm__("rep; stosw" : "+D" (__dst), "+c" (__count), "=m" (__COMPILER_ASM_BUFFER(__UINT16_TYPE__,__count,__dst)) : "a" (__word)); }
+__FORCELOCAL void (__stosl)(void *__restrict __dst, __UINT32_TYPE__ __dword, __SIZE_TYPE__ __count) { __asm__("rep; stosl" : "+D" (__dst), "+c" (__count), "=m" (__COMPILER_ASM_BUFFER(__UINT32_TYPE__,__count,__dst)) : "a" (__dword)); }
+#ifdef __x86_64__
+__FORCELOCAL void (__movsq)(void *__restrict __dst, void const *__restrict __src, __SIZE_TYPE__ __count) { __asm__("rep; movsq" : "+D" (__dst), "+S" (__src), "+c" (__count), "=m" (__COMPILER_ASM_BUFFER(__UINT64_TYPE__,__count,__dst)) : "m" (__COMPILER_ASM_BUFFER(__UINT64_TYPE__,__count,__src))); }
+__FORCELOCAL void (__stosq)(void *__restrict __dst, __UINT64_TYPE__ __dword, __SIZE_TYPE__ __count) { __asm__("rep; stosq" : "+D" (__dst), "+c" (__count), "=m" (__COMPILER_ASM_BUFFER(__UINT64_TYPE__,__count,__dst)) : "a" (__dword)); }
+#endif
 
 /* Floating point intrinsics. */
 __FORCELOCAL void (__ldmxcsr)(__UINT32_TYPE__ __val) { __asm__ __volatile__("ldmxcsr" : : "m" (__val)); }
@@ -109,16 +123,16 @@ __FORCELOCAL void (__wrcr4)(__REGISTER_TYPE__ __val) { __asm__ __volatile__("mov
 #else
 #define __X86_LOCK_PREFIX /* nothing */
 #endif
-__FORCELOCAL __BOOL (__lock_btcw)(__UINT16_TYPE__ volatile *__x, __UINT16_TYPE__ __bitindex) { __BOOL __result; __asm__(__X86_LOCK_PREFIX "btcw %2, %w1" : "=@ccc" (__result), "+g" (*__x) : "nr" (__bitindex)); return __result; }
-__FORCELOCAL __BOOL (__lock_btcl)(__UINT32_TYPE__ volatile *__x, __UINT32_TYPE__ __bitindex) { __BOOL __result; __asm__(__X86_LOCK_PREFIX "btcl %2, %1" : "=@ccc" (__result), "+g" (*__x) : "nr" (__bitindex)); return __result; }
-__FORCELOCAL __BOOL (__lock_btrw)(__UINT16_TYPE__ volatile *__x, __UINT16_TYPE__ __bitindex) { __BOOL __result; __asm__(__X86_LOCK_PREFIX "btrw %2, %w1" : "=@ccc" (__result), "+g" (*__x) : "nr" (__bitindex)); return __result; }
-__FORCELOCAL __BOOL (__lock_btrl)(__UINT32_TYPE__ volatile *__x, __UINT32_TYPE__ __bitindex) { __BOOL __result; __asm__(__X86_LOCK_PREFIX "btrl %2, %1" : "=@ccc" (__result), "+g" (*__x) : "nr" (__bitindex)); return __result; }
-__FORCELOCAL __BOOL (__lock_btsw)(__UINT16_TYPE__ volatile *__x, __UINT16_TYPE__ __bitindex) { __BOOL __result; __asm__(__X86_LOCK_PREFIX "btsw %2, %w1" : "=@ccc" (__result), "+g" (*__x) : "nr" (__bitindex)); return __result; }
-__FORCELOCAL __BOOL (__lock_btsl)(__UINT32_TYPE__ volatile *__x, __UINT32_TYPE__ __bitindex) { __BOOL __result; __asm__(__X86_LOCK_PREFIX "btsl %2, %1" : "=@ccc" (__result), "+g" (*__x) : "nr" (__bitindex)); return __result; }
-__FORCELOCAL void (__lock_rolw)(__UINT16_TYPE__ volatile *__x, __UINT8_TYPE__ __y) { __asm__(__X86_LOCK_PREFIX "rolw %1, %w0" : "+g" (*__x) : "nc" (__y) : "cc"); }
-__FORCELOCAL void (__lock_roll)(__UINT32_TYPE__ volatile *__x, __UINT8_TYPE__ __y) { __asm__(__X86_LOCK_PREFIX "roll %1, %0" : "+g" (*__x) : "nc" (__y) : "cc"); }
-__FORCELOCAL void (__lock_rorw)(__UINT16_TYPE__ volatile *__x, __UINT8_TYPE__ __y) { __asm__(__X86_LOCK_PREFIX "rorw %1, %w0" : "+g" (*__x) : "nc" (__y) : "cc"); }
-__FORCELOCAL void (__lock_rorl)(__UINT32_TYPE__ volatile *__x, __UINT8_TYPE__ __y) { __asm__(__X86_LOCK_PREFIX "rorl %1, %0" : "+g" (*__x) : "nc" (__y) : "cc"); }
+__FORCELOCAL __BOOL (__atomic_btcw)(__UINT16_TYPE__ volatile *__x, __UINT16_TYPE__ __bitindex) { __BOOL __result; __asm__(__X86_LOCK_PREFIX "btcw %2, %w1" : "=@ccc" (__result), "+g" (*__x) : "nr" (__bitindex)); return __result; }
+__FORCELOCAL __BOOL (__atomic_btcl)(__UINT32_TYPE__ volatile *__x, __UINT32_TYPE__ __bitindex) { __BOOL __result; __asm__(__X86_LOCK_PREFIX "btcl %2, %1" : "=@ccc" (__result), "+g" (*__x) : "nr" (__bitindex)); return __result; }
+__FORCELOCAL __BOOL (__atomic_btrw)(__UINT16_TYPE__ volatile *__x, __UINT16_TYPE__ __bitindex) { __BOOL __result; __asm__(__X86_LOCK_PREFIX "btrw %2, %w1" : "=@ccc" (__result), "+g" (*__x) : "nr" (__bitindex)); return __result; }
+__FORCELOCAL __BOOL (__atomic_btrl)(__UINT32_TYPE__ volatile *__x, __UINT32_TYPE__ __bitindex) { __BOOL __result; __asm__(__X86_LOCK_PREFIX "btrl %2, %1" : "=@ccc" (__result), "+g" (*__x) : "nr" (__bitindex)); return __result; }
+__FORCELOCAL __BOOL (__atomic_btsw)(__UINT16_TYPE__ volatile *__x, __UINT16_TYPE__ __bitindex) { __BOOL __result; __asm__(__X86_LOCK_PREFIX "btsw %2, %w1" : "=@ccc" (__result), "+g" (*__x) : "nr" (__bitindex)); return __result; }
+__FORCELOCAL __BOOL (__atomic_btsl)(__UINT32_TYPE__ volatile *__x, __UINT32_TYPE__ __bitindex) { __BOOL __result; __asm__(__X86_LOCK_PREFIX "btsl %2, %1" : "=@ccc" (__result), "+g" (*__x) : "nr" (__bitindex)); return __result; }
+__FORCELOCAL void (__atomic_rolw)(__UINT16_TYPE__ volatile *__x, __UINT8_TYPE__ __y) { __asm__(__X86_LOCK_PREFIX "rolw %1, %w0" : "+g" (*__x) : "nc" (__y) : "cc", "memory"); }
+__FORCELOCAL void (__atomic_roll)(__UINT32_TYPE__ volatile *__x, __UINT8_TYPE__ __y) { __asm__(__X86_LOCK_PREFIX "roll %1, %0" : "+g" (*__x) : "nc" (__y) : "cc", "memory"); }
+__FORCELOCAL void (__atomic_rorw)(__UINT16_TYPE__ volatile *__x, __UINT8_TYPE__ __y) { __asm__(__X86_LOCK_PREFIX "rorw %1, %w0" : "+g" (*__x) : "nc" (__y) : "cc", "memory"); }
+__FORCELOCAL void (__atomic_rorl)(__UINT32_TYPE__ volatile *__x, __UINT8_TYPE__ __y) { __asm__(__X86_LOCK_PREFIX "rorl %1, %0" : "+g" (*__x) : "nc" (__y) : "cc", "memory"); }
 #undef __X86_LOCK_PREFIX
 
 

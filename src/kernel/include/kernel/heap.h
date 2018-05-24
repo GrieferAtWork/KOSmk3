@@ -21,6 +21,7 @@
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
+#include <hybrid/__bit.h>
 #include <hybrid/align.h>
 #include <hybrid/list/list.h>
 #include <hybrid/list/atree.h>
@@ -65,20 +66,6 @@ struct mfree {
 #define MFREE_SIZE(self)              (self)->mf_size
 
 
-
-/* unsigned int FFS(size_t x); */
-/* unsigned int CLZ(size_t x); */
-#if __SIZEOF_SIZE_T__ == __SIZEOF_INT__
-#   define __HEAP_FFS(x)  ((unsigned int)__builtin_ffs((int)(x)))
-#   define __HEAP_CLZ(x)  ((unsigned int)__builtin_clz((int)(x)))
-#elif __SIZEOF_SIZE_T__ == __SIZEOF_LONG__
-#   define __HEAP_FFS(x)  ((unsigned int)__builtin_ffsl((long)(x)))
-#   define __HEAP_CLZ(x)  ((unsigned int)__builtin_clzl((long)(x)))
-#else
-#   define __HEAP_FFS(x)  ((unsigned int)__builtin_ffsll((long long)(x)))
-#   define __HEAP_CLZ(x)  ((unsigned int)__builtin_clzll((long long)(x)))
-#endif
-
 /* Heap configuration:
  * Index offset for the first bucket that should be search for a given size. */
 #if HEAP_ALIGNMENT == 1
@@ -100,10 +87,10 @@ struct mfree {
 #elif HEAP_ALIGNMENT == 256
 #   define HEAP_BUCKET_OFFSET     9 /* FFS(HEAP_ALIGNMENT) */
 #else
-#   define HEAP_BUCKET_OFFSET     __HEAP_FFS(HEAP_ALIGNMENT)
+#   define HEAP_BUCKET_OFFSET     __hybrid_ffs(HEAP_ALIGNMENT)
 #endif
 
-#define HEAP_BUCKET_OF(size)   (((__SIZEOF_SIZE_T__*8)-__HEAP_CLZ(size))-HEAP_BUCKET_OFFSET)
+#define HEAP_BUCKET_OF(size)   (((__SIZEOF_SIZE_T__*8)-__hybrid_clz(size))-HEAP_BUCKET_OFFSET)
 #define HEAP_BUCKET_MINSIZE(i)   (1 << ((i)+HEAP_BUCKET_OFFSET-1))
 #define HEAP_BUCKET_COUNT       ((__SIZEOF_SIZE_T__*8)-(HEAP_BUCKET_OFFSET-1))
 

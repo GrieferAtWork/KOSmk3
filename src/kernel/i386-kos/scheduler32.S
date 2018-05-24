@@ -254,8 +254,7 @@ SYMEND(x86_cpu_idle)
 .section .text
 PUBLIC_ENTRY(task_tryyield)
 	.cfi_startproc
-	pause
-
+	pause            /* Always yield the processor. */
 	pushfl_cfi_r
 	testl   $(EFLAGS_IF), 0(%esp)
 	jnz     1f
@@ -290,6 +289,7 @@ SYMEND(task_tryyield)
 
 PUBLIC_ENTRY(task_yield)
 	.cfi_startproc
+	pause            /* Always yield the processor. */
 	pushfl_cfi_r
 	testl   $(EFLAGS_IF), (%esp)
 	jnz     1f
@@ -303,11 +303,16 @@ PUBLIC_ENTRY(task_yield)
 1:	INCSTAT(ts_hyield)
 	popfl_cfi_r
 
-	pause
-
 	/* Switch to the next task. */
 	cli
 	movl    %taskseg:t_sched+re_next, %edx
+#if 1
+	cmpl    %edx, %taskseg:t_segment+TASK_SEGMENT_OFFSETOF_SELF
+	jne     1f
+	sti
+	ret     /* Nothing to switch to... */
+1:
+#endif
 #ifdef CONFIG_NO_SMP
 	movl    %edx, c_running + _boot_cpu
 #else

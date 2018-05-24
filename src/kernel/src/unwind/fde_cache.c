@@ -284,7 +284,8 @@ fde_cache_insert(struct module *__restrict self,
   if (self == &kernel_module &&
       rel_info->fi_pcbegin >= (uintptr_t)kernel_start &&
       rel_info->fi_pcend   <  (uintptr_t)kernel_end_raw)
-      goto pc_ok; /* Special case required because the kernel */
+      goto pc_ok; /* Special case required because the kernel deletes its .free segment,
+                   * however we must continue to track that segment's FDE descriptors. */
   debug_printf("[FDE] Corrupt FDE entry at %p...%p, out-of-bounds of %p...%p\n",
                rel_info->fi_pcbegin,rel_info->fi_pcend,
                self->m_imagemin,self->m_imageend-1);

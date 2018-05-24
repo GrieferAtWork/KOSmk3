@@ -24,6 +24,7 @@
 #include "windef.h"
 #endif /* !_WINDEF_ */
 #include <ctype.h>
+#include <hybrid/__atomic.h>
 #include "guiddef.h"
 #include "specstrings.h"
 #include "basetsd.h"
@@ -989,229 +990,42 @@ __CRT_INLINE BOOLEAN (_BitScanReverse64)(DWORD *Index, DWORD64 Mask) {
 #define InterlockedExchangeAddSizeT(a,b)          InterlockedExchangeAdd64((LONG64 *)a,b)
 #define InterlockedIncrementSizeT(a)              InterlockedIncrement64((LONG64 *)a)
 #define InterlockedDecrementSizeT(a)              InterlockedDecrement64((LONG64 *)a)
-SHORT (InterlockedIncrement16)(SHORT volatile *Addend);
-SHORT (InterlockedDecrement16)(SHORT volatile *Addend);
-SHORT (InterlockedCompareExchange16)(SHORT volatile *Destination, SHORT ExChange, SHORT Comperand);
-LONG (InterlockedAnd)(LONG volatile *Destination, LONG Value);
-LONG (InterlockedOr)(LONG volatile *Destination, LONG Value);
-LONG (InterlockedXor)(LONG volatile *Destination, LONG Value);
-LONG (InterlockedIncrement)(LONG volatile *Addend);
-LONG (InterlockedDecrement)(LONG volatile *Addend);
-LONG (InterlockedExchange)(LONG volatile *Target, LONG Value);
-LONG64 (InterlockedAnd64)(LONG64 volatile *Destination, LONG64 Value);
-LONG64 (InterlockedOr64)(LONG64 volatile *Destination, LONG64 Value);
-LONG64 (InterlockedXor64)(LONG64 volatile *Destination, LONG64 Value);
-
-#ifndef __CRT__NO_INLINE
-__CRT_INLINE SHORT (InterlockedIncrement16)(SHORT volatile *Addend) {
- SHORT ret = 1;
- __asm__ __volatile__("lock\n\t"
-                      "xaddw %0,%1"
-                      : "+r" (ret)
-                      , "+m" (*Addend)
-                      :
-                      : "memory");
- return ret + 1;
-}
-__CRT_INLINE SHORT (InterlockedDecrement16)(SHORT volatile *Addend) {
- SHORT ret = -1;
- __asm__ __volatile__("lock\n\t"
-                      "xaddw %0,%1"
-                      : "+r" (ret)
-                      , "+m" (*Addend)
-                      :
-                      : "memory");
- return ret - 1;
-}
-__CRT_INLINE SHORT (InterlockedCompareExchange16)(SHORT volatile *Destination, SHORT ExChange, SHORT Comperand) {
- SHORT prev;
- __asm__ __volatile__("lock ; cmpxchgw %w1,%2"
-                      : "=a"(prev)
-                      : "q"(ExChange)
-                      , "m"(*Destination)
-                      , "0"(Comperand)
-                      : "memory");
- return prev;
-}
-__CRT_INLINE LONG (InterlockedAnd)(LONG volatile *Destination, LONG Value) {
- __asm__ __volatile__("lock ; andl %0,%1"
-                      :
-                      : "r"(Value)
-                      , "m"(*Destination)
-                      : "memory");
- return *Destination;
-}
-__CRT_INLINE LONG (InterlockedOr)(LONG volatile *Destination, LONG Value) {
- __asm__ __volatile__("lock ; orl %0,%1"
-                      :
-                      : "r"(Value)
-                      , "m"(*Destination)
-                      : "memory");
- return *Destination;
-}
-__CRT_INLINE LONG InterlockedXor(LONG volatile *Destination, LONG Value) {
- __asm__ __volatile__("lock ; xorl %0,%1"
-                      :
-                      : "r"(Value)
-                      , "m"(*Destination)
-                      : "memory");
- return *Destination;
-}
-__CRT_INLINE LONG InterlockedIncrement(LONG volatile *Addend) {
- LONG ret = 1;
- __asm__ __volatile__("lock\n\t"
-                      "xaddl %0,%1"
-                      : "+r" (ret)
-                      , "+m" (*Addend)
-                      :
-                      : "memory");
- return ret + 1;
-}
-__CRT_INLINE LONG InterlockedDecrement(LONG volatile *Addend) {
- LONG ret = -1;
- __asm__ __volatile__("lock\n\t"
-                      "xaddl %0,%1"
-                      : "+r" (ret)
-                      , "+m" (*Addend)
-                      :
-                      : "memory");
- return ret - 1;
-}
-__CRT_INLINE LONG InterlockedExchange(LONG volatile *Target, LONG Value) {
- __asm__ __volatile__("lock ; xchgl %0,%1"
-                      : "=r"(Value)
-                      : "m"(*Target)
-                      , "0"(Value)
-                      : "memory");
- return Value;
-}
-__CRT_INLINE LONG64 InterlockedAnd64(LONG64 volatile *Destination, LONG64 Value) {
- __asm__ __volatile__("lock ; andq %0,%1"
-                      :
-                      : "r"(Value)
-                      , "m"(*Destination)
-                      : "memory");
- return *Destination;
-}
-__CRT_INLINE LONG64 InterlockedOr64(LONG64 volatile *Destination, LONG64 Value) {
- __asm__ __volatile__("lock ; orq %0,%1"
-                      :
-                      : "r"(Value)
-                      , "m"(*Destination)
-                      : "memory");
- return *Destination;
-}
-__CRT_INLINE LONG64 InterlockedXor64(LONG64 volatile *Destination, LONG64 Value) {
- __asm__ __volatile__("lock ; xorq %0,%1"
-                      :
-                      : "r"(Value)
-                      , "m"(*Destination)
-                      : "memory");
- return *Destination;
-}
-#endif /* !__CRT__NO_INLINE */
-
-LONG (InterlockedExchangeAdd)(LONG volatile *Addend, LONG Value);
-LONG (InterlockedCompareExchange)(LONG volatile *Destination, LONG ExChange, LONG Comperand);
-LONG (InterlockedAdd)(LONG volatile *Addend, LONG Value);
-LONG64 (InterlockedIncrement64)(LONG64 volatile *Addend);
-LONG64 (InterlockedDecrement64)(LONG64 volatile *Addend);
-LONG64 (InterlockedExchange64)(LONG64 volatile *Target, LONG64 Value);
-
-#ifndef __CRT__NO_INLINE
-__CRT_INLINE LONG (InterlockedAdd)(LONG volatile *Addend, LONG Value) { return InterlockedExchangeAdd(Addend,Value) + Value; }
-__CRT_INLINE LONG (InterlockedCompareExchange)(LONG volatile *Destination, LONG ExChange, LONG Comperand) {
- LONG prev;
- __asm__ __volatile__("lock ; cmpxchgl %1,%2"
-                      : "=a" (prev)
-                      : "q" (ExChange)
-                      , "m" (*Destination)
-                      , "0" (Comperand)
-                      : "memory");
- return prev;
-}
-__CRT_INLINE LONG64 InterlockedIncrement64(LONG64 volatile *Addend) {
- LONG64 ret = 1LL;
- __asm__ __volatile__("lock\n\t"
-                      "xaddq %0,%1"
-                      : "+r" (ret)
-                      , "+m" (*Addend)
-                      :
-                      : "memory");
- return ret + 1LL;
-}
-__CRT_INLINE LONG64 InterlockedDecrement64(LONG64 volatile *Addend) {
- LONG64 ret = -1LL;
- __asm__ __volatile__("lock\n\t"
-                      "xaddq %0,%1"
-                      : "+r" (ret)
-                      , "+m" (*Addend)
-                      :
-                      : "memory");
- return ret - 1LL;
-}
-__CRT_INLINE LONG64 InterlockedExchange64(LONG64 volatile *Target, LONG64 Value) {
- __asm__ __volatile__("lock ; xchgq %0,%1"
-                      : "=r"(Value)
-                      : "m"(*Target)
-                      , "0"(Value)
-                      : "memory");
- return Value;
-}
-#endif /* !__CRT__NO_INLINE */
-
-LONG64 (InterlockedExchangeAdd64)(LONG64 volatile *Addend, LONG64 Value);
-LONG64 (InterlockedAdd64)(LONG64 volatile *Addend, LONG64 Value);
-LONG64 (InterlockedCompareExchange64)(LONG64 volatile *Destination, LONG64 ExChange, LONG64 Comperand);
-PVOID (InterlockedCompareExchangePointer)(PVOID volatile *Destination, PVOID ExChange, PVOID Comperand);
-PVOID (InterlockedExchangePointer)(PVOID volatile *Target, PVOID Value);
-
-#ifndef __CRT__NO_INLINE
-__CRT_INLINE LONG64 (InterlockedAdd64)(LONG64 volatile *Addend, LONG64 Value) { return InterlockedExchangeAdd64(Addend,Value) + Value; }
-__CRT_INLINE LONG64 (InterlockedCompareExchange64)(LONG64 volatile *Destination, LONG64 ExChange, LONG64 Comperand) {
- LONG64 prev;
- __asm__ __volatile__("lock ; cmpxchgq %1,%2"
-                      : "=a" (prev)
-                      : "q" (ExChange)
-                      , "m" (*Destination)
-                      , "0" (Comperand)
-                      : "memory");
- return prev;
-}
-__CRT_INLINE PVOID (InterlockedCompareExchangePointer)(PVOID volatile *Destination, PVOID ExChange, PVOID Comperand) {
- PVOID prev;
- __asm__ __volatile__("lock ; cmpxchgq %1,%2"
-                      : "=a" (prev)
-                      : "q" (ExChange)
-                      , "m" (*Destination)
-                      , "0" (Comperand)
-                      : "memory");
- return prev;
-}
-__CRT_INLINE PVOID (InterlockedExchangePointer)(PVOID volatile *Target, PVOID Value) {
- __asm__ __volatile__("lock ; xchgq %0,%1"
-                      : "=r"(Value)
-                      : "m"(*Target)
-                      , "0"(Value)
-                      : "memory");
- return Value;
-}
-#endif /* !__CRT__NO_INLINE */
-
+#define InterlockedIncrement16(Addend)            __hybrid_atomic_incfetch(*(Addend))
+#define InterlockedDecrement16(Addend)            __hybrid_atomic_decfetch(*(Addend))
+#define InterlockedCompareExchange16(Destination,ExChange,Comperand) __hybrid_atomic_cmpxch_val(*(Destination),Comperand,ExChange)
+#define InterlockedAnd(Destination,Value)         __hybrid_atomic_andfetch(*(Destination),Value)
+#define InterlockedOr(Destination,Value)          __hybrid_atomic_orfetch(*(Destination),Value)
+#define InterlockedXor(Destination,Value)         __hybrid_atomic_xorfetch(*(Destination),Value)
+#define InterlockedIncrement(Addend)              __hybrid_atomic_incfetch(*(Addend))
+#define InterlockedDecrement(Addend)              __hybrid_atomic_decfetch(*(Addend))
+#define InterlockedExchange(Target,Value)         __hybrid_atomic_xch(*(Target),Value)
+#define InterlockedAnd64(Destination,Value)       __hybrid_atomic_andfetch(*(Destination),Value)
+#define InterlockedOr64(Destination,Value)        __hybrid_atomic_orfetch(*(Destination),Value)
+#define InterlockedXor64(Destination,Value)       __hybrid_atomic_xorfetch(*(Destination),Value)
+#define InterlockedExchangeAdd(Addend,Value)      __hybrid_atomic_fetchadd(*(Addend),Value)
+#define InterlockedCompareExchange(Destination,ExChange,Comperand) __hybrid_atomic_cmpxch_val(*(Destination),Comperand,ExChange)
+#define InterlockedAdd(Addend,Value)              __hybrid_atomic_addfetch(*(Addend),Value)
+#define InterlockedIncrement64(Addend)            __hybrid_atomic_incfetch(*(Addend))
+#define InterlockedDecrement64(Addend)            __hybrid_atomic_decfetch(*(Addend))
+#define InterlockedExchange64(Target,Value)       __hybrid_atomic_xch(*(Target),Value)
+#define InterlockedExchangeAdd64(Addend,Value)    __hybrid_atomic_fetchadd(*(Addend),Value)
+#define InterlockedAdd64(Addend,Value)            __hybrid_atomic_addfetch(*(Addend),Value)
+#define InterlockedCompareExchange64(Destination,ExChange,Comperand) __hybrid_atomic_cmpxch_val(*(Destination),Comperand,ExChange)
+#define InterlockedCompareExchangePointer(Destination,ExChange,Comperand) __hybrid_atomic_cmpxch_val(*(Destination),Comperand,ExChange)
+#define InterlockedExchangePointer(Target,Value)  __hybrid_atomic_xch(*(Target),Value)
 #define CacheLineFlush(Address) _mm_clflush(Address)
-VOID (_ReadWriteBarrier)(VOID);
-#define FastFence       __faststorefence        /* FIXME: implement proprely */
-#define LoadFence       _mm_lfence
-#define MemoryFence     _mm_mfence
-#define StoreFence      _mm_sfence
+#define _ReadWriteBarrier()     __COMPILER_BARRIER()
+#define FastFence               __faststorefence        /* FIXME: implement properly */
+#define LoadFence               _mm_lfence
+#define MemoryFence             _mm_mfence
+#define StoreFence              _mm_sfence
 
 void (__faststorefence)(void);
 void (_m_prefetchw)(void *Source);
 
-#include "intrin.h"
-
+#include <kos/intrin.h>
 #define YieldProcessor             _mm_pause
-#define MemoryBarrier              __faststorefence        /* FIXME: implement proprely */
+#define MemoryBarrier              __faststorefence        /* FIXME: implement properly */
 #define PreFetchCacheLine(l,a)     _mm_prefetch((CHAR CONST *) a,l)
 #define PrefetchForWrite(p)        _m_prefetchw(p)
 #define ReadForWriteAccess(p)     (_m_prefetchw(p),*(p))
@@ -1221,57 +1035,12 @@ void (_m_prefetchw)(void *Source);
 #define PF_NON_TEMPORAL_LEVEL_ALL  _MM_HINT_NTA
 #define ReadMxCsr                  _mm_getcsr
 #define WriteMxCsr                 _mm_setcsr
-VOID (__int2c)(VOID);
-#define DbgRaiseAssertionFailure() __int2c()
+#define DbgRaiseAssertionFailure() __int(0x2c)
 #define GetCallersEflags()         __getcallerseflags()
 unsigned __int32 __getcallerseflags(VOID);
 #define GetSegmentLimit            __segmentlimit
 DWORD (__segmentlimit)(DWORD Selector);
 #define ReadTimeStampCounter()      __rdtsc()
-__UINT64_TYPE__ (__rdtsc)(void);
-VOID (__movsb)(PBYTE Destination, BYTE const *Source, SIZE_T Count);
-VOID (__movsw)(PWORD Destination, WORD const *Source, SIZE_T Count);
-VOID (__movsd)(PDWORD Destination, DWORD const *Source, SIZE_T Count);
-VOID (__movsq)(PDWORD64 Destination, DWORD64 const *Source, SIZE_T Count);
-VOID (__stosb)(PBYTE Destination, BYTE Value, SIZE_T Count);
-VOID (__stosw)(PWORD Destination, WORD Value, SIZE_T Count);
-VOID (__stosd)(PDWORD Destination, DWORD Value, SIZE_T Count);
-VOID (__stosq)(PDWORD64 Destination, DWORD64 Value, SIZE_T Count);
-#ifndef __CRT__NO_INLINE
-__CRT_INLINE VOID (__stosb)(PBYTE Dest, BYTE Data, SIZE_T Count) {
- __asm__ __volatile__("rep; stosb"
-                      : [Dest] "=D" (Dest)
-                      , [Count] "=c" (Count)
-                      : "[Dest]" (Dest)
-                      , "a" (Data)
-                      , "[Count]" (Count));
-}
-__CRT_INLINE VOID (__stosw)(PWORD Dest, WORD Data, SIZE_T Count) {
- __asm__ __volatile__("rep; stosw"
-                      : [Dest] "=D" (Dest)
-                      , [Count] "=c" (Count)
-                      : "[Dest]" (Dest)
-                      , "a" (Data)
-                      , "[Count]" (Count));
-}
-__CRT_INLINE VOID (__stosd)(PDWORD Dest, DWORD Data, SIZE_T Count) {
- __asm__ __volatile__("rep; stosl"
-                      : [Dest] "=D" (Dest)
-                      , [Count] "=c" (Count)
-                      : "[Dest]" (Dest)
-                      , "a" (Data)
-                      , "[Count]" (Count));
-}
-__CRT_INLINE VOID (__stosq)(PDWORD64 Dest, DWORD64 Data, SIZE_T Count) {
- __asm__ __volatile__("rep; stosq"
-                      : [Dest] "=D" (Dest)
-                      , [Count] "=c" (Count)
-                      : "[Dest]" (Dest)
-                      , "a" (Data)
-                      , "[Count]" (Count));
-}
-#endif /* __CRT__NO_INLINE */
-
 #define MultiplyHigh         __mulh
 #define UnsignedMultiplyHigh __umulh
 LONGLONG MultiplyHigh(LONGLONG Multiplier,LONGLONG Multiplicand);
@@ -1280,12 +1049,22 @@ ULONGLONG UnsignedMultiplyHigh(ULONGLONG Multiplier,ULONGLONG Multiplicand);
 #define ShiftRight128        __shiftright128
 DWORD64 ShiftLeft128(DWORD64 LowPart, DWORD64 HighPart, BYTE Shift);
 DWORD64 ShiftRight128(DWORD64 LowPart, DWORD64 HighPart, BYTE Shift);
-#define Multiply128          _mul128            /* FIXME: implement proprely */
+#define Multiply128          _mul128            /* FIXME: implement properly */
 LONG64 Multiply128(LONG64 Multiplier, LONG64 Multiplicand, LONG64 *HighProduct);
-#define UnsignedMultiply128  _umul128        /* FIXME: implement proprely */
+#define UnsignedMultiply128  _umul128        /* FIXME: implement properly */
 DWORD64 UnsignedMultiply128(DWORD64 Multiplier, DWORD64 Multiplicand, DWORD64 *HighProduct);
 LONG64 MultiplyExtract128(LONG64 Multiplier, LONG64 Multiplicand, BYTE Shift);
 DWORD64 UnsignedMultiplyExtract128(DWORD64 Multiplier, DWORD64 Multiplicand, BYTE Shift);
+
+#define __readgsbyte(Offset)   __readgsb(Offset)
+#define __readgsword(Offset)   __readgsw(Offset)
+#define __readgsdword(Offset)  __readgsl(Offset)
+#define __readgsqword(Offset)  __readgsq(Offset)
+#define __writegsbyte(Offset)  __writegsb(Offset)
+#define __writegsword(Offset)  __writegsw(Offset)
+#define __writegsdword(Offset) __writegsl(Offset)
+#define __writegsqword(Offset) __writegsq(Offset)
+
 #ifndef __CRT__NO_INLINE
 __CRT_INLINE LONG64 (MultiplyExtract128)(LONG64 Multiplier, LONG64 Multiplicand, BYTE Shift) {
  LONG64 extractedProduct;
@@ -1302,54 +1081,6 @@ __CRT_INLINE DWORD64 (UnsignedMultiplyExtract128)(DWORD64 Multiplier, DWORD64 Mu
  lowProduct = UnsignedMultiply128(Multiplier,Multiplicand,&highProduct);
  extractedProduct = ShiftRight128(lowProduct,highProduct,Shift);
  return extractedProduct;
-}
-__CRT_INLINE BYTE (__readgsbyte)(DWORD Offset) {
- BYTE ret;
- __asm__ volatile ("movb %%gs:%1,%0"
-                   : "=r" (ret)
-                   , "=m" ((*(volatile __LONG32_TYPE__ *) (DWORD64) Offset)));
- return ret;
-}
-__CRT_INLINE WORD (__readgsword)(DWORD Offset) {
- WORD ret;
- __asm__ volatile ("movw %%gs:%1,%0"
-                   : "=r" (ret)
-                   , "=m" ((*(volatile __LONG32_TYPE__ *) (DWORD64) Offset)));
- return ret;
-}
-__CRT_INLINE DWORD (__readgsdword)(DWORD Offset) {
- DWORD ret;
- __asm__ volatile ("movl %%gs:%1,%0"
-                   : "=r" (ret)
-                   , "=m" ((*(volatile __LONG32_TYPE__ *) (DWORD64) Offset)));
- return ret;
-}
-__CRT_INLINE DWORD64 (__readgsqword)(DWORD Offset) {
- void *ret;
- __asm__ volatile ("movq %%gs:%1,%0"
-                   : "=r" (ret)
-                   , "=m" ((*(volatile __LONG32_TYPE__ *) (DWORD64) Offset)));
- return (DWORD64) ret;
-}
-__CRT_INLINE VOID (__writegsbyte)(DWORD Offset, BYTE Data) {
- __asm__ volatile ("movb %0,%%gs:%1"
-                   : "=r" (Data)
-                   , "=m" ((*(volatile __LONG32_TYPE__ *) (DWORD64) Offset)));
-}
-__CRT_INLINE VOID (__writegsword)(DWORD Offset, WORD Data) {
- __asm__ volatile ("movw %0,%%gs:%1"
-                   : "=r" (Data)
-                   , "=m" ((*(volatile __LONG32_TYPE__ *) (DWORD64) Offset)));
-}
-__CRT_INLINE VOID (__writegsdword)(DWORD Offset, DWORD Data) {
- __asm__ volatile ("movl %0,%%gs:%1"
-                   : "=r" (Data)
-                   , "=m" ((*(volatile __LONG32_TYPE__ *) (DWORD64) Offset)));
-}
-__CRT_INLINE VOID (__writegsqword)(DWORD Offset, DWORD64 Data) {
- __asm__ volatile ("movq %0,%%gs:%1"
-                   : "=r" (Data)
-                   , "=m" ((*(volatile __LONG32_TYPE__ *) (DWORD64) Offset)));
 }
 #endif /* !__CRT__NO_INLINE */
 
@@ -1564,50 +1295,25 @@ VOID (__writefsdword)(DWORD Offset, DWORD Data);
 
 #if defined(__i386__) && !defined(__x86_64__)
 
-#define YieldProcessor()        __asm__ __volatile__("rep; nop");
-#define PreFetchCacheLine(l,a)
+#include <kos/intrin.h>
+#define YieldProcessor()        __pause()
+#define PreFetchCacheLine(l,a)  (void)0
 #define ReadForWriteAccess(p)   (*(p))
 #define PF_TEMPORAL_LEVEL_1
 #define PF_NON_TEMPORAL_LEVEL_ALL
 #define PcTeb 0x18
-struct _TEB *NtCurrentTeb(void);
-PVOID GetCurrentFiber(void);
 PVOID GetFiberData(void);
 VOID MemoryBarrier(VOID);
-
-#ifdef __CRT__NO_INLINE
-#define DbgRaiseAssertionFailure() __asm__ __volatile__("int $0x2c");
-#else
-VOID DbgRaiseAssertionFailure(void);
-__CRT_INLINE VOID DbgRaiseAssertionFailure(void) {
- __asm__ __volatile__("int $0x2c");
-}
-#endif
+#define DbgRaiseAssertionFailure()        __int(0x2c)
+#define NtCurrentTeb()    ((struct _TEB *)__readfsptr(0x18))
+#define GetCurrentFiber()                 __readfsptr(0x10)
+#define GetFiberData()         (*(void **)GetCurrentFiber())
 
 #ifndef __CRT__NO_INLINE
 __CRT_INLINE VOID MemoryBarrier(VOID) {
- LONG Barrier = 0;
+ LONG Barrier = 0; /* ??? */
  __asm__ __volatile__("xchgl %%eax,%0 "
                       : "=r" (Barrier));
-}
-__CRT_INLINE struct _TEB *NtCurrentTeb(void) {
- struct _TEB *ret;
- __asm__ volatile ("movl %%fs:0x18,%0"
-                   : "=r" (ret));
- return ret;
-}
-__CRT_INLINE PVOID GetCurrentFiber(void) {
- void *ret;
- __asm__ volatile ("movl %%fs:0x10,%0"
-                   : "=r" (ret));
- return ret;
-}
-__CRT_INLINE PVOID GetFiberData(void) {
- void *ret;
- __asm__ volatile ("movl %%fs:0x10,%0\n"
-                   "movl (%0),%0"
-                   : "=r" (ret));
- return ret;
 }
 #endif /* !__CRT__NO_INLINE */
 #endif /* defined(__i386__) && !defined(__x86_64__) */
@@ -2463,28 +2169,24 @@ typedef struct _ACCESS_ALLOWED_CALLBACK_ACE {
   ACE_HEADER Header;
   ACCESS_MASK Mask;
   DWORD SidStart;
-
 } ACCESS_ALLOWED_CALLBACK_ACE,*PACCESS_ALLOWED_CALLBACK_ACE;
 
 typedef struct _ACCESS_DENIED_CALLBACK_ACE {
   ACE_HEADER Header;
   ACCESS_MASK Mask;
   DWORD SidStart;
-
 } ACCESS_DENIED_CALLBACK_ACE,*PACCESS_DENIED_CALLBACK_ACE;
 
 typedef struct _SYSTEM_AUDIT_CALLBACK_ACE {
   ACE_HEADER Header;
   ACCESS_MASK Mask;
   DWORD SidStart;
-
 } SYSTEM_AUDIT_CALLBACK_ACE,*PSYSTEM_AUDIT_CALLBACK_ACE;
 
 typedef struct _SYSTEM_ALARM_CALLBACK_ACE {
   ACE_HEADER Header;
   ACCESS_MASK Mask;
   DWORD SidStart;
-
 } SYSTEM_ALARM_CALLBACK_ACE,*PSYSTEM_ALARM_CALLBACK_ACE;
 
 typedef struct _ACCESS_ALLOWED_CALLBACK_OBJECT_ACE {
@@ -2494,7 +2196,6 @@ typedef struct _ACCESS_ALLOWED_CALLBACK_OBJECT_ACE {
   GUID ObjectType;
   GUID InheritedObjectType;
   DWORD SidStart;
-
 } ACCESS_ALLOWED_CALLBACK_OBJECT_ACE,*PACCESS_ALLOWED_CALLBACK_OBJECT_ACE;
 
 typedef struct _ACCESS_DENIED_CALLBACK_OBJECT_ACE {
@@ -2504,7 +2205,6 @@ typedef struct _ACCESS_DENIED_CALLBACK_OBJECT_ACE {
   GUID ObjectType;
   GUID InheritedObjectType;
   DWORD SidStart;
-
 } ACCESS_DENIED_CALLBACK_OBJECT_ACE,*PACCESS_DENIED_CALLBACK_OBJECT_ACE;
 
 typedef struct _SYSTEM_AUDIT_CALLBACK_OBJECT_ACE {
@@ -2514,7 +2214,6 @@ typedef struct _SYSTEM_AUDIT_CALLBACK_OBJECT_ACE {
   GUID ObjectType;
   GUID InheritedObjectType;
   DWORD SidStart;
-
 } SYSTEM_AUDIT_CALLBACK_OBJECT_ACE,*PSYSTEM_AUDIT_CALLBACK_OBJECT_ACE;
 
 typedef struct _SYSTEM_ALARM_CALLBACK_OBJECT_ACE {
@@ -2524,7 +2223,6 @@ typedef struct _SYSTEM_ALARM_CALLBACK_OBJECT_ACE {
   GUID ObjectType;
   GUID InheritedObjectType;
   DWORD SidStart;
-
 } SYSTEM_ALARM_CALLBACK_OBJECT_ACE,*PSYSTEM_ALARM_CALLBACK_OBJECT_ACE;
 
 #define ACE_OBJECT_TYPE_PRESENT 0x1
@@ -2586,7 +2284,6 @@ typedef struct _SECURITY_DESCRIPTOR {
   PSID Group;
   PACL Sacl;
   PACL Dacl;
-
 } SECURITY_DESCRIPTOR,*PISECURITY_DESCRIPTOR;
 
 typedef struct _OBJECT_TYPE_LIST {
@@ -2685,8 +2382,7 @@ typedef enum _SECURITY_IMPERSONATION_LEVEL {
 
 typedef enum _TOKEN_TYPE {
   TokenPrimary = 1,TokenImpersonation
-} TOKEN_TYPE;
-typedef TOKEN_TYPE *PTOKEN_TYPE;
+} TOKEN_TYPE,*PTOKEN_TYPE;
 
 typedef enum _TOKEN_INFORMATION_CLASS {
   TokenUser = 1,
@@ -2890,8 +2586,8 @@ typedef struct _NT_TIB {
   PVOID StackLimit;
   PVOID SubSystemTib;
   union {
-PVOID FiberData;
-DWORD Version;
+    PVOID FiberData;
+    DWORD Version;
   } DUMMYUNIONNAME;
   PVOID ArbitraryUserPointer;
   struct _NT_TIB *Self;
@@ -2905,8 +2601,8 @@ typedef struct _NT_TIB32 {
   DWORD StackLimit;
   DWORD SubSystemTib;
   union {
-DWORD FiberData;
-DWORD Version;
+    DWORD FiberData;
+    DWORD Version;
   } DUMMYUNIONNAME;
   DWORD ArbitraryUserPointer;
   DWORD Self;
@@ -2918,8 +2614,8 @@ typedef struct _NT_TIB64 {
   DWORD64 StackLimit;
   DWORD64 SubSystemTib;
   union {
-DWORD64 FiberData;
-DWORD Version;
+    DWORD64 FiberData;
+    DWORD   Version;
   } DUMMYUNIONNAME;
   DWORD64 ArbitraryUserPointer;
   DWORD64 Self;
@@ -3165,14 +2861,14 @@ typedef struct _SYSTEM_LOGICAL_PROCESSOR_INFORMATION {
   ULONG_PTR ProcessorMask;
   LOGICAL_PROCESSOR_RELATIONSHIP Relationship;
   union {
-struct {
-  BYTE Flags;
-} ProcessorCore;
-struct {
-  DWORD NodeNumber;
-} NumaNode;
-CACHE_DESCRIPTOR Cache;
-ULONGLONG Reserved[2];
+    struct {
+      BYTE Flags;
+    } ProcessorCore;
+    struct {
+      DWORD NodeNumber;
+    } NumaNode;
+    CACHE_DESCRIPTOR Cache;
+    ULONGLONG Reserved[2];
   };
 } SYSTEM_LOGICAL_PROCESSOR_INFORMATION,*PSYSTEM_LOGICAL_PROCESSOR_INFORMATION;
 
@@ -3397,7 +3093,7 @@ typedef struct _REPARSE_GUID_DATA_BUFFER {
   WORD Reserved;
   GUID ReparseGuid;
   struct {
-BYTE DataBuffer[1];
+    BYTE DataBuffer[1];
   } GenericReparseBuffer;
 } REPARSE_GUID_DATA_BUFFER,*PREPARSE_GUID_DATA_BUFFER;
 
@@ -4047,8 +3743,8 @@ typedef struct ANON_OBJECT_HEADER {
 typedef struct _IMAGE_SECTION_HEADER {
   BYTE Name[IMAGE_SIZEOF_SHORT_NAME];
   union {
-DWORD PhysicalAddress;
-DWORD VirtualSize;
+    DWORD PhysicalAddress;
+    DWORD VirtualSize;
   } Misc;
   DWORD VirtualAddress;
   DWORD SizeOfRawData;
@@ -4111,12 +3807,12 @@ DWORD VirtualSize;
 
 typedef struct _IMAGE_SYMBOL {
   union {
-BYTE ShortName[8];
-struct {
-  DWORD Short;
-  DWORD Long;
-} Name;
-DWORD LongName[2];
+    BYTE ShortName[8];
+    struct {
+      DWORD Short;
+      DWORD Long;
+    } Name;
+    DWORD LongName[2];
   } N;
   DWORD Value;
   SHORT SectionNumber;
@@ -4219,35 +3915,35 @@ typedef IMAGE_SYMBOL UNALIGNED *PIMAGE_SYMBOL;
 
 typedef union _IMAGE_AUX_SYMBOL {
   struct {
-DWORD TagIndex;
-union {
-  struct {
-    WORD Linenumber;
-    WORD Size;
-  } LnSz;
-  DWORD TotalSize;
-} Misc;
-union {
-  struct {
-    DWORD PointerToLinenumber;
-    DWORD PointerToNextFunction;
-  } Function;
-  struct {
-    WORD Dimension[4];
-  } Array;
-} FcnAry;
-WORD TvIndex;
+    DWORD TagIndex;
+    union {
+      struct {
+        WORD Linenumber;
+        WORD Size;
+      } LnSz;
+      DWORD TotalSize;
+    } Misc;
+    union {
+      struct {
+        DWORD PointerToLinenumber;
+        DWORD PointerToNextFunction;
+      } Function;
+      struct {
+        WORD Dimension[4];
+      } Array;
+    } FcnAry;
+    WORD TvIndex;
   } Sym;
   struct {
-BYTE Name[IMAGE_SIZEOF_SYMBOL];
+    BYTE Name[IMAGE_SIZEOF_SYMBOL];
   } File;
   struct {
-DWORD Length;
-WORD NumberOfRelocations;
-WORD NumberOfLinenumbers;
-DWORD CheckSum;
-SHORT Number;
-BYTE Selection;
+    DWORD Length;
+    WORD NumberOfRelocations;
+    WORD NumberOfLinenumbers;
+    DWORD CheckSum;
+    SHORT Number;
+    BYTE Selection;
   } Section;
 } IMAGE_AUX_SYMBOL;
 typedef IMAGE_AUX_SYMBOL UNALIGNED *PIMAGE_AUX_SYMBOL;
@@ -4285,8 +3981,8 @@ typedef IMAGE_AUX_SYMBOL_TOKEN_DEF UNALIGNED *PIMAGE_AUX_SYMBOL_TOKEN_DEF;
 
 typedef struct _IMAGE_RELOCATION {
   union {
-DWORD VirtualAddress;
-DWORD RelocCount;
+    DWORD VirtualAddress;
+    DWORD RelocCount;
   } DUMMYUNIONNAME;
   DWORD SymbolTableIndex;
   WORD Type;
@@ -4679,10 +4375,10 @@ typedef struct _IMAGE_IMPORT_BY_NAME {
 
 typedef struct _IMAGE_THUNK_DATA64 {
   union {
-ULONGLONG ForwarderString;
-ULONGLONG Function;
-ULONGLONG Ordinal;
-ULONGLONG AddressOfData;
+    ULONGLONG ForwarderString;
+    ULONGLONG Function;
+    ULONGLONG Ordinal;
+    ULONGLONG AddressOfData;
   } u1;
 } IMAGE_THUNK_DATA64;
 typedef IMAGE_THUNK_DATA64 *PIMAGE_THUNK_DATA64;
@@ -4691,10 +4387,10 @@ typedef IMAGE_THUNK_DATA64 *PIMAGE_THUNK_DATA64;
 
 typedef struct _IMAGE_THUNK_DATA32 {
   union {
-DWORD ForwarderString;
-DWORD Function;
-DWORD Ordinal;
-DWORD AddressOfData;
+    DWORD ForwarderString;
+    DWORD Function;
+    DWORD Ordinal;
+    DWORD AddressOfData;
   } u1;
 } IMAGE_THUNK_DATA32;
 typedef IMAGE_THUNK_DATA32 *PIMAGE_THUNK_DATA32;
@@ -4706,8 +4402,7 @@ typedef IMAGE_THUNK_DATA32 *PIMAGE_THUNK_DATA32;
 #define IMAGE_SNAP_BY_ORDINAL64(Ordinal) ((Ordinal & IMAGE_ORDINAL_FLAG64)!=0)
 #define IMAGE_SNAP_BY_ORDINAL32(Ordinal) ((Ordinal & IMAGE_ORDINAL_FLAG32)!=0)
 
-typedef VOID
-  (NTAPI *PIMAGE_TLS_CALLBACK)(PVOID DllHandle, DWORD Reason, PVOID Reserved);
+typedef VOID (NTAPI *PIMAGE_TLS_CALLBACK)(PVOID DllHandle, DWORD Reason, PVOID Reserved);
 
 typedef struct _IMAGE_TLS_DIRECTORY64 {
   ULONGLONG StartAddressOfRawData;
@@ -4749,8 +4444,8 @@ typedef PIMAGE_TLS_DIRECTORY32 PIMAGE_TLS_DIRECTORY;
 
 typedef struct _IMAGE_IMPORT_DESCRIPTOR {
   union {
-DWORD Characteristics;
-DWORD OriginalFirstThunk;
+    DWORD Characteristics;
+    DWORD OriginalFirstThunk;
   } DUMMYUNIONNAME;
   DWORD TimeDateStamp;
 
@@ -4786,19 +4481,19 @@ typedef struct _IMAGE_RESOURCE_DIRECTORY {
 
 typedef struct _IMAGE_RESOURCE_DIRECTORY_ENTRY {
   union {
-struct {
-  DWORD NameOffset:31;
-  DWORD NameIsString:1;
-} DUMMYSTRUCTNAME;
-DWORD Name;
-WORD Id;
+    struct {
+      DWORD NameOffset:31;
+      DWORD NameIsString:1;
+    } DUMMYSTRUCTNAME;
+    DWORD Name;
+    WORD Id;
   } DUMMYUNIONNAME;
   union {
-DWORD OffsetToData;
-struct {
-  DWORD OffsetToDirectory:31;
-  DWORD DataIsDirectory:1;
-} DUMMYSTRUCTNAME2;
+    DWORD OffsetToData;
+    struct {
+      DWORD OffsetToDirectory:31;
+      DWORD DataIsDirectory:1;
+    } DUMMYSTRUCTNAME2;
   } DUMMYUNIONNAME2;
 } IMAGE_RESOURCE_DIRECTORY_ENTRY,*PIMAGE_RESOURCE_DIRECTORY_ENTRY;
 
@@ -4983,8 +4678,8 @@ typedef struct _IMAGE_FUNCTION_ENTRY64 {
   ULONGLONG StartingAddress;
   ULONGLONG EndingAddress;
   union {
-ULONGLONG EndOfPrologue;
-ULONGLONG UnwindInfoAddress;
+    ULONGLONG EndOfPrologue;
+    ULONGLONG UnwindInfoAddress;
   } DUMMYUNIONNAME;
 } IMAGE_FUNCTION_ENTRY64,*PIMAGE_FUNCTION_ENTRY64;
 
@@ -5014,7 +4709,6 @@ typedef struct _NON_PAGED_DEBUG_INFO {
   DWORD CheckSum;
   DWORD SizeOfImage;
   ULONGLONG ImageBase;
-
 } NON_PAGED_DEBUG_INFO,*PNON_PAGED_DEBUG_INFO;
 
 #define IMAGE_SEPARATE_DEBUG_SIGNATURE 0x4944
@@ -5048,8 +4742,8 @@ typedef struct IMPORT_OBJECT_HEADER {
   DWORD TimeDateStamp;
   DWORD SizeOfData;
   union {
-WORD Ordinal;
-WORD Hint;
+    WORD Ordinal;
+    WORD Hint;
   };
   WORD Type : 2;
   WORD NameType : 3;
@@ -5121,9 +4815,9 @@ typedef struct _SLIST_HEADER *PSLIST_HEADER;
 typedef union _SLIST_HEADER {
   ULONGLONG Alignment;
   struct {
-SLIST_ENTRY Next;
-WORD Depth;
-WORD Sequence;
+    SLIST_ENTRY Next;
+    WORD Depth;
+    WORD Sequence;
   } DUMMYSTRUCTNAME;
 } SLIST_HEADER,*PSLIST_HEADER;
 #endif /* _WIN64 */
@@ -5214,9 +4908,9 @@ __CRT_INLINE PVOID WINAPI RtlSecureZeroMemory(PVOID ptr, SIZE_T cnt) {
   __stosb((PBYTE)((DWORD64)vptr),0,cnt);
 #else
   while(cnt) {
-*vptr = 0;
-vptr++;
-cnt--;
+    *vptr = 0;
+    vptr++;
+    cnt--;
   }
 #endif /* __x86_64__ */
   return ptr;

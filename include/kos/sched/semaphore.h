@@ -224,7 +224,7 @@ __LOCAL __size_t (__LIBCCALL semaphore_release)(struct semaphore *__restrict __s
                               __ATOMIC_SEQ_CST) &
                               __SEMAPHORE_FWAITERS)) {
   /* Since we can't prevent new threads from appearing in the short
-   * moment between us having woken all old threads, and us setting clearing
+   * moment between us having woken all old threads, and us clearing
    * the WAITERS bit, we must wake _everyone_ again (even though most likely
    * no one is actually there), just so if there is someone, they can set
    * the WAITERS bit again after realizing that no tickets are available. */

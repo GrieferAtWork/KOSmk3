@@ -32,10 +32,10 @@
 
 DECL_BEGIN
 
-/* TODO: Keep track of driver bindings and invoke them
- *       before / after kernel bindings have executed.
- *      (aka. execute them from a kernel binding registered in a `*.post'
- *       section for initializers, and `*.pre' section for finalizers). */
+/*  Keep track of driver bindings and invoke them
+ *  before / after kernel bindings have executed.
+ * (aka. execute them from a kernel binding registered in a `*.post'
+ *  section for initializers, and `*.pre' section for finalizers). */
 
 struct driver_function_binding {
     REF struct driver *fb_driver; /* [1..1][const] The driver responsible for this binding. */
@@ -268,7 +268,7 @@ again:
 
 
 DEFINE_GLOBAL_CACHE_CLEAR(clear_bind_caches);
-INTERN ATTR_USED void KCALL clear_bind_caches(void) {
+PRIVATE ATTR_USED void KCALL clear_bind_caches(void) {
  size_t i;
  struct binding_controller *self;
  INVOKE_BIND_CONTROLLER(&kernel_binding_table[DRIVER_TAG_BGLOBAL_CLEAR_CACHES - DRIVER_TAG_BIND_START],

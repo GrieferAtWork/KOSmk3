@@ -28,8 +28,10 @@
 #undef __cdecl
 #undef _X86_
 #undef WIN32
-#define DUMMYUNIONNAME  /* Nothing */
-#define DUMMYSTRUCTNAME /* Nothing */
+#define DUMMYUNIONNAME   /* Nothing */
+#define DUMMYUNIONNAME2  /* Nothing */
+#define DUMMYSTRUCTNAME  /* Nothing */
+#define DUMMYSTRUCTNAME2 /* Nothing */
 
 #define WIN32       1
 #define _WIN32      1

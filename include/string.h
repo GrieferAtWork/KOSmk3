@@ -490,60 +490,65 @@ __LIBC __WUNUSED __ATTR_PURE __NONNULL((1)) char *(__LIBCCALL rindex)(char const
 #endif /* !__index_defined */
 #endif /* !__KERNEL__ */
 
-#ifdef __DOS_COMPAT__
-#define ____IMPL_DO_FFS(i) \
-{ int __result; \
+#define ____IMPL_DO_FFS(T,i) \
+{ unsigned int __result; \
   if (!i) return 0; \
-  for (__result = 1; !(i&1); ++__result) i >>= 1; \
+  for (__result = 1; !(((T)i)&1); ++__result) \
+       i = ((T)i >> 1); \
   return __result; \
 }
-#endif /* __DOS_COMPAT__ */
 
 #ifdef __USE_GNU
-#ifdef __DOS_COMPAT__
-__LOCAL __WUNUSED __ATTR_CONST int (__LIBCCALL ffsl)(long __i) ____IMPL_DO_FFS(__i)
-__LOCAL __WUNUSED __ATTR_CONST int (__LIBCCALL ffsll)(__LONGLONG __i) ____IMPL_DO_FFS(__i)
-#else /* __DOS_COMPAT__ */
+#if __has_builtin(__builtin_ffsl) && __has_builtin(__builtin_ffsll)
+#ifdef __USE_KOS
+__LOCAL __WUNUSED __ATTR_CONST unsigned int (__LIBCCALL ffsl)(long __i) { return (unsigned int)__builtin_ffsl(__i); }
+__LOCAL __WUNUSED __ATTR_CONST unsigned int (__LIBCCALL ffsll)(__LONGLONG __i) { return (unsigned int)__builtin_ffsll(__i); }
+#define ffsl(__i)  (unsigned int)__builtin_ffsl(__i)
+#define ffsll(__i) (unsigned int)__builtin_ffsll(__i)
+#else
+__LOCAL __WUNUSED __ATTR_CONST int (__LIBCCALL ffsl)(long __i) { return __builtin_ffsl(__i); }
+__LOCAL __WUNUSED __ATTR_CONST int (__LIBCCALL ffsll)(__LONGLONG __i) { return __builtin_ffsll(__i); }
+#define ffsl(__i)  __builtin_ffsl(__i)
+#define ffsll(__i) __builtin_ffsll(__i)
+#endif
+#elif defined(__ANY_COMPAT__) && !defined(__GLC_COMPAT__)
+#ifdef __USE_KOS
+__LOCAL __WUNUSED __ATTR_CONST unsigned int (__LIBCCALL ffsl)(long __i) ____IMPL_DO_FFS(unsigned long,__i)
+__LOCAL __WUNUSED __ATTR_CONST unsigned int (__LIBCCALL ffsll)(__LONGLONG __i) ____IMPL_DO_FFS(__ULONGLONG,__i)
+#else
+__LOCAL __WUNUSED __ATTR_CONST int (__LIBCCALL ffsl)(long __i) ____IMPL_DO_FFS(unsigned long,__i)
+__LOCAL __WUNUSED __ATTR_CONST int (__LIBCCALL ffsll)(__LONGLONG __i) ____IMPL_DO_FFS(__ULONGLONG,__i)
+#endif
+#else /* Compat... */
+#ifdef __USE_KOS
+__LIBC __WUNUSED __ATTR_CONST unsigned int (__LIBCCALL ffsl)(long __i);
+__LIBC __WUNUSED __ATTR_CONST unsigned int (__LIBCCALL ffsll)(__LONGLONG __i);
+#else
 __LIBC __WUNUSED __ATTR_CONST int (__LIBCCALL ffsl)(long __i);
 __LIBC __WUNUSED __ATTR_CONST int (__LIBCCALL ffsll)(__LONGLONG __i);
-#endif /* !__DOS_COMPAT__ */
+#endif
+#endif /* Native... */
 #endif /* __USE_GNU */
 
 #ifndef __ffs_defined
 #define __ffs_defined 1
-#ifdef __DOS_COMPAT__
 #ifdef __USE_KOS
-__LOCAL __WUNUSED __ATTR_CONST int (__LIBCCALL __ffs8)(__INT8_TYPE__ __i) ____IMPL_DO_FFS(__i)
-__LOCAL __WUNUSED __ATTR_CONST int (__LIBCCALL __ffs16)(__INT16_TYPE__ __i) ____IMPL_DO_FFS(__i)
-__LOCAL __WUNUSED __ATTR_CONST int (__LIBCCALL __ffs32)(__INT32_TYPE__ __i) ____IMPL_DO_FFS(__i)
-__LOCAL __WUNUSED __ATTR_CONST int (__LIBCCALL __ffs64)(__INT64_TYPE__ __i) ____IMPL_DO_FFS(__i)
-#define ffs(i) (sizeof(i) == 4 ? __ffs32((__INT32_TYPE__)(i)) : sizeof(i) == 8 ? __ffs64((__INT64_TYPE__)(i)) : \
-                sizeof(i) == 2 ? __ffs16((__INT16_TYPE__)(i)) : __ffs8((__INT8_TYPE__)(i)))
-#else /* __USE_KOS */
-__LOCAL __WUNUSED __ATTR_CONST int (__LIBCCALL ffs)(int __i) ____IMPL_DO_FFS(__i)
-#endif /* !__USE_KOS */
-#else /* __DOS_COMPAT__ */
-#ifdef __USE_KOS
-__LIBC __WUNUSED __ATTR_CONST int (__LIBCCALL __ffs8)(__INT8_TYPE__ __i);
-__LIBC __WUNUSED __ATTR_CONST int (__LIBCCALL __ffs16)(__INT16_TYPE__ __i);
-#if __SIZEOF_INT__ == 4
-__REDIRECT(__LIBC,__WUNUSED __ATTR_CONST,int,__LIBCCALL,__ffs32,(__INT32_TYPE__ __i),ffs,(__i))
-#else /* __SIZEOF_INT__ == 4 */
-__LIBC __WUNUSED __ATTR_CONST int (__LIBCCALL __ffs32)(__INT32_TYPE__ __i);
-#endif /* __SIZEOF_INT__ != 4 */
-#if __SIZEOF_LONG__ == 8
-__REDIRECT(__LIBC,__WUNUSED __ATTR_CONST,int,__LIBCCALL,__ffs64,(__INT64_TYPE__ __i),ffsl,(__i))
-#elif __SIZEOF_LONG_LONG__ == 8
-__REDIRECT(__LIBC,__WUNUSED __ATTR_CONST,int,__LIBCCALL,__ffs64,(__INT64_TYPE__ __i),ffsll,(__i))
-#else /* ... */
-__LIBC __WUNUSED __ATTR_CONST int (__LIBCCALL __ffs64)(__INT64_TYPE__ __i);
-#endif /* !... */
-#define ffs(i) (sizeof(i) == 4 ? __ffs32((__INT32_TYPE__)(i)) : sizeof(i) == 8 ? __ffs64((__INT64_TYPE__)(i)) : \
-                sizeof(i) == 2 ? __ffs16((__INT16_TYPE__)(i)) : __ffs8((__INT8_TYPE__)(i)))
-#else /* __USE_KOS */
+#include <hybrid/bit.h>
+/* unsigned int FFS(INTEGER i):
+ *     FindFirstSet
+ *     Returns the index (starting at 1 for 0x01) of the first
+ *     1-bit in given value, or ZERO(0) if the given value is ZERO(0).
+ *     >> assert(!x ||  (x &  (1 << (ffs(x)-1))));    // FFS-bit is set
+ *     >> assert(!x || !(x & ((1 << (ffs(x)-1))-1))); // Less significant bits are clear */
+#define ffs(i) __hybrid_ffs(i)
+#elif __has_builtin(__builtin_ffs)
+__LOCAL __WUNUSED __ATTR_CONST int (__LIBCCALL ffs)(int __i) { return __builtin_ffs(__i); }
+#define ffs(i) __builtin_ffs(i)
+#elif defined(__ANY_COMPAT__) && !defined(__GLC_COMPAT__)
+__LOCAL __WUNUSED __ATTR_CONST int (__LIBCCALL ffs)(int __i) ____IMPL_DO_FFS(unsigned int,__i)
+#else
 __LIBC __WUNUSED __ATTR_CONST int (__LIBCCALL ffs)(int __i);
 #endif /* !__USE_KOS */
-#endif /* !__DOS_COMPAT__ */
 #endif /* !__ffs_defined */
 #undef ____IMPL_DO_FFS
 

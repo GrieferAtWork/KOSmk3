@@ -161,34 +161,83 @@
 #define __has_extension  __has_feature
 #endif
 #ifndef __has_builtin
-#define __GCC_HAS_BUILTIN___builtin_unreachable
-#define __GCC_HAS_BUILTIN___builtin_choose_expr
-#define __GCC_HAS_BUILTIN___builtin_types_compatible_p
 #define __GCC_HAS_BUILTIN___builtin_va_list
 #define __GCC_HAS_BUILTIN___builtin_va_start
 #define __GCC_HAS_BUILTIN___builtin_va_end
 #define __GCC_HAS_BUILTIN___builtin_va_arg
 #define __GCC_HAS_BUILTIN___builtin_va_copy
-#define __GCC_HAS_BUILTIN___builtin_FUNCTION
-#define __GCC_HAS_BUILTIN___builtin_FILE
-#define __GCC_HAS_BUILTIN___builtin_LINE
-#define __GCC_HAS_BUILTIN___builtin_constant_p
 #define __GCC_HAS_BUILTIN___builtin_offsetof
-#if !defined(__clang__) && (!defined(__INTEL_VERSION__) || __INTEL_VERSION__ >= 800)
-#define __GCC_HAS_BUILTIN___builtin_expect
+#if __GCC_VERSION(8,1,0)
+#define __GCC_HAS_BUILTIN___builtin_alloca_with_align_and_max  /* void *__builtin_alloca_with_align_and_max(size_t size, size_t alignment, size_t max_size) */
+#define __GCC_HAS_BUILTIN___builtin_tgmath                     /* type __builtin_tgmath(functions, arguments) */
+#define __GCC_HAS_BUILTIN___builtin_extend_pointer             /* Pmode __builtin_extend_pointer(void * x) */
 #endif
-#if __GCC_VERSION(2,97,0)
-#define __GCC_HAS_BUILTIN___builtin_isunordered
-#define __GCC_HAS_BUILTIN___builtin_isgreater
-#define __GCC_HAS_BUILTIN___builtin_isgreaterequal
-#define __GCC_HAS_BUILTIN___builtin_isless
-#define __GCC_HAS_BUILTIN___builtin_islessequal
-#define __GCC_HAS_BUILTIN___builtin_islessgreater
+#if __GCC_VERSION(7,3,0)
+#define __GCC_HAS_BUILTIN___builtin_fabsfn
+#define __GCC_HAS_BUILTIN___builtin_fabsfnx
+#define __GCC_HAS_BUILTIN___builtin_copysignfn
+#define __GCC_HAS_BUILTIN___builtin_copysignfnx
 #endif
-#if __GCC_VERSION(4,0,0)
-#define __GCC_HAS_BUILTIN___builtin_signbitf
-#define __GCC_HAS_BUILTIN___builtin_signbit
-#define __GCC_HAS_BUILTIN___builtin_signbitl
+#if __GCC_VERSION(6,4,0)
+#define __GCC_HAS_BUILTIN___builtin_clog10
+#define __GCC_HAS_BUILTIN___builtin_clog10f
+#define __GCC_HAS_BUILTIN___builtin_clog10l
+#endif
+#if __GCC_VERSION(5,5,0)
+#define __GCC_HAS_BUILTIN___builtin_alloca_with_align          /* void *__builtin_alloca_with_align(size_t size, size_t alignment) */
+#define __GCC_HAS_BUILTIN___builtin_call_with_static_chain     /* type __builtin_call_with_static_chain(call_exp, pointer_exp) */
+#define __GCC_HAS_BUILTIN___builtin___bnd_set_ptr_bounds
+#define __GCC_HAS_BUILTIN___builtin___bnd_narrow_ptr_bounds
+#define __GCC_HAS_BUILTIN___builtin___bnd_copy_ptr_bounds
+#define __GCC_HAS_BUILTIN___builtin___bnd_init_ptr_bounds
+#define __GCC_HAS_BUILTIN___builtin___bnd_null_ptr_bounds
+#define __GCC_HAS_BUILTIN___builtin___bnd_store_ptr_bounds
+#define __GCC_HAS_BUILTIN___builtin___bnd_chk_ptr_lbounds
+#define __GCC_HAS_BUILTIN___builtin___bnd_chk_ptr_ubounds
+#define __GCC_HAS_BUILTIN___builtin___bnd_chk_ptr_bounds
+#define __GCC_HAS_BUILTIN___builtin___bnd_get_ptr_lbound
+#define __GCC_HAS_BUILTIN___builtin___bnd_get_ptr_ubound
+#endif
+#if __GCC_VERSION(4,8,5)
+#define __GCC_HAS_BUILTIN___builtin_bswap16                    /* uint16_t __builtin_bswap16(uint16_t x) */
+#define __GCC_HAS_BUILTIN___builtin_bswap32                    /* uint32_t __builtin_bswap32(uint32_t x) */
+#define __GCC_HAS_BUILTIN___builtin_bswap64                    /* uint64_t __builtin_bswap64(uint64_t x) */
+#define __GCC_HAS_BUILTIN___builtin_LINE                       /* int __builtin_LINE */
+#define __GCC_HAS_BUILTIN___builtin_FUNCTION                   /* const char * __builtin_FUNCTION */
+#define __GCC_HAS_BUILTIN___builtin_FILE                       /* const char * __builtin_FILE */
+#endif
+#if __GCC_VERSION(4,7,4)
+#define __GCC_HAS_BUILTIN___builtin_complex                    /* type __builtin_complex(real, imag) */
+#define __GCC_HAS_BUILTIN___builtin_assume_aligned             /* void * __builtin_assume_aligned(const void *exp, size_t align, ...) */
+#define __GCC_HAS_BUILTIN___atomic_load_n
+#define __GCC_HAS_BUILTIN___atomic_load
+#define __GCC_HAS_BUILTIN___atomic_store_n
+#define __GCC_HAS_BUILTIN___atomic_store
+#define __GCC_HAS_BUILTIN___atomic_exchange_n
+#define __GCC_HAS_BUILTIN___atomic_exchange
+#define __GCC_HAS_BUILTIN___atomic_compare_exchange_n
+#define __GCC_HAS_BUILTIN___atomic_compare_exchange
+#define __GCC_HAS_BUILTIN___atomic_add_fetch
+#define __GCC_HAS_BUILTIN___atomic_sub_fetch
+#define __GCC_HAS_BUILTIN___atomic_and_fetch
+#define __GCC_HAS_BUILTIN___atomic_xor_fetch
+#define __GCC_HAS_BUILTIN___atomic_or_fetch
+#define __GCC_HAS_BUILTIN___atomic_nand_fetch
+#define __GCC_HAS_BUILTIN___atomic_fetch_add
+#define __GCC_HAS_BUILTIN___atomic_fetch_sub
+#define __GCC_HAS_BUILTIN___atomic_fetch_and
+#define __GCC_HAS_BUILTIN___atomic_fetch_xor
+#define __GCC_HAS_BUILTIN___atomic_fetch_or
+#define __GCC_HAS_BUILTIN___atomic_fetch_nand
+#define __GCC_HAS_BUILTIN___atomic_test_and_set
+#define __GCC_HAS_BUILTIN___atomic_clear
+#define __GCC_HAS_BUILTIN___atomic_thread_fence
+#define __GCC_HAS_BUILTIN___atomic_signal_fence
+#define __GCC_HAS_BUILTIN___atomic_always_lock_free
+#define __GCC_HAS_BUILTIN___atomic_is_lock_free
+#endif
+#if __GCC_VERSION(4,5,4)
+#define __GCC_HAS_BUILTIN___builtin_unreachable                /* void __builtin_unreachable(void) */
 #endif
 #if __GCC_VERSION(4,4,0)
 #define __GCC_HAS_BUILTIN___builtin_fpclassify
@@ -196,7 +245,464 @@
 #define __GCC_HAS_BUILTIN___builtin_isnormal
 #define __GCC_HAS_BUILTIN___builtin_isnan
 #define __GCC_HAS_BUILTIN___builtin_isinf_sign
+#define __GCC_HAS_BUILTIN___builtin_isinf
 #endif
+#if __GCC_VERSION(4,3,6)
+#define __GCC_HAS_BUILTIN___builtin___clear_cache              /* void __builtin___clear_cache(char *begin, char *end) */
+#define __GCC_HAS_BUILTIN___builtin_gammaf_r
+#define __GCC_HAS_BUILTIN___builtin_gammal_r
+#define __GCC_HAS_BUILTIN___builtin_gamma_r
+#define __GCC_HAS_BUILTIN___builtin_lgammaf_r
+#define __GCC_HAS_BUILTIN___builtin_lgammal_r
+#define __GCC_HAS_BUILTIN___builtin_lgamma_r
+#define __GCC_HAS_BUILTIN___builtin_signbitd32
+#define __GCC_HAS_BUILTIN___builtin_signbitd64
+#define __GCC_HAS_BUILTIN___builtin_signbitd128
+#define __GCC_HAS_BUILTIN___builtin_memchr
+#endif
+#if __GCC_VERSION(4,3,0)
+#define __GCC_HAS_BUILTIN___builtin_va_arg_pack
+#define __GCC_HAS_BUILTIN___builtin_va_arg_pack_len
+#endif
+#if __GCC_VERSION(4,2,4)
+#define __GCC_HAS_BUILTIN___builtin_trap                       /* void __builtin_trap(void) */
+#endif
+#if __GCC_VERSION(4,1,2)
+#define __GCC_HAS_BUILTIN___builtin_stpncpy
+#define __GCC_HAS_BUILTIN___builtin_strcasecmp
+#define __GCC_HAS_BUILTIN___builtin_strncasecmp
+#define __GCC_HAS_BUILTIN___builtin_strndup
+#define __GCC_HAS_BUILTIN___builtin_clogf
+#define __GCC_HAS_BUILTIN___builtin_clogl
+#define __GCC_HAS_BUILTIN___builtin_clog
+#define __GCC_HAS_BUILTIN___builtin_object_size
+#define __GCC_HAS_BUILTIN___sync_fetch_and_add
+#define __GCC_HAS_BUILTIN___sync_fetch_and_sub
+#define __GCC_HAS_BUILTIN___sync_fetch_and_or
+#define __GCC_HAS_BUILTIN___sync_fetch_and_and
+#define __GCC_HAS_BUILTIN___sync_fetch_and_xor
+#define __GCC_HAS_BUILTIN___sync_fetch_and_nand
+#define __GCC_HAS_BUILTIN___sync_add_and_fetch
+#define __GCC_HAS_BUILTIN___sync_sub_and_fetch
+#define __GCC_HAS_BUILTIN___sync_or_and_fetch
+#define __GCC_HAS_BUILTIN___sync_and_and_fetch
+#define __GCC_HAS_BUILTIN___sync_xor_and_fetch
+#define __GCC_HAS_BUILTIN___sync_nand_and_fetch
+#define __GCC_HAS_BUILTIN___sync_bool_compare_and_swap
+#define __GCC_HAS_BUILTIN___sync_val_compare_and_swap
+#define __GCC_HAS_BUILTIN___sync_synchronize
+#define __GCC_HAS_BUILTIN___sync_lock_test_and_set
+#define __GCC_HAS_BUILTIN___sync_lock_release
+#endif
+#if __GCC_VERSION(4,0,4)
+#define __GCC_HAS_BUILTIN___builtin_isascii
+#define __GCC_HAS_BUILTIN___builtin_toascii
+#define __GCC_HAS_BUILTIN___builtin_isblank
+#define __GCC_HAS_BUILTIN___builtin_iswblank
+#define __GCC_HAS_BUILTIN___builtin_iswalnum
+#define __GCC_HAS_BUILTIN___builtin_iswalpha
+#define __GCC_HAS_BUILTIN___builtin_iswcntrl
+#define __GCC_HAS_BUILTIN___builtin_iswdigit
+#define __GCC_HAS_BUILTIN___builtin_iswgraph
+#define __GCC_HAS_BUILTIN___builtin_iswlower
+#define __GCC_HAS_BUILTIN___builtin_iswprint
+#define __GCC_HAS_BUILTIN___builtin_iswpunct
+#define __GCC_HAS_BUILTIN___builtin_iswspace
+#define __GCC_HAS_BUILTIN___builtin_iswupper
+#define __GCC_HAS_BUILTIN___builtin_iswxdigit
+#define __GCC_HAS_BUILTIN___builtin_towlower
+#define __GCC_HAS_BUILTIN___builtin_towupper
+#define __GCC_HAS_BUILTIN___builtin_isalnum
+#define __GCC_HAS_BUILTIN___builtin_isalpha
+#define __GCC_HAS_BUILTIN___builtin_iscntrl
+#define __GCC_HAS_BUILTIN___builtin_isdigit
+#define __GCC_HAS_BUILTIN___builtin_isgraph
+#define __GCC_HAS_BUILTIN___builtin_islower
+#define __GCC_HAS_BUILTIN___builtin_isprint
+#define __GCC_HAS_BUILTIN___builtin_ispunct
+#define __GCC_HAS_BUILTIN___builtin_isspace
+#define __GCC_HAS_BUILTIN___builtin_isupper
+#define __GCC_HAS_BUILTIN___builtin_isxdigit
+#define __GCC_HAS_BUILTIN___builtin_tolower
+#define __GCC_HAS_BUILTIN___builtin_toupper
+#endif
+#if __GCC_VERSION(4,0,0)
+#define __GCC_HAS_BUILTIN___builtin_signbitf
+#define __GCC_HAS_BUILTIN___builtin_signbit
+#define __GCC_HAS_BUILTIN___builtin_signbitl
+#endif
+#if __GCC_VERSION(3,4,6)
+#define __GCC_HAS_BUILTIN___builtin_ffsl                       /* int __builtin_ffsl(long) */
+#define __GCC_HAS_BUILTIN___builtin_ffsll                      /* int __builtin_ffsll(long long) */
+#define __GCC_HAS_BUILTIN___builtin_clz                        /* int __builtin_clz(unsigned int x) */
+#define __GCC_HAS_BUILTIN___builtin_clzl                       /* int __builtin_clzl(unsigned long) */
+#define __GCC_HAS_BUILTIN___builtin_clzll                      /* int __builtin_clzll(unsigned long long) */
+#define __GCC_HAS_BUILTIN___builtin_ctz                        /* int __builtin_ctz(unsigned int x) */
+#define __GCC_HAS_BUILTIN___builtin_ctzl                       /* int __builtin_ctzl(unsigned long) */
+#define __GCC_HAS_BUILTIN___builtin_ctzll                      /* int __builtin_ctzll(unsigned long long) */
+#define __GCC_HAS_BUILTIN___builtin_clrsb                      /* int __builtin_clrsb(int x) */
+#define __GCC_HAS_BUILTIN___builtin_clrsbl                     /* int __builtin_clrsbl(long) */
+#define __GCC_HAS_BUILTIN___builtin_clrsbll                    /* int __builtin_clrsbll(long long) */
+#define __GCC_HAS_BUILTIN___builtin_popcount                   /* int __builtin_popcount(unsigned int x) */
+#define __GCC_HAS_BUILTIN___builtin_popcountl                  /* int __builtin_popcountl(unsigned long) */
+#define __GCC_HAS_BUILTIN___builtin_popcountll                 /* int __builtin_popcountll(unsigned long long) */
+#define __GCC_HAS_BUILTIN___builtin_parity                     /* int __builtin_parity(unsigned int x) */
+#define __GCC_HAS_BUILTIN___builtin_parityl                    /* int __builtin_parityl(unsigned long) */
+#define __GCC_HAS_BUILTIN___builtin_parityll                   /* int __builtin_parityll(unsigned long long) */
+#define __GCC_HAS_BUILTIN___builtin__exit
+#define __GCC_HAS_BUILTIN___builtin_dcgettext
+#define __GCC_HAS_BUILTIN___builtin_dgettext
+#define __GCC_HAS_BUILTIN___builtin_dremf
+#define __GCC_HAS_BUILTIN___builtin_dreml
+#define __GCC_HAS_BUILTIN___builtin_drem
+#define __GCC_HAS_BUILTIN___builtin_exp10f
+#define __GCC_HAS_BUILTIN___builtin_exp10l
+#define __GCC_HAS_BUILTIN___builtin_exp10
+#define __GCC_HAS_BUILTIN___builtin_gammaf
+#define __GCC_HAS_BUILTIN___builtin_gammal
+#define __GCC_HAS_BUILTIN___builtin_gamma
+#define __GCC_HAS_BUILTIN___builtin_gettext
+#define __GCC_HAS_BUILTIN___builtin_j0f
+#define __GCC_HAS_BUILTIN___builtin_j0l
+#define __GCC_HAS_BUILTIN___builtin_j0
+#define __GCC_HAS_BUILTIN___builtin_j1f
+#define __GCC_HAS_BUILTIN___builtin_j1l
+#define __GCC_HAS_BUILTIN___builtin_j1
+#define __GCC_HAS_BUILTIN___builtin_jnf
+#define __GCC_HAS_BUILTIN___builtin_jnl
+#define __GCC_HAS_BUILTIN___builtin_jn
+#define __GCC_HAS_BUILTIN___builtin_mempcpy
+#define __GCC_HAS_BUILTIN___builtin_pow10f
+#define __GCC_HAS_BUILTIN___builtin_pow10l
+#define __GCC_HAS_BUILTIN___builtin_pow10
+#define __GCC_HAS_BUILTIN___builtin_scalbf
+#define __GCC_HAS_BUILTIN___builtin_scalbl
+#define __GCC_HAS_BUILTIN___builtin_scalb
+#define __GCC_HAS_BUILTIN___builtin_significandf
+#define __GCC_HAS_BUILTIN___builtin_significandl
+#define __GCC_HAS_BUILTIN___builtin_significand
+#define __GCC_HAS_BUILTIN___builtin_sincosf
+#define __GCC_HAS_BUILTIN___builtin_sincosl
+#define __GCC_HAS_BUILTIN___builtin_sincos
+#define __GCC_HAS_BUILTIN___builtin_stpcpy
+#define __GCC_HAS_BUILTIN___builtin_strdup
+#define __GCC_HAS_BUILTIN___builtin_strfmon
+#define __GCC_HAS_BUILTIN___builtin_y0f
+#define __GCC_HAS_BUILTIN___builtin_y0l
+#define __GCC_HAS_BUILTIN___builtin_y0
+#define __GCC_HAS_BUILTIN___builtin_y1f
+#define __GCC_HAS_BUILTIN___builtin_y1l
+#define __GCC_HAS_BUILTIN___builtin_y1
+#define __GCC_HAS_BUILTIN___builtin_ynf
+#define __GCC_HAS_BUILTIN___builtin_ynl
+#define __GCC_HAS_BUILTIN___builtin_yn 
+#define __GCC_HAS_BUILTIN___builtin__Exit
+#define __GCC_HAS_BUILTIN___builtin_acoshf
+#define __GCC_HAS_BUILTIN___builtin_acoshl
+#define __GCC_HAS_BUILTIN___builtin_acosh
+#define __GCC_HAS_BUILTIN___builtin_asinhf
+#define __GCC_HAS_BUILTIN___builtin_asinhl
+#define __GCC_HAS_BUILTIN___builtin_asinh
+#define __GCC_HAS_BUILTIN___builtin_atanhf
+#define __GCC_HAS_BUILTIN___builtin_atanhl
+#define __GCC_HAS_BUILTIN___builtin_atanh
+#define __GCC_HAS_BUILTIN___builtin_cabsf
+#define __GCC_HAS_BUILTIN___builtin_cabsl
+#define __GCC_HAS_BUILTIN___builtin_cabs
+#define __GCC_HAS_BUILTIN___builtin_cacosf
+#define __GCC_HAS_BUILTIN___builtin_cacoshf
+#define __GCC_HAS_BUILTIN___builtin_cacoshl
+#define __GCC_HAS_BUILTIN___builtin_cacosh
+#define __GCC_HAS_BUILTIN___builtin_cacosl
+#define __GCC_HAS_BUILTIN___builtin_cacos
+#define __GCC_HAS_BUILTIN___builtin_cargf
+#define __GCC_HAS_BUILTIN___builtin_cargl
+#define __GCC_HAS_BUILTIN___builtin_carg
+#define __GCC_HAS_BUILTIN___builtin_casinf
+#define __GCC_HAS_BUILTIN___builtin_casinhf
+#define __GCC_HAS_BUILTIN___builtin_casinhl
+#define __GCC_HAS_BUILTIN___builtin_casinh
+#define __GCC_HAS_BUILTIN___builtin_casinl
+#define __GCC_HAS_BUILTIN___builtin_casin
+#define __GCC_HAS_BUILTIN___builtin_catanf
+#define __GCC_HAS_BUILTIN___builtin_catanhf
+#define __GCC_HAS_BUILTIN___builtin_catanhl
+#define __GCC_HAS_BUILTIN___builtin_catanh
+#define __GCC_HAS_BUILTIN___builtin_catanl
+#define __GCC_HAS_BUILTIN___builtin_catan
+#define __GCC_HAS_BUILTIN___builtin_cbrtf
+#define __GCC_HAS_BUILTIN___builtin_cbrtl
+#define __GCC_HAS_BUILTIN___builtin_cbrt
+#define __GCC_HAS_BUILTIN___builtin_ccosf
+#define __GCC_HAS_BUILTIN___builtin_ccoshf
+#define __GCC_HAS_BUILTIN___builtin_ccoshl
+#define __GCC_HAS_BUILTIN___builtin_ccosh
+#define __GCC_HAS_BUILTIN___builtin_ccosl
+#define __GCC_HAS_BUILTIN___builtin_ccos
+#define __GCC_HAS_BUILTIN___builtin_cexpf
+#define __GCC_HAS_BUILTIN___builtin_cexpl
+#define __GCC_HAS_BUILTIN___builtin_cexp
+#define __GCC_HAS_BUILTIN___builtin_copysignf
+#define __GCC_HAS_BUILTIN___builtin_copysignl
+#define __GCC_HAS_BUILTIN___builtin_copysign
+#define __GCC_HAS_BUILTIN___builtin_cpowf
+#define __GCC_HAS_BUILTIN___builtin_cpowl
+#define __GCC_HAS_BUILTIN___builtin_cpow
+#define __GCC_HAS_BUILTIN___builtin_cprojf
+#define __GCC_HAS_BUILTIN___builtin_cprojl
+#define __GCC_HAS_BUILTIN___builtin_cproj
+#define __GCC_HAS_BUILTIN___builtin_csinf
+#define __GCC_HAS_BUILTIN___builtin_csinhf
+#define __GCC_HAS_BUILTIN___builtin_csinhl
+#define __GCC_HAS_BUILTIN___builtin_csinh
+#define __GCC_HAS_BUILTIN___builtin_csinl
+#define __GCC_HAS_BUILTIN___builtin_csin
+#define __GCC_HAS_BUILTIN___builtin_csqrtf
+#define __GCC_HAS_BUILTIN___builtin_csqrtl
+#define __GCC_HAS_BUILTIN___builtin_csqrt
+#define __GCC_HAS_BUILTIN___builtin_ctanf
+#define __GCC_HAS_BUILTIN___builtin_ctanhf
+#define __GCC_HAS_BUILTIN___builtin_ctanhl
+#define __GCC_HAS_BUILTIN___builtin_ctanh
+#define __GCC_HAS_BUILTIN___builtin_ctanl
+#define __GCC_HAS_BUILTIN___builtin_ctan
+#define __GCC_HAS_BUILTIN___builtin_erfcf
+#define __GCC_HAS_BUILTIN___builtin_erfcl
+#define __GCC_HAS_BUILTIN___builtin_erfc
+#define __GCC_HAS_BUILTIN___builtin_erff
+#define __GCC_HAS_BUILTIN___builtin_erfl
+#define __GCC_HAS_BUILTIN___builtin_erf
+#define __GCC_HAS_BUILTIN___builtin_exp2f
+#define __GCC_HAS_BUILTIN___builtin_exp2l
+#define __GCC_HAS_BUILTIN___builtin_exp2
+#define __GCC_HAS_BUILTIN___builtin_expm1f
+#define __GCC_HAS_BUILTIN___builtin_expm1l
+#define __GCC_HAS_BUILTIN___builtin_expm1
+#define __GCC_HAS_BUILTIN___builtin_fdimf
+#define __GCC_HAS_BUILTIN___builtin_fdiml
+#define __GCC_HAS_BUILTIN___builtin_fdim
+#define __GCC_HAS_BUILTIN___builtin_fmaf
+#define __GCC_HAS_BUILTIN___builtin_fmal
+#define __GCC_HAS_BUILTIN___builtin_fmaxf
+#define __GCC_HAS_BUILTIN___builtin_fmaxl
+#define __GCC_HAS_BUILTIN___builtin_fmax
+#define __GCC_HAS_BUILTIN___builtin_fma
+#define __GCC_HAS_BUILTIN___builtin_fminf
+#define __GCC_HAS_BUILTIN___builtin_fminl
+#define __GCC_HAS_BUILTIN___builtin_fmin
+#define __GCC_HAS_BUILTIN___builtin_hypotf
+#define __GCC_HAS_BUILTIN___builtin_hypotl
+#define __GCC_HAS_BUILTIN___builtin_hypot
+#define __GCC_HAS_BUILTIN___builtin_ilogbf
+#define __GCC_HAS_BUILTIN___builtin_ilogbl
+#define __GCC_HAS_BUILTIN___builtin_ilogb
+#define __GCC_HAS_BUILTIN___builtin_lgammaf
+#define __GCC_HAS_BUILTIN___builtin_lgammal
+#define __GCC_HAS_BUILTIN___builtin_lgamma
+#define __GCC_HAS_BUILTIN___builtin_llrintf
+#define __GCC_HAS_BUILTIN___builtin_llrintl
+#define __GCC_HAS_BUILTIN___builtin_llrint
+#define __GCC_HAS_BUILTIN___builtin_llroundf
+#define __GCC_HAS_BUILTIN___builtin_llroundl
+#define __GCC_HAS_BUILTIN___builtin_llround
+#define __GCC_HAS_BUILTIN___builtin_log1pf
+#define __GCC_HAS_BUILTIN___builtin_log1pl
+#define __GCC_HAS_BUILTIN___builtin_log1p
+#define __GCC_HAS_BUILTIN___builtin_log2f
+#define __GCC_HAS_BUILTIN___builtin_log2l
+#define __GCC_HAS_BUILTIN___builtin_log2
+#define __GCC_HAS_BUILTIN___builtin_logbf
+#define __GCC_HAS_BUILTIN___builtin_logbl
+#define __GCC_HAS_BUILTIN___builtin_logb
+#define __GCC_HAS_BUILTIN___builtin_lrintf
+#define __GCC_HAS_BUILTIN___builtin_lrintl
+#define __GCC_HAS_BUILTIN___builtin_lrint
+#define __GCC_HAS_BUILTIN___builtin_lroundf
+#define __GCC_HAS_BUILTIN___builtin_lroundl
+#define __GCC_HAS_BUILTIN___builtin_lround
+#define __GCC_HAS_BUILTIN___builtin_nearbyintf
+#define __GCC_HAS_BUILTIN___builtin_nearbyintl
+#define __GCC_HAS_BUILTIN___builtin_nearbyint
+#define __GCC_HAS_BUILTIN___builtin_nextafterf
+#define __GCC_HAS_BUILTIN___builtin_nextafterl
+#define __GCC_HAS_BUILTIN___builtin_nextafter
+#define __GCC_HAS_BUILTIN___builtin_nexttowardf
+#define __GCC_HAS_BUILTIN___builtin_nexttowardl
+#define __GCC_HAS_BUILTIN___builtin_nexttoward
+#define __GCC_HAS_BUILTIN___builtin_remainderf
+#define __GCC_HAS_BUILTIN___builtin_remainderl
+#define __GCC_HAS_BUILTIN___builtin_remainder
+#define __GCC_HAS_BUILTIN___builtin_remquof
+#define __GCC_HAS_BUILTIN___builtin_remquol
+#define __GCC_HAS_BUILTIN___builtin_remquo
+#define __GCC_HAS_BUILTIN___builtin_rintf
+#define __GCC_HAS_BUILTIN___builtin_rintl
+#define __GCC_HAS_BUILTIN___builtin_rint
+#define __GCC_HAS_BUILTIN___builtin_roundf
+#define __GCC_HAS_BUILTIN___builtin_roundl
+#define __GCC_HAS_BUILTIN___builtin_round
+#define __GCC_HAS_BUILTIN___builtin_scalblnf
+#define __GCC_HAS_BUILTIN___builtin_scalblnl
+#define __GCC_HAS_BUILTIN___builtin_scalbln
+#define __GCC_HAS_BUILTIN___builtin_scalbnf
+#define __GCC_HAS_BUILTIN___builtin_scalbnl
+#define __GCC_HAS_BUILTIN___builtin_scalbn
+#define __GCC_HAS_BUILTIN___builtin_tgammaf
+#define __GCC_HAS_BUILTIN___builtin_tgammal
+#define __GCC_HAS_BUILTIN___builtin_tgamma
+#define __GCC_HAS_BUILTIN___builtin_truncf
+#define __GCC_HAS_BUILTIN___builtin_truncl
+#define __GCC_HAS_BUILTIN___builtin_trunc
+#define __GCC_HAS_BUILTIN___builtin_vfscanf
+#define __GCC_HAS_BUILTIN___builtin_vscanf
+#define __GCC_HAS_BUILTIN___builtin_vsnprintf 
+#define __GCC_HAS_BUILTIN___builtin_vsscanf 
+#define __GCC_HAS_BUILTIN___builtin_abort
+#define __GCC_HAS_BUILTIN___builtin_acos
+#define __GCC_HAS_BUILTIN___builtin_asin
+#define __GCC_HAS_BUILTIN___builtin_atan2
+#define __GCC_HAS_BUILTIN___builtin_atan
+#define __GCC_HAS_BUILTIN___builtin_calloc
+#define __GCC_HAS_BUILTIN___builtin_ceil
+#define __GCC_HAS_BUILTIN___builtin_cosh
+#define __GCC_HAS_BUILTIN___builtin_exit
+#define __GCC_HAS_BUILTIN___builtin_floor
+#define __GCC_HAS_BUILTIN___builtin_fmod
+#define __GCC_HAS_BUILTIN___builtin_frexp
+#define __GCC_HAS_BUILTIN___builtin_fscanf
+#define __GCC_HAS_BUILTIN___builtin_ldexp
+#define __GCC_HAS_BUILTIN___builtin_log10
+#define __GCC_HAS_BUILTIN___builtin_malloc
+#define __GCC_HAS_BUILTIN___builtin_modf
+#define __GCC_HAS_BUILTIN___builtin_pow
+#define __GCC_HAS_BUILTIN___builtin_sinh
+#define __GCC_HAS_BUILTIN___builtin_tanh
+#define __GCC_HAS_BUILTIN___builtin_tan
+#define __GCC_HAS_BUILTIN___builtin_vfprintf
+#endif
+#if __GCC_VERSION(3,3,6)
+#define __GCC_HAS_BUILTIN___builtin_huge_val                   /* double __builtin_huge_val(void) */
+#define __GCC_HAS_BUILTIN___builtin_huge_valf                  /* float __builtin_huge_valf(void) */
+#define __GCC_HAS_BUILTIN___builtin_huge_vall                  /* long double __builtin_huge_vall(void) */
+#define __GCC_HAS_BUILTIN___builtin_huge_valfn                 /* _Floatn __builtin_huge_valfn(void) */
+#define __GCC_HAS_BUILTIN___builtin_huge_valfnx                /* _Floatnx __builtin_huge_valfnx(void) */
+#define __GCC_HAS_BUILTIN___builtin_inf                        /* double __builtin_inf(void) */
+#define __GCC_HAS_BUILTIN___builtin_infd32                     /* _Decimal32 __builtin_infd32(void) */
+#define __GCC_HAS_BUILTIN___builtin_infd64                     /* _Decimal64 __builtin_infd64(void) */
+#define __GCC_HAS_BUILTIN___builtin_infd128                    /* _Decimal128 __builtin_infd128(void) */
+#define __GCC_HAS_BUILTIN___builtin_inff                       /* float __builtin_inff(void) */
+#define __GCC_HAS_BUILTIN___builtin_infl                       /* long double __builtin_infl(void) */
+#define __GCC_HAS_BUILTIN___builtin_inffn                      /* _Floatn __builtin_inffn(void) */
+#define __GCC_HAS_BUILTIN___builtin_inffnx                     /* _Floatn __builtin_inffnx(void) */
+#define __GCC_HAS_BUILTIN___builtin_nan                        /* double __builtin_nan(const char *str) */
+#define __GCC_HAS_BUILTIN___builtin_nand32                     /* _Decimal32 __builtin_nand32(const char *str) */
+#define __GCC_HAS_BUILTIN___builtin_nand64                     /* _Decimal64 __builtin_nand64(const char *str) */
+#define __GCC_HAS_BUILTIN___builtin_nand128                    /* _Decimal128 __builtin_nand128(const char *str) */
+#define __GCC_HAS_BUILTIN___builtin_nanf                       /* float __builtin_nanf(const char *str) */
+#define __GCC_HAS_BUILTIN___builtin_nanl                       /* long double __builtin_nanl(const char *str) */
+#define __GCC_HAS_BUILTIN___builtin_nanfn                      /* _Floatn __builtin_nanfn(const char *str) */
+#define __GCC_HAS_BUILTIN___builtin_nanfnx                     /* _Floatnx __builtin_nanfnx(const char *str) */
+#define __GCC_HAS_BUILTIN___builtin_nans                       /* double __builtin_nans(const char *str) */
+#define __GCC_HAS_BUILTIN___builtin_nansf                      /* float __builtin_nansf(const char *str) */
+#define __GCC_HAS_BUILTIN___builtin_nansl                      /* long double __builtin_nansl(const char *str) */
+#define __GCC_HAS_BUILTIN___builtin_nansfn                     /* _Floatn __builtin_nansfn(const char *str) */
+#define __GCC_HAS_BUILTIN___builtin_nansfnx                    /* _Floatnx __builtin_nansfnx(const char *str) */
+#define __GCC_HAS_BUILTIN___builtin_powi                       /* double __builtin_powi(double, int) */
+#define __GCC_HAS_BUILTIN___builtin_powif                      /* float __builtin_powif(float, int) */
+#define __GCC_HAS_BUILTIN___builtin_powil                      /* long double __builtin_powil(long double, int) */
+#define __GCC_HAS_BUILTIN___builtin_exp
+#define __GCC_HAS_BUILTIN___builtin_log
+#define __GCC_HAS_BUILTIN___builtin_putchar
+#define __GCC_HAS_BUILTIN___builtin_puts
+#define __GCC_HAS_BUILTIN___builtin_scanf
+#define __GCC_HAS_BUILTIN___builtin_snprintf
+#define __GCC_HAS_BUILTIN___builtin_sprintf
+#define __GCC_HAS_BUILTIN___builtin_sscanf
+#define __GCC_HAS_BUILTIN___builtin_vprintf
+#define __GCC_HAS_BUILTIN___builtin_vsprintf
+#endif
+#if __GCC_VERSION(3,1,1)
+#define __GCC_HAS_BUILTIN___builtin_types_compatible_p         /* int __builtin_types_compatible_p(type1, type2) */
+#define __GCC_HAS_BUILTIN___builtin_choose_expr                /* type __builtin_choose_expr(const_exp, exp1, exp2) */
+#define __GCC_HAS_BUILTIN___builtin_prefetch                   /* void __builtin_prefetch(const void *addr, ...) */
+#define __GCC_HAS_BUILTIN___builtin_fputs_unlocked
+#define __GCC_HAS_BUILTIN___builtin_printf_unlocked
+#define __GCC_HAS_BUILTIN___builtin_fprintf_unlocked 
+#endif
+#if __GCC_VERSION(3,0,4) /* These may have appeared earlier, but documentation is hard to find... */
+#define __GCC_HAS_BUILTIN___builtin_conj
+#define __GCC_HAS_BUILTIN___builtin_conjf
+#define __GCC_HAS_BUILTIN___builtin_conjl
+#define __GCC_HAS_BUILTIN___builtin_creal
+#define __GCC_HAS_BUILTIN___builtin_crealf
+#define __GCC_HAS_BUILTIN___builtin_creall
+#define __GCC_HAS_BUILTIN___builtin_cimag
+#define __GCC_HAS_BUILTIN___builtin_cimagf
+#define __GCC_HAS_BUILTIN___builtin_cimagl
+#define __GCC_HAS_BUILTIN___builtin_llabs
+#define __GCC_HAS_BUILTIN___builtin_imaxabs
+#endif
+#if __GCC_VERSION(3,0,4) /* These may have appeared earlier, but documentation is hard to find... */
+#define __GCC_HAS_BUILTIN___builtin_abs
+#define __GCC_HAS_BUILTIN___builtin_cos
+#define __GCC_HAS_BUILTIN___builtin_fabs
+#define __GCC_HAS_BUILTIN___builtin_fprintf
+#define __GCC_HAS_BUILTIN___builtin_fputs
+#define __GCC_HAS_BUILTIN___builtin_labs
+#define __GCC_HAS_BUILTIN___builtin_memcmp
+#define __GCC_HAS_BUILTIN___builtin_memcpy
+#define __GCC_HAS_BUILTIN___builtin_memset
+#define __GCC_HAS_BUILTIN___builtin_printf
+#define __GCC_HAS_BUILTIN___builtin_sin
+#define __GCC_HAS_BUILTIN___builtin_sqrt
+#define __GCC_HAS_BUILTIN___builtin_strcat
+#define __GCC_HAS_BUILTIN___builtin_strchr
+#define __GCC_HAS_BUILTIN___builtin_strcmp
+#define __GCC_HAS_BUILTIN___builtin_strcpy
+#define __GCC_HAS_BUILTIN___builtin_strcspn
+#define __GCC_HAS_BUILTIN___builtin_strlen
+#define __GCC_HAS_BUILTIN___builtin_strncat
+#define __GCC_HAS_BUILTIN___builtin_strncmp
+#define __GCC_HAS_BUILTIN___builtin_strncpy
+#define __GCC_HAS_BUILTIN___builtin_strpbrk
+#define __GCC_HAS_BUILTIN___builtin_strrchr
+#define __GCC_HAS_BUILTIN___builtin_strspn
+#define __GCC_HAS_BUILTIN___builtin_strstr
+#endif
+
+/* The oldest documentation referring to these builtins is this:
+ * >> http://www.jklp.org/~chiefdigger/info/gnu/gcc/gcc_112.html
+ * Which was for `__GCC_VERSION(1,1,2)' */
+#define __GCC_HAS_BUILTIN___builtin_return_address
+#define __GCC_HAS_BUILTIN___builtin_frame_address
+#define __GCC_HAS_BUILTIN___builtin_constant_p                 /* int __builtin_constant_p(exp) */
+#define __GCC_HAS_BUILTIN___builtin_apply_args
+#define __GCC_HAS_BUILTIN___builtin_apply
+#define __GCC_HAS_BUILTIN___builtin_return
+#if !defined(__clang__) && (!defined(__INTEL_VERSION__) || __INTEL_VERSION__ >= 800)
+#define __GCC_HAS_BUILTIN___builtin_expect                     /* long __builtin_expect(long exp, long c) */
+#endif
+#define __GCC_HAS_BUILTIN___builtin_alloca                     /* void *__builtin_alloca(size_t size) */
+#define __GCC_HAS_BUILTIN___builtin_ffs                        /* int __builtin_ffs(int x) */
+#define __GCC_HAS_BUILTIN___builtin_bcmp
+#define __GCC_HAS_BUILTIN___builtin_bzero
+#define __GCC_HAS_BUILTIN___builtin_index
+#define __GCC_HAS_BUILTIN___builtin_rindex
+#define __GCC_HAS_BUILTIN___builtin_cosf
+#define __GCC_HAS_BUILTIN___builtin_cosl
+#define __GCC_HAS_BUILTIN___builtin_fabsf
+#define __GCC_HAS_BUILTIN___builtin_fabsl
+#define __GCC_HAS_BUILTIN___builtin_sinf
+#define __GCC_HAS_BUILTIN___builtin_sinl
+#define __GCC_HAS_BUILTIN___builtin_sqrtf
+#define __GCC_HAS_BUILTIN___builtin_sqrtl
+#define __GCC_HAS_BUILTIN___builtin_isunordered
+#define __GCC_HAS_BUILTIN___builtin_isgreater
+#define __GCC_HAS_BUILTIN___builtin_isgreaterequal
+#define __GCC_HAS_BUILTIN___builtin_isless
+#define __GCC_HAS_BUILTIN___builtin_islessequal
+#define __GCC_HAS_BUILTIN___builtin_islessgreater
+
 /* Emulate `__has_builtin()' for older GCC versions. */
 #define __has_builtin(x) __GCC_PRIVATE_IS_DEFINED(__GCC_HAS_BUILTIN_##x)
 #endif /* !__has_builtin */
@@ -610,6 +1116,21 @@ __extension__ typedef unsigned long long __ulonglong_t;
 #ifndef __INTELLISENSE__
 #define __FUNCTION__   __extension__ __FUNCTION__
 #endif
+
+#if !__has_builtin(__builtin_LINE)
+#define __builtin_LINE()     __LINE__
+#define __builtin_FUNCTION() __FUNCTION__
+#define __builtin_FILE()     __FILE__
+#endif
+
+#if !__has_builtin(__builtin_unreachable)
+#define __builtin_unreachable() __XBLOCK({ for (;;); (void)0; })
+#endif
+
+#if !__has_builtin(__builtin_object_size)
+#define __builtin_object_size(ptr,type) ((type) < 2 ? (__SIZE_TYPE__)-1 : 0)
+#endif
+
 
 #if __GCC_VERSION(4,7,0)
 #   define __COMPILER_BARRIER()       __atomic_signal_fence(__ATOMIC_ACQ_REL)

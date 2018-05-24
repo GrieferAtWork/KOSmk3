@@ -199,23 +199,6 @@ struct __ATTR_PACKED __HEAP_MEMBER(mfree) {
 #define MFREE_SIZE(self)                (self)->mf_size
 #endif
 
-
-
-#ifdef __EXPOSE_HEAP_INTERNALS
-/* unsigned int FFS(size_t x); */
-/* unsigned int CLZ(size_t x); */
-#if __SIZEOF_SIZE_T__ == __SIZEOF_INT__
-#   define __HEAP_FFS(x)  ((unsigned int)__builtin_ffs((int)(x)))
-#   define __HEAP_CLZ(x)  ((unsigned int)__builtin_clz((int)(x)))
-#elif __SIZEOF_SIZE_T__ == __SIZEOF_LONG__
-#   define __HEAP_FFS(x)  ((unsigned int)__builtin_ffsl((long)(x)))
-#   define __HEAP_CLZ(x)  ((unsigned int)__builtin_clzl((long)(x)))
-#else
-#   define __HEAP_FFS(x)  ((unsigned int)__builtin_ffsll((long long)(x)))
-#   define __HEAP_CLZ(x)  ((unsigned int)__builtin_clzll((long long)(x)))
-#endif
-#endif /* __EXPOSE_HEAP_INTERNALS */
-
 /* Heap configuration:
  * Index offset for the first bucket that should be search for a given size. */
 #if HEAP_ALIGNMENT != __DEFAULT_HEAP_ALIGNMENT
@@ -233,8 +216,9 @@ struct __ATTR_PACKED __HEAP_MEMBER(mfree) {
 #endif
 
 #ifdef __EXPOSE_HEAP_INTERNALS
+#include <hybrid/__bit.h>
 #define HEAP_BUCKET_OFFSET        __HEAP_BUCKET_OFFSET
-#define HEAP_BUCKET_OF(size)   (((__SIZEOF_SIZE_T__*8)-__HEAP_CLZ(size))-HEAP_BUCKET_OFFSET)
+#define HEAP_BUCKET_OF(size)   (((__SIZEOF_SIZE_T__*8)-__hybrid_clz(size))-HEAP_BUCKET_OFFSET)
 #define HEAP_BUCKET_MINSIZE(i)   (1 << ((i)+HEAP_BUCKET_OFFSET-1))
 #endif /* __EXPOSE_HEAP_INTERNALS */
 #define HEAP_BUCKET_COUNT       ((__SIZEOF_SIZE_T__*8)-(__HEAP_BUCKET_OFFSET-1))

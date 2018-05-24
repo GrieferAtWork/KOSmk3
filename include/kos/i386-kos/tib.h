@@ -54,8 +54,8 @@ struct __ATTR_PACKED nt_tib {
     void                           *nt_peb;              /* [???] Process environment block (Currently not emulated; KOS uses `struct process_environ') */
     __UINT32_TYPE__                 nt_errno;            /* GetLastError()-style errno. */
     __UINT32_TYPE__                 nt_numcrit;          /* [???] Count of owned critical sections. */
-    __UINT32_TYPE__                 nt_csr;              /* [???] Address of CSR Client Thread */
-    __UINT32_TYPE__                 nt_info;             /* [???] Win32 Thread Information */
+    void                           *nt_csr;              /* [???] Address of CSR Client Thread */
+    void                           *nt_info;             /* [???] Win32 Thread Information */
     __BYTE_TYPE__                   nt_client[124];      /* [???] Win32 client information */
     __UINT32_TYPE__                 nt_wow64_syscall;    /* [???] Contains a pointer to FastSysCall in Wow64 */
     __UINT32_TYPE__                 nt_curr_locale;      /* [???] Current Locale */
