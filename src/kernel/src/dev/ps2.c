@@ -50,6 +50,10 @@ LOCAL void KCALL ps2_write_cmd(u8 cmd) {
  outb_p(PS2_CMD,cmd);
  /*while (inb_p(PS2_STATUS) & PS2_STATUS_INFULL);*/
 }
+LOCAL u8 KCALL ps2_read_cmddata(void) {
+ while (!(inb_p(PS2_STATUS) & PS2_STATUS_OUTFULL));
+ return inb_p(PS2_DATA);
+}
 LOCAL void KCALL ps2_write_cmddata(u8 data) {
  while (inb_p(PS2_STATUS) & PS2_STATUS_INFULL);
  outb_p(PS2_DATA,data);
@@ -500,25 +504,10 @@ do_jcc:
 }
 
 
-#undef CONFIG_PS2_CHECK_FOR_DATA
-
-/* This might seem like a smart idea, but it seems to cause miss-alignments in the
- * PS/2 data stream (especially when both PS/2 devices are generating interrupts).
- * If it wasn't for those problems, this could be a great thing to do in order to
- * improve performace, but sadly that isn't meant to be. */
-#if 0
-#define CONFIG_PS2_CHECK_FOR_DATA  1
-#endif
-
 
 INTERN void KCALL ps2_interrupt(u8 port) {
  struct ps2_progreq *prog;
  u8 data;
-#ifdef CONFIG_PS2_CHECK_FOR_DATA
-again:
- if (!(inb(PS2_STATUS) & PS2_STATUS_OUTFULL))
-       return;
-#endif
  data = inb(PS2_DATA);
  prog = ATOMIC_READ(current_program[port]);
  if (prog != PS2_PROGREQ_FINISHED &&
@@ -542,7 +531,7 @@ again:
    ATOMIC_WRITE(prog->pr_regs.pe_regs.ps_irr,data);
   }
   if (ps2_exec(prog,true))
-      return;
+      goto done;
 program_finished:
   /* Execution has finished. */
   ATOMIC_WRITE(current_program[port],PS2_PROGREQ_PENDING);
@@ -563,19 +552,28 @@ program_finished:
   /* Broadcast the raw PS/2 data byte. */
   ps2_inputdata_putword(&ps2_input[port],data);
  }
-#ifdef CONFIG_PS2_CHECK_FOR_DATA
- /* Check for more data? */
- goto again;
-#endif
+done:
+ ;
 }
 
 
+#if 1 /* Merged interrupted mode. */
+INTERN void KCALL ps2_irq_1(void) {
+ for (;;) {
+  u8 status = inb(PS2_STATUS);
+  if (!(status & PS2_STATUS_OUTFULL)) break;
+  ps2_interrupt(status & PS2_STATUS_OUTFULL2 ? PS2_PORT2 : PS2_PORT1);
+ }
+}
+DEFINE_INTERN_ALIAS(ps2_irq_2,ps2_irq_1);
+#else
 INTERN void KCALL ps2_irq_1(void) {
  ps2_interrupt(PS2_PORT1);
 }
 INTERN void KCALL ps2_irq_2(void) {
  ps2_interrupt(PS2_PORT2);
 }
+#endif
 
 
 
@@ -742,10 +740,19 @@ PRIVATE ATTR_USED ATTR_FREETEXT void KCALL ps2_initialize(void) {
  ps2_write_cmd(PS2_CONTROLLER_DISABLE_PORT2);
 
  /* Setup our initial PS/2 configuration. */
- ps2_write_cmd(PS2_CONTROLLER_WRAM(0)); /* Read RAM #0 */
- ps2_write_cmddata(PS2_CONTROLLER_CFG_PORT1_IRQ|
-                   PS2_CONTROLLER_CFG_SYSTEMFLAG|
-                   PS2_CONTROLLER_CFG_PORT2_IRQ);
+ {
+  u8 ps2_ram_0;
+  ps2_write_cmd(PS2_CONTROLLER_RRAM(0)); /* Read RAM #0 */
+  ps2_ram_0 = ps2_read_cmddata();
+  debug_printf("[PS/2] ps2_ram_0 = 0x%.2I8x\n",ps2_ram_0);
+  ps2_ram_0 |= (PS2_CONTROLLER_CFG_PORT1_IRQ|
+                PS2_CONTROLLER_CFG_SYSTEMFLAG|
+                PS2_CONTROLLER_CFG_PORT2_IRQ);
+  ps2_ram_0 &= ~(PS2_CONTROLLER_CFG_PORT1_TRANSLATE);
+  ps2_write_cmd(PS2_CONTROLLER_WRAM(0)); /* Read RAM #0 */
+  ps2_write_cmddata(ps2_ram_0);
+ }
+
  /* Enable both ports. */
  ps2_write_cmd(PS2_CONTROLLER_ENABLE_PORT1);
  ps2_write_cmd(PS2_CONTROLLER_ENABLE_PORT2);

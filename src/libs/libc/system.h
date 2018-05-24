@@ -134,8 +134,8 @@ INTDEF errno_t LIBCCALL sys_ftruncate(fd_t fd, u64 len);
 INTDEF errno_t LIBCCALL sys_fallocate(fd_t fd, int mode, u64 off, u64 len);
 INTDEF errno_t LIBCCALL sys_rt_sigqueueinfo(pid_t tgid, int sig, siginfo_t const *uinfo);
 INTDEF errno_t LIBCCALL sys_rt_tgsigqueueinfo(pid_t tgid, pid_t tid, int sig, siginfo_t const *uinfo);
-INTDEF ssize_t LIBCCALL Esys_pselect6(size_t n, fd_set *inp, fd_set *outp, fd_set *exp, struct timespec64 const *tsp, void *sig);
-INTDEF ssize_t LIBCCALL Esys_ppoll(struct pollfd *ufds, size_t nfds, struct timespec64 const *tsp, __sigset_t const *sigmask, size_t sigsetsize);
+INTDEF ssize_t LIBCCALL Esys_pselect6(size_t n, fd_set *inp, fd_set *outp, fd_set *exp, struct timespec64 const *rel_timeout, void *sig);
+INTDEF ssize_t LIBCCALL Esys_ppoll(struct pollfd *ufds, size_t nfds, struct timespec64 const *rel_timeout, __sigset_t const *sigmask, size_t sigsetsize);
 INTDEF errno_t LIBCCALL sys_getcpu(unsigned int *pcpuid, unsigned int *pnodeid);
 INTDEF errno_t LIBCCALL sys_execveat(fd_t dfd, char const *filename, char *const *argv, char *const *envp, atflag_t flags);
 /* KOS system-call extensions. */
@@ -183,7 +183,7 @@ INTDEF ssize_t LIBCCALL sys_xreaddirf(fd_t fd, struct dirent *buf, size_t bufsiz
 INTDEF errno_t LIBCCALL sys_xunwind_except(struct exception_info *except_info, struct cpu_context *dispatcher_ccontext, struct fpu_context *dispatcher_fcontext);
 INTDEF errno_t LIBCCALL sys_xunwind(struct cpu_context *ccontext, struct fpu_context *fcontext, sigset_t *signal_set, size_t sigset_size);
 INTDEF ssize_t LIBCCALL sys_xaddr2line(void *abs_pc, struct dl_addr2line *buf, size_t bufsize);
-INTDEF ssize_t LIBCCALL Esys_xppoll(struct poll_info *info, struct timespec64 const *tsp, sigset_t const *signal_set, size_t sigset_size);
+INTDEF ssize_t LIBCCALL Esys_xppoll(struct poll_info *info, struct timespec64 const *rel_timeout, sigset_t const *signal_set, size_t sigset_size);
 
 
 
@@ -263,8 +263,8 @@ INTDEF void LIBCCALL Xsys_ftruncate(fd_t fd, u64 len);
 INTDEF void LIBCCALL Xsys_fallocate(fd_t fd, int mode, u64 off, u64 len);
 INTDEF errno_t LIBCCALL Xsys_rt_sigqueueinfo(pid_t tgid, int sig, siginfo_t const *uinfo);
 INTDEF errno_t LIBCCALL Xsys_rt_tgsigqueueinfo(pid_t tgid, pid_t tid, int sig, siginfo_t const *uinfo);
-INTDEF size_t LIBCCALL Xsys_pselect6(size_t n, fd_set *inp, fd_set *outp, fd_set *exp, struct timespec64 const *tsp, void *sig);
-INTDEF size_t LIBCCALL Xsys_ppoll(struct pollfd *ufds, size_t nfds, struct timespec64 const *tsp, __sigset_t const *sigmask, size_t sigsetsize);
+INTDEF size_t LIBCCALL Xsys_pselect6(size_t n, fd_set *inp, fd_set *outp, fd_set *exp, struct timespec64 const *rel_timeout, void *sig);
+INTDEF size_t LIBCCALL Xsys_ppoll(struct pollfd *ufds, size_t nfds, struct timespec64 const *rel_timeout, __sigset_t const *sigmask, size_t sigsetsize);
 INTDEF void LIBCCALL Xsys_getcpu(unsigned int *pcpuid, unsigned int *pnodeid);
 INTDEF ATTR_NORETURN void LIBCCALL Xsys_execveat(fd_t dfd, char const *filename, char *const *argv, char *const *envp, int flags);
 INTDEF size_t LIBCCALL Xsys_xfrealpathat(fd_t fd, char const *path, atflag_t flags, char *buf, size_t bufsize, int type);
@@ -302,7 +302,7 @@ INTDEF syscall_slong_t LIBCCALL Xsys_xioctlf(fd_t fd, unsigned long cmd, oflag_t
 INTDEF size_t LIBCCALL Xsys_xreaddirf(fd_t fd, struct dirent *buf, size_t bufsize, int mode, oflag_t flags);
 INTDEF errno_t LIBCCALL Xsys_xunwind(struct cpu_context *ccontext, struct fpu_context *fcontext, sigset_t *signal_set, size_t sigset_size);
 INTDEF ssize_t LIBCCALL Xsys_xaddr2line(void *abs_pc, struct dl_addr2line *buf, size_t bufsize);
-INTDEF size_t LIBCCALL Xsys_xppoll(struct poll_info *info, struct timespec64 const *tsp, sigset_t const *signal_set, size_t sigset_size);
+INTDEF size_t LIBCCALL Xsys_xppoll(struct poll_info *info, struct timespec64 const *rel_timeout, sigset_t const *signal_set, size_t sigset_size);
 INTDEF void LIBCCALL Xsys_xnosignal(int mode);
 
 /* Networking functions. */

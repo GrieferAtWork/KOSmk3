@@ -31,11 +31,26 @@
 #include <unistd.h>
 #include <syslog.h>
 #include <string.h>
+#include <sys/select.h>
 
 DECL_BEGIN
 
+PRIVATE void move_window(wm_window_t *__restrict win, int xoff, int yoff) {
+ unsigned int i;
+ for (i = 0; i < 30; ++i) {
+  struct timeval tmo;
+  wm_window_move(win,
+                 win->w_posx+xoff,
+                 win->w_posy+yoff);
+  tmo.tv_sec  = 0;
+  tmo.tv_usec = 2500;
+  select(0,NULL,NULL,NULL,&tmo);
+ }
+}
+
+
 int main(int argc, char *argv[]) {
- struct wm_window *win;
+ wm_window_t *win;
  wm_init();
  unsigned int num;
  for (num = 0; num < 3; ++num) {
@@ -75,8 +90,33 @@ int main(int argc, char *argv[]) {
   wm_window_draw(win,WM_WINDOW_DRAW_FNORMAL);
  }
 
- for (;;)
-     wm_event_process();
+#if 1
+ for (;;) {
+  wm_event_t evt;
+  wm_event_waitfor(&evt);
+  if (evt.e_type == WM_EVENT_KEY &&
+      KEY_ISDOWN(evt.e_key.k_key)) {
+   switch (KEYCODE(evt.e_key.k_key)) {
+   case KEY_J:
+    move_window(evt.e_common.c_window,-1,0);
+    break;
+   case KEY_I:
+    move_window(evt.e_common.c_window,0,-1);
+    break;
+   case KEY_K:
+    move_window(evt.e_common.c_window,0,1);
+    break;
+   case KEY_L:
+    move_window(evt.e_common.c_window,1,0);
+    break;
+   default: break;
+   }
+  }
+  wm_event_fini(&evt);
+ }
+#else
+ for (;;) wm_event_process();
+#endif
  wm_window_decref(win);
 }
 

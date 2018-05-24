@@ -129,6 +129,7 @@ struct PACKED wm_windowevent {
 };
 #undef __WM_EVENT_WINDOW_HEADER
 
+typedef union wm_event wm_event_t;
 union PACKED wm_event {
     wm_event_type_t             e_type;    /* The type of event (One of `WM_EVENT_*') */
     struct wm_commonevent       e_common;  /* Common event fields. */
@@ -148,7 +149,7 @@ struct PACKED wm_winevent_ops {
     /* Fallback/default event handler triggered when the
      * associated, dedicated event event handler isn't
      * implemented. */
-    bool (WMCALL *wo_event)(union wm_event const *__restrict info);
+    bool (WMCALL *wo_event)(wm_event_t const *__restrict info);
     /* Dedicated immediate event handlers. */
     bool (WMCALL *wo_key)(struct wm_keyevent const *__restrict info);
     bool (WMCALL *wo_mouse)(struct wm_mouseevent const *__restrict info);
@@ -205,11 +206,11 @@ WMAPI void WMCALL wm_event_process(void);
  * >>     wm_window_draw(win,WM_WINDOW_DRAW_FVSYNC);
  * >> }
  */
-WMAPI bool WMCALL wm_event_trywait(union wm_event *__restrict result);
+WMAPI bool WMCALL wm_event_trywait(wm_event_t *__restrict result);
 
 /* Same as `wm_event_trywait()', but rather than returning `false',
  * wait for events to appear on the kernel-space WMS command pipe. */
-WMAPI void WMCALL wm_event_waitfor(union wm_event *__restrict result);
+WMAPI void WMCALL wm_event_waitfor(wm_event_t *__restrict result);
 
 
 __SYSDECL_END

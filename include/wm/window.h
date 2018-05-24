@@ -66,6 +66,7 @@ __SYSDECL_BEGIN
 #define WM_WINDOW_MODE_FMAXIMIZED   0x0002 /* The window has been maximized. */
 #define WM_WINDOW_MODE_FFULLSCREEN  0x0004 /* The window takes up the whole screen. */
 
+typedef struct wm_window wm_window_t;
 #ifdef __cplusplus
 struct PACKED wm_window: wm_surface
 #else
@@ -106,7 +107,7 @@ struct PACKED wm_window
     unsigned int            w_bordersz; /* [lock(w_surface.s_lock)] The width of the border on all sides except for the top (ymin). */
     wms_window_id_t         w_winid;    /* [const][owned] Internal ID of the window. */
     __fd_t                  w_winfd;    /* [const][owned] A file descriptor referring to the mmap()able window display buffer. */
-    LIST_NODE(struct wm_window) w_chain;/* [lock(INTERNAL(...))] Chain of windows with the same modulated hash. (for `wm_window_fromid()') */
+    LIST_NODE(wm_window_t)  w_chain;/* [lock(INTERNAL(...))] Chain of windows with the same modulated hash. (for `wm_window_fromid()') */
 #endif /* __BUILDING_LIBWM */
 };
 
@@ -146,7 +147,7 @@ struct PACKED wm_window
  *                   you should pass NULL for this argument.
  * @param: userdata: The initial value of the `w_userdata' field.
  * @return: * :      A reference to the newly created window. */
-WMAPI ATTR_RETNONNULL REF struct wm_window *WMCALL
+WMAPI ATTR_RETNONNULL REF wm_window_t *WMCALL
 wm_window_create(int pos_x,
                  int pos_y,
                  unsigned int size_x,
@@ -178,12 +179,12 @@ wm_window_create(int pos_x,
 
 
 /* Move the given window to a new position. */
-WMAPI void WMCALL wm_window_move(struct wm_window *__restrict self,
+WMAPI void WMCALL wm_window_move(wm_window_t *__restrict self,
                                  int new_posx, int new_posy);
 
 /* Set the new title of the given window. */
 WMAPI void WMCALL
-wm_window_settitle(struct wm_window *__restrict self,
+wm_window_settitle(wm_window_t *__restrict self,
                    char const *__restrict new_title);
 
 struct wm_rect {
@@ -199,12 +200,12 @@ struct wm_rect {
  * and any part of the window that is obstructed by another window
  * with a greater Z-order will obviously not be re-drawn.
  * @param: mode: Set of `WM_WINDOW_DRAW_F*' */
-WMAPI void WMCALL wm_window_draw(struct wm_window *__restrict self, unsigned int mode);
-WMAPI void WMCALL wm_window_draw_rect(struct wm_window *__restrict self,
+WMAPI void WMCALL wm_window_draw(wm_window_t *__restrict self, unsigned int mode);
+WMAPI void WMCALL wm_window_draw_rect(wm_window_t *__restrict self,
                                       int xmin, int ymin,
                                       unsigned int xsiz, unsigned int ysiz,
                                       unsigned int mode);
-WMAPI void WMCALL wm_window_draw_rects(struct wm_window *__restrict self, __size_t rectc,
+WMAPI void WMCALL wm_window_draw_rects(wm_window_t *__restrict self, __size_t rectc,
                                        struct wm_rect const *__restrict rectv,
                                        unsigned int mode);
 #define WM_WINDOW_DRAW_FNORMAL 0x0000 /* Normal window draw flags. */
@@ -230,7 +231,7 @@ WMAPI void WMCALL wm_window_draw_rects(struct wm_window *__restrict self, __size
  *          to bring their window to the front of the Z-buffer, by the
  *          time this function returns, the window way no longer be in
  *          the front, irregardless of what was returned. */
-WMAPI bool WMCALL wm_window_bring_to_front(struct wm_window *__restrict self);
+WMAPI bool WMCALL wm_window_bring_to_front(wm_window_t *__restrict self);
 
 /* Close the window:
  *  #1: When `WM_WINDOW_FEAT_FNOAUTOHIDE' isn't set, hide the window.
@@ -241,15 +242,15 @@ WMAPI bool WMCALL wm_window_bring_to_front(struct wm_window *__restrict self);
  *          This is a race condition that cannot be inhibited due to
  *          the fact that the user might clock on close at the same time
  *          some internal piece of code calls this function. */
-WMAPI void WMCALL wm_window_close(struct wm_window *__restrict self);
+WMAPI void WMCALL wm_window_close(wm_window_t *__restrict self);
 
 /* Change the window's features / state or mode.
  * @param: mask: Mask of bits to preserve.
  * @param: flag: Mask of bits to turn on.
  * @return: * :  The old window features / state or mode. */
-WMAPI __uint32_t WMCALL wm_window_chfeat(struct wm_window *__restrict self, __uint32_t mask, __uint32_t flag);
-WMAPI __uint16_t WMCALL wm_window_chstat(struct wm_window *__restrict self, __uint16_t mask, __uint16_t flag);
-WMAPI __uint16_t WMCALL wm_window_chmode(struct wm_window *__restrict self, __uint16_t mask, __uint16_t flag);
+WMAPI __uint32_t WMCALL wm_window_chfeat(wm_window_t *__restrict self, __uint32_t mask, __uint32_t flag);
+WMAPI __uint16_t WMCALL wm_window_chstat(wm_window_t *__restrict self, __uint16_t mask, __uint16_t flag);
+WMAPI __uint16_t WMCALL wm_window_chmode(wm_window_t *__restrict self, __uint16_t mask, __uint16_t flag);
 
 
 /* Grab keyboard focus and have it deliver its signals to this window.
@@ -260,28 +261,28 @@ WMAPI __uint16_t WMCALL wm_window_chmode(struct wm_window *__restrict self, __ui
  *          time of the caller checking interpreting their value.
  * @return: true:  The window has acquired the keyboard focus.
  * @return: false: The window had already acquired the keyboard focus. */
-LOCAL bool WMCALL wm_window_focus(struct wm_window *__restrict self) { return !(wm_window_chstat(self,~0,WM_WINDOW_STATE_FFOCUSED) & WM_WINDOW_STATE_FFOCUSED); }
-LOCAL bool WMCALL wm_window_unfocus(struct wm_window *__restrict self) { return !!(wm_window_chstat(self,~WM_WINDOW_STATE_FFOCUSED,0) & WM_WINDOW_STATE_FFOCUSED); }
+LOCAL bool WMCALL wm_window_focus(wm_window_t *__restrict self) { return !(wm_window_chstat(self,~0,WM_WINDOW_STATE_FFOCUSED) & WM_WINDOW_STATE_FFOCUSED); }
+LOCAL bool WMCALL wm_window_unfocus(wm_window_t *__restrict self) { return !!(wm_window_chstat(self,~WM_WINDOW_STATE_FFOCUSED,0) & WM_WINDOW_STATE_FFOCUSED); }
 
 /* Show/Hide the given window, setting/clearing the `WM_WINDOW_STATE_FHIDDEN' flag.
  * @return: true:  Successfully changed the window's state.
  * @return: false: The operation was a no-op because the window was already hidden/visible. */
-LOCAL bool WMCALL wm_window_hide(struct wm_window *__restrict self) { return !(wm_window_chstat(self,~0,WM_WINDOW_STATE_FHIDDEN) & WM_WINDOW_STATE_FHIDDEN); }
-LOCAL bool WMCALL wm_window_show(struct wm_window *__restrict self) { return !!(wm_window_chstat(self,~WM_WINDOW_STATE_FHIDDEN,0) & WM_WINDOW_STATE_FHIDDEN); }
+LOCAL bool WMCALL wm_window_hide(wm_window_t *__restrict self) { return !(wm_window_chstat(self,~0,WM_WINDOW_STATE_FHIDDEN) & WM_WINDOW_STATE_FHIDDEN); }
+LOCAL bool WMCALL wm_window_show(wm_window_t *__restrict self) { return !!(wm_window_chstat(self,~WM_WINDOW_STATE_FHIDDEN,0) & WM_WINDOW_STATE_FHIDDEN); }
 
 /* Restore a normal window mode (non-maximized, non-minimized, non-fullscreen)
  * @return: true:  Successfully changed the window's mode.
  * @return: false: The operation was a no-op because the window already had the desired mode. */
-LOCAL bool WMCALL wm_window_restore(struct wm_window *__restrict self) { return wm_window_chmode(self,WM_WINDOW_MODE_FNORMAL,WM_WINDOW_MODE_FNORMAL) != WM_WINDOW_MODE_FNORMAL; }
-LOCAL bool WMCALL wm_window_minimize(struct wm_window *__restrict self) { return wm_window_chmode(self,WM_WINDOW_MODE_FNORMAL,WM_WINDOW_MODE_FMINIMIZED) != WM_WINDOW_MODE_FMINIMIZED; }
-LOCAL bool WMCALL wm_window_maximize(struct wm_window *__restrict self) { return wm_window_chmode(self,WM_WINDOW_MODE_FNORMAL,WM_WINDOW_MODE_FMAXIMIZED) != WM_WINDOW_MODE_FMAXIMIZED; }
-LOCAL bool WMCALL wm_window_fullscreen(struct wm_window *__restrict self) { return wm_window_chmode(self,WM_WINDOW_MODE_FNORMAL,WM_WINDOW_MODE_FFULLSCREEN) != WM_WINDOW_MODE_FFULLSCREEN; }
+LOCAL bool WMCALL wm_window_restore(wm_window_t *__restrict self) { return wm_window_chmode(self,WM_WINDOW_MODE_FNORMAL,WM_WINDOW_MODE_FNORMAL) != WM_WINDOW_MODE_FNORMAL; }
+LOCAL bool WMCALL wm_window_minimize(wm_window_t *__restrict self) { return wm_window_chmode(self,WM_WINDOW_MODE_FNORMAL,WM_WINDOW_MODE_FMINIMIZED) != WM_WINDOW_MODE_FMINIMIZED; }
+LOCAL bool WMCALL wm_window_maximize(wm_window_t *__restrict self) { return wm_window_chmode(self,WM_WINDOW_MODE_FNORMAL,WM_WINDOW_MODE_FMAXIMIZED) != WM_WINDOW_MODE_FMAXIMIZED; }
+LOCAL bool WMCALL wm_window_fullscreen(wm_window_t *__restrict self) { return wm_window_chmode(self,WM_WINDOW_MODE_FNORMAL,WM_WINDOW_MODE_FFULLSCREEN) != WM_WINDOW_MODE_FFULLSCREEN; }
 
 
 /* Translate a window to its id or do the reverse.
  * @return: NULL: [wm_window_fromid] No window is associated with the given ID. */
-WMAPI ATTR_NOTHROW ATTR_CONST wms_window_id_t WMCALL wm_window_getid(struct wm_window *__restrict self);
-WMAPI ATTR_NOTHROW REF struct wm_window *WMCALL wm_window_fromid(wms_window_id_t id);
+WMAPI ATTR_NOTHROW ATTR_CONST wms_window_id_t WMCALL wm_window_getid(wm_window_t *__restrict self);
+WMAPI ATTR_NOTHROW REF wm_window_t *WMCALL wm_window_fromid(wms_window_id_t id);
 
 
 /* Construct a view of a window in its entirety, including
@@ -291,15 +292,15 @@ WMAPI ATTR_NOTHROW REF struct wm_window *WMCALL wm_window_fromid(wms_window_id_t
  *   - WM_WINDOW_FEAT_FNOBORDER
  *   - WM_WINDOW_FEAT_FNOHEADER
  * @return: * : [== view] Always re-return `view' */
-WMAPI ATTR_NOTHROW ATTR_RETNONNULL struct wm_surface_view *WMCALL
-wm_window_viewall(struct wm_surface_view *__restrict view,
-                  struct wm_window const *__restrict self);
+WMAPI ATTR_NOTHROW ATTR_RETNONNULL wm_surface_view_t *WMCALL
+wm_window_viewall(wm_surface_view_t *__restrict view,
+                  wm_window_t const *__restrict self);
 
 /* Very similar to `wm_window_viewall', but instead used to only view the title bar.
  * If there is no title bar, the returned view is empty */
-WMAPI ATTR_NOTHROW ATTR_RETNONNULL struct wm_surface_view *WMCALL
-wm_window_viewtitle(struct wm_surface_view *__restrict view,
-                    struct wm_window const *__restrict self);
+WMAPI ATTR_NOTHROW ATTR_RETNONNULL wm_surface_view_t *WMCALL
+wm_window_viewtitle(wm_surface_view_t *__restrict view,
+                    wm_window_t const *__restrict self);
 
 
 __SYSDECL_END

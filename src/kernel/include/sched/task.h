@@ -137,6 +137,30 @@ DATDEF cpuid_t const cpu_count;
 DATDEF struct cpu *const cpu_vector[CONFIG_MAX_CPU_COUNT];
 
 
+
+/* High-precision quantum-part sleep / time functions. */
+typedef struct qtime {
+    jtime_t  qt_jiffies; /* Jiffi number. */
+    u32      qt_qoffset; /* [< xt_qlength] Offset into the quantum of `xt_jiffies'. */
+    u32      qt_qlength; /* [!0] Length of a single quantum. */
+} qtime_t;
+/* NOTE: By multiplying the scales, we quickly & easily get a common scale factor. */ 
+
+#define QTIME_LOWER(a,b) \
+ ((a).qt_jiffies < (b).qt_jiffies || ((a).qt_jiffies == (b).qt_jiffies && \
+ ((u64)(a).qt_qoffset * (b).qt_qlength) < ((u64)(b).qt_qoffset * (a).qt_qlength)))
+#define QTIME_LOWER_EQUAL(a,b) \
+ ((a).qt_jiffies < (b).qt_jiffies || ((a).qt_jiffies == (b).qt_jiffies && \
+ ((u64)(a).qt_qoffset * (b).qt_qlength) <= ((u64)(b).qt_qoffset * (a).qt_qlength)))
+#define QTIME_GREATER(a,b) \
+ ((a).qt_jiffies > (b).qt_jiffies || ((a).qt_jiffies == (b).qt_jiffies && \
+ ((u64)(a).qt_qoffset * (b).qt_qlength) > ((u64)(b).qt_qoffset * (a).qt_qlength)))
+#define QTIME_GREATER_EQUAL(a,b) \
+ ((a).qt_jiffies > (b).qt_jiffies || ((a).qt_jiffies == (b).qt_jiffies && \
+ ((u64)(a).qt_qoffset * (b).qt_qlength) >= ((u64)(b).qt_qoffset * (a).qt_qlength)))
+
+
+
 /* TODO: Per-CPU RPC function calls:
  *     - Executed on any random thread running on that CPU.
  *     - Executed with the `TASK_FKEEPCORE' flag set.
@@ -822,10 +846,13 @@ FUNDEF ATTR_RETNONNULL struct sig *KCALL task_wait_noserve(void);
 #endif
 #ifdef __INTELLISENSE__
 FUNDEF struct sig *KCALL task_waitfor(jtime_t abs_timeout);
+FUNDEF struct sig *KCALL task_qwaitfor(qtime_t abs_timeout);
 #ifdef _NOSERVE_SOURCE
 FUNDEF struct sig *KCALL task_waitfor_noserve(jtime_t abs_timeout);
+FUNDEF struct sig *KCALL task_qwaitfor_noserve(qtime_t abs_timeout);
 #endif
 #else
+FUNDEF struct sig *KCALL task_qwaitfor(qtime_t abs_timeout);
 FUNDEF struct sig *KCALL __os_task_waitfor(jtime_t abs_timeout) ASMNAME("task_waitfor");
 FORCELOCAL struct sig *KCALL task_waitfor(jtime_t abs_timeout) {
  COMPILER_BARRIER();
@@ -838,6 +865,7 @@ FORCELOCAL struct sig *KCALL task_waitfor(jtime_t abs_timeout) {
  return __os_task_waitfor(abs_timeout);
 }
 #ifdef _NOSERVE_SOURCE
+FUNDEF struct sig *KCALL task_qwaitfor_noserve(qtime_t abs_timeout);
 FUNDEF struct sig *KCALL __os_task_waitfor_noserve(jtime_t abs_timeout) ASMNAME("task_waitfor_noserve");
 FORCELOCAL struct sig *KCALL task_waitfor_noserve(jtime_t abs_timeout) {
  COMPILER_BARRIER();
@@ -965,6 +993,18 @@ task_wake_p(REF struct task *prev_threads[/*CONFIG_MAX_CPU_COUNT*/],
  * >> task_wake(waiting_thread);
  */
 FUNDEF NOIRQ bool KCALL task_sleep(jtime_t abs_timeout);
+
+/* Sleep until the given timeout expires.
+ * This function can be used to sleep until a point in time that isn't located
+ * at the beginning of a quantum, but rather somewhere in the middle.
+ * Sub-quantum offsets are specified by the division of `qt_qoffset / qt_qlength'. */
+FUNDEF NOIRQ bool KCALL task_qsleep(qtime_t abs_timeout);
+
+/* Return the current sub-quantum time.
+ * WARNING: That time will have already changed once the function returns.
+ * WARNING: Sub-quantum time is tracked on a per-cpu basis! */
+FUNDEF qtime_t KCALL qtime_now(void);
+FUNDEF NOIRQ qtime_t KCALL qtime_now_noirq(void);
 
 
 struct cpu_hostcontext_user;
@@ -1327,15 +1367,15 @@ task_tryrestart_syscall(struct cpu_hostcontext_user *__restrict context,
 /* The current jiffies-time. */
 DATDEF volatile jtime_t jiffies;
 DATDEF volatile jtime32_t jiffies32[2] ASMNAME("jiffies");
-#define JIFFIES_PER_SECOND        HZ
-#define JIFFIES_PER_MINUTE       (HZ*60)
-#define JIFFIES_PER_HOUR         (HZ*3600)
-#define JIFFIES_FROM_HOURS(x)   ((x)*JIFFIES_PER_HOUR)
-#define JIFFIES_FROM_MINUTES(x) ((x)*JIFFIES_PER_MINUTE)
-#define JIFFIES_FROM_SECONDS(x) ((x)*JIFFIES_PER_SECOND)
-#define JIFFIES_FROM_MILLI(x)   ((x)/(1000ul/JIFFIES_PER_SECOND))
-#define JIFFIES_FROM_MICRO(x)   ((x)/(1000000ul/JIFFIES_PER_SECOND))
-#define JIFFIES_FROM_NANO(x)    ((x)/(1000000000ul/JIFFIES_PER_SECOND))
+#define JIFFIES_PER_SECOND         HZ
+#define JIFFIES_PER_MINUTE        (HZ*60)
+#define JIFFIES_PER_HOUR          (HZ*3600)
+#define JIFFIES_FROM_HOURS(x)    ((x)*JIFFIES_PER_HOUR)
+#define JIFFIES_FROM_MINUTES(x)  ((x)*JIFFIES_PER_MINUTE)
+#define JIFFIES_FROM_SECONDS(x)  ((x)*JIFFIES_PER_SECOND)
+#define JIFFIES_FROM_MILLI(x)    ((x)/(1000ul/JIFFIES_PER_SECOND))
+#define JIFFIES_FROM_MICRO(x)    ((x)/(1000000ul/JIFFIES_PER_SECOND))
+#define JIFFIES_FROM_NANO(x)     ((x)/(1000000000ul/JIFFIES_PER_SECOND))
 
 LOCAL jtime_t KCALL
 jiffies_from_timespec(struct timespec tmval) {

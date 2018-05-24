@@ -249,22 +249,6 @@ async_sig_broadcast(struct async_sig *__restrict signal) {
  return true;
 }
 
-/* Helper functions for user-space wait requests. */
-PUBLIC struct sig *KCALL
-task_uwaitfor_tmrel(USER CHECKED struct timespec const *rel_timeout) {
- return task_uwaitfor(jiffies + jiffies_from_timespec(*rel_timeout));
-}
-PUBLIC struct sig *KCALL
-task_uwaitfor_tmabs(USER CHECKED struct timespec const *abs_timeout) {
- struct timespec diff = *abs_timeout;
- struct timespec wall = wall_gettime(&wall_kernel);
- if (TIMESPEC_LOWER(diff,wall))
-     return task_udisconnect();
- TIMESPEC_SUB(diff,wall);
- return task_uwaitfor(jiffies + jiffies_from_timespec(diff));
-}
-
-
 
 #else
 
@@ -572,7 +556,7 @@ PUBLIC void *KCALL task_udisconnect(void) {
 }
 
 PUBLIC void *KCALL
-task_uwaitfor_tmrel(USER CHECKED struct timespec const *rel_timeout) {
+task_waitfor_tmrel(USER CHECKED struct timespec const *rel_timeout) {
  return task_uwaitfor(jiffies + jiffies_from_timespec(*rel_timeout));
 }
 PUBLIC void *KCALL

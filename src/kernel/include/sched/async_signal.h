@@ -110,11 +110,6 @@ FUNDEF ASYNCSAFE bool KCALL async_sig_broadcast(struct async_sig *__restrict sig
 #define task_uwait()               task_wait_async()
 #define task_uwaitfor(abs_timeout) task_waitfor_async(abs_timeout)
 
-struct timespec;
-/* Helper functions for user-space wait requests. */
-FUNDEF struct sig *KCALL task_uwaitfor_tmrel(USER CHECKED struct timespec const *rel_timeout); /* Relative timeout */
-FUNDEF struct sig *KCALL task_uwaitfor_tmabs(USER CHECKED struct timespec const *abs_timeout); /* Absolute timeout */
-
 /* Disconnect any kind of signal.
  * @return: * :   A pointer to a `struct async_sig' or `struct sig' that was sent.
  * @return: NULL: No signals were sent, or have been connected. */
@@ -194,7 +189,7 @@ FUNDEF void *KCALL task_uwaitfor(jtime_t abs_timeout);
 
 struct timespec;
 /* Helper functions for user-space wait requests. */
-FUNDEF void *KCALL task_uwaitfor_tmrel(USER CHECKED struct timespec const *rel_timeout); /* Relative timeout */
+FUNDEF void *KCALL task_waitfor_tmrel(USER CHECKED struct timespec const *rel_timeout); /* Relative timeout */
 FUNDEF void *KCALL task_uwaitfor_tmabs(USER CHECKED struct timespec const *abs_timeout); /* Absolute timeout */
 
 /* Disconnect any kind of signal.

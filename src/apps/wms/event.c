@@ -275,6 +275,11 @@ INTERN int MouseRelayThread(void *arg) {
    if (!Xread(wms_mouse,&resp.r_event.e_mouse.m_packet,
               sizeof(struct mouse_packet)))
         error_throw(E_INVALID_ARGUMENT); /* EOF? */
+#if 0
+   syslog(LOG_DEBUG,"MOUSE_EVENT: { %I64d, %I64d }\n",
+          resp.r_event.e_mouse.m_packet.mp_relx,
+          resp.r_event.e_mouse.m_packet.mp_rely);
+#endif
    /* Invert movement in Y to account for the fact that y=0 is at the top. */
    resp.r_event.e_mouse.m_packet.mp_rely = -resp.r_event.e_mouse.m_packet.mp_rely;
    new_mouse_display_x = mouse_display_x + (int)resp.r_event.e_mouse.m_packet.mp_relx;

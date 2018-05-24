@@ -21,11 +21,16 @@
 
 #include <__stdinc.h>
 
-#define KEY_PRESSED     0x0000
-#define KEY_RELEASED    0x8000 /* Flag: The key was released. */
-#define KEY_ISUP(k)     ((k)&KEY_RELEASED)
-#define KEY_ISDOWN(k) (!((k)&KEY_RELEASED))
-#define KEYUP(k)        ((k)|KEY_RELEASED)
+#define KEY_FPRESSED     0x0000 /* FLAG: The key was pressed. */
+#define KEY_FREPEAT      0x4000 /* FLAG: The key is being repeated periodically,
+                                 *       because the user is holding down the button. */
+#define KEY_FRELEASED    0x8000 /* FLAG: The key was released. */
+#define KEY_FMASK        0xc000 /* MASK: Key state flags. */
+#define KEY_KMASK        0x3fff /* MASK: Key code. */
+#define KEY_ISUP(k)     ((k)&KEY_FRELEASED)
+#define KEY_ISDOWN(k) (!((k)&KEY_FRELEASED))
+#define KEYCODE(k)      ((k)&KEY_KMASK)
+#define KEYUP(k)        ((k)|KEY_FRELEASED)
 #define KEYDOWN(k)       (k)
 
 #define KEYBOARD_COL_BITS 5

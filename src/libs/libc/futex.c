@@ -2556,13 +2556,13 @@ CRT_KOS ssize_t LIBCCALL
 libc_xppoll(struct pollfd *ufds, size_t nfds,
             struct pollfutex *uftx, size_t nftx,
             struct pollpid *upid, size_t npid,
-            struct timespec const *tsp, sigset_t *sig) {
+            struct timespec const *rel_timeout, sigset_t *sig) {
  struct timespec64 t64;
- if (!tsp)
+ if (!rel_timeout)
       return libc_xppoll64(ufds,nfds,uftx,nftx,upid,npid,NULL,sig);
  LIBC_TRY {
-  t64.tv_sec  = tsp->tv_sec;
-  t64.tv_nsec = tsp->tv_nsec;
+  t64.tv_sec  = rel_timeout->tv_sec;
+  t64.tv_nsec = rel_timeout->tv_nsec;
  } LIBC_EXCEPT (libc_except_errno()) {
   return -1;
  }
@@ -2575,7 +2575,7 @@ CRT_KOS ssize_t LIBCCALL
 libc_xppoll64(struct pollfd *ufds, size_t nfds,
               struct pollfutex *uftx, size_t nftx,
               struct pollpid *upid, size_t npid,
-              struct timespec64 const *tsp, sigset_t *sig) {
+              struct timespec64 const *rel_timeout, sigset_t *sig) {
  struct poll_info info;
  info.i_ufdvec = ufds;
  info.i_ufdcnt = nfds;
@@ -2583,7 +2583,7 @@ libc_xppoll64(struct pollfd *ufds, size_t nfds,
  info.i_ftxcnt = nftx;
  info.i_pidvec = upid;
  info.i_pidcnt = npid;
- return Esys_xppoll(&info,tsp,sig,sizeof(sigset_t));
+ return Esys_xppoll(&info,rel_timeout,sig,sizeof(sigset_t));
 }
 
 EXPORT(Xxppoll,libc_Xxppoll);
@@ -2591,12 +2591,12 @@ CRT_EXCEPT size_t LIBCCALL
 libc_Xxppoll(struct pollfd *ufds, size_t nfds,
              struct pollfutex *uftx, size_t nftx,
              struct pollpid *upid, size_t npid,
-             struct timespec const *tsp, sigset_t *sig) {
+             struct timespec const *rel_timeout, sigset_t *sig) {
  struct timespec64 t64;
- if (!tsp)
+ if (!rel_timeout)
       return libc_Xxppoll64(ufds,nfds,uftx,nftx,upid,npid,NULL,sig);
- t64.tv_sec  = tsp->tv_sec;
- t64.tv_nsec = tsp->tv_nsec;
+ t64.tv_sec  = rel_timeout->tv_sec;
+ t64.tv_nsec = rel_timeout->tv_nsec;
  return libc_Xxppoll64(ufds,nfds,uftx,nftx,upid,npid,&t64,sig);
 }
 
@@ -2605,7 +2605,7 @@ CRT_EXCEPT size_t LIBCCALL
 libc_Xxppoll64(struct pollfd *ufds, size_t nfds,
                struct pollfutex *uftx, size_t nftx,
                struct pollpid *upid, size_t npid,
-               struct timespec64 const *tsp, sigset_t *sig) {
+               struct timespec64 const *rel_timeout, sigset_t *sig) {
  struct poll_info info;
  info.i_ufdvec = ufds;
  info.i_ufdcnt = nfds;
@@ -2613,7 +2613,7 @@ libc_Xxppoll64(struct pollfd *ufds, size_t nfds,
  info.i_ftxcnt = nftx;
  info.i_pidvec = upid;
  info.i_pidcnt = npid;
- return Xsys_xppoll(&info,tsp,sig,sizeof(sigset_t));
+ return Xsys_xppoll(&info,rel_timeout,sig,sizeof(sigset_t));
 }
 
 

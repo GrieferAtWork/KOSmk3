@@ -151,7 +151,7 @@ function format_address2line(outfile,format,file,line,func,address) {
 function run_qemu(bin,tap) {
 	local qemu = process(expand_options("${QEMU}"),[
 		(run_mode_hosted ? ["-no-reboot","-no-shutdown"] : [])...,
-		"-serial","stdio","-d","debug","-smp","2",
+		"-serial","stdio","-d","debug",//"-smp","2",
 		(run_mode_remote ? ["-s","-S"] : [])...,
 		(run_mode_usb ? ["-hda","\\\\.\\PhysicalDrive2"]
 		              : ["-kernel",bin,

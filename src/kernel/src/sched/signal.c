@@ -618,6 +618,45 @@ KCALL __os_task_waitfor(jtime_t abs_timeout) {
  }
  return result;
 }
+PUBLIC ATTR_HOTTEXT struct sig *
+KCALL task_qwaitfor(qtime_t abs_timeout) {
+ struct task_connections *mycon;
+ struct sig *COMPILER_IGNORE_UNINITIALIZED(result);
+ bool sleep_ok;
+ mycon = &PERTASK(my_connections);
+ TRY {
+  /* We require that the caller have preemption enable. */
+  if (!PREEMPTION_ENABLED())
+      error_throw(E_WOULDBLOCK);
+  for (;;) {
+   /* Disable preemption to ensure that no task
+    * for the current CPU could send the signal.
+    * Additionally, no other CPU will be able to
+    * interrupt us while we check for signals, meaning
+    * that any task_wake IPIs will only be received once
+    * `task_sleep()' gets around to re-enable interrupts. */
+   PREEMPTION_DISABLE();
+   result = ATOMIC_READ(mycon->tcs_sig);
+   if (result) { PREEMPTION_ENABLE(); break; }
+   /* Serve RPC functions. */
+   if (task_serve()) continue;
+
+   /* Sleep for a bit, or until we're interrupted. */
+   sleep_ok = task_qsleep(abs_timeout);
+
+   result = ATOMIC_READ(mycon->tcs_sig);
+   /* A signal was received in the mean time. */
+   if (result) break;
+   if (!sleep_ok) break; /* Timeout */
+   /* Continue spinning */
+  }
+ } FINALLY {
+  /* Always disconnect all connected signals,
+   * thus resetting the connections list. */
+  task_disconnect();
+ }
+ return result;
+}
 PUBLIC ATTR_NOTHROW struct sig *KCALL task_trywait(void) {
  struct sig *result;
  result = PERTASK_GET(my_connections.tcs_sig);
@@ -657,6 +696,43 @@ KCALL __os_task_waitfor_noserve(jtime_t abs_timeout) {
 
    /* Sleep for a bit, or until we're interrupted. */
    sleep_ok = task_sleep(abs_timeout);
+
+   result = ATOMIC_READ(mycon->tcs_sig);
+   /* A signal was received in the mean time. */
+   if (result) break;
+   if (!sleep_ok) break; /* Timeout */
+   /* Continue spinning */
+  }
+ } FINALLY {
+  /* Always disconnect all connected signals,
+   * thus resetting the connections list. */
+  task_disconnect();
+ }
+ return result;
+}
+PUBLIC ATTR_HOTTEXT struct sig *
+KCALL task_qwaitfor_noserve(qtime_t abs_timeout) {
+ struct task_connections *mycon;
+ struct sig *COMPILER_IGNORE_UNINITIALIZED(result);
+ bool sleep_ok;
+ mycon = &PERTASK(my_connections);
+ TRY {
+  /* We require that the caller have preemption enable. */
+  if (!PREEMPTION_ENABLED())
+      error_throw(E_WOULDBLOCK);
+  for (;;) {
+   /* Disable preemption to ensure that no task
+    * for the current CPU could send the signal.
+    * Additionally, no other CPU will be able to
+    * interrupt us while we check for signals, meaning
+    * that any task_wake IPIs will only be received once
+    * `task_sleep()' gets around to re-enable interrupts. */
+   PREEMPTION_DISABLE();
+   result = ATOMIC_READ(mycon->tcs_sig);
+   if (result) { PREEMPTION_ENABLE(); break; }
+
+   /* Sleep for a bit, or until we're interrupted. */
+   sleep_ok = task_qsleep(abs_timeout);
 
    result = ATOMIC_READ(mycon->tcs_sig);
    /* A signal was received in the mean time. */
@@ -1325,7 +1401,22 @@ DEFINE_PUBLIC_ALIAS(sig_altbroadcast_channel_locked_p,sig_altbroadcast_channel_l
 
 PUBLIC struct sig *KCALL
 task_waitfor_tmrel(USER CHECKED struct timespec const *rel_timeout) {
- return task_waitfor(jiffies + jiffies_from_timespec(*rel_timeout));
+ qtime_t qtimeout,abs_timeout;
+ /* Figure out the relative timeout as a quantum time. */
+ qtimeout.qt_jiffies = jiffies_from_timespec(*rel_timeout);
+ qtimeout.qt_qoffset = rel_timeout->tv_nsec % (1000000000ul / JIFFIES_PER_SECOND);
+ qtimeout.qt_qlength = 1000000000ul / JIFFIES_PER_SECOND;
+ /* Add the current quantum time to the timeout. */
+ abs_timeout = qtime_now();
+ abs_timeout.qt_jiffies += qtimeout.qt_jiffies;
+ abs_timeout.qt_qoffset += (u32)((((u64)qtimeout.qt_qoffset * abs_timeout.qt_qlength) +
+                                  ((u64)qtimeout.qt_qlength / 2)) /
+                                   qtimeout.qt_qlength);
+ while (abs_timeout.qt_qoffset > abs_timeout.qt_qlength) {
+  ++abs_timeout.qt_jiffies;
+  abs_timeout.qt_qoffset -= abs_timeout.qt_qlength;
+ }
+ return task_qwaitfor(abs_timeout);
 }
 PUBLIC struct sig *KCALL
 task_waitfor_tmabs(USER CHECKED struct timespec const *abs_timeout) {
@@ -1334,7 +1425,7 @@ task_waitfor_tmabs(USER CHECKED struct timespec const *abs_timeout) {
  if (TIMESPEC_LOWER(diff,wall))
      return task_disconnect();
  TIMESPEC_SUB(diff,wall);
- return task_waitfor(jiffies + jiffies_from_timespec(diff));
+ return task_waitfor_tmrel(&diff);
 }
 
 

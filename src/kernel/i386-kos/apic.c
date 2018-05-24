@@ -351,6 +351,65 @@ all_online:;
  }
 }
 
+/*
+read_PIT_count:
+    pushfd
+    cli
+    mov al, 00000000b    ; al = channel in bits 6 and 7, remaining bits clear
+    out 0x43, al         ; Send the latch command
+ 
+    in al, 0x40          ; al = low byte of count
+    mov ah, al           ; ah = low byte of count
+    in al, 0x40          ; al = high byte of count
+    rol ax, 8            ; al = low byte, ah = high byte (ax = current count)
+    popfd
+    ret
+*/
+
+
+PUBLIC NOIRQ qtime_t KCALL qtime_now_noirq(void) {
+ qtime_t result;
+ result.qt_jiffies = jiffies;
+ if (X86_HAVE_LAPIC) {
+  result.qt_qlength = lapic_read(APIC_TIMER_INITIAL);
+  result.qt_qoffset = lapic_read(APIC_TIMER_CURRENT);
+  if (lapic_read(APIC_TIMER) & APIC_TIMER_FPENDING) {
+   /* Special case: The current quantum should have already ended. */
+   ++result.qt_jiffies;
+   /* This check is somewhat questionable, but is required to
+    * deal with the extremely rare scenario of the current
+    * quantum having ended after we read `APIC_TIMER_CURRENT',
+    * but before we read `APIC_TIMER'.
+    * In that case, the quantum offset is still located extremely
+    * close to its end, so we must set it to ZERO because we
+    * already adjusted the full jiffies counter. */
+   if (result.qt_qoffset > (result.qt_qlength/2))
+       result.qt_qoffset = 0;
+  }
+  result.qt_qoffset = result.qt_qlength - result.qt_qoffset;
+ } else {
+  /* Read the current PIT counter position. */
+  outb(PIT_COMMAND,
+       PIT_COMMAND_SELEFT_F0 |
+       PIT_COMMAND_ACCESS_FLATCH |
+       PIT_COMMAND_MODE_FIRQONTERM |
+       PIT_COMMAND_FBINARY);
+  result.qt_qoffset  = (u16)inb(PIT_DATA0);
+  result.qt_qoffset |= (u16)inb(PIT_DATA0) << 8;
+  /* The PIT reload value is constant. */
+  result.qt_qlength  = PIT_HZ_DIV(HZ);
+  result.qt_qoffset  = PIT_HZ_DIV(HZ) - result.qt_qoffset;
+ }
+ return result;
+}
+PUBLIC qtime_t KCALL qtime_now(void) {
+ qtime_t result;
+ pflag_t was = PREEMPTION_PUSHOFF();
+ result = qtime_now_noirq();
+ PREEMPTION_POP(was);
+ return result;
+}
+
 
 
 DECL_END

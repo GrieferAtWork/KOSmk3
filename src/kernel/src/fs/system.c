@@ -1693,9 +1693,9 @@ scan_again:
   } else if (!tsp) {
    task_uwait();
    goto scan_again;
-  } else if (task_isconnected()) {
+  } else if (!nfds || task_isconnected()) {
    /* Wait for signals to arrive and scan again. */
-   if (task_uwaitfor_tmabs(tsp))
+   if (task_waitfor_tmrel(tsp))
        goto scan_again;
    /* NOTE: If the timeout expires, ZERO(0) is returned. */
   }
@@ -1790,9 +1790,9 @@ scan_again:
   } else if (!tsp) {
    task_uwait();
    goto scan_again;
-  } else if (task_isconnected()) {
+  } else if (!n || task_isconnected()) {
    /* Wait for files to become ready. */
-   if (task_uwaitfor_tmabs(tsp))
+   if (task_waitfor_tmrel(tsp))
        goto scan_again;
    /* NOTE: If the timeout expires, ZERO(0) is returned. */
   }
@@ -2306,9 +2306,9 @@ scan_again_drop_futex:
     futex_decref(futex_vec[futex_cnt]);
    }
    goto scan_again;
-  } else if (task_isconnected()) {
+  } else if (task_isconnected() || (!nfds && !nftx && !npid)) {
    /* Wait for signals to arrive and scan again. */
-   if (task_uwaitfor_tmabs(tsp))
+   if (task_waitfor_tmrel(tsp))
        goto scan_again_drop_futex;
    /* NOTE: If the timeout expires, ZERO(0) is returned. */
   }

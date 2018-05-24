@@ -249,28 +249,28 @@ __REDIRECT_EXCEPT_TM64(__LIBC,,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xp
                       (struct pollfd *__ufds, __size_t __nfds,
                        struct pollfutex *__uftx, __size_t __nftx,
                        struct pollpid *__upid, __size_t __npid,
-                       struct timespec const *__abs_timeout, __sigset_t *sig),
-                      (__ufds,__nfds,__uftx,__nftx,__upid,__npid,__abs_timeout,sig))
+                       struct timespec const *__rel_timeout, __sigset_t *sig),
+                      (__ufds,__nfds,__uftx,__nftx,__upid,__npid,__rel_timeout,sig))
 #ifdef __USE_TIME64
 __REDIRECT_EXCEPT(__LIBC,,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,xppoll64,
                  (struct pollfd *__ufds, __size_t __nfds,
                   struct pollfutex *__uftx, __size_t __nftx,
                   struct pollpid *__upid, __size_t __npid,
-                  struct __timespec64 const *__abs_timeout, __sigset_t *sig),
-                 (__ufds,__nfds,__uftx,__nftx,__upid,__npid,__abs_timeout,sig))
+                  struct __timespec64 const *__rel_timeout, __sigset_t *sig),
+                 (__ufds,__nfds,__uftx,__nftx,__upid,__npid,__rel_timeout,sig))
 #endif /* __USE_TIME64 */
 #ifdef __USE_EXCEPT
 __REDIRECT_TM64(__LIBC,,__size_t,__LIBCCALL,Xxppoll,
                (struct pollfd *__ufds, __size_t __nfds,
                 struct pollfutex *__uftx, __size_t __nftx,
                 struct pollpid *__upid, __size_t __npid,
-                struct timespec const *__abs_timeout, __sigset_t *sig),
-               (__ufds,__nfds,__uftx,__nftx,__upid,__npid,__abs_timeout,sig))
+                struct timespec const *__rel_timeout, __sigset_t *sig),
+               (__ufds,__nfds,__uftx,__nftx,__upid,__npid,__rel_timeout,sig))
 #ifdef __USE_TIME64
 __LIBC __size_t (__LIBCCALL Xxppoll64)(struct pollfd *__ufds, __size_t __nfds,
                                        struct pollfutex *__uftx, __size_t __nftx,
                                        struct pollpid *__upid, __size_t __npid,
-                                       struct __timespec64 const *__abs_timeout, __sigset_t *sig);
+                                       struct __timespec64 const *__rel_timeout, __sigset_t *sig);
 #endif /* __USE_TIME64 */
 #endif /* __USE_EXCEPT */
 

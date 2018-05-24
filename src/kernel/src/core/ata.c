@@ -26,6 +26,7 @@
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
+#include <kos/intrin.h>
 #include <hybrid/section.h>
 #include <hybrid/host.h>
 #include <hybrid/align.h>
@@ -82,6 +83,19 @@ Ata_WaitForBusInterrupt(u16 bus, jtime_t timeout) {
  volatile unsigned int *counter;
  assert(bus == ATA_BUS_PRIMARY ||
         bus == ATA_BUS_SECONDARY);
+ if (!PREEMPTION_ENABLED()) {
+  /* Special case: Without preemption enabled, poll for a response. */
+  u8 status;
+  timeout <<= 8;
+  for (; timeout; --timeout) {
+   status = inb_p(ATA_STATUS(bus));
+   if (status & (ATA_DCR_ERR|ATA_DCR_DF))
+       return false;
+   if (status & ATA_DCR_BSY) continue;
+   if (!(status & ATA_DCR_DRQ)) continue;
+  }
+  return true;
+ }
  counter = &Ata_BusInterruptCounter[!(bus&ATA_BUS_FPRIMARY)];
  abs_timeout = jiffies + timeout;
  while (!ATOMIC_READ(*counter)) {

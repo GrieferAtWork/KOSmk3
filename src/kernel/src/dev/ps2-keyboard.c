@@ -85,17 +85,26 @@ struct ps2_keyboard {
 
 PRIVATE ASYNCSAFE void KCALL
 Keyboard_Putc(Keyboard *__restrict self, keyboard_key_t key) {
+ /* Keep track of the keyboard key state. */
+ if (KEY_ISUP(key)) {
+  keyboard_upkey(&self->p_keyboard,KEYCODE(key));
+ } else {
+  assert(key == KEYCODE(key));
+  if (!keyboard_downkey(&self->p_keyboard,key))
+       key |= KEY_FREPEAT;
+ }
+
 #if 0
  debug_printf("KEY: %x\n",key);
 #endif
- if ((key & ~(KEY_PRESSED|KEY_RELEASED)) == KEY_UNKNOWN) {
+ if (KEYCODE(key) == KEY_UNKNOWN) {
   debug_printf("[PS/2] Unknown PS/2 keyboard key\n");
   return;
  }
 #if 1 /* For debugging... */
  if (key == KEYUP(KEY_F12)) {
   /* release F12 */
-#if 0
+#if 1
   asm("int3");
 #else
   PREEMPTION_ENABLE();
@@ -142,7 +151,7 @@ again:
  case STATE1_E0_2A_E0:
   if (keycode == 0x37) {
    self->p_state = STATE1;
-   key = KEY_PRESSED|KEY_PRINTSCREEN;
+   key = KEY_FPRESSED|KEY_PRINTSCREEN;
   } else {
    /* Unwind. */
    Keyboard_Putc(self,KEYMAP_GET_PS2_SCANSET1_E0(0x2a));
@@ -159,7 +168,7 @@ again:
  case STATE1_E0_B7_E0:
   if (keycode == 0xaa) {
    self->p_state = STATE1;
-   key = KEY_RELEASED|KEY_PRINTSCREEN;
+   key = KEY_FRELEASED|KEY_PRINTSCREEN;
   } else {
    /* Unwind. */
    Keyboard_Putc(self,KEYMAP_GET_PS2_SCANSET1_E0(0xb7));
@@ -195,8 +204,8 @@ again:
  case STATE1_E1_1D_45_E1_9D:
   self->p_state = STATE1;
   if (keycode == 0x9d) {
-   Keyboard_Putc(self,KEY_PRESSED|KEY_PAUSE);
-   key = KEY_RELEASED|KEY_PAUSE;
+   Keyboard_Putc(self,KEY_FPRESSED|KEY_PAUSE);
+   key = KEY_FRELEASED|KEY_PAUSE;
   } else {
    Keyboard_Putc(self,KEYMAP_GET_PS2_SCANSET1(0xe1));
    Keyboard_Putc(self,KEYMAP_GET_PS2_SCANSET1(0x1d));
@@ -215,7 +224,7 @@ again:
   key = (keyboard_key_t)keymap_ps2_scanset_2[keycode];
   break;
  case STATE2_F0:
-  key = (keyboard_key_t)keymap_ps2_scanset_2[keycode]|KEY_RELEASED;
+  key = (keyboard_key_t)keymap_ps2_scanset_2[keycode]|KEY_FRELEASED;
   self->p_state = STATE2;
   break;
  case STATE2_E0:
@@ -226,7 +235,7 @@ again:
   break;
  case STATE2_E0_F0:
   if (keycode == 0x7c) { self->p_state = STATE2_E0_F0_7C; goto done; }
-  key = KEY_RELEASED|keymap_ps2_scanset_2_e0[keycode];
+  key = KEY_FRELEASED|keymap_ps2_scanset_2_e0[keycode];
   self->p_state = STATE2;
   break;
  case STATE2_E0_12:
@@ -237,7 +246,7 @@ again:
  case STATE2_E0_12_E0:
   self->p_state = STATE2;
   if (keycode == 0x7c) {
-   key = KEY_PRESSED|KEY_PRINTSCREEN;
+   key = KEY_FPRESSED|KEY_PRINTSCREEN;
   } else {
    Keyboard_Putc(self,keymap_ps2_scanset_2_e0[0x12]);
    goto again;
@@ -245,20 +254,20 @@ again:
   break;
  case STATE2_E0_F0_7C:
   if (keycode == 0xe0) { self->p_state = STATE2_E0_F0_7C_E0; goto done; }
-  Keyboard_Putc(self,keymap_ps2_scanset_2_e0[0x7c]|KEY_RELEASED);
+  Keyboard_Putc(self,keymap_ps2_scanset_2_e0[0x7c]|KEY_FRELEASED);
   self->p_state = STATE2;
   goto again;
  case STATE2_E0_F0_7C_E0:
   if (keycode == 0xf0) { self->p_state = STATE2_E0_F0_7C_E0_F0; goto done; }
-  Keyboard_Putc(self,keymap_ps2_scanset_2_e0[0x7c]|KEY_RELEASED);
+  Keyboard_Putc(self,keymap_ps2_scanset_2_e0[0x7c]|KEY_FRELEASED);
   self->p_state = STATE2_E0;
   goto again;
  case STATE2_E0_F0_7C_E0_F0:
   self->p_state = STATE2;
   if (keycode == 0x12) {
-   key = KEY_RELEASED|KEY_PRINTSCREEN;
+   key = KEY_FRELEASED|KEY_PRINTSCREEN;
   } else {
-   Keyboard_Putc(self,keymap_ps2_scanset_2_e0[0x7c]|KEY_RELEASED);
+   Keyboard_Putc(self,keymap_ps2_scanset_2_e0[0x7c]|KEY_FRELEASED);
    self->p_state = STATE2_E0_F0;
    goto again;
   }
@@ -302,20 +311,20 @@ again:
   Keyboard_Putc(self,keymap_ps2_scanset_2[0x14]);
   Keyboard_Putc(self,keymap_ps2_scanset_2[0x77]);
   Keyboard_Putc(self,keymap_ps2_scanset_2[0xe1]);
-  Keyboard_Putc(self,keymap_ps2_scanset_2[0x14]|KEY_RELEASED);
+  Keyboard_Putc(self,keymap_ps2_scanset_2[0x14]|KEY_FRELEASED);
   self->p_state = STATE2;
   goto again;
  case STATE2_E1_14_77_E1_F0_14_F0:
   if (keycode == 0x12) {
-   Keyboard_Putc(self,KEY_PRESSED|KEY_PAUSE);
-   key = KEY_RELEASED|KEY_PAUSE;
+   Keyboard_Putc(self,KEY_FPRESSED|KEY_PAUSE);
+   key = KEY_FRELEASED|KEY_PAUSE;
    self->p_state = STATE2;
   } else {
    Keyboard_Putc(self,keymap_ps2_scanset_2[0xe1]);
    Keyboard_Putc(self,keymap_ps2_scanset_2[0x14]);
    Keyboard_Putc(self,keymap_ps2_scanset_2[0x77]);
    Keyboard_Putc(self,keymap_ps2_scanset_2[0xe1]);
-   Keyboard_Putc(self,keymap_ps2_scanset_2[0x14]|KEY_RELEASED);
+   Keyboard_Putc(self,keymap_ps2_scanset_2[0x14]|KEY_FRELEASED);
    self->p_state = STATE2_F0;
    goto again;
   }
@@ -326,7 +335,7 @@ again:
   key = keymap_ps2_scanset_3[keycode];
   break;
  case STATE3_F0:
-  key = keymap_ps2_scanset_3[keycode]|KEY_RELEASED;
+  key = keymap_ps2_scanset_3[keycode]|KEY_FRELEASED;
   break;
 
 

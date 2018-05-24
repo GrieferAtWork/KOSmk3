@@ -102,12 +102,14 @@ __WM_FOREACH_SURFACE_CLASS(__WM_ENUM_STRUCT)
 #define __WM_SURFACE_CONST_POINTER_R  void const *__restrict
 #endif
 
+typedef struct wm_color_triple wm_color_triple_t;
 struct PACKED wm_color_triple {
     __uint8_t   c_red;    /* Red color component. */
     __uint8_t   c_green;  /* Green color component. */
     __uint8_t   c_blue;   /* Blue color component. */
 };
 
+typedef struct wm_color wm_color_t;
 struct PACKED wm_color {
     union PACKED {
         struct PACKED {
@@ -141,6 +143,7 @@ WMAPI __uint32_t WMCALL wm_color_compare(struct wm_color_triple a,
     struct wm_color_triple       p_colors[num_colors]; /* [p_count] Colors associated with individual palette indices. */ \
 /**/
 
+typedef struct wm_palette wm_palette_t;
 struct PACKED wm_palette {
     WM_PALETTE_TYPE(1)
 };
@@ -180,6 +183,7 @@ WMAPI ATTR_NOTHROW void WMCALL wm_palette_destroy(struct wm_palette *__restrict 
 #define WM_COLOR_WHITE   0xf /* White    #ffffff rgb(255,255,255) */
 #define WM_COLOR_COUNT   16
 
+typedef struct wm_format wm_format_t;
 struct wm_format {
     ATOMIC_DATA __ref_t          f_refcnt; /* Format reference counter. */
     REF struct wm_palette       *f_pal;    /* [0..1][const] Palette (if used) */
@@ -287,6 +291,7 @@ wm_format_pixelof(struct wm_format const *__restrict self,
     __byte_t                    *s_buffer; /* [1..1][owned][lock(s_lock)] Surface buffer. */ \
 /**/
 
+typedef struct wm_surface wm_surface_t;
 struct PACKED wm_surface {
     __WM_SURFACE_STRUCT_MEMBERS
 };
@@ -322,6 +327,7 @@ WMAPI ATTR_NOTHROW void WMCALL wm_surface_destroy(__WM_SURFACE_POINTER_R self);
 
 
 
+typedef struct wm_surface_view wm_surface_view_t;
 #ifdef __cplusplus
 struct PACKED wm_surface_view: wm_surface
 #else

@@ -65,7 +65,9 @@ PRIVATE int LIBCCALL ClientMain(void *arg) {
     if (Xrecv(client_fd,&req,sizeof(struct wms_request),MSG_WAITALL) !=
                              sizeof(struct wms_request))
         break; /* Disconnect */
+#if 0
     syslog(LOG_DEBUG,"[WMS] Receive command: %u\n",req.r_command);
+#endif
 
     memset(&resp,0,sizeof(struct wms_response));
     resp.r_echo = req.r_echo;
@@ -201,6 +203,8 @@ PRIVATE int LIBCCALL ClientMain(void *arg) {
                            req.r_mvwin.mw_newx,
                            req.r_mvwin.mw_newy);
        resp.r_answer                        = WMS_RESPONSE_EVENT;
+       resp.r_event.e_window.w_type         = WM_EVENT_WINDOW;
+       resp.r_event.e_window.w_flag         = WM_EVENT_FNORMAL;
        resp.r_event.e_window.w_event        = WM_WINDOWEVENT_MOVED;
        resp.r_event.e_window.w_winid        = win->w_id;
        resp.r_event.e_window.w_moved.m_oldx = old_x;

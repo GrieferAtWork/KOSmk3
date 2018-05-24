@@ -21,6 +21,7 @@
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
+#include <kos/keyboard.h>
 #include <kos/keyboard-ioctl.h>
 #include <hybrid/atomic.h>
 #include <sched/mutex.h>
@@ -61,6 +62,11 @@ struct keyboard_ops {
 };
 
 
+struct keyboard_keys {
+    uintptr_t   k_basic[256 / (sizeof(uintptr_t) * 8)]; /* 0x0000..0x00ff */
+    uintptr_t   k_x1000[256 / (sizeof(uintptr_t) * 8)]; /* 0x1000..0x10ff */
+};
+
 struct keyboard {
     struct character_device k_dev;   /* Underlying character device. */
     struct keyboard_ops    *k_ops;   /* [1..1][const] Keyboard operators. */
@@ -70,9 +76,46 @@ struct keyboard {
     struct kbdelay          k_delay; /* [lock(k_lock)] The current keyboard delay. */
     u16                     k_mode;  /* [lock(k_lock)] Keyboard state & mode (One of `KEYBOARD_MODE_F*' + set of `KEYBOARD_F*') */
     u16                   __k_pad;   /* ... */
+    struct keyboard_keys    k_keys;  /* Bitset of held keys. */
     WEAK keyboard_ledset_t  k_leds;  /* The current state of keyboard LEDs. */
     WEAK keyboard_state_t   k_state; /* The current keyboard delay. */
 };
+
+/* Mark the given key `code' as being held down.
+ * If the key was already being held down, return `false'. Otherwise, return true. */
+LOCAL bool KCALL keyboard_downkey(struct keyboard *__restrict self, keyboard_key_t code) {
+ if likely(code <= 0xff) {
+  unsigned int index;
+  uintptr_t mask;
+  index = code / (sizeof(uintptr_t) * 8);
+  mask  = 1 << (code % (sizeof(uintptr_t) * 8));
+  return !(ATOMIC_FETCHOR(self->k_keys.k_basic[index],mask) & mask);
+ }
+ if (code >= 0x1000 && code <= 0x10ff) {
+  unsigned int index;
+  uintptr_t mask;
+  index = (code & 0xff) / (sizeof(uintptr_t) * 8);
+  mask  = 1 << ((code & 0xff) % (sizeof(uintptr_t) * 8));
+  return !(ATOMIC_FETCHOR(self->k_keys.k_x1000[index],mask) & mask);
+ }
+ return true; /* Key isn't being tracked. */
+}
+LOCAL void KCALL keyboard_upkey(struct keyboard *__restrict self, keyboard_key_t code) {
+ if likely(code <= 0xff) {
+  unsigned int index;
+  uintptr_t mask;
+  index = code / (sizeof(uintptr_t) * 8);
+  mask  = 1 << (code % (sizeof(uintptr_t) * 8));
+  ATOMIC_FETCHAND(self->k_keys.k_basic[index],~mask);
+ } else if (code >= 0x1000 && code <= 0x10ff) {
+  unsigned int index;
+  uintptr_t mask;
+  index = (code & 0xff) / (sizeof(uintptr_t) * 8);
+  mask  = 1 << ((code & 0xff) % (sizeof(uintptr_t) * 8));
+  ATOMIC_FETCHAND(self->k_keys.k_x1000[index],~mask);
+ }
+}
+
 
 /* Increment/decrement the reference counter of the given keyboard `x' */
 #define keyboard_incref(x) character_device_incref(&(x)->k_dev)

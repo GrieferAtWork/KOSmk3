@@ -684,6 +684,40 @@ DEFINE_SYSCALL1(xnosignal,unsigned int,mode) {
 }
 
 
+PUBLIC NOIRQ bool KCALL
+task_qsleep(qtime_t abs_timeout) {
+ qtime_t now;
+ jtime_t jnow = ATOMIC_READ(jiffies);
+ if (abs_timeout.qt_jiffies <= jnow) {
+  /* The timeout has already passed. - Check the quantum time and
+   * try to yield to another thread, hoping that it will yield again.
+   * This way, we don't waste too much idle time doing nothing. */
+  PREEMPTION_ENABLE();
+  if (abs_timeout.qt_jiffies < jnow)
+      return false; /* Timeout already expired. */
+  now = qtime_now();
+  if (QTIME_GREATER_EQUAL(now,abs_timeout))
+      goto quantum_timeout;
+  if (task_tryyield()) {
+   now = qtime_now();
+   if (QTIME_GREATER_EQUAL(now,abs_timeout))
+       goto quantum_timeout;
+  }
+ } else {
+  if (task_sleep(abs_timeout.qt_jiffies))
+      return true;
+  /* Spend the remainder of the sub-quantum doing arbitrary wake-ups. */
+  now = qtime_now();
+  if (QTIME_GREATER_EQUAL(now,abs_timeout))
+      goto quantum_timeout;
+ }
+ return true;
+quantum_timeout:
+ return false;
+}
+
+
+
 DECL_END
 
 #endif /* !GUARD_KERNEL_SRC_SCHED_TASK_C */

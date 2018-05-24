@@ -27,6 +27,7 @@
 __SYSDECL_BEGIN
 
 
+typedef struct wm_text_state wm_text_state_t;
 struct wm_text_state {
     wm_pixel_t            f_color;    /* Current text color. */
     wm_pixel_t            f_shadow;   /* Current shadow color. */
@@ -42,6 +43,7 @@ struct wm_text_state {
 
 
 
+typedef struct wm_font wm_font_t;
 #ifdef __cplusplus
 struct PACKED wm_font: wm_surface
 #else

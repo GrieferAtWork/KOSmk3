@@ -114,7 +114,7 @@ struct kbdelay {
                                             * >> printf("Active keymap: %.64q\n",map->km_name);
                                             * >> keyboard_key_t key;
                                             * >> read(fd,&key,sizeof(key));
-                                            * >> key &= ~(KEY_PRESSED|KEY_RELEASED);
+                                            * >> key &= ~(KEY_FPRESSED|KEY_FRELEASED);
                                             * >> if (key >= 256) {
                                             * >>     printf("Special key %x pressed\n",key);
                                             * >> } else {
