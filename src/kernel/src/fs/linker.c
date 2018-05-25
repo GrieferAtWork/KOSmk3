@@ -743,11 +743,11 @@ application_load(struct module_patcher *__restrict self) {
   /* Validate associated address ranges. */
   if (app->a_type & APPLICATION_TYPE_FDRIVER) {
    assert(vm_holding(&vm_kernel));
-   if (app_min < X86_KERNEL_BASE_PAGE)
+   if (app_min < KERNEL_BASE_PAGE)
        goto noexec;
   } else {
    assert(vm_holding(THIS_VM));
-   if (app_end > X86_KERNEL_BASE_PAGE)
+   if (app_end > KERNEL_BASE_PAGE)
        goto noexec;
   }
   /* Load the application. */
@@ -765,14 +765,14 @@ application_load(struct module_patcher *__restrict self) {
   /* Find a suitable location for the load address. */
   if (app->a_type & APPLICATION_TYPE_FDRIVER) {
    if (!(mod->m_flags & MODULE_FBASEHINT) ||
-        (app_hint < X86_KERNEL_BASE_PAGE) ||
+        (app_hint < KERNEL_BASE_PAGE) ||
         (app_hint+req_pages < app_hint) ||
         (app_hint+req_pages > VM_VPAGE_MAX+1))
          app_hint = VM_KERNELDRIVER_HINT;
    assert(vm_holding(&vm_kernel));
   } else {
    if (!(mod->m_flags & MODULE_FBASEHINT) ||
-        (app_hint+req_pages > X86_KERNEL_BASE_PAGE) ||
+        (app_hint+req_pages > KERNEL_BASE_PAGE) ||
         (app_hint+req_pages < app_hint))
          app_hint = VM_USERLIB_HINT;
    assert(vm_holding(THIS_VM));

@@ -115,9 +115,9 @@ PRIVATE struct vm_region kernel_vm_regions[] = {
      * a single page. */
     DEFINE_VM_REGION_RESV(kernel_vm_regions[0],1),
     /* The kernel core segments are tracked as a physical regions. */
-    DEFINE_VM_REGION_PHYS(kernel_vm_regions[1],(size_t)kernel_rx_num_pages,(uintptr_t)kernel_rx_minpage - X86_KERNEL_BASE_PAGE),
-    DEFINE_VM_REGION_PHYS(kernel_vm_regions[2],(size_t)kernel_ronx_num_pages,(uintptr_t)kernel_ronx_minpage - X86_KERNEL_BASE_PAGE),
-    DEFINE_VM_REGION_PHYS(kernel_vm_regions[3],(size_t)kernel_rwnf_num_pages,(uintptr_t)kernel_rwnf_minpage - X86_KERNEL_BASE_PAGE),
+    DEFINE_VM_REGION_PHYS(kernel_vm_regions[1],(size_t)kernel_rx_num_pages,(uintptr_t)kernel_rx_minpage - KERNEL_BASE_PAGE),
+    DEFINE_VM_REGION_PHYS(kernel_vm_regions[2],(size_t)kernel_ronx_num_pages,(uintptr_t)kernel_ronx_minpage - KERNEL_BASE_PAGE),
+    DEFINE_VM_REGION_PHYS(kernel_vm_regions[3],(size_t)kernel_rwnf_num_pages,(uintptr_t)kernel_rwnf_minpage - KERNEL_BASE_PAGE),
     /* The page directory identity mapping is tracked as a reserved memory region. */
     DEFINE_VM_REGION_RESV(kernel_vm_regions[4],X86_PDIR_E1_IDENTITY_SIZE / PAGESIZE),
 #ifdef CONFIG_X86_RESERVE_DEBUG_PAGES
@@ -127,8 +127,8 @@ PRIVATE struct vm_region kernel_vm_regions[] = {
 
 PRIVATE struct vm_node kernel_vm_nodes[] = {
     /* Define VM Nodes for the first page of kernel-space being reserved. */
-    DEFINE_VM_NODE((vm_vpage_t)X86_KERNEL_BASE_PAGE,
-                   (vm_vpage_t)X86_KERNEL_BASE_PAGE,
+    DEFINE_VM_NODE((vm_vpage_t)KERNEL_BASE_PAGE,
+                   (vm_vpage_t)KERNEL_BASE_PAGE,
                     PROT_NOUSER,&kernel_vm_regions[0]),
     /* Define VM Nodes for kernel regions. */
     DEFINE_VM_NODE((vm_vpage_t)kernel_rx_minpage,
@@ -165,7 +165,7 @@ PRIVATE struct vm_node kernel_vm_nodes[] = {
 INTERN ATTR_FREEDATA struct vm_region kernel_free_region = 
     DEFINE_VM_REGION_PHYS(kernel_free_region,
                          (size_t)kernel_free_num_pages,
-                         (uintptr_t)kernel_free_minpage - X86_KERNEL_BASE_PAGE);
+                         (uintptr_t)kernel_free_minpage - KERNEL_BASE_PAGE);
 INTERN ATTR_FREEDATA struct vm_node kernel_free_node = 
     DEFINE_VM_NODE((vm_vpage_t)kernel_free_minpage,
                    (vm_vpage_t)kernel_free_maxpage,

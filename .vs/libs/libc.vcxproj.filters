@@ -225,5 +225,14 @@
     <None Include="..\..\src\libs\libc\i386-kos\rpc32.S">
       <Filter>i386-kos</Filter>
     </None>
+    <None Include="..\..\src\libs\libc\i386-kos\entry64.S">
+      <Filter>i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\i386-kos\context64.S">
+      <Filter>hybrid\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\i386-kos\except64.S">
+      <Filter>hybrid\i386-kos</Filter>
+    </None>
   </ItemGroup>
 </Project>

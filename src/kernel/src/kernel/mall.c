@@ -508,7 +508,7 @@ again_locks:
     * the entire address space into the core. */
    vm_unswap(0,VM_VPAGE_MAX+1);
   } else {
-   vm_unswap(X86_KERNEL_BASE_PAGE,X86_KERNEL_NUM_PAGES);
+   vm_unswap(KERNEL_BASE_PAGE,KERNEL_NUM_PAGES);
   }
   COMPILER_BARRIER();
   for (; lock_count < heap_max; ++lock_count) {

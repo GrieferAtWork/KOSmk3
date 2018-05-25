@@ -30,12 +30,27 @@
 DECL_BEGIN
 
 struct fast_rpc_regs {
+#ifdef __x86_64__
+    u64 mode;
+    u64 r11;
+    u64 r10;
+    u64 r9;
+    u64 r8;
+    u64 rdi;
+    u64 rsi;
+    u64 rdx;
+    u64 rcx;
+    u64 rax;
+    u64 rip;
+    u64 rflags;
+#else
     u32 mode;
     u32 edx;
     u32 ecx;
     u32 eax;
     u32 eip;
     u32 eflags;
+#endif
 };
 
 CRT_KOS unsigned int FCALL
@@ -50,7 +65,11 @@ libc_invoke_rpc_fast(rpc_t func, void *arg,
  LIBC_TRY {
   result = (*func)(arg);
  } LIBC_EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  xregs->eax = -libc_except_errno();
+#ifdef __x86_64__
+  xregs->rax = (uintptr_t)-libc_except_errno();
+#else
+  xregs->eax = (uintptr_t)-libc_except_errno();
+#endif
   error_handled();
   result = RPC_RETURN_RESUME;
  }
@@ -95,9 +114,15 @@ libc_queue_rpc(pid_t pid, rpc_t func, void *arg,
   data.func               = func;
   data.arg                = arg;
   data.pending            = 1;
+#ifdef __x86_64__
+  context.c_rip           = (uintptr_t)&x86_rpc_entry_fast;
+  context.c_gpregs.gp_rdi = (uintptr_t)&fast_waitfor_rpc_wrapper;
+  context.c_gpregs.gp_rsi = (uintptr_t)&data;
+#else
   context.c_eip           = (uintptr_t)&x86_rpc_entry_fast;
   context.c_gpregs.gp_ecx = (uintptr_t)&fast_waitfor_rpc_wrapper;
   context.c_gpregs.gp_edx = (uintptr_t)&data;
+#endif
   result = libc_queue_job(pid,&context,
                          (mode & ~RPC_FWAITFOR)|
                           JOB_FWAITACK|
@@ -118,9 +143,15 @@ libc_queue_rpc(pid_t pid, rpc_t func, void *arg,
    result = ATOMIC_READ(data.pending) == 0;
   }
  } else {
+#ifdef __x86_64__
+  context.c_rip           = (uintptr_t)&x86_rpc_entry_fast;
+  context.c_gpregs.gp_rdi = (uintptr_t)func;
+  context.c_gpregs.gp_rsi = (uintptr_t)arg;
+#else
   context.c_eip           = (uintptr_t)&x86_rpc_entry_fast;
   context.c_gpregs.gp_ecx = (uintptr_t)func;
   context.c_gpregs.gp_edx = (uintptr_t)arg;
+#endif
   /* Invoke the RPC */
   result = libc_queue_job(pid,&context,mode|
                           X86_JOB_FSAVE_RETURN|
@@ -135,7 +166,7 @@ libc_queue_rpc(pid_t pid, rpc_t func, void *arg,
 
 
 struct full_rpc_regs {
-    u32                mode;
+    uintptr_t          mode;
     struct cpu_context ctx;
 };
 

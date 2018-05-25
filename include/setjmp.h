@@ -61,9 +61,9 @@ struct __sigjmp_buf {
     struct __jmp_buf __jmp;
 #ifndef __DOS_COMPAT__
 #ifdef __x86_64__
-    int          __has_sig; /* If non-zero, `__sig' is valid.
-                             * NOTE: On i386, one of the padding registers is
-                             *       used for this, but on x86_64, there are none... */
+    __UINT64_TYPE__  __has_sig; /* If non-zero, `__sig' is valid.
+                                 * NOTE: On i386, one of the padding registers is
+                                 *       used for this, but on x86_64, there are none... */
 #endif /* __x86_64__ */
     __sigset_t       __sig;
 #endif /* !__DOS_COMPAT__ */

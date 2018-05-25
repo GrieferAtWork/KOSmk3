@@ -28,11 +28,11 @@ DECL_BEGIN
 #ifdef __x86_64__
 #define DEFINE_ABS_CALLBACK(sect,func) \
     .pushsection sect; \
-        .qword func; \
+        .quad func; \
     .popsection
 #define DEFINE_REL_CALLBACK(sect,func) \
     .pushsection sect; \
-        .reloc .,R_X86_64_RELATIVE,func; .qword 0; \
+        .reloc .,R_X86_64_RELATIVE,func; .quad 0; \
     .popsection
 #else
 #define DEFINE_ABS_CALLBACK(sect,func) \
@@ -48,12 +48,12 @@ DECL_BEGIN
 #ifdef __x86_64__
 #define DEFINE_ABS_CALLBACK(sect,func) \
     __asm__(".pushsection " sect "\n\t" \
-            "\t.qword " PP_PRIVATE_STR(func) "\n\t" \
+            "\t.quad " PP_PRIVATE_STR(func) "\n\t" \
             ".popsection")
 #define DEFINE_REL_CALLBACK(sect,func) \
     __asm__(".pushsection " sect "\n\t" \
             "\t.reloc .,R_X86_64_RELATIVE," PP_PRIVATE_STR(func) "\n\t" \
-            "\t.qword 0\n\t" \
+            "\t.quad 0\n\t" \
             ".popsection")
 #else
 #define DEFINE_ABS_CALLBACK(sect,func) \

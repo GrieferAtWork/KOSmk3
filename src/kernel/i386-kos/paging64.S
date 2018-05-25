@@ -19,58 +19,58 @@
 
 #include <hybrid/compiler.h>
 #include <hybrid/asm.h>
-#include <asm/cfi.h>
+#include <asm/universal.h>
 #include <kernel/paging.h>
 
 .section .text
 .cfi_startproc
 PUBLIC_ENTRY(pagedir_syncall)
-	movl    %cr3, %eax
-	movl    %eax, %cr3
+	movq    %cr3, %rax
+	movq    %rax, %cr3
 	ret
 .pagedir_syncall_size = . - pagedir_syncall
 SYMEND(pagedir_syncall)
 
 PUBLIC_ENTRY(pagedir_sync)
-	cmpl    $64, %edx
+	cmpq    $64, %rsi
 	jbe     2f
 	/* Try to do a sync-all for large requests.
 	 * However, because of the `X86_PAGE_FGLOBAL' bit,
 	 * this method cannot be used to sync kernel mappings. */
-	leal    (%ecx,%edx,1), %eax
-	cmpl    %ecx, %eax
+	leaq    (%rdi,%rsi,1), %rax
+	cmpq    %rdi, %rax
 	/* >> if ((start + num_pages) <= start) goto 3f; */
 	jbe     3f
-	cmpl    $(KERNEL_BASE_PAGE), %eax
+	cmpq    $(KERNEL_BASE_PAGE), %rax
 	/* >> if ((start + num_pages) <= KERNEL_BASE_PAGE) goto pagedir_syncall; */
 	jbe     pagedir_syncall
-	leal    64(%ecx),                %eax
-	cmpl    $(KERNEL_BASE_PAGE), %eax
+	leaq    64(%rdi),                %rax
+	cmpq    $(KERNEL_BASE_PAGE), %rax
 	/* >> if ((start + 64) >= KERNEL_BASE_PAGE) goto 2f; */
 	jae     2f
 	/* If we can save enough iterations doing it, still reload the
 	 * entirety of the user-space portion of the page directory. */
 	/* >> num_pages = (start + num_pages) - KERNEL_BASE_PAGE */
-	leal    -KERNEL_BASE_PAGE(%ecx,%edx,1), %edx
+	leaq    -KERNEL_BASE_PAGE(%rdi,%rsi,1), %rsi
 	/* >> start     = KERNEL_BASE_PAGE */
-	movl    $(KERNEL_BASE_PAGE), %ecx
-4:	movl    %cr3, %eax
-	movl    %eax, %cr3
-2:	xchgl   %ecx, %edx
-	shll    $(X86_PAGESHIFT), %edx
-1:	invlpg  (%edx)
-	addl    $(PAGESIZE), %edx
+	movq    $(KERNEL_BASE_PAGE), %rdi
+4:	movq    %cr3, %rax
+	movq    %rax, %cr3
+2:	xchgq   %rdi, %rsi
+	shlq    $(X86_PAGESHIFT), %rsi
+1:	invlpg  (%rsi)
+	addq    $(PAGESIZE), %rsi
 	loop    1b
 	ret
 3:	/* The address space is overflowing. -> Just flush _everything_ */
-	movl    $((VM_VPAGE_MAX-KERNEL_BASE_PAGE)+1), %edx
-	movl    $(KERNEL_BASE_PAGE), %ecx
+	movq    $((VM_VPAGE_MAX-KERNEL_BASE_PAGE)+1), %rsi
+	movq    $(KERNEL_BASE_PAGE), %rdi
 	jmp     4b
 SYMEND(pagedir_sync)
 
 PUBLIC_ENTRY(pagedir_syncone)
-	shll    $(X86_PAGESHIFT), %ecx
-	invlpg  (%ecx)
+	shlq    $(X86_PAGESHIFT), %rdi
+	invlpg  (%rdi)
 	ret
 SYMEND(pagedir_syncone)
 .cfi_endproc
@@ -78,33 +78,6 @@ SYMEND(pagedir_syncone)
 DEFINE_PUBLIC_WEAK_ALIAS(vm_sync,pagedir_sync)
 DEFINE_PUBLIC_WEAK_ALIAS(vm_syncone,pagedir_syncone)
 DEFINE_PUBLIC_WEAK_ALIAS(vm_syncall,pagedir_syncall)
-
-
-
-.section .text.free
-INTERN_ENTRY(x86_config_pagedir_invlpg_unsupported)
-	/* XXX: We could use an `E_ILLEGAL_INSTRUCTION' exception handler to do this lazily */
-	.cfi_startproc
-	pushl_cfi_r %esi
-	pushl_cfi_r %edi
-	/* Override the assembly of the sync-functions with sync-all */
-	movl  $(.pagedir_syncall_size), %ecx
-	leal  pagedir_syncall, %esi
-	leal  pagedir_sync, %edi
-	rep   movsb
-	movl  $(.pagedir_syncall_size), %ecx
-	leal  pagedir_syncall, %esi
-	leal  pagedir_syncone, %edi
-	rep   movsb
-	popl_cfi_r %edi
-	popl_cfi_r %esi
-	ret
-	.cfi_endproc
-SYMEND(x86_config_pagedir_invlpg_unsupported)
-
-
-
-
 
 
 

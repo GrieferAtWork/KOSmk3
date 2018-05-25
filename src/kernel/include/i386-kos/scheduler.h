@@ -123,7 +123,7 @@ FORCELOCAL USER uintptr_t KCALL interrupt_getsp(void) {
  USER uintptr_t result;
  pflag_t was = PREEMPTION_PUSHOFF();
 #ifdef __x86_64__
- result = x86_interrupt_getiret()->ir_userrsp;
+ result = x86_interrupt_getiret()->ir_rsp;
 #else
  result = x86_interrupt_getiret()->ir_useresp;
 #endif
@@ -145,7 +145,7 @@ FORCELOCAL USER uintptr_t KCALL interrupt_setsp(uintptr_t newsp) {
  USER uintptr_t result;
  pflag_t was = PREEMPTION_PUSHOFF();
 #ifdef __x86_64__
- result = XCH(x86_interrupt_getiret()->ir_userrsp,newsp);
+ result = XCH(x86_interrupt_getiret()->ir_rsp,newsp);
 #else
  result = XCH(x86_interrupt_getiret()->ir_useresp,newsp);
 #endif
@@ -157,7 +157,7 @@ interrupt_getipsp(uintptr_t *__restrict pip, uintptr_t *__restrict psp) {
  pflag_t was = PREEMPTION_PUSHOFF();
 #ifdef __x86_64__
  *pip = x86_interrupt_getiret()->ir_rip;
- *psp = x86_interrupt_getiret()->ir_userrsp;
+ *psp = x86_interrupt_getiret()->ir_rsp;
 #else
  *pip = x86_interrupt_getiret()->ir_eip;
  *psp = x86_interrupt_getiret()->ir_useresp;
@@ -168,8 +168,8 @@ FORCELOCAL void KCALL
 interrupt_setipsp(uintptr_t newip, uintptr_t newsp) {
  pflag_t was = PREEMPTION_PUSHOFF();
 #ifdef __x86_64__
- x86_interrupt_getiret()->ir_rip     = newip;
- x86_interrupt_getiret()->ir_userrsp = newsp;
+ x86_interrupt_getiret()->ir_rip = newip;
+ x86_interrupt_getiret()->ir_rsp = newsp;
 #else
  x86_interrupt_getiret()->ir_eip     = newip;
  x86_interrupt_getiret()->ir_useresp = newsp;

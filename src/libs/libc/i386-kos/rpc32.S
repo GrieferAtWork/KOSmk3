@@ -19,7 +19,7 @@
 #include "../libc.h"
 #include <hybrid/compiler.h>
 #include <hybrid/asm.h>
-#include <asm/cfi.h>
+#include <asm/universal.h>
 #include <kos/rpc.h>
 #include <kos/thread.h>
 #include <errno.h>
@@ -112,10 +112,9 @@ DEFINE_INTERN(libc_invoke_rpc_fast)
 	.cfi_register   %eflags, %eax
 	movl    %eax, 16(%esp)
 	.cfi_rel_offset %eflags, 16
-	addl    $4, %esp /* jf_mode */
-	.cfi_adjust_cfa_offset -4
 
 	/* Load the saved context (see above) */
+	popl_void_cfi    /* jf_mode */
 	popl_cfi_r %edx
 	popl_cfi_r %ecx
 	popl_cfi_r %eax
@@ -133,8 +132,7 @@ DEFINE_INTERN(libc_invoke_rpc_fast)
 	.cfi_rel_offset %eflags, 16
 
 	/* Load the saved context (see above) */
-	addl    $4, %esp /* jf_mode */
-	.cfi_adjust_cfa_offset -4
+	popl_void_cfi    /* jf_mode */
 	popl_cfi_r %edx
 	popl_cfi_r %ecx
 	popl_cfi_r %eax
@@ -248,10 +246,8 @@ DEFINE_INTERN(libc_invoke_rpc_full)
 	.cfi_rel_offset %eflags, 52
 
 	/* Load the saved context (see above) */
-	addl    $4, %esp /* jf_mode */
-	.cfi_adjust_cfa_offset -4
-
 .full_rpc_load_context:
+	popl_void_cfi    /* jf_mode */
 	popl_cfi_r %edi
 	popl_cfi_r %esi
 	popl_cfi_r %ebp
@@ -295,12 +291,13 @@ DEFINE_INTERN(libc_invoke_rpc_full)
 .full_rpc_resume:
 	.cfi_remember_state
 	/* Exchange jf_eip and jf_eflags */
-	movl    16(%esp), %eax
-	xchgl   20(%esp), %eax
-	.cfi_rel_offset %eip,    20
+	movl    52(%esp), %eax
+/*	.cfi_register   %eip, %eax */
+	xchgl   56(%esp), %eax
+	.cfi_rel_offset %eip,    56
 	.cfi_register   %eflags, %eax
-	movl    %eax, 16(%esp)
-	.cfi_rel_offset %eflags, 16
+	movl    %eax, 52(%esp)
+	.cfi_rel_offset %eflags, 52
 	jmp     .full_rpc_load_context
 
 	.cfi_restore_state

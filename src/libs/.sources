@@ -28,14 +28,15 @@
 	L_FLAGS("-shared")
 #define LIBRARY(name) \
 	LIBRARY_NOSTDLIB(name) \
-	LIBPATH("/bin") \
+	WEAK_PROJDEP("libs.libc") \
+	LIBPATH("${BINPATH}") \
 	LIB("c")
 
 
 
 BEGIN
 	BEGIN LIBRARY_NOSTDLIB("libs.libc")
-		SET_OUTPUT("/bin/libc.so")
+		SET_OUTPUT("${BINPATH}/libc.so")
 		SET_DISKFILE("/lib/libc.so")
 
 		C_FLAGS("-ffreestanding")
@@ -61,14 +62,14 @@ BEGIN
 	END
 
 	BEGIN LIBRARY("libs.libwm")
-		SET_OUTPUT("/bin/libwm.so")
+		SET_OUTPUT("${BINPATH}/libwm.so")
 		SET_DISKFILE("/lib/libwm.so")
 		DEFINE("__BUILDING_LIBWM")
 		SOURCE("libwm/*.c")
 	END
 
 	BEGIN LIBRARY("libs.libpthread")
-		SET_OUTPUT("/bin/libpthread.so")
+		SET_OUTPUT("${BINPATH}/libpthread.so")
 		SET_DISKFILE("/lib/libpthread.so")
 		DEFINE("__BUILDING_LIBPTHREAD")
 		SOURCE("libpthread/*.c")
@@ -89,12 +90,12 @@ BEGIN
 		})
 #endif
 		BEGIN PROJECT("libs.start")
-			SET_OUTPUT("/bin/crt1.o")
+			SET_OUTPUT("${BINPATH}/crt1.o")
 			SET_DISKFILE("/usr/lib/crt1.o")
 			SOURCE("start/start.c")
 		END
 		BEGIN PROJECT("libs.start_debug")
-			SET_OUTPUT("/bin/crt1d.o")
+			SET_OUTPUT("${BINPATH}/crt1d.o")
 			SET_DISKFILE("/usr/lib/crt1d.o")
 			SOURCE("start/start_debug.c")
 		END

@@ -38,8 +38,8 @@ typedef PHYS u64               vm_phys_t;  /* A physical memory pointer. */
 #endif /* __CC__ */
 #define VM_VPAGE_MAX           0xfffff
 #define VM_PPAGE_MAX           0xfffff /* Without PAE, we're restricted to a 32-bit physical address space. */
-#define X86_KERNEL_BASE_PAGE   0xc0000 /* The page index of the kernel-base */
-#define X86_KERNEL_NUM_PAGES   0x40000 /* The number of pages associated with the kernel. */
+#define KERNEL_BASE_PAGE   0xc0000 /* The page index of the kernel-base */
+#define KERNEL_NUM_PAGES   0x40000 /* The number of pages associated with the kernel. */
 
 
 /* Configure to indicate that the kernel is a high-kernel. */
@@ -95,7 +95,7 @@ typedef PHYS u64               vm_phys_t;  /* A physical memory pointer. */
 #define VM_USERSEG_MODE                  VM_GETFREE_FABOVE
 #define VM_USERHEAP_HINT                 0x80000 /* Hint for automatic user-space heaps. */
 #define VM_USERHEAP_MODE                 VM_GETFREE_FABOVE
-/* Heap grows upwards; stack growns down. */
+/* Heap grows upwards; stack grows down. */
 #define VM_USERSTACK_HINT                0xb0000 /* Hint for automatic user-space stacks. */
 #define VM_USERSTACK_MODE                VM_GETFREE_FBELOW
 #define VM_USERSTACK_GAP                 8       /* Size of the gap between automatically allocated user-space stacks. */
@@ -124,7 +124,7 @@ typedef PHYS u64               vm_phys_t;  /* A physical memory pointer. */
 union x86_pdir_e1 {
     /* Lowest-level page-directory entry. */
     u32                 p_data;      /* Mapping data. */
-    u32                 p_addr;      /* [MASK(X86_PAGE_FADDR)]
+    PHYS u32            p_addr;      /* [MASK(X86_PAGE_FADDR)]
                                       * [valid_if(X86_PAGE_FPRESENT)]
                                       * _Physical_ page address. */
     u32                 p_flag;      /* [MASK(X86_PAGE_FMASK)] Page flags.
@@ -133,21 +133,18 @@ union x86_pdir_e1 {
 
 union x86_pdir_e2 {
     /* TIER#2 page-directory entry. */
-    u32                 p_data;      /* Mapping data. */
-    u32                 p_addr;      /* [MASK(X86_PAGE_FADDR)]
-                                      * [valid_if(X86_PAGE_FPRESENT && X86_PAGE_F4MIB)]
-                                      *  _Physical_ page address. */
-    u32                 p_flag;      /* [MASK(X86_PAGE_FMASK)] Page flags.
-                                      *  NOTE: Must not contain `X86_PAGE_F4MIB'. */
-    union x86_pdir_e1 (*p_e1)[1024]; /* [MASK(X86_PAGE_FADDR)]
-                                      * [owned_if(p_data != X86_PAGE_ABSENT && !X86_PAGE_F4MIB &&
-                                      *         ((self - :p_e2) <  X86_PDIR_VEC2INDEX(KERNEL_BASE) ||
-                                      *          (self - :p_e2) >= X86_PDIR_VEC2INDEX(X86_PDIR_E1_IDENTITY_BASE)))]
-                                      * [const_if((self - :p_e2) <  X86_PDIR_VEC2INDEX(KERNEL_BASE) ||
-                                      *           (self - :p_e2) >= X86_PDIR_VEC2INDEX(X86_PDIR_E1_IDENTITY_BASE))]
-                                      * [valid_if(X86_PAGE_FPRESENT && !X86_PAGE_F4MIB)]
-                                      *  _Physical_ pointer to a level #1 paging vector.
-                                      */
+    u32                      p_data;      /* Mapping data. */
+    PHYS u32                 p_addr;      /* [MASK(X86_PAGE_FADDR)]
+                                           * [valid_if(X86_PAGE_FPRESENT && X86_PAGE_F4MIB)]
+                                           *  _Physical_ page address. */
+    u32                      p_flag;      /* [MASK(X86_PAGE_FMASK)] Page flags. */
+    PHYS union x86_pdir_e1 (*p_e1)[1024]; /* [MASK(X86_PAGE_FADDR)]
+                                           * [owned_if(p_data != X86_PAGE_ABSENT && !X86_PAGE_F4MIB &&
+                                           *         ((self - :p_e2) < X86_PDIR_VEC2INDEX(KERNEL_BASE)))]
+                                           * [const_if((self - :p_e2) >= X86_PDIR_VEC2INDEX(KERNEL_BASE))]
+                                           * [valid_if(X86_PAGE_FPRESENT && !X86_PAGE_F4MIB)]
+                                           *  _Physical_ pointer to a level #1 paging vector.
+                                           */
 };
 #endif /* __CC__ */
 
@@ -175,6 +172,7 @@ struct x86_pdir {
 #define X86_PDIR_E1_IDENTITY_BASE 0xffc00000 /* E1 vectors are mapped here. */
 #define X86_PDIR_E1_IDENTITY_SIZE 0x00400000
 #define X86_PDIR_E2_IDENTITY_BASE 0xfffff000 /* The `x86_pdir::p_e2' vector is mapped here. */
+
 #ifdef __CC__
 typedef union x86_pdir_e1 x86_pdir_e1_identity_t[1024][1024];
 typedef union x86_pdir_e2 x86_pdir_e2_identity_t[1024];
@@ -262,8 +260,8 @@ FORCELOCAL void KCALL pagedir_set(PHYS pagedir_t *__restrict value) {
  __asm__("movl %0, %%cr3" : : "r" (value) : "memory");
 }
 
-FUNDEF ATTR_NOTHROW bool KCALL pagedir_haschanged(vm_vpage_t virt_addr);
-FUNDEF ATTR_NOTHROW void KCALL pagedir_unsetchanged(vm_vpage_t virt_addr);
+FUNDEF ATTR_NOTHROW bool KCALL pagedir_haschanged(vm_vpage_t vpage);
+FUNDEF ATTR_NOTHROW void KCALL pagedir_unsetchanged(vm_vpage_t vpage);
 #endif /* __CC__ */
 
 

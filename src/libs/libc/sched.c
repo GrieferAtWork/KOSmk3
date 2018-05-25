@@ -37,7 +37,17 @@
 DECL_BEGIN
 
 #if defined(__x86_64__)
-#error "TODO"
+INTERN ATTR_NORETURN void
+libc_thread_entry(int (LIBCCALL *fn)(void *arg), void *arg);
+PRIVATE void LIBCCALL
+arch_setup_context(struct cpu_context *__restrict context,
+                   int (LIBCCALL *fn)(void *arg),
+                   void *child_stack, void *arg) {
+ context->c_rip           = (uintptr_t)&libc_thread_entry;
+ context->c_gpregs.gp_rax = (uintptr_t)fn;
+ context->c_gpregs.gp_rdi = (uintptr_t)arg;
+ context->c_rsp           = (uintptr_t)child_stack;
+}
 #elif defined(__i386__)
 INTERN ATTR_NORETURN void FCALL
 libc_thread_entry(int (LIBCCALL *fn)(void *arg), void *arg);

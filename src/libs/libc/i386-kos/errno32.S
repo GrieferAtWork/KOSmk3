@@ -100,37 +100,22 @@ SYMEND(setformat_nt)
 
 INTERN_ENTRY(libc_errno)
 	call  setformat_kos
-#ifdef __x86_64__
-	movq  $(ts_errno), %rax
-	addq  %taskseg:ts_self, %rax
-#else
 	movl  $(ts_errno), %eax
 	addl  %taskseg:ts_self, %eax
-#endif
 	ret
 SYMEND(libc_errno)
 
 INTERN_ENTRY(libc_dos_errno)
 	call  setformat_dos
-#ifdef __x86_64__
-	movq  $(ts_dos_errno), %rax
-	addq  %taskseg:ts_self, %rax
-#else
 	movl  $(ts_dos_errno), %eax
 	addl  %taskseg:ts_self, %eax
-#endif
 	ret
 SYMEND(libc_dos_errno)
 
 INTERN_ENTRY(libc_nt_errno)
 	call  setformat_nt
-#ifdef __x86_64__
-	movq  $(ts_nt_errno), %rax
-	addq  %taskseg:ts_self, %rax
-#else
 	movl  $(ts_nt_errno), %eax
 	addl  %taskseg:ts_self, %eax
-#endif
 	ret
 SYMEND(libc_nt_errno)
 

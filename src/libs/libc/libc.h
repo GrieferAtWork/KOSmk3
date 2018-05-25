@@ -147,7 +147,7 @@ DECL_BEGIN
 #define CRT_WIDECHAR_RODATA  INTERN ATTR_SECTION(".rodata.crt.widechar")
 
 
-#ifdef __i386__
+#if defined(__i386__) || defined(__x86_64__)
 #define CONFIG_LIBC_HAVE_ARCH_ENTRY 1 /* Arch defines `__entry1' */
 #define CONFIG_LIBC_HAVE_ARCH_EXIT  1 /* Arch defines `exit' */
 #endif

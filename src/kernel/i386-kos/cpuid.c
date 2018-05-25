@@ -38,6 +38,7 @@ PUBLIC ATTR_PERCPU struct cpu_cpuid _cpu_id_features ASMNAME("cpu_id_features") 
 INTERN ATTR_FREETEXT void KCALL x86_load_cpuid(void) {
  u32 cpuid_available;
  struct cpu_cpuid *info;
+#ifndef __x86_64__
  /* Check if CPUID is even available. */
  __asm__ __volatile__("pushfl\n"
                       "pushfl\n"
@@ -51,6 +52,7 @@ INTERN ATTR_FREETEXT void KCALL x86_load_cpuid(void) {
                       : "i" (EFLAGS_ID));
  if (!(cpuid_available & EFLAGS_ID))
        return;
+#endif /* !__x86_64__ */
  /* Indicate the availability of CPUID. */
  PERCPU(_cpu_basic_features) |= CPU_BASIC_FEATURE_FCPUID;
  info = &PERCPU(_cpu_id_features);
@@ -99,10 +101,10 @@ INTERN ATTR_FREETEXT void KCALL x86_load_cpuid(void) {
  }
  if (info->ci_eleaf_max >= 0x80000001) {
   __asm__ __volatile__("cpuid"
-                       : "=b" (info->ci_7b)
-                       , "=d" (info->ci_7d)
-                       , "=c" (info->ci_7c)
-                       : "a" (0x80000001));
+                       : "=d" (info->ci_80000001d)
+                       , "=c" (info->ci_80000001c)
+                       : "a" (0x80000001)
+                       : "ebx");
  }
  if (info->ci_eleaf_max >= 0x80000004) {
   __asm__ __volatile__("cpuid"
@@ -124,6 +126,37 @@ INTERN ATTR_FREETEXT void KCALL x86_load_cpuid(void) {
                        , "=c" (info->ci_80000004c)
                        : "a" (0x80000004));
  }
+
+
+ /* Enable some optional features, if they're supported by the hardware. */
+ {
+  register_t old_cr4;
+  register_t new_cr4;
+  old_cr4 = new_cr4 = __rdcr4();
+
+  new_cr4 &= ~(CR4_TSD);
+
+  if ((info->ci_1d & CPUID_1D_PGE) ||
+      (info->ci_80000001d & CPUID_80000001D_PGE)) {
+   debug_printf(FREESTR("[X86] Enable PGE\n"));
+   new_cr4 |= CR4_PGE;
+  }
+#ifdef __x86_64__
+  if (info->ci_7b & CPUID_7B_FSGSBASE) {
+   debug_printf(FREESTR("[X86] Enable userspace fs/gs base access\n"));
+   new_cr4 |= CR4_FSGSBASE;
+  }
+#endif
+  if (old_cr4 != new_cr4)
+      __wrcr4(new_cr4);
+ }
+#ifdef __x86_64__
+ if (info->ci_80000001d & CPUID_80000001D_NX) {
+  debug_printf(FREESTR("[X86] Enable NX support\n"));
+  __wrmsr(IA32_EFER,__rdmsr(IA32_EFER) | IA32_EFER_NXE);
+ }
+#endif
+
 }
 
 

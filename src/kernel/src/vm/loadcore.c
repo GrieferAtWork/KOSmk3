@@ -444,7 +444,7 @@ vm_region_copy_core(struct vm *__restrict effective_vm,
     /* Find a suitable location where we can temporarily map the region. */
     vm_acquire(&vm_kernel);
     TRY {
-     temporary_mapping = vm_getfree(X86_KERNEL_BASE_PAGE,part_size,1,0,VM_GETFREE_FABOVE);
+     temporary_mapping = vm_getfree(KERNEL_BASE_PAGE,part_size,1,0,VM_GETFREE_FABOVE);
      pagedir_map(temporary_mapping,part_size,
                  new_region->vr_part0.vp_phys.py_iscatter[0].ps_addr,
                  PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE);

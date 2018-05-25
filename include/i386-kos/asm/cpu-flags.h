@@ -91,6 +91,7 @@
 #define DR7_S3             0xc0000000 /* [bit(30..31)] size of DR3 breakpoint . */
 
 #ifdef __x86_64__
+#define IA32_EFER               0xc0000080
 #define IA32_FS_BASE            0xc0000100
 #define IA32_GS_BASE            0xc0000101
 #define IA32_KERNEL_GS_BASE     0xc0000102
@@ -101,6 +102,18 @@
 #define SYSENTER_CS_MSR         0x174
 #define SYSENTER_ESP_MSR        0x175
 #define SYSENTER_EIP_MSR        0x176
+
+
+#ifdef __x86_64__
+#define IA32_EFER_SCE           0x00000001  /* System Call Extensions */
+#define IA32_EFER_LME           0x00000100  /* Long Mode Enable */
+#define IA32_EFER_LMA           0x00000400  /* Long Mode Active */
+#define IA32_EFER_NXE           0x00000800  /* No-Execute Enable */
+#define IA32_EFER_SVME          0x00001000  /* Secure Virtual Machine Enable */
+#define IA32_EFER_LMSLE         0x00002000  /* Long Mode Segment Limit Enable */
+#define IA32_EFER_FFXSR         0x00004000  /* Fast FXSAVE/FXRSTOR */
+#define IA32_EFER_TCE           0x00008000  /* Translation Cache Extension */
+#endif /* __x86_64__ */
 
 
 /* (Derived from linux) MISC_ENABLE bits: architectural */

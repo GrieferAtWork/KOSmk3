@@ -1178,7 +1178,7 @@ restart_final_decref:
       * can already go ahead and unmap everything from userspace.
       * That way, we don't have to wait until we actually die
       * before releasing all that sweet memory to the kernel. */
-     vm_unmap(0,X86_KERNEL_BASE_PAGE,VM_UNMAP_NOEXCEPT,NULL);
+     vm_unmap(0,KERNEL_BASE_PAGE,VM_UNMAP_NOEXCEPT,NULL);
     }
 #if 0
     if (THIS_TASK != &_boot_task)

@@ -303,7 +303,7 @@ again:
           VM_PAGE2ADDR(page_min),VM_PAGE2ADDR(page_max+1)-1);
   /* Found a matching entry! */
 #if 0
-  if (VM_NODE_MIN(node) >= X86_KERNEL_BASE_PAGE)
+  if (VM_NODE_MIN(node) >= KERNEL_BASE_PAGE)
       debug_printf("POP_NODE %p at %p...%p\n",
                    node,
                    VM_NODE_MINADDR(node),
@@ -411,7 +411,7 @@ vm_protect(vm_vpage_t page_index, size_t num_pages,
  if unlikely(!num_pages) return 0;
  assert(page_index+num_pages > page_index);
  assert(page_index+num_pages <= VM_VPAGE_MAX+1);
- effective_vm = page_index >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
+ effective_vm = page_index >= KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
  vm_acquire(effective_vm);
  TRY {
   if unlikely(!effective_vm->vm_map)
@@ -447,15 +447,15 @@ INTERN struct vm_node *KCALL this_vm_getnode(vm_vpage_t page) {
 }
 PUBLIC struct vm_node *KCALL vm_getnode(vm_vpage_t page) {
  struct vm *effective_vm;
- effective_vm = page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
+ effective_vm = page >= KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
  assert(vm_holding_read(effective_vm) || !PREEMPTION_ENABLED());
  return vm_node_tree_locate(effective_vm->vm_map,page);
 }
 FUNDEF struct vm_node *KCALL
 vm_getanynode(vm_vpage_t min_page, vm_vpage_t max_page) {
  struct vm *effective_vm;
- effective_vm = min_page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
- assertf((min_page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM) == effective_vm,
+ effective_vm = min_page >= KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
+ assertf((min_page >= KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM) == effective_vm,
          "Effective VM of virtual address range %p...%p is ambiguous",
          VM_PAGE2ADDR(min_page),VM_PAGE2ADDR(max_page+1)-1);
  assert(vm_holding_read(effective_vm));
@@ -504,7 +504,7 @@ vm_insert_node(struct vm *__restrict effective_vm,
  assert((effective_vm->vm_map != NULL) ==
         (effective_vm->vm_byaddr != NULL));
 #if 0
- if (VM_NODE_MIN(node) >= X86_KERNEL_BASE_PAGE)
+ if (VM_NODE_MIN(node) >= KERNEL_BASE_PAGE)
      debug_printf("INSERT_NODE %p at %p...%p\n",
                   node,
                   VM_NODE_MINADDR(node),
@@ -697,7 +697,7 @@ PUBLIC void KCALL vm_unmap_userspace(void) {
  vm_acquire(uservm);
  TRY {
   /* Unmap the entirety of user-space. */
-  pagedir_map(0,X86_KERNEL_BASE_PAGE,0,PAGEDIR_MAP_FUNMAP);
+  pagedir_map(0,KERNEL_BASE_PAGE,0,PAGEDIR_MAP_FUNMAP);
 
   /* Extract nodes. */
   nodes                = uservm->vm_byaddr;
@@ -768,7 +768,7 @@ vm_unswap(vm_vpage_t page_index, size_t num_pages) {
  assert(page_index+num_pages >= page_index);
  assert(page_index+num_pages <= VM_VPAGE_MAX+1);
  if unlikely(!num_pages) goto done;
- effective_vm = page_index >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
+ effective_vm = page_index >= KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
  vm_acquire(effective_vm);
  TRY {
   /* TODO */
@@ -964,7 +964,7 @@ impl_vm_getfree(struct vm *__restrict effective_vm,
 #ifdef CONFIG_HIGH_KERNEL
        &&
       (effective_vm == &vm_kernel ||
-       candidate+num_pages <= X86_KERNEL_BASE_PAGE)
+       candidate+num_pages <= KERNEL_BASE_PAGE)
 #endif
        ) {
     assertf(!vm_getanynode(candidate,candidate+num_pages-1),
@@ -991,10 +991,10 @@ winner:
     goto fail;
  /* Make sure that the given address is suitable. */
  if (effective_vm == &vm_kernel) {
-  if (candidate < X86_KERNEL_BASE_PAGE)
+  if (candidate < KERNEL_BASE_PAGE)
       goto fail;
  } else {
-  if (candidate+num_pages >= X86_KERNEL_BASE_PAGE)
+  if (candidate+num_pages >= KERNEL_BASE_PAGE)
       goto fail;
  }
  assertf(!vm_getanynode(candidate,candidate+num_pages-1),
@@ -1034,8 +1034,8 @@ vm_getfree(vm_vpage_t hint, size_t num_pages,
    hint -= num_pages;
   }
  }
- if (hint < X86_KERNEL_BASE_PAGE ||
-    (hint == X86_KERNEL_BASE_PAGE && (mode&VM_GETFREE_FBELOW)))
+ if (hint < KERNEL_BASE_PAGE ||
+    (hint == KERNEL_BASE_PAGE && (mode&VM_GETFREE_FBELOW)))
      effective_vm = THIS_VM;
  assert(vm_holding_read(effective_vm));
  /* Check if the request is too large to ever map. */
@@ -1054,10 +1054,10 @@ vm_getfree(vm_vpage_t hint, size_t num_pages,
     * address range to the end of the VM. */
    hint = (VM_VPAGE_MAX+1)-num_pages;
    if (effective_vm == &vm_kernel) {
-    if (hint < X86_KERNEL_BASE_PAGE)
+    if (hint < KERNEL_BASE_PAGE)
         goto no_such_page;
    } else {
-    if (hint+num_pages >= X86_KERNEL_BASE_PAGE)
+    if (hint+num_pages >= KERNEL_BASE_PAGE)
         goto no_such_page;
    }
   }
@@ -1114,7 +1114,7 @@ vm_unmap(vm_vpage_t page, size_t num_pages,
  if unlikely(!num_pages) goto done;
  assert(page+num_pages > page);
  assert(page+num_pages <= VM_VPAGE_MAX+1);
- effective_vm = page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
+ effective_vm = page >= KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
  if (mode & VM_UNMAP_NOEXCEPT)
      old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
  vm_acquire(effective_vm);
@@ -1287,7 +1287,7 @@ vm_extract(VIRT vm_vpage_t page_index, size_t num_pages,
  if unlikely(!num_pages) goto done;
  assert(page_index+num_pages > page_index);
  assert(page_index+num_pages <= VM_VPAGE_MAX+1);
- effective_vm = page_index >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
+ effective_vm = page_index >= KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
  vm_acquire(effective_vm);
  TRY {
   struct vm_node *EXCEPT_VAR iter;
@@ -1426,7 +1426,7 @@ vm_restore(VIRT vm_vpage_t page_index,
 
  TRY {
   /* Determine the effective VM. */
-  effective_vm = page_index >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
+  effective_vm = page_index >= KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
   vm_acquire(effective_vm);
   TRY {
    /* Unmap all old memory in the range we're about to restore. */
@@ -1713,7 +1713,7 @@ vm_deallocate_pages(VIRT vm_vpage_t page_index, size_t num_pages,
  if unlikely(!num_pages) goto done;
  assert(page_index+num_pages > page_index);
  assert(page_index+num_pages <= VM_VPAGE_MAX+1);
- effective_vm = page_index >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
+ effective_vm = page_index >= KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
  /* By setting the DONTSERVE flag, we can ensure that RPC
   * functions will not interrupt us while we are operating. */
  old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
@@ -1872,11 +1872,11 @@ vm_loadcore(vm_vpage_t page, size_t num_pages,
             unsigned int mode) {
  bool result = false; int temp;
  struct vm *EXCEPT_VAR effective_vm;
- if (page < X86_KERNEL_BASE_PAGE) {
+ if (page < KERNEL_BASE_PAGE) {
   effective_vm = THIS_VM;
   if (page+num_pages < page ||
-      page+num_pages > X86_KERNEL_BASE_PAGE)
-      num_pages = X86_KERNEL_BASE_PAGE-page;
+      page+num_pages > KERNEL_BASE_PAGE)
+      num_pages = KERNEL_BASE_PAGE-page;
  } else {
   effective_vm = &vm_kernel;
  }
@@ -1982,8 +1982,8 @@ vm_lock(vm_vpage_t page, size_t num_pages, unsigned int mode) {
  if unlikely(!num_pages) return 0;
  assert(page+num_pages > page);
  assert(page+num_pages-1 <= VM_VPAGE_MAX);
- effective_vm = page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
- assertf(effective_vm == ((page+num_pages-1) >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM),
+ effective_vm = page >= KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
+ assertf(effective_vm == ((page+num_pages-1) >= KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM),
          "Effective VM of virtual address range %p...%p is ambiguous",
          VM_PAGE2ADDR(page),VM_PAGE2ADDR(page+num_pages)-1);
  vm_acquire(effective_vm);
@@ -2085,7 +2085,7 @@ vm_split_before(struct vm *__restrict effective_vm,
 
  /* Pop the old node so we can modify it. */
 #if 0
- if (VM_NODE_MIN(node) >= X86_KERNEL_BASE_PAGE)
+ if (VM_NODE_MIN(node) >= KERNEL_BASE_PAGE)
      debug_printf("POP_NODE %p at %p...%p\n",
                   node,
                   VM_NODE_MINADDR(node),
@@ -3241,7 +3241,7 @@ vm_mapat(vm_vpage_t page_index,
  struct vm_node *EXCEPT_VAR node;
  struct vm *EXCEPT_VAR effective_vm;
  if unlikely(!num_pages) return;
- effective_vm = page_index >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
+ effective_vm = page_index >= KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
  assert(page_index+num_pages > page_index);
  assert(page_index+num_pages <= VM_VPAGE_MAX+1);
  assert(region_start+num_pages >= region_start);
@@ -3366,8 +3366,8 @@ vm_map(vm_vpage_t hint,
  vm_vpage_t COMPILER_IGNORE_UNINITIALIZED(result);
  struct vm *EXCEPT_VAR effective_vm;
  effective_vm = &vm_kernel;
- if (hint < X86_KERNEL_BASE_PAGE ||
-    (hint == X86_KERNEL_BASE_PAGE && (getfree_mode&VM_GETFREE_FBELOW)))
+ if (hint < KERNEL_BASE_PAGE ||
+    (hint == KERNEL_BASE_PAGE && (getfree_mode&VM_GETFREE_FBELOW)))
      effective_vm = THIS_VM;
  assert(num_pages != 0);
  assert(region_start+num_pages >= region_start);
@@ -3446,14 +3446,14 @@ vm_extend(vm_vpage_t threshold, size_t num_additional_pages,
  /* Deal with the special case of no-additional-pages. */
  if unlikely(!num_additional_pages)
     return 0;
- effective_vm = threshold >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
+ effective_vm = threshold >= KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
  vm_acquire(effective_vm);
  TRY {
   if (mode == VM_EXTEND_ABOVE) {
    assert(threshold+num_additional_pages > threshold);
    assert(threshold+num_additional_pages <= VM_VPAGE_MAX+1);
-   assert(threshold >= X86_KERNEL_BASE_PAGE ||
-          threshold+num_additional_pages <= X86_KERNEL_BASE_PAGE);
+   assert(threshold >= KERNEL_BASE_PAGE ||
+          threshold+num_additional_pages <= KERNEL_BASE_PAGE);
    /* Lookup the node that should be extended. */
    extension_node = vm_getnode(threshold-1);
    if (!extension_node ||
@@ -3464,8 +3464,8 @@ vm_extend(vm_vpage_t threshold, size_t num_additional_pages,
        goto done;
   } else {
    assert(threshold >= num_additional_pages);
-   assert(threshold < X86_KERNEL_BASE_PAGE ||
-          threshold-num_additional_pages >= X86_KERNEL_BASE_PAGE);
+   assert(threshold < KERNEL_BASE_PAGE ||
+          threshold-num_additional_pages >= KERNEL_BASE_PAGE);
    /* Lookup the node that should be extended. */
    extension_node = vm_getnode(threshold);
    if (!extension_node ||

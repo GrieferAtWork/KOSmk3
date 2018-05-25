@@ -33,10 +33,14 @@
 DECL_BEGIN
 
 /* Convert addresses/sizes to/from whole pages. */
+#ifndef VM_ADDR2PAGE
 #define VM_ADDR2PAGE(x)  ((x)/PAGEALIGN)
 #define VM_PAGE2ADDR(x)  ((x)*PAGEALIGN)
+#endif
+#ifndef VM_SIZE2PAGES
 #define VM_SIZE2PAGES(x) ((x)/PAGESIZE)
 #define VM_PAGES2SIZE(x) ((x)*PAGESIZE)
+#endif
 
 #ifdef __CC__
 
@@ -51,11 +55,16 @@ DATDEF PHYS pagedir_t pagedir_kernel_phys;
  * controller itself, which must be aligned and sized
  * according to `PAGEDIR_ALIGN' and `PAGEDIR_SIZE'.
  * @throw E_BADALLOC: Not enough available memory. */
-FUNDEF void KCALL pagedir_init(VIRT pagedir_t *__restrict self,
-                               PHYS vm_phys_t phys_self);
+#ifdef CONFIG_PAGEDIR_INIT_IS_NOEXCEPT
+FUNDEF ATTR_NOTHROW void KCALL
+#else
+FUNDEF void KCALL
+#endif
+pagedir_init(VIRT pagedir_t *__restrict self,
+             PHYS vm_phys_t phys_self);
 
 /* Finalize a given page directory. */
-FUNDEF void KCALL pagedir_fini(VIRT pagedir_t *__restrict self);
+FUNDEF ATTR_NOTHROW void KCALL pagedir_fini(VIRT pagedir_t *__restrict self);
 
 
 /* WARNING: If the host does not support some combination of permission
@@ -89,9 +98,9 @@ FUNDEF void FCALL pagedir_syncall(void);
 FUNDEF PHYS vm_phys_t KCALL pagedir_translate(VIRT vm_virt_t virt_addr);
 
 /* Check if the given page is mapped. */
-FUNDEF ATTR_NOTHROW bool KCALL pagedir_ismapped(vm_vpage_t virt_addr);
-FUNDEF ATTR_NOTHROW bool KCALL pagedir_iswritable(vm_vpage_t virt_addr);
-FUNDEF ATTR_NOTHROW bool KCALL pagedir_isuseraccessible(vm_vpage_t virt_addr);
+FUNDEF ATTR_NOTHROW bool KCALL pagedir_ismapped(vm_vpage_t vpage);
+FUNDEF ATTR_NOTHROW bool KCALL pagedir_iswritable(vm_vpage_t vpage);
+FUNDEF ATTR_NOTHROW bool KCALL pagedir_isuseraccessible(vm_vpage_t vpage);
 
 #endif /* __CC__ */
 

@@ -16,48 +16,4 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef GUARD_LIBS_START_START_C
-#define GUARD_LIBS_START_START_C 1
-#define _KOS_SOURCE 1
-
-#include <hybrid/compiler.h>
-#include <stdlib.h>
-#include <malloc.h>
-#include <stdint.h>
-#include <assert.h>
-
-DECL_BEGIN
-
-typedef int (*pmain)(int argc, char **argv, char **envp);
-extern int (main)(int argc, char *argv[], char *envp[]);
-IMPDEF ATTR_NORETURN void (FCALL __entry1)(pmain m);
-
-#if defined(__i386__) || defined(__x86_64__)
-__asm__(".hidden _start\n"
-        ".global _start\n"
-        ".section .data.free\n"
-        "_start:\n"
-#ifdef CONFIG_START_DEBUG
-        "    call __set_debug_malloc\n"
-#endif
-#ifdef __x86_64__
-        "    leaq main, %rdi\n"
-#else
-        "    leal main, %ecx\n"
-#endif
-        ".global __entry1\n"
-        "    jmp  __entry1\n"
-        ".size _start, . - _start\n"
-        );
-#else
-INTERN ATTR_SECTION(".text.free") void (_start)(void) {
-#ifdef CONFIG_START_DEBUG
- __set_debug_malloc();
-#endif
- __entry1(&main);
-}
-#endif
-
-DECL_END
-
-#endif /* !GUARD_LIBS_START_START_C */
+#include "malloc32.S"

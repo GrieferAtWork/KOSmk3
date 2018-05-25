@@ -451,6 +451,8 @@ extend_instruction:
    goto generic_illegal_instruction;
   } break;
 
+
+#ifndef __x86_64__
   {
    syscall_ulong_t EXCEPT_VAR sysno;
    syscall_ulong_t EXCEPT_VAR orig_eax;
@@ -522,6 +524,7 @@ restart_sysenter_syscall:
    context->c_iret.ir_useresp = context->c_gpregs.gp_ecx;
    context->c_iret.ir_eip     = context->c_gpregs.gp_edx;
    break;
+#endif /* !__x86_64__ */
 
   {
    struct modrm_info modrm;

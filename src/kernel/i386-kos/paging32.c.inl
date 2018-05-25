@@ -23,6 +23,7 @@
 
 #include <hybrid/compiler.h>
 #include <hybrid/host.h>
+#include <hybrid/section.h>
 #include <hybrid/align.h>
 #include <hybrid/minmax.h>
 #include <kernel/paging.h>
@@ -30,6 +31,7 @@
 #include <string.h>
 #include <kernel/debug.h>
 #include <i386-kos/interrupt.h>
+#include <i386-kos/cpuid.h>
 
 DECL_BEGIN
 
@@ -62,56 +64,6 @@ union x86_pdir_e1 pagedir_kernel_share[VEC2_SHARE_SIZE+VEC2_IDENTITY_SIZE][1024]
 
 INTERN ATTR_SECTION(".data.pervm.head")
 struct vm vm_kernel_head = {
-#if 0
-    .vm_pagedir = {
-        .p_e2 = {
-#define MAP_P1_VECTOR(vidx,pidx) \
-            [vidx] = { (uintptr_t)&pagedir_kernel_share[pidx] - KERNEL_BASE + (X86_PAGE_FGLOBAL | X86_PAGE_FDIRTY | X86_PAGE_FACCESSED | X86_PAGE_FWRITE | X86_PAGE_FPRESENT) }
-#define MAP_P1_VECTOR_X16(vidx,pidx) \
-            MAP_P1_VECTOR(vidx+0,pidx+0), MAP_P1_VECTOR(vidx+1,pidx+1), \
-            MAP_P1_VECTOR(vidx+2,pidx+2), MAP_P1_VECTOR(vidx+3,pidx+3), \
-            MAP_P1_VECTOR(vidx+4,pidx+4), MAP_P1_VECTOR(vidx+5,pidx+5), \
-            MAP_P1_VECTOR(vidx+6,pidx+6), MAP_P1_VECTOR(vidx+7,pidx+7), \
-            MAP_P1_VECTOR(vidx+8,pidx+8), MAP_P1_VECTOR(vidx+9,pidx+9), \
-            MAP_P1_VECTOR(vidx+10,pidx+10), MAP_P1_VECTOR(vidx+11,pidx+11), \
-            MAP_P1_VECTOR(vidx+12,pidx+12), MAP_P1_VECTOR(vidx+13,pidx+14), \
-            MAP_P1_VECTOR(vidx+14,pidx+14), MAP_P1_VECTOR(vidx+15,pidx+15)
-            MAP_P1_VECTOR_X16(0x0000,0x0000),
-            MAP_P1_VECTOR_X16(0x0010,0x0010),
-            MAP_P1_VECTOR_X16(0x0020,0x0020),
-            MAP_P1_VECTOR_X16(0x0030,0x0030),
-            MAP_P1_VECTOR_X16(0x0040,0x0040),
-            MAP_P1_VECTOR_X16(0x0050,0x0050),
-            MAP_P1_VECTOR_X16(0x0060,0x0060),
-            MAP_P1_VECTOR_X16(0x0070,0x0070),
-            MAP_P1_VECTOR_X16(0x0080,0x0080),
-            MAP_P1_VECTOR_X16(0x0090,0x0090),
-            MAP_P1_VECTOR_X16(0x00a0,0x00a0),
-            MAP_P1_VECTOR_X16(0x00b0,0x00b0),
-            MAP_P1_VECTOR_X16(0x00c0,0x00c0),
-            MAP_P1_VECTOR_X16(0x00d0,0x00d0),
-            MAP_P1_VECTOR_X16(0x00e0,0x00e0),
-            MAP_P1_VECTOR_X16(0x00f0,0x00f0),
-
-            MAP_P1_VECTOR_X16(0x0300,0x0000),
-            MAP_P1_VECTOR_X16(0x0310,0x0010),
-            MAP_P1_VECTOR_X16(0x0320,0x0020),
-            MAP_P1_VECTOR_X16(0x0330,0x0030),
-            MAP_P1_VECTOR_X16(0x0340,0x0040),
-            MAP_P1_VECTOR_X16(0x0350,0x0050),
-            MAP_P1_VECTOR_X16(0x0360,0x0060),
-            MAP_P1_VECTOR_X16(0x0370,0x0070),
-            MAP_P1_VECTOR_X16(0x0380,0x0080),
-            MAP_P1_VECTOR_X16(0x0390,0x0090),
-            MAP_P1_VECTOR_X16(0x03a0,0x00a0),
-            MAP_P1_VECTOR_X16(0x03b0,0x00b0),
-            MAP_P1_VECTOR_X16(0x03c0,0x00c0),
-            MAP_P1_VECTOR_X16(0x03d0,0x00d0),
-            MAP_P1_VECTOR_X16(0x03e0,0x00e0),
-            MAP_P1_VECTOR_X16(0x03f0,0x00f0)
-        }
-    },
-#endif
     .vm_physdir  = 0,
     .vm_refcnt   = 3,
 #ifdef CONFIG_VM_USE_RWLOCK
@@ -132,7 +84,53 @@ STATIC_ASSERT(VEC2_IDENTITY_SIZE == 1);
 /* Code assumes that ZERO-initialization can be used to mark pages as absent. */
 STATIC_ASSERT(X86_PAGE_ABSENT == 0);
 
-INTDEF bool x86_config_enable_pse;
+
+
+
+PRIVATE u16 x86_pageperm_matrix[0xf+1] = {
+     /* Configure to always set the DIRTY and ACCESSED bits (KOS doesn't use
+      * them, and us already setting them will allow the CPU to skip setting
+      * them if the time comes) */
+    [0]                                                                        = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED,
+    [PAGEDIR_MAP_FEXEC]                                                        = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT,
+    [PAGEDIR_MAP_FWRITE]                                                       = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
+    [PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC]                                     = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
+    [PAGEDIR_MAP_FREAD]                                                        = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT,
+    [PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FEXEC]                                      = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT,
+    [PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE]                                     = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
+    [PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC]                   = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
+    [PAGEDIR_MAP_FUSER]                                                        = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FEXEC]                                      = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FWRITE]                                     = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FEXEC|PAGEDIR_MAP_FWRITE]                   = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD]                                      = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FEXEC]                    = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE]                   = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC] = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
+};
+PRIVATE u32 x86_page_global = X86_PAGE_FGLOBAL;
+PRIVATE unsigned int x86_paging_features = 0;
+#define PAGING_FEATURE_4MIB_PAGES  0x0001/* Host supports 4MIB pages. */
+
+
+INTDEF INITCALL void KCALL x86_config_pagedir_invlpg_unsupported(void);
+INTERN ATTR_FREETEXT void KCALL x86_configure_paging(void) {
+ struct cpu_cpuid const *feat = &CPU_FEATURES;
+#if 0 /* TODO: Based on available features. */
+ x86_config_pagedir_invlpg_unsupported();
+ x86_config_enable_pse = false;
+#endif
+ if (!(feat->ci_1d & CPUID_1D_PGE))
+       x86_page_global = 0;
+ if ((feat->ci_1d & CPUID_1D_PSE) ||
+     (feat->ci_80000001d & CPUID_80000001D_PSE)) {
+  debug_printf(FREESTR("[X86] Enable 4MIB pages\n"));
+  x86_paging_features |= PAGING_FEATURE_4MIB_PAGES;
+ }
+}
+
+
+
 
 /* The memory zone used to allocate memory for page directories. */
 #define MZONE_PAGING  X86_MZONE_4GB
@@ -140,9 +138,8 @@ INTDEF bool x86_config_enable_pse;
 /* Initialize the given page directory.
  * The caller is required to allocate the page directory
  * controller itself, which must be aligned and sized
- * according to `PAGEDIR_ALIGN' and `PAGEDIR_SIZE'.
- * @throw E_BADALLOC: Not enough available memory. */
-PUBLIC void KCALL
+ * according to `PAGEDIR_ALIGN' and `PAGEDIR_SIZE'. */
+PUBLIC ATTR_NOTHROW void KCALL
 pagedir_init(VIRT pagedir_t *__restrict self,
              PHYS vm_phys_t phys_self) {
  assert(IS_ALIGNED((uintptr_t)self,PAGESIZE));
@@ -162,7 +159,7 @@ pagedir_init(VIRT pagedir_t *__restrict self,
                                             X86_PAGE_FWRITE | X86_PAGE_FPRESENT));
 }
 
-PUBLIC void KCALL
+PUBLIC ATTR_NOTHROW void KCALL
 pagedir_fini(VIRT pagedir_t *__restrict self) {
  unsigned int i;
  /* Free all dynamically allocated E1
@@ -193,9 +190,9 @@ pagedir_split_before(VIRT vm_vpage_t virt_page) {
  e2_data = e2->p_data;
  if (e2_data&X86_PAGE_F4MIB) {
   /* Convert a 4MIB page to a E1-page vector. */
-  assertf(virt_page < X86_KERNEL_BASE_PAGE,
+  assertf(virt_page < KERNEL_BASE_PAGE,
           "Kernel-share pages must not be 4MIB pages");
-  assertf(x86_config_enable_pse,"4MIB Page without PSE support");
+  assertf(x86_paging_features & PAGING_FEATURE_4MIB_PAGES,"4MIB Page without PSE support");
   /* Start by mapping the page in the page directory identity mapping. */
   e2_data &= ~(X86_PAGE_F4MIB);
   e2->p_addr = ((u32)VM_PAGE2ADDR(page_malloc(1,MZONE_PAGING)) |
@@ -216,7 +213,7 @@ pagedir_split_before(VIRT vm_vpage_t virt_page) {
   e2->p_addr |= (e2_data & X86_PAGE_FMASK);
   COMPILER_WRITE_BARRIER();
  } else if ((e2_data&X86_PAGE_FADDR) == X86_PAGE_ABSENT) {
-  assertf(virt_page < X86_KERNEL_BASE_PAGE,
+  assertf(virt_page < KERNEL_BASE_PAGE,
           "All kernel-share pages must be pre-allocated, "
           "but page %p...%p isn't",
           VM_PAGE2ADDR(virt_page),
@@ -239,7 +236,7 @@ pagedir_merge_before(VIRT vm_vpage_t virt_page) {
  VIRT union x86_pdir_e1 *e1_vector; unsigned int i;
  if (X86_PDIR_VEC1INDEX_VPAGE(virt_page) == 0)
      return; /* Mapping is at the start of a E1-vector */
- if (virt_page >= X86_KERNEL_BASE_PAGE)
+ if (virt_page >= KERNEL_BASE_PAGE)
      return; /* Mappings above the kernel-base must not have their E1 vectors merged.
               * (We'd loose the indirection allowing the kernel-share segment) */
  if ((X86_PDIR_E2_IDENTITY[X86_PDIR_VEC2INDEX_VPAGE(virt_page)].p_data&
@@ -249,7 +246,7 @@ pagedir_merge_before(VIRT vm_vpage_t virt_page) {
  expected_mapping = e1_vector[0].p_data & ~(X86_PAGE_FDIRTY|X86_PAGE_FACCESSED);
  if (expected_mapping & X86_PAGE_FPRESENT) {
   /* Check if there is any page that doesn't fit a linear mapping. */
-  if (!x86_config_enable_pse)
+  if (!(x86_paging_features & PAGING_FEATURE_4MIB_PAGES))
       return; /* Without PSE, we can't actually make use of `X86_PAGE_F4MIB' */
   for (i = 0; i < 1024; ++i) {
    if ((e1_vector[i].p_addr & ~(X86_PAGE_FDIRTY|X86_PAGE_FACCESSED)) !=
@@ -276,27 +273,6 @@ pagedir_merge_before(VIRT vm_vpage_t virt_page) {
 }
 
 
-PRIVATE u16 const x86_pageperm_matrix[0xf+1] = {
-     /* Configure to always set the DIRTY and ACCESSED bits (KOS doesn't use
-      * them, and us already setting them will allow the CPU to skip setting
-      * them if the time comes) */
-    [0]                                                                        = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED,
-    [PAGEDIR_MAP_FEXEC]                                                        = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT,
-    [PAGEDIR_MAP_FWRITE]                                                       = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
-    [PAGEDIR_MAP_FEXEC|PAGEDIR_MAP_FWRITE]                                     = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
-    [PAGEDIR_MAP_FREAD]                                                        = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT,
-    [PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FEXEC]                                      = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT,
-    [PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE]                                     = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
-    [PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC]                   = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
-    [PAGEDIR_MAP_FUSER]                                                        = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER,
-    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FEXEC]                                      = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT,
-    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FWRITE]                                     = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
-    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FEXEC|PAGEDIR_MAP_FWRITE]                   = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
-    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD]                                      = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT,
-    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FEXEC]                    = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT,
-    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE]                   = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
-    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC] = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
-};
 
 
 PUBLIC void KCALL
@@ -310,7 +286,7 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
  if (!num_pages) return;
 #if 1
  if ((perm & PAGEDIR_MAP_FUSER) &&
-      virt_page >= X86_KERNEL_BASE_PAGE)
+      virt_page >= KERNEL_BASE_PAGE)
       asm("int3");
 #endif
 #if 1
@@ -333,28 +309,20 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
               perm&PAGEDIR_MAP_FUSER ? 'U' : '-');
  /*__asm__("int3");*/
 #endif
-#if 0
- if unlikely(virt_page           <= 0xC0007 &&
-             virt_page+num_pages >  0xC0007) {
-  __asm__("int3\ncli");
-  for (;;) { asm("hlt"); }
- }
-#endif
-
  vpage_start = virt_page;
  vpage_end   = virt_page+num_pages;
  assertf(virt_page < VM_VPAGE_MAX,"virt_page = %p",virt_page);
- assertf(phys_page < VM_PPAGE_MAX,"phys_page = %p",phys_page);
+ assertf((perm&PAGEDIR_MAP_FUNMAP) || phys_page < VM_PPAGE_MAX,"phys_page = %p",phys_page);
  assert(virt_page+num_pages >= virt_page);
- assert(phys_page+num_pages >= phys_page);
+ assert((perm&PAGEDIR_MAP_FUNMAP) || phys_page+num_pages >= phys_page);
  assertf(virt_page+num_pages < VM_VPAGE_MAX,
          "virt_page = %p\n"
          "num_pages = %p\n",
          virt_page,num_pages);
- assert(phys_page+num_pages < VM_PPAGE_MAX);
+ assert((perm&PAGEDIR_MAP_FUNMAP) || phys_page+num_pages < VM_PPAGE_MAX);
  edata = (u32)VM_PAGE2ADDR(phys_page) | x86_pageperm_matrix[perm & 0xf];
- if (virt_page >= X86_KERNEL_BASE_PAGE)
-     edata |= X86_PAGE_FGLOBAL; /* Kernel-share mapping. */
+ if (virt_page >= KERNEL_BASE_PAGE)
+     edata |= x86_page_global; /* Kernel-share mapping. */
  /* Create splits in the virtual address space. */
  pagedir_split_before(vpage_start);
  pagedir_split_before(vpage_end);
@@ -415,8 +383,8 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
   e2_entry = &X86_PDIR_E2_IDENTITY[e2_index];
   e2_data  = e2_entry->p_data;
 #if 0 /* XXX: This doesn't seem to be working... */
-  if (x86_config_enable_pse &&
-      e2_index < VEC2_SHARE_BEGIN) {
+  if ((x86_paging_features & PAGING_FEATURE_4MIB_PAGES) &&
+       e2_index < VEC2_SHARE_BEGIN) {
    /* Override the E2 entries data. */
    e2_entry->p_data = (perm & PAGEDIR_MAP_FUNMAP) ? X86_PAGE_ABSENT : (edata|X86_PAGE_F4MIB);
    COMPILER_WRITE_BARRIER();
@@ -521,8 +489,8 @@ pagedir_mapone(VIRT vm_vpage_t virt_page,
  assert(virt_page+1 < VM_VPAGE_MAX);
  assert(phys_page+1 < VM_PPAGE_MAX);
  edata = (u32)VM_PAGE2ADDR(phys_page) | x86_pageperm_matrix[perm & 0xf];
- if (virt_page >= X86_KERNEL_BASE_PAGE)
-     edata |= X86_PAGE_FGLOBAL; /* Kernel-share mapping. */
+ if (virt_page >= KERNEL_BASE_PAGE)
+     edata |= x86_page_global; /* Kernel-share mapping. */
  /* Create splits in the virtual address space. */
  pagedir_split_before(vpage_start);
  pagedir_split_before(vpage_start+1);
@@ -558,6 +526,10 @@ pagedir_mapone(VIRT vm_vpage_t virt_page,
 PUBLIC PHYS vm_phys_t KCALL
 pagedir_translate(VIRT vm_virt_t virt_addr) {
  u32 result;
+ result = X86_PDIR_E2_IDENTITY[X86_PDIR_VEC2INDEX(virt_addr)].p_data;
+ if (result & X86_PAGE_F4MIB)
+     return (result & X86_PAGE_FADDR) | X86_PDIR_4MIBPAGEINDEX(virt_addr);
+ assertf(result & X86_PAGE_FPRESENT,"Page at %p is not mapped",virt_addr);
  result = X86_PDIR_E1_IDENTITY[X86_PDIR_VEC2INDEX(virt_addr)]
                               [X86_PDIR_VEC1INDEX(virt_addr)].
           p_data;
@@ -565,59 +537,65 @@ pagedir_translate(VIRT vm_virt_t virt_addr) {
 }
 
 PUBLIC ATTR_NOTHROW bool KCALL
-pagedir_ismapped(vm_vpage_t virt_addr) {
+pagedir_ismapped(vm_vpage_t vpage) {
  u32 temp; unsigned int vec2;
- vec2 = X86_PDIR_VEC2INDEX_VPAGE(virt_addr);
+ vec2 = X86_PDIR_VEC2INDEX_VPAGE(vpage);
  temp = X86_PDIR_E2_IDENTITY[vec2].p_data;
  if (!(temp & X86_PAGE_FPRESENT)) return false;
  if (temp & X86_PAGE_F4MIB) return true;
- return !!(X86_PDIR_E1_IDENTITY[vec2][X86_PDIR_VEC1INDEX_VPAGE(virt_addr)].p_flag & X86_PAGE_FPRESENT);
+ return !!(X86_PDIR_E1_IDENTITY[vec2][X86_PDIR_VEC1INDEX_VPAGE(vpage)].p_flag & X86_PAGE_FPRESENT);
 }
 PUBLIC ATTR_NOTHROW bool KCALL
-pagedir_iswritable(vm_vpage_t virt_addr) {
+pagedir_iswritable(vm_vpage_t vpage) {
  u32 temp; unsigned int vec2;
- vec2 = X86_PDIR_VEC2INDEX_VPAGE(virt_addr);
+ vec2 = X86_PDIR_VEC2INDEX_VPAGE(vpage);
  temp = X86_PDIR_E2_IDENTITY[vec2].p_data;
  if (!(temp & X86_PAGE_FPRESENT)) return false;
  if (temp & X86_PAGE_F4MIB) return temp & X86_PAGE_FWRITE;
- return (X86_PDIR_E1_IDENTITY[vec2][X86_PDIR_VEC1INDEX_VPAGE(virt_addr)].p_flag &
+ return (X86_PDIR_E1_IDENTITY[vec2][X86_PDIR_VEC1INDEX_VPAGE(vpage)].p_flag &
         (X86_PAGE_FWRITE|X86_PAGE_FPRESENT)) == (X86_PAGE_FWRITE|X86_PAGE_FPRESENT);
 }
 PUBLIC ATTR_NOTHROW bool KCALL
-pagedir_isuseraccessible(vm_vpage_t virt_addr) {
+pagedir_isuseraccessible(vm_vpage_t vpage) {
  u32 temp; unsigned int vec2;
- vec2 = X86_PDIR_VEC2INDEX_VPAGE(virt_addr);
+ vec2 = X86_PDIR_VEC2INDEX_VPAGE(vpage);
  temp = X86_PDIR_E2_IDENTITY[vec2].p_data;
  if (!(temp & X86_PAGE_FPRESENT)) return false;
  if (temp & X86_PAGE_F4MIB) return temp & X86_PAGE_FUSER;
- return (X86_PDIR_E1_IDENTITY[vec2][X86_PDIR_VEC1INDEX_VPAGE(virt_addr)].p_flag &
+ return (X86_PDIR_E1_IDENTITY[vec2][X86_PDIR_VEC1INDEX_VPAGE(vpage)].p_flag &
         (X86_PAGE_FUSER|X86_PAGE_FPRESENT)) == (X86_PAGE_FUSER|X86_PAGE_FPRESENT);
 }
 
 PUBLIC ATTR_NOTHROW bool KCALL
-pagedir_haschanged(vm_vpage_t virt_addr) {
+pagedir_haschanged(vm_vpage_t vpage) {
  u32 temp; unsigned int vec2;
- vec2 = X86_PDIR_VEC2INDEX_VPAGE(virt_addr);
+ vec2 = X86_PDIR_VEC2INDEX_VPAGE(vpage);
  temp = X86_PDIR_E2_IDENTITY[vec2].p_data;
  if (!(temp & X86_PAGE_FPRESENT)) return false;
  if (temp & X86_PAGE_F4MIB)
      return !!(temp & X86_PAGE_FDIRTY);
- return (X86_PDIR_E1_IDENTITY[vec2][X86_PDIR_VEC1INDEX_VPAGE(virt_addr)].p_flag &
+ return (X86_PDIR_E1_IDENTITY[vec2][X86_PDIR_VEC1INDEX_VPAGE(vpage)].p_flag &
         (X86_PAGE_FDIRTY|X86_PAGE_FPRESENT)) == (X86_PAGE_FDIRTY|X86_PAGE_FPRESENT);
 }
 PUBLIC ATTR_NOTHROW void KCALL
-pagedir_unsetchanged(vm_vpage_t virt_addr) {
+pagedir_unsetchanged(vm_vpage_t vpage) {
  u32 temp,*e1; unsigned int vec2;
- vec2 = X86_PDIR_VEC2INDEX_VPAGE(virt_addr);
+ vec2 = X86_PDIR_VEC2INDEX_VPAGE(vpage);
  temp = X86_PDIR_E2_IDENTITY[vec2].p_data;
  if (!(temp & X86_PAGE_FPRESENT)) return;
  if (temp & X86_PAGE_F4MIB) {
   if (temp & X86_PAGE_FDIRTY)
-      X86_PDIR_E2_IDENTITY[vec2].p_data &= ~X86_PAGE_FDIRTY;
+      __asm__ __volatile__("andl %1, %0"
+                           : "+m" (X86_PDIR_E2_IDENTITY[vec2].p_data)
+                           : "Zr" (~X86_PAGE_FDIRTY));
+  return;
  }
- e1 = &X86_PDIR_E1_IDENTITY[vec2][X86_PDIR_VEC1INDEX_VPAGE(virt_addr)].p_flag;
- if ((*e1 & (X86_PAGE_FDIRTY|X86_PAGE_FPRESENT)) == (X86_PAGE_FDIRTY|X86_PAGE_FPRESENT))
-      *e1 &= ~X86_PAGE_FDIRTY;
+ e1 = &X86_PDIR_E1_IDENTITY[vec2][X86_PDIR_VEC1INDEX_VPAGE(vpage)].p_flag;
+ if ((*e1 & (X86_PAGE_FDIRTY|X86_PAGE_FPRESENT)) == (X86_PAGE_FDIRTY|X86_PAGE_FPRESENT)) {
+  __asm__ __volatile__("andl %1, %0"
+                       : "+m" (*e1)
+                       : "Ir" (~X86_PAGE_FDIRTY));
+ }
 }
 
 

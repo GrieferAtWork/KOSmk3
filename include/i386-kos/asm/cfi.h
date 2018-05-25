@@ -20,8 +20,8 @@
 #define _X86_KOS_ASM_CFI_H 1
 
 #include <__stdinc.h>
-#include <hybrid/host.h>
 #include <hybrid/asm.h>
+#include <hybrid/host.h>
 
 
 /* Reminder on how `pop' functions with a stack-operand:
@@ -45,8 +45,6 @@ L(.macro pushl_cfi arg; pushl \arg; .cfi_adjust_cfa_offset 4; .endm)
 L(.macro popl_cfi arg; popl \arg; .cfi_adjust_cfa_offset -4; .endm)
 L(.macro pushfl_cfi; pushfl; .cfi_adjust_cfa_offset 4; .endm)
 L(.macro popfl_cfi; popfl; .cfi_adjust_cfa_offset -4; .endm)
-L(.macro pushfl_cfi_r; pushfl; .cfi_adjust_cfa_offset 4; .cfi_rel_offset %eflags, 0; .endm)
-L(.macro popfl_cfi_r; popfl; .cfi_adjust_cfa_offset -4; .cfi_restore %eflags; .endm)
 );
 
 #ifdef __x86_64__
@@ -62,6 +60,8 @@ L(.macro popfq_cfi_r; popfq; .cfi_adjust_cfa_offset -8; .cfi_restore %eflags; .e
 );
 #else
 GLOBAL_ASM(
+L(.macro pushfl_cfi_r; pushfl; .cfi_adjust_cfa_offset 4; .cfi_rel_offset %eflags, 0; .endm)
+L(.macro popfl_cfi_r; popfl; .cfi_adjust_cfa_offset -4; .cfi_restore %eflags; .endm)
 L(.macro pushl_cfi_r arg; pushl \arg; .cfi_adjust_cfa_offset 4; .cfi_rel_offset \arg, 0; .endm)
 L(.macro popl_cfi_r arg; popl \arg; .cfi_adjust_cfa_offset -4; .cfi_restore \arg; .endm)
 L(.macro pushal_cfi; pushal; .cfi_adjust_cfa_offset 32; .endm)

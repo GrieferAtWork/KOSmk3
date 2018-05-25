@@ -74,6 +74,18 @@
     <None Include="..\..\src\hybrid\i386-kos\instruction-ops.c.inl">
       <Filter>hybrid\i386-kos</Filter>
     </None>
+    <None Include="..\..\src\kernel\i386-kos\paging64.c.inl">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\paging64.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\i386-kos\except64.S">
+      <Filter>hybrid\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\hybrid\i386-kos\context64.S">
+      <Filter>hybrid\i386-kos</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="kernel">
@@ -865,6 +877,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\kernel\include\kernel\tls.h">
       <Filter>kernel\include\kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\paging64.h">
+      <Filter>kernel\include\i386-kos</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

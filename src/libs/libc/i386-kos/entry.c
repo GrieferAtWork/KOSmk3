@@ -22,11 +22,14 @@
 
 #include "../libc.h"
 #include "../entry.h"
+#include "../sched.h"
+#include "../exit.h"
 #include <hybrid/compiler.h>
 #include <kos/environ.h>
 #include <kos/thread.h>
 #include <hybrid/asm.h>
 #include <syslog.h>
+#include <unistd.h>
 #include <hybrid/section.h>
 
 DECL_BEGIN
@@ -35,7 +38,6 @@ struct envdata;
 
 STATIC_ASSERT(offsetof(struct task_segment,ts_process) ==
               TASK_SEGMENT_OFFSETOF_PROCESS);
-
 
 #ifndef CONFIG_LIBC_HAVE_ARCH_ENTRY
 PRIVATE char *empty_vector[] = { NULL };

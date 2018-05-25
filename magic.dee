@@ -61,7 +61,7 @@ local config_options = dict {
 	"TARGET_ARCH"   : "i386",
 	"TARGET_CPU"    : "i686",
 	"BUILDPATH"     : "build/${TARGET_CPU}-kos",
-	"OUTPUTPATH"    : "",
+	"BINPATH"       : "bin/${TARGET_CPU}-kos",
 	"MKDIR"         : "mkdir",
 	/* KOS-specific magic options */
 	"DISK"          : "bin/disk-${TARGET_ARCH}-kos.img",

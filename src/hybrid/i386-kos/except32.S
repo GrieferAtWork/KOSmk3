@@ -44,6 +44,10 @@ INTERN_ENTRY(libc_error_rethrow)
 	popl_cfi %eax   /* Load EIP */
 	.cfi_register %eip, %eax
 .error_rethrow_eax_is_ip:
+#ifndef __KERNEL__
+	pushl_cfi    $0     /* SS */
+	pushl_cfi    $0     /* CS */
+#endif
 	pushfl_cfi_r        /* EFLAGS */
 #ifdef __KERNEL__
 	pushl_cfi    %cs    /* CS */
@@ -84,6 +88,9 @@ INTERN_ENTRY(libc_error_throw_ex)
 	leal   ts_xcurrent, %edi
 	addl   %taskseg:ts_self, %edi
 	movl   %edx, %esi
+#ifdef __KERNEL__
+	cld
+#endif
 	rep    movsl
 	popl_cfi_r %esi
 	popl_cfi_r %edi
@@ -92,6 +99,7 @@ INTERN_ENTRY(libc_error_throw_resumablef)
 	movw   $(ERR_FRESUMABLE|ERR_FRESUMEFUNC), %taskseg:ts_xcurrent+e_flag
 	jmp    1f
 INTERN_ENTRY(libc_error_throwf)
+	movw   $(ERR_FNORMAL), %taskseg:ts_xcurrent+e_flag
 1:	movl   4(%esp), %ecx /* except_t code; */
 	movw   %cx, %taskseg:ts_xcurrent+e_code
 	leal   8(%esp), %edx /* va_list args; */

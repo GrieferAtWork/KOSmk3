@@ -33,7 +33,7 @@ __SYSDECL_BEGIN
  * with by simply looking at an address. */
 #ifndef USHARE_ADDRESS_HINT
 #ifdef __x86_64__
-#   error TODO
+#   define USHARE_ADDRESS_HINT  0xbeefc000 /* beefcake... (TODO) */
 #elif defined(__i386__)
 #   define USHARE_ADDRESS_HINT  0xbeefc000 /* beefcake... */
 #else

@@ -143,13 +143,13 @@ __REDIRECT_DPA(__LIBC,,__mode_t,__LIBCCALL,umask,(__mode_t __mode),(__mode))
 #define __read_defined 1
 #if __SIZEOF_SIZE_T__ <= 4
 __REDIRECT_EXCEPT_DPA(__LIBC,__WUNUSED_SUGGESTED __NONNULL((2)),__EXCEPT_SELECT(size_t,__ssize_t),__LIBCCALL,
-                      read,(__fd_t __fd, void *__dstbuf, size_t __dstbufsize),(__fd,__dstbuf,__dstbufsize))
+                      read,(__fd_t __fd, void *__buf, size_t __dstbufsize),(__fd,__buf,__dstbufsize))
 #elif defined(__DOS_COMPAT__)
-__REDIRECT(__LIBC,__WUNUSED_SUGGESTED __NONNULL((2)),__INT32_TYPE__,__LIBCCALL,__read32,(__fd_t __fd, void *__dstbuf, __UINT32_TYPE__ __n_bytes),_read,(__fd,__dstbuf,__n_bytes))
-__LOCAL __WUNUSED_SUGGESTED __NONNULL((2)) __ssize_t (__LIBCCALL read)(__fd_t __fd, void *__dstbuf, size_t __n_bytes) { return __read32(__fd,__dstbuf,__n_bytes > (size_t)(__UINT32_TYPE__)-1 ? (__UINT32_TYPE__)-1 : (__UINT32_TYPE__)__n_bytes); }
+__REDIRECT(__LIBC,__WUNUSED_SUGGESTED __NONNULL((2)),__INT32_TYPE__,__LIBCCALL,__read32,(__fd_t __fd, void *__buf, __UINT32_TYPE__ __n_bytes),_read,(__fd,__buf,__n_bytes))
+__LOCAL __WUNUSED_SUGGESTED __NONNULL((2)) __ssize_t (__LIBCCALL read)(__fd_t __fd, void *__buf, size_t __n_bytes) { return __read32(__fd,__buf,__n_bytes > (size_t)(__UINT32_TYPE__)-1 ? (__UINT32_TYPE__)-1 : (__UINT32_TYPE__)__n_bytes); }
 #else
 __REDIRECT_EXCEPT(__LIBC,__WUNUSED_SUGGESTED __NONNULL((2)),__EXCEPT_SELECT(size_t,__ssize_t),__LIBCCALL,
-                  read,(__fd_t __fd, void *__dstbuf, size_t __dstbufsize),(__fd,__dstbuf,__dstbufsize))
+                  read,(__fd_t __fd, void *__buf, size_t __dstbufsize),(__fd,__buf,__dstbufsize))
 #endif
 #endif /* !__read_defined */
 #ifndef __write_defined
@@ -196,13 +196,13 @@ __REDIRECT_EXCEPT_DPB(__LIBC,,__fd_t,__LIBCCALL,dup,(__fd_t __fd),(__fd))
 __REDIRECT_EXCEPT_DPB(__LIBC,,__fd_t,__LIBCCALL,dup2,(__fd_t __oldfd, __fd_t __newfd),(__oldfd,__newfd))
 
 #if __SIZEOF_SIZE_T__ <= 4 || defined(__DOS_COMPAT__)
-__REDIRECT_EXCEPT_DPB(__LIBC,__WUNUSED_SUGGESTED __NONNULL((2)),__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,read,(__fd_t __fd, void *__dstbuf, __size_t __bufsize),(__fd,__dstbuf,__bufsize))
-__REDIRECT_EXCEPT_DPB(__LIBC,__NONNULL((2)),__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,write,(__fd_t __fd, void const *__buf, __size_t __bufsize),(__fd,__dstbuf,__bufsize))
+__REDIRECT_EXCEPT_DPB(__LIBC,__WUNUSED_SUGGESTED __NONNULL((2)),__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,read,(__fd_t __fd, void *__buf, __size_t __bufsize),(__fd,__buf,__bufsize))
+__REDIRECT_EXCEPT_DPB(__LIBC,__NONNULL((2)),__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,write,(__fd_t __fd, void const *__buf, __size_t __bufsize),(__fd,__buf,__bufsize))
 #else
-__REDIRECT_EXCEPT_(__LIBC,,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,__read_sz,(__fd_t __fd, void *__dstbuf, __size_t __bufsize),read,(__fd,__dstbuf,__bufsize))
-__REDIRECT_EXCEPT_(__LIBC,,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,__write_sz,(__fd_t __fd, void const *__buf, __size_t __bufsize),write,(__fd,__dstbuf,__bufsize))
-__LOCAL __WUNUSED_SUGGESTED __NONNULL((2)) __EXCEPT_SELECT(__UINT32_TYPE__,__INT32_TYPE__) (__LIBCCALL _read)(__fd_t __fd, void *__dstbuf, __UINT32_TYPE__ __bufsize) { return (__EXCEPT_SELECT(__UINT32_TYPE__,__INT32_TYPE__))__read_sz(__fd,__dstbuf,(size_t)__bufsize); }
-__LOCAL __NONNULL((2)) __EXCEPT_SELECT(__UINT32_TYPE__,__INT32_TYPE__) (__LIBCCALL _write)(__fd_t __fd, void const *__buf, __UINT32_TYPE__ __bufsize) { return (__EXCEPT_SELECT(__UINT32_TYPE__,__INT32_TYPE__))__write_sz(__fd,__dstbuf,(size_t)__bufsize); }
+__REDIRECT_EXCEPT_(__LIBC,,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,__read_sz,(__fd_t __fd, void *__buf, __size_t __bufsize),read,(__fd,__buf,__bufsize))
+__REDIRECT_EXCEPT_(__LIBC,,__EXCEPT_SELECT(__size_t,__ssize_t),__LIBCCALL,__write_sz,(__fd_t __fd, void const *__buf, __size_t __bufsize),write,(__fd,__buf,__bufsize))
+__LOCAL __WUNUSED_SUGGESTED __NONNULL((2)) __EXCEPT_SELECT(__UINT32_TYPE__,__INT32_TYPE__) (__LIBCCALL _read)(__fd_t __fd, void *__buf, __UINT32_TYPE__ __bufsize) { return (__EXCEPT_SELECT(__UINT32_TYPE__,__INT32_TYPE__))__read_sz(__fd,__buf,(size_t)__bufsize); }
+__LOCAL __NONNULL((2)) __EXCEPT_SELECT(__UINT32_TYPE__,__INT32_TYPE__) (__LIBCCALL _write)(__fd_t __fd, void const *__buf, __UINT32_TYPE__ __bufsize) { return (__EXCEPT_SELECT(__UINT32_TYPE__,__INT32_TYPE__))__write_sz(__fd,__buf,(size_t)__bufsize); }
 #endif
 
 __VREDIRECT_EXCEPT_UFSDPB(__LIBC,__WUNUSED,__fd_t,__ATTR_CDECL,open,(char const *__file, __oflag_t __oflag, ...),TODO,(__file,__oflag),__oflag)

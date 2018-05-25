@@ -85,7 +85,7 @@ libc_bound_chkq(struct boundq const *__restrict bnd, u64 index) {
  while (libc_bound_chk_failq(bnd,index));
 }
 
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) && !defined(__x86_64__)
 #ifndef __KERNEL__
 INTERN void LIBCCALL
 libc_bound_chkw(struct boundw const *__restrict bnd, u16 index) {

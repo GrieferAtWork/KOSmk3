@@ -783,7 +783,7 @@ struct vm {
 
 /* The kernel's own virtual memory.
  * NOTE: This is the only VM that is allowed to map memory within
- *       the kernel-share segment (on x86, that is: above X86_KERNEL_BASE_PAGE) */
+ *       the kernel-share segment (on x86, that is: above KERNEL_BASE_PAGE) */
 DATDEF struct vm vm_kernel;
 
 /* Helper macros for accessing per-VM variables. */
@@ -1023,7 +1023,7 @@ FUNDEF void FCALL vm_syncall(void);
  * Additionally, try to maintain a gap of `min_gap_size' to
  * an other, existing mapping.
  * WARNING: The caller must be holding a lock to the effective VM (either vm_kernel, or THIS_VM).
- * NOTE: If `hint > X86_KERNEL_BASE_PAGE || (hint == X86_KERNEL_BASE_PAGE && (mode&VM_GETFREE_FABOVE))',
+ * NOTE: If `hint > KERNEL_BASE_PAGE || (hint == KERNEL_BASE_PAGE && (mode&VM_GETFREE_FABOVE))',
  *       search for a suitable, free memory location within the kernel page directory,
  *       though only within the kernel-share segment.
  *       The same goes the other way around, in which case only user-specific

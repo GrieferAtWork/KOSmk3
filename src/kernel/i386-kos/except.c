@@ -310,7 +310,7 @@ DEFINE_SYSCALL3(xunwind_except,
  unwind.c_ss                       = dispatcher_context->c_ss;
  if (!unwind.c_ss)                   unwind.c_ss                   = X86_SEG_USER_SS;
  if (!unwind.c_context.c_iret.ir_cs) unwind.c_context.c_iret.ir_cs = X86_SEG_USER_CS;
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
  memcpy(&unwind.c_context.c_gpregs,dispatcher_context,
         sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
  if (!unwind.c_context.c_segments.sg_ds) unwind.c_context.c_segments.sg_ds = X86_SEG_USER_DS;
@@ -318,18 +318,18 @@ DEFINE_SYSCALL3(xunwind_except,
  if (!unwind.c_context.c_segments.sg_fs) unwind.c_context.c_segments.sg_fs = X86_SEG_USER_FS;
  if (!unwind.c_context.c_segments.sg_gs) unwind.c_context.c_segments.sg_gs = X86_SEG_USER_GS;
 #else
- memcpy(&unwind.c_context.c_gpregs,dispatcher_context,sizeof(struct x86_gpregs));
+ memcpy(&unwind.c_context.c_gpregs,&dispatcher_context->c_gpregs,sizeof(struct x86_gpregs));
 #endif
  COMPILER_BARRIER();
  if (!error_rethrow_at_user(except_info,&unwind))
       return -EPERM; /* No handler found. */
  COMPILER_BARRIER();
  /* Copy the new context back to user-space. */
-#ifndef CONFIG_NO_X86_SEGMENTATION
- memcpy(dispatcher_context,&unwind.c_context.c_gpregs,
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
+ memcpy(&dispatcher_context->c_gpregs,&unwind.c_context.c_gpregs,
         sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
 #else
- memcpy(dispatcher_context,&unwind.c_gpregs,
+ memcpy(&dispatcher_context->c_gpregs,&unwind.c_context.c_gpregs,
         sizeof(struct x86_gpregs));
 #endif
  dispatcher_context->c_ss     = unwind.c_ss;
@@ -357,14 +357,15 @@ DEFINE_SYSCALL4(xunwind,
  unwind.c_context.c_iret.ir_eflags = context->c_eflags;
  if (!unwind.c_ss)                   unwind.c_ss                   = X86_SEG_USER_SS;
  if (!unwind.c_context.c_iret.ir_cs) unwind.c_context.c_iret.ir_cs = X86_SEG_USER_CS;
-#ifndef CONFIG_NO_X86_SEGMENTATION
- memcpy(&unwind.c_context.c_gpregs,context,sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
+ memcpy(&unwind.c_context.c_gpregs,&context->c_gpregs,
+        sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
  if (!unwind.c_context.c_segments.sg_ds) unwind.c_context.c_segments.sg_ds = X86_SEG_USER_DS;
  if (!unwind.c_context.c_segments.sg_es) unwind.c_context.c_segments.sg_es = X86_SEG_USER_DS;
  if (!unwind.c_context.c_segments.sg_fs) unwind.c_context.c_segments.sg_fs = X86_SEG_USER_FS;
  if (!unwind.c_context.c_segments.sg_gs) unwind.c_context.c_segments.sg_gs = X86_SEG_USER_GS;
 #else
- memcpy(&unwind.c_gpregs,context,sizeof(struct x86_gpregs));
+ memcpy(&unwind.c_context.c_gpregs,&context->c_gpregs,sizeof(struct x86_gpregs));
 #endif
  /* Search for FDE information */
  if (!linker_findfde(unwind.c_context.c_iret.ir_eip,&info))
@@ -376,11 +377,11 @@ DEFINE_SYSCALL4(xunwind,
  /* Deal with posix-signal frame. */
  unwind_check_signal_frame(&unwind,signal_set,sigset_size);
  /* Copy the new context back to user-space. */
-#ifndef CONFIG_NO_X86_SEGMENTATION
- memcpy(context,&unwind.c_context.c_gpregs,
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
+ memcpy(&context->c_gpregs,&unwind.c_context.c_gpregs,
         sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
 #else
- memcpy(context,&unwind.c_context.c_gpregs,
+ memcpy(&context->c_gpregs,&unwind.c_context.c_gpregs,
         sizeof(struct x86_gpregs));
 #endif
  context->c_ss     = unwind.c_ss;

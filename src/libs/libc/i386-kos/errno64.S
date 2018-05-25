@@ -16,4 +16,169 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#include "errno32.S"
+#define _KOS_SOURCE 2
+
+#include <hybrid/compiler.h>
+#include <hybrid/asm.h>
+#include <asm/universal.h>
+#include <kos/thread.h>
+#include "../libc.h"
+
+
+/* struct task_segment { */
+#define ts_self        TASK_SEGMENT_OFFSETOF_SELF        /* struct task_segment  *ts_self; */
+#define ts_xcurrent    TASK_SEGMENT_OFFSETOF_XCURRENT    /* struct exception_info ts_xcurrent; */
+#define ts_eformat     TASK_SEGMENT_OFFSETOF_EFORMAT     /* u8                    ts_eformat; */
+#define ts_errno       TASK_SEGMENT_OFFSETOF_ERRNO       /* __UINT32_TYPE__       ts_errno; */
+#define ts_dos_errno   TASK_SEGMENT_OFFSETOF_DOS_ERRNO   /* __UINT32_TYPE__       ts_dos_errno; */
+#define ts_nt_errno    TASK_SEGMENT_OFFSETOF_NT_ERRNO    /* __UINT32_TYPE__       ts_nt_errno; */
+/* }; */
+
+
+DEFINE_INTERN(libc_errno_dos2kos)
+DEFINE_INTERN(libc_errno_nt2kos)
+DEFINE_INTERN(libc_errno_nt2dos)
+DEFINE_INTERN(libc_errno_kos2dos)
+DEFINE_INTERN(libc_errno_dos2nt)
+DEFINE_INTERN(libc_errno_kos2nt)
+
+.section .text.crt.errno
+.cfi_startproc
+PRIVATE_ENTRY(setformat_kos)
+	cmpb  $(TASK_ERRNO_FKOS), %taskseg:ts_eformat
+	je    1f
+	cmpb  $(TASK_ERRNO_FDOS), %taskseg:ts_eformat
+	jne   2f
+	movzlq %taskseg:ts_dos_errno, %rdi
+	call  libc_errno_dos2kos
+	jmp   3f
+2:	movzlq %taskseg:ts_nt_errno, %rdi
+	call  libc_errno_nt2kos
+3:	movl  %eax,               %taskseg:ts_errno
+	movb  $(TASK_ERRNO_FKOS), %taskseg:ts_eformat
+1:	ret
+SYMEND(setformat_kos)
+PRIVATE_ENTRY(setformat_dos)
+	cmpb  $(TASK_ERRNO_FDOS), %taskseg:ts_eformat
+	je    1f
+	cmpb  $(TASK_ERRNO_FKOS), %taskseg:ts_eformat
+	jne   2f
+	movzlq %taskseg:ts_errno, %rdi
+	call  libc_errno_kos2dos
+	jmp   3f
+2:	movzlq %taskseg:ts_nt_errno, %rdi
+	call  libc_errno_nt2dos
+3:	movl  %eax,               %taskseg:ts_dos_errno
+	movb  $(TASK_ERRNO_FDOS), %taskseg:ts_eformat
+1:	ret
+SYMEND(setformat_dos)
+PRIVATE_ENTRY(setformat_nt)
+	cmpb  $(TASK_ERRNO_FNT),  %taskseg:ts_eformat
+	je    1f
+	cmpb  $(TASK_ERRNO_FKOS), %taskseg:ts_eformat
+	jne   2f
+	movzlq %taskseg:ts_errno, %rdi
+	call  libc_errno_kos2nt
+	jmp   3f
+2:	movzlq %taskseg:ts_nt_errno, %rdi
+	call  libc_errno_dos2nt
+3:	movl  %eax,               %taskseg:ts_nt_errno
+	movb  $(TASK_ERRNO_FNT),  %taskseg:ts_eformat
+1:	ret
+SYMEND(setformat_nt)
+
+
+
+INTERN_ENTRY(libc_errno)
+	call  setformat_kos
+	movq  $(ts_errno), %rax
+	addq  %taskseg:ts_self, %rax
+	ret
+SYMEND(libc_errno)
+
+INTERN_ENTRY(libc_dos_errno)
+	call  setformat_dos
+	movq  $(ts_dos_errno), %rax
+	addq  %taskseg:ts_self, %rax
+	ret
+SYMEND(libc_dos_errno)
+
+INTERN_ENTRY(libc_nt_errno)
+	call  setformat_nt
+	movq  $(ts_nt_errno), %rax
+	addq  %taskseg:ts_self, %rax
+	ret
+SYMEND(libc_nt_errno)
+
+INTERN_ENTRY(libc_geterrno)
+	call  setformat_kos
+	movzlq %taskseg:ts_errno, %rax
+	ret
+SYMEND(libc_geterrno)
+
+INTERN_ENTRY(libc_dos_geterrno)
+	call  setformat_dos
+	movzlq %taskseg:ts_dos_errno, %rax
+	ret
+SYMEND(libc_dos_geterrno)
+
+INTERN_ENTRY(libc_nt_geterrno)
+	call  setformat_nt
+	movzlq %taskseg:ts_nt_errno, %rax
+	ret
+SYMEND(libc_nt_geterrno)
+
+INTERN_ENTRY(libc_seterrno)
+	movl  %edi, %taskseg:ts_errno
+	movb  $(TASK_ERRNO_FKOS), %taskseg:ts_eformat
+	ret
+SYMEND(libc_seterrno)
+
+INTERN_ENTRY(libc_dos_seterrno)
+	movl  %edi, %taskseg:ts_dos_errno
+	movb  $(TASK_ERRNO_FDOS), %taskseg:ts_eformat
+	ret
+SYMEND(libc_dos_seterrno)
+
+INTERN_ENTRY(libc_nt_seterrno)
+	movl  %edi, %taskseg:ts_nt_errno
+	movb  $(TASK_ERRNO_FNT), %taskseg:ts_eformat
+	ret
+SYMEND(libc_nt_seterrno)
+
+INTERN_ENTRY(libc_gettid)
+	movzlq %taskseg:TASK_SEGMENT_OFFSETOF_TID, %rax
+	ret
+SYMEND(libc_gettid)
+
+INTERN_ENTRY(libc_current)
+	movq  %taskseg:ts_self, %rax
+	ret
+SYMEND(libc_current)
+INTERN_ENTRY(libc_procenv)
+	movq  %taskseg:TASK_SEGMENT_OFFSETOF_PROCESS, %rax
+	ret
+SYMEND(libc_procenv)
+.cfi_endproc
+
+EXPORT(__DSYM(_errno),             libc_dos_errno);    /* DOS */
+EXPORT(__get_doserrno,             libc_dos_geterrno); /* DOS */
+EXPORT(__set_doserrno,             libc_dos_seterrno); /* DOS */
+EXPORT(__doserrno,                 libc_nt_errno);     /* NT */
+EXPORT(__get_nterrno,              libc_nt_geterrno);  /* NT */
+EXPORT(__set_nterrno,              libc_nt_seterrno);  /* NT */
+EXPORT(__errno,                    libc_errno);        /* Cygwin */
+EXPORT(__errno_location,           libc_errno);        /* GLibC */
+EXPORT(_errno,                     libc_errno);        /* KOS (Mk2 defined this one?) */
+EXPORT(__get_errno,                libc_geterrno);     /* KOS */
+EXPORT(__set_errno,                libc_seterrno);     /* KOS */
+
+/* TLS control functions. */
+EXPORT(__current,                  libc_current);
+EXPORT(__procenv,                  libc_procenv);
+EXPORT(gettid,                     libc_gettid);
+EXPORT(__threadid,                 libc_gettid);
+EXPORT(__threadhandle,             libc_gettid); /* XXX: Maybe someday return a handle? */
+
+
+

@@ -113,10 +113,10 @@ __SYSDECL_BEGIN
 #define X86_REGISTER_SEGMENT           0x0002
 #ifndef __x86_64__
 #   define X86_REGISTER_SEGMENT_ES          0 /* %es */
-#   define X86_REGISTER_SEGMENT_SS          2 /* %ss */
 #   define X86_REGISTER_SEGMENT_DS          3 /* %ds */
 #endif
 #   define X86_REGISTER_SEGMENT_CS          1 /* %cs */
+#   define X86_REGISTER_SEGMENT_SS          2 /* %ss */
 #   define X86_REGISTER_SEGMENT_FS          4 /* %fs */
 #   define X86_REGISTER_SEGMENT_GS          5 /* %gs */
 

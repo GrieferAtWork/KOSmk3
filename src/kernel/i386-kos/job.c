@@ -85,7 +85,7 @@ PRIVATE void KCALL urpc_validate(struct urpc_data *__restrict data) {
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
  }
  if (data->ud_mode & X86_JOB_FLOAD_STACK)
-     validate_writable((byte_t *)data->ud_context.c_esp,sizeof(uintptr_t));
+     validate_writable((byte_t *)CPU_CONTEXT_SP(data->ud_context),sizeof(uintptr_t));
 }
 
 /* Modify the user-space context to execute the job. */
@@ -109,18 +109,18 @@ urpc_callback(struct urpc_data *__restrict data,
   if (!(mode & TASK_USERCTX_FTIMER))
         reason |= RPC_REASON_DIDBLOCK; /* Without a timer, we must have been blocking, or at least serving. */
   if (mode & X86_SYSCALL_TYPE_FPF) {
-   sysno = context->c_eip - PERTASK_GET(x86_sysbase);
+   sysno = context->c_pip - PERTASK_GET(x86_sysbase);
    sysno = X86_DECODE_PFSYSCALL(sysno);
    reason |= X86_RPC_REASON_FPF;
   }
 #ifndef CONFIG_NO_X86_SYSENTER
   else if (mode & X86_SYSCALL_TYPE_FSYSENTER) {
-   sysno = context->c_gpregs.gp_eax;
+   sysno = context->c_gpregs.gp_pax;
    reason |= X86_RPC_REASON_FSYSENTER;
   }
 #endif /* !CONFIG_NO_X86_SYSENTER */
   else {
-   sysno = context->c_gpregs.gp_eax;
+   sysno = context->c_gpregs.gp_pax;
    reason |= X86_RPC_REASON_FINT80;
   }
   if (!(sysno & 0x80000000))
@@ -195,10 +195,14 @@ urpc_callback(struct urpc_data *__restrict data,
  /* Finally, push the RPC reason */
  PUSH(reason);
 #undef PUSH
+
  /* Save the updated user-space ESP */
- context->c_esp = (uintptr_t)target_stack;
+ context->c_psp = (uintptr_t)target_stack;
 
  /* Now load those portions of the user-context which we should overwrite. */
+#ifdef __x86_64__
+#error TODO
+#else
  context->c_iret.ir_eip = data->ud_context.c_eip;
  if (urpc_mode & X86_JOB_FLOAD_SEGMENTS) {
   context->c_iret.ir_cs     = data->ud_context.c_cs;
@@ -227,6 +231,7 @@ urpc_callback(struct urpc_data *__restrict data,
   context->c_gpregs.gp_ebp = data->ud_context.c_gpregs.gp_ebp;
   context->c_gpregs.gp_ebx = data->ud_context.c_gpregs.gp_ebx;
  }
+#endif
  /* All right! everything saved properly, and all registers have been updated.
   * All we need to do now, is return back to user-space! */
  error_info()->e_error.e_code = E_USER_RESUME;

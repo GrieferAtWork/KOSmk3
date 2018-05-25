@@ -24,8 +24,13 @@
 
 DECL_BEGIN
 
+#ifdef __x86_64__
+#define KERNEL_BIN_FILENAME      "kernel-x86_64-kos.bin"
+#define KERNEL_BIN_FILENAME_HASH 42 /* TODO */
+#else
 #define KERNEL_BIN_FILENAME      "kernel-i686-kos.bin"
 #define KERNEL_BIN_FILENAME_HASH 42 /* TODO */
+#endif
 
 
 #ifdef __ASSEMBLER__
@@ -44,18 +49,32 @@ DECL_BEGIN
 
 
 #ifdef CONFIG_BUILDING_KERNEL_CORE
+#ifdef __x86_64__
+#ifdef __ASSEMBLER__
+#define __DRIVER_PARAM_POINTER(x)  .quad x;
+#else
+#define __DRIVER_PARAM_POINTER(x)  ".quad " x
+#endif
+#else
 #ifdef __ASSEMBLER__
 #define __DRIVER_PARAM_POINTER(x)  .long x;
 #else
 #define __DRIVER_PARAM_POINTER(x)  ".long " x
 #endif
-#else /* CONFIG_BUILDING_KERNEL_CORE */
+#endif
+#elif defined(__x86_64__)
+#ifdef __ASSEMBLER__
+#define __DRIVER_PARAM_POINTER(x)  .reloc .,R_X86_64_RELATIVE,x; .quad 0;
+#else
+#define __DRIVER_PARAM_POINTER(x)  ".reloc .,R_X86_64_RELATIVE," x "; .quad 0"
+#endif
+#else
 #ifdef __ASSEMBLER__
 #define __DRIVER_PARAM_POINTER(x)  .reloc .,R_386_RELATIVE,x; .long 0;
 #else
 #define __DRIVER_PARAM_POINTER(x)  ".reloc .,R_386_RELATIVE," x "; .long 0"
 #endif
-#endif /* !CONFIG_BUILDING_KERNEL_CORE */
+#endif
 
 #ifdef __ASSEMBLER__
 #ifdef __x86_64__

@@ -453,7 +453,7 @@ got_regions:
   if (info->mi_flags & MAP_FIXED) {
    vm_vpage_t page_end;
    if (__builtin_add_overflow(hint,num_pages,&page_end) ||
-       page_end > X86_KERNEL_BASE_PAGE)
+       page_end > KERNEL_BASE_PAGE)
        error_throw(E_INVALID_ARGUMENT); /* Bad address range. */
    result = hint;
    if (info->mi_xflag & XMAP_NOREMAP &&

@@ -19,11 +19,10 @@
 #include "../libc.h"
 
 #include <hybrid/compiler.h>
-#include <hybrid/asm.h>
-#include <asm/cfi.h>
 #include <syscall.h>
 #include <kos/ushare.h>
 #include <kos/thread.h>
+#include <asm/universal.h>
 
 /* Select how system calls are performed. */
 #define CONFIG_USE_USHARE_LAZY_SYSCALLS   1 /* Use `USHARE_X86_SYSCALL_FNAME' and let the kernel decide. */
@@ -38,15 +37,19 @@
 INTERN_ENTRY(libc_Xsyscall)
 	/* Set the exception-support bit in the system call number
 	 * Other than that, this is exactly the same as the regular syscall() function. */
+#ifdef __x86_64__
+	orl    $0x80000000, %edi
+#else
 	orl    $0x80000000, 4(%esp)
+#endif
 INTERN_ENTRY(libc_ssyscall)
 	.byte  0xe9 /* jmp --- */
 	.long  0
-	.byte  0xe8 /* pushl %eip;   (call 1f; 1:) */
+	.byte  0xe8 /* pushp %pip;   (call 1f; 1:) */
 	.long  0
-	pushl  %eax
+	pushp  %pax
 	call   x86_get_syscall_segment
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(7)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(7)), %pax
 	jmp    .x86_syscall_load_common
 SYMEND(libc_ssyscall)
 SYMEND(libc_Xsyscall)
@@ -56,12 +59,11 @@ INTERN_ENTRY(libc_syscall)
 	.long  0
 	.byte  0xe8 /* pushl %eip;   (call 1f; 1:) */
 	.long  0
-	pushl  %eax
+	pushp  %pax
 	call   x86_get_syscall_segment
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(7)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(7)), %pax
 	jmp    .x86_syscall_load_common
 SYMEND(libc_syscall)
-
 
 #else
 
@@ -157,107 +159,103 @@ SYMEND(libc_syscall)
 .section .text.hot
 .cfi_startproc
 INTERN_ENTRY(x86_syscall_load_0)
-	pushl_cfi %eax
+	pushp_cfi %pax
 	call   x86_get_syscall_segment
 #if USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(0) != 0
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(0)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(0)), %pax
 #endif
 	jmp    .x86_syscall_load_common
 	.cfi_adjust_cfa_offset -4
 INTERN_ENTRY(x86_syscall_load_1)
-	pushl_cfi %eax
+	pushp_cfi %pax
 	call   x86_get_syscall_segment
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(1)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(1)), %pax
 	jmp    .x86_syscall_load_common
 	.cfi_adjust_cfa_offset -4
 INTERN_ENTRY(x86_syscall_load_2)
-	pushl_cfi %eax
+	pushp_cfi %pax
 	call   x86_get_syscall_segment
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(2)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(2)), %pax
 	jmp    .x86_syscall_load_common
 	.cfi_adjust_cfa_offset -4
 INTERN_ENTRY(x86_syscall_load_3)
-	pushl_cfi %eax
+	pushp_cfi %pax
 	call   x86_get_syscall_segment
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(3)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(3)), %pax
 	jmp    .x86_syscall_load_common
 	.cfi_adjust_cfa_offset -4
 INTERN_ENTRY(x86_syscall_load_4)
-	pushl_cfi %eax
+	pushp_cfi %pax
 	call   x86_get_syscall_segment
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(4)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(4)), %pax
 	jmp    .x86_syscall_load_common
 	.cfi_adjust_cfa_offset -4
 INTERN_ENTRY(x86_syscall_load_5)
-	pushl_cfi %eax
+	pushp_cfi %pax
 	call   x86_get_syscall_segment
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(5)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(5)), %pax
 	jmp    .x86_syscall_load_common
 	.cfi_adjust_cfa_offset -4
 INTERN_ENTRY(x86_syscall_load_6)
-	pushl_cfi %eax
+	pushp_cfi %pax
 	call   x86_get_syscall_segment
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(6)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(6)), %pax
 	jmp    .x86_syscall_load_common
 	.cfi_adjust_cfa_offset -4
 INTERN_ENTRY(x86_syscall_load_errno_0)
-	pushl_cfi %eax
+	pushp_cfi %pax
 	call   x86_get_syscall_segment
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(0)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(0)), %pax
 	jmp    .x86_syscall_load_common
 	.cfi_adjust_cfa_offset -4
 INTERN_ENTRY(x86_syscall_load_errno_1)
-	pushl_cfi %eax
+	pushp_cfi %pax
 	call   x86_get_syscall_segment
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(1)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(1)), %pax
 	jmp    .x86_syscall_load_common
 	.cfi_adjust_cfa_offset -4
 INTERN_ENTRY(x86_syscall_load_errno_2)
-	pushl_cfi %eax
+	pushp_cfi %pax
 	call   x86_get_syscall_segment
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(2)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(2)), %pax
 	jmp    .x86_syscall_load_common
 	.cfi_adjust_cfa_offset -4
 INTERN_ENTRY(x86_syscall_load_errno_3)
-	pushl_cfi %eax
+	pushp_cfi %pax
 	call   x86_get_syscall_segment
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(3)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(3)), %pax
 	jmp    .x86_syscall_load_common
 	.cfi_adjust_cfa_offset -4
 INTERN_ENTRY(x86_syscall_load_errno_4)
-	pushl_cfi %eax
+	pushp_cfi %pax
 	call   x86_get_syscall_segment
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(4)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(4)), %pax
 	jmp    .x86_syscall_load_common
 	.cfi_adjust_cfa_offset -4
 INTERN_ENTRY(x86_syscall_load_errno_5)
-	pushl_cfi %eax
+	pushp_cfi %pax
 	call   x86_get_syscall_segment
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(5)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(5)), %pax
 	jmp    .x86_syscall_load_common
 	.cfi_adjust_cfa_offset -4
 INTERN_ENTRY(x86_syscall_load_errno_6)
-	pushl_cfi %eax
+	pushp_cfi %pax
 	call   x86_get_syscall_segment
-	addl   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(6)), %eax
+	addp   $(USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(6)), %pax
 .x86_syscall_load_common:
-#if 0
-	movl   %eax, %ecx
-	popl_cfi %eax
-	addl   $4, %esp
-	jmp    *%ecx
+#ifdef __x86_64__
+	movq   8(%esp),  %rcx
 #else
 	movl   4(%esp),  %ecx
-	subl   $5,       %ecx
-	subl   %ecx,     %eax  /* Make the syscall entry address relative */
-	subl   $5,       %ecx  /* Load the start of the `call' instruction */
-	.cfi_register %eip, %ecx
-	movl   %eax,   1(%ecx) /* Override the jmp-instruction's target */
-	popl_cfi %eax          /* Restore the system call number */
-	addl   $4, %esp        /* Pop the return address */
-	.cfi_adjust_cfa_offset -4
-	jmp    *%ecx           /* Re-execute the (now) `jmp' instruction */
 #endif
+	subp   $5,       %pcx
+	subp   %pcx,     %pax  /* Make the syscall entry address relative */
+	subp   $5,       %pcx  /* Load the start of the `call' instruction */
+	.cfi_register %pip, %pcx
+	movl   %eax,   1(%pcx) /* Override the jmp-instruction's target */
+	popp_cfi %pax          /* Restore the system call number */
+	popp_void_cfi          /* Pop the return address */
+	jmpp   *%pcx           /* Re-execute the (now) `jmp' instruction */
 SYMEND(x86_syscall_load_errno_6)
 SYMEND(x86_syscall_load_errno_5)
 SYMEND(x86_syscall_load_errno_4)
@@ -913,7 +911,7 @@ SYMEND(libc_sysenter_errno_6)
 	.endif
 	.align 16
 	INTERN_ENTRY(sys_\name)
-		movl  $(ENCODE_SYSNO(\nr)), %eax
+		movp  $(ENCODE_SYSNO(\nr)), %pax
 		SYSCALL_WRAPPER_INVOKE
 	SYMEND(sys_\name)
 .endif
@@ -924,7 +922,7 @@ SYMEND(libc_sysenter_errno_6)
 	.endif
 	.align 16
 	INTERN_ENTRY(Xsys_\name)
-		movl  $(ENCODE_SYSNO(0x80000000 | \nr)), %eax
+		movp  $(ENCODE_SYSNO(0x80000000 | \nr)), %pax
 		SYSCALL_WRAPPER_INVOKE
 	SYMEND(Xsys_\name)
 .endif
@@ -935,7 +933,7 @@ SYMEND(libc_sysenter_errno_6)
 	.endif
 	.align 16
 	INTERN_ENTRY(Esys_\name)
-		movl  $(ENCODE_SYSNO(\nr)), %eax
+		movp  $(ENCODE_SYSNO(\nr)), %pax
 		SYSCALL_WRAPPER_INVOKE_ERRNO
 	SYMEND(Esys_\name)
 .endif

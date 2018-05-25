@@ -306,7 +306,7 @@ x86_vm_add_identity(vm_vpage_t page_index, size_t num_pages) {
  struct vm_region *region;
  vm_vpage_t page_max = page_index+num_pages-1;
  assert(num_pages);
- assert(page_index >= X86_KERNEL_BASE_PAGE);
+ assert(page_index >= KERNEL_BASE_PAGE);
  node = vm_pop_nodes(&vm_kernel,
                      page_index,page_max,
                      VM_UNMAP_IMMUTABLE,NULL);
@@ -323,7 +323,7 @@ x86_vm_add_identity(vm_vpage_t page_index, size_t num_pages) {
   assert(region->vr_part0.vp_state == VM_PART_INCORE);
   assert(region->vr_part0.vp_phys.py_num_scatter == 1);
   assert(region->vr_part0.vp_phys.py_iscatter[0].ps_size == region->vr_size);
-  assert(region->vr_part0.vp_phys.py_iscatter[0].ps_addr == VM_NODE_BEGIN(node) - X86_KERNEL_BASE_PAGE);
+  assert(region->vr_part0.vp_phys.py_iscatter[0].ps_addr == VM_NODE_BEGIN(node) - KERNEL_BASE_PAGE);
   if (page_index < node->vn_node.a_vmin) {
    more = node->vn_node.a_vmin - page_index;
    region->vr_size                                 += more;
@@ -359,7 +359,7 @@ x86_vm_add_identity(vm_vpage_t page_index, size_t num_pages) {
  region->vr_part0.vp_flags                       = VM_PART_FKEEP|VM_PART_FWEAKREF|VM_PART_FNOSWAP;
  region->vr_part0.vp_locked                      = 0x3fff;
  region->vr_part0.vp_phys.py_num_scatter         = 1;
- region->vr_part0.vp_phys.py_iscatter[0].ps_addr = page_index - X86_KERNEL_BASE_PAGE;
+ region->vr_part0.vp_phys.py_iscatter[0].ps_addr = page_index - KERNEL_BASE_PAGE;
  region->vr_part0.vp_phys.py_iscatter[0].ps_size = num_pages;
  mutex_cinit(&region->vr_lock);
  atomic_rwptr_cinit(&region->vr_futex);

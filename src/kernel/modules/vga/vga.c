@@ -639,7 +639,7 @@ VGA_Ioctl(VGA *__restrict self,
  } break;
 
  case VGA_SETMODE_DEFAULT:
-  switch ((unsigned int)arg) {
+  switch ((unsigned int)(uintptr_t)arg) {
 
   case VGA_DEFAULT_MODE_TXT80X25_16:
    VGA_SetMode(self,&vga_biosmode);
@@ -675,7 +675,7 @@ VGA_Ioctl(VGA *__restrict self,
   break;
 
  case VGA_SETPAL_DEFAULT:
-  switch ((unsigned int)arg) {
+  switch ((unsigned int)(uintptr_t)arg) {
 
   case VGA_DEFAULT_PAL_TXT16:
    VGA_SetPalette(self,&vga_biospal);

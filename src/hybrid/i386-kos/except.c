@@ -56,14 +56,14 @@ INTERN void FCALL private_error_continue(int retry) {
   *       when the instruction pointer is faulty, this
   *       part is guarded by a SEGFAULT exception handler. */
  TRY {
-  context.e_context.c_eip = retry ? (uintptr_t)libc_prev_instruction((void *)context.e_context.c_eip)
-                                  : (uintptr_t)libc_next_instruction((void *)context.e_context.c_eip);
+  context.e_context.c_pip = retry ? (uintptr_t)libc_prev_instruction((void *)context.e_context.c_pip)
+                                  : (uintptr_t)libc_next_instruction((void *)context.e_context.c_pip);
  } CATCH_HANDLED (E_SEGFAULT) {
   /* Restore the saved context */
   libc_memcpy(info,(void *)&context,sizeof(struct exception_info));
   goto non_continuable;
  }
- if (!context.e_context.c_eip)
+ if (!context.e_context.c_pip)
       goto non_continuable;
  /* Load the custom, new CPU context. */
  libc_cpu_setcontext((struct cpu_context *)&context.e_context);
@@ -71,7 +71,7 @@ non_continuable:
  /* Setup a non-continuable error. */
  context.e_error.e_noncont.nc_origcode = info->e_error.e_code;
  context.e_error.e_noncont.nc_origflag = info->e_error.e_flag;
- context.e_error.e_noncont.nc_origip   = info->e_context.c_eip;
+ context.e_error.e_noncont.nc_origip   = info->e_context.c_pip;
  libc_memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
  libc_memcpy(&info->e_error.e_noncont,(void *)&context.e_error.e_noncont,
               sizeof(context.e_error.e_noncont));

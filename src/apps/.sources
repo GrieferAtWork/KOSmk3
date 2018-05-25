@@ -21,16 +21,16 @@
 		L_FLAGS("-nostdlib") \
 		LIB("gcc") \
 		LIB("c") \
-		LIBPATH("/bin") \
+		LIBPATH("${BINPATH}") \
 		WEAK_PROJDEP("libs.libc") \
 		C_FLAGS("-static-libgcc") \
 		L_FLAGS("-static-libgcc") \
 		IF(CONFIG_DEBUG) \
 			PROJDEP("libs.start_debug") \
-			OBJECT("/bin/crt1d.o") \
+			OBJECT("${BINPATH}/crt1d.o") \
 		ELSE \
 			PROJDEP("libs.start") \
-			OBJECT("/bin/crt1.o") \
+			OBJECT("${BINPATH}/crt1.o") \
 		FI
 //		C_FLAGS("-ffreestanding")
 //		L_FLAGS("-ffreestanding")
@@ -39,39 +39,39 @@
 		L_FLAGS("-nostdlib") \
 		LIB("gcc") \
 		LIB("c") \
-		LIBPATH("/bin") \
+		LIBPATH("${BINPATH}") \
 		WEAK_PROJDEP("libs.libc") \
 		C_FLAGS("-static-libgcc") \
 		L_FLAGS("-static-libgcc") \
 		PROJDEP("libs.start") \
-		OBJECT("/bin/crt1.o")
+		OBJECT("${BINPATH}/crt1.o")
 
 
 BEGIN
 	BEGIN APPLICATION("apps.init")
-		SET_OUTPUT("/bin/init")
+		SET_OUTPUT("${BINPATH}/init")
 		SET_DISKFILE("/bin/init")
 		SOURCE("init/*.c")
 	END
 	BEGIN APPLICATION("apps.terminal-vga")
-		SET_OUTPUT("/bin/terminal-vga")
+		SET_OUTPUT("${BINPATH}/terminal-vga")
 		SET_DISKFILE("/bin/terminal-vga")
 		SOURCE("terminal-vga/*.c")
 	END
 	BEGIN APPLICATION("apps.kernctl")
-		SET_OUTPUT("/bin/kernctl")
+		SET_OUTPUT("${BINPATH}/kernctl")
 		SET_DISKFILE("/bin/kernctl")
 		SOURCE("kernctl/*.c")
 	END
 	BEGIN APPLICATION("apps.wm")
-		SET_OUTPUT("/bin/wm")
+		SET_OUTPUT("${BINPATH}/wm")
 		SET_DISKFILE("/bin/wm")
 		WEAK_PROJDEP("libs.libwm")
 		LIB("wm")
 		SOURCE("wm/*.c")
 	END
 	BEGIN APPLICATION_NDEBUG("apps.wms")
-		SET_OUTPUT("/bin/wms")
+		SET_OUTPUT("${BINPATH}/wms")
 		SET_DISKFILE("/bin/wms")
 		SOURCE("wms/*.c")
 	END

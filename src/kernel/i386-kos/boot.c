@@ -156,21 +156,16 @@ INTDEF INITCALL void KCALL x86_delete_virtual_memory_identity(void);
 INTDEF INITCALL void KCALL x86_mount_rootfs(void);
 INTERN ATTR_NORETURN INITCALL void KCALL x86_switch_to_userspace(void);
 
-INTDEF INITCALL void KCALL x86_config_pagedir_invlpg_unsupported(void);
-INTERN bool x86_config_enable_pse = true;
-
-
+INTDEF INITCALL void KCALL x86_configure_paging(void);
 INTDEF INITCALL void KCALL kernel_relocate_commandline(void);
 INTDEF INITCALL void KCALL kernel_eval_commandline(void);
 
 INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
+ debug_printf(FREESTR("[INIT] Hello!\n"));
+
+
  /* Load the kernel binary into the addr2line cache of `magic.dee' */
- debug_printf("%%{vload:%s}",KERNEL_BIN_FILENAME);
- debug_printf("%%{vload:busybox}");
- debug_printf("%%{vload:libc.so}");
-
-
- debug_printf("Early init\n");
+ debug_printf(FREESTR("%%{vload:%s}"),FREESTR(KERNEL_BIN_FILENAME));
 
 
  /* Initialize the PER-context object segments for the BOOT process. */
@@ -223,16 +218,16 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
  /* Initialize some basic boot template components. */
  x86_scheduler_initialize();
 
+ /* Initialize CPUID information. */
+ x86_load_cpuid();
+
+ /* Collect information about the host. */
+ x86_configure_paging();
+
  /* Copy predefined memory information. */
  memcpy(x86_boot_stack.is_predef,
         predefined_meminfo,
         sizeof(predefined_meminfo));
-
- /* Collect information about the host. */
-#if 0 /* TODO: Based on available features. */
- x86_config_pagedir_invlpg_unsupported();
- x86_config_enable_pse = false;
-#endif
 
  /* Load multiboot information.
   * NOTE: All information provided by the bootloader is assumed
@@ -291,7 +286,7 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
 
   /* Set the boot seed for our pseudo-random number generator. */
   srand(boot_seed);
-  debug_printf("[BOOT] Set pseudo RNG seed to %.8I32x\n",boot_seed);
+  debug_printf(FREESTR("[BOOT] Set pseudo RNG seed to %.8I32x\n"),boot_seed);
  }
 
  /* Add a random twist on where exactly the kernel heap will be placed.
@@ -320,9 +315,6 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
  /* Create VM nodes for memory used by the
   * physical memory allocator for zoning. */
  x86_mem_construct_zone_nodes();
-
- /* Initialize CPUID information. */
- x86_load_cpuid();
 
 #ifndef CONFIG_NO_X86_SYSENTER
  /* Initialize support for `sysenter' if available. */
@@ -373,7 +365,7 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
  /* Mount the initial VFS filesystem root. */
  x86_mount_rootfs();
 
- debug_printf("Driver init done\n");
+ debug_printf(FREESTR("[INIT] Driver init done\n"));
 
 #ifdef CALL_OLD_KERNEL_MAIN
  kernel_main();

@@ -514,20 +514,20 @@ INTDEF wint_t LIBCCALL libc_Xungetwc32_unlocked(wint_t wc, FILE *__restrict stre
 
 INTDEF char16_t *LIBCCALL libc_fgetws16(char16_t *__restrict ws, size_t n, FILE *__restrict stream);
 INTDEF char32_t *LIBCCALL libc_fgetws32(char32_t *__restrict ws, size_t n, FILE *__restrict stream);
-INTDEF char16_t *LIBCCALL libc_fgetws16_int(char16_t *__restrict ws, int n, FILE *__restrict stream);
-INTDEF char32_t *LIBCCALL libc_fgetws32_int(char32_t *__restrict ws, int n, FILE *__restrict stream);
+INTDEF char16_t *LIBCCALL libc_fgetws16_int(char16_t *__restrict ws, unsigned int n, FILE *__restrict stream);
+INTDEF char32_t *LIBCCALL libc_fgetws32_int(char32_t *__restrict ws, unsigned int n, FILE *__restrict stream);
 INTDEF char16_t *LIBCCALL libc_fgetws16_unlocked(char16_t *__restrict ws, size_t n, FILE *__restrict stream);
 INTDEF char32_t *LIBCCALL libc_fgetws32_unlocked(char32_t *__restrict ws, size_t n, FILE *__restrict stream);
-INTDEF char16_t *LIBCCALL libc_fgetws16_int_unlocked(char16_t *__restrict ws, int n, FILE *__restrict stream);
-INTDEF char32_t *LIBCCALL libc_fgetws32_int_unlocked(char32_t *__restrict ws, int n, FILE *__restrict stream);
+INTDEF char16_t *LIBCCALL libc_fgetws16_int_unlocked(char16_t *__restrict ws, unsigned int n, FILE *__restrict stream);
+INTDEF char32_t *LIBCCALL libc_fgetws32_int_unlocked(char32_t *__restrict ws, unsigned int n, FILE *__restrict stream);
 INTDEF ATTR_RETNONNULL char16_t *LIBCCALL libc_Xfgetws16(char16_t *__restrict ws, size_t n, FILE *__restrict stream);
 INTDEF ATTR_RETNONNULL char32_t *LIBCCALL libc_Xfgetws32(char32_t *__restrict ws, size_t n, FILE *__restrict stream);
-INTDEF ATTR_RETNONNULL char16_t *LIBCCALL libc_Xfgetws16_int(char16_t *__restrict ws, int n, FILE *__restrict stream);
-INTDEF ATTR_RETNONNULL char32_t *LIBCCALL libc_Xfgetws32_int(char32_t *__restrict ws, int n, FILE *__restrict stream);
+INTDEF ATTR_RETNONNULL char16_t *LIBCCALL libc_Xfgetws16_int(char16_t *__restrict ws, unsigned int n, FILE *__restrict stream);
+INTDEF ATTR_RETNONNULL char32_t *LIBCCALL libc_Xfgetws32_int(char32_t *__restrict ws, unsigned int n, FILE *__restrict stream);
 INTDEF ATTR_RETNONNULL char16_t *LIBCCALL libc_Xfgetws16_unlocked(char16_t *__restrict ws, size_t n, FILE *__restrict stream);
 INTDEF ATTR_RETNONNULL char32_t *LIBCCALL libc_Xfgetws32_unlocked(char32_t *__restrict ws, size_t n, FILE *__restrict stream);
-INTDEF ATTR_RETNONNULL char16_t *LIBCCALL libc_Xfgetws16_int_unlocked(char16_t *__restrict ws, int n, FILE *__restrict stream);
-INTDEF ATTR_RETNONNULL char32_t *LIBCCALL libc_Xfgetws32_int_unlocked(char32_t *__restrict ws, int n, FILE *__restrict stream);
+INTDEF ATTR_RETNONNULL char16_t *LIBCCALL libc_Xfgetws16_int_unlocked(char16_t *__restrict ws, unsigned int n, FILE *__restrict stream);
+INTDEF ATTR_RETNONNULL char32_t *LIBCCALL libc_Xfgetws32_int_unlocked(char32_t *__restrict ws, unsigned int n, FILE *__restrict stream);
 
 INTDEF ssize_t LIBCCALL libc_fputws16(char16_t const *__restrict ws, FILE *__restrict stream);
 INTDEF ssize_t LIBCCALL libc_fputws32(char32_t const *__restrict ws, FILE *__restrict stream);

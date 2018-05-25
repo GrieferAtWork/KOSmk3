@@ -118,10 +118,10 @@ struct local_heap {
 };                            
 
 #ifdef __x86_64__
-#error TODO
+#define HEAP_TRACE_HINT  __UINTPTR_C(0xbfac0000) /* TODO */
+#define HEAP_TRACE_FLAGS HEAP_FDOWNHINT
 #elif defined(__i386__)
-#define KERNEL_BASE      0xc0000000
-#define HEAP_TRACE_HINT  0xbfac0000
+#define HEAP_TRACE_HINT  __UINTPTR_C(0xbfac0000)
 #define HEAP_TRACE_FLAGS HEAP_FDOWNHINT
 #else
 #error "Unsuported architecture."

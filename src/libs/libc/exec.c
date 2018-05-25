@@ -28,6 +28,7 @@
 #include "widechar.h"
 #include "sched.h"
 #include <errno.h>
+#include <alloca.h>
 
 DECL_BEGIN
 

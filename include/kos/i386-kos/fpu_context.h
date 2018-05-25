@@ -25,12 +25,14 @@
 
 __SYSDECL_BEGIN
 
+#ifndef __X86_CONTEXT_SYMBOL
 #if !defined(__KERNEL__) && !defined(__EXPOSE_CPU_CONTEXT)
 #define __X86_CONTEXT_SYMBOL_HIDDEN
-#define __X86_CONTEXT_SYMBOL(x)    __##x##__
+#define __X86_CONTEXT_SYMBOL(x)    __##x
 #else
 #define __X86_CONTEXT_SYMBOL(x)    x
 #endif
+#endif /* !__X86_CONTEXT_SYMBOL */
 
 
 #define __X86_FPUCONTEXT_SIZE  512

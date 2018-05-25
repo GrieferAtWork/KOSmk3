@@ -73,13 +73,13 @@ __SYSDECL_BEGIN
 #define __X86_PIC_FLAGS                 EXCEPTION_HANDLER_FRELATIVE
 #ifdef __ASSEMBLER__
 #ifdef __x86_64__
-#   define __X86_PIC_IMAGE_RELATIVE(x)  .reloc .,R_X86_64_RELATIVE,x; .qword 0
+#   define __X86_PIC_IMAGE_RELATIVE(x)  .reloc .,R_X86_64_RELATIVE,x; .quad 0
 #else
 #   define __X86_PIC_IMAGE_RELATIVE(x)  .reloc .,R_386_RELATIVE,x; .long 0
 #endif
 #else /* __ASSEMBLER__ */
 #ifdef __x86_64__
-#   define __X86_PIC_IMAGE_RELATIVE(x) ".reloc .,R_X86_64_RELATIVE," x "; .qword 0"
+#   define __X86_PIC_IMAGE_RELATIVE(x) ".reloc .,R_X86_64_RELATIVE," x "; .quad 0"
 #else
 #   define __X86_PIC_IMAGE_RELATIVE(x) ".reloc .,R_386_RELATIVE," x "; .long 0"
 #endif
@@ -88,13 +88,13 @@ __SYSDECL_BEGIN
 #define __X86_PIC_FLAGS                 0
 #ifdef __ASSEMBLER__
 #ifdef __x86_64__
-#   define __X86_PIC_IMAGE_RELATIVE(x)  .qword x
+#   define __X86_PIC_IMAGE_RELATIVE(x)  .quad x
 #else
 #   define __X86_PIC_IMAGE_RELATIVE(x)  .long x
 #endif
 #else
 #ifdef __x86_64__
-#   define __X86_PIC_IMAGE_RELATIVE(x) "\t.qword " x
+#   define __X86_PIC_IMAGE_RELATIVE(x) "\t.quad " x
 #else
 #   define __X86_PIC_IMAGE_RELATIVE(x) "\t.long " x
 #endif
@@ -148,7 +148,7 @@ __SYSDECL_BEGIN
                                   __X86_PIC_IMAGE_RELATIVE("%l0") "\n\t" \
                                   __X86_PIC_IMAGE_RELATIVE("%l1") "\n\t" \
                                   __X86_PIC_IMAGE_RELATIVE("%l2") "\n\t" \
-                                  "\t.qword " __PP_STR(__X86_PIC_FLAGS) "|2\n\t" \
+                                  "\t.quad " __PP_STR(__X86_PIC_FLAGS) "|2\n\t" \
                                   ".popsection" : : : : \
                                   begin, end, entry);
 #define __DEFINE_EXCEPT_HANDLER(begin,end,entry) \
@@ -156,7 +156,7 @@ __SYSDECL_BEGIN
                                   __X86_PIC_IMAGE_RELATIVE("%l0") "\n\t" \
                                   __X86_PIC_IMAGE_RELATIVE("%l1") "\n\t" \
                                   __X86_PIC_IMAGE_RELATIVE("%l2") "\n\t" \
-                                  "\t.qword " __PP_STR(__X86_PIC_FLAGS) "\n\t" \
+                                  "\t.quad " __PP_STR(__X86_PIC_FLAGS) "\n\t" \
                                   ".popsection" : : : : \
                                   begin, end, entry);
 #define __DEFINE_CATCH_HANDLER(begin,end,entry,mask) \

@@ -42,22 +42,31 @@ __SYSDECL_BEGIN
 #define X86_JOB_FLOAD_RETURN   0x0000 /* Always enabled: Load EIP / RIP information. */
 #define X86_JOB_FSAVE_STACK    0x0100 /* Preserve ESP / RSP. */
 #define X86_JOB_FLOAD_STACK    0x1000 /* Load ESP / RSP. */
-#define X86_JOB_FSAVE_SEGMENTS 0x0200 /* Preserve segment registers. */
-#define X86_JOB_FLOAD_SEGMENTS 0x2000 /* Load segment registers. */
 #ifdef __x86_64__
-#define X86_JOB_FSAVE_CREGS    0x0400 /* Preserve clobber registers (TODO). */
-#define X86_JOB_FLOAD_CREGS    0x4000 /* Load clobber registers (TODO). */
-#define X86_JOB_FSAVE_PREGS    0x0800 /* Preserve preserve registers (TODO). */
-#define X86_JOB_FLOAD_PREGS    0x8000 /* Load preserve registers (TODO). */
+#define X86_JOB_FSAVE_SEGMENTS 0x0200 /* Preserve segment registers (gs_base, fs_base). */
+#define X86_JOB_FLOAD_SEGMENTS 0x2000 /* Load segment registers (gs_base, fs_base). */
+#define X86_JOB_FSAVE_CREGS    0x0400 /* Preserve scratch registers (rflags, rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11). */
+#define X86_JOB_FLOAD_CREGS    0x4000 /* Load scratch registers (rflags, rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11). */
+#define X86_JOB_FSAVE_PREGS    0x0800 /* Preserve preserve registers (rbx, rbp, r12, r13, r14, r15). */
+#define X86_JOB_FLOAD_PREGS    0x8000 /* Load preserve registers (rbx, rbp, r12, r13, r14, r15). */
 #else
-#define X86_JOB_FSAVE_CREGS    0x0400 /* Preserve clobber registers (eflags, eax, ecx, edx). */
-#define X86_JOB_FLOAD_CREGS    0x4000 /* Load clobber registers (eflags, eax, ecx, edx). */
+#define X86_JOB_FSAVE_SEGMENTS 0x0200 /* Preserve segment registers (gs, fs, es, ds, cs, ss). */
+#define X86_JOB_FLOAD_SEGMENTS 0x2000 /* Load segment registers (gs, fs, es, ds, cs, ss). */
+#define X86_JOB_FSAVE_CREGS    0x0400 /* Preserve scratch registers (eflags, eax, ecx, edx). */
+#define X86_JOB_FLOAD_CREGS    0x4000 /* Load scratch registers (eflags, eax, ecx, edx). */
 #define X86_JOB_FSAVE_PREGS    0x0800 /* Preserve preserve registers (ebx, ebp, esi, edi). */
 #define X86_JOB_FLOAD_PREGS    0x8000 /* Load preserve registers (ebx, ebp, esi, edi). */
 #endif
 
 #ifdef __CC__
-struct x86_job_frame {
+#ifdef __x86_64__
+#define x86_job_frame64  x86_job_frame
+#else /* __x86_64__ */
+#define x86_job_frame32  x86_job_frame
+#endif /* !__x86_64__ */
+
+#if defined(__x86_64__) || !defined(__KERNEL__)
+struct x86_job_frame64 {
     /* This structure represents the order in which preserve fields are pushed
      * onto the target stack of the JOB frame. However, the presence of individual
      * fields is determined by the flags used to enqueue the job. Additionally,
@@ -65,9 +74,42 @@ struct x86_job_frame {
      * meaning that the register preserve format must be known to the JOB entry point,
      * in order for it to encode proper CFI unwind information, as well as for it to
      * correctly return to the interrupted location. */
-#ifdef __x86_64__
-#error TODO
-#else /* __x86_64__ */
+    __ULONG64_TYPE__      jf_mode;     /* Interrupt reason (Set of `RPC_REASON_*'). */
+    /* HINT: When everything is preserved, the remainder of
+     *       this structure is identical to `x86_usercontext64' */
+    __ULONG64_TYPE__      jf_r15;      /* [exists_if(X86_JOB_FSAVE_PREGS)] General purpose register #15 */
+    __ULONG64_TYPE__      jf_r14;      /* [exists_if(X86_JOB_FSAVE_PREGS)] General purpose register #14 */
+    __ULONG64_TYPE__      jf_r13;      /* [exists_if(X86_JOB_FSAVE_PREGS)] General purpose register #13 */
+    __ULONG64_TYPE__      jf_r12;      /* [exists_if(X86_JOB_FSAVE_PREGS)] General purpose register #12 */
+    __ULONG64_TYPE__      jf_r11;      /* [exists_if(X86_JOB_FSAVE_CREGS)] General purpose register #11 */
+    __ULONG64_TYPE__      jf_r10;      /* [exists_if(X86_JOB_FSAVE_CREGS)] General purpose register #10 */
+    __ULONG64_TYPE__      jf_r9;       /* [exists_if(X86_JOB_FSAVE_CREGS)] General purpose register #9 */
+    __ULONG64_TYPE__      jf_r8;       /* [exists_if(X86_JOB_FSAVE_CREGS)] General purpose register #8 */
+    __ULONG64_TYPE__      jf_rdi;      /* [exists_if(X86_JOB_FSAVE_CREGS)] Destination pointer */
+    __ULONG64_TYPE__      jf_rsi;      /* [exists_if(X86_JOB_FSAVE_CREGS)] Source pointer */
+    __ULONG64_TYPE__      jf_rbp;      /* [exists_if(X86_JOB_FSAVE_PREGS)] Frame base pointer */
+    __ULONG64_TYPE__      jf_rbx;      /* [exists_if(X86_JOB_FSAVE_PREGS)] Base register */
+    __ULONG64_TYPE__      jf_rdx;      /* [exists_if(X86_JOB_FSAVE_CREGS)] Data register */
+    __ULONG64_TYPE__      jf_rcx;      /* [exists_if(X86_JOB_FSAVE_CREGS)] Count register */
+    __ULONG64_TYPE__      jf_rax;      /* [exists_if(X86_JOB_FSAVE_CREGS)] Accumulator register */
+    __ULONG64_TYPE__      jf_gsbase;   /* [exists_if(X86_JOB_FSAVE_SEGMENTS)] G segment base address */
+    __ULONG64_TYPE__      jf_fsbase;   /* [exists_if(X86_JOB_FSAVE_SEGMENTS)] F segment base address */
+    __ULONG64_TYPE__      jf_rip;      /* Instruction pointer */
+    __ULONG64_TYPE__      jf_cs;       /* [exists_if(X86_JOB_FSAVE_SEGMENTS)] Code segment */
+    __ULONG64_TYPE__      jf_rflags;   /* [exists_if(X86_JOB_FSAVE_CREGS)] Flags register */
+    __ULONG64_TYPE__      jf_rsp;      /* [exists_if(X86_JOB_FSAVE_STACK)] Stack pointer */
+    __ULONG64_TYPE__      jf_ss;       /* [exists_if(X86_JOB_FSAVE_SEGMENTS)] Stack segment */
+};
+#endif
+
+struct x86_job_frame32 {
+    /* This structure represents the order in which preserve fields are pushed
+     * onto the target stack of the JOB frame. However, the presence of individual
+     * fields is determined by the flags used to enqueue the job. Additionally,
+     * a field missing means that the offsets of all following fields have changed,
+     * meaning that the register preserve format must be known to the JOB entry point,
+     * in order for it to encode proper CFI unwind information, as well as for it to
+     * correctly return to the interrupted location. */
     __ULONG32_TYPE__      jf_mode;     /* Interrupt reason (Set of `RPC_REASON_*'). */
     /* HINT: When everything is preserved, the remainder of
      *       this structure is identical to `x86_usercontext32' */
@@ -87,7 +129,6 @@ struct x86_job_frame {
     __ULONG32_TYPE__      jf_eflags;   /* [exists_if(X86_JOB_FSAVE_CREGS)] Flags register */
     __ULONG32_TYPE__      jf_cs;       /* [exists_if(X86_JOB_FSAVE_SEGMENTS)] Code segment */
     __ULONG32_TYPE__      jf_ss;       /* [exists_if(X86_JOB_FSAVE_SEGMENTS)] Stack segment */
-#endif
 };
 #endif /* __CC__ */
 

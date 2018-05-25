@@ -145,7 +145,7 @@ again:
    struct task_connections *EXCEPT_VAR pold_connections = &old_connections;
    vm_vpage_t fault_page = VM_ADDR2PAGE((uintptr_t)fault_address);
    u16 EXCEPT_VAR old_state;
-   effective_vm = fault_page >= X86_KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
+   effective_vm = fault_page >= KERNEL_BASE_PAGE ? &vm_kernel : THIS_VM;
 
    /* Preserve the set of active task connections while faulting. */
    task_push_connections(&old_connections);

@@ -19,10 +19,9 @@
 
 #include "../libc.h"
 #include <hybrid/compiler.h>
-#include <hybrid/asm.h>
-#include <asm/cfi.h>
 #include <syscall.h>
 #include <kos/ushare.h>
+#include <asm/universal.h>
 
 #define MALLOC_DEFINE_INTERN_CALLBACK(x) \
 	DEFINE_INTERN(libc_##x##_f); \
@@ -133,13 +132,17 @@ EXPORT(_cfree_d,libc_free)
 /* The deprecated (now stub) MALL API from KOS Mk2 */
 .section .text
 INTERN_ENTRY(libc_x86_return_zero)
-	xorl   %eax, %eax
+	xorp   %pax, %pax
 INTERN_ENTRY(libc_x86_return)
 	ret
 SYMEND(libc_x86_return)
 SYMEND(libc_x86_return_zero)
 INTERN_ENTRY(libc_x86_return_arg0)
+#ifdef __x86_64__
+	movq   %rdi, %rax
+#else
 	movl   4(%esp), %eax
+#endif
 	ret
 SYMEND(libc_x86_return_arg0)
 
@@ -157,12 +160,5 @@ EXPORT(_mall_untrack,libc_x86_return_arg0)
 EXPORT(_mall_nofree,libc_x86_return_arg0)
 EXPORT(_mall_untrack_d,libc_x86_return_arg0)
 EXPORT(_mall_nofree_d,libc_x86_return_arg0)
-
-
-
-
-
-
-
 
 
