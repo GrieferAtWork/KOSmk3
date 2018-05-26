@@ -30,6 +30,12 @@
 
 DECL_BEGIN
 
+#ifdef __x86_64__
+/* Instruct the kernel to implement compatibility system calls. */
+#define CONFIG_SYSCALL_COMPAT 1
+#endif
+
+
 
 /* Arch-specific flags to go alongside `TASK_USERCTX_F*'. */
 #define X86_SYSCALL_TYPE_FINT80    0x0000 /* Restart a system call using a register state used by `int $0x80' */
@@ -88,6 +94,17 @@ DECL_BEGIN
 
 
 /* Syscall registers. (NOTE: Differs slightly from sysenter ABI; see above) */
+#ifdef __x86_64__
+#define X86_SYSCALL_REGNO  %rax /* System call vector. */
+#define X86_SYSCALL_REG0   %rdi /* Arg #0 */
+#define X86_SYSCALL_REG1   %rsi /* Arg #1 */
+#define X86_SYSCALL_REG2   %rdx /* Arg #2 */
+#define X86_SYSCALL_REG3   %r10 /* Arg #3 */
+#define X86_SYSCALL_REG4   %r8  /* Arg #4 */
+#define X86_SYSCALL_REG5   %r9  /* Arg #5 */
+#define X86_SYSCALL_RET0   %rax /* Return register #0 */
+#define X86_SYSCALL_RET1   %rdx /* Return register #1 */
+#else
 #define X86_SYSCALL_REGNO  %eax /* System call vector. */
 #define X86_SYSCALL_REG0   %ebx /* Arg #0 */
 #define X86_SYSCALL_REG1   %ecx /* Arg #1 */
@@ -97,6 +114,7 @@ DECL_BEGIN
 #define X86_SYSCALL_REG5   %ebp /* Arg #5 */
 #define X86_SYSCALL_RET0   %eax /* Return register #0 */
 #define X86_SYSCALL_RET1   %edx /* Return register #1 */
+#endif
 
 #define __PRIVATE_SYSCALL_LONG_0(...)                                 void
 #define __PRIVATE_SYSCALL_LONG_1(T0,N0)                               syscall_ulong_t N0
@@ -144,7 +162,7 @@ DECL_BEGIN
 #define __SYSCALL_ASSERT_NAME(name) /* Nothing */
 #endif
 
-#define __X64_DEFINE_SYSCALLn(name,argc,argv) \
+#define __X86_DEFINE_SYSCALLn(name,argc,argv) \
 __asm__(".hidden argc_sys_" #name "\n" \
         ".global argc_sys_" #name "\n" \
         ".set argc_sys_" #name ", " #argc "\n"); \
@@ -157,11 +175,13 @@ INTERN syscall_ulong_t ATTR_CDECL sys_##name(__SYSCALL_LONG(argc,argv)) \
 } \
 LOCAL syscall_ulong_t ATTR_CDECL SYSC_##name(__SYSCALL_DECL(argc,argv))
 
+
+
 #ifdef __x86_64__
-#define __X64_DEFINE_SYSCALLn64(name,argc,argv) \
-        __X64_DEFINE_SYSCALLn(name,argc,argv)
+#define __X86_DEFINE_SYSCALLn64(name,argc,argv) \
+        __X86_DEFINE_SYSCALLn(name,argc,argv)
 #else
-#define __X64_DEFINE_SYSCALLn64(name,argc,argv) \
+#define __X86_DEFINE_SYSCALLn64(name,argc,argv) \
 __asm__(".hidden argc_sys_" #name "\n" \
         ".global argc_sys_" #name "\n" \
         ".set argc_sys_" #name ", " #argc "\n" \
@@ -193,27 +213,26 @@ LOCAL u64 ATTR_CDECL SYSC_##name(__SYSCALL_DECL(argc,argv))
 #define X86_SYSCALL_RESTART_FAUTO  0x00
 #define X86_SYSCALL_RESTART_FDONT  0x01
 #define X86_SYSCALL_RESTART_FMUST  0x02
-#define __X64_DEFINE_SYSCALL_RESTART(name,mode) \
+#define __X86_DEFINE_SYSCALL_RESTART(name,mode) \
 __asm__(".hidden restart_sys_" #name "\n\t" \
         ".global restart_sys_" #name "\n\t" \
         ".set restart_sys_" #name ", " PP_PRIVATE_STR(mode))
 
 
-#define DEFINE_SYSCALL0(name)        __X64_DEFINE_SYSCALLn(name,0,())
-#define DEFINE_SYSCALL1(name,...)    __X64_DEFINE_SYSCALLn(name,1,(__VA_ARGS__))
-#define DEFINE_SYSCALL2(name,...)    __X64_DEFINE_SYSCALLn(name,2,(__VA_ARGS__))
-#define DEFINE_SYSCALL3(name,...)    __X64_DEFINE_SYSCALLn(name,3,(__VA_ARGS__))
-#define DEFINE_SYSCALL4(name,...)    __X64_DEFINE_SYSCALLn(name,4,(__VA_ARGS__))
-#define DEFINE_SYSCALL5(name,...)    __X64_DEFINE_SYSCALLn(name,5,(__VA_ARGS__))
-#define DEFINE_SYSCALL6(name,...)    __X64_DEFINE_SYSCALLn(name,6,(__VA_ARGS__))
-#define DEFINE_SYSCALL0_64(name)     __X64_DEFINE_SYSCALLn64(name,0,())
-#define DEFINE_SYSCALL1_64(name,...) __X64_DEFINE_SYSCALLn64(name,1,(__VA_ARGS__))
-#define DEFINE_SYSCALL2_64(name,...) __X64_DEFINE_SYSCALLn64(name,2,(__VA_ARGS__))
-#define DEFINE_SYSCALL3_64(name,...) __X64_DEFINE_SYSCALLn64(name,3,(__VA_ARGS__))
-#define DEFINE_SYSCALL4_64(name,...) __X64_DEFINE_SYSCALLn64(name,4,(__VA_ARGS__))
-#define DEFINE_SYSCALL5_64(name,...) __X64_DEFINE_SYSCALLn64(name,5,(__VA_ARGS__))
-#define DEFINE_SYSCALL6_64(name,...) __X64_DEFINE_SYSCALLn64(name,6,(__VA_ARGS__))
-
+#define DEFINE_SYSCALL0(name)        __X86_DEFINE_SYSCALLn(name,0,())
+#define DEFINE_SYSCALL1(name,...)    __X86_DEFINE_SYSCALLn(name,1,(__VA_ARGS__))
+#define DEFINE_SYSCALL2(name,...)    __X86_DEFINE_SYSCALLn(name,2,(__VA_ARGS__))
+#define DEFINE_SYSCALL3(name,...)    __X86_DEFINE_SYSCALLn(name,3,(__VA_ARGS__))
+#define DEFINE_SYSCALL4(name,...)    __X86_DEFINE_SYSCALLn(name,4,(__VA_ARGS__))
+#define DEFINE_SYSCALL5(name,...)    __X86_DEFINE_SYSCALLn(name,5,(__VA_ARGS__))
+#define DEFINE_SYSCALL6(name,...)    __X86_DEFINE_SYSCALLn(name,6,(__VA_ARGS__))
+#define DEFINE_SYSCALL0_64(name)     __X86_DEFINE_SYSCALLn64(name,0,())
+#define DEFINE_SYSCALL1_64(name,...) __X86_DEFINE_SYSCALLn64(name,1,(__VA_ARGS__))
+#define DEFINE_SYSCALL2_64(name,...) __X86_DEFINE_SYSCALLn64(name,2,(__VA_ARGS__))
+#define DEFINE_SYSCALL3_64(name,...) __X86_DEFINE_SYSCALLn64(name,3,(__VA_ARGS__))
+#define DEFINE_SYSCALL4_64(name,...) __X86_DEFINE_SYSCALLn64(name,4,(__VA_ARGS__))
+#define DEFINE_SYSCALL5_64(name,...) __X86_DEFINE_SYSCALLn64(name,5,(__VA_ARGS__))
+#define DEFINE_SYSCALL6_64(name,...) __X86_DEFINE_SYSCALLn64(name,6,(__VA_ARGS__))
 
 /* Define the restart-after-interrupt behavior for a system call `name':
  * DEFINE_SYSCALL_AUTORESTART:
@@ -225,9 +244,120 @@ __asm__(".hidden restart_sys_" #name "\n\t" \
  *    - Always restart, even from `sigreturn()' when the
  *      handler didn't have the `SA_RESTART' flag set
  */
-#define DEFINE_SYSCALL_AUTORESTART(name) __X64_DEFINE_SYSCALL_RESTART(name,X86_SYSCALL_RESTART_FAUTO)
-#define DEFINE_SYSCALL_DONTRESTART(name) __X64_DEFINE_SYSCALL_RESTART(name,X86_SYSCALL_RESTART_FDONT)
-#define DEFINE_SYSCALL_MUSTRESTART(name) __X64_DEFINE_SYSCALL_RESTART(name,X86_SYSCALL_RESTART_FMUST)
+#define DEFINE_SYSCALL_AUTORESTART(name) __X86_DEFINE_SYSCALL_RESTART(name,X86_SYSCALL_RESTART_FAUTO)
+#define DEFINE_SYSCALL_DONTRESTART(name) __X86_DEFINE_SYSCALL_RESTART(name,X86_SYSCALL_RESTART_FDONT)
+#define DEFINE_SYSCALL_MUSTRESTART(name) __X86_DEFINE_SYSCALL_RESTART(name,X86_SYSCALL_RESTART_FMUST)
+
+
+
+
+
+
+
+/* Compatibility system calls. */
+#ifdef CONFIG_SYSCALL_COMPAT
+#define X86_SYSCALL_COMPAT_REGNO  %eax /* System call vector. */
+#define X86_SYSCALL_COMPAT_REG0   %ebx /* Arg #0 */
+#define X86_SYSCALL_COMPAT_REG1   %ecx /* Arg #1 */
+#define X86_SYSCALL_COMPAT_REG2   %edx /* Arg #2 */
+#define X86_SYSCALL_COMPAT_REG3   %esi /* Arg #3 */
+#define X86_SYSCALL_COMPAT_REG4   %edi /* Arg #4 */
+#define X86_SYSCALL_COMPAT_REG5   %ebp /* Arg #5 */
+#define X86_SYSCALL_COMPAT_RET0   %eax /* Return register #0 */
+#define X86_SYSCALL_COMPAT_RET1   %edx /* Return register #1 */
+
+#define __PRIVATE_SYSCALL_COMPAT_LONG_0(...)                                 void
+#define __PRIVATE_SYSCALL_COMPAT_LONG_1(T0,N0)                               u32 N0
+#define __PRIVATE_SYSCALL_COMPAT_LONG_2(T0,N0,T1,N1)                         __PRIVATE_SYSCALL_COMPAT_LONG_1(T0,N0), u32 N1
+#define __PRIVATE_SYSCALL_COMPAT_LONG_3(T0,N0,T1,N1,T2,N2)                   __PRIVATE_SYSCALL_COMPAT_LONG_2(T0,N0,T1,N1), u32 N2
+#define __PRIVATE_SYSCALL_COMPAT_LONG_4(T0,N0,T1,N1,T2,N2,T3,N3)             __PRIVATE_SYSCALL_COMPAT_LONG_3(T0,N0,T1,N1,T2,N2), u32 N3
+#define __PRIVATE_SYSCALL_COMPAT_LONG_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4)       __PRIVATE_SYSCALL_COMPAT_LONG_4(T0,N0,T1,N1,T2,N2,T3,N3), u32 N4
+#define __PRIVATE_SYSCALL_COMPAT_LONG_6(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4,T5,N5) __PRIVATE_SYSCALL_COMPAT_LONG_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4), u32 N5
+#define __SYSCALL_COMPAT_LONG(argc,argv)  __PRIVATE_SYSCALL_COMPAT_LONG_##argc argv
+
+#define __PRIVATE_SYSCALL_COMPAT_DECL_0(...)                                 void
+#define __PRIVATE_SYSCALL_COMPAT_DECL_1(T0,N0)                               T0 N0
+#define __PRIVATE_SYSCALL_COMPAT_DECL_2(T0,N0,T1,N1)                         __PRIVATE_SYSCALL_COMPAT_DECL_1(T0,N0), T1 N1
+#define __PRIVATE_SYSCALL_COMPAT_DECL_3(T0,N0,T1,N1,T2,N2)                   __PRIVATE_SYSCALL_COMPAT_DECL_2(T0,N0,T1,N1), T2 N2
+#define __PRIVATE_SYSCALL_COMPAT_DECL_4(T0,N0,T1,N1,T2,N2,T3,N3)             __PRIVATE_SYSCALL_COMPAT_DECL_3(T0,N0,T1,N1,T2,N2), T3 N3
+#define __PRIVATE_SYSCALL_COMPAT_DECL_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4)       __PRIVATE_SYSCALL_COMPAT_DECL_4(T0,N0,T1,N1,T2,N2,T3,N3), T4 N4
+#define __PRIVATE_SYSCALL_COMPAT_DECL_6(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4,T5,N5) __PRIVATE_SYSCALL_COMPAT_DECL_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4), T5 N5
+#define __SYSCALL_COMPAT_DECL(argc,argv)  __PRIVATE_SYSCALL_COMPAT_DECL_##argc argv
+
+#define __PRIVATE_SYSCALL_COMPAT_CAST_0(...)                                 /* Nothing */
+#define __PRIVATE_SYSCALL_COMPAT_CAST_1(T0,N0)                               (T0)N0
+#define __PRIVATE_SYSCALL_COMPAT_CAST_2(T0,N0,T1,N1)                         __PRIVATE_SYSCALL_COMPAT_CAST_1(T0,N0),(T1)N1
+#define __PRIVATE_SYSCALL_COMPAT_CAST_3(T0,N0,T1,N1,T2,N2)                   __PRIVATE_SYSCALL_COMPAT_CAST_2(T0,N0,T1,N1),(T2)N2
+#define __PRIVATE_SYSCALL_COMPAT_CAST_4(T0,N0,T1,N1,T2,N2,T3,N3)             __PRIVATE_SYSCALL_COMPAT_CAST_3(T0,N0,T1,N1,T2,N2),(T3)N3
+#define __PRIVATE_SYSCALL_COMPAT_CAST_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4)       __PRIVATE_SYSCALL_COMPAT_CAST_4(T0,N0,T1,N1,T2,N2,T3,N3),(T4)N4
+#define __PRIVATE_SYSCALL_COMPAT_CAST_6(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4,T5,N5) __PRIVATE_SYSCALL_COMPAT_CAST_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4),(T5)N5
+#define __SYSCALL_COMPAT_CAST(argc,argv)  __PRIVATE_SYSCALL_COMPAT_CAST_##argc argv
+
+#define __PRIVATE_SYSCALL_COMPAT_ASSERT(T,N) STATIC_ASSERT_MSG(sizeof(T) <= 4,"Argument type " #T " of " #N " is too large");
+#define __PRIVATE_SYSCALL_COMPAT_ASSERT_0(...)                                 /* Nothing */
+#define __PRIVATE_SYSCALL_COMPAT_ASSERT_1(T0,N0)                               __PRIVATE_SYSCALL_COMPAT_ASSERT(T0,N0)
+#define __PRIVATE_SYSCALL_COMPAT_ASSERT_2(T0,N0,T1,N1)                         __PRIVATE_SYSCALL_COMPAT_ASSERT_1(T0,N0) __PRIVATE_SYSCALL_COMPAT_ASSERT(T1,N1)
+#define __PRIVATE_SYSCALL_COMPAT_ASSERT_3(T0,N0,T1,N1,T2,N2)                   __PRIVATE_SYSCALL_COMPAT_ASSERT_2(T0,N0,T1,N1) __PRIVATE_SYSCALL_COMPAT_ASSERT(T2,N2)
+#define __PRIVATE_SYSCALL_COMPAT_ASSERT_4(T0,N0,T1,N1,T2,N2,T3,N3)             __PRIVATE_SYSCALL_COMPAT_ASSERT_3(T0,N0,T1,N1,T2,N2) __PRIVATE_SYSCALL_COMPAT_ASSERT(T3,N3)
+#define __PRIVATE_SYSCALL_COMPAT_ASSERT_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4)       __PRIVATE_SYSCALL_COMPAT_ASSERT_4(T0,N0,T1,N1,T2,N2,T3,N3) __PRIVATE_SYSCALL_COMPAT_ASSERT(T4,N4)
+#define __PRIVATE_SYSCALL_COMPAT_ASSERT_6(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4,T5,N5) __PRIVATE_SYSCALL_COMPAT_ASSERT_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4) __PRIVATE_SYSCALL_COMPAT_ASSERT(T5,N5)
+#define __SYSCALL_COMPAT_ASSERT(argc,argv)  __PRIVATE_SYSCALL_COMPAT_ASSERT_##argc argv
+#ifdef __INTELLISENSE__
+#define __SYSCALL_COMPAT_ASSERT_NAME(name) (void)(__NR_##name);
+#else
+#define __SYSCALL_COMPAT_ASSERT_NAME(name) /* Nothing */
+#endif
+
+#define __X86_DEFINE_SYSCALL_COMPATn(name,argc,argv) \
+__asm__(".hidden argc_sys_" #name "_compat\n" \
+        ".global argc_sys_" #name "_compat\n" \
+        ".set argc_sys_" #name "_compat, " #argc "\n"); \
+LOCAL u32 ATTR_CDECL SYSC_##name##_compat(__SYSCALL_COMPAT_DECL(argc,argv)); \
+INTERN u32 ATTR_CDECL sys_##name##_compat(__SYSCALL_COMPAT_LONG(argc,argv)) \
+{ \
+    __SYSCALL_COMPAT_ASSERT(argc,argv) \
+    __SYSCALL_COMPAT_ASSERT_NAME(name) \
+    return SYSC_##name##_compat(__SYSCALL_COMPAT_CAST(argc,argv)); \
+} \
+LOCAL u32 ATTR_CDECL SYSC_##name##_compat(__SYSCALL_COMPAT_DECL(argc,argv))
+
+#define __X86_DEFINE_SYSCALL_COMPATn64(name,argc,argv) \
+__asm__(".hidden argc_sys_" #name "_compat\n" \
+        ".global argc_sys_" #name "_compat\n" \
+        ".set argc_sys_" #name "_compat, " #argc "\n" \
+        ".hidden sys_" #name "_compat\n" \
+        ".global sys_" #name "_compat\n" \
+        ".section .text\n" \
+        "sys_" #name "_compat:\n" \
+        "    addl $x86_syscall_compat64_adjustment, (%esp)\n" \
+        "    jmp  sys64_" #name "_compat\n" \
+        ".size sys_" #name "_compat, . - sys_" #name "_compat\n"); \
+LOCAL u64 ATTR_CDECL SYSC_##name##_compat(__SYSCALL_COMPAT_DECL(argc,argv)); \
+INTERN u64 ATTR_CDECL sys64_##name##_compat(__SYSCALL_COMPAT_LONG(argc,argv)) \
+{ \
+    __SYSCALL_COMPAT_ASSERT(argc,argv) \
+    __SYSCALL_COMPAT_ASSERT_NAME(name) \
+    return SYSC_##name##_compat(__SYSCALL_COMPAT_CAST(argc,argv)); \
+} \
+LOCAL u64 ATTR_CDECL SYSC_##name##_compat(__SYSCALL_COMPAT_DECL(argc,argv))
+
+#define DEFINE_SYSCALL_COMPAT0(name)        __X86_DEFINE_SYSCALL_COMPATn(name,0,())
+#define DEFINE_SYSCALL_COMPAT1(name,...)    __X86_DEFINE_SYSCALL_COMPATn(name,1,(__VA_ARGS__))
+#define DEFINE_SYSCALL_COMPAT2(name,...)    __X86_DEFINE_SYSCALL_COMPATn(name,2,(__VA_ARGS__))
+#define DEFINE_SYSCALL_COMPAT3(name,...)    __X86_DEFINE_SYSCALL_COMPATn(name,3,(__VA_ARGS__))
+#define DEFINE_SYSCALL_COMPAT4(name,...)    __X86_DEFINE_SYSCALL_COMPATn(name,4,(__VA_ARGS__))
+#define DEFINE_SYSCALL_COMPAT5(name,...)    __X86_DEFINE_SYSCALL_COMPATn(name,5,(__VA_ARGS__))
+#define DEFINE_SYSCALL_COMPAT6(name,...)    __X86_DEFINE_SYSCALL_COMPATn(name,6,(__VA_ARGS__))
+#define DEFINE_SYSCALL_COMPAT0_64(name)     __X86_DEFINE_SYSCALL_COMPATn64(name,0,())
+#define DEFINE_SYSCALL_COMPAT1_64(name,...) __X86_DEFINE_SYSCALL_COMPATn64(name,1,(__VA_ARGS__))
+#define DEFINE_SYSCALL_COMPAT2_64(name,...) __X86_DEFINE_SYSCALL_COMPATn64(name,2,(__VA_ARGS__))
+#define DEFINE_SYSCALL_COMPAT3_64(name,...) __X86_DEFINE_SYSCALL_COMPATn64(name,3,(__VA_ARGS__))
+#define DEFINE_SYSCALL_COMPAT4_64(name,...) __X86_DEFINE_SYSCALL_COMPATn64(name,4,(__VA_ARGS__))
+#define DEFINE_SYSCALL_COMPAT5_64(name,...) __X86_DEFINE_SYSCALL_COMPATn64(name,5,(__VA_ARGS__))
+#define DEFINE_SYSCALL_COMPAT6_64(name,...) __X86_DEFINE_SYSCALL_COMPATn64(name,6,(__VA_ARGS__))
+#endif /* CONFIG_SYSCALL_COMPAT */
+
+
 
 
 
@@ -239,25 +369,37 @@ DATDEF u8 const x86_xsyscall_restart[];
 #ifndef CONFIG_NO_X86_SYSENTER
 DATDEF u8 const x86_syscall_argc[];
 DATDEF u8 const x86_xsyscall_argc[];
-#endif
-#endif
+#endif /* !CONFIG_NO_X86_SYSENTER */
+#ifdef CONFIG_SYSCALL_COMPAT
+DATDEF void *const x86_syscall_compat_router[];
+DATDEF void *const x86_xsyscall_compat_router[];
+#ifndef CONFIG_NO_X86_SYSENTER
+DATDEF u8 const x86_syscall_compat_argc[];
+DATDEF u8 const x86_xsyscall_compat_argc[];
+#endif /* !CONFIG_NO_X86_SYSENTER */
+#endif /* !CONFIG_SYSCALL_COMPAT */
+#endif /* __CC__ */
 
 
 #ifdef __CC__
 struct PACKED syscall_trace_regs {
     struct PACKED {
-        u32                  a_arg0;       /* Arg #0 */
-        u32                  a_arg1;       /* Arg #1 */
-        u32                  a_arg2;       /* Arg #2 */
-        u32                  a_arg3;       /* Arg #3 */
-        u32                  a_arg4;       /* Arg #4 */
-        u32                  a_arg5;       /* Arg #5 */
-        u32                  a_sysno;      /* System call number (including special flags). */
+        syscall_ulong_t      a_arg0;       /* Arg #0 */
+        syscall_ulong_t      a_arg1;       /* Arg #1 */
+        syscall_ulong_t      a_arg2;       /* Arg #2 */
+        syscall_ulong_t      a_arg3;       /* Arg #3 */
+        syscall_ulong_t      a_arg4;       /* Arg #4 */
+        syscall_ulong_t      a_arg5;       /* Arg #5 */
+        syscall_ulong_t      a_sysno;      /* System call number (including special flags). */
     }                        str_args;     /* System call arguments. */
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
     struct x86_segments32    str_segments; /* User-space segment registers. */
 #endif
+#ifdef __x86_64__
+    struct x86_irregs64      str_iret;     /* User-space IRET Tail. */
+#else
     struct x86_irregs_user32 str_iret;     /* User-space IRET Tail. */
+#endif
 };
 
 

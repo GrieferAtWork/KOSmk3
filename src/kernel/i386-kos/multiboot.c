@@ -45,7 +45,7 @@ INTERN ATTR_FREERODATA u8 const memtype_bios_matrix[6] = {
 INTERN ATTR_FREETEXT void KCALL
 x86_load_mb1info(PHYS mb_info_t *__restrict info) {
  /* Save the kernel commandline pointer (will be loaded later) */
- kernel_driver.d_cmdline = (char *)info->cmdline;
+ kernel_driver.d_cmdline = (char *)(uintptr_t)info->cmdline;
  if (kernel_driver.d_cmdline) {
   if (!kernel_driver.d_cmdline[0])
        kernel_driver.d_cmdline = NULL;

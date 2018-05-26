@@ -34,7 +34,7 @@
 #include <kernel/vm.h>
 #include <kernel/interrupt.h>
 #include <i386-kos/driver.h>
-#include <kos/i386-kos/thread.h>
+#include <kos/i386-kos/bits/thread.h>
 #include <proprietary/multiboot.h>
 #include <proprietary/multiboot2.h>
 #include <sched/task.h>
@@ -199,15 +199,19 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
                        "    movw %w[r], %%fs\n"
                        "    movw %[gs], %w[r]\n"
                        "    movw %w[r], %%gs\n"
+#ifndef __x86_64__
                        "    ljmp %[cs], $1f\n"
                        "1:\n"
+#endif
                        "    movw %[tr], %w[r]\n"
                        "    ltr %w[r]\n"
                        : [r]  "=r" (temp)
                        : [ds] "i" (X86_KERNEL_DS)
                        , [fs] "i" (X86_SEG_FS)
                        , [gs] "i" (X86_SEG_GS)
+#ifndef __x86_64__
                        , [cs] "i" (X86_KERNEL_CS)
+#endif
                        , [tr] "i" (X86_SEG(X86_SEG_CPUTSS))
                        : "memory");
  }
@@ -234,10 +238,10 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
   *       to be located within the first 1Gb of physical memory! */
  if (x86_boot_context.c_gpregs.gp_eax == MB_BOOTLOADER_MAGIC) {
   /* Multiboot Mk#1 */
-  x86_load_mb1info((mb_info_t *)x86_boot_context.c_gpregs.gp_ebx);
+  x86_load_mb1info((mb_info_t *)(uintptr_t)x86_boot_context.c_gpregs.gp_ebx);
  } else if (x86_boot_context.c_gpregs.gp_eax == MB2_BOOTLOADER_MAGIC) {
   /* Multiboot Mk#2 */
-  x86_load_mb2info((u8 *)x86_boot_context.c_gpregs.gp_ebx);
+  x86_load_mb2info((u8 *)(uintptr_t)x86_boot_context.c_gpregs.gp_ebx);
  }
 
  /* Determine the total amount of usable memory (excluding pre-allocated data). */

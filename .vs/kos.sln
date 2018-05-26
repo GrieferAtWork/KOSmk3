@@ -169,6 +169,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "linux", "linux", "{61261588
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "kos", "kos", "{AF58F0E7-5058-4D46-B809-727D330670C2}"
 	ProjectSection(SolutionItems) = preProject
+		..\include\kos\__exception_data.h = ..\include\kos\__exception_data.h
 		..\include\kos\addr2line.h = ..\include\kos\addr2line.h
 		..\include\kos\bochs-vbe.h = ..\include\kos\bochs-vbe.h
 		..\include\kos\bound.h = ..\include\kos\bound.h
@@ -601,19 +602,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sys", "sys", "{BF3163DE-536
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "i386-kos", "i386-kos", "{54AEB147-2E78-47CF-8CD7-7948780A5D58}"
-	ProjectSection(SolutionItems) = preProject
-		..\include\kos\i386-kos\context.h = ..\include\kos\i386-kos\context.h
-		..\include\kos\i386-kos\except.h = ..\include\kos\i386-kos\except.h
-		..\include\kos\i386-kos\fpu_context.h = ..\include\kos\i386-kos\fpu_context.h
-		..\include\kos\i386-kos\intrin-arith.h = ..\include\kos\i386-kos\intrin-arith.h
-		..\include\kos\i386-kos\intrin.h = ..\include\kos\i386-kos\intrin.h
-		..\include\kos\i386-kos\registers.h = ..\include\kos\i386-kos\registers.h
-		..\include\kos\i386-kos\rpc.h = ..\include\kos\i386-kos\rpc.h
-		..\include\kos\i386-kos\thread.h = ..\include\kos\i386-kos\thread.h
-		..\include\kos\i386-kos\tib.h = ..\include\kos\i386-kos\tib.h
-		..\include\kos\i386-kos\tls.h = ..\include\kos\i386-kos\tls.h
-		..\include\kos\i386-kos\vga.h = ..\include\kos\i386-kos\vga.h
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "root", "root", "{5776572C-854B-436B-A180-09FCC3D9B17C}"
 	ProjectSection(SolutionItems) = preProject
@@ -857,6 +845,40 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libpthread", "libs\libpthre
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bochs-vbe", "kernel\modules\bochs-vbe.vcxproj", "{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "bits", "bits", "{D2D3CFA6-B54E-40C6-B083-CD8DB76173A7}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\kos\i386-kos\bits\__exception_data.h = ..\include\kos\i386-kos\bits\__exception_data.h
+		..\include\kos\i386-kos\bits\compat.h = ..\include\kos\i386-kos\bits\compat.h
+		..\include\kos\i386-kos\bits\cpu-context.h = ..\include\kos\i386-kos\bits\cpu-context.h
+		..\include\kos\i386-kos\bits\except-compat.h = ..\include\kos\i386-kos\bits\except-compat.h
+		..\include\kos\i386-kos\bits\except.h = ..\include\kos\i386-kos\bits\except.h
+		..\include\kos\i386-kos\bits\fpu-context.h = ..\include\kos\i386-kos\bits\fpu-context.h
+		..\include\kos\i386-kos\bits\thread-compat.h = ..\include\kos\i386-kos\bits\thread-compat.h
+		..\include\kos\i386-kos\bits\thread.h = ..\include\kos\i386-kos\bits\thread.h
+		..\include\kos\i386-kos\bits\tib-compat.h = ..\include\kos\i386-kos\bits\tib-compat.h
+		..\include\kos\i386-kos\bits\tib.h = ..\include\kos\i386-kos\bits\tib.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "asm", "asm", "{7FE45CB8-DB3A-4BBA-A156-D4586FF275BD}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\kos\i386-kos\asm\except.h = ..\include\kos\i386-kos\asm\except.h
+		..\include\kos\i386-kos\asm\pf-syscall.h = ..\include\kos\i386-kos\asm\pf-syscall.h
+		..\include\kos\i386-kos\asm\registers.h = ..\include\kos\i386-kos\asm\registers.h
+		..\include\kos\i386-kos\asm\rpc.h = ..\include\kos\i386-kos\asm\rpc.h
+		..\include\kos\i386-kos\asm\tls.h = ..\include\kos\i386-kos\asm\tls.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "io", "io", "{16855358-841E-445F-86CC-0373B863BB6B}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\kos\i386-kos\io\vga.h = ..\include\kos\i386-kos\io\vga.h
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sys", "sys", "{2523F581-EA25-41F3-A1A3-4C45FAC383EF}"
+	ProjectSection(SolutionItems) = preProject
+		..\include\kos\i386-kos\sys\intrin-arith.h = ..\include\kos\i386-kos\sys\intrin-arith.h
+		..\include\kos\i386-kos\sys\intrin.h = ..\include\kos\i386-kos\sys\intrin.h
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|i386 = Debug|i386
@@ -1003,5 +1025,9 @@ Global
 		{0381476B-7AFC-4C42-9145-086F273092A8} = {0FCFED54-A8E5-4F4B-9F91-01AD614D377C}
 		{A65BC291-BCC6-4F5D-A542-692FEE94AAC5} = {32E3FF1B-B00D-4518-A8E6-4D91B19412B3}
 		{7C0FCF8F-E53D-49C6-BC0A-635D51DD7960} = {0FCFED54-A8E5-4F4B-9F91-01AD614D377C}
+		{D2D3CFA6-B54E-40C6-B083-CD8DB76173A7} = {54AEB147-2E78-47CF-8CD7-7948780A5D58}
+		{7FE45CB8-DB3A-4BBA-A156-D4586FF275BD} = {54AEB147-2E78-47CF-8CD7-7948780A5D58}
+		{16855358-841E-445F-86CC-0373B863BB6B} = {54AEB147-2E78-47CF-8CD7-7948780A5D58}
+		{2523F581-EA25-41F3-A1A3-4C45FAC383EF} = {54AEB147-2E78-47CF-8CD7-7948780A5D58}
 	EndGlobalSection
 EndGlobal

@@ -376,12 +376,12 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
          "\t\tOriginal code:  %I16u (%I16x)\n"
          "\t\tOriginal flags: %I16x (%s,%s)\n"
          "%[vinfo:%f(%l,%c) : %n : %p] : Original IP : %p\n",
-         INFO->e_error.e_noncont.nc_origcode,INFO->e_error.e_noncont.nc_origcode,
-         INFO->e_error.e_noncont.nc_origflag,
-         INFO->e_error.e_noncont.nc_origflag&ERR_FRESUMABLE ? "resumable" : "-",
-         INFO->e_error.e_noncont.nc_origflag&ERR_FRESUMENEXT ? "prefault" : "-",
-         INFO->e_error.e_noncont.nc_origip-((INFO->e_error.e_noncont.nc_origflag&ERR_FRESUMENEXT) ? 0 : 1),
-         INFO->e_error.e_noncont.nc_origip);
+         INFO->e_error.e_noncontinuable.nc_origcode,INFO->e_error.e_noncontinuable.nc_origcode,
+         INFO->e_error.e_noncontinuable.nc_origflag,
+         INFO->e_error.e_noncontinuable.nc_origflag&ERR_FRESUMABLE ? "resumable" : "-",
+         INFO->e_error.e_noncontinuable.nc_origflag&ERR_FRESUMENEXT ? "prefault" : "-",
+         INFO->e_error.e_noncontinuable.nc_origip-((INFO->e_error.e_noncontinuable.nc_origflag&ERR_FRESUMENEXT) ? 0 : 1),
+         INFO->e_error.e_noncontinuable.nc_origip);
   break;
 
  case E_BADALLOC:
@@ -722,11 +722,9 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
 #ifdef __KERNEL__
 #define GETREG(name) XBLOCK({ register register_t v; __asm__("movl %" name ", %0" : "=r" (v)); XRETURN v; })
 #ifdef __x86_64__
- PRINTF("CS %.4IX DS %.4IX FS_BASE %p GS_BASE %p\n",
+ PRINTF("CS %.4IX DS %.4IX\n",
         INFO->e_context.c_cs,
-        INFO->e_context.c_ss,
-        INFO->e_context.c_segments.sg_fsbase,
-        INFO->e_context.c_segments.sg_gsbase);
+        INFO->e_context.c_ss);
 #elif !defined(CONFIG_NO_X86_SEGMENTATION)
  PRINTF("CS %.4IX SS %.4IX DS %.4IX ES %.4IX FS %.4IX GS %.4IX\n",
         INFO->e_context.c_iret.ir_cs,GETREG("%ss"),

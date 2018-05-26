@@ -16,8 +16,8 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef _KOS_I386_KOS_INTRIN_ARITH_H
-#define _KOS_I386_KOS_INTRIN_ARITH_H 1
+#ifndef _KOS_I386_KOS_SYS_INTRIN_ARITH_H
+#define _KOS_I386_KOS_SYS_INTRIN_ARITH_H 1
 
 #include <__stdinc.h>
 #include <hybrid/typecore.h>
@@ -26,6 +26,7 @@
 
 __SYSDECL_BEGIN
 
+#ifdef __CC__
 #if !defined(__KERNEL__) || !defined(CONFIG_NO_SMP)
 #define __X86_LOCK_PREFIX "lock;"
 #else
@@ -102,8 +103,8 @@ __FORCELOCAL __UINT64_TYPE__ (__atomic_cmpxchgq)(__UINT64_TYPE__ *__restrict __f
 #undef __X86_DEFINE_INPLACE_ARITH_BINARY_NOCC
 #undef __X86_DEFINE_INPLACE_ARITH_SHIFT
 #undef __X86_LOCK_PREFIX
-
+#endif /* __CC__ */
 
 __SYSDECL_END
 
-#endif /* !_KOS_I386_KOS_INTRIN_ARITH_H */
+#endif /* !_KOS_I386_KOS_SYS_INTRIN_ARITH_H */

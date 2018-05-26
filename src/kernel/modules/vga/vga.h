@@ -26,7 +26,7 @@
 #include <sys/io.h>
 
 #if defined(__i386__) || defined(__x86_64__)
-#include <kos/i386-kos/vga.h>
+#include <kos/i386-kos/io/vga.h>
 #else
 #error "No VGA definitions for this platform"
 #endif

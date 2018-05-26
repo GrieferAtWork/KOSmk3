@@ -41,7 +41,7 @@ DECL_BEGIN
 #define R_PC32      R_X86_64_PC32
 #define R_COPY      R_X86_64_COPY
 #define R_GLOB_DAT  R_X86_64_GLOB_DAT
-#define R_JMP_SLOT  R_X86_64_JMP_SLOT
+#define R_JMP_SLOT  R_X86_64_JUMP_SLOT
 #define R_RELATIVE  R_X86_64_RELATIVE
 #define R_16        R_X86_64_16
 #define R_PC16      R_X86_64_PC16

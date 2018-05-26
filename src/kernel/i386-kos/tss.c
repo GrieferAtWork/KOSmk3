@@ -18,6 +18,7 @@
  */
 #ifndef GUARD_KERNEL_I386_KOS_TSS_C
 #define GUARD_KERNEL_I386_KOS_TSS_C 1
+#define _KOS_SOURCE 1
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
@@ -37,7 +38,6 @@ PUBLIC ATTR_PERCPU struct x86_tss x86_cputss = {
 #else
     .t_esp0       = (uintptr_t)x86_boot_stack_top,
     .t_ss0        = X86_KERNEL_DS,
-#endif
     .t_eflags     = 0,
     .t_es         = X86_KERNEL_DS,
     .t_cs         = X86_KERNEL_CS,
@@ -46,6 +46,7 @@ PUBLIC ATTR_PERCPU struct x86_tss x86_cputss = {
     .t_fs         = X86_SEG_FS,
     .t_gs         = X86_SEG_GS,
     .t_ldtr       = X86_SEG(X86_SEG_KERNEL_LDT),
+#endif
     .t_iomap_base = sizeof(struct x86_tss)
 };
 

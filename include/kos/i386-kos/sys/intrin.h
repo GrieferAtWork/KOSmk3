@@ -16,8 +16,8 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef _KOS_I386_KOS_INTRIN_H
-#define _KOS_I386_KOS_INTRIN_H 1
+#ifndef _KOS_I386_KOS_SYS_INTRIN_H
+#define _KOS_I386_KOS_SYS_INTRIN_H 1
 
 #include <__stdinc.h>
 #include <hybrid/typecore.h>
@@ -25,10 +25,11 @@
 
 __SYSDECL_BEGIN
 
+#ifdef __CC__
 __FORCELOCAL __BOOL (__verr)(__UINT16_TYPE__ __seg) { __BOOL __result; __asm__("verr %w1" : "=@ccz" (__result) : "g" (__seg)); return __result; }
 __FORCELOCAL __BOOL (__verw)(__UINT16_TYPE__ __seg) { __BOOL __result; __asm__("verw %w1" : "=@ccz" (__result) : "g" (__seg)); return __result; }
-__FORCELOCAL __UINT16_TYPE__ (__bswapw)(__UINT16_TYPE__ __x) { __UINT16_TYPE__ __result; __asm__("xchgb %b0, %h0" : "=q" (__result) : "0" (__x)); return __result; }
-__FORCELOCAL __UINT32_TYPE__ (__bswapl)(__UINT32_TYPE__ __x) { __UINT32_TYPE__ __result; __asm__("bswap %0" : "=r" (__result) : "0" (__x)); return __result; }
+__FORCELOCAL __UINT16_TYPE__ (__bswapw)(__UINT16_TYPE__ __x) { register __UINT16_TYPE__ __result; __asm__("xchgb %b0, %h0" : "=q" (__result) : "0" (__x)); return __result; }
+__FORCELOCAL __UINT32_TYPE__ (__bswapl)(__UINT32_TYPE__ __x) { register __UINT32_TYPE__ __result; __asm__("bswap %0" : "=r" (__result) : "0" (__x)); return __result; }
 __FORCELOCAL __BOOL (__btw)(__UINT16_TYPE__ __x, __UINT16_TYPE__ __bitindex) { __BOOL __result; __asm__("btw %2, %w1" : "=@ccc" (__result) : "g" (__x), "nr" (__bitindex)); return __result; }
 __FORCELOCAL __BOOL (__btl)(__UINT32_TYPE__ __x, __UINT32_TYPE__ __bitindex) { __BOOL __result; __asm__("btl %2, %1" : "=@ccc" (__result) : "g" (__x), "nr" (__bitindex)); return __result; }
 __FORCELOCAL __BOOL (__btcw)(__UINT16_TYPE__ *__x, __UINT16_TYPE__ __bitindex) { __BOOL __result; __asm__("btcw %2, %w1" : "=@ccc" (__result), "+g" (*__x) : "nr" (__bitindex)); return __result; }
@@ -137,21 +138,21 @@ __FORCELOCAL void (__atomic_rorl)(__UINT32_TYPE__ volatile *__x, __UINT8_TYPE__ 
 
 
 /* Segment read/write operators. */
-__FORCELOCAL __UINT8_TYPE__ (__readfsb)(__UINTPTR_TYPE__ __offset) { __UINT8_TYPE__ __result; __asm__("movb %%fs:%1, %0" : "=q" (__result) : "m" (*(__UINT8_TYPE__ *)__offset)); return __result; }
-__FORCELOCAL __UINT8_TYPE__ (__readgsb)(__UINTPTR_TYPE__ __offset) { __UINT8_TYPE__ __result; __asm__("movb %%gs:%1, %0" : "=q" (__result) : "m" (*(__UINT8_TYPE__ *)__offset)); return __result; }
-__FORCELOCAL __UINT16_TYPE__ (__readfsw)(__UINTPTR_TYPE__ __offset) { __UINT16_TYPE__ __result; __asm__("movw %%fs:%1, %0" : "=r" (__result) : "m" (*(__UINT16_TYPE__ *)__offset)); return __result; }
-__FORCELOCAL __UINT16_TYPE__ (__readgsw)(__UINTPTR_TYPE__ __offset) { __UINT16_TYPE__ __result; __asm__("movw %%gs:%1, %0" : "=r" (__result) : "m" (*(__UINT16_TYPE__ *)__offset)); return __result; }
-__FORCELOCAL __UINT32_TYPE__ (__readfsl)(__UINTPTR_TYPE__ __offset) { __UINT32_TYPE__ __result; __asm__("movl %%fs:%1, %0" : "=r" (__result) : "m" (*(__UINT32_TYPE__ *)__offset)); return __result; }
-__FORCELOCAL __UINT32_TYPE__ (__readgsl)(__UINTPTR_TYPE__ __offset) { __UINT32_TYPE__ __result; __asm__("movl %%gs:%1, %0" : "=r" (__result) : "m" (*(__UINT32_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL __UINT8_TYPE__ (__readfsb)(__UINTPTR_TYPE__ __offset) { register __UINT8_TYPE__ __result; __asm__("movb %%fs:%1, %0" : "=q" (__result) : "m" (*(__UINT8_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL __UINT8_TYPE__ (__readgsb)(__UINTPTR_TYPE__ __offset) { register __UINT8_TYPE__ __result; __asm__("movb %%gs:%1, %0" : "=q" (__result) : "m" (*(__UINT8_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL __UINT16_TYPE__ (__readfsw)(__UINTPTR_TYPE__ __offset) { register __UINT16_TYPE__ __result; __asm__("movw %%fs:%1, %0" : "=r" (__result) : "m" (*(__UINT16_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL __UINT16_TYPE__ (__readgsw)(__UINTPTR_TYPE__ __offset) { register __UINT16_TYPE__ __result; __asm__("movw %%gs:%1, %0" : "=r" (__result) : "m" (*(__UINT16_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL __UINT32_TYPE__ (__readfsl)(__UINTPTR_TYPE__ __offset) { register __UINT32_TYPE__ __result; __asm__("movl %%fs:%1, %0" : "=r" (__result) : "m" (*(__UINT32_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL __UINT32_TYPE__ (__readgsl)(__UINTPTR_TYPE__ __offset) { register __UINT32_TYPE__ __result; __asm__("movl %%gs:%1, %0" : "=r" (__result) : "m" (*(__UINT32_TYPE__ *)__offset)); return __result; }
 __FORCELOCAL void (__writefsb)(__UINTPTR_TYPE__ __offset, __UINT8_TYPE__ __val) { __asm__("movb %1, %%fs:%0" : : "m" (*(__UINT8_TYPE__ *)__offset), "q" (__val)); }
 __FORCELOCAL void (__writegsb)(__UINTPTR_TYPE__ __offset, __UINT8_TYPE__ __val) { __asm__("movb %1, %%gs:%0" : : "m" (*(__UINT8_TYPE__ *)__offset), "q" (__val)); }
-__FORCELOCAL void (__writefsw)(__UINTPTR_TYPE__ __offset, __UINT16_TYPE__ __val) { __asm__("movw %1, %%fs:%0" : : "m" (*(__UINT16_TYPE__ *)__offset), "r" (__val)); }
-__FORCELOCAL void (__writegsw)(__UINTPTR_TYPE__ __offset, __UINT16_TYPE__ __val) { __asm__("movw %1, %%gs:%0" : : "m" (*(__UINT16_TYPE__ *)__offset), "r" (__val)); }
-__FORCELOCAL void (__writefsl)(__UINTPTR_TYPE__ __offset, __UINT32_TYPE__ __val) { __asm__("movl %1, %%fs:%0" : : "m" (*(__UINT32_TYPE__ *)__offset), "r" (__val)); }
-__FORCELOCAL void (__writegsl)(__UINTPTR_TYPE__ __offset, __UINT32_TYPE__ __val) { __asm__("movl %1, %%gs:%0" : : "m" (*(__UINT32_TYPE__ *)__offset), "r" (__val)); }
+__FORCELOCAL void (__writefsw)(__UINTPTR_TYPE__ __offset, __UINT16_TYPE__ __val) { __asm__("movw %w1, %%fs:%0" : : "m" (*(__UINT16_TYPE__ *)__offset), "r" (__val)); }
+__FORCELOCAL void (__writegsw)(__UINTPTR_TYPE__ __offset, __UINT16_TYPE__ __val) { __asm__("movw %w1, %%gs:%0" : : "m" (*(__UINT16_TYPE__ *)__offset), "r" (__val)); }
+__FORCELOCAL void (__writefsl)(__UINTPTR_TYPE__ __offset, __UINT32_TYPE__ __val) { __asm__("movl %d1, %%fs:%0" : : "m" (*(__UINT32_TYPE__ *)__offset), "r" (__val)); }
+__FORCELOCAL void (__writegsl)(__UINTPTR_TYPE__ __offset, __UINT32_TYPE__ __val) { __asm__("movl %d1, %%gs:%0" : : "m" (*(__UINT32_TYPE__ *)__offset), "r" (__val)); }
 #ifdef __x86_64__
-__FORCELOCAL __UINT64_TYPE__ (__readfsq)(__UINTPTR_TYPE__ __offset) { __UINT64_TYPE__ __result; __asm__("movq %%fs:%1, %0" : "=r" (__result) : "m" (*(__UINT64_TYPE__ *)__offset)); return __result; }
-__FORCELOCAL __UINT64_TYPE__ (__readgsq)(__UINTPTR_TYPE__ __offset) { __UINT64_TYPE__ __result; __asm__("movq %%gs:%1, %0" : "=r" (__result) : "m" (*(__UINT64_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL __UINT64_TYPE__ (__readfsq)(__UINTPTR_TYPE__ __offset) { register __UINT64_TYPE__ __result; __asm__("movq %%fs:%1, %0" : "=r" (__result) : "m" (*(__UINT64_TYPE__ *)__offset)); return __result; }
+__FORCELOCAL __UINT64_TYPE__ (__readgsq)(__UINTPTR_TYPE__ __offset) { register __UINT64_TYPE__ __result; __asm__("movq %%gs:%1, %0" : "=r" (__result) : "m" (*(__UINT64_TYPE__ *)__offset)); return __result; }
 __FORCELOCAL void (__writefsq)(__UINTPTR_TYPE__ __offset, __UINT64_TYPE__ __val) { __asm__("movq %1, %%fs:%0" : : "m" (*(__UINT64_TYPE__ *)__offset), "r" (__val)); }
 __FORCELOCAL void (__writegsq)(__UINTPTR_TYPE__ __offset, __UINT64_TYPE__ __val) { __asm__("movq %1, %%gs:%0" : : "m" (*(__UINT64_TYPE__ *)__offset), "r" (__val)); }
 __FORCELOCAL void *(__readfsptr)(__UINTPTR_TYPE__ __offset) { return (void *)__readfsq(__offset); }
@@ -166,6 +167,19 @@ __FORCELOCAL void (__writegsptr)(__UINTPTR_TYPE__ __offset, void *__val) { __wri
 #endif /* !__x86_64__ */
 
 
+#ifdef __x86_64__
+__FORCELOCAL __UINT32_TYPE__ (__rdfsbasel)(void) { register __UINT32_TYPE__ __result; __asm__("rdfsbase %d0" : "=r" (__result)); return __result; }
+__FORCELOCAL __UINT32_TYPE__ (__rdgsbasel)(void) { register __UINT32_TYPE__ __result; __asm__("rdgsbase %d0" : "=r" (__result)); return __result; }
+__FORCELOCAL void (__wrfsbasel)(__UINT32_TYPE__ __val) { __asm__("wrfsbase %d0" : : "r" (__val)); }
+__FORCELOCAL void (__wrgsbasel)(__UINT32_TYPE__ __val) { __asm__("wrgsbase %d0" : : "r" (__val)); }
+__FORCELOCAL __UINT64_TYPE__ (__rdfsbaseq)(void) { register __UINT64_TYPE__ __result; __asm__("rdfsbase %0" : "=r" (__result)); return __result; }
+__FORCELOCAL __UINT64_TYPE__ (__rdgsbaseq)(void) { register __UINT64_TYPE__ __result; __asm__("rdgsbase %0" : "=r" (__result)); return __result; }
+__FORCELOCAL void (__wrfsbaseq)(__UINT64_TYPE__ __val) { __asm__("wrfsbase %0" : : "r" (__val)); }
+__FORCELOCAL void (__wrgsbaseq)(__UINT64_TYPE__ __val) { __asm__("wrgsbase %0" : : "r" (__val)); }
+__FORCELOCAL void (__swapgs)(void) { __asm__("swapgs"); }
+#endif
+#endif /* __CC__ */
+
 __SYSDECL_END
 
-#endif /* !_KOS_I386_KOS_INTRIN_H */
+#endif /* !_KOS_I386_KOS_SYS_INTRIN_H */

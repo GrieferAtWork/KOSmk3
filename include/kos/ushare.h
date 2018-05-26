@@ -66,9 +66,9 @@ __SYSDECL_BEGIN
  * These are identical to the version above, however when the system
  * call returns a negative value, they will negate that value again,
  * store it in the thread-local `errno' variable (located at
- * `%__ASM_USER_TASK_SEGMENT:USER_TASK_SEGMENT_OFFSETOF_ERRNO'), before
- * setting the current errno format to `TASK_ERRNO_FKOS' (aka. writing
- * `TASK_ERRNO_FKOS' to `%__ASM_USER_TASK_SEGMENT:USER_TASK_SEGMENT_OFFSETOF_EFORMAT')
+ * `%__ASM_USERTASK_SEGMENT:USER_TASK_SEGMENT_OFFSETOF_ERRNO'), before
+ * setting the current errno format to `__X86_TASK_ERRNO_FKOS' (aka. writing
+ * `__X86_TASK_ERRNO_FKOS' to `%__ASM_USERTASK_SEGMENT:USER_TASK_SEGMENT_OFFSETOF_EFORMAT')
  */
 #define USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(num_args) \
        (USHARE_X86_SYSCALL_SYSENTER_STRIDE*(8+(num_args)))

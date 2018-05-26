@@ -45,6 +45,8 @@ BEGIN
 		C_FLAGS("-mpreferred-stack-boundary=2")
 	ELIF ($TARGET_ARCH == x86_64)
 		C_FLAGS("-mpreferred-stack-boundary=3")
+		/* Disable the red zone in kernel-space */
+		C_FLAGS("-mno-red-zone")
 	FI
 
 	BEGIN PROJECT("kernel")
@@ -62,9 +64,19 @@ BEGIN
 
 		L_FLAGS("-nostdlib")
 
+		/* Configure GCC for a memory model to address -2Gb...2Gb */
+		IF ($TARGET_ARCH == x86_64)
+			C_FLAGS("-mcmodel=kernel")
+		FI
+
+
 		SET_OUTPUT("/$KERNEL_BINARY")
 
-		LINKER_SCRIPT("./$TARGET_ARCH-kos/kernel.ld")
+		IF ($TARGET_ARCH == x86_64)
+			LINKER_SCRIPT("./i386-kos/kernel.ld")
+		ELSE
+			LINKER_SCRIPT("./$TARGET_ARCH-kos/kernel.ld")
+		FI
 
 		LIB("gcc")
 		C_FLAGS("-static-libgcc")

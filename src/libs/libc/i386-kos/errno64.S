@@ -45,9 +45,9 @@ DEFINE_INTERN(libc_errno_kos2nt)
 .section .text.crt.errno
 .cfi_startproc
 PRIVATE_ENTRY(setformat_kos)
-	cmpb  $(TASK_ERRNO_FKOS), %taskseg:ts_eformat
+	cmpb  $(__X86_TASK_ERRNO_FKOS), %taskseg:ts_eformat
 	je    1f
-	cmpb  $(TASK_ERRNO_FDOS), %taskseg:ts_eformat
+	cmpb  $(__X86_TASK_ERRNO_FDOS), %taskseg:ts_eformat
 	jne   2f
 	movzlq %taskseg:ts_dos_errno, %rdi
 	call  libc_errno_dos2kos
@@ -55,13 +55,13 @@ PRIVATE_ENTRY(setformat_kos)
 2:	movzlq %taskseg:ts_nt_errno, %rdi
 	call  libc_errno_nt2kos
 3:	movl  %eax,               %taskseg:ts_errno
-	movb  $(TASK_ERRNO_FKOS), %taskseg:ts_eformat
+	movb  $(__X86_TASK_ERRNO_FKOS), %taskseg:ts_eformat
 1:	ret
 SYMEND(setformat_kos)
 PRIVATE_ENTRY(setformat_dos)
-	cmpb  $(TASK_ERRNO_FDOS), %taskseg:ts_eformat
+	cmpb  $(__X86_TASK_ERRNO_FDOS), %taskseg:ts_eformat
 	je    1f
-	cmpb  $(TASK_ERRNO_FKOS), %taskseg:ts_eformat
+	cmpb  $(__X86_TASK_ERRNO_FKOS), %taskseg:ts_eformat
 	jne   2f
 	movzlq %taskseg:ts_errno, %rdi
 	call  libc_errno_kos2dos
@@ -69,13 +69,13 @@ PRIVATE_ENTRY(setformat_dos)
 2:	movzlq %taskseg:ts_nt_errno, %rdi
 	call  libc_errno_nt2dos
 3:	movl  %eax,               %taskseg:ts_dos_errno
-	movb  $(TASK_ERRNO_FDOS), %taskseg:ts_eformat
+	movb  $(__X86_TASK_ERRNO_FDOS), %taskseg:ts_eformat
 1:	ret
 SYMEND(setformat_dos)
 PRIVATE_ENTRY(setformat_nt)
-	cmpb  $(TASK_ERRNO_FNT),  %taskseg:ts_eformat
+	cmpb  $(__X86_TASK_ERRNO_FNT),  %taskseg:ts_eformat
 	je    1f
-	cmpb  $(TASK_ERRNO_FKOS), %taskseg:ts_eformat
+	cmpb  $(__X86_TASK_ERRNO_FKOS), %taskseg:ts_eformat
 	jne   2f
 	movzlq %taskseg:ts_errno, %rdi
 	call  libc_errno_kos2nt
@@ -83,7 +83,7 @@ PRIVATE_ENTRY(setformat_nt)
 2:	movzlq %taskseg:ts_nt_errno, %rdi
 	call  libc_errno_dos2nt
 3:	movl  %eax,               %taskseg:ts_nt_errno
-	movb  $(TASK_ERRNO_FNT),  %taskseg:ts_eformat
+	movb  $(__X86_TASK_ERRNO_FNT),  %taskseg:ts_eformat
 1:	ret
 SYMEND(setformat_nt)
 
@@ -130,19 +130,19 @@ SYMEND(libc_nt_geterrno)
 
 INTERN_ENTRY(libc_seterrno)
 	movl  %edi, %taskseg:ts_errno
-	movb  $(TASK_ERRNO_FKOS), %taskseg:ts_eformat
+	movb  $(__X86_TASK_ERRNO_FKOS), %taskseg:ts_eformat
 	ret
 SYMEND(libc_seterrno)
 
 INTERN_ENTRY(libc_dos_seterrno)
 	movl  %edi, %taskseg:ts_dos_errno
-	movb  $(TASK_ERRNO_FDOS), %taskseg:ts_eformat
+	movb  $(__X86_TASK_ERRNO_FDOS), %taskseg:ts_eformat
 	ret
 SYMEND(libc_dos_seterrno)
 
 INTERN_ENTRY(libc_nt_seterrno)
 	movl  %edi, %taskseg:ts_nt_errno
-	movb  $(TASK_ERRNO_FNT), %taskseg:ts_eformat
+	movb  $(__X86_TASK_ERRNO_FNT), %taskseg:ts_eformat
 	ret
 SYMEND(libc_nt_seterrno)
 

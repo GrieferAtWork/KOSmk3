@@ -978,19 +978,19 @@ DEFINE_SYSCALL2_64(xfsmask,u32,mask_hi,u32,mask_lo)
 DEFINE_SYSCALL1_64(xfsmask,u64,mask)
 #endif
 {
- union fs_mask mask;
+ union fs_mask new_mask;
  union fs_mask result;
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
- mask.fs_lo = mask_lo;
- mask.fs_hi = mask_hi;
+ new_mask.fs_lo = mask_lo;
+ new_mask.fs_hi = mask_hi;
 #else
- mask.fs_mode = mask;
+ new_mask.fs_mode = mask;
 #endif
- mask.fs_atmask &= ~FS_MODE_FALWAYS0MASK;
- mask.fs_atmask |=  FS_MODE_FALWAYS1MASK;
- mask.fs_atflag &= ~FS_MODE_FALWAYS0FLAG;
- mask.fs_atflag |=  FS_MODE_FALWAYS1FLAG;
- result.fs_mode = ATOMIC_XCH(THIS_FS->fs_mode,mask.fs_mode);
+ new_mask.fs_atmask &= ~FS_MODE_FALWAYS0MASK;
+ new_mask.fs_atmask |=  FS_MODE_FALWAYS1MASK;
+ new_mask.fs_atflag &= ~FS_MODE_FALWAYS0FLAG;
+ new_mask.fs_atflag |=  FS_MODE_FALWAYS1FLAG;
+ result.fs_mode = ATOMIC_XCH(THIS_FS->fs_mode,new_mask.fs_mode);
  return result.fs_mode;
 }
 

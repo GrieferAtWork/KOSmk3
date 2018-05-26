@@ -27,6 +27,10 @@ DECL_BEGIN
 #undef CONFIG_VM_NO_HOSTCOW
 //#define CONFIG_VM_NO_HOSTCOW 1 /* Not yet implemented... */
 
+/* Direct VIO operators to accept miss-aligned
+ * pointers (just like regular X86 memory accesses allow) */
+#define CONFIG_VM_ALLOW_UNALIGNED_VIO 1
+
 DECL_END
 
 #endif /* !GUARD_KERNEL_INCLUDE_I386_KOS_VM_H */

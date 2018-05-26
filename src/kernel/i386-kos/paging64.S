@@ -32,39 +32,42 @@ PUBLIC_ENTRY(pagedir_syncall)
 SYMEND(pagedir_syncall)
 
 PUBLIC_ENTRY(pagedir_sync)
+	movq    %rdi, %rcx
+	movabs  $KERNEL_BASE_PAGE, %rdi
 	cmpq    $64, %rsi
 	jbe     2f
 	/* Try to do a sync-all for large requests.
 	 * However, because of the `X86_PAGE_FGLOBAL' bit,
 	 * this method cannot be used to sync kernel mappings. */
-	leaq    (%rdi,%rsi,1), %rax
-	cmpq    %rdi, %rax
+	leaq    (%rcx,%rsi,1), %rax
+	cmpq    %rcx, %rax
 	/* >> if ((start + num_pages) <= start) goto 3f; */
 	jbe     3f
-	cmpq    $(KERNEL_BASE_PAGE), %rax
+	cmpq    %rdi, %rax
 	/* >> if ((start + num_pages) <= KERNEL_BASE_PAGE) goto pagedir_syncall; */
 	jbe     pagedir_syncall
-	leaq    64(%rdi),                %rax
-	cmpq    $(KERNEL_BASE_PAGE), %rax
+	leaq    64(%rcx), %rax
+	cmpq    %rdi, %rax
 	/* >> if ((start + 64) >= KERNEL_BASE_PAGE) goto 2f; */
 	jae     2f
 	/* If we can save enough iterations doing it, still reload the
 	 * entirety of the user-space portion of the page directory. */
 	/* >> num_pages = (start + num_pages) - KERNEL_BASE_PAGE */
-	leaq    -KERNEL_BASE_PAGE(%rdi,%rsi,1), %rsi
+	leaq    (%rcx,%rsi,1), %rsi
+	subq    %rdi, %rsi
 	/* >> start     = KERNEL_BASE_PAGE */
-	movq    $(KERNEL_BASE_PAGE), %rdi
+	movq    %rdi, %rcx
 4:	movq    %cr3, %rax
 	movq    %rax, %cr3
-2:	xchgq   %rdi, %rsi
+2:	xchgq   %rcx, %rsi
 	shlq    $(X86_PAGESHIFT), %rsi
 1:	invlpg  (%rsi)
 	addq    $(PAGESIZE), %rsi
 	loop    1b
 	ret
 3:	/* The address space is overflowing. -> Just flush _everything_ */
-	movq    $((VM_VPAGE_MAX-KERNEL_BASE_PAGE)+1), %rsi
-	movq    $(KERNEL_BASE_PAGE), %rdi
+	movabs  $((VM_VPAGE_MAX-KERNEL_BASE_PAGE)+1), %rsi
+	movq    %rdi, %rcx
 	jmp     4b
 SYMEND(pagedir_sync)
 

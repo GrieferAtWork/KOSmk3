@@ -23,6 +23,10 @@
 #include <kos/types.h>
 #include <kernel/sections.h>
 #include <assert.h>
+#ifdef __x86_64__
+#include <asm/cpu-flags.h>
+#include <kos/intrin.h>
+#endif
 
 DECL_BEGIN
 
@@ -162,6 +166,9 @@ struct PACKED x86_segment {
 #define X86_SEG_DATA_PL0                          (X86_SEG_ACCESS_SYSTEM|X86_SEG_ACCESS_PRESENT|X86_SEG_ACCESS_PRIVL(0)|X86_SEG_DATA_RDWR)
 #define X86_SEG_CODE_PL3    (X86_SEG_FLAG_LONGMODE|X86_SEG_ACCESS_SYSTEM|X86_SEG_ACCESS_PRESENT|X86_SEG_ACCESS_PRIVL(3)|X86_SEG_CODE_EXRD)
 #define X86_SEG_DATA_PL3                          (X86_SEG_ACCESS_SYSTEM|X86_SEG_ACCESS_PRESENT|X86_SEG_ACCESS_PRIVL(3)|X86_SEG_DATA_RDWR)
+/* TODO: The following two have not been confirmed, yet (so they probably don't work...). */
+#define X86_SEG_CODE_PL3_32                       (X86_SEG_ACCESS_SYSTEM|X86_SEG_ACCESS_PRESENT|X86_SEG_ACCESS_PRIVL(3)|X86_SEG_CODE_EXRD)
+#define X86_SEG_DATA_PL3_32                       (X86_SEG_ACCESS_SYSTEM|X86_SEG_ACCESS_PRESENT|X86_SEG_ACCESS_PRIVL(3)|X86_SEG_DATA_RDWR)
 #else
 /* Useful predefined x86_segment configurations
  * NOTE: The following configs match what is described here: http://wiki.osdev.org/Getting_to_Ring_3
@@ -270,8 +277,13 @@ typedef u16 segid_t; /* == Segment index*X86_SEG_INDEX_MULTIPLIER */
 #define X86_SEG_HOST_DATA    2 /* [0x10] Ring #0 data segment. */
 #define X86_SEG_USER_CODE    3 /* [0x18] Ring #3 code segment. */         
 #define X86_SEG_USER_DATA    4 /* [0x20] Ring #3 data segment. */
+#ifdef __x86_64__
+#define X86_SEG_USER_CODE32  5 /* [0x28] Ring #3 32-bit (compatibility mode) code segment. */
+#define X86_SEG_USER_DATA32  6 /* [0x30] Ring #3 32-bit (compatibility mode) data segment. */
+#else
 #define X86_SEG_HOST_CODE16  5 /* [0x28] Ring #0 16-bit code segment. */
 #define X86_SEG_HOST_DATA16  6 /* [0x30] Ring #0 16-bit data segment. */
+#endif
 #define X86_SEG_CPUTSS       7 /* [0x38] TSS segment of the current CPU. */
 #define X86_SEG_CPUTSS_DF    8 /* [0x40] TSS segment of the current CPU (for #DF handling). */
 #define X86_SEG_KERNEL_LDT   9 /* [0x48] Symbolic kernel LDT (Usually empty). */
@@ -293,6 +305,10 @@ typedef u16 segid_t; /* == Segment index*X86_SEG_INDEX_MULTIPLIER */
 #define X86_KERNEL_CS      X86_SEG(X86_SEG_HOST_CODE)
 #define X86_USER_DS       (X86_SEG(X86_SEG_USER_DATA)|3)
 #define X86_USER_CS       (X86_SEG(X86_SEG_USER_CODE)|3)
+#ifdef __x86_64__
+#define X86_USER_DS32     (X86_SEG(X86_SEG_USER_DATA32)|3)
+#define X86_USER_CS32     (X86_SEG(X86_SEG_USER_CODE32)|3)
+#endif
 #define X86_HOST_TLS       X86_SEG(X86_SEG_HOST_TLS)     /* Points the current HOST `struct task_segment' and `struct task' */
 #define X86_USER_TLS      (X86_SEG(X86_SEG_USER_TLS)|3)  /* Points the current USER `struct task_segment' */
 #ifndef CONFIG_NO_DOS_COMPAT
@@ -322,6 +338,13 @@ typedef u16 segid_t; /* == Segment index*X86_SEG_INDEX_MULTIPLIER */
 #define X86_SEG_USER_DS    X86_USER_DS
 #define X86_SEG_USER_ES    X86_USER_DS
 #define X86_SEG_USER_SS    X86_USER_DS
+#ifdef __x86_64__
+#define X86_SEG_USER_CS32  X86_USER_CS32
+#define X86_SEG_USER_DS32  X86_USER_DS32
+#define X86_SEG_USER_ES32  X86_USER_DS32
+#define X86_SEG_USER_SS32  X86_USER_DS32
+#endif
+
 
 #define X86_SEG_HOST_CS    X86_KERNEL_CS
 #define X86_SEG_HOST_DS    X86_KERNEL_DS
@@ -338,6 +361,21 @@ typedef u16 segid_t; /* == Segment index*X86_SEG_INDEX_MULTIPLIER */
 #ifdef __CC__
 /* The per-cpu GDT vector. */
 DATDEF ATTR_PERCPU struct x86_segment x86_cpugdt[X86_SEG_BUILTIN];
+#endif
+
+#ifdef __x86_64__
+/* TODO: Figure out how these should interact with
+ *      `t_userseg' and the `CLONE_SETTLS' flag, as
+ *       well as the `c_segments.sg_fsbase' field
+ *       during a clone() system call. */
+#define WR_USER_FSBASE(v) __wrfsbaseq(v)
+#define WR_USER_GSBASE(v) __wrmsr(IA32_KERNEL_GS_BASE,v)
+
+/* While in kernel-mode, the user-gs is saved in `IA32_KERNEL_GS_BASE' */
+#define RD_USER_FSBASE()           __rdfsbaseq()
+#define RD_USER_GSBASE()           __rdmsr(IA32_KERNEL_GS_BASE)
+#define WR_USER_FSBASE_REGISTER(v) __wrfsbaseq(v)
+#define WR_USER_GSBASE_REGISTER(v) __wrmsr(IA32_KERNEL_GS_BASE,v)
 #endif
 
 

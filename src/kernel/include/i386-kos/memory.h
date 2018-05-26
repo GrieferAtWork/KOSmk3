@@ -43,6 +43,13 @@ DATDEF unsigned int const X86_MZONE_4GB;    /* 0x0000000040000000..0x00000000fff
 /* Max amount of memory zones. */
 #define MZONE_MAXCOUNT        8
 
+#ifdef __x86_64__
+/* The stack size of kernel threads. */
+#define CONFIG_KERNELSTACK_SIZE (4096*16)
+
+/* The stack size of automatically allocated user-space stacks. */
+#define CONFIG_USERSTACK_SIZE   (4096*16)
+#else
 /* The stack size of kernel threads. */
 #define CONFIG_KERNELSTACK_SIZE (4096*8)
 
@@ -51,6 +58,7 @@ DATDEF unsigned int const X86_MZONE_4GB;    /* 0x0000000040000000..0x00000000fff
 
 /* Size of the kernel stack used for handling #DF exceptions. */
 #define CONFIG_X86_DFSTACK_SIZE (4096*8)
+#endif
 
 
 /* Use the lower end of the boot task's stack

@@ -16,13 +16,12 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef _KOS_I386_KOS_RPC_H
-#define _KOS_I386_KOS_RPC_H 1
+#ifndef _KOS_I386_KOS_ASM_RPC_H
+#define _KOS_I386_KOS_ASM_RPC_H 1
 
 #include <__stdinc.h>
 #include <hybrid/host.h>
 #include <hybrid/typecore.h>
-#include "context.h"
 
 __SYSDECL_BEGIN
 
@@ -132,7 +131,6 @@ struct x86_job_frame32 {
 };
 #endif /* __CC__ */
 
-
 __SYSDECL_END
 
-#endif /* !_KOS_I386_KOS_RPC_H */
+#endif /* !_KOS_I386_KOS_ASM_RPC_H */

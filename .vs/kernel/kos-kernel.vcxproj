@@ -178,6 +178,7 @@
     <ClCompile Include="..\..\src\kernel\src\vm\system.c" />
     <ClCompile Include="..\..\src\kernel\src\vm\tls.c" />
     <ClCompile Include="..\..\src\kernel\src\vm\ushare.c" />
+    <ClCompile Include="..\..\src\kernel\src\vm\vio.c" />
     <ClCompile Include="..\..\src\kernel\src\vm\vm.c" />
   </ItemGroup>
   <ItemGroup>

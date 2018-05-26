@@ -48,27 +48,27 @@ INTERN void KCALL print_tb(struct cpu_context *__restrict context) {
  uintptr_t last_eip = 0;
  for (;;) {
   struct fde_info finfo;
-  if (last_eip != ctx.c_eip) {
+  if (last_eip != ctx.c_pip) {
    debug_printf("%[vinfo:%f(%l,%c) : %n] : %p : ESP %p, EBP %p\n",
-                is_first ? ctx.c_eip : ctx.c_eip-1,
-                ctx.c_eip,ctx.c_esp,ctx.c_gpregs.gp_ebp);
+                is_first ? ctx.c_pip : ctx.c_pip-1,
+                ctx.c_pip,ctx.c_psp,ctx.c_gpregs.gp_pbp);
   }
-  last_eip = ctx.c_eip;
-  if (!linker_findfde_consafe(is_first ? ctx.c_eip : ctx.c_eip-1,&finfo)) {
+  last_eip = ctx.c_pip;
+  if (!linker_findfde_consafe(is_first ? ctx.c_pip : ctx.c_pip-1,&finfo)) {
 #if 0
    /* For the first entry, assume a standard unwind which can be used
     * to properly display tracebacks when execution tries to call a
     * NULL-function pointer. */
    if (!is_first) break;
-   if (info->e_context.c_esp >= (uintptr_t)PERTASK_GET(this_task.t_stackend)) {
+   if (info->e_context.c_psp >= (uintptr_t)PERTASK_GET(this_task.t_stackend)) {
     debug_printf("IP is out-of-bounds (%p not in %p...%p)\n",
-                 info->e_context.c_esp,
+                 info->e_context.c_psp,
                 (uintptr_t)PERTASK_GET(this_task.t_stackmin),
                 (uintptr_t)PERTASK_GET(this_task.t_stackend)-1);
     break;
    }
-   info->e_context.c_eip = *(u32 *)info->e_context.c_esp;
-   info->e_context.c_esp += 4;
+   info->e_context.c_pip = *(u32 *)info->e_context.c_psp;
+   info->e_context.c_psp += 4;
 #else
    break;
 #endif
@@ -80,10 +80,10 @@ INTERN void KCALL print_tb(struct cpu_context *__restrict context) {
         void         *f_return;
     };
     struct frame *f;
-    f = (struct frame *)ctx.c_gpregs.gp_ebp;
-    ctx.c_eip           = (uintptr_t)f->f_return;
-    ctx.c_esp           = (uintptr_t)(f+1);
-    ctx.c_gpregs.gp_ebp = (uintptr_t)f->f_caller;
+    f = (struct frame *)ctx.c_gpregs.gp_pbp;
+    ctx.c_pip           = (uintptr_t)f->f_return;
+    ctx.c_psp           = (uintptr_t)(f+1);
+    ctx.c_gpregs.gp_pbp = (uintptr_t)f->f_caller;
 #else
     break;
 #endif
@@ -230,11 +230,11 @@ core_assertion_failure(char const *expr, DEBUGINFO,
   struct fde_info finfo;
   if (frame_id >= 2) {
    debug_printf("%[vinfo:%f(%l,%c) : %n] : %p : ESP %p, EBP %p\n",
-                context.c_eip-1,context.c_eip,
-                context.c_esp,context.c_gpregs.gp_ebp);
+                context.c_pip-1,context.c_pip,
+                context.c_psp,context.c_gpregs.gp_pbp);
   }
-  --context.c_eip;
-  if (!linker_findfde(context.c_eip,&finfo)) break;
+  --context.c_pip;
+  if (!linker_findfde(context.c_pip,&finfo)) break;
   if (!eh_return(&finfo,&context,EH_FNORMAL)) break;
  }
  error_print_other_thread();

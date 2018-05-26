@@ -431,6 +431,8 @@ INTERN void KCALL tls_clear_allocations(void) {
 
 
 /* Assert user-space task segment offsets. */
+STATIC_ASSERT(offsetof(struct user_exception_info,e_context) == __EXCEPTION_INFO_OFFSETOF_CONTEXT);
+STATIC_ASSERT(sizeof(struct user_exception_info) == __USEREXCEPTION_INFO_SIZE);
 STATIC_ASSERT(offsetof(struct user_task_segment,ts_self) == TASK_SEGMENT_OFFSETOF_SELF);
 STATIC_ASSERT(offsetof(struct user_task_segment,ts_xcurrent) == TASK_SEGMENT_OFFSETOF_XCURRENT);
 STATIC_ASSERT(offsetof(struct user_task_segment,ts_state) == USER_TASK_SEGMENT_OFFSETOF_STATE);

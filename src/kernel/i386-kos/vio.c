@@ -27,8 +27,8 @@
 #include <kernel/malloc.h>
 #include <kernel/vm.h>
 #include <i386-kos/interrupt.h>
-#include <kos/i386-kos/context.h>
-#include <kos/i386-kos/except.h>
+#include <kos/i386-kos/bits/cpu-context.h>
+#include <kos/i386-kos/asm/except.h>
 #include <kos/intrin.h>
 #include <asm/cpu-flags.h>
 #include <kernel/debug.h>
@@ -45,550 +45,6 @@
 
 DECL_BEGIN
 
-#ifdef __x86_64__
-#define CONTEXT_IP(x)    ((x).c_rip)
-#define CONTEXT_FLAGS(x) ((x).c_rflags)
-#define CONTEXT_AREG(x)  ((x).c_gpregs.gp_rax)
-#define CONTEXT_CREG(x)  ((x).c_gpregs.gp_rcx)
-#define CONTEXT_DREG(x)  ((x).c_gpregs.gp_rdx)
-#define CONTEXT_BREG(x)  ((x).c_gpregs.gp_rbx)
-#define CONTEXT_DIREG(x) ((x).c_gpregs.gp_rdi)
-#define CONTEXT_SIREG(x) ((x).c_gpregs.gp_rsi)
-#else
-#define CONTEXT_IP(x)    ((x).c_eip)
-#define CONTEXT_FLAGS(x) ((x).c_eflags)
-#define CONTEXT_AREG(x)  ((x).c_gpregs.gp_eax)
-#define CONTEXT_CREG(x)  ((x).c_gpregs.gp_ecx)
-#define CONTEXT_DREG(x)  ((x).c_gpregs.gp_edx)
-#define CONTEXT_BREG(x)  ((x).c_gpregs.gp_ebx)
-#define CONTEXT_DIREG(x) ((x).c_gpregs.gp_edi)
-#define CONTEXT_SIREG(x) ((x).c_gpregs.gp_esi)
-#endif
-#define X86_GPREG(context,no)       ((uintptr_t *)&(context).c_gpregs)[7-(no)]
-#define X86_GPREG8(context,no)      ((u8 *)&(context).c_gpregs+32)[7-(no)]
-#define MODRM_REG(context,modrm)     X86_GPREG(*(context),(modrm)->mi_reg)
-#define MODRM_REG8(context,modrm)    X86_GPREG8(*(context),(modrm)->mi_reg)
-
-
-PRIVATE ATTR_NORETURN void KCALL vio_not_implemented(void) {
- error_throw(E_NOT_IMPLEMENTED);
-}
-
-
-
-union PACKED word16 {
-    u16 w16;
-    u8  w8[2];
-};
-union PACKED word32 {
-    u32 w32;
-    u8  w8[4];
-    u16 w16[2];
-    struct PACKED {
-        u8  __pad1;
-        u16   w16_unaligned_8;
-    };
-};
-union PACKED word64 {
-    u64 w64;
-    u8  w8[8];
-    u16 w16[4];
-    u32 w32[2];
-    struct PACKED {
-        u8  __pad1;
-        u32   w32_unaligned_8;
-    };
-    struct PACKED {
-        u16 __pad2;
-        u32   w32_unaligned_16;
-    };
-    struct PACKED {
-        u8  __pad3;
-        u16   w16_unaligned_8;
-        union PACKED {
-        u16   w16_unaligned_24;
-        u32   w32_unaligned_24;
-        };
-    };
-};
-
-
-STATIC_ASSERT(offsetof(union word32,w16_unaligned_8)  == 1);
-STATIC_ASSERT(offsetof(union word64,w32_unaligned_8)  == 1);
-STATIC_ASSERT(offsetof(union word64,w32_unaligned_16) == 2);
-STATIC_ASSERT(offsetof(union word64,w32_unaligned_24) == 3);
-
-
-LOCAL u8 KCALL
-vio_readb(struct vio_ops *__restrict ops,
-          void *closure, uintptr_t addr) {
- if (ops->v_readb)
-     return (*ops->v_readb)(closure,addr);
- if (ops->v_readw) {
-  union word16 word;
-  word.w16 = (*ops->v_readw)(closure,addr & ~1);
-  return word.w8[addr & 1];
- }
- if (ops->v_readl) {
-  union word32 word;
-  word.w32 = (*ops->v_readl)(closure,addr & ~3);
-  return word.w8[addr & 3];
- }
- vio_not_implemented();
-}
-LOCAL u16 KCALL
-vio_readw(struct vio_ops *__restrict ops,
-          void *closure, uintptr_t addr) {
- if (ops->v_readw && !(addr & 1))
-     return (*ops->v_readw)(closure,addr);
- if (ops->v_readl) {
-  union word32 word;
-  word.w32 = (*ops->v_readl)(closure,addr & ~3);
-  return (addr & 1) ? word.w16_unaligned_8 : word.w16[0];
- }
- if (ops->v_readw) {
-  union word32 word;
-  word.w16[0] = (*ops->v_readw)(closure,addr-1);
-  word.w16[1] = (*ops->v_readw)(closure,addr+1);
-  return word.w16_unaligned_8;
- }
- if (ops->v_readb) {
-  union word16 word;
-  word.w8[0] = (*ops->v_readb)(closure,addr);
-  word.w8[1] = (*ops->v_readb)(closure,addr+1);
-  return word.w16;
- }
- vio_not_implemented();
-}
-LOCAL u32 KCALL
-vio_readl(struct vio_ops *__restrict ops,
-          void *closure, uintptr_t addr) {
- if (ops->v_readl) {
-  union word64 word;
-  if (!(addr & 3)) return (*ops->v_readl)(closure,addr);
-  word.w32[0] = (*ops->v_readl)(closure,addr & ~3);
-  word.w32[1] = (*ops->v_readl)(closure,(addr & ~3)+4);
-  switch (addr&3) {
-  case 1: return word.w32_unaligned_8;
-  case 2: return word.w32_unaligned_16;
-  case 3: return word.w32_unaligned_24;
-  default: __builtin_unreachable();
-  }
- }
- if (ops->v_readw) {
-  if (!(addr & 1)) {
-   union word32 word;
-   word.w16[0] = (*ops->v_readw)(closure,addr);
-   word.w16[1] = (*ops->v_readw)(closure,addr+2);
-   return word.w32;
-  } else {
-   union word64 word;
-   word.w16[0] = (*ops->v_readw)(closure,addr-1);
-   word.w16[1] = (*ops->v_readw)(closure,addr+1);
-   word.w16[2] = (*ops->v_readw)(closure,addr+3);
-   return word.w32_unaligned_8;
-  }
- }
- if (ops->v_readb) {
-  union word32 word;
-  word.w8[0] = (*ops->v_readb)(closure,addr);
-  word.w8[1] = (*ops->v_readb)(closure,addr+1);
-  word.w8[2] = (*ops->v_readb)(closure,addr+2);
-  word.w8[3] = (*ops->v_readb)(closure,addr+3);
-  return word.w32;
- }
- vio_not_implemented();
-}
-
-LOCAL void KCALL
-vio_writeb(struct vio_ops *__restrict ops,
-          void *closure, uintptr_t addr, u8 value) {
- if (ops->v_writeb) {
-  (*ops->v_writeb)(closure,addr,value);
-  return;
- }
- if (ops->v_writew) {
-  if (ops->v_readw) {
-   union word16 word;
-   word.w16 = (*ops->v_readw)(closure,addr & ~1);
-   word.w8[addr & 1] = value;
-   (*ops->v_writew)(closure,addr & ~1,word.w16);
-   return;
-  }
-  if (ops->v_readb) {
-   union word16 word;
-   if (addr & 1) {
-    word.w8[0] = (*ops->v_readb)(closure,addr-1);
-    word.w8[1] = value;
-   } else {
-    word.w8[0] = value;
-    word.w8[1] = (*ops->v_readb)(closure,addr+1);
-   }
-   (*ops->v_writew)(closure,addr & ~1,word.w16);
-   return;
-  }
-  if (ops->v_readl) {
-   union word32 word;
-   word.w32 = (*ops->v_readl)(closure,addr & ~3);
-   word.w8[addr & 3] = value;
-   (*ops->v_writew)(closure,addr & ~1,word.w16[(addr & 2) >> 1]);
-   return;
-  }
- }
- if (ops->v_writel) {
-  if (ops->v_readl) {
-   union word32 word;
-   word.w32 = (*ops->v_readl)(closure,addr & ~3);
-   word.w8[addr & 3] = value;
-   (*ops->v_writel)(closure,addr & ~3,word.w32);
-   return;
-  }
-  if (ops->v_readw) {
-   union word32 word;
-   word.w16[0] = (*ops->v_readw)(closure,addr & ~3);
-   word.w16[1] = (*ops->v_readw)(closure,(addr & ~3)+2);
-   word.w8[addr & 3] = value;
-   (*ops->v_writel)(closure,addr & ~3,word.w32);
-   return;
-  }
-  if (ops->v_readb) {
-   union word32 word;
-   if ((addr & 3) != 0) word.w8[0] = (*ops->v_readb)(closure,addr & ~3);
-   if ((addr & 3) != 1) word.w8[1] = (*ops->v_readb)(closure,(addr & ~3)+1);
-   if ((addr & 3) != 2) word.w8[2] = (*ops->v_readb)(closure,(addr & ~3)+2);
-   if ((addr & 3) != 3) word.w8[3] = (*ops->v_readb)(closure,(addr & ~3)+3);
-   word.w8[addr & 3] = value;
-   (*ops->v_writel)(closure,addr & ~3,word.w32);
-   return;
-  }
- }
- vio_not_implemented();
-}
-LOCAL void KCALL
-vio_writew(struct vio_ops *__restrict ops,
-          void *closure, uintptr_t addr, u16 value) {
- if (ops->v_writew && !(addr & 1)) {
-  (*ops->v_writew)(closure,addr,value);
-  return;
- }
- if (ops->v_writel) {
-  if ((addr & 3) == 3) {
-   if (ops->v_readl) {
-    union word64 word;
-    word.w32[0] = (*ops->v_readl)(closure,addr-3);
-    word.w32[1] = (*ops->v_readl)(closure,addr+1);
-    word.w16_unaligned_24 = value;
-    (*ops->v_writel)(closure,addr-3,word.w32[0]);
-    (*ops->v_writel)(closure,addr+1,word.w32[1]);
-    return;
-   }
-   if (ops->v_readw) {
-    union word64 word;
-    word.w16[0] = (*ops->v_readw)(closure,addr-3);
-    word.w16[1] = (*ops->v_readw)(closure,addr-1);
-    word.w16[2] = (*ops->v_readw)(closure,addr+1);
-    word.w16[3] = (*ops->v_readw)(closure,addr+3);
-    word.w16_unaligned_8 = value;
-    (*ops->v_writel)(closure,addr-3,word.w32[0]);
-    (*ops->v_writel)(closure,addr+1,word.w32[1]);
-    return;
-   }
-   if (ops->v_readb) {
-    union word64 word;
-    word.w8[0] = (*ops->v_readb)(closure,addr-3);
-    word.w8[1] = (*ops->v_readb)(closure,addr-2);
-    word.w8[2] = (*ops->v_readb)(closure,addr-1);
-    word.w8[3] = (*ops->v_readb)(closure,addr);
-    word.w8[3] = (*ops->v_readb)(closure,addr+1);
-    word.w8[4] = (*ops->v_readb)(closure,addr+2);
-    word.w8[5] = (*ops->v_readb)(closure,addr+3);
-    word.w8[6] = (*ops->v_readb)(closure,addr+4);
-    word.w8[7] = (*ops->v_readb)(closure,addr+5);
-    word.w16_unaligned_8 = value;
-    (*ops->v_writel)(closure,addr-3,word.w32[0]);
-    (*ops->v_writel)(closure,addr+1,word.w32[1]);
-    return;
-   }
-  } else {
-   if (ops->v_readl) {
-    union word32 word;
-    word.w32 = (*ops->v_readl)(closure,addr & ~3);
-    switch (addr & 3) {
-    case 0: word.w16[0]        = value; break;
-    case 1: word.w16_unaligned_8 = value; break;
-    case 2: word.w16[1]        = value; break;
-    default: __builtin_unreachable();
-    }
-    (*ops->v_writel)(closure,addr & ~3,word.w32);
-    return;
-   }
-   if (ops->v_readw) {
-    union word32 word;
-    word.w16[0] = (*ops->v_readw)(closure,addr & ~3);
-    word.w16[1] = (*ops->v_readw)(closure,(addr & ~3)+2);
-    switch (addr & 3) {
-    case 0: word.w16[0]          = value; break;
-    case 1: word.w16_unaligned_8 = value; break;
-    case 2: word.w16[1]          = value; break;
-    default: __builtin_unreachable();
-    }
-    (*ops->v_writel)(closure,addr & ~3,word.w32);
-    return;
-   }
-   if (ops->v_readb) {
-    union word32 word;
-    switch (addr & 3) {
-    case 0:
-     word.w16[0] = value;
-     word.w8[2] = (*ops->v_readb)(closure,(addr & ~3)+2);
-     word.w8[3] = (*ops->v_readb)(closure,(addr & ~3)+3);
-     break;
-    case 1:
-     word.w8[0] = (*ops->v_readb)(closure,(addr & ~3)+0);
-     word.w16_unaligned_8 = value;
-     word.w8[3] = (*ops->v_readb)(closure,(addr & ~3)+3);
-     break;
-    case 2:
-     word.w8[0] = (*ops->v_readb)(closure,(addr & ~3)+0);
-     word.w8[1] = (*ops->v_readb)(closure,(addr & ~3)+1);
-     word.w16[1] = value;
-     break;
-    default: __builtin_unreachable();
-    }
-    (*ops->v_writel)(closure,addr & ~3,word.w32);
-    return;
-   }
-  }
- }
- if (ops->v_writeb) {
-  union word16 word;
-  word.w16 = value;
-  (*ops->v_writeb)(closure,addr,word.w8[0]);
-  (*ops->v_writeb)(closure,addr+1,word.w8[1]);
-  return;
- }
- vio_not_implemented();
-}
-LOCAL void KCALL
-vio_writel(struct vio_ops *__restrict ops,
-          void *closure, uintptr_t addr, u32 value) {
- if (ops->v_writel) {
-  if (!(addr & 3)) {
-   (*ops->v_writel)(closure,addr,value);
-   return;
-  }
-  if (ops->v_readl) {
-   union word64 word;
-   word.w32[0] = (*ops->v_readl)(closure,addr-3);
-   word.w32[1] = (*ops->v_readl)(closure,addr+1);
-   switch (addr & 3) {
-   case 1: word.w32_unaligned_8  = value; break;
-   case 2: word.w32_unaligned_16 = value; break;
-   case 3: word.w32_unaligned_24 = value; break;
-   default: __builtin_unreachable();
-   }
-   (*ops->v_writel)(closure,addr-3,word.w32[0]);
-   (*ops->v_writel)(closure,addr+1,word.w32[1]);
-   return;
-  }
-  if (ops->v_readw) {
-   union word64 word;
-   word.w16[0] = (*ops->v_readw)(closure,addr-3);
-   word.w16[1] = (*ops->v_readw)(closure,addr-1);
-   word.w16[2] = (*ops->v_readw)(closure,addr+1);
-   word.w16[3] = (*ops->v_readw)(closure,addr+3);
-   switch (addr & 3) {
-   case 1: word.w32_unaligned_8  = value; break;
-   case 2: word.w32_unaligned_16 = value; break;
-   case 3: word.w32_unaligned_24 = value; break;
-   default: __builtin_unreachable();
-   }
-   (*ops->v_writel)(closure,addr-3,word.w32[0]);
-   (*ops->v_writel)(closure,addr+1,word.w32[1]);
-   return;
-  }
-  if (ops->v_readb) {
-   union word64 word;
-   word.w8[0] = (*ops->v_readw)(closure,addr-3);
-   word.w8[1] = (*ops->v_readw)(closure,addr-2);
-   word.w8[2] = (*ops->v_readw)(closure,addr-1);
-   word.w8[3] = (*ops->v_readw)(closure,addr);
-   word.w8[3] = (*ops->v_readw)(closure,addr+1);
-   word.w8[4] = (*ops->v_readw)(closure,addr+2);
-   word.w8[5] = (*ops->v_readw)(closure,addr+3);
-   word.w8[6] = (*ops->v_readw)(closure,addr+4);
-   word.w8[7] = (*ops->v_readw)(closure,addr+5);
-   switch (addr & 3) {
-   case 1: word.w32_unaligned_8  = value; break;
-   case 2: word.w32_unaligned_16 = value; break;
-   case 3: word.w32_unaligned_24 = value; break;
-   default: __builtin_unreachable();
-   }
-   (*ops->v_writel)(closure,addr-3,word.w32[0]);
-   (*ops->v_writel)(closure,addr+1,word.w32[1]);
-   return;
-  }
- }
- if (ops->v_writew) {
-  if (!(addr & 1)) {
-   union word32 word;
-   word.w32 = value;
-   (*ops->v_writew)(closure,addr+0,word.w16[0]);
-   (*ops->v_writew)(closure,addr+2,word.w16[1]);
-   return;
-  } else {
-   if (ops->v_readw) {
-    union word64 word;
-    word.w16[0] = (*ops->v_readw)(closure,addr-1);
-    word.w16[2] = (*ops->v_readw)(closure,addr+3);
-    word.w32_unaligned_8 = value;
-    (*ops->v_writew)(closure,addr-1,word.w16[0]);
-    (*ops->v_writew)(closure,addr+1,word.w16[1]);
-    (*ops->v_writew)(closure,addr+3,word.w16[2]);
-    return;
-   }
-   if ((addr & 3) == 1) {
-    if (ops->v_readl) {
-     union word64 word;
-     word.w32[0] = (*ops->v_readl)(closure,addr-1);
-     word.w32[1] = (*ops->v_readl)(closure,addr+3);
-     word.w32_unaligned_8 = value;
-     (*ops->v_writew)(closure,addr-1,word.w16[0]);
-     (*ops->v_writew)(closure,addr+1,word.w16[1]);
-     (*ops->v_writew)(closure,addr+3,word.w16[2]);
-     return;
-    }
-    if (ops->v_readb) {
-     union word64 word;
-     word.w8[0] = (*ops->v_readb)(closure,addr-1);
-     word.w8[5] = (*ops->v_readb)(closure,addr+4);
-     word.w32_unaligned_8 = value;
-     (*ops->v_writew)(closure,addr-1,word.w16[0]);
-     (*ops->v_writew)(closure,addr+1,word.w16[1]);
-     (*ops->v_writew)(closure,addr+3,word.w16[2]);
-     return;
-    }
-   } else {
-    assert((addr & 3) == 3);
-    if (ops->v_readl) {
-     union word64 word;
-     word.w32[0] = (*ops->v_readl)(closure,addr-3);
-     word.w32[1] = (*ops->v_readl)(closure,addr+1);
-     word.w32_unaligned_24 = value;
-     (*ops->v_writew)(closure,addr-1,word.w16[1]);
-     (*ops->v_writew)(closure,addr+1,word.w16[2]);
-     (*ops->v_writew)(closure,addr+3,word.w16[3]);
-     return;
-    }
-    if (ops->v_readb) {
-     union word64 word;
-     word.w8[2] = (*ops->v_readb)(closure,addr-1);
-     word.w8[7] = (*ops->v_readb)(closure,addr+4);
-     word.w32_unaligned_24 = value;
-     (*ops->v_writew)(closure,addr-1,word.w16[1]);
-     (*ops->v_writew)(closure,addr+1,word.w16[2]);
-     (*ops->v_writew)(closure,addr+3,word.w16[3]);
-     return;
-    }
-   }
-  }
- }
- if (ops->v_writeb) {
-  union word32 word;
-  word.w32 = value;
-  (*ops->v_writeb)(closure,addr+0,word.w8[0]);
-  (*ops->v_writeb)(closure,addr+1,word.w8[1]);
-  (*ops->v_writeb)(closure,addr+2,word.w8[2]);
-  (*ops->v_writeb)(closure,addr+3,word.w8[3]);
-  return;
- }
- vio_not_implemented();
-}
-
-
-LOCAL u8 KCALL
-vio_cmpxchb(struct vio_ops *__restrict ops, void *closure,
-            uintptr_t addr, u8 oldval, u8 newval) {
- if (ops->v_atomic_cmpxchgb)
-     return (*ops->v_atomic_cmpxchgb)(closure,addr,oldval,newval);
- if (ops->v_atomic_cmpxchgw) {
-  union word16 word,new_word,old_word;
-  if (addr & 1) {
-   word.w8[1] = oldval,new_word.w8[1] = newval;
-   do {
-    word.w8[0]     = vio_readb(ops,closure,addr-1);
-    new_word.w8[0] = word.w8[0];
-    old_word.w16 = (*ops->v_atomic_cmpxchgw)(closure,addr-1,word.w16,new_word.w16);
-   } while (old_word.w8[0] != word.w8[0]);
-   return word.w8[1];
-  } else {
-   word.w8[0] = oldval,new_word.w8[0] = newval;
-   do {
-    word.w8[1]     = vio_readb(ops,closure,addr+1);
-    new_word.w8[1] = word.w8[1];
-    old_word.w16 = (*ops->v_atomic_cmpxchgw)(closure,addr,word.w16,new_word.w16);
-   } while (old_word.w8[1] != word.w8[1]);
-   return word.w8[0];
-  }
- }
- if (ops->v_atomic_cmpxchgl) {
-  union word32 word,new_word,old_word;
-  unsigned int byte_addr = addr & 3;
-  u32 byte_mask = ~((u32)0xff << (byte_addr*8));
-  addr &= ~3;
-  do {
-   word.w32               = vio_readl(ops,closure,addr);
-   new_word.w32           = word.w32;
-   word.w8[byte_addr]     = oldval;
-   new_word.w8[byte_addr] = newval;
-   old_word.w32 = (*ops->v_atomic_cmpxchgl)(closure,addr,word.w32,new_word.w32);
-  } while ((old_word.w32&byte_mask) != (word.w32&byte_mask));
-  return word.w8[byte_addr];
- }
- vio_not_implemented();
-}
-LOCAL u16 KCALL
-vio_cmpxchw(struct vio_ops *__restrict ops, void *closure,
-            uintptr_t addr, u16 oldval, u16 newval) {
- if (ops->v_atomic_cmpxchgw && !(addr & 1))
-     return (*ops->v_atomic_cmpxchgw)(closure,addr,oldval,newval);
- if (ops->v_atomic_cmpxchgl && (addr & 3) != 3) {
-  union word32 word,new_word,old_word;
-  u32 byte_mask;
-  switch (addr&3) {
-  case 0: byte_mask = 0xffff0000; break;
-  case 1: byte_mask = 0x00ffff00; break;
-  case 2: byte_mask = 0x0000ffff; break;
-  default: __builtin_unreachable();
-  }
-  do {
-   word.w32               = vio_readl(ops,closure,addr&~3);
-   new_word.w32           = word.w32;
-   switch (addr&3) {
-   case 0: word.w16[0] = oldval; new_word.w16[0] = newval; break;
-   case 1: word.w16_unaligned_8 = oldval; new_word.w16_unaligned_8 = newval; break;
-   case 2: word.w16[1] = oldval; new_word.w16[1] = newval; break;
-   default: __builtin_unreachable();
-   }
-   old_word.w32 = (*ops->v_atomic_cmpxchgl)(closure,addr,word.w32,new_word.w32);
-  } while ((old_word.w32&byte_mask) != (word.w32&byte_mask));
-  switch (addr&3) {
-  case 0: return word.w16[0];
-  case 1: return word.w16_unaligned_8;
-  case 2: return word.w16[1];
-  default: __builtin_unreachable();
-  }
- }
- vio_not_implemented();
-}
-LOCAL u32 KCALL
-vio_cmpxchl(struct vio_ops *__restrict ops, void *closure,
-            uintptr_t addr, u32 oldval, u32 newval) {
- if (ops->v_atomic_cmpxchgl && !(addr & 3))
-     return (*ops->v_atomic_cmpxchgl)(closure,addr,oldval,newval);
- vio_not_implemented();
-}
-
 
 #define GPARG_u8  "mq"
 #define GPARG_u16 "g"
@@ -599,6 +55,11 @@ vio_cmpxchl(struct vio_ops *__restrict ops, void *closure,
 #define GRARG_u32 "r"
 #define GRARG(x) GRARG_##x
 
+#ifdef __x86_64__
+#define ASM_LOADFLAGS(arg) "pushfq\n\tpopq " arg "\n\t"
+#else
+#define ASM_LOADFLAGS(arg) "pushfl\n\tpopl " arg "\n\t"
+#endif
 
 #define DEFINE_UNARY_PROXY_W(name,T,width) \
 LOCAL register_t KCALL \
@@ -606,7 +67,7 @@ vio_##name##width(struct vio_ops *__restrict ops, void *closure, uintptr_t addr)
 { \
  T value; register_t result; \
  value = vio_read##width(ops,closure,addr); \
- __asm__ __volatile__(#name #width " %0; pushfl\npopl %1" \
+ __asm__ __volatile__(#name #width " %0\n\t" ASM_LOADFLAGS("%1") \
                       : "+" GPARG(T) (value) \
                       , "=g" (result) \
                       : : "cc"); \
@@ -620,11 +81,11 @@ vio_atomic_##name##width(struct vio_ops *__restrict ops, void *closure, uintptr_
  do { \
   value = vio_read##width(ops,closure,addr); \
   new_value = value; \
-  __asm__ __volatile__(#name #width " %0; pushfl\npopl %1" \
+  __asm__ __volatile__(#name #width " %0\n\t" ASM_LOADFLAGS("%1") \
                        : "+" GPARG(T) (new_value) \
                        , "=g" (result) \
                        : : "cc"); \
- } while (vio_cmpxch##width(ops,closure,addr,value,new_value) != value); \
+ } while (vio_atomic_cmpxch##width(ops,closure,addr,value,new_value) != value); \
  return result; \
 }
 #define DEFINE_VUNARY_PROXY_W(name,T,width) \
@@ -649,7 +110,7 @@ vio_atomic_##name##width(struct vio_ops *__restrict ops, void *closure, uintptr_
   __asm__ __volatile__(#name #width " %0" \
                        : "+g" (new_value) \
                        : : "cc"); \
- } while (vio_cmpxch##width(ops,closure,addr,value,new_value) != value); \
+ } while (vio_atomic_cmpxch##width(ops,closure,addr,value,new_value) != value); \
 }
 
 #define DEFINE_LBINARY_PROXY_W(name,T,width) \
@@ -658,7 +119,7 @@ vio_l##name##width(struct vio_ops *__restrict ops, void *closure, uintptr_t addr
 { \
  T value; register_t result; \
  value = vio_read##width(ops,closure,addr); \
- __asm__ __volatile__(#name #width " %2, %0; pushfl\npopl %1" \
+ __asm__ __volatile__(#name #width " %2, %0\n\t" ASM_LOADFLAGS("%1") \
                       : "+" GPARG(T) (*plhs) \
                       , "=g" (result) \
                       : GRARG(T) (value) \
@@ -671,7 +132,7 @@ vio_l##name##width(struct vio_ops *__restrict ops, void *closure, uintptr_t addr
 { \
  T value; register_t result; \
  value = vio_read##width(ops,closure,addr); \
- __asm__ __volatile__(#name #width " %1, %2; pushfl\npopl %0" \
+ __asm__ __volatile__(#name #width " %1, %2\n\t" ASM_LOADFLAGS("%0") \
                       : "=g" (result) \
                       : GRARG(T) (value) \
                       , GPARG(T) (lhs) \
@@ -684,7 +145,7 @@ vio_r##name##width(struct vio_ops *__restrict ops, void *closure, uintptr_t addr
 { \
  T value; register_t result; \
  value = vio_read##width(ops,closure,addr); \
- __asm__ __volatile__(#name #width " %2, %0; pushfl\npopl %1" \
+ __asm__ __volatile__(#name #width " %2, %0\n\t" ASM_LOADFLAGS("%1") \
                       : "+" GPARG(T) (value) \
                       , "=g" (result) \
                       : GRARG(T) (rhs) \
@@ -698,12 +159,12 @@ vio_atomic_r##name##width(struct vio_ops *__restrict ops, void *closure, uintptr
  T value,new_value; register_t result; \
  do { \
   value = new_value = vio_read##width(ops,closure,addr); \
-  __asm__ __volatile__(#name #width " %2, %0; pushfl\npopl %1" \
+  __asm__ __volatile__(#name #width " %2, %0\n\t" ASM_LOADFLAGS("%1") \
                        : "+" GPARG(T) (new_value) \
                        , "=g" (result) \
                        : GRARG(T) (rhs) \
                        : "cc"); \
- } while (vio_cmpxch##width(ops,closure,addr,value,new_value) != value); \
+ } while (vio_atomic_cmpxch##width(ops,closure,addr,value,new_value) != value); \
  return result; \
 }
 #define DEFINE_LRBINARY_PROXY_W(name,T,width) \
@@ -712,7 +173,7 @@ vio_r##name##width(struct vio_ops *__restrict ops, void *closure, uintptr_t addr
 { \
  T value; register_t result; \
  value = vio_read##width(ops,closure,addr); \
- __asm__ __volatile__(#name #width " %2, %0; pushfl\npopl %1" \
+ __asm__ __volatile__(#name #width " %2, %0\n\t" ASM_LOADFLAGS("%1") \
                       : "+" GPARG(T) (value) \
                       , "=g" (result) \
                       , "+" GRARG(T) (*prhs) \
@@ -727,13 +188,13 @@ vio_atomic_r##name##width(struct vio_ops *__restrict ops, void *closure, uintptr
  T value,new_value; register_t result; \
  do { \
   value = new_value = vio_read##width(ops,closure,addr); \
-  __asm__ __volatile__(#name #width " %2, %0; pushfl\npopl %1" \
+  __asm__ __volatile__(#name #width " %2, %0\n\t" ASM_LOADFLAGS("%1") \
                        : "+" GPARG(T) (new_value) \
                        , "=g" (result) \
                        , "+" GRARG(T) (*prhs) \
                        : \
                        : "cc"); \
- } while (vio_cmpxch##width(ops,closure,addr,value,new_value) != value); \
+ } while (vio_atomic_cmpxch##width(ops,closure,addr,value,new_value) != value); \
  return result; \
 }
 #define DEFINE_VLRBINARY_PROXY_W(name,T,width) \
@@ -760,7 +221,7 @@ vio_atomic_r##name##width(struct vio_ops *__restrict ops, void *closure, uintptr
                        , "+" GRARG(T) (*prhs) \
                        : \
                        : "cc"); \
- } while (vio_cmpxch##width(ops,closure,addr,value,new_value) != value); \
+ } while (vio_atomic_cmpxch##width(ops,closure,addr,value,new_value) != value); \
 }
 #define DEFINE_RBINARYRO_PROXY_W(name,T,width) \
 LOCAL register_t KCALL \
@@ -768,7 +229,7 @@ vio_r##name##width(struct vio_ops *__restrict ops, void *closure, uintptr_t addr
 { \
  T value; register_t result; \
  value = vio_read##width(ops,closure,addr); \
- __asm__ __volatile__(#name #width " %2, %1; pushfl\npopl %0" \
+ __asm__ __volatile__(#name #width " %2, %1\n\t" ASM_LOADFLAGS("%0") \
                       : "=g" (result) \
                       : GPARG(T) (value) \
                       , GRARG(T) (rhs) \
@@ -811,7 +272,7 @@ vio_r##name##width(struct vio_ops *__restrict ops, void *closure, uintptr_t addr
 { \
  T value; register_t result; \
  value = vio_read##width(ops,closure,addr); \
- __asm__ __volatile__(#name #width " %b2, %0; pushfl\npopl %1" \
+ __asm__ __volatile__(#name #width " %b2, %0\n\t" ASM_LOADFLAGS("%1") \
                       : "+" GPARG(T) (value) \
                       , "=g" (result) \
                       : "ic" (rhs) \
@@ -825,12 +286,12 @@ vio_atomic_r##name##width(struct vio_ops *__restrict ops, void *closure, uintptr
  T value,new_value; register_t result; \
  do { \
   value = new_value = vio_read##width(ops,closure,addr); \
-  __asm__ __volatile__(#name #width " %b2, %0; pushfl\npopl %1" \
+  __asm__ __volatile__(#name #width " %b2, %0\n\t" ASM_LOADFLAGS("%1") \
                        : "+" GPARG(T) (new_value) \
                        , "=g" (result) \
                        : "ic" (rhs) \
                        : "cc"); \
- } while (vio_cmpxch##width(ops,closure,addr,value,new_value) != value); \
+ } while (vio_atomic_cmpxch##width(ops,closure,addr,value,new_value) != value); \
  return result; \
 }
 #define DEFINE_SHIFT_PROXY(name) \
@@ -851,7 +312,7 @@ vio_r##name##width(struct vio_ops *__restrict ops, void *closure, uintptr_t addr
  T value; register_t result; \
  value = vio_read##width(ops,closure,addr); \
  __asm__ __volatile__("clc; cmp $0, %3; je 1f; stc; 1:\n" \
-                      #name #width " %b2, %0; pushfl\npopl %1" \
+                      #name #width " %b2, %0\n\t" ASM_LOADFLAGS("%1") \
                       : "+" GPARG(T) (value) \
                       , "=g" (result) \
                       : "ic" (rhs) \
@@ -867,13 +328,13 @@ vio_atomic_r##name##width(struct vio_ops *__restrict ops, void *closure, uintptr
  do { \
   value = new_value = vio_read##width(ops,closure,addr); \
   __asm__ __volatile__("clc; cmp $0, %3; je 1f; stc; 1:\n" \
-                      #name #width " %b2, %0; pushfl\npopl %1" \
+                      #name #width " %b2, %0\n\t" ASM_LOADFLAGS("%1") \
                        : "+" GPARG(T) (new_value) \
                        , "=" GPARG(T) (result) \
                        : "ic" (rhs) \
                        , "mq" (cf) \
                        : "cc"); \
- } while (vio_cmpxch##width(ops,closure,addr,value,new_value) != value); \
+ } while (vio_atomic_cmpxch##width(ops,closure,addr,value,new_value) != value); \
  return result; \
 }
 #define DEFINE_RCX_PROXY(name) \
@@ -889,9 +350,8 @@ DEFINE_RCX_PROXY(rcr)
 /* Compare operands and return EFLAGS. */
 LOCAL register_t KCALL x86_cmpb(u8 a, u8 b) {
  register_t result;
- __asm__("cmpb %b2, %b1\n"
-         "pushfl\n"
-         "popl %0\n"
+ __asm__("cmpb %b2, %b1\n\t"
+         ASM_LOADFLAGS("%0")
          : "=g" (result)
          : "q" (a)
          , "q" (b)
@@ -900,9 +360,8 @@ LOCAL register_t KCALL x86_cmpb(u8 a, u8 b) {
 }
 LOCAL register_t KCALL x86_cmpw(u16 a, u16 b) {
  register_t result;
- __asm__("cmpw %w2, %w1\n"
-         "pushfl\n"
-         "popl %0\n"
+ __asm__("cmpw %w2, %w1\n\t"
+         ASM_LOADFLAGS("%0")
          : "=g" (result)
          : "q" (a)
          , "q" (b)
@@ -911,9 +370,8 @@ LOCAL register_t KCALL x86_cmpw(u16 a, u16 b) {
 }
 LOCAL register_t KCALL x86_cmpl(u32 a, u32 b) {
  register_t result;
- __asm__("cmpl %2, %1\n"
-         "pushfl\n"
-         "popl %0\n"
+ __asm__("cmpl %2, %1\n\t"
+         ASM_LOADFLAGS("%0")
          : "=g" (result)
          : "r" (a)
          , "r" (b)
@@ -922,7 +380,8 @@ LOCAL register_t KCALL x86_cmpl(u32 a, u32 b) {
 }
 LOCAL register_t KCALL x86_mulb(u8 x, u8 y, u16 *__restrict pres) {
  register_t result;
- __asm__("mulb %3; pushfl\npopl %1"
+ __asm__("mulb %3\n\t"
+         ASM_LOADFLAGS("%1")
          : "=a" (*pres)
          , "=g" (result)
          : "0" (x)
@@ -934,7 +393,8 @@ LOCAL register_t KCALL x86_mulw(u16 x, u16 y,
                                 u16 *__restrict pres_a,
                                 u16 *__restrict pres_b) {
  register_t result;
- __asm__("mulw %4; pushfl\npopl %2"
+ __asm__("mulw %4\n\t"
+         ASM_LOADFLAGS("%2")
          : "=a" (*pres_a)
          , "=d" (*pres_b)
          , "=g" (result)
@@ -947,7 +407,8 @@ LOCAL register_t KCALL x86_mull(u32 x, u32 y,
                                 u32 *__restrict pres_a,
                                 u32 *__restrict pres_b) {
  register_t result;
- __asm__("mull %4; pushfl\npopl %2"
+ __asm__("mull %4\n\t"
+         ASM_LOADFLAGS("%2")
          : "=a" (*pres_a)
          , "=d" (*pres_b)
          , "=g" (result)
@@ -958,7 +419,8 @@ LOCAL register_t KCALL x86_mull(u32 x, u32 y,
 }
 LOCAL register_t KCALL x86_imulb(u8 x, u8 y, u16 *__restrict pres) {
  register_t result;
- __asm__("imulb %3; pushfl\npopl %1"
+ __asm__("imulb %3\n\t"
+         ASM_LOADFLAGS("%1")
          : "=a" (*pres)
          , "=g" (result)
          : "0" (x)
@@ -970,7 +432,8 @@ LOCAL register_t KCALL x86_imulw(u16 x, u16 y,
                                  u16 *__restrict pres_a,
                                  u16 *__restrict pres_b) {
  register_t result;
- __asm__("imulw %4; pushfl\npopl %2"
+ __asm__("imulw %4\n\t"
+         ASM_LOADFLAGS("%2")
          : "=a" (*pres_a)
          , "=d" (*pres_b)
          , "=g" (result)
@@ -983,7 +446,8 @@ LOCAL register_t KCALL x86_imull(u32 x, u32 y,
                                  u32 *__restrict pres_a,
                                  u32 *__restrict pres_b) {
  register_t result;
- __asm__("imull %4; pushfl\npopl %2"
+ __asm__("imull %4\n\t"
+         ASM_LOADFLAGS("%2")
          : "=a" (*pres_a)
          , "=d" (*pres_b)
          , "=g" (result)
@@ -1054,7 +518,8 @@ LOCAL void KCALL x86_idivl(u32 x0, u32 x1, u32 y,
 }
 LOCAL register_t KCALL x86_bsfw(u16 x, u16 *__restrict presult) {
  register_t result;
- __asm__("bsfw %2, %0; pushfl\npopl %1"
+ __asm__("bsfw %2, %0\n\t"
+         ASM_LOADFLAGS("%1")
          : "=r" (*presult)
          , "=g" (result)
          : "g" (x)
@@ -1063,7 +528,8 @@ LOCAL register_t KCALL x86_bsfw(u16 x, u16 *__restrict presult) {
 }
 LOCAL register_t KCALL x86_bsfl(u32 x, u32 *__restrict presult) {
  register_t result;
- __asm__("bsfl %2, %0; pushfl\npopl %1"
+ __asm__("bsfl %2, %0\n\t"
+         ASM_LOADFLAGS("%1")
          : "=r" (*presult)
          , "=g" (result)
          : "g" (x)
@@ -1072,7 +538,8 @@ LOCAL register_t KCALL x86_bsfl(u32 x, u32 *__restrict presult) {
 }
 LOCAL register_t KCALL x86_bsrw(u16 x, u16 *__restrict presult) {
  register_t result;
- __asm__("bsrw %2, %0; pushfl\npopl %1"
+ __asm__("bsrw %2, %0\n\t"
+         ASM_LOADFLAGS("%1")
          : "=r" (*presult)
          , "=g" (result)
          : "g" (x)
@@ -1081,7 +548,8 @@ LOCAL register_t KCALL x86_bsrw(u16 x, u16 *__restrict presult) {
 }
 LOCAL register_t KCALL x86_bsrl(u32 x, u32 *__restrict presult) {
  register_t result;
- __asm__("bsrl %2, %0; pushfl\npopl %1"
+ __asm__("bsrl %2, %0\n\t"
+         ASM_LOADFLAGS("%1")
          : "=r" (*presult)
          , "=g" (result)
          : "g" (x)
@@ -1106,20 +574,14 @@ INTERN bool KCALL
 x86_handle_vio(struct cpu_anycontext *__restrict context,
                struct vm_region *__restrict region,
                uintptr_t addr, VIRT void *abs_addr) {
-#define F_OP16  0x0001 /* The 0x66 prefix is being used. */
-#define F_AD16  0x0002 /* The 0x67 prefix is being used. */
-#define F_LOCK  0x0004 /* The `lock' prefix is being used. */
-#define F_REPNE 0x0010 /* The `repne' prefix is being used. */
-#define F_REP   0x0020 /* The `rep' prefix is being used. */
- u16 flags = 0; byte_t *text; u32 opcode;
+ byte_t *text;
+ u16 COMPILER_IGNORE_UNINITIALIZED(flags);
+ u32 COMPILER_IGNORE_UNINITIALIZED(opcode);
  struct modrm_info modrm;
  struct vio_ops *ops = region->vr_setup.s_vio.v_ops;
  void *closure = region->vr_setup.s_vio.v_closure;
  text = (byte_t *)CPU_CONTEXT_IP(*context);
-next_byte:
- opcode = 0;
-extend_instruction:
- TRY opcode |= *text++;
+ TRY opcode = x86_readopcode(context,&text,&flags);
  CATCH_HANDLED (E_SEGFAULT) {
   error_handled();
   goto fail;
@@ -1136,91 +598,86 @@ extend_instruction:
   */
  switch (opcode) {
 
- case 0x66: flags |= F_OP16; goto next_byte;
- case 0x67: flags |= F_AD16; goto next_byte;
- case 0xf0: flags |= F_LOCK; goto next_byte;
- case 0xf2: flags |= F_REPNE; goto next_byte;
- case 0xf3: flags |= F_REP; goto next_byte;
- case 0x26: case 0x2e: case 0x36:
- case 0x3e: case 0x64: case 0x65:
-  /* Segment prefix... */
-  goto next_byte;
- case 0x0f: opcode <<= 8; goto extend_instruction;
+#ifdef X86_READOPCODE_FAILED
+ case X86_READOPCODE_FAILED:
+  return true; /* Have the caller return back to user-space */
+#endif
+
 
  {
   u8 oldval,value;
  case 0x0fb0:
-  /* cmpxchg r/m8,r8 */
-  text   = x86_decode_modrm(text,&modrm);
-  oldval = (u8)CONTEXT_AREG(*context);
-  value  = vio_cmpxchb(ops,closure,addr,oldval,
-                       MODRM_REG8(context,&modrm));
+  /* cmpxch r/m8,r8 */
+  text   = x86_decode_modrm(text,&modrm,flags);
+  oldval = context->c_gpregs.gp_al;
+  value  = vio_atomic_cmpxchb(ops,closure,addr,oldval,
+                       modrm_getreg8(modrm));
   context->c_eflags &= ~(ZF|CF|PF|AF|SF|OF);
   context->c_eflags |= x86_cmpb(oldval,value);
-  *(u8 *)&CONTEXT_AREG(*context) = value;
+  context->c_gpregs.gp_al = value;
   goto ok;
  }
 
  case 0x0fb1:
-  /* cmpxchg r/m16,r16 */
-  /* cmpxchg r/m32,r32 */
-  text = x86_decode_modrm(text,&modrm);
+  /* cmpxch r/m16,r16 */
+  /* cmpxch r/m32,r32 */
+  text = x86_decode_modrm(text,&modrm,flags);
   if (flags & F_OP16) {
    u16 oldval,value;
-   oldval = (u16)CONTEXT_AREG(*context);
-   value  = vio_cmpxchw(ops,closure,addr,oldval,
-                       (u16)MODRM_REG(context,&modrm));
+   oldval = context->c_gpregs.gp_ax;
+   value  = vio_atomic_cmpxchw(ops,closure,addr,oldval,
+                        modrm_getreg16(modrm));
    context->c_eflags &= ~(ZF|CF|PF|AF|SF|OF);
    context->c_eflags |= x86_cmpw(oldval,value);
-   *(u16 *)&CONTEXT_AREG(*context) = value;
+   context->c_gpregs.gp_ax = value;
   } else {
    u32 oldval,value;
-   oldval = (u32)CONTEXT_AREG(*context);
-   value  = vio_cmpxchl(ops,closure,addr,oldval,
-                       (u32)MODRM_REG(context,&modrm));
+   oldval = context->c_gpregs.gp_eax;
+   value  = vio_atomic_cmpxchl(ops,closure,addr,oldval,
+                        modrm_getreg32(modrm));
    context->c_eflags &= ~(ZF|CF|PF|AF|SF|OF);
    context->c_eflags |= x86_cmpl(oldval,value);
-   *(u32 *)&CONTEXT_AREG(*context) = value;
+   context->c_gpregs.gp_eax = value;
   }
   goto ok;
 
  case 0x88:
   /* mov r/m8,r8 */
-  text = x86_decode_modrm(text,&modrm);
-  vio_writeb(ops,closure,addr,(u8)MODRM_REG(context,&modrm));
+  text = x86_decode_modrm(text,&modrm,flags);
+  vio_writeb(ops,closure,addr,modrm_getreg8(modrm));
   goto ok;
 
  case 0x89:
   /* mov r/m16,r16 */
   /* mov r/m32,r32 */
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   if (flags & F_OP16) {
-   vio_writew(ops,closure,addr,(u16)MODRM_REG(context,&modrm));
+   vio_writew(ops,closure,addr,modrm_getreg16(modrm));
   } else {
-   vio_writel(ops,closure,addr,(u32)MODRM_REG(context,&modrm));
+   vio_writel(ops,closure,addr,modrm_getreg32(modrm));
   }
   goto ok;
 
  case 0x8a:
   /* mov r8,r/m8 */
-  text = x86_decode_modrm(text,&modrm);
-  MODRM_REG8(context,&modrm) = vio_readb(ops,closure,addr);
+  text = x86_decode_modrm(text,&modrm,flags);
+  modrm_getreg8(modrm) = vio_readb(ops,closure,addr);
   goto ok;
 
  case 0x8b:
   /* mov r/m16,r16 */
   /* mov r/m32,r32 */
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   if (flags & F_OP16) {
-   *(u16 *)&MODRM_REG(context,&modrm) = vio_readw(ops,closure,addr);
+   modrm_getreg16(modrm) = vio_readw(ops,closure,addr);
   } else {
-   MODRM_REG(context,&modrm) = vio_readl(ops,closure,addr);
+   modrm_getreg32(modrm) = vio_readl(ops,closure,addr);
   }
   goto ok;
 
  case 0xc6:
   /* mov r/m8,imm8 */
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   vio_writeb(ops,closure,addr,*(u8 *)text);
   text += 1;
   goto ok;
@@ -1228,7 +685,7 @@ extend_instruction:
  case 0xc7:
   /* mov r/m16,imm16 */
   /* mov r/m32,imm32 */
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   if (flags & F_OP16) {
    vio_writew(ops,closure,addr,*(u16 *)text);
    text += 2;
@@ -1243,7 +700,7 @@ extend_instruction:
   if (flags & F_AD16)
        text += 2;
   else text += 4;
-  *(u8 *)&CONTEXT_AREG(*context) = vio_readb(ops,closure,addr);
+  context->c_gpregs.gp_al = vio_readb(ops,closure,addr);
   goto ok;
  case 0xa1:
   /* mov ax,moffs16* */
@@ -1252,9 +709,9 @@ extend_instruction:
        text += 2;
   else text += 4;
   if (flags & F_OP16) {
-   *(u16 *)&CONTEXT_AREG(*context) = vio_readw(ops,closure,addr);
+   context->c_gpregs.gp_ax = vio_readw(ops,closure,addr);
   } else {
-   CONTEXT_AREG(*context) = vio_readl(ops,closure,addr);
+   context->c_gpregs.gp_eax = vio_readl(ops,closure,addr);
   }
   goto ok;
 
@@ -1263,7 +720,7 @@ extend_instruction:
   if (flags & F_AD16)
        text += 2;
   else text += 4;
-  vio_writeb(ops,closure,addr,(u8)CONTEXT_AREG(*context));
+  vio_writeb(ops,closure,addr,context->c_gpregs.gp_al);
   goto ok;
 
  case 0xa3:
@@ -1273,55 +730,61 @@ extend_instruction:
        text += 2;
   else text += 4;
   if (flags & F_OP16) {
-   vio_writew(ops,closure,addr,(u16)CONTEXT_AREG(*context));
+   vio_writew(ops,closure,addr,context->c_gpregs.gp_ax);
   } else {
-   vio_writel(ops,closure,addr,(u32)CONTEXT_AREG(*context));
+   vio_writel(ops,closure,addr,context->c_gpregs.gp_eax);
   }
   goto ok;
 
  case 0x86:
   /* xchg r/m8, r8 */
-  text = x86_decode_modrm(text,&modrm);
-  vio_rxchgb(ops,closure,addr,&MODRM_REG8(context,&modrm));
+  text = x86_decode_modrm(text,&modrm,flags);
+  vio_rxchgb(ops,closure,addr,&modrm_getreg8(modrm));
   goto ok;
 
  case 0x87:
   /* xchg r/m16, r16 */
   /* xchg r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   if (flags & F_OP16) {
-   vio_rxchgw(ops,closure,addr,(u16 *)&MODRM_REG(context,&modrm));
+   vio_rxchgw(ops,closure,addr,(u16 *)&modrm_getreg32(modrm));
   } else {
-   vio_rxchgl(ops,closure,addr,(u32 *)&MODRM_REG(context,&modrm));
+   vio_rxchgl(ops,closure,addr,(u32 *)&modrm_getreg32(modrm));
   }
   goto ok;
 
  case 0x0fc0:
   /* xadd r/m8, r8 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(CF|PF|AF|SF|ZF|OF);
-  CONTEXT_FLAGS(*context) |= vio_rxaddb(ops,closure,addr,&MODRM_REG8(context,&modrm)) & (CF|PF|AF|SF|ZF|OF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(CF|PF|AF|SF|ZF|OF);
+  context->c_pflags |= vio_rxaddb(ops,closure,addr,&modrm_getreg8(modrm)) & (CF|PF|AF|SF|ZF|OF);
   goto ok;
 
  case 0x0fc1:
   /* xadd r/m8, r8 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(CF|PF|AF|SF|ZF|OF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(CF|PF|AF|SF|ZF|OF);
   if (flags & F_OP16) {
-   CONTEXT_FLAGS(*context) |= vio_rxaddw(ops,closure,addr,(u16 *)&MODRM_REG(context,&modrm)) & (CF|PF|AF|SF|ZF|OF);
+   context->c_pflags |= vio_rxaddw(ops,closure,addr,
+                                  (u16 *)&modrm_getreg32(modrm)) &
+                                  (CF|PF|AF|SF|ZF|OF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_rxaddl(ops,closure,addr,(u32 *)&MODRM_REG(context,&modrm)) & (CF|PF|AF|SF|ZF|OF);
+   context->c_pflags |= vio_rxaddl(ops,closure,addr,
+                                  (u32 *)&modrm_getreg32(modrm)) &
+                                  (CF|PF|AF|SF|ZF|OF);
   }
   goto ok;
 
  case 0xf6:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   case 0:
    /* test r/m8,imm8 */
-   CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
-   CONTEXT_FLAGS(*context) |= vio_ltestb(ops,closure,addr,*(u8 *)text) & (OF|CF|SF|ZF|PF);
+   context->c_pflags &= ~(OF|CF|SF|ZF|PF);
+   context->c_pflags |= vio_ltestb(ops,closure,addr,
+                                 *(u8 *)text) &
+                                  (OF|CF|SF|ZF|PF);
    text += 1;
    goto ok;
 
@@ -1336,42 +799,46 @@ extend_instruction:
 
   case 3:
    /* neg r/m8 */
-   CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|AF|PF);
+   context->c_pflags &= ~(CF|OF|SF|ZF|AF|PF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_negb(ops,closure,addr) & (CF|OF|SF|ZF|AF|PF);
+    context->c_pflags |= vio_atomic_negb(ops,closure,addr) &
+                                        (CF|OF|SF|ZF|AF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_negb(ops,closure,addr) & (CF|OF|SF|ZF|AF|PF);
+    context->c_pflags |= vio_negb(ops,closure,addr) &
+                                 (CF|OF|SF|ZF|AF|PF);
    }
    goto ok;
 
   case 4:
    /* mul r/m8 */
-   CONTEXT_FLAGS(*context) &= ~(OF|CF);
-   CONTEXT_FLAGS(*context) |= x86_mulb((u8)CONTEXT_AREG(*context),
-                                        vio_readb(ops,closure,addr),
-                                       (u16 *)&CONTEXT_AREG(*context)) & (OF|CF);
+   context->c_pflags &= ~(OF|CF);
+   context->c_pflags |= x86_mulb(context->c_gpregs.gp_al,
+                                 vio_readb(ops,closure,addr),
+                                &context->c_gpregs.gp_ax) &
+                                (OF|CF);
    goto ok;
 
   case 5:
    /* imul r/m8 */
-   CONTEXT_FLAGS(*context) &= ~(OF|CF);
-   CONTEXT_FLAGS(*context) |= x86_imulb((u8)CONTEXT_AREG(*context),
-                                         vio_readb(ops,closure,addr),
-                                        (u16 *)&CONTEXT_AREG(*context)) & (OF|CF);
+   context->c_pflags &= ~(OF|CF);
+   context->c_pflags |= x86_imulb(context->c_gpregs.gp_al,
+                                  vio_readb(ops,closure,addr),
+                                 &context->c_gpregs.gp_ax) &
+                                 (OF|CF);
    goto ok;
 
   case 6:
    /* div r/m8 */
-   x86_divb((u16)CONTEXT_AREG(*context),
+   x86_divb(context->c_gpregs.gp_ax,
              vio_readb(ops,closure,addr),
-            (u8 *)&CONTEXT_AREG(*context));
+            &context->c_gpregs.gp_al);
    goto ok;
 
   case 7:
    /* idiv r/m8 */
-   x86_idivb((u16)CONTEXT_AREG(*context),
+   x86_idivb(context->c_gpregs.gp_ax,
               vio_readb(ops,closure,addr),
-             (u8 *)&CONTEXT_AREG(*context));
+             &context->c_gpregs.gp_al);
    goto ok;
 
   default: break;
@@ -1379,18 +846,22 @@ extend_instruction:
   break;
 
  case 0xf7:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   case 0:
    /* test r/m16,imm16 */
    /* test r/m32,imm32 */
-   CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+   context->c_pflags &= ~(OF|CF|SF|ZF|PF);
    if (flags & F_OP16) {
-    CONTEXT_FLAGS(*context) |= vio_ltestw(ops,closure,addr,*(u16 *)text) & (OF|CF|SF|ZF|PF);
+    context->c_pflags |= vio_ltestw(ops,closure,addr,
+                                  *(u16 *)text) &
+                                   (OF|CF|SF|ZF|PF);
     text += 2;
    } else {
-    CONTEXT_FLAGS(*context) |= vio_ltestl(ops,closure,addr,*(u32 *)text) & (OF|CF|SF|ZF|PF);
+    context->c_pflags |= vio_ltestl(ops,closure,addr,
+                                  *(u32 *)text) &
+                                   (OF|CF|SF|ZF|PF);
     text += 4;
    }
    goto ok;
@@ -1410,12 +881,12 @@ extend_instruction:
   case 3:
    /* neg r/m16 */
    /* neg r/m32 */
-   CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|AF|PF);
+   context->c_pflags &= ~(CF|OF|SF|ZF|AF|PF);
    switch (flags & (F_LOCK|F_OP16)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_negb(ops,closure,addr) & (CF|OF|SF|ZF|AF|PF); break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_negb(ops,closure,addr) & (CF|OF|SF|ZF|AF|PF); break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_negw(ops,closure,addr) & (CF|OF|SF|ZF|AF|PF); break;
-   case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_negw(ops,closure,addr) & (CF|OF|SF|ZF|AF|PF); break;
+   case 0:             context->c_pflags |= vio_negb(ops,closure,addr) & (CF|OF|SF|ZF|AF|PF); break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_negb(ops,closure,addr) & (CF|OF|SF|ZF|AF|PF); break;
+   case F_OP16:        context->c_pflags |= vio_negw(ops,closure,addr) & (CF|OF|SF|ZF|AF|PF); break;
+   case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_negw(ops,closure,addr) & (CF|OF|SF|ZF|AF|PF); break;
    default: __builtin_unreachable();
    }
    goto ok;
@@ -1423,34 +894,38 @@ extend_instruction:
   case 4:
    /* mul r/m16 */
    /* mul r/m32 */
-   CONTEXT_FLAGS(*context) &= ~(OF|CF);
+   context->c_pflags &= ~(OF|CF);
    if (flags & F_OP16) {
-    CONTEXT_FLAGS(*context) |= x86_mulw((u16)CONTEXT_AREG(*context),
-                                         vio_readw(ops,closure,addr),
-                                        (u16 *)&CONTEXT_AREG(*context),
-                                        (u16 *)&CONTEXT_DREG(*context)) & (OF|CF);
+    context->c_pflags |= x86_mulw(context->c_gpregs.gp_ax,
+                                  vio_readw(ops,closure,addr),
+                                 &context->c_gpregs.gp_ax,
+                                 &context->c_gpregs.gp_dx) &
+                                 (OF|CF);
    } else {
-    CONTEXT_FLAGS(*context) |= x86_mull((u32)CONTEXT_AREG(*context),
-                                         vio_readl(ops,closure,addr),
-                                        (u32 *)&CONTEXT_AREG(*context),
-                                        (u32 *)&CONTEXT_DREG(*context)) & (OF|CF);
+    context->c_pflags |= x86_mull(context->c_gpregs.gp_eax,
+                                  vio_readl(ops,closure,addr),
+                                 (u32 *)&context->c_gpregs.gp_eax,
+                                 (u32 *)&context->c_gpregs.gp_edx) &
+                                 (OF|CF);
    }
    goto ok;
 
   case 5:
    /* imul r/m16 */
    /* imul r/m32 */
-   CONTEXT_FLAGS(*context) &= ~(OF|CF);
+   context->c_pflags &= ~(OF|CF);
    if (flags & F_OP16) {
-    CONTEXT_FLAGS(*context) |= x86_imulw((u16)CONTEXT_AREG(*context),
-                                          vio_readw(ops,closure,addr),
-                                         (u16 *)&CONTEXT_AREG(*context),
-                                         (u16 *)&CONTEXT_DREG(*context)) & (OF|CF);
+    context->c_pflags |= x86_imulw(context->c_gpregs.gp_ax,
+                                   vio_readw(ops,closure,addr),
+                                  &context->c_gpregs.gp_ax,
+                                  &context->c_gpregs.gp_dx) &
+                                  (OF|CF);
    } else {
-    CONTEXT_FLAGS(*context) |= x86_imull((u32)CONTEXT_AREG(*context),
-                                          vio_readl(ops,closure,addr),
-                                         (u32 *)&CONTEXT_AREG(*context),
-                                         (u32 *)&CONTEXT_DREG(*context)) & (OF|CF);
+    context->c_pflags |= x86_imull(context->c_gpregs.gp_eax,
+                                   vio_readl(ops,closure,addr),
+                                  (u32 *)&context->c_gpregs.gp_eax,
+                                  (u32 *)&context->c_gpregs.gp_edx) &
+                                  (OF|CF);
    }
    goto ok;
 
@@ -1459,16 +934,16 @@ extend_instruction:
    /* div r/m32 */
    if (flags & F_OP16) {
     x86_divw((u16)CONTEXT_DREG(*context),
-             (u16)CONTEXT_AREG(*context),
+             context->c_gpregs.gp_ax,
               vio_readw(ops,closure,addr),
-             (u16 *)&CONTEXT_AREG(*context),
-             (u16 *)&CONTEXT_DREG(*context));
+             &context->c_gpregs.gp_ax,
+             &context->c_gpregs.gp_dx);
    } else {
     x86_divl((u32)CONTEXT_DREG(*context),
-             (u32)CONTEXT_AREG(*context),
+             context->c_gpregs.gp_eax,
               vio_readl(ops,closure,addr),
-             (u32 *)&CONTEXT_AREG(*context),
-             (u32 *)&CONTEXT_DREG(*context));
+             (u32 *)&context->c_gpregs.gp_eax,
+             (u32 *)&context->c_gpregs.gp_edx);
    }
    goto ok;
 
@@ -1477,16 +952,16 @@ extend_instruction:
    /* idiv r/m32 */
    if (flags & F_OP16) {
     x86_idivw((u16)CONTEXT_DREG(*context),
-              (u16)CONTEXT_AREG(*context),
+              context->c_gpregs.gp_ax,
                vio_readw(ops,closure,addr),
-              (u16 *)&CONTEXT_AREG(*context),
-              (u16 *)&CONTEXT_DREG(*context));
+              &context->c_gpregs.gp_ax,
+              &context->c_gpregs.gp_dx);
    } else {
     x86_idivl((u32)CONTEXT_DREG(*context),
-              (u32)CONTEXT_AREG(*context),
+              context->c_gpregs.gp_eax,
                vio_readl(ops,closure,addr),
-              (u32 *)&CONTEXT_AREG(*context),
-              (u32 *)&CONTEXT_DREG(*context));
+              (u32 *)&context->c_gpregs.gp_eax,
+              (u32 *)&context->c_gpregs.gp_edx);
    }
    goto ok;
 
@@ -1497,32 +972,32 @@ extend_instruction:
  case 0x0faf:
   /* imul r16,r/m16 */
   /* imul r32,r/m32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|CF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|CF);
   if (flags & F_OP16) {
-   if (__builtin_mul_overflow(*(s16 *)&MODRM_REG(context,&modrm),(s16)vio_readw(ops,closure,addr),
-                               (s16 *)&MODRM_REG(context,&modrm)))
-       CONTEXT_FLAGS(*context) |= (OF|CF);
+   if (__builtin_mul_overflow(*(s16 *)&modrm_getreg32(modrm),(s16)vio_readw(ops,closure,addr),
+                               (s16 *)&modrm_getreg32(modrm)))
+       context->c_pflags |= (OF|CF);
   } else {
-   if (__builtin_mul_overflow(*(s32 *)&MODRM_REG(context,&modrm),(s32)vio_readl(ops,closure,addr),
-                               (s32 *)&MODRM_REG(context,&modrm)))
-       CONTEXT_FLAGS(*context) |= (OF|CF);
+   if (__builtin_mul_overflow(*(s32 *)&modrm_getreg32(modrm),(s32)vio_readl(ops,closure,addr),
+                               (s32 *)&modrm_getreg32(modrm)))
+       context->c_pflags |= (OF|CF);
   }
   goto ok;
 
  case 0x6b:
   /* imul r16,r/m16,imm8 */
   /* imul r32,r/m32,imm8 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|CF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|CF);
   if (flags & F_OP16) {
    if (__builtin_mul_overflow((s16)*(s8 *)text,(s16)vio_readw(ops,closure,addr),
-                              (s16 *)&MODRM_REG(context,&modrm)))
-       CONTEXT_FLAGS(*context) |= (OF|CF);
+                              (s16 *)&modrm_getreg32(modrm)))
+       context->c_pflags |= (OF|CF);
   } else {
    if (__builtin_mul_overflow((s32)*(s8 *)text,(s32)vio_readl(ops,closure,addr),
-                              (s32 *)&MODRM_REG(context,&modrm)))
-       CONTEXT_FLAGS(*context) |= (OF|CF);
+                              (s32 *)&modrm_getreg32(modrm)))
+       context->c_pflags |= (OF|CF);
   }
   text += 1;
   goto ok;
@@ -1530,59 +1005,59 @@ extend_instruction:
  case 0x69:
   /* imul r16,r/m16,imm16 */
   /* imul r32,r/m32,imm32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|CF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|CF);
   if (flags & F_OP16) {
    if (__builtin_mul_overflow(*(s16 *)text,(s16)vio_readw(ops,closure,addr),
-                              (s16 *)&MODRM_REG(context,&modrm)))
-       CONTEXT_FLAGS(*context) |= (OF|CF);
+                              (s16 *)&modrm_getreg32(modrm)))
+       context->c_pflags |= (OF|CF);
    text += 2;
   } else {
    if (__builtin_mul_overflow(*(s32 *)text,(s32)vio_readl(ops,closure,addr),
-                              (s32 *)&MODRM_REG(context,&modrm)))
-       CONTEXT_FLAGS(*context) |= (OF|CF);
+                              (s32 *)&modrm_getreg32(modrm)))
+       context->c_pflags |= (OF|CF);
    text += 4;
   }
   goto ok;
 
  case 0x84:
   /* test r/m8,r8 */
-  CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
-  CONTEXT_FLAGS(*context) |= vio_ltestb(ops,closure,addr,MODRM_REG8(context,&modrm)) & (OF|CF|SF|ZF|PF);
+  context->c_pflags &= ~(OF|CF|SF|ZF|PF);
+  context->c_pflags |= vio_ltestb(ops,closure,addr,modrm_getreg8(modrm)) & (OF|CF|SF|ZF|PF);
   goto ok;
 
  case 0x85:
   /* test r/m16,r16 */
   /* test r/m32,r32 */
-  CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+  context->c_pflags &= ~(OF|CF|SF|ZF|PF);
   if (flags & F_OP16) {
-   CONTEXT_FLAGS(*context) |= vio_ltestw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF);
+   context->c_pflags |= vio_ltestw(ops,closure,addr,modrm_getreg16(modrm)) & (OF|CF|SF|ZF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_ltestl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF);
+   context->c_pflags |= vio_ltestl(ops,closure,addr,modrm_getreg32(modrm)) & (OF|CF|SF|ZF|PF);
   }
   goto ok;
 
  case 0xfe:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   case 0:
    /* inc r/m8 */
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|PF);
+   context->c_pflags &= ~(OF|SF|ZF|AF|PF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_incb(ops,closure,addr) & (OF|SF|ZF|AF|PF);
+    context->c_pflags |= vio_atomic_incb(ops,closure,addr) & (OF|SF|ZF|AF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_incb(ops,closure,addr) & (OF|SF|ZF|AF|PF);
+    context->c_pflags |= vio_incb(ops,closure,addr) & (OF|SF|ZF|AF|PF);
    }
    goto ok;
 
   case 1:
    /* dec r/m8 */
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|PF);
+   context->c_pflags &= ~(OF|SF|ZF|AF|PF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_decb(ops,closure,addr) & (OF|SF|ZF|AF|PF);
+    context->c_pflags |= vio_atomic_decb(ops,closure,addr) & (OF|SF|ZF|AF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_decb(ops,closure,addr) & (OF|SF|ZF|AF|PF);
+    context->c_pflags |= vio_decb(ops,closure,addr) & (OF|SF|ZF|AF|PF);
    }
    goto ok;
 
@@ -1591,18 +1066,18 @@ extend_instruction:
   break;
 
  case 0xff:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   case 0:
    /* inc r/m16 */
    /* inc r/m32 */
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|PF);
+   context->c_pflags &= ~(OF|SF|ZF|AF|PF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_incl(ops,closure,addr) & (OF|SF|ZF|AF|PF);
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_incw(ops,closure,addr) & (OF|SF|ZF|AF|PF); break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_incl(ops,closure,addr) & (OF|SF|ZF|AF|PF);
-   case F_LOCK|F_OP16: CONTEXT_FLAGS(*context) |= vio_atomic_incw(ops,closure,addr) & (OF|SF|ZF|AF|PF); break;
+   case 0:             context->c_pflags |= vio_incl(ops,closure,addr) & (OF|SF|ZF|AF|PF);
+   case F_OP16:        context->c_pflags |= vio_incw(ops,closure,addr) & (OF|SF|ZF|AF|PF); break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_incl(ops,closure,addr) & (OF|SF|ZF|AF|PF);
+   case F_LOCK|F_OP16: context->c_pflags |= vio_atomic_incw(ops,closure,addr) & (OF|SF|ZF|AF|PF); break;
    default: __builtin_unreachable();
    }
    goto ok;
@@ -1610,12 +1085,12 @@ extend_instruction:
   case 1:
    /* dec r/m16 */
    /* dec r/m32 */
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|PF);
+   context->c_pflags &= ~(OF|SF|ZF|AF|PF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_decl(ops,closure,addr) & (OF|SF|ZF|AF|PF);
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_decw(ops,closure,addr) & (OF|SF|ZF|AF|PF); break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_decl(ops,closure,addr) & (OF|SF|ZF|AF|PF);
-   case F_LOCK|F_OP16: CONTEXT_FLAGS(*context) |= vio_atomic_decw(ops,closure,addr) & (OF|SF|ZF|AF|PF); break;
+   case 0:             context->c_pflags |= vio_decl(ops,closure,addr) & (OF|SF|ZF|AF|PF);
+   case F_OP16:        context->c_pflags |= vio_decw(ops,closure,addr) & (OF|SF|ZF|AF|PF); break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_decl(ops,closure,addr) & (OF|SF|ZF|AF|PF);
+   case F_LOCK|F_OP16: context->c_pflags |= vio_atomic_decw(ops,closure,addr) & (OF|SF|ZF|AF|PF); break;
    default: __builtin_unreachable();
    }
    goto ok;
@@ -1624,11 +1099,11 @@ extend_instruction:
    /* call r/m16 */
    /* call r/m32 */
    if (flags & F_OP16) {
-    TRY *--(*(u16 **)&X86_ANYCONTEXT32_ESP(*context)) = (u16)CONTEXT_IP(*context);
+    TRY *--(*(u16 **)&context->c_pip) = (u16)CONTEXT_IP(*context);
     CATCH_HANDLED (E_SEGFAULT) goto fail;
     CONTEXT_IP(*context) = (uintptr_t)vio_readw(ops,closure,addr);
    } else {
-    TRY *--(*(uintptr_t **)&X86_ANYCONTEXT32_ESP(*context)) = CONTEXT_IP(*context);
+    TRY *--(*(uintptr_t **)&context->c_pip) = CONTEXT_IP(*context);
     CATCH_HANDLED (E_SEGFAULT) goto fail;
 #ifdef __x86_64__
     CONTEXT_IP(*context) = (uintptr_t)vio_readq(ops,closure,addr);
@@ -1655,15 +1130,15 @@ extend_instruction:
   case 6:
    /* push r/m16 */
    /* push r/m32 */
-   if (X86_ANYCONTEXT32_ESP(*context) == (uintptr_t)abs_addr)
+   if (context->c_pip == (uintptr_t)abs_addr)
        goto fail;
    if (flags & F_OP16) {
     u16 value = vio_readw(ops,closure,addr);
-    TRY *--(*(u16 **)&X86_ANYCONTEXT32_ESP(*context)) = value;
+    TRY *--(*(u16 **)&context->c_pip) = value;
     CATCH_HANDLED (E_SEGFAULT) goto fail;
    } else {       
     u32 value = vio_readw(ops,closure,addr);
-    TRY *--(*(u32 **)&X86_ANYCONTEXT32_ESP(*context)) = value;
+    TRY *--(*(u32 **)&context->c_pip) = value;
     CATCH_HANDLED (E_SEGFAULT) goto fail;
    }
    goto ok;
@@ -1673,22 +1148,22 @@ extend_instruction:
   break;
 
  case 0x8f:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   case 0:
    /* pop r/m16 */
    /* pop r/m32 */
-   if (X86_ANYCONTEXT32_ESP(*context) == (uintptr_t)abs_addr)
+   if (context->c_pip == (uintptr_t)abs_addr)
        goto fail;
    if (flags & F_OP16) {
     u16 COMPILER_IGNORE_UNINITIALIZED(value);
-    TRY value = *(*(u16 **)&X86_ANYCONTEXT32_ESP(*context))++;
+    TRY value = *(*(u16 **)&context->c_pip)++;
     CATCH_HANDLED (E_SEGFAULT) goto fail;
     vio_writew(ops,closure,addr,value);
    } else {
     u32 COMPILER_IGNORE_UNINITIALIZED(value);
-    TRY value = *(*(u32 **)&X86_ANYCONTEXT32_ESP(*context))++;
+    TRY value = *(*(u32 **)&context->c_pip)++;
     CATCH_HANDLED (E_SEGFAULT) goto fail;
     vio_writel(ops,closure,addr,value);
    }
@@ -1699,27 +1174,27 @@ extend_instruction:
   break;
 
  case 0x80:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   case 0:
    /* add r/m8, imm8 */
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_raddb(ops,closure,addr,*(u8 *)text) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_atomic_raddb(ops,closure,addr,*(u8 *)text) & (OF|SF|ZF|AF|CF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_raddb(ops,closure,addr,*(u8 *)text) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_raddb(ops,closure,addr,*(u8 *)text) & (OF|SF|ZF|AF|CF|PF);
    }
    text += 1;
    goto ok;
 
   case 1:
    /* or r/m8, imm8 */
-   CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+   context->c_pflags &= ~(OF|CF|SF|ZF|PF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_rorb(ops,closure,addr,*(u8 *)text) & (OF|CF|SF|ZF|PF);
+    context->c_pflags |= vio_atomic_rorb(ops,closure,addr,*(u8 *)text) & (OF|CF|SF|ZF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_rorb(ops,closure,addr,*(u8 *)text) & (OF|CF|SF|ZF|PF);
+    context->c_pflags |= vio_rorb(ops,closure,addr,*(u8 *)text) & (OF|CF|SF|ZF|PF);
    }
    text += 1;
    goto ok;
@@ -1729,14 +1204,14 @@ extend_instruction:
   case 2:
    /* adc r/m8, imm8 */
    value = *(u8 *)text;
-   if (CONTEXT_FLAGS(*context) & CF) ++value;
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+   if (context->c_pflags & CF) ++value;
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_raddb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_atomic_raddb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_raddb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_raddb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
    }
-   if (!value) CONTEXT_FLAGS(*context) |= CF;
+   if (!value) context->c_pflags |= CF;
    text += 1;
    goto ok;
   }
@@ -1746,55 +1221,55 @@ extend_instruction:
   case 3:
    /* sbb r/m8, imm8 */
    value = *(u8 *)text;
-   if (CONTEXT_FLAGS(*context) & CF) ++value;
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+   if (context->c_pflags & CF) ++value;
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_rsubb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_atomic_rsubb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_rsubb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_rsubb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
    }
-   if (!value) CONTEXT_FLAGS(*context) |= CF;
+   if (!value) context->c_pflags |= CF;
    text += 1;
    goto ok;
   }
 
   case 4:
    /* and r/m8, imm8 */
-   CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+   context->c_pflags &= ~(OF|CF|SF|ZF|PF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_randb(ops,closure,addr,*(u8 *)text) & (OF|CF|SF|ZF|PF);
+    context->c_pflags |= vio_atomic_randb(ops,closure,addr,*(u8 *)text) & (OF|CF|SF|ZF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_randb(ops,closure,addr,*(u8 *)text) & (OF|CF|SF|ZF|PF);
+    context->c_pflags |= vio_randb(ops,closure,addr,*(u8 *)text) & (OF|CF|SF|ZF|PF);
    }
    text += 1;
    goto ok;
 
   case 5:
    /* sub r/m8, imm8 */
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_rsubb(ops,closure,addr,*(u8 *)text) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_atomic_rsubb(ops,closure,addr,*(u8 *)text) & (OF|SF|ZF|AF|CF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_rsubb(ops,closure,addr,*(u8 *)text) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_rsubb(ops,closure,addr,*(u8 *)text) & (OF|SF|ZF|AF|CF|PF);
    }
    text += 1;
    goto ok;
 
   case 6:
    /* xor r/m8, imm8 */
-   CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+   context->c_pflags &= ~(OF|CF|SF|ZF|PF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_rxorb(ops,closure,addr,*(u8 *)text) & (OF|CF|SF|ZF|PF);
+    context->c_pflags |= vio_atomic_rxorb(ops,closure,addr,*(u8 *)text) & (OF|CF|SF|ZF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_rxorb(ops,closure,addr,*(u8 *)text) & (OF|CF|SF|ZF|PF);
+    context->c_pflags |= vio_rxorb(ops,closure,addr,*(u8 *)text) & (OF|CF|SF|ZF|PF);
    }
    text += 1;
    goto ok;
 
   case 7:
    /* cmp r/m8, imm8 */
-   CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|AF|PF);
-   CONTEXT_FLAGS(*context) |= vio_rcmpb(ops,closure,addr,*(u8 *)text) & (CF|OF|SF|ZF|AF|PF);
+   context->c_pflags &= ~(CF|OF|SF|ZF|AF|PF);
+   context->c_pflags |= vio_rcmpb(ops,closure,addr,*(u8 *)text) & (CF|OF|SF|ZF|AF|PF);
    text += 1;
    goto ok;
 
@@ -1803,18 +1278,18 @@ extend_instruction:
   break;
 
  case 0x81:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   case 0:
    /* add r/m16, imm16 */
    /* add r/m32, imm32 */
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_raddl(ops,closure,addr,*(u32 *)text) & (OF|SF|ZF|AF|CF|PF); text += 4; break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_raddw(ops,closure,addr,*(u16 *)text) & (OF|SF|ZF|AF|CF|PF); text += 2; break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_raddl(ops,closure,addr,*(u32 *)text) & (OF|SF|ZF|AF|CF|PF); text += 4; break;
-   case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_raddw(ops,closure,addr,*(u16 *)text) & (OF|SF|ZF|AF|CF|PF); text += 2; break;
+   case 0:             context->c_pflags |= vio_raddl(ops,closure,addr,*(u32 *)text) & (OF|SF|ZF|AF|CF|PF); text += 4; break;
+   case F_OP16:        context->c_pflags |= vio_raddw(ops,closure,addr,*(u16 *)text) & (OF|SF|ZF|AF|CF|PF); text += 2; break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_raddl(ops,closure,addr,*(u32 *)text) & (OF|SF|ZF|AF|CF|PF); text += 4; break;
+   case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_raddw(ops,closure,addr,*(u16 *)text) & (OF|SF|ZF|AF|CF|PF); text += 2; break;
    default: __builtin_unreachable();
    }
    goto ok;
@@ -1822,12 +1297,12 @@ extend_instruction:
   case 1:
    /* or r/m16, imm16 */
    /* or r/m32, imm32 */
-   CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+   context->c_pflags &= ~(OF|CF|SF|ZF|PF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_rorl(ops,closure,addr,*(u32 *)text) & (OF|CF|SF|ZF|PF); text += 4; break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rorw(ops,closure,addr,*(u16 *)text) & (OF|CF|SF|ZF|PF); text += 2; break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rorl(ops,closure,addr,*(u32 *)text) & (OF|CF|SF|ZF|PF); text += 4; break;
-   case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_rorw(ops,closure,addr,*(u16 *)text) & (OF|CF|SF|ZF|PF); text += 2; break;
+   case 0:             context->c_pflags |= vio_rorl(ops,closure,addr,*(u32 *)text) & (OF|CF|SF|ZF|PF); text += 4; break;
+   case F_OP16:        context->c_pflags |= vio_rorw(ops,closure,addr,*(u16 *)text) & (OF|CF|SF|ZF|PF); text += 2; break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_rorl(ops,closure,addr,*(u32 *)text) & (OF|CF|SF|ZF|PF); text += 4; break;
+   case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_rorw(ops,closure,addr,*(u16 *)text) & (OF|CF|SF|ZF|PF); text += 2; break;
    default: __builtin_unreachable();
    }
    goto ok;
@@ -1837,25 +1312,25 @@ extend_instruction:
    /* adc r/m32, imm32 */
    if (flags & F_OP16) {
     u16 value = *(u16 *)text;
-    if (CONTEXT_FLAGS(*context) & CF) ++value;
-    CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+    if (context->c_pflags & CF) ++value;
+    context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
     if (flags & F_LOCK) {
-     CONTEXT_FLAGS(*context) |= vio_atomic_raddw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_atomic_raddw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     } else {
-     CONTEXT_FLAGS(*context) |= vio_raddw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_raddw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     }
-    if (!value) CONTEXT_FLAGS(*context) |= CF;
+    if (!value) context->c_pflags |= CF;
     text += 2;
    } else {
     u32 value = *(u32 *)text;
-    if (CONTEXT_FLAGS(*context) & CF) ++value;
-    CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+    if (context->c_pflags & CF) ++value;
+    context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
     if (flags & F_LOCK) {
-     CONTEXT_FLAGS(*context) |= vio_atomic_raddl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_atomic_raddl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     } else {
-     CONTEXT_FLAGS(*context) |= vio_raddl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_raddl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     }
-    if (!value) CONTEXT_FLAGS(*context) |= CF;
+    if (!value) context->c_pflags |= CF;
     text += 4;
    }
    goto ok;
@@ -1865,25 +1340,25 @@ extend_instruction:
    /* sbb r/m32, imm32 */
    if (flags & F_OP16) {
     u16 value = *(u16 *)text;
-    if (CONTEXT_FLAGS(*context) & CF) ++value;
-    CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+    if (context->c_pflags & CF) ++value;
+    context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
     if (flags & F_LOCK) {
-     CONTEXT_FLAGS(*context) |= vio_atomic_rsubw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_atomic_rsubw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     } else {
-     CONTEXT_FLAGS(*context) |= vio_rsubw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_rsubw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     }
-    if (!value) CONTEXT_FLAGS(*context) |= CF;
+    if (!value) context->c_pflags |= CF;
     text += 2;
    } else {
     u32 value = *(u32 *)text;
-    if (CONTEXT_FLAGS(*context) & CF) ++value;
-    CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+    if (context->c_pflags & CF) ++value;
+    context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
     if (flags & F_LOCK) {
-     CONTEXT_FLAGS(*context) |= vio_atomic_rsubl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_atomic_rsubl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     } else {
-     CONTEXT_FLAGS(*context) |= vio_rsubl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_rsubl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     }
-    if (!value) CONTEXT_FLAGS(*context) |= CF;
+    if (!value) context->c_pflags |= CF;
     text += 4;
    }
    goto ok;
@@ -1891,12 +1366,12 @@ extend_instruction:
   case 4:
    /* and r/m16, imm16 */
    /* and r/m32, imm32 */
-   CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+   context->c_pflags &= ~(OF|CF|SF|ZF|PF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_randl(ops,closure,addr,*(u32 *)text) & (OF|CF|SF|ZF|PF); text += 4; break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_randw(ops,closure,addr,*(u16 *)text) & (OF|CF|SF|ZF|PF); text += 2; break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_randl(ops,closure,addr,*(u32 *)text) & (OF|CF|SF|ZF|PF); text += 4; break;
-   case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_randw(ops,closure,addr,*(u16 *)text) & (OF|CF|SF|ZF|PF); text += 2; break;
+   case 0:             context->c_pflags |= vio_randl(ops,closure,addr,*(u32 *)text) & (OF|CF|SF|ZF|PF); text += 4; break;
+   case F_OP16:        context->c_pflags |= vio_randw(ops,closure,addr,*(u16 *)text) & (OF|CF|SF|ZF|PF); text += 2; break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_randl(ops,closure,addr,*(u32 *)text) & (OF|CF|SF|ZF|PF); text += 4; break;
+   case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_randw(ops,closure,addr,*(u16 *)text) & (OF|CF|SF|ZF|PF); text += 2; break;
    default: __builtin_unreachable();
    }
    goto ok;
@@ -1904,12 +1379,12 @@ extend_instruction:
   case 5:
    /* sub r/m16, imm16 */
    /* sub r/m32, imm32 */
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_rsubl(ops,closure,addr,*(u32 *)text) & (OF|SF|ZF|AF|CF|PF); text += 4; break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rsubw(ops,closure,addr,*(u16 *)text) & (OF|SF|ZF|AF|CF|PF); text += 2; break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rsubl(ops,closure,addr,*(u32 *)text) & (OF|SF|ZF|AF|CF|PF); text += 4; break;
-   case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_rsubw(ops,closure,addr,*(u16 *)text) & (OF|SF|ZF|AF|CF|PF); text += 2; break;
+   case 0:             context->c_pflags |= vio_rsubl(ops,closure,addr,*(u32 *)text) & (OF|SF|ZF|AF|CF|PF); text += 4; break;
+   case F_OP16:        context->c_pflags |= vio_rsubw(ops,closure,addr,*(u16 *)text) & (OF|SF|ZF|AF|CF|PF); text += 2; break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_rsubl(ops,closure,addr,*(u32 *)text) & (OF|SF|ZF|AF|CF|PF); text += 4; break;
+   case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_rsubw(ops,closure,addr,*(u16 *)text) & (OF|SF|ZF|AF|CF|PF); text += 2; break;
    default: __builtin_unreachable();
    }
    goto ok;
@@ -1917,12 +1392,12 @@ extend_instruction:
   case 6:
    /* xor r/m16, imm16 */
    /* xor r/m32, imm32 */
-   CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+   context->c_pflags &= ~(OF|CF|SF|ZF|PF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_rxorl(ops,closure,addr,*(u32 *)text) & (OF|CF|SF|ZF|PF); text += 4; break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rxorw(ops,closure,addr,*(u16 *)text) & (OF|CF|SF|ZF|PF); text += 2; break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rxorl(ops,closure,addr,*(u32 *)text) & (OF|CF|SF|ZF|PF); text += 4; break;
-   case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_rxorw(ops,closure,addr,*(u16 *)text) & (OF|CF|SF|ZF|PF); text += 2; break;
+   case 0:             context->c_pflags |= vio_rxorl(ops,closure,addr,*(u32 *)text) & (OF|CF|SF|ZF|PF); text += 4; break;
+   case F_OP16:        context->c_pflags |= vio_rxorw(ops,closure,addr,*(u16 *)text) & (OF|CF|SF|ZF|PF); text += 2; break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_rxorl(ops,closure,addr,*(u32 *)text) & (OF|CF|SF|ZF|PF); text += 4; break;
+   case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_rxorw(ops,closure,addr,*(u16 *)text) & (OF|CF|SF|ZF|PF); text += 2; break;
    default: __builtin_unreachable();
    }
    goto ok;
@@ -1930,12 +1405,12 @@ extend_instruction:
   case 7:
    /* cmp r/m16, imm16 */
    /* cmp r/m32, imm32 */
-   CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|AF|PF);
+   context->c_pflags &= ~(CF|OF|SF|ZF|AF|PF);
    if (flags & F_OP16) {
-    CONTEXT_FLAGS(*context) |= vio_rcmpw(ops,closure,addr,*(u16 *)text) & (CF|OF|SF|ZF|AF|PF);
+    context->c_pflags |= vio_rcmpw(ops,closure,addr,*(u16 *)text) & (CF|OF|SF|ZF|AF|PF);
     text += 2;
    } else {
-    CONTEXT_FLAGS(*context) |= vio_rcmpl(ops,closure,addr,*(u32 *)text) & (CF|OF|SF|ZF|AF|PF);
+    context->c_pflags |= vio_rcmpl(ops,closure,addr,*(u32 *)text) & (CF|OF|SF|ZF|AF|PF);
     text += 4;
    }
    goto ok;
@@ -1945,18 +1420,18 @@ extend_instruction:
   break;
 
  case 0x83:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   case 0:
    /* add r/m8, Simm8 */
    /* add r/m16, Simm8 */
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_raddl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_raddw(ops,closure,addr,(u32)(s32)*(u8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_raddl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
-   case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_raddw(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
+   case 0:             context->c_pflags |= vio_raddl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
+   case F_OP16:        context->c_pflags |= vio_raddw(ops,closure,addr,(u32)(s32)*(u8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_raddl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
+   case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_raddw(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
    default: __builtin_unreachable();
    }
    text += 1;
@@ -1965,12 +1440,12 @@ extend_instruction:
   case 1:
    /* or r/m8, Simm8 */
    /* or r/m16, Simm8 */
-   CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+   context->c_pflags &= ~(OF|CF|SF|ZF|PF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_rorl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rorw(ops,closure,addr,(u32)(s32)*(u8 *)text) & (OF|CF|SF|ZF|PF); break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rorl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
-   case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_rorw(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
+   case 0:             context->c_pflags |= vio_rorl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
+   case F_OP16:        context->c_pflags |= vio_rorw(ops,closure,addr,(u32)(s32)*(u8 *)text) & (OF|CF|SF|ZF|PF); break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_rorl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
+   case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_rorw(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
    default: __builtin_unreachable();
    }
    text += 1;
@@ -1981,25 +1456,25 @@ extend_instruction:
    /* adc r/m32, Simm8 */
    if (flags & F_OP16) {
     u16 value = (u16)(s16)*(s8 *)text;
-    if (CONTEXT_FLAGS(*context) & CF) ++value;
-    CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+    if (context->c_pflags & CF) ++value;
+    context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
     if (flags & F_LOCK) {
-     CONTEXT_FLAGS(*context) |= vio_atomic_raddw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_atomic_raddw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     } else {
-     CONTEXT_FLAGS(*context) |= vio_raddw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_raddw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     }
-    if (!value) CONTEXT_FLAGS(*context) |= CF;
+    if (!value) context->c_pflags |= CF;
     text += 2;
    } else {
     u32 value = (u32)(s32)*(s8 *)text;
-    if (CONTEXT_FLAGS(*context) & CF) ++value;
-    CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+    if (context->c_pflags & CF) ++value;
+    context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
     if (flags & F_LOCK) {
-     CONTEXT_FLAGS(*context) |= vio_atomic_raddl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_atomic_raddl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     } else {
-     CONTEXT_FLAGS(*context) |= vio_raddl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_raddl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     }
-    if (!value) CONTEXT_FLAGS(*context) |= CF;
+    if (!value) context->c_pflags |= CF;
     text += 4;
    }
    goto ok;
@@ -2009,25 +1484,25 @@ extend_instruction:
    /* sbb r/m32, Simm8 */
    if (flags & F_OP16) {
     u16 value = (u16)(s16)*(s8 *)text;
-    if (CONTEXT_FLAGS(*context) & CF) ++value;
-    CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+    if (context->c_pflags & CF) ++value;
+    context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
     if (flags & F_LOCK) {
-     CONTEXT_FLAGS(*context) |= vio_atomic_rsubw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_atomic_rsubw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     } else {
-     CONTEXT_FLAGS(*context) |= vio_rsubw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_rsubw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     }
-    if (!value) CONTEXT_FLAGS(*context) |= CF;
+    if (!value) context->c_pflags |= CF;
     text += 2;
    } else {
     u32 value = (u32)(s32)*(s8 *)text;
-    if (CONTEXT_FLAGS(*context) & CF) ++value;
-    CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+    if (context->c_pflags & CF) ++value;
+    context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
     if (flags & F_LOCK) {
-     CONTEXT_FLAGS(*context) |= vio_atomic_rsubl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_atomic_rsubl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     } else {
-     CONTEXT_FLAGS(*context) |= vio_rsubl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+     context->c_pflags |= vio_rsubl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
     }
-    if (!value) CONTEXT_FLAGS(*context) |= CF;
+    if (!value) context->c_pflags |= CF;
     text += 4;
    }
    goto ok;
@@ -2035,12 +1510,12 @@ extend_instruction:
   case 4:
    /* and r/m8, Simm8 */
    /* and r/m16, Simm8 */
-   CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+   context->c_pflags &= ~(OF|CF|SF|ZF|PF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_randl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_randw(ops,closure,addr,(u32)(s32)*(u8 *)text) & (OF|CF|SF|ZF|PF); break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_randl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
-   case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_randw(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
+   case 0:             context->c_pflags |= vio_randl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
+   case F_OP16:        context->c_pflags |= vio_randw(ops,closure,addr,(u32)(s32)*(u8 *)text) & (OF|CF|SF|ZF|PF); break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_randl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
+   case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_randw(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
    default: __builtin_unreachable();
    }
    text += 1;
@@ -2049,12 +1524,12 @@ extend_instruction:
   case 5:
    /* sub r/m8, Simm8 */
    /* sub r/m16, Simm8 */
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_rsubl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rsubw(ops,closure,addr,(u32)(s32)*(u8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rsubl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
-   case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_rsubw(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
+   case 0:             context->c_pflags |= vio_rsubl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
+   case F_OP16:        context->c_pflags |= vio_rsubw(ops,closure,addr,(u32)(s32)*(u8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_rsubl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
+   case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_rsubw(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|SF|ZF|AF|CF|PF); break;
    default: __builtin_unreachable();
    }
    text += 1;
@@ -2063,12 +1538,12 @@ extend_instruction:
   case 6:
    /* xor r/m8, Simm8 */
    /* xor r/m16, Simm8 */
-   CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+   context->c_pflags &= ~(OF|CF|SF|ZF|PF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_rxorl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rxorw(ops,closure,addr,(u32)(s32)*(u8 *)text) & (OF|CF|SF|ZF|PF); break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rxorl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
-   case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_rxorw(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
+   case 0:             context->c_pflags |= vio_rxorl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
+   case F_OP16:        context->c_pflags |= vio_rxorw(ops,closure,addr,(u32)(s32)*(u8 *)text) & (OF|CF|SF|ZF|PF); break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_rxorl(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
+   case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_rxorw(ops,closure,addr,(u32)(s32)*(s8 *)text) & (OF|CF|SF|ZF|PF); break;
    default: __builtin_unreachable();
    }
    text += 1;
@@ -2077,11 +1552,11 @@ extend_instruction:
   case 7:
    /* cmp r/m16, imm16 */
    /* cmp r/m32, imm32 */
-   CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|AF|PF);
+   context->c_pflags &= ~(CF|OF|SF|ZF|AF|PF);
    if (flags & F_OP16) {
-    CONTEXT_FLAGS(*context) |= vio_rsubw(ops,closure,addr,(u16)*(u8 *)text) & (CF|OF|SF|ZF|AF|PF);
+    context->c_pflags |= vio_rsubw(ops,closure,addr,(u16)*(u8 *)text) & (CF|OF|SF|ZF|AF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_rsubl(ops,closure,addr,(u32)*(u8 *)text) & (CF|OF|SF|ZF|AF|PF);
+    context->c_pflags |= vio_rsubl(ops,closure,addr,(u32)*(u8 *)text) & (CF|OF|SF|ZF|AF|PF);
    }
    text += 1;
    goto ok;
@@ -2092,89 +1567,89 @@ extend_instruction:
 
  case 0x00:
   /* add r/m8, r8 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
   if (flags & F_LOCK) {
-   CONTEXT_FLAGS(*context) |= vio_atomic_raddb(ops,closure,addr,MODRM_REG8(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_atomic_raddb(ops,closure,addr,modrm_getreg8(modrm)) & (OF|SF|ZF|AF|CF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_raddb(ops,closure,addr,MODRM_REG8(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_raddb(ops,closure,addr,modrm_getreg8(modrm)) & (OF|SF|ZF|AF|CF|PF);
   }
   goto ok;
 
  case 0x01:
   /* add r/m16, r16 */
   /* add r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
   switch (flags & (F_OP16|F_LOCK)) {
-  case 0:             CONTEXT_FLAGS(*context) |= vio_raddl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF); break;
-  case F_OP16:        CONTEXT_FLAGS(*context) |= vio_raddw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF); break;
-  case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_raddl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF); break;
-  case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_raddw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF); break;
+  case 0:             context->c_pflags |= vio_raddl(ops,closure,addr,modrm_getreg32(modrm)) & (OF|SF|ZF|AF|CF|PF); break;
+  case F_OP16:        context->c_pflags |= vio_raddw(ops,closure,addr,modrm_getreg16(modrm)) & (OF|SF|ZF|AF|CF|PF); break;
+  case F_LOCK:        context->c_pflags |= vio_atomic_raddl(ops,closure,addr,modrm_getreg32(modrm)) & (OF|SF|ZF|AF|CF|PF); break;
+  case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_raddw(ops,closure,addr,modrm_getreg16(modrm)) & (OF|SF|ZF|AF|CF|PF); break;
   default: __builtin_unreachable();
   }
   goto ok;
 
  case 0x02:
   /* add r8, r/m8 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
-  CONTEXT_FLAGS(*context) |= vio_laddb(ops,closure,addr,&MODRM_REG8(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
+  context->c_pflags |= vio_laddb(ops,closure,addr,&modrm_getreg8(modrm)) & (OF|SF|ZF|AF|CF|PF);
   goto ok;
 
  case 0x03:
   /* add r/m16, r16 */
   /* add r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
   if (flags & F_OP16) {
-   CONTEXT_FLAGS(*context) |= vio_laddw(ops,closure,addr,(u16 *)&MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_laddw(ops,closure,addr,(u16 *)&modrm_getreg32(modrm)) & (OF|SF|ZF|AF|CF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_laddl(ops,closure,addr,(u32 *)&MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_laddl(ops,closure,addr,(u32 *)&modrm_getreg32(modrm)) & (OF|SF|ZF|AF|CF|PF);
   }
   goto ok;
 
  case 0x08:
   /* or r/m8, r8 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|CF|SF|ZF|PF);
   if (flags & F_LOCK) {
-   CONTEXT_FLAGS(*context) |= vio_atomic_rorb(ops,closure,addr,MODRM_REG8(context,&modrm)) & (OF|CF|SF|ZF|PF);
+   context->c_pflags |= vio_atomic_rorb(ops,closure,addr,modrm_getreg8(modrm)) & (OF|CF|SF|ZF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_rorb(ops,closure,addr,MODRM_REG8(context,&modrm)) & (OF|CF|SF|ZF|PF);
+   context->c_pflags |= vio_rorb(ops,closure,addr,modrm_getreg8(modrm)) & (OF|CF|SF|ZF|PF);
   }
   goto ok;
 
  case 0x09:
   /* or r/m16, r16 */
   /* or r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|CF|SF|ZF|PF);
   switch (flags & (F_OP16|F_LOCK)) {
-  case 0:             CONTEXT_FLAGS(*context) |= vio_rorl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF); break;
-  case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rorw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF); break;
-  case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rorl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF); break;
-  case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_rorw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF); break;
+  case 0:             context->c_pflags |= vio_rorl(ops,closure,addr,modrm_getreg32(modrm)) & (OF|CF|SF|ZF|PF); break;
+  case F_OP16:        context->c_pflags |= vio_rorw(ops,closure,addr,modrm_getreg16(modrm)) & (OF|CF|SF|ZF|PF); break;
+  case F_LOCK:        context->c_pflags |= vio_atomic_rorl(ops,closure,addr,modrm_getreg32(modrm)) & (OF|CF|SF|ZF|PF); break;
+  case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_rorw(ops,closure,addr,modrm_getreg16(modrm)) & (OF|CF|SF|ZF|PF); break;
   default: __builtin_unreachable();
   }
   goto ok;
 
  case 0x0a:
   /* or r8, r/m8 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
-  CONTEXT_FLAGS(*context) |= vio_lorb(ops,closure,addr,&MODRM_REG8(context,&modrm)) & (OF|CF|SF|ZF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|CF|SF|ZF|PF);
+  context->c_pflags |= vio_lorb(ops,closure,addr,&modrm_getreg8(modrm)) & (OF|CF|SF|ZF|PF);
   goto ok;
 
  case 0x0b:
   /* or r/m16, r16 */
   /* or r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|CF|SF|ZF|PF);
   if (flags & F_OP16) {
-   CONTEXT_FLAGS(*context) |= vio_lorw(ops,closure,addr,(u16 *)&MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF);
+   context->c_pflags |= vio_lorw(ops,closure,addr,(u16 *)&modrm_getreg32(modrm)) & (OF|CF|SF|ZF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_lorl(ops,closure,addr,(u32 *)&MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF);
+   context->c_pflags |= vio_lorl(ops,closure,addr,(u32 *)&modrm_getreg32(modrm)) & (OF|CF|SF|ZF|PF);
   }
   goto ok;
 
@@ -2183,69 +1658,69 @@ extend_instruction:
   u8 value;
  case 0x10:
   /* adc r/m8, r8 */
-  text = x86_decode_modrm(text,&modrm);
-  value = MODRM_REG8(context,&modrm);
-  if (CONTEXT_FLAGS(*context) & CF) ++value;
-  CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  value = modrm_getreg8(modrm);
+  if (context->c_pflags & CF) ++value;
+  context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
   if (flags & F_LOCK) {
-   CONTEXT_FLAGS(*context) |= vio_atomic_raddb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_atomic_raddb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_raddb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_raddb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
   }
-  if (!value) CONTEXT_FLAGS(*context) |= CF;
+  if (!value) context->c_pflags |= CF;
   goto ok;
  }
 
  case 0x11:
   /* adc r/m16, r16 */
   /* adc r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   if (flags & F_OP16) {
-   u16 value = (u16)MODRM_REG(context,&modrm);
-   if (CONTEXT_FLAGS(*context) & CF) ++value;
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+   u16 value = modrm_getreg16(modrm);
+   if (context->c_pflags & CF) ++value;
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_raddw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_atomic_raddw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_raddw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_raddw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
    }
-   if (!value) CONTEXT_FLAGS(*context) |= CF;
+   if (!value) context->c_pflags |= CF;
   } else {
-   u32 value = (u32)MODRM_REG(context,&modrm);
-   if (CONTEXT_FLAGS(*context) & CF) ++value;
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+   u32 value = modrm_getreg32(modrm);
+   if (context->c_pflags & CF) ++value;
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_raddl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_atomic_raddl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_raddl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_raddl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
    }
-   if (!value) CONTEXT_FLAGS(*context) |= CF;
+   if (!value) context->c_pflags |= CF;
   }
   goto ok;
 
  case 0x12:
   /* adc r8, r/m8 */
-  text = x86_decode_modrm(text,&modrm);
-  if (CONTEXT_FLAGS(*context) & CF) ++MODRM_REG8(context,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
-  CONTEXT_FLAGS(*context) |= vio_laddb(ops,closure,addr,&MODRM_REG8(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
-  if (!MODRM_REG8(context,&modrm)) CONTEXT_FLAGS(*context) |= CF;
+  text = x86_decode_modrm(text,&modrm,flags);
+  if (context->c_pflags & CF) ++modrm_getreg8(modrm);
+  context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
+  context->c_pflags |= vio_laddb(ops,closure,addr,&modrm_getreg8(modrm)) & (OF|SF|ZF|AF|CF|PF);
+  if (!modrm_getreg8(modrm)) context->c_pflags |= CF;
   goto ok;
 
  case 0x13:
   /* adc r/m16, r16 */
   /* adc r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   if (flags & F_OP16) {
-   if (CONTEXT_FLAGS(*context) & CF) ++*(u16 *)&MODRM_REG(context,&modrm);
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
-   CONTEXT_FLAGS(*context) |= vio_laddw(ops,closure,addr,(u16 *)&MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
-   if (!*(u16 *)&MODRM_REG(context,&modrm)) CONTEXT_FLAGS(*context) |= CF;
+   if (context->c_pflags & CF) ++modrm_getreg16(modrm);
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_laddw(ops,closure,addr,(u16 *)&modrm_getreg32(modrm)) & (OF|SF|ZF|AF|CF|PF);
+   if (!modrm_getreg16(modrm)) context->c_pflags |= CF;
   } else {
-   if (CONTEXT_FLAGS(*context) & CF) ++*(u32 *)&MODRM_REG(context,&modrm);
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
-   CONTEXT_FLAGS(*context) |= vio_laddl(ops,closure,addr,(u32 *)&MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
-   if (!*(u32 *)&MODRM_REG(context,&modrm)) CONTEXT_FLAGS(*context) |= CF;
+   if (context->c_pflags & CF) ++*(u32 *)&modrm_getreg32(modrm);
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_laddl(ops,closure,addr,(u32 *)&modrm_getreg32(modrm)) & (OF|SF|ZF|AF|CF|PF);
+   if (!*(u32 *)&modrm_getreg32(modrm)) context->c_pflags |= CF;
   }
   goto ok;
 
@@ -2253,244 +1728,244 @@ extend_instruction:
   u8 value;
  case 0x18:
   /* sbb r/m8, r8 */
-  text = x86_decode_modrm(text,&modrm);
-  value = MODRM_REG8(context,&modrm);
-  if (CONTEXT_FLAGS(*context) & CF) ++value;
-  CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  value = modrm_getreg8(modrm);
+  if (context->c_pflags & CF) ++value;
+  context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
   if (flags & F_LOCK) {
-   CONTEXT_FLAGS(*context) |= vio_atomic_rsubb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_atomic_rsubb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_rsubb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_rsubb(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
   }
-  if (!value) CONTEXT_FLAGS(*context) |= CF;
+  if (!value) context->c_pflags |= CF;
   goto ok;
  }
 
  case 0x19:
   /* sbb r/m16, r16 */
   /* sbb r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   if (flags & F_OP16) {
-   u16 value = (u16)MODRM_REG(context,&modrm);
-   if (CONTEXT_FLAGS(*context) & CF) ++value;
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+   u16 value = modrm_getreg16(modrm);
+   if (context->c_pflags & CF) ++value;
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_rsubw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_atomic_rsubw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_rsubw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_rsubw(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
    }
-   if (!value) CONTEXT_FLAGS(*context) |= CF;
+   if (!value) context->c_pflags |= CF;
   } else {
-   u32 value = (u32)MODRM_REG(context,&modrm);
-   if (CONTEXT_FLAGS(*context) & CF) ++value;
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+   u32 value = modrm_getreg32(modrm);
+   if (context->c_pflags & CF) ++value;
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_rsubl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_atomic_rsubl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_rsubl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
+    context->c_pflags |= vio_rsubl(ops,closure,addr,value) & (OF|SF|ZF|AF|CF|PF);
    }
-   if (!value) CONTEXT_FLAGS(*context) |= CF;
+   if (!value) context->c_pflags |= CF;
   }
   goto ok;
 
  case 0x1a:
   /* sbb r8, r/m8 */
-  text = x86_decode_modrm(text,&modrm);
-  if (CONTEXT_FLAGS(*context) & CF) ++MODRM_REG8(context,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
-  CONTEXT_FLAGS(*context) |= vio_lsubb(ops,closure,addr,&MODRM_REG8(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
-  if (!MODRM_REG8(context,&modrm)) CONTEXT_FLAGS(*context) |= CF;
+  text = x86_decode_modrm(text,&modrm,flags);
+  if (context->c_pflags & CF) ++modrm_getreg8(modrm);
+  context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
+  context->c_pflags |= vio_lsubb(ops,closure,addr,&modrm_getreg8(modrm)) & (OF|SF|ZF|AF|CF|PF);
+  if (!modrm_getreg8(modrm)) context->c_pflags |= CF;
   goto ok;
 
  case 0x1b:
   /* sbb r/m16, r16 */
   /* sbb r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   if (flags & F_OP16) {
-   if (CONTEXT_FLAGS(*context) & CF) ++*(u16 *)&MODRM_REG(context,&modrm);
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
-   CONTEXT_FLAGS(*context) |= vio_lsubw(ops,closure,addr,(u16 *)&MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
-   if (!*(u16 *)&MODRM_REG(context,&modrm)) CONTEXT_FLAGS(*context) |= CF;
+   if (context->c_pflags & CF) ++modrm_getreg16(modrm);
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_lsubw(ops,closure,addr,(u16 *)&modrm_getreg32(modrm)) & (OF|SF|ZF|AF|CF|PF);
+   if (!modrm_getreg16(modrm)) context->c_pflags |= CF;
   } else {
-   if (CONTEXT_FLAGS(*context) & CF) ++*(u32 *)&MODRM_REG(context,&modrm);
-   CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
-   CONTEXT_FLAGS(*context) |= vio_lsubl(ops,closure,addr,(u32 *)&MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
-   if (!*(u32 *)&MODRM_REG(context,&modrm)) CONTEXT_FLAGS(*context) |= CF;
+   if (context->c_pflags & CF) ++*(u32 *)&modrm_getreg32(modrm);
+   context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_lsubl(ops,closure,addr,(u32 *)&modrm_getreg32(modrm)) & (OF|SF|ZF|AF|CF|PF);
+   if (!*(u32 *)&modrm_getreg32(modrm)) context->c_pflags |= CF;
   }
   goto ok;
 
  case 0x20:
   /* and r/m8, r8 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|CF|SF|ZF|PF);
   if (flags & F_LOCK) {
-   CONTEXT_FLAGS(*context) |= vio_atomic_randb(ops,closure,addr,MODRM_REG8(context,&modrm)) & (OF|CF|SF|ZF|PF);
+   context->c_pflags |= vio_atomic_randb(ops,closure,addr,modrm_getreg8(modrm)) & (OF|CF|SF|ZF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_randb(ops,closure,addr,MODRM_REG8(context,&modrm)) & (OF|CF|SF|ZF|PF);
+   context->c_pflags |= vio_randb(ops,closure,addr,modrm_getreg8(modrm)) & (OF|CF|SF|ZF|PF);
   }
   goto ok;
 
  case 0x21:
   /* and r/m16, r16 */
   /* and r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|CF|SF|ZF|PF);
   switch (flags & (F_OP16|F_LOCK)) {
-  case 0:             CONTEXT_FLAGS(*context) |= vio_randl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF); break;
-  case F_OP16:        CONTEXT_FLAGS(*context) |= vio_randw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF); break;
-  case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_randl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF); break;
-  case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_randw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF); break;
+  case 0:             context->c_pflags |= vio_randl(ops,closure,addr,modrm_getreg32(modrm)) & (OF|CF|SF|ZF|PF); break;
+  case F_OP16:        context->c_pflags |= vio_randw(ops,closure,addr,modrm_getreg16(modrm)) & (OF|CF|SF|ZF|PF); break;
+  case F_LOCK:        context->c_pflags |= vio_atomic_randl(ops,closure,addr,modrm_getreg32(modrm)) & (OF|CF|SF|ZF|PF); break;
+  case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_randw(ops,closure,addr,modrm_getreg16(modrm)) & (OF|CF|SF|ZF|PF); break;
   default: __builtin_unreachable();
   }
   goto ok;
 
  case 0x22:
   /* and r8, r/m8 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
-  CONTEXT_FLAGS(*context) |= vio_landb(ops,closure,addr,&MODRM_REG8(context,&modrm)) & (OF|CF|SF|ZF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|CF|SF|ZF|PF);
+  context->c_pflags |= vio_landb(ops,closure,addr,&modrm_getreg8(modrm)) & (OF|CF|SF|ZF|PF);
   goto ok;
 
  case 0x23:
   /* and r/m16, r16 */
   /* and r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|CF|SF|ZF|PF);
   if (flags & F_OP16) {
-   CONTEXT_FLAGS(*context) |= vio_landw(ops,closure,addr,(u16 *)&MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF);
+   context->c_pflags |= vio_landw(ops,closure,addr,(u16 *)&modrm_getreg32(modrm)) & (OF|CF|SF|ZF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_landl(ops,closure,addr,(u32 *)&MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF);
+   context->c_pflags |= vio_landl(ops,closure,addr,(u32 *)&modrm_getreg32(modrm)) & (OF|CF|SF|ZF|PF);
   }
   goto ok;
 
  case 0x28:
   /* sub r/m8, r8 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
   if (flags & F_LOCK) {
-   CONTEXT_FLAGS(*context) |= vio_atomic_rsubb(ops,closure,addr,MODRM_REG8(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_atomic_rsubb(ops,closure,addr,modrm_getreg8(modrm)) & (OF|SF|ZF|AF|CF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_rsubb(ops,closure,addr,MODRM_REG8(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_rsubb(ops,closure,addr,modrm_getreg8(modrm)) & (OF|SF|ZF|AF|CF|PF);
   }
   goto ok;
 
  case 0x29:
   /* sub r/m16, r16 */
   /* sub r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
   switch (flags & (F_OP16|F_LOCK)) {
-  case 0:             CONTEXT_FLAGS(*context) |= vio_rsubl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF); break;
-  case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rsubw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF); break;
-  case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rsubl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF); break;
-  case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_rsubw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF); break;
+  case 0:             context->c_pflags |= vio_rsubl(ops,closure,addr,modrm_getreg32(modrm)) & (OF|SF|ZF|AF|CF|PF); break;
+  case F_OP16:        context->c_pflags |= vio_rsubw(ops,closure,addr,modrm_getreg16(modrm)) & (OF|SF|ZF|AF|CF|PF); break;
+  case F_LOCK:        context->c_pflags |= vio_atomic_rsubl(ops,closure,addr,modrm_getreg32(modrm)) & (OF|SF|ZF|AF|CF|PF); break;
+  case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_rsubw(ops,closure,addr,modrm_getreg16(modrm)) & (OF|SF|ZF|AF|CF|PF); break;
   default: __builtin_unreachable();
   }
   goto ok;
 
  case 0x2a:
   /* sub r8, r/m8 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
-  CONTEXT_FLAGS(*context) |= vio_lsubb(ops,closure,addr,&MODRM_REG8(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
+  context->c_pflags |= vio_lsubb(ops,closure,addr,&modrm_getreg8(modrm)) & (OF|SF|ZF|AF|CF|PF);
   goto ok;
 
  case 0x2b:
   /* sub r/m16, r16 */
   /* sub r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|CF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|SF|ZF|AF|CF|PF);
   if (flags & F_OP16) {
-   CONTEXT_FLAGS(*context) |= vio_lsubw(ops,closure,addr,(u16 *)&MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_lsubw(ops,closure,addr,(u16 *)&modrm_getreg32(modrm)) & (OF|SF|ZF|AF|CF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_lsubl(ops,closure,addr,(u32 *)&MODRM_REG(context,&modrm)) & (OF|SF|ZF|AF|CF|PF);
+   context->c_pflags |= vio_lsubl(ops,closure,addr,(u32 *)&modrm_getreg32(modrm)) & (OF|SF|ZF|AF|CF|PF);
   }
   goto ok;
 
  case 0x30:
   /* xor r/m8, r8 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|CF|SF|ZF|PF);
   if (flags & F_LOCK) {
-   CONTEXT_FLAGS(*context) |= vio_atomic_rxorb(ops,closure,addr,MODRM_REG8(context,&modrm)) & (OF|CF|SF|ZF|PF);
+   context->c_pflags |= vio_atomic_rxorb(ops,closure,addr,modrm_getreg8(modrm)) & (OF|CF|SF|ZF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_rxorb(ops,closure,addr,MODRM_REG8(context,&modrm)) & (OF|CF|SF|ZF|PF);
+   context->c_pflags |= vio_rxorb(ops,closure,addr,modrm_getreg8(modrm)) & (OF|CF|SF|ZF|PF);
   }
   goto ok;
 
  case 0x31:
   /* xor r/m16, r16 */
   /* xor r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|CF|SF|ZF|PF);
   switch (flags & (F_OP16|F_LOCK)) {
-  case 0:             CONTEXT_FLAGS(*context) |= vio_rxorl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF); break;
-  case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rxorw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF); break;
-  case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rxorl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF); break;
-  case F_OP16|F_LOCK: CONTEXT_FLAGS(*context) |= vio_atomic_rxorw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF); break;
+  case 0:             context->c_pflags |= vio_rxorl(ops,closure,addr,modrm_getreg32(modrm)) & (OF|CF|SF|ZF|PF); break;
+  case F_OP16:        context->c_pflags |= vio_rxorw(ops,closure,addr,modrm_getreg16(modrm)) & (OF|CF|SF|ZF|PF); break;
+  case F_LOCK:        context->c_pflags |= vio_atomic_rxorl(ops,closure,addr,modrm_getreg32(modrm)) & (OF|CF|SF|ZF|PF); break;
+  case F_OP16|F_LOCK: context->c_pflags |= vio_atomic_rxorw(ops,closure,addr,modrm_getreg16(modrm)) & (OF|CF|SF|ZF|PF); break;
   default: __builtin_unreachable();
   }
   goto ok;
 
  case 0x32:
   /* xor r8, r/m8 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
-  CONTEXT_FLAGS(*context) |= vio_lxorb(ops,closure,addr,&MODRM_REG8(context,&modrm)) & (OF|CF|SF|ZF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|CF|SF|ZF|PF);
+  context->c_pflags |= vio_lxorb(ops,closure,addr,&modrm_getreg8(modrm)) & (OF|CF|SF|ZF|PF);
   goto ok;
 
  case 0x33:
   /* xor r/m16, r16 */
   /* xor r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(OF|CF|SF|ZF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(OF|CF|SF|ZF|PF);
   if (flags & F_OP16) {
-   CONTEXT_FLAGS(*context) |= vio_lxorw(ops,closure,addr,(u16 *)&MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF);
+   context->c_pflags |= vio_lxorw(ops,closure,addr,(u16 *)&modrm_getreg32(modrm)) & (OF|CF|SF|ZF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_lxorl(ops,closure,addr,(u32 *)&MODRM_REG(context,&modrm)) & (OF|CF|SF|ZF|PF);
+   context->c_pflags |= vio_lxorl(ops,closure,addr,(u32 *)&modrm_getreg32(modrm)) & (OF|CF|SF|ZF|PF);
   }
   goto ok;
 
  case 0x38:
   /* cmp r/m8, r8 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|AF|PF);
-  CONTEXT_FLAGS(*context) |= vio_rcmpb(ops,closure,addr,MODRM_REG8(context,&modrm)) & (CF|OF|SF|ZF|AF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(CF|OF|SF|ZF|AF|PF);
+  context->c_pflags |= vio_rcmpb(ops,closure,addr,modrm_getreg8(modrm)) & (CF|OF|SF|ZF|AF|PF);
   goto ok;
 
  case 0x39:
   /* cmp r/m16, r16 */
   /* cmp r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|AF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(CF|OF|SF|ZF|AF|PF);
   if (flags & F_OP16) {
-   CONTEXT_FLAGS(*context) |= vio_rcmpw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (CF|OF|SF|ZF|AF|PF);
+   context->c_pflags |= vio_rcmpw(ops,closure,addr,modrm_getreg16(modrm)) & (CF|OF|SF|ZF|AF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_rcmpl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (CF|OF|SF|ZF|AF|PF);
+   context->c_pflags |= vio_rcmpl(ops,closure,addr,modrm_getreg32(modrm)) & (CF|OF|SF|ZF|AF|PF);
   }
   goto ok;
 
  case 0x3a:
   /* cmp r8, r/m8 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|AF|PF);
-  CONTEXT_FLAGS(*context) |= vio_lcmpb(ops,closure,addr,MODRM_REG8(context,&modrm)) & (CF|OF|SF|ZF|AF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(CF|OF|SF|ZF|AF|PF);
+  context->c_pflags |= vio_lcmpb(ops,closure,addr,modrm_getreg8(modrm)) & (CF|OF|SF|ZF|AF|PF);
   goto ok;
 
  case 0x3b:
   /* cmp r/m16, r16 */
   /* cmp r/m32, r32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|AF|PF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(CF|OF|SF|ZF|AF|PF);
   if (flags & F_OP16) {
-   CONTEXT_FLAGS(*context) |= vio_lcmpw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (CF|OF|SF|ZF|AF|PF);
+   context->c_pflags |= vio_lcmpw(ops,closure,addr,modrm_getreg16(modrm)) & (CF|OF|SF|ZF|AF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_lcmpl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (CF|OF|SF|ZF|AF|PF);
+   context->c_pflags |= vio_lcmpl(ops,closure,addr,modrm_getreg32(modrm)) & (CF|OF|SF|ZF|AF|PF);
   }
   goto ok;
 
  case 0xc0:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   {
@@ -2505,8 +1980,8 @@ extend_instruction:
    } else {
     new_flags = vio_rrolb(ops,closure,addr,num_bits);
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -2522,8 +1997,8 @@ extend_instruction:
    } else {
     new_flags = vio_rrorb(ops,closure,addr,num_bits);
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -2535,12 +2010,12 @@ extend_instruction:
    num_bits = *(u8 *)text;
    text += 1;
    if (flags & F_LOCK) {
-    new_flags = vio_atomic_rrclb(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits);
+    new_flags = vio_atomic_rrclb(ops,closure,addr,context->c_pflags&CF,num_bits);
    } else {
-    new_flags = vio_rrclb(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits);
+    new_flags = vio_rrclb(ops,closure,addr,context->c_pflags&CF,num_bits);
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -2552,12 +2027,12 @@ extend_instruction:
    num_bits = *(u8 *)text;
    text += 1;
    if (flags & F_LOCK) {
-    new_flags = vio_atomic_rrcrb(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits);
+    new_flags = vio_atomic_rrcrb(ops,closure,addr,context->c_pflags&CF,num_bits);
    } else {
-    new_flags = vio_rrcrb(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits);
+    new_flags = vio_rrcrb(ops,closure,addr,context->c_pflags&CF,num_bits);
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -2575,8 +2050,8 @@ extend_instruction:
     new_flags = vio_rshlb(ops,closure,addr,num_bits);
    }
    if (num_bits) {
-    CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
-    CONTEXT_FLAGS(*context) |= new_flags & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= new_flags & (CF|OF|SF|ZF|PF|AF);
    }
    goto ok;
   }
@@ -2594,8 +2069,8 @@ extend_instruction:
     new_flags = vio_rshrb(ops,closure,addr,num_bits);
    }
    if (num_bits) {
-    CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
-    CONTEXT_FLAGS(*context) |= new_flags & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= new_flags & (CF|OF|SF|ZF|PF|AF);
    }
    goto ok;
   }
@@ -2613,8 +2088,8 @@ extend_instruction:
     new_flags = vio_rsarb(ops,closure,addr,num_bits);
    }
    if (num_bits) {
-    CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
-    CONTEXT_FLAGS(*context) |= new_flags & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= new_flags & (CF|OF|SF|ZF|PF|AF);
    }
    goto ok;
   }
@@ -2624,7 +2099,7 @@ extend_instruction:
   break;
 
  case 0xc1:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   {
@@ -2642,8 +2117,8 @@ extend_instruction:
    case F_LOCK|F_OP16: new_flags = vio_atomic_rrolw(ops,closure,addr,num_bits); break;
    default: __builtin_unreachable();
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -2662,8 +2137,8 @@ extend_instruction:
    case F_LOCK|F_OP16: new_flags = vio_atomic_rrorw(ops,closure,addr,num_bits); break;
    default: __builtin_unreachable();
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -2676,14 +2151,14 @@ extend_instruction:
    num_bits = *(u8 *)text;
    text += 1;
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             new_flags = vio_rrcll(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
-   case F_OP16:        new_flags = vio_rrclw(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
-   case F_LOCK:        new_flags = vio_atomic_rrcll(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
-   case F_LOCK|F_OP16: new_flags = vio_atomic_rrclw(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
+   case 0:             new_flags = vio_rrcll(ops,closure,addr,context->c_pflags&CF,num_bits); break;
+   case F_OP16:        new_flags = vio_rrclw(ops,closure,addr,context->c_pflags&CF,num_bits); break;
+   case F_LOCK:        new_flags = vio_atomic_rrcll(ops,closure,addr,context->c_pflags&CF,num_bits); break;
+   case F_LOCK|F_OP16: new_flags = vio_atomic_rrclw(ops,closure,addr,context->c_pflags&CF,num_bits); break;
    default: __builtin_unreachable();
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -2696,14 +2171,14 @@ extend_instruction:
    num_bits = *(u8 *)text;
    text += 1;
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             new_flags = vio_rrcrl(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
-   case F_OP16:        new_flags = vio_rrcrw(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
-   case F_LOCK:        new_flags = vio_atomic_rrcrl(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
-   case F_LOCK|F_OP16: new_flags = vio_atomic_rrcrw(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
+   case 0:             new_flags = vio_rrcrl(ops,closure,addr,context->c_pflags&CF,num_bits); break;
+   case F_OP16:        new_flags = vio_rrcrw(ops,closure,addr,context->c_pflags&CF,num_bits); break;
+   case F_LOCK:        new_flags = vio_atomic_rrcrl(ops,closure,addr,context->c_pflags&CF,num_bits); break;
+   case F_LOCK|F_OP16: new_flags = vio_atomic_rrcrw(ops,closure,addr,context->c_pflags&CF,num_bits); break;
    default: __builtin_unreachable();
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -2725,8 +2200,8 @@ extend_instruction:
    default: __builtin_unreachable();
    }
    if (num_bits) {
-    CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
-    CONTEXT_FLAGS(*context) |= new_flags & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= new_flags & (CF|OF|SF|ZF|PF|AF);
    }
    goto ok;
   }
@@ -2747,8 +2222,8 @@ extend_instruction:
    default: __builtin_unreachable();
    }
    if (num_bits) {
-    CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
-    CONTEXT_FLAGS(*context) |= new_flags & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= new_flags & (CF|OF|SF|ZF|PF|AF);
    }
    goto ok;
   }
@@ -2769,8 +2244,8 @@ extend_instruction:
    default: __builtin_unreachable();
    }
    if (num_bits) {
-    CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
-    CONTEXT_FLAGS(*context) |= new_flags & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= new_flags & (CF|OF|SF|ZF|PF|AF);
    }
    goto ok;
   }
@@ -2780,7 +2255,7 @@ extend_instruction:
   break;
 
  case 0xd0:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   {
@@ -2792,8 +2267,8 @@ extend_instruction:
    } else {
     new_flags = vio_rrolb(ops,closure,addr,1);
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -2806,8 +2281,8 @@ extend_instruction:
    } else {
     new_flags = vio_rrorb(ops,closure,addr,1);
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -2816,12 +2291,12 @@ extend_instruction:
   case 2:
    /* rcl r/m8, 1 */
    if (flags & F_LOCK) {
-    new_flags = vio_atomic_rrclb(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,1);
+    new_flags = vio_atomic_rrclb(ops,closure,addr,context->c_pflags&CF,1);
    } else {
-    new_flags = vio_rrclb(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,1);
+    new_flags = vio_rrclb(ops,closure,addr,context->c_pflags&CF,1);
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -2830,43 +2305,43 @@ extend_instruction:
   case 3:
    /* rcr r/m8, 1 */
    if (flags & F_LOCK) {
-    new_flags = vio_atomic_rrcrb(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,1);
+    new_flags = vio_atomic_rrcrb(ops,closure,addr,context->c_pflags&CF,1);
    } else {
-    new_flags = vio_rrcrb(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,1);
+    new_flags = vio_rrcrb(ops,closure,addr,context->c_pflags&CF,1);
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
   case 4:
    /* shl r/m8 */
    /* sal r/m8 */
-   CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
+   context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_rshlb(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= vio_atomic_rshlb(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_rshlb(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= vio_rshlb(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF);
    }
    goto ok;
 
   case 5:
    /* shr r/m8 */
-   CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
+   context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_rshrb(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= vio_atomic_rshrb(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_rshrb(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= vio_rshrb(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF);
    }
    goto ok;
 
   case 7:
    /* sar r/m8 */
-   CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
+   context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
    if (flags & F_LOCK) {
-    CONTEXT_FLAGS(*context) |= vio_atomic_rsarb(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= vio_atomic_rsarb(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_rsarb(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= vio_rsarb(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF);
    }
    goto ok;
 
@@ -2875,7 +2350,7 @@ extend_instruction:
   break;
 
  case 0xd1:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   {
@@ -2890,8 +2365,8 @@ extend_instruction:
    case F_LOCK|F_OP16: new_flags = vio_atomic_rrolw(ops,closure,addr,1); break;
    default: __builtin_unreachable();
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -2907,8 +2382,8 @@ extend_instruction:
    case F_LOCK|F_OP16: new_flags = vio_atomic_rrorw(ops,closure,addr,1); break;
    default: __builtin_unreachable();
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -2918,14 +2393,14 @@ extend_instruction:
    /* rcl r/m16, 1 */
    /* rcl r/m32, 1 */
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             new_flags = vio_rrcll(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,1); break;
-   case F_OP16:        new_flags = vio_rrclw(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,1); break;
-   case F_LOCK:        new_flags = vio_atomic_rrcll(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,1); break;
-   case F_LOCK|F_OP16: new_flags = vio_atomic_rrclw(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,1); break;
+   case 0:             new_flags = vio_rrcll(ops,closure,addr,context->c_pflags&CF,1); break;
+   case F_OP16:        new_flags = vio_rrclw(ops,closure,addr,context->c_pflags&CF,1); break;
+   case F_LOCK:        new_flags = vio_atomic_rrcll(ops,closure,addr,context->c_pflags&CF,1); break;
+   case F_LOCK|F_OP16: new_flags = vio_atomic_rrclw(ops,closure,addr,context->c_pflags&CF,1); break;
    default: __builtin_unreachable();
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -2935,14 +2410,14 @@ extend_instruction:
    /* rcr r/m16, 1 */
    /* rcr r/m32, 1 */
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             new_flags = vio_rrcrl(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,1); break;
-   case F_OP16:        new_flags = vio_rrcrw(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,1); break;
-   case F_LOCK:        new_flags = vio_atomic_rrcrl(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,1); break;
-   case F_LOCK|F_OP16: new_flags = vio_atomic_rrcrw(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,1); break;
+   case 0:             new_flags = vio_rrcrl(ops,closure,addr,context->c_pflags&CF,1); break;
+   case F_OP16:        new_flags = vio_rrcrw(ops,closure,addr,context->c_pflags&CF,1); break;
+   case F_LOCK:        new_flags = vio_atomic_rrcrl(ops,closure,addr,context->c_pflags&CF,1); break;
+   case F_LOCK|F_OP16: new_flags = vio_atomic_rrcrw(ops,closure,addr,context->c_pflags&CF,1); break;
    default: __builtin_unreachable();
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -2951,12 +2426,12 @@ extend_instruction:
    /* shl r/m32 */
    /* sal r/m16 */
    /* sal r/m32 */
-   CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
+   context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_rshll(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rshlw(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rshll(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
-   case F_LOCK|F_OP16: CONTEXT_FLAGS(*context) |= vio_atomic_rshlw(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
+   case 0:             context->c_pflags |= vio_rshll(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
+   case F_OP16:        context->c_pflags |= vio_rshlw(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_rshll(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
+   case F_LOCK|F_OP16: context->c_pflags |= vio_atomic_rshlw(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
    default: __builtin_unreachable();
    }
    goto ok;
@@ -2964,12 +2439,12 @@ extend_instruction:
   case 5:
    /* shr r/m16 */
    /* shr r/m32 */
-   CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
+   context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_rshrl(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rshrw(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rshrl(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
-   case F_LOCK|F_OP16: CONTEXT_FLAGS(*context) |= vio_atomic_rshrw(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
+   case 0:             context->c_pflags |= vio_rshrl(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
+   case F_OP16:        context->c_pflags |= vio_rshrw(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_rshrl(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
+   case F_LOCK|F_OP16: context->c_pflags |= vio_atomic_rshrw(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
    default: __builtin_unreachable();
    }
    goto ok;
@@ -2977,12 +2452,12 @@ extend_instruction:
   case 7:
    /* sar r/m16 */
    /* sar r/m32 */
-   CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
+   context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_rsarl(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rsarw(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rsarl(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
-   case F_LOCK|F_OP16: CONTEXT_FLAGS(*context) |= vio_atomic_rsarw(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
+   case 0:             context->c_pflags |= vio_rsarl(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
+   case F_OP16:        context->c_pflags |= vio_rsarw(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_rsarl(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
+   case F_LOCK|F_OP16: context->c_pflags |= vio_atomic_rsarw(ops,closure,addr,1) & (CF|OF|SF|ZF|PF|AF); break;
    default: __builtin_unreachable();
    }
    goto ok;
@@ -2992,7 +2467,7 @@ extend_instruction:
   break;
 
  case 0xd2:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   {
@@ -3001,8 +2476,8 @@ extend_instruction:
    /* rol r/m8,cl */
    new_flags = vio_rrolb(ops,closure,addr,
                         (u8)CONTEXT_CREG(*context));
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -3012,8 +2487,8 @@ extend_instruction:
    /* ror r/m8,cl */
    new_flags = vio_rrorb(ops,closure,addr,
                         (u8)CONTEXT_CREG(*context));
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -3022,10 +2497,10 @@ extend_instruction:
   case 2:
    /* rcl r/m8,cl */
    new_flags = vio_rrclb(ops,closure,addr,
-                         CONTEXT_FLAGS(*context)&CF,
+                         context->c_pflags&CF,
                         (u8)CONTEXT_CREG(*context));
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -3034,10 +2509,10 @@ extend_instruction:
   case 3:
    /* rcr r/m8,cl */
    new_flags = vio_rrcrb(ops,closure,addr,
-                         CONTEXT_FLAGS(*context)&CF,
+                         context->c_pflags&CF,
                         (u8)CONTEXT_CREG(*context));
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -3050,8 +2525,8 @@ extend_instruction:
    num_bits = (u8)CONTEXT_CREG(*context);
    new_flags = vio_rshlb(ops,closure,addr,num_bits);
    if (num_bits) {
-    CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
-    CONTEXT_FLAGS(*context) |= new_flags & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= new_flags & (CF|OF|SF|ZF|PF|AF);
    }
    goto ok;
   }
@@ -3064,8 +2539,8 @@ extend_instruction:
    num_bits = (u8)CONTEXT_CREG(*context);
    new_flags = vio_rshrb(ops,closure,addr,num_bits);
    if (num_bits) {
-    CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
-    CONTEXT_FLAGS(*context) |= new_flags & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= new_flags & (CF|OF|SF|ZF|PF|AF);
    }
    goto ok;
   }
@@ -3078,8 +2553,8 @@ extend_instruction:
    num_bits = (u8)CONTEXT_CREG(*context);
    new_flags = vio_rsarb(ops,closure,addr,num_bits);
    if (num_bits) {
-    CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
-    CONTEXT_FLAGS(*context) |= new_flags & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= new_flags & (CF|OF|SF|ZF|PF|AF);
    }
    goto ok;
   }
@@ -3089,7 +2564,7 @@ extend_instruction:
   break;
 
  case 0xd3:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   {
@@ -3106,8 +2581,8 @@ extend_instruction:
    case F_LOCK|F_OP16: new_flags = vio_atomic_rrolw(ops,closure,addr,num_bits); break;
    default: __builtin_unreachable();
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -3125,8 +2600,8 @@ extend_instruction:
    case F_LOCK|F_OP16: new_flags = vio_atomic_rrorw(ops,closure,addr,num_bits); break;
    default: __builtin_unreachable();
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -3138,14 +2613,14 @@ extend_instruction:
    /* rcl r/m32,cl */
    num_bits = (u8)CONTEXT_CREG(*context);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             new_flags = vio_rrcll(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
-   case F_OP16:        new_flags = vio_rrclw(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
-   case F_LOCK:        new_flags = vio_atomic_rrcll(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
-   case F_LOCK|F_OP16: new_flags = vio_atomic_rrclw(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
+   case 0:             new_flags = vio_rrcll(ops,closure,addr,context->c_pflags&CF,num_bits); break;
+   case F_OP16:        new_flags = vio_rrclw(ops,closure,addr,context->c_pflags&CF,num_bits); break;
+   case F_LOCK:        new_flags = vio_atomic_rrcll(ops,closure,addr,context->c_pflags&CF,num_bits); break;
+   case F_LOCK|F_OP16: new_flags = vio_atomic_rrclw(ops,closure,addr,context->c_pflags&CF,num_bits); break;
    default: __builtin_unreachable();
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -3157,14 +2632,14 @@ extend_instruction:
    /* rcr r/m32,cl */
    num_bits = (u8)CONTEXT_CREG(*context);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             new_flags = vio_rrcrl(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
-   case F_OP16:        new_flags = vio_rrcrw(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
-   case F_LOCK:        new_flags = vio_atomic_rrcrl(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
-   case F_LOCK|F_OP16: new_flags = vio_atomic_rrcrw(ops,closure,addr,CONTEXT_FLAGS(*context)&CF,num_bits); break;
+   case 0:             new_flags = vio_rrcrl(ops,closure,addr,context->c_pflags&CF,num_bits); break;
+   case F_OP16:        new_flags = vio_rrcrw(ops,closure,addr,context->c_pflags&CF,num_bits); break;
+   case F_LOCK:        new_flags = vio_atomic_rrcrl(ops,closure,addr,context->c_pflags&CF,num_bits); break;
+   case F_LOCK|F_OP16: new_flags = vio_atomic_rrcrw(ops,closure,addr,context->c_pflags&CF,num_bits); break;
    default: __builtin_unreachable();
    }
-   CONTEXT_FLAGS(*context) &= ~(CF|OF);
-   CONTEXT_FLAGS(*context) |= new_flags & (CF|OF);
+   context->c_pflags &= ~(CF|OF);
+   context->c_pflags |= new_flags & (CF|OF);
    goto ok;
   }
 
@@ -3185,8 +2660,8 @@ extend_instruction:
    default: __builtin_unreachable();
    }
    if (num_bits) {
-    CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
-    CONTEXT_FLAGS(*context) |= new_flags & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= new_flags & (CF|OF|SF|ZF|PF|AF);
    }
    goto ok;
   }
@@ -3206,8 +2681,8 @@ extend_instruction:
    default: __builtin_unreachable();
    }
    if (num_bits) {
-    CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
-    CONTEXT_FLAGS(*context) |= new_flags & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= new_flags & (CF|OF|SF|ZF|PF|AF);
    }
    goto ok;
   }
@@ -3227,8 +2702,8 @@ extend_instruction:
    default: __builtin_unreachable();
    }
    if (num_bits) {
-    CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|PF|AF);
-    CONTEXT_FLAGS(*context) |= new_flags & (CF|OF|SF|ZF|PF|AF);
+    context->c_pflags &= ~(CF|OF|SF|ZF|PF|AF);
+    context->c_pflags |= new_flags & (CF|OF|SF|ZF|PF|AF);
    }
    goto ok;
   }
@@ -3239,62 +2714,62 @@ extend_instruction:
 
  case 0xd7:
   /* xlatb */
-  *(u8 *)&CONTEXT_AREG(*context) = vio_readb(ops,closure,addr);
+  context->c_gpregs.gp_al = vio_readb(ops,closure,addr);
   goto ok;
 
   /* SETcc r/m8 */
- case 0x0f90: vio_writeb(ops,closure,addr,!!(CONTEXT_FLAGS(*context) & OF)); goto skip_modrm;
- case 0x0f91: vio_writeb(ops,closure,addr,!(CONTEXT_FLAGS(*context) & OF)); goto skip_modrm;
- case 0x0f92: vio_writeb(ops,closure,addr,!!(CONTEXT_FLAGS(*context) & CF)); goto skip_modrm;
- case 0x0f93: vio_writeb(ops,closure,addr,!(CONTEXT_FLAGS(*context) & CF)); goto skip_modrm;
- case 0x0f94: vio_writeb(ops,closure,addr,!!(CONTEXT_FLAGS(*context) & ZF)); goto skip_modrm;
- case 0x0f95: vio_writeb(ops,closure,addr,!(CONTEXT_FLAGS(*context) & ZF)); goto skip_modrm;
- case 0x0f96: vio_writeb(ops,closure,addr,!!(CONTEXT_FLAGS(*context) & (CF|ZF))); goto skip_modrm;
- case 0x0f97: vio_writeb(ops,closure,addr,!(CONTEXT_FLAGS(*context) & (CF|ZF))); goto skip_modrm;
- case 0x0f98: vio_writeb(ops,closure,addr,!!(CONTEXT_FLAGS(*context) & SF)); goto skip_modrm;
- case 0x0f99: vio_writeb(ops,closure,addr,!(CONTEXT_FLAGS(*context) & SF)); goto skip_modrm;
- case 0x0f9a: vio_writeb(ops,closure,addr,!!(CONTEXT_FLAGS(*context) & PF)); goto skip_modrm;
- case 0x0f9b: vio_writeb(ops,closure,addr,!(CONTEXT_FLAGS(*context) & PF)); goto skip_modrm;
- case 0x0f9c: vio_writeb(ops,closure,addr,!!(CONTEXT_FLAGS(*context) & SF) !=
-                                          !!(CONTEXT_FLAGS(*context) & OF)); goto skip_modrm;
- case 0x0f9d: vio_writeb(ops,closure,addr,!!(CONTEXT_FLAGS(*context) & SF) ==
-                                          !!(CONTEXT_FLAGS(*context) & OF)); goto skip_modrm;
- case 0x0f9e: vio_writeb(ops,closure,addr,!!(CONTEXT_FLAGS(*context) & ZF) ||
-                                         (!!(CONTEXT_FLAGS(*context) & SF) !=
-                                          !!(CONTEXT_FLAGS(*context) & OF))); goto skip_modrm;
- case 0x0f9f: vio_writeb(ops,closure,addr,!(CONTEXT_FLAGS(*context) & ZF) ||
-                                         (!!(CONTEXT_FLAGS(*context) & SF) ==
-                                          !!(CONTEXT_FLAGS(*context) & OF)));
+ case 0x0f90: vio_writeb(ops,closure,addr,!!(context->c_pflags & OF)); goto skip_modrm;
+ case 0x0f91: vio_writeb(ops,closure,addr,!(context->c_pflags & OF)); goto skip_modrm;
+ case 0x0f92: vio_writeb(ops,closure,addr,!!(context->c_pflags & CF)); goto skip_modrm;
+ case 0x0f93: vio_writeb(ops,closure,addr,!(context->c_pflags & CF)); goto skip_modrm;
+ case 0x0f94: vio_writeb(ops,closure,addr,!!(context->c_pflags & ZF)); goto skip_modrm;
+ case 0x0f95: vio_writeb(ops,closure,addr,!(context->c_pflags & ZF)); goto skip_modrm;
+ case 0x0f96: vio_writeb(ops,closure,addr,!!(context->c_pflags & (CF|ZF))); goto skip_modrm;
+ case 0x0f97: vio_writeb(ops,closure,addr,!(context->c_pflags & (CF|ZF))); goto skip_modrm;
+ case 0x0f98: vio_writeb(ops,closure,addr,!!(context->c_pflags & SF)); goto skip_modrm;
+ case 0x0f99: vio_writeb(ops,closure,addr,!(context->c_pflags & SF)); goto skip_modrm;
+ case 0x0f9a: vio_writeb(ops,closure,addr,!!(context->c_pflags & PF)); goto skip_modrm;
+ case 0x0f9b: vio_writeb(ops,closure,addr,!(context->c_pflags & PF)); goto skip_modrm;
+ case 0x0f9c: vio_writeb(ops,closure,addr,!!(context->c_pflags & SF) !=
+                                          !!(context->c_pflags & OF)); goto skip_modrm;
+ case 0x0f9d: vio_writeb(ops,closure,addr,!!(context->c_pflags & SF) ==
+                                          !!(context->c_pflags & OF)); goto skip_modrm;
+ case 0x0f9e: vio_writeb(ops,closure,addr,!!(context->c_pflags & ZF) ||
+                                         (!!(context->c_pflags & SF) !=
+                                          !!(context->c_pflags & OF))); goto skip_modrm;
+ case 0x0f9f: vio_writeb(ops,closure,addr,!(context->c_pflags & ZF) ||
+                                         (!!(context->c_pflags & SF) ==
+                                          !!(context->c_pflags & OF)));
 skip_modrm:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   goto ok;
 
  case 0x0f40 ... 0x0f4f:
   /* MOVcc r16, r/m16 */
   /* MOVcc r32, r/m32 */
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   /* NOTE: Because we are here, we already know that the condition
    *       must be true, because otherwise there wouldn't have been
    *       an attempt to write data.  */
   if (flags & F_OP16) {
-   vio_writew(ops,closure,addr,(u16)MODRM_REG(context,&modrm));
+   vio_writew(ops,closure,addr,modrm_getreg16(modrm));
   } else {
-   vio_writel(ops,closure,addr,(u32)MODRM_REG(context,&modrm));
+   vio_writel(ops,closure,addr,modrm_getreg32(modrm));
   }
   goto ok;
 
  case 0x0fba:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   case 4:
    /* bt r/m16, imm8 */
    /* bt r/m32, imm8 */
-   CONTEXT_FLAGS(*context) &= ~(CF);
+   context->c_pflags &= ~(CF);
    if (flags & F_OP16) {
-    CONTEXT_FLAGS(*context) |= vio_rbtw(ops,closure,addr,*(u8 *)text) & (CF);
+    context->c_pflags |= vio_rbtw(ops,closure,addr,*(u8 *)text) & (CF);
    } else {
-    CONTEXT_FLAGS(*context) |= vio_rbtl(ops,closure,addr,*(u8 *)text) & (CF);
+    context->c_pflags |= vio_rbtl(ops,closure,addr,*(u8 *)text) & (CF);
    }
    text += 1;
    goto ok;
@@ -3302,12 +2777,12 @@ skip_modrm:
   case 5:
    /* bts r/m16, imm8 */
    /* bts r/m32, imm8 */
-   CONTEXT_FLAGS(*context) &= ~(CF);
+   context->c_pflags &= ~(CF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_rbtsl(ops,closure,addr,*(u8 *)text) & (CF); break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rbtsw(ops,closure,addr,*(u8 *)text) & (CF); break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rbtsl(ops,closure,addr,*(u8 *)text) & (CF); break;
-   case F_LOCK|F_OP16: CONTEXT_FLAGS(*context) |= vio_atomic_rbtsw(ops,closure,addr,*(u8 *)text) & (CF); break;
+   case 0:             context->c_pflags |= vio_rbtsl(ops,closure,addr,*(u8 *)text) & (CF); break;
+   case F_OP16:        context->c_pflags |= vio_rbtsw(ops,closure,addr,*(u8 *)text) & (CF); break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_rbtsl(ops,closure,addr,*(u8 *)text) & (CF); break;
+   case F_LOCK|F_OP16: context->c_pflags |= vio_atomic_rbtsw(ops,closure,addr,*(u8 *)text) & (CF); break;
    default: __builtin_unreachable();
    }
    text += 1;
@@ -3316,12 +2791,12 @@ skip_modrm:
   case 6:
    /* btr r/m16, imm8 */
    /* btr r/m32, imm8 */
-   CONTEXT_FLAGS(*context) &= ~(CF);
+   context->c_pflags &= ~(CF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_rbtrl(ops,closure,addr,*(u8 *)text) & (CF); break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rbtrw(ops,closure,addr,*(u8 *)text) & (CF); break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rbtrl(ops,closure,addr,*(u8 *)text) & (CF); break;
-   case F_LOCK|F_OP16: CONTEXT_FLAGS(*context) |= vio_atomic_rbtrw(ops,closure,addr,*(u8 *)text) & (CF); break;
+   case 0:             context->c_pflags |= vio_rbtrl(ops,closure,addr,*(u8 *)text) & (CF); break;
+   case F_OP16:        context->c_pflags |= vio_rbtrw(ops,closure,addr,*(u8 *)text) & (CF); break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_rbtrl(ops,closure,addr,*(u8 *)text) & (CF); break;
+   case F_LOCK|F_OP16: context->c_pflags |= vio_atomic_rbtrw(ops,closure,addr,*(u8 *)text) & (CF); break;
    default: __builtin_unreachable();
    }
    text += 1;
@@ -3330,12 +2805,12 @@ skip_modrm:
   case 7:
    /* btc r/m16, imm8 */
    /* btc r/m32, imm8 */
-   CONTEXT_FLAGS(*context) &= ~(CF);
+   context->c_pflags &= ~(CF);
    switch (flags & (F_OP16|F_LOCK)) {
-   case 0:             CONTEXT_FLAGS(*context) |= vio_rbtcl(ops,closure,addr,*(u8 *)text) & (CF); break;
-   case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rbtcw(ops,closure,addr,*(u8 *)text) & (CF); break;
-   case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rbtcl(ops,closure,addr,*(u8 *)text) & (CF); break;
-   case F_LOCK|F_OP16: CONTEXT_FLAGS(*context) |= vio_atomic_rbtcw(ops,closure,addr,*(u8 *)text) & (CF); break;
+   case 0:             context->c_pflags |= vio_rbtcl(ops,closure,addr,*(u8 *)text) & (CF); break;
+   case F_OP16:        context->c_pflags |= vio_rbtcw(ops,closure,addr,*(u8 *)text) & (CF); break;
+   case F_LOCK:        context->c_pflags |= vio_atomic_rbtcl(ops,closure,addr,*(u8 *)text) & (CF); break;
+   case F_LOCK|F_OP16: context->c_pflags |= vio_atomic_rbtcw(ops,closure,addr,*(u8 *)text) & (CF); break;
    default: __builtin_unreachable();
    }
    text += 1;
@@ -3348,95 +2823,95 @@ skip_modrm:
  case 0x0fb6:
   /* movzx r16,r/m8 */
   /* movzx r32,r/m8 */
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   if (flags & F_OP16) {
-   *(u16 *)&MODRM_REG(context,&modrm) = (u16)vio_readb(ops,closure,addr);
+   modrm_getreg16(modrm) = (u16)vio_readb(ops,closure,addr);
   } else {
-   *(u32 *)&MODRM_REG(context,&modrm) = (u32)vio_readb(ops,closure,addr);
+   *(u32 *)&modrm_getreg32(modrm) = (u32)vio_readb(ops,closure,addr);
   }
   goto ok;
 
  case 0x0fb7:
   /* movzx r32,r/m16 */
-  text = x86_decode_modrm(text,&modrm);
-  *(u32 *)&MODRM_REG(context,&modrm) = (u32)vio_readw(ops,closure,addr);
+  text = x86_decode_modrm(text,&modrm,flags);
+  *(u32 *)&modrm_getreg32(modrm) = (u32)vio_readw(ops,closure,addr);
   goto ok;
 
  case 0x0fbe:
   /* movsx r16,r/m8 */
   /* movsx r32,r/m8 */
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   if (flags & F_OP16) {
-   *(s16 *)&MODRM_REG(context,&modrm) = (s16)(s8)vio_readb(ops,closure,addr);
+   *(s16 *)&modrm_getreg32(modrm) = (s16)(s8)vio_readb(ops,closure,addr);
   } else {
-   *(s32 *)&MODRM_REG(context,&modrm) = (s32)(s8)vio_readb(ops,closure,addr);
+   *(s32 *)&modrm_getreg32(modrm) = (s32)(s8)vio_readb(ops,closure,addr);
   }
   goto ok;
 
  case 0x0fbf:
   /* movsx r32,r/m16 */
-  text = x86_decode_modrm(text,&modrm);
-  *(s32 *)&MODRM_REG(context,&modrm) = (s32)(s16)vio_readw(ops,closure,addr);
+  text = x86_decode_modrm(text,&modrm,flags);
+  *(s32 *)&modrm_getreg32(modrm) = (s32)(s16)vio_readw(ops,closure,addr);
   goto ok;
 
  case 0x0fa3:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   /* bt r/m16, r16 */
   /* bt r/m32, r32 */
-  CONTEXT_FLAGS(*context) &= ~(CF);
+  context->c_pflags &= ~(CF);
   if (flags & F_OP16) {
-   CONTEXT_FLAGS(*context) |= vio_rbtw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (CF);
+   context->c_pflags |= vio_rbtw(ops,closure,addr,modrm_getreg16(modrm)) & (CF);
   } else {
-   CONTEXT_FLAGS(*context) |= vio_rbtl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (CF);
+   context->c_pflags |= vio_rbtl(ops,closure,addr,modrm_getreg32(modrm)) & (CF);
   }
   goto ok;
 
  case 0x0fb3:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   /* btr r/m16, r16 */
   /* btr r/m32, r32 */
-  CONTEXT_FLAGS(*context) &= ~(CF);
+  context->c_pflags &= ~(CF);
   switch (flags & (F_OP16|F_LOCK)) {
-  case 0:             CONTEXT_FLAGS(*context) |= vio_rbtrl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (CF); break;
-  case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rbtrw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (CF); break;
-  case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rbtrl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (CF); break;
-  case F_LOCK|F_OP16: CONTEXT_FLAGS(*context) |= vio_atomic_rbtrw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (CF); break;
+  case 0:             context->c_pflags |= vio_rbtrl(ops,closure,addr,modrm_getreg32(modrm)) & (CF); break;
+  case F_OP16:        context->c_pflags |= vio_rbtrw(ops,closure,addr,modrm_getreg16(modrm)) & (CF); break;
+  case F_LOCK:        context->c_pflags |= vio_atomic_rbtrl(ops,closure,addr,modrm_getreg32(modrm)) & (CF); break;
+  case F_LOCK|F_OP16: context->c_pflags |= vio_atomic_rbtrw(ops,closure,addr,modrm_getreg16(modrm)) & (CF); break;
   default: __builtin_unreachable();
   }
   goto ok;
 
  case 0x0fbb:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   /* btc r/m16, r16 */
   /* btc r/m32, r32 */
-  CONTEXT_FLAGS(*context) &= ~(CF);
+  context->c_pflags &= ~(CF);
   switch (flags & (F_OP16|F_LOCK)) {
-  case 0:             CONTEXT_FLAGS(*context) |= vio_rbtcl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (CF); break;
-  case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rbtcw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (CF); break;
-  case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rbtcl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (CF); break;
-  case F_LOCK|F_OP16: CONTEXT_FLAGS(*context) |= vio_atomic_rbtcw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (CF); break;
+  case 0:             context->c_pflags |= vio_rbtcl(ops,closure,addr,modrm_getreg32(modrm)) & (CF); break;
+  case F_OP16:        context->c_pflags |= vio_rbtcw(ops,closure,addr,modrm_getreg16(modrm)) & (CF); break;
+  case F_LOCK:        context->c_pflags |= vio_atomic_rbtcl(ops,closure,addr,modrm_getreg32(modrm)) & (CF); break;
+  case F_LOCK|F_OP16: context->c_pflags |= vio_atomic_rbtcw(ops,closure,addr,modrm_getreg16(modrm)) & (CF); break;
   default: __builtin_unreachable();
   }
   goto ok;
 
  case 0x0fab:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   /* bts r/m16, r16 */
   /* bts r/m32, r32 */
-  CONTEXT_FLAGS(*context) &= ~(CF);
+  context->c_pflags &= ~(CF);
   switch (flags & (F_OP16|F_LOCK)) {
-  case 0:             CONTEXT_FLAGS(*context) |= vio_rbtsl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (CF); break;
-  case F_OP16:        CONTEXT_FLAGS(*context) |= vio_rbtsw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (CF); break;
-  case F_LOCK:        CONTEXT_FLAGS(*context) |= vio_atomic_rbtsl(ops,closure,addr,(u32)MODRM_REG(context,&modrm)) & (CF); break;
-  case F_LOCK|F_OP16: CONTEXT_FLAGS(*context) |= vio_atomic_rbtsw(ops,closure,addr,(u16)MODRM_REG(context,&modrm)) & (CF); break;
+  case 0:             context->c_pflags |= vio_rbtsl(ops,closure,addr,modrm_getreg32(modrm)) & (CF); break;
+  case F_OP16:        context->c_pflags |= vio_rbtsw(ops,closure,addr,modrm_getreg16(modrm)) & (CF); break;
+  case F_LOCK:        context->c_pflags |= vio_atomic_rbtsl(ops,closure,addr,modrm_getreg32(modrm)) & (CF); break;
+  case F_LOCK|F_OP16: context->c_pflags |= vio_atomic_rbtsw(ops,closure,addr,modrm_getreg16(modrm)) & (CF); break;
   default: __builtin_unreachable();
   }
   goto ok;
 
  case 0xaa:
   /* stosb */
-  vio_writeb(ops,closure,addr,(u8)CONTEXT_AREG(*context));
-  if (CONTEXT_FLAGS(*context) & DF) {
+  vio_writeb(ops,closure,addr,context->c_gpregs.gp_al);
+  if (context->c_pflags & DF) {
    ++CONTEXT_DIREG(*context);
    ++CONTEXT_SIREG(*context);
   } else {
@@ -3449,8 +2924,8 @@ skip_modrm:
   /* stosw */
   /* stosl */
   if (flags & F_OP16) {
-   vio_writew(ops,closure,addr,(u16)CONTEXT_AREG(*context));
-   if (CONTEXT_FLAGS(*context) & DF) {
+   vio_writew(ops,closure,addr,context->c_gpregs.gp_ax);
+   if (context->c_pflags & DF) {
     CONTEXT_DIREG(*context) -= 2;
     CONTEXT_SIREG(*context) -= 2;
    } else {
@@ -3458,8 +2933,8 @@ skip_modrm:
     CONTEXT_SIREG(*context) += 2;
    }
   } else {
-   vio_writel(ops,closure,addr,(u32)CONTEXT_AREG(*context));
-   if (CONTEXT_FLAGS(*context) & DF) {
+   vio_writel(ops,closure,addr,context->c_gpregs.gp_eax);
+   if (context->c_pflags & DF) {
     CONTEXT_DIREG(*context) -= 4;
     CONTEXT_SIREG(*context) -= 4;
    } else {
@@ -3471,8 +2946,8 @@ skip_modrm:
 
  case 0xac:
   /* lodsb */
-  *(u8 *)&CONTEXT_AREG(*context) = vio_readb(ops,closure,addr);
-  if (CONTEXT_FLAGS(*context) & DF) {
+  context->c_gpregs.gp_al = vio_readb(ops,closure,addr);
+  if (context->c_pflags & DF) {
    --CONTEXT_SIREG(*context);
   } else {
    ++CONTEXT_SIREG(*context);
@@ -3483,15 +2958,15 @@ skip_modrm:
   /* lodsw */
   /* lodsl */
   if (flags & F_OP16) {
-   *(u16 *)&CONTEXT_AREG(*context) = vio_readw(ops,closure,addr);
-   if (CONTEXT_FLAGS(*context) & DF) {
+   context->c_gpregs.gp_ax = vio_readw(ops,closure,addr);
+   if (context->c_pflags & DF) {
     CONTEXT_DIREG(*context) -= 2;
    } else {
     CONTEXT_DIREG(*context) += 2;
    }
   } else {
-   *(u32 *)&CONTEXT_AREG(*context) = vio_readl(ops,closure,addr);
-   if (CONTEXT_FLAGS(*context) & DF) {
+   context->c_gpregs.gp_eax = vio_readl(ops,closure,addr);
+   if (context->c_pflags & DF) {
     CONTEXT_DIREG(*context) -= 4;
    } else {
     CONTEXT_DIREG(*context) += 4;
@@ -3501,9 +2976,9 @@ skip_modrm:
 
  case 0xae:
   /* scasb */
-  CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|PF|CF);
-  CONTEXT_FLAGS(*context) |= x86_cmpb(*(u8 *)&CONTEXT_AREG(*context),vio_readb(ops,closure,addr));
-  if (CONTEXT_FLAGS(*context) & DF) {
+  context->c_pflags &= ~(OF|SF|ZF|AF|PF|CF);
+  context->c_pflags |= x86_cmpb(context->c_gpregs.gp_al,vio_readb(ops,closure,addr));
+  if (context->c_pflags & DF) {
    --CONTEXT_DIREG(*context);
   } else {
    ++CONTEXT_DIREG(*context);
@@ -3513,19 +2988,19 @@ skip_modrm:
  case 0xaf:
   /* scasw */
   /* scasl */
-  CONTEXT_FLAGS(*context) &= ~(OF|SF|ZF|AF|PF|CF);
+  context->c_pflags &= ~(OF|SF|ZF|AF|PF|CF);
   if (flags & F_OP16) {
-   CONTEXT_FLAGS(*context) |= x86_cmpw(*(u16 *)&CONTEXT_AREG(*context),
+   context->c_pflags |= x86_cmpw(context->c_gpregs.gp_ax,
                                        vio_readw(ops,closure,addr));
-   if (CONTEXT_FLAGS(*context) & DF) {
+   if (context->c_pflags & DF) {
     CONTEXT_DIREG(*context) -= 2;
    } else {
     CONTEXT_DIREG(*context) += 2;
    }
   } else {
-   CONTEXT_FLAGS(*context) |= x86_cmpl(*(u32 *)&CONTEXT_AREG(*context),
+   context->c_pflags |= x86_cmpl(context->c_gpregs.gp_eax,
                                        vio_readl(ops,closure,addr));
-   if (CONTEXT_FLAGS(*context) & DF) {
+   if (context->c_pflags & DF) {
     CONTEXT_DIREG(*context) -= 4;
    } else {
     CONTEXT_DIREG(*context) += 4;
@@ -3535,17 +3010,17 @@ skip_modrm:
 
  case 0xa6:
   /* cmpsb */
-  CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|AF|PF);
+  context->c_pflags &= ~(CF|OF|SF|ZF|AF|PF);
   if ((uintptr_t)abs_addr == CONTEXT_DIREG(*context)) {
-   CONTEXT_FLAGS(*context) |= x86_cmpb(*(u8 *)CONTEXT_SIREG(*context),
+   context->c_pflags |= x86_cmpb(*(u8 *)CONTEXT_SIREG(*context),
                                        vio_readb(ops,closure,addr)) &
                                       (CF|OF|SF|ZF|AF|PF);
   } else {
-   CONTEXT_FLAGS(*context) |= x86_cmpb(vio_readb(ops,closure,addr),
+   context->c_pflags |= x86_cmpb(vio_readb(ops,closure,addr),
                                        *(u8 *)CONTEXT_DIREG(*context)) &
                                       (CF|OF|SF|ZF|AF|PF);
   }
-  if (CONTEXT_FLAGS(*context) & DF) {
+  if (context->c_pflags & DF) {
    CONTEXT_DIREG(*context) -= 1;
    CONTEXT_SIREG(*context) -= 1;
   } else {
@@ -3557,14 +3032,14 @@ skip_modrm:
  case 0xa7:
   /* cmpsw */
   /* cmpsl */
-  CONTEXT_FLAGS(*context) &= ~(CF|OF|SF|ZF|AF|PF);
+  context->c_pflags &= ~(CF|OF|SF|ZF|AF|PF);
   if (flags & F_OP16) {
    if ((uintptr_t)abs_addr == CONTEXT_DIREG(*context)) {
-    CONTEXT_FLAGS(*context) |= x86_cmpw(*(u16 *)CONTEXT_SIREG(*context),
+    context->c_pflags |= x86_cmpw(*(u16 *)CONTEXT_SIREG(*context),
                                         vio_readw(ops,closure,addr)) &
                                        (CF|OF|SF|ZF|AF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= x86_cmpw(vio_readw(ops,closure,addr),
+    context->c_pflags |= x86_cmpw(vio_readw(ops,closure,addr),
                                         *(u16 *)CONTEXT_DIREG(*context)) &
                                        (CF|OF|SF|ZF|AF|PF);
    }
@@ -3572,11 +3047,11 @@ skip_modrm:
    CONTEXT_SIREG(*context) += 2;
   } else {
    if ((uintptr_t)abs_addr == CONTEXT_DIREG(*context)) {
-    CONTEXT_FLAGS(*context) |= x86_cmpl(*(u32 *)CONTEXT_SIREG(*context),
+    context->c_pflags |= x86_cmpl(*(u32 *)CONTEXT_SIREG(*context),
                                         vio_readl(ops,closure,addr)) &
                                        (CF|OF|SF|ZF|AF|PF);
    } else {
-    CONTEXT_FLAGS(*context) |= x86_cmpl(vio_readl(ops,closure,addr),
+    context->c_pflags |= x86_cmpl(vio_readl(ops,closure,addr),
                                         *(u32 *)CONTEXT_DIREG(*context)) &
                                        (CF|OF|SF|ZF|AF|PF);
    }
@@ -3588,47 +3063,47 @@ skip_modrm:
  case 0x0fbc:
   /* bsf r16, r/m16 */
   /* bsf r32, r/m32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(ZF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(ZF);
   if (flags & F_OP16) {
-   CONTEXT_FLAGS(*context) |= x86_bsfw(vio_readw(ops,closure,addr),
-                                      (u16 *)&MODRM_REG(context,&modrm)) & ZF;
+   context->c_pflags |= x86_bsfw(vio_readw(ops,closure,addr),
+                                      (u16 *)&modrm_getreg32(modrm)) & ZF;
   } else {
-   CONTEXT_FLAGS(*context) |= x86_bsfl(vio_readl(ops,closure,addr),
-                                      (u32 *)&MODRM_REG(context,&modrm)) & ZF;
+   context->c_pflags |= x86_bsfl(vio_readl(ops,closure,addr),
+                                      (u32 *)&modrm_getreg32(modrm)) & ZF;
   }
   goto ok;
 
  case 0x0fbd:
   /* bsr r16, r/m16 */
   /* bsr r32, r/m32 */
-  text = x86_decode_modrm(text,&modrm);
-  CONTEXT_FLAGS(*context) &= ~(ZF);
+  text = x86_decode_modrm(text,&modrm,flags);
+  context->c_pflags &= ~(ZF);
   if (flags & F_OP16) {
-   CONTEXT_FLAGS(*context) |= x86_bsrw(vio_readw(ops,closure,addr),
-                                      (u16 *)&MODRM_REG(context,&modrm)) & ZF;
+   context->c_pflags |= x86_bsrw(vio_readw(ops,closure,addr),
+                                      (u16 *)&modrm_getreg32(modrm)) & ZF;
   } else {
-   CONTEXT_FLAGS(*context) |= x86_bsrl(vio_readl(ops,closure,addr),
-                                      (u32 *)&MODRM_REG(context,&modrm)) & ZF;
+   context->c_pflags |= x86_bsrl(vio_readl(ops,closure,addr),
+                                      (u32 *)&modrm_getreg32(modrm)) & ZF;
   }
   goto ok;
 
  case 0x0f00:
-  text = x86_decode_modrm(text,&modrm);
+  text = x86_decode_modrm(text,&modrm,flags);
   switch (modrm.mi_rm) {
 
   case 4:
    /* verr r/m16 */
-   CONTEXT_FLAGS(*context) &= ~(ZF);
+   context->c_pflags &= ~(ZF);
    if (__verr(vio_readw(ops,closure,addr)))
-       CONTEXT_FLAGS(*context) |= ZF;
+       context->c_pflags |= ZF;
    break;
 
   case 5:
    /* verw r/m16 */
-   CONTEXT_FLAGS(*context) &= ~(ZF);
+   context->c_pflags &= ~(ZF);
    if (__verw(vio_readw(ops,closure,addr)))
-       CONTEXT_FLAGS(*context) |= ZF;
+       context->c_pflags |= ZF;
    break;
 
   default: break;
@@ -3649,10 +3124,10 @@ ok_handle_repe:
  if (flags & (F_REP|F_REPNE)) {
   if (--CONTEXT_CREG(*context) != 0) {
    if (flags & F_REPNE) {
-    if (!(CONTEXT_FLAGS(*context) & ZF))
+    if (!(context->c_pflags & ZF))
           goto ok_noip;
    } else {
-    if (CONTEXT_FLAGS(*context) & ZF)
+    if (context->c_pflags & ZF)
         goto ok_noip;
    }
   }

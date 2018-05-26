@@ -42,7 +42,7 @@
 #include <unistd.h>
 #include <sched.h>
 #include <sys/ioctl.h>
-#include <kos/i386-kos/vga.h>
+#include <kos/i386-kos/io/vga.h>
 #include <kos/ushare.h>
 #include <asm/cpu-flags.h>
 #include <errno.h>

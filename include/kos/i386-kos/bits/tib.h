@@ -16,11 +16,14 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef _KOS_I386_KOS_TIB_H
-#define _KOS_I386_KOS_TIB_H 1
+#ifndef _KOS_I386_KOS_BITS_TIB_H
+#define _KOS_I386_KOS_BITS_TIB_H 1
 
 #include <__stdinc.h>
 #include <hybrid/host.h>
+#include <hybrid/typecore.h>
+#include "compat.h"
+
 
 __SYSDECL_BEGIN
 
@@ -38,6 +41,7 @@ __SYSDECL_BEGIN
 struct _EXCEPTION_REGISTRATION;
 /* NT-compatible Thread Information Block:
  *   https://en.wikipedia.org/wiki/Win32_Thread_Information_Block */
+#define __nt_tib_defined 1
 struct __ATTR_PACKED nt_tib {
     struct _EXCEPTION_REGISTRATION *nt_seh;              /* [0..1] Current Structured Exception Handling (SEH) frame */
     void                           *nt_stack_top;        /* [0..1] One past the greatest address associated with the stack. */
@@ -99,7 +103,10 @@ struct __ATTR_PACKED nt_tib {
 #endif /* !CONFIG_NO_DOS_COMPAT */
 #endif
 
-
 __SYSDECL_END
 
-#endif /* !_KOS_I386_KOS_TIB_H */
+#ifdef __EXPOSE_CPU_COMPAT
+#include "tib-compat.h"
+#endif
+
+#endif /* !_KOS_I386_KOS_BITS_TIB_H */

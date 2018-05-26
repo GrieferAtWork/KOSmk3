@@ -250,7 +250,7 @@ pagedir_init(VIRT pagedir_t *__restrict self,
 /* Finalize a given page directory. */
 PUBLIC ATTR_NOTHROW void KCALL
 pagedir_fini(VIRT pagedir_t *__restrict self) {
- ENT e; unsigned int i,j,k; vm_vpage_t tmppage;
+ ENT e; unsigned int i,j,k;
  pflag_t was; bool did_switch = false;
  for (i = 0; i < PAGING_E4_SHARE_INDEX; ++i) {
   union x86_pdir_e3 *e3_vector;
@@ -378,11 +378,11 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
      edata |= x86_page_global; /* Kernel-share mapping. */
 
  pagedir_split_before(virt_page);
- pagedir_split_before(virt_page+num_pages);
+ pagedir_split_before(vpage_end);
 
  /* TODO */
 
- pagedir_merge_before(virt_page+num_pages);
+ pagedir_merge_before(vpage_end);
  pagedir_merge_before(virt_page);
 }
 

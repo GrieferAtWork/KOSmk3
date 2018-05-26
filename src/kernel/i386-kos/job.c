@@ -56,15 +56,22 @@ struct urpc_data {
 PRIVATE void KCALL urpc_validate(struct urpc_data *__restrict data) {
  /* Validate segment registers. */
  if (data->ud_mode & X86_JOB_FLOAD_SEGMENTS) {
+#ifdef __x86_64__
+  if (!data->ud_context.c_cs)
+       data->ud_context.c_cs = interrupt_getcompat() ? X86_SEG_USER_CS32 : X86_SEG_USER_CS;
+  if (!data->ud_context.c_ss)
+       data->ud_context.c_ss = interrupt_getcompat() ? X86_SEG_USER_SS32 : X86_SEG_USER_SS;
+#else
   if (!data->ud_context.c_cs)
        data->ud_context.c_cs = X86_SEG_USER_CS;
   if (!data->ud_context.c_ss)
        data->ud_context.c_ss = X86_SEG_USER_SS;
+#endif
   if (!__verw(data->ud_context.c_ss))
        throw_invalid_segment(data->ud_context.c_ss,X86_REGISTER_SEGMENT_SS);
   if ((data->ud_context.c_cs & 3) != 3 || !__verw(data->ud_context.c_cs))
        throw_invalid_segment(data->ud_context.c_cs,X86_REGISTER_SEGMENT_CS);
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
   if (!data->ud_context.c_segments.sg_gs)
        data->ud_context.c_segments.sg_gs = X86_SEG_USER_GS;
   if (!data->ud_context.c_segments.sg_fs)
@@ -147,9 +154,9 @@ urpc_callback(struct urpc_data *__restrict data,
  urpc_mode = data->ud_mode;
 
  /* Figure out where information is saved. */
- target_stack = (byte_t *)context->c_esp;
+ target_stack = (byte_t *)context->c_psp;
  if (urpc_mode & X86_JOB_FLOAD_STACK)
-     target_stack = (byte_t *)data->ud_context.c_esp;
+     target_stack = (byte_t *)data->ud_context.c_psp;
  else {
   validate_writable(target_stack,sizeof(uintptr_t));
  }
@@ -158,7 +165,42 @@ urpc_callback(struct urpc_data *__restrict data,
  /* Construct the job frame, pushing only requested registers.
   * The user-space structure detailing this order is `struct x86_job_frame' */
 #ifdef __x86_64__
-#error TODO
+ if (urpc_mode & X86_JOB_FSAVE_SEGMENTS)
+     PUSH(context->c_iret.ir_ss);
+ if (urpc_mode & X86_JOB_FSAVE_STACK)
+     PUSH(context->c_rsp);
+ if (urpc_mode & X86_JOB_FSAVE_CREGS)
+     PUSH(context->c_rflags);
+ if (urpc_mode & X86_JOB_FSAVE_SEGMENTS)
+     PUSH(context->c_iret.ir_cs);
+ PUSH(context->c_iret.ir_rip);
+ if (urpc_mode & X86_JOB_FSAVE_SEGMENTS) {
+  PUSH(RD_USER_FSBASE());
+  PUSH(RD_USER_GSBASE());
+ }
+ if (urpc_mode & X86_JOB_FSAVE_CREGS) {
+  PUSH(context->c_gpregs.gp_rax);
+  PUSH(context->c_gpregs.gp_rcx);
+  PUSH(context->c_gpregs.gp_rdx);
+ }
+ if (urpc_mode & X86_JOB_FSAVE_PREGS) {
+  PUSH(context->c_gpregs.gp_rbx);
+  PUSH(context->c_gpregs.gp_rbp);
+ }
+ if (urpc_mode & X86_JOB_FSAVE_CREGS) {
+  PUSH(context->c_gpregs.gp_rsi);
+  PUSH(context->c_gpregs.gp_rdi);
+  PUSH(context->c_gpregs.gp_r8);
+  PUSH(context->c_gpregs.gp_r9);
+  PUSH(context->c_gpregs.gp_r10);
+  PUSH(context->c_gpregs.gp_r11);
+ }
+ if (urpc_mode & X86_JOB_FSAVE_PREGS) {
+  PUSH(context->c_gpregs.gp_r12);
+  PUSH(context->c_gpregs.gp_r13);
+  PUSH(context->c_gpregs.gp_r14);
+  PUSH(context->c_gpregs.gp_r15);
+ }
 #else
  if (urpc_mode & X86_JOB_FSAVE_SEGMENTS)
      PUSH(context->c_iret.ir_ss),
@@ -184,6 +226,8 @@ urpc_callback(struct urpc_data *__restrict data,
   PUSH(context->c_gpregs.gp_ecx);
   PUSH(context->c_gpregs.gp_edx);
  }
+ if (urpc_mode & X86_JOB_FSAVE_STACK)
+     PUSH(context->c_esp);
  if (urpc_mode & X86_JOB_FSAVE_PREGS) {
   PUSH(context->c_gpregs.gp_ebx);
   PUSH(context->c_gpregs.gp_esp);
@@ -201,7 +245,36 @@ urpc_callback(struct urpc_data *__restrict data,
 
  /* Now load those portions of the user-context which we should overwrite. */
 #ifdef __x86_64__
-#error TODO
+ context->c_iret.ir_rip = data->ud_context.c_rip;
+ if (urpc_mode & X86_JOB_FLOAD_SEGMENTS) {
+  WR_USER_FSBASE(data->ud_context.c_segments.sg_fsbase);
+  WR_USER_GSBASE(data->ud_context.c_segments.sg_gsbase);
+ }
+ if (urpc_mode & X86_JOB_FLOAD_CREGS) {
+  context->c_iret.ir_rflags = data->ud_context.c_rflags;
+  context->c_gpregs.gp_rax  = data->ud_context.c_gpregs.gp_rax;
+  context->c_gpregs.gp_rcx  = data->ud_context.c_gpregs.gp_rcx;
+  context->c_gpregs.gp_rdx  = data->ud_context.c_gpregs.gp_rdx;
+  context->c_gpregs.gp_rsi  = data->ud_context.c_gpregs.gp_rsi;
+  context->c_gpregs.gp_rdi  = data->ud_context.c_gpregs.gp_rdi;
+  context->c_gpregs.gp_r8   = data->ud_context.c_gpregs.gp_r8;
+  context->c_gpregs.gp_r9   = data->ud_context.c_gpregs.gp_r9;
+  context->c_gpregs.gp_r10  = data->ud_context.c_gpregs.gp_r10;
+  context->c_gpregs.gp_r11  = data->ud_context.c_gpregs.gp_r11;
+  context->c_iret.ir_rflags |=  (EFLAGS_IF);
+  context->c_iret.ir_rflags &= ~(EFLAGS_TF|EFLAGS_IOPL(3)|
+                                 EFLAGS_NT|EFLAGS_RF|EFLAGS_VM|
+                                 EFLAGS_AC|EFLAGS_VIF|EFLAGS_VIP|
+                                 EFLAGS_ID);
+ }
+ if (urpc_mode & X86_JOB_FLOAD_PREGS) {
+  context->c_gpregs.gp_rbp = data->ud_context.c_gpregs.gp_rbp;
+  context->c_gpregs.gp_rbx = data->ud_context.c_gpregs.gp_rbx;
+  context->c_gpregs.gp_r12 = data->ud_context.c_gpregs.gp_r12;
+  context->c_gpregs.gp_r13 = data->ud_context.c_gpregs.gp_r13;
+  context->c_gpregs.gp_r14 = data->ud_context.c_gpregs.gp_r14;
+  context->c_gpregs.gp_r15 = data->ud_context.c_gpregs.gp_r15;
+ }
 #else
  context->c_iret.ir_eip = data->ud_context.c_eip;
  if (urpc_mode & X86_JOB_FLOAD_SEGMENTS) {

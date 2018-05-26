@@ -1074,13 +1074,9 @@ again:
        max_write = xnum_bytes;
    if (max_write == self->b_blocksize) {
     assert(pageof == 0);
-    /* Force a segfault if the user-buffer is NULL. */
-    if unlikely(!buf) {
-     __asm__ __volatile__("movl (%0), %0"
-                          :
-                          : "r" (buf)
-                          : "memory");
-    }
+    /* Throw a segfault if the user-buffer is NULL. */
+    if unlikely(!buf)
+       error_throwf(E_SEGFAULT,0,(void *)0);
     /* Directly initialize new pages from the user-buffer (don't read them from disk). */
     page = new_page(self,pageno,buf,flags);
    } else {

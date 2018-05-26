@@ -62,7 +62,11 @@ INTERN ATTR_FREETEXT void KCALL x86_initialize_sysenter(void) {
  }
  /* Write sysenter-specific MSRs */
  __wrmsr(SYSENTER_CS_MSR,X86_KERNEL_CS);
+#ifdef __x86_64__
+ __wrmsr(SYSENTER_ESP_MSR,(uintptr_t)&PERCPU(x86_cputss).t_rsp0);
+#else
  __wrmsr(SYSENTER_ESP_MSR,(uintptr_t)&PERCPU(x86_cputss).t_esp0);
+#endif
  __wrmsr(SYSENTER_EIP_MSR,(uintptr_t)&sysenter_kernel_entry);
 
  if (THIS_CPU == &_boot_cpu) {

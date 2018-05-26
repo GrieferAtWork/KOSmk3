@@ -21,7 +21,7 @@
 
 #include <hybrid/compiler.h>
 #include <hybrid/typecore.h>
-#include <kos/i386-kos/tls.h>
+#include <kos/i386-kos/asm/tls.h>
 
 #ifdef __CC__
 DECL_BEGIN

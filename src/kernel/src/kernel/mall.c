@@ -261,9 +261,7 @@ mall_search_task(struct task *__restrict thread) {
  struct cpu_anycontext *context;
  /* Search the registers of this thread. */
  context = thread->t_context;
- thread->t_vm;
-
- if (context->c_iret.ir_cs & 3) {
+ if (X86_ANYCONTEXT_ISUSER(*context)) {
   /* Thread is currently in user-space (meaning its kernel stack is unused) */
  } else {
   unsigned int i;
@@ -271,12 +269,12 @@ mall_search_task(struct task *__restrict thread) {
   for (i = 0; i < (sizeof(struct x86_gpregs)/sizeof(void *)); ++i)
        mall_reachable_pointer(((void **)&context->c_gpregs)[i]);
 
-  if (context->c_hostesp >  (uintptr_t)thread->t_stackmin &&
-      context->c_hostesp <= (uintptr_t)thread->t_stackend) {
+  if (X86_ANYCONTEXT_USERSP(*context) >  (uintptr_t)thread->t_stackmin &&
+      X86_ANYCONTEXT_USERSP(*context) <= (uintptr_t)thread->t_stackend) {
    /* Search the used portion of the kernel stack. */
-   mall_reachable_data((void *)context->c_hostesp,
+   mall_reachable_data((void *)X86_ANYCONTEXT_USERSP(*context),
                        (uintptr_t)thread->t_stackend-
-                       (uintptr_t)context->c_hostesp);
+                       (uintptr_t)X86_ANYCONTEXT_USERSP(*context));
   } else {
    /* Stack pointer is out-of-bounds (no idea what this is
     * about, but let's just assume the entire stack is allocated) */

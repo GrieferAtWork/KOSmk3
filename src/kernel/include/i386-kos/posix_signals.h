@@ -21,15 +21,14 @@
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
+#include <kos/context.h>
 #include <bits/siginfo.h>
 
 DECL_BEGIN
 
 #ifdef __CC__
 
-struct cpu_hostcontext_user;
 struct sigaction;
-
 
 /* Redirect the given user-space context to call a signal
  * handler `action' before actually returning to user-space.

@@ -32,16 +32,16 @@ struct exception_handler_info {
     __UINTPTR_HALF_TYPE__ ehi_flag;   /* Handler flags (Set of `EXCEPTION_HANDLER_F*') */
     __UINTPTR_HALF_TYPE__ ehi_mask;   /* Handler mask */
     struct { /* Exception descriptor-specific information. */
-        __UINT16_TYPE__   ed_type;    /* The type of descriptor (One of `EXCEPT_DESC_TYPE_*'). */
-        __UINT16_TYPE__   ed_flags;   /* Descriptor flags (Set of `EXCEPT_DESC_F*'). */
+        __UINT16_TYPE__   ed_type;    /* The type of descriptor (One of `EXCEPTION_DESCRIPTOR_TYPE_*'). */
+        __UINT16_TYPE__   ed_flags;   /* Descriptor flags (Set of `EXCEPTION_DESCRIPTOR_F*'). */
         __UINT16_TYPE__   ed_safe;    /* The amount of bytes of stack-memory that should be
                                        * reserved before the descriptor is invoked.
                                        * This usually equals the total size of arguments passed
                                        * to the function in which code is being protected, plus
                                        * an additional 4/8 bytes for the return address.
-                                       * Unless the `EXCEPT_DESC_FDEALLOC_CONTINUE' flag is set,
+                                       * Unless the `EXCEPTION_DESCRIPTOR_FDEALLOC_CONTINUE' flag is set,
                                        * this is the amount of stack-memory that is copied before
-                                       * jumping to `ed_handler', and when `EXCEPT_DESC_FDEALLOC_CONTINUE'
+                                       * jumping to `ed_handler', and when `EXCEPTION_DESCRIPTOR_FDEALLOC_CONTINUE'
                                        * isn't set, this is the offset subtracted from SP to re-reserve
                                        * this amount of memory and prevent it from being clobbered.
                                        * In either case, ESP/RSP will point to `CFA(FUNCTION_OF(:eh_begin)) - ed_safe'
@@ -88,7 +88,7 @@ INTDEF ATTR_NOTHROW bool KCALL except_findexcept(uintptr_t ip, u16 exception_cod
 struct except_cache;
 struct module;
 struct application;
-struct except_handler;
+struct exception_handler;
 
 /* Exception handler cache design:
  *
@@ -146,8 +146,8 @@ INTDEF ATTR_NOTHROW void KCALL except_cache_fini(struct except_cache *__restrict
 INTDEF ATTR_NOTHROW void KCALL except_cache_clear(struct except_cache *__restrict self);
 
 INTDEF ATTR_NOTHROW bool KCALL
-except_cache_lookup(struct except_handler *__restrict iter,
-                    struct except_handler *__restrict end,
+except_cache_lookup(struct exception_handler *__restrict iter,
+                    struct exception_handler *__restrict end,
                     uintptr_t rel_ip, u16 exception_code,
                     struct application *__restrict app,
                     struct exception_handler_info *__restrict result);

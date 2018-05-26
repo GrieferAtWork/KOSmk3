@@ -341,15 +341,19 @@ x86_redirect_preempted_userspace(struct task *__restrict thread) {
   *       are disabled and any CPU can only do this for _ITS_ threads.
   * WARNING: Because of this hack, new user-space threads must be constructed
   *          with a valid user-space IRET tail at the base of their stack! */
- if (iret->ir_eip == (uintptr_t)&x86_redirect_preemption)
+ if (iret->ir_pip == (uintptr_t)&x86_redirect_preemption)
      return; /* Already redirected. */
 #if 0
  debug_printf("REDIRECT_USERSPACE @ %p.%p:{ %p, %p, %p, %p, %p }\n",
               thread,iret,
-              iret->ir_eip,
+              iret->ir_pip,
               iret->ir_cs,
-              iret->ir_eflags,
+              iret->ir_pflags,
+#ifdef __x86_64__
+              iret->ir_rsp,
+#else
               iret->ir_useresp,
+#endif
               iret->ir_ss);
  asm("int3");
 #endif
@@ -361,12 +365,8 @@ x86_redirect_preempted_userspace(struct task *__restrict thread) {
 #ifdef __x86_64__
  iret->ir_rflags  = 0; /* Disable interrupts on entry. */
  iret->ir_rip     = (uintptr_t)&x86_redirect_preemption;
- iret->ir_userrsp = thread->t_stackend;
-#ifndef CONFIG_NO_X86_SEGMENTATION
+ iret->ir_rsp     = (uintptr_t)thread->t_stackend;
  iret->ir_ss      = X86_KERNEL_DS;
-#else
- iret->ir_ss      = X86_USER_DS;
-#endif
 #else
  iret->ir_eflags  = 0; /* Disable interrupts on entry. */
  iret->ir_eip     = (uintptr_t)&x86_redirect_preemption;
@@ -387,7 +387,7 @@ again:
  if unlikely(!PREEMPTION_ENABLED())
     goto rethrow; /* Caller can't originate from user-space if they neglected to re-enable interrupts. */
  /* Check if the context returns to user-space. */
- if (X86_ANYCONTEXT32_ISUSER(*context))
+ if (X86_ANYCONTEXT_ISUSER(*context))
      goto do_serve;
  /* Even if it doesn't, there's still the whole thing about `x86_redirect_preemption' */
  if (context->c_eip != (uintptr_t)&x86_redirect_preemption)
@@ -419,7 +419,7 @@ do_serve:
    * RPC was being served while the thread was still
    * in user-space, about to trigger the interrupt that
    * was interrupted in order to serve RPC functions. */
-  task_serve_before_user(&context->c_user,
+  task_serve_before_user((struct cpu_hostcontext_user *)context,
                           TASK_USERCTX_TYPE_WITHINUSERCODE);
  } CATCH_HANDLED (E_INTERRUPT) {
   /* Deal with recursive restart attempts. */
@@ -447,7 +447,7 @@ again:
  assertf(PREEMPTION_ENABLED(),
          "Preemption must be enabled during execution of a system call");
  /* Check if the context returns to user-space. */
- assertf(X86_ANYCONTEXT32_ISUSER(*context) ||
+ assertf(X86_ANYCONTEXT_ISUSER(*context) ||
          context->c_eip != (uintptr_t)&x86_redirect_preemption,
          "Only user-space must be allowed to execute system calls");
  assertf(!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB),
@@ -501,7 +501,7 @@ again:
  assertf(PREEMPTION_ENABLED(),
          "Preemption must be enabled during execution of a system call");
  /* Check if the context returns to user-space. */
- assertf(X86_ANYCONTEXT32_ISUSER(*context) ||
+ assertf(X86_ANYCONTEXT_ISUSER(*context) ||
          context->c_eip != (uintptr_t)&x86_redirect_preemption,
          "Only user-space must be allowed to execute system calls");
  assertf(!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB),
@@ -902,6 +902,18 @@ task_setup_kernel(struct task *__restrict thread,
 #endif
 
  /* Setup the thread's initial CPU state (arch-specific portion). */
+#ifdef __x86_64__
+ ((void **)thread->t_stackend)[-1] = &task_exit; /* `thread_main()' return address. */
+ context = ((struct cpu_context *)((uintptr_t)thread->t_stackend - 1*sizeof(void *)))-1;
+ thread->t_context = (struct cpu_anycontext *)context;
+ memset(context,0,sizeof(struct cpu_context));
+ context->c_gpregs.gp_rdi  = (u64)arg;           /* `thread_main()' argument. */
+ context->c_iret.ir_rflags = EFLAGS_IF;
+ context->c_iret.ir_rip    = (u64)thread_main;
+ context->c_iret.ir_cs     = X86_SEG_HOST_CS;
+ context->c_iret.ir_rsp    = (u64)(context + 1);
+ context->c_iret.ir_ss     = X86_SEG_HOST_SS;
+#else
  ((void **)thread->t_stackend)[-1] = arg;        /* `thread_main()' argument. */
  ((void **)thread->t_stackend)[-2] = &task_exit; /* `thread_main()' return address. */
  context = ((struct cpu_context *)((uintptr_t)thread->t_stackend - 2*sizeof(void *)))-1;
@@ -916,6 +928,7 @@ task_setup_kernel(struct task *__restrict thread,
  context->c_segments.sg_fs = X86_SEG_HOST_FS;
  context->c_segments.sg_gs = X86_SEG_HOST_GS;
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
+#endif
 
  /* Make sure to set the kernel-job flag in the thread. */
  thread->t_flags |= TASK_FKERNELJOB;
@@ -1205,7 +1218,12 @@ restart_final_decref:
   ref_t refcnt = ATOMIC_READ(calling_task->t_refcnt);
   assert(refcnt >= 1);
   if (refcnt == 1) break; /* Use an RPC to have another thread on our own CPU get rid of us. */
-  __asm__ __volatile__("lock; cmpxchgl %1, %0\n"
+  __asm__ __volatile__(
+#ifdef __x86_64__
+                       "lock; cmpxchgq %1, %0\n\t"
+#else
+                       "lock; cmpxchgl %1, %0\n\t"
+#endif
                        /* If the exchange we OK, we no longer have any guaranty
                         * that our stack still exists (another CPU could be doing the
                         * final decref() any second now, or even worse: already has?).
@@ -1215,7 +1233,7 @@ restart_final_decref:
                         * currently disabled, so we can simply jump to the
                         * assembly implementation of a function that does
                         * exactly that without touching the stack. */
-                       "jz       x86_load_context\n"
+                       "jz       x86_load_context"
                        :
                        : "m" (calling_task->t_refcnt)
                        , "r" (refcnt-1)
@@ -1316,16 +1334,24 @@ errorinfo_copy_to_user(USER CHECKED struct user_task_segment *useg,
                        struct exception_info *__restrict info,
                        struct cpu_hostcontext_user *__restrict context) {
 #if __SIZEOF_POINTER__ > 4
- memset(info.e_error.__e_pad,0,sizeof(info.e_error.__e_pad));
+ memset(info->e_error.__e_pad,0,sizeof(info->e_error.__e_pad));
 #endif
  if (info->e_error.e_code == E_NONCONTINUABLE &&
-     info->e_error.e_noncont.nc_origip >= KERNEL_BASE)
-     info->e_error.e_noncont.nc_origip = context->c_eip;
+     info->e_error.e_noncontinuable.nc_origip >= KERNEL_BASE)
+     info->e_error.e_noncontinuable.nc_origip = context->c_eip;
  /* Delete error context flags that wouldn't make sense after the propagation. */
  info->e_error.e_flag &= ~(ERR_FRESUMABLE|ERR_FRESUMEFUNC|ERR_FRESUMENEXT);
  memcpy(&useg->ts_xcurrent.e_error,
         &info->e_error,
         sizeof(struct exception_data));
+#ifdef __x86_64__
+ memcpy(&useg->ts_xcurrent.e_context.c_gpregs,
+        &context->c_gpregs,sizeof(struct x86_gpregs));
+ memcpy(&useg->ts_xcurrent.e_context.c_iret,
+        &context->c_iret,sizeof(struct x86_irregs64));
+ useg->ts_xcurrent.e_context.c_segments.sg_fsbase = RD_USER_FSBASE();
+ useg->ts_xcurrent.e_context.c_segments.sg_gsbase = RD_USER_GSBASE();
+#else
  useg->ts_xcurrent.e_context.c_gpregs.gp_edi  = context->c_gpregs.gp_edi;
  useg->ts_xcurrent.e_context.c_gpregs.gp_esi  = context->c_gpregs.gp_esi;
  useg->ts_xcurrent.e_context.c_gpregs.gp_ebp  = context->c_gpregs.gp_ebp;
@@ -1341,9 +1367,10 @@ errorinfo_copy_to_user(USER CHECKED struct user_task_segment *useg,
  useg->ts_xcurrent.e_context.c_segments.sg_fs = context->c_segments.sg_fs;
  useg->ts_xcurrent.e_context.c_segments.sg_es = context->c_segments.sg_es;
  useg->ts_xcurrent.e_context.c_segments.sg_ds = context->c_segments.sg_ds;
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
  useg->ts_xcurrent.e_context.c_cs             = context->c_iret.ir_cs;
  useg->ts_xcurrent.e_context.c_ss             = context->c_iret.ir_ss;
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
+#endif
 }
 
 
@@ -1435,7 +1462,7 @@ serve_rpc:
 
   if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG|TASK_FUSEREXCEPT)) {
    struct cpu_context_ss unwind;
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
    memcpy(&unwind.c_context.c_gpregs,&context->c_gpregs,
           sizeof(struct x86_gpregs)+
           sizeof(struct x86_segments));
@@ -1443,11 +1470,16 @@ serve_rpc:
    memcpy(&unwind.c_context.c_gpregs,&context->c_gpregs,
           sizeof(struct x86_gpregs));
 #endif /* CONFIG_NO_X86_SEGMENTATION */
+#ifdef __x86_64__
+   memcpy(&unwind.c_context.c_iret,
+          &context->c_iret,sizeof(struct x86_irregs64));
+#else
    unwind.c_context.c_esp            = context->c_iret.ir_useresp;
    unwind.c_context.c_iret.ir_eip    = context->c_iret.ir_eip;
    unwind.c_context.c_iret.ir_cs     = context->c_iret.ir_cs;
    unwind.c_context.c_iret.ir_eflags = context->c_iret.ir_eflags;
    unwind.c_ss                       = context->c_iret.ir_ss;
+#endif
    if (info.e_error.e_flag & ERR_FRESUMENEXT)
        ++unwind.c_context.c_iret.ir_eip;
    TRY {
@@ -1478,13 +1510,17 @@ serve_rpc:
             goto cannot_unwind;
        /* Override the IP to use the entry point.  */
        unwind.c_context.c_eip = (uintptr_t)hand.ehi_entry;
-       assert(hand.ehi_desc.ed_type == EXCEPT_DESC_TYPE_BYPASS); /* XXX: What should we do here? */
+       assert(hand.ehi_desc.ed_type == EXCEPTION_DESCRIPTOR_TYPE_BYPASS); /* XXX: What should we do here? */
        CPU_CONTEXT_SP(unwind.c_context) -= hand.ehi_desc.ed_safe;
        useg->ts_xcurrent.e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(unwind.c_context);
 
        /* Allocate the stack-save area. */
-       if (!(hand.ehi_desc.ed_flags&EXCEPT_DESC_FDEALLOC_CONTINUE)) {
+       if (!(hand.ehi_desc.ed_flags&EXCEPTION_DESCRIPTOR_FDEALLOC_CONTINUE)) {
+#ifdef __x86_64__
+        uintptr_t sp = context->c_iret.ir_rsp;
+#else
         uintptr_t sp = context->c_iret.ir_useresp;
+#endif
         /* Must allocate stack memory at the back and copy data there. */
         sp -= hand.ehi_desc.ed_safe;
         validate_writable((void *)sp,hand.ehi_desc.ed_safe);
@@ -1503,13 +1539,17 @@ serve_rpc:
         * it was when the exception originally occurred.
         * Without this, it would be impossible to continue
         * execution after an exception occurred. */
+#ifdef __x86_64__
+       CPU_CONTEXT_SP(unwind.c_context) = context->c_iret.ir_rsp;
+#else
        CPU_CONTEXT_SP(unwind.c_context) = context->c_iret.ir_useresp;
+#endif
       }
 
       /* Force user-space target. */
       unwind.c_context.c_iret.ir_cs     |= 3;
-      unwind.c_context.c_iret.ir_eflags |= EFLAGS_IF;
-      unwind.c_context.c_iret.ir_eflags &= ~(EFLAGS_TF|EFLAGS_IOPL(3)|
+      unwind.c_context.c_iret.ir_pflags |= EFLAGS_IF;
+      unwind.c_context.c_iret.ir_pflags &= ~(EFLAGS_TF|EFLAGS_IOPL(3)|
                                              /* XXX: `EFLAGS_VM' based on `TASK_FVM86'? */
                                              EFLAGS_NT|EFLAGS_RF|EFLAGS_VM|
                                              EFLAGS_AC|EFLAGS_VIF|EFLAGS_VIP|
@@ -1517,7 +1557,7 @@ serve_rpc:
       /* Now copy the exception context to user-space. */
       errorinfo_copy_to_user(useg,(struct exception_info *)&info,context);
       /* Set the unwound context as what should be returned to for user-space. */
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
       memcpy(&context->c_gpregs,&unwind.c_context.c_gpregs,
              sizeof(struct x86_gpregs)+
              sizeof(struct x86_segments));
@@ -1525,11 +1565,17 @@ serve_rpc:
       memcpy(&context->c_gpregs,&unwind.c_context.c_gpregs,
              sizeof(struct x86_gpregs));
 #endif /* CONFIG_NO_X86_SEGMENTATION */
+#ifdef __x86_64__
+   memcpy(&context->c_iret,
+          &unwind.c_context.c_iret,
+          sizeof(struct x86_irregs64));
+#else
       context->c_iret.ir_useresp = unwind.c_context.c_esp;
       context->c_iret.ir_eip     = unwind.c_context.c_iret.ir_eip;
       context->c_iret.ir_cs      = unwind.c_context.c_iret.ir_cs;
       context->c_iret.ir_eflags  = unwind.c_context.c_iret.ir_eflags;
       context->c_iret.ir_ss      = unwind.c_ss;
+#endif
       /* Restore the signal mask if it was loaded from user-space. */
       if (has_user_signal_set) {
        signal_chmask(&user_signal_set,NULL,
@@ -1729,7 +1775,10 @@ cannot_signal:;
       if (ueh_sp)
           CPU_CONTEXT_SP(*context) = (uintptr_t)ueh_sp;
       CPU_CONTEXT_IP(*context) = (uintptr_t)ueh.ds_base;
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#ifdef __x86_64__
+      /* TODO: Restore user-space segment registers? */
+      WR_USER_GSBASE_REGISTER((u64)THIS_TASK->t_userseg);
+#elif !defined(CONFIG_NO_X86_SEGMENTATION)
       /* Set the user-space TLS segment to ensure
        * that the thread can read exception information. */
 #ifndef CONFIG_NO_DOS_COMPAT

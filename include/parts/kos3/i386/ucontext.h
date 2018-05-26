@@ -159,7 +159,11 @@ typedef struct __ATTR_PACKED mcontext {
     union __ATTR_PACKED {
         gregset_t              gregs;     /* GLibC API compatibility... */
         gregset_t              m_gregs;   /* General purpose register array. */
-        struct x86_usercontext m_context; /* The user-space CPU context */
+#ifdef __KERNEL__
+        struct cpu_usercontext m_context; /* The user-space CPU context */
+#else
+        struct cpu_context     m_context; /* The user-space CPU context */
+#endif
     };
     union __ATTR_PACKED {
         fpregset_t             fpregs;    /* GLibC API compatibility... */

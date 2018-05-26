@@ -30,6 +30,7 @@
 #include <sched/posix_signals.h>
 #include <syscall.h>
 #include <kos/context.h>
+#include <kos/i386-kos/asm/pf-syscall.h>
 #include <unwind/eh_frame.h>
 #include <unwind/linker.h>
 #include <i386-kos/gdt.h>
@@ -114,17 +115,17 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
           goto cannot_unwind;
      /* Override the IP to use the entry point. */
      context->c_eip = (uintptr_t)hand.ehi_entry;
-     assert(hand.ehi_desc.ed_type == EXCEPT_DESC_TYPE_BYPASS); /* XXX: What should we do here? */
+     assert(hand.ehi_desc.ed_type == EXCEPTION_DESCRIPTOR_TYPE_BYPASS); /* XXX: What should we do here? */
 
      CPU_CONTEXT_SP(*context) -= hand.ehi_desc.ed_safe;
      error_info()->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(*context);
-     if (!(hand.ehi_desc.ed_flags&EXCEPT_DESC_FDEALLOC_CONTINUE)) {
+     if (!(hand.ehi_desc.ed_flags&EXCEPTION_DESCRIPTOR_FDEALLOC_CONTINUE)) {
       /* Must allocate stack memory at the back and copy data there. */
       sp -= hand.ehi_desc.ed_safe;
       memcpy((void *)sp,(void *)CPU_CONTEXT_SP(*context),hand.ehi_desc.ed_safe);
       CPU_CONTEXT_SP(*context) = sp;
      }
-     if (hand.ehi_desc.ed_flags & EXCEPT_DESC_FDISABLE_PREEMPTION)
+     if (hand.ehi_desc.ed_flags & EXCEPTION_DESCRIPTOR_FDISABLE_PREEMPTION)
          context->c_eflags &= ~EFLAGS_IF;
     } else {
      /* Jump to the entry point of this exception handler. */
@@ -251,10 +252,10 @@ error_rethrow_at_user(USER CHECKED struct user_exception_info *except_info,
          return false;
     /* Override the IP to use the entry point.  */
     context->c_context.c_eip = (uintptr_t)hand.ehi_entry;
-    assert(hand.ehi_desc.ed_type == EXCEPT_DESC_TYPE_BYPASS); /* XXX: What should we do here? */
+    assert(hand.ehi_desc.ed_type == EXCEPTION_DESCRIPTOR_TYPE_BYPASS); /* XXX: What should we do here? */
     CPU_CONTEXT_SP(context->c_context) -= hand.ehi_desc.ed_safe;
     except_info->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(context->c_context);
-    if (!(hand.ehi_desc.ed_flags&EXCEPT_DESC_FDEALLOC_CONTINUE)) {
+    if (!(hand.ehi_desc.ed_flags&EXCEPTION_DESCRIPTOR_FDEALLOC_CONTINUE)) {
      /* Must allocate stack memory at the back and copy data there. */
      sp -= hand.ehi_desc.ed_safe;
      validate_writable((void *)sp,hand.ehi_desc.ed_safe);

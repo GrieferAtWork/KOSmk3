@@ -47,8 +47,8 @@ STATIC_ASSERT(sizeof(struct driver_param) == 4*sizeof(void *));
 
 
 INTDEF void ASMCALL _start(void);
-INTDEF struct except_handler kernel_except_start[];
-INTDEF struct except_handler kernel_except_end[];
+INTDEF struct exception_handler kernel_except_start[];
+INTDEF struct exception_handler kernel_except_end[];
 INTDEF byte_t kernel_except_size[];
 INTDEF byte_t kernel_ehframe_start[];
 INTDEF byte_t kernel_ehframe_end[];
@@ -189,7 +189,7 @@ PUBLIC struct module kernel_module = {
             .ds_size    = (size_t)kernel_except_size,
             .ds_type    = SHT_PROGBITS,
             .ds_flags   = SHF_ALLOC,
-            .ds_entsize = sizeof(struct except_handler), /* Sure... Why not? (although this isn't a rule...) */
+            .ds_entsize = sizeof(struct exception_handler), /* Sure... Why not? (although this isn't a rule...) */
         },
         .m_eh_frame = {
             .ds_base    = (void *)kernel_ehframe_start,

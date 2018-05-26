@@ -23,7 +23,7 @@
 #include <hybrid/host.h>
 
 #if defined(__i386__) || defined(__x86_64__)
-#include "i386-kos/registers.h"
+#include "i386-kos/asm/registers.h"
 #else
 #error "Unsupported arch"
 #endif

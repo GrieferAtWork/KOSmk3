@@ -175,6 +175,48 @@ x86_ipi_handle(struct x86_ipi const *__restrict ipi,
      RING_REMOVE(thread,t_sched.sched_ring);
      /* Set the next pending thread as the one now actively running. */
      THIS_CPU->c_running = sched_next;
+#ifdef __x86_64__
+     __asm__ __volatile__ goto("movq   %%rsp, %%rax\n\t"
+                               "pushq  %[host_ss]\n\t"              /* IRET.SS */
+                               "pushq  %%rax\n\t"                   /* IRET.RSP */
+                               "pushfq\n\t"                         /* IRET.EFLAGS */
+                               "orq    %[eflags_if], (%%esp)\n\t"   /* IRET.EFLAGS */
+                               "pushq  %[host_cs]\n\t"              /* IRET.CS */
+                               "pushq  $%l7\n\t"                    /* IRET.RIP */
+                               "pushq  %%rax\n\t"                   /* GPREGS... */
+                               "pushq  %%rcx\n\t"
+                               "pushq  %%rdx\n\t"
+                               "pushq  %%rbx\n\t"
+                               "pushq  %%rbp\n\t"
+                               "pushq  %%rsi\n\t"
+                               "pushq  %%rdi\n\t"
+                               "pushq  %%r8\n\t"
+                               "pushq  %%r9\n\t"
+                               "pushq  %%r10\n\t"
+                               "pushq  %%r11\n\t"
+                               "pushq  %%r12\n\t"
+                               "pushq  %%r13\n\t"
+                               "pushq  %%r14\n\t"
+                               "pushq  %%r15\n\t"
+                               /* Saved the IRET tail that we just generated. */
+                               "movq   %%rsp, %%"
+                                   PP_STR(__ASM_TASK_SEGMENT) ":"
+                                   PP_STR(TASK_OFFSETOF_CONTEXT) "\n\t"
+                               /* Indicate a successful unschedule. */
+                               "movq   %[status_ok], %[status]\n\t"
+                               /* Resume execution in this CPU by loading the next thread */
+                               "jmp    x86_load_context"
+                               :
+                               : [next]      "c" (sched_next)
+                               , [physdir]   "d" ((uintptr_t)thread->t_vm->vm_physdir)
+                               , [status]    "m" (*ipi->ipi_unschedule.us_status)
+                               , [eflags_if] "Z" (EFLAGS_IF)
+                               , [status_ok] "Z" (X86_IPI_UNSCHEDULE_OK)
+                               , [host_ss]   "Z" (X86_SEG_HOST_SS)
+                               , [host_cs]   "Z" (X86_SEG_HOST_CS)
+                               : "memory", "cc", "rsp", "rax"
+                               : newcpu_continue);
+#else
      __asm__ __volatile__ goto("pushfl\n\t"                         /* IRET.EFLAGS */
                                "orl    %[eflags_if], (%%esp)\n\t"   /* IRET.EFLAGS */
                                "pushl  %%cs\n\t"                    /* IRET.CS */
@@ -196,10 +238,11 @@ x86_ipi_handle(struct x86_ipi const *__restrict ipi,
                                : [next]      "c" (sched_next)
                                , [physdir]   "d" ((uintptr_t)thread->t_vm->vm_physdir)
                                , [status]    "m" (*ipi->ipi_unschedule.us_status)
-                               , [eflags_if] "i" (EFLAGS_IF)
-                               , [status_ok] "i" (X86_IPI_UNSCHEDULE_OK)
+                               , [eflags_if] "Z" (EFLAGS_IF)
+                               , [status_ok] "Z" (X86_IPI_UNSCHEDULE_OK)
                                : "memory", "cc", "esp"
                                : newcpu_continue);
+#endif
 newcpu_continue:
      /* This is where the calling thread continues
       * execution within the context of the new CPU. */

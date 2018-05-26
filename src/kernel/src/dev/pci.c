@@ -202,7 +202,7 @@ struct pci_device *KCALL RegisterPCIDevice(pci_addr_t addr) {
      iter->pr_flags |= PCI_RESOURCE_FMEM;
      iter->pr_flags |= (state&0x6); /* Memory type. */
      /* A 64-bit memory range takes up 2 BARs. */
-     if (iter->pr_flags&PCI_RESOURCE_FMEM64 && !(i&1)) ++i,++iter;
+     if ((iter->pr_flags & PCI_RESOURCE_FMEM64) && !(i&1)) ++i,++iter;
     }
     if (iter->pr_size)
         iter->pr_align = 1 << (__builtin_ffsl(iter->pr_size)-1);
@@ -210,8 +210,8 @@ struct pci_device *KCALL RegisterPCIDevice(pci_addr_t addr) {
     AllocatePCIDeviceRessource(result,iter);
     state = (u32)((state&1)|iter->pr_begin);
  #if __SIZEOF_POINTER__ > 4
-    if (iter->pr_flags&PCI_RESOURCE_MEM64 && !(i&1) &&
-        reg <= PCI_GDEV_BAR5) {
+    if ((iter->pr_flags & PCI_RESOURCE_FMEM64) && !(i&1) &&
+         reg <= PCI_GDEV_BAR5) {
      pci_write(addr,reg+(PCI_BDEV_BAR1-PCI_BDEV_BAR0),
               (u32)((state&1)|(iter->pr_begin >> 32)));
     }

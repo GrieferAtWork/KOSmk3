@@ -736,7 +736,8 @@ done_lock_pi:;
 /* Construct a new futex handle. */
 PUBLIC ATTR_MALLOC ATTR_RETNONNULL REF struct futex_handle *KCALL
 futex_handle_alloc(struct futex *__restrict ftx,
-                   USER CHECKED u32 *uaddr, u32 value, uintptr_t mask) {
+                   USER CHECKED u32 *uaddr, u32 value,
+                   uintptr_t mask) {
  REF struct futex_handle *result;
  /* Construct a new futex handle. */
  result = (REF struct futex_handle *)kmalloc(sizeof(REF struct futex_handle),

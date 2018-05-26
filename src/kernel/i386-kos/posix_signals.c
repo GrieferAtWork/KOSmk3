@@ -22,6 +22,7 @@
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
+#include <kos/i386-kos/asm/pf-syscall.h>
 #include <bits/sigaction.h>
 #include <i386-kos/posix_signals.h>
 #include <i386-kos/fpu.h>
@@ -65,31 +66,31 @@ x86_sigreturn_impl(void *UNUSED(arg),
  unsigned int frame_mode;
  assertf(context->c_iret.ir_cs & 3,"sigreturn() invoked from kernel-space");
 
- /* At this point, `context->c_esp' points after the
+ /* At this point, `context->c_psp' points after the
   * `sf_sigreturn' field of a signal frame structure. */
- frame = (struct signal_frame *)(context->c_esp -
+ frame = (struct signal_frame *)(context->c_psp -
                                  COMPILER_OFFSETAFTER(struct signal_frame,sf_sigreturn));
  validate_readable(frame,sizeof(*frame));
  /* Let's get to the restoring part of this all!
   * NOTE: User-space register sanitization _must_ be done _after_ we copied register
   *       values, and must be performed on the values then saved in `context'! */
  COMPILER_READ_BARRIER();
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
  memcpy(&context->c_gpregs,&frame->sf_return.m_context.c_gpregs,
         sizeof(struct x86_gpregs32)+sizeof(struct x86_segments32));
- context->c_iret.ir_cs = frame->sf_return.m_context.c_cs;
- context->c_iret.ir_ss = frame->sf_return.m_context.c_ss;
 #else /* !CONFIG_NO_X86_SEGMENTATION */
  memcpy(&context->c_gpregs,&frame->sf_return.m_context.c_gpregs,
         sizeof(struct x86_gpregs32));
-#if 0 /* Since `context' originates from user-space, these are already set. */
- context->c_iret.ir_cs = X86_USER_CS;
- context->c_iret.ir_ss = X86_USER_DS;
-#endif
 #endif /* CONFIG_NO_X86_SEGMENTATION */
- context->c_iret.ir_eflags  = frame->sf_return.m_context.c_eflags;
- context->c_iret.ir_eip     = frame->sf_return.m_context.c_eip;
+ context->c_iret.ir_cs     = frame->sf_return.m_context.c_cs;
+ context->c_iret.ir_ss     = frame->sf_return.m_context.c_ss;
+ context->c_iret.ir_pflags = frame->sf_return.m_context.c_pflags;
+ context->c_iret.ir_pip    = frame->sf_return.m_context.c_pip;
+#ifdef __x86_64__
+ context->c_iret.ir_rsp = context->c_rsp;
+#else
  context->c_iret.ir_useresp = context->c_gpregs.gp_esp;
+#endif
  frame_mode = frame->sf_mode;
 
  if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG|TASK_FUSEREXCEPT) &&
@@ -120,17 +121,22 @@ x86_sigreturn_impl(void *UNUSED(arg),
   x86_fpu_reset();
  }
 #endif /* !CONFIG_NO_FPU */
+#ifdef __x86_64__
+ /* Set user-space segment pointers. */
+ WR_USER_FSBASE(frame->sf_return.m_context.c_segments.sg_fsbase);
+ WR_USER_GSBASE(frame->sf_return.m_context.c_segments.sg_gsbase);
+#endif
  COMPILER_READ_BARRIER();
- 
+
  /* Sanitize the new user-space register state. */
  context->c_iret.ir_eflags |=  (EFLAGS_IF);
  context->c_iret.ir_eflags &= ~(EFLAGS_TF|EFLAGS_IOPL(3)|
                                 EFLAGS_NT|EFLAGS_RF|EFLAGS_VM|
                                 EFLAGS_AC|EFLAGS_VIF|EFLAGS_VIP|
                                 EFLAGS_ID);
-#ifndef CONFIG_NO_X86_SEGMENTATION
  /* Verify user-space segment indices. */
  TRY {
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
   if (context->c_segments.sg_ds && !__verw(context->c_segments.sg_ds))
       throw_invalid_segment(context->c_segments.sg_ds,X86_REGISTER_SEGMENT_DS);
   if (context->c_segments.sg_es && !__verw(context->c_segments.sg_es))
@@ -139,6 +145,7 @@ x86_sigreturn_impl(void *UNUSED(arg),
       throw_invalid_segment(context->c_segments.sg_fs,X86_REGISTER_SEGMENT_FS);
   if (context->c_segments.sg_gs && !__verw(context->c_segments.sg_gs))
       throw_invalid_segment(context->c_segments.sg_gs,X86_REGISTER_SEGMENT_GS);
+#endif
   if (context->c_iret.ir_ss && !__verw(context->c_iret.ir_ss))
       throw_invalid_segment(context->c_iret.ir_ss,X86_REGISTER_SEGMENT_SS);
   /* Ensure ring #3 (This is _highly_ important. Without this,
@@ -147,6 +154,7 @@ x86_sigreturn_impl(void *UNUSED(arg),
       throw_invalid_segment(context->c_iret.ir_cs,X86_REGISTER_SEGMENT_CS);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Must fix register values, as otherwise userspace wouldn't be able to handle the exception. */
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
   if (xcontext->c_segments.sg_ds && !__verw(xcontext->c_segments.sg_ds))
       xcontext->c_segments.sg_ds = X86_SEG_USER_DS;
   if (xcontext->c_segments.sg_es && !__verw(xcontext->c_segments.sg_es))
@@ -155,13 +163,13 @@ x86_sigreturn_impl(void *UNUSED(arg),
       xcontext->c_segments.sg_fs = X86_SEG_USER_FS;
   if (xcontext->c_segments.sg_gs && !__verw(xcontext->c_segments.sg_gs))
       xcontext->c_segments.sg_gs = X86_SEG_USER_GS;
+#endif
   if (xcontext->c_iret.ir_ss && !__verw(xcontext->c_iret.ir_ss))
       xcontext->c_iret.ir_ss = X86_SEG_USER_SS;
   if ((xcontext->c_iret.ir_cs & 3) != 3 || !__verr(xcontext->c_iret.ir_cs))
       xcontext->c_iret.ir_cs = X86_SEG_USER_CS;
   error_rethrow();
  }
-#endif
 
  COMPILER_BARRIER();
 
@@ -185,21 +193,25 @@ x86_sigreturn_impl(void *UNUSED(arg),
 
  {
   syscall_ulong_t EXCEPT_VAR sysno;
-  syscall_ulong_t EXCEPT_VAR orig_eax;
-  syscall_ulong_t EXCEPT_VAR orig_eip;
+  syscall_ulong_t EXCEPT_VAR orig_pax;
+  syscall_ulong_t EXCEPT_VAR orig_pip;
 #ifndef CONFIG_NO_X86_SYSENTER
-  syscall_ulong_t EXCEPT_VAR orig_ebp;
-  syscall_ulong_t EXCEPT_VAR orig_edi;
-  syscall_ulong_t EXCEPT_VAR orig_esp;
+  syscall_ulong_t EXCEPT_VAR orig_pbp;
+  syscall_ulong_t EXCEPT_VAR orig_pdi;
+  syscall_ulong_t EXCEPT_VAR orig_psp;
 #endif
  case TASK_USERCTX_TYPE_INTR_SYSCALL:
   /* Restart an interrupted system call by executing it now. */
-  orig_eax = context->c_gpregs.gp_eax;
-  orig_eip = context->c_eip;
+  orig_pax = context->c_gpregs.gp_pax;
+  orig_pip = context->c_pip;
 #ifndef CONFIG_NO_X86_SYSENTER
-  orig_ebp = context->c_gpregs.gp_ebp;
-  orig_edi = context->c_gpregs.gp_edi;
-  orig_esp = context->c_iret.ir_useresp;
+  orig_pbp = context->c_gpregs.gp_pbp;
+  orig_pdi = context->c_gpregs.gp_pdi;
+#ifdef __x86_64__
+  orig_psp = context->c_iret.ir_rsp;
+#else
+  orig_psp = context->c_iret.ir_useresp;
+#endif
 #endif
 restart_sigframe_syscall:
   TRY {
@@ -207,10 +219,14 @@ restart_sigframe_syscall:
 #ifndef CONFIG_NO_X86_SYSENTER
    if (frame_mode & X86_SYSCALL_TYPE_FSYSENTER) {
     syscall_ulong_t masked_sysno; u8 argc = 6;
-    sysno                      = xcontext->c_gpregs.gp_eax;
-    masked_sysno               = sysno & ~0x80000000;
-    xcontext->c_eip             = orig_edi; /* CLEANUP: return.%eip = %edi */
-    xcontext->c_iret.ir_useresp = orig_ebp; /* CLEANUP: return.%esp = %ebp */
+    sysno           = xcontext->c_gpregs.gp_pax;
+    masked_sysno    = sysno & ~0x80000000;
+    xcontext->c_pip = orig_pdi; /* CLEANUP: return.%eip = %edi */
+#ifdef __x86_64__
+    xcontext->c_iret.ir_rsp = orig_pbp; /* CLEANUP: return.%esp = %ebp */
+#else
+    xcontext->c_iret.ir_useresp = orig_pbp; /* CLEANUP: return.%esp = %ebp */
+#endif
     /* Figure out how many arguments this syscall takes. */
     if (masked_sysno <= __NR_syscall_max)
      argc = x86_syscall_argc[masked_sysno];
@@ -220,19 +236,19 @@ restart_sigframe_syscall:
     }
     /* Load additional arguments from user-space. */
     if (argc >= 4)
-        xcontext->c_gpregs.gp_edi = *((u32 *)(orig_ebp + 0));
+        xcontext->c_gpregs.gp_pdi = *((u32 *)(orig_pbp + 0));
     if (argc >= 5)
-        xcontext->c_gpregs.gp_ebp = *((u32 *)(orig_ebp + 4));
+        xcontext->c_gpregs.gp_pbp = *((u32 *)(orig_pbp + 4));
     COMPILER_READ_BARRIER();
    } else
 #endif /* !CONFIG_NO_X86_SYSENTER */
    if (frame_mode & X86_SYSCALL_TYPE_FPF) {
-    sysno = xcontext->c_eip - PERTASK_GET(x86_sysbase);
+    sysno = xcontext->c_pip - PERTASK_GET(x86_sysbase);
     sysno = X86_DECODE_PFSYSCALL(sysno);
-    xcontext->c_eip = xcontext->c_gpregs.gp_eax; /* #PF uses EAX as return address. */
-    xcontext->c_gpregs.gp_eax = sysno; /* #PF encodes the sysno in EIP. */
+    xcontext->c_pip = xcontext->c_gpregs.gp_pax; /* #PF uses EAX as return address. */
+    xcontext->c_gpregs.gp_pax = sysno; /* #PF encodes the sysno in EIP. */
    } else {
-    sysno = xcontext->c_gpregs.gp_eax;
+    sysno = xcontext->c_gpregs.gp_pax;
    }
 #if 0
    debug_printf("\n\n"
@@ -247,12 +263,16 @@ restart_sigframe_syscall:
    error_info()->e_error.e_flag |= X86_INTERRUPT_GUARD_FSYSCALL;
    if (error_code() == E_INTERRUPT) {
     /* Restore the original user-space CPU xcontext. */
-    xcontext->c_gpregs.gp_eax = orig_eax;
-    xcontext->c_eip           = orig_eip;
+    xcontext->c_gpregs.gp_pax = orig_pax;
+    xcontext->c_pip           = orig_pip;
 #ifndef CONFIG_NO_X86_SYSENTER
-    xcontext->c_gpregs.gp_ebp = orig_ebp;
-    xcontext->c_gpregs.gp_edi = orig_edi;
-    xcontext->c_iret.ir_useresp = orig_esp;
+    xcontext->c_gpregs.gp_pbp = orig_pbp;
+    xcontext->c_gpregs.gp_pdi = orig_pdi;
+#ifdef __x86_64__
+    xcontext->c_iret.ir_rsp = orig_psp;
+#else
+    xcontext->c_iret.ir_useresp = orig_psp;
+#endif
 #endif
     COMPILER_WRITE_BARRIER();
     /* Deal with system call restarts. */
@@ -306,7 +326,7 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
  if (action->sa_flags & SA_SIGINFO) {
   struct userstack *stack = PERTASK_GET(_this_user_stack);
   struct signal_frame_ex *xframe;
-  xframe = (struct signal_frame_ex *)context->c_esp-1;
+  xframe = (struct signal_frame_ex *)context->c_psp-1;
   validate_writable(xframe,sizeof(*xframe));
   frame  = &xframe->sf_frame;
   xframe->sf_infop    = &xframe->sf_info;
@@ -318,13 +338,13 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
    xframe->sf_return.uc_stack.ss_size  = VM_PAGES2SIZE(stack->us_pageend-stack->us_pagemin);
    xframe->sf_return.uc_stack.ss_flags = SS_ONSTACK;
   } else {
-   xframe->sf_return.uc_stack.ss_sp    = (void *)context->c_esp;
+   xframe->sf_return.uc_stack.ss_sp    = (void *)context->c_psp;
    xframe->sf_return.uc_stack.ss_size  = 1;
    xframe->sf_return.uc_stack.ss_flags = SS_DISABLE;
   }
   xframe->sf_return.uc_link = NULL;
  } else {
-  frame = (struct signal_frame *)context->c_esp-1;
+  frame = (struct signal_frame *)context->c_psp-1;
   validate_writable(frame,sizeof(*frame));
  }
 
@@ -349,14 +369,23 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
  } else {
   /* sys_sigreturn() uses the exception context EIP
    * value to identify the presence of a context. */
-  frame->sf_except.e_context.c_eip = (uintptr_t)-1;
+  frame->sf_except.e_context.c_pip = (uintptr_t)-1;
  }
 
  /* Construct the return CPU context. */
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
  memcpy(&frame->sf_return.m_context.c_segments,
         &context->c_segments,sizeof(struct x86_segments));
 #endif
+
+#ifdef __x86_64__
+ memcpy(&frame->sf_return.m_context.c_gpregs,
+        &context->c_gpregs,sizeof(struct x86_gpregs));
+ memcpy(&frame->sf_return.m_context.c_iret,
+        &context->c_iret,sizeof(struct x86_irregs64));
+ frame->sf_return.m_context.c_segments.sg_fsbase = RD_USER_FSBASE();
+ frame->sf_return.m_context.c_segments.sg_gsbase = RD_USER_GSBASE();
+#else
  frame->sf_return.m_context.c_gpregs.gp_edi = context->c_gpregs.gp_edi;
  frame->sf_return.m_context.c_gpregs.gp_esi = context->c_gpregs.gp_esi;
  frame->sf_return.m_context.c_gpregs.gp_ebp = context->c_gpregs.gp_ebp;
@@ -367,13 +396,13 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
  frame->sf_return.m_context.c_gpregs.gp_eax = context->c_gpregs.gp_eax;
  frame->sf_return.m_context.c_eip           = context->c_eip;
  frame->sf_return.m_context.c_eflags        = context->c_eflags;
-#ifndef CONFIG_NO_X86_SEGMENTATION
- frame->sf_return.m_context.c_cs = context->c_iret.ir_cs;
- frame->sf_return.m_context.c_ss = context->c_iret.ir_ss;
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
+ frame->sf_return.m_context.c_cs            = context->c_iret.ir_cs;
+ frame->sf_return.m_context.c_ss            = context->c_iret.ir_ss;
+#endif
+
  frame->sf_return.m_flags = __MCONTEXT_FNORMAL;
  if (info->si_signo == SIGSEGV) {
-  frame->sf_return.m_cr2    = (uintptr_t)info->si_addr;
+  frame->sf_return.m_cr2 = (uintptr_t)info->si_addr;
   frame->sf_return.m_flags |= __MCONTEXT_FHAVECR2;
  }
 #ifndef CONFIG_NO_FPU
@@ -389,10 +418,10 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
  /* Redirect the frame's sig-return pointer to direct it at the `sys_sigreturn' system call.
   * Being able to do this right here is the main reason why #PF-syscalls were introduced. */
  if (TASK_USERCTX_TYPE(mode) == TASK_USERCTX_TYPE_INTR_SYSCALL) {
-  syscall_ulong_t sysno = context->c_gpregs.gp_eax;
+  syscall_ulong_t sysno = context->c_gpregs.gp_pax;
   if (mode & X86_SYSCALL_TYPE_FPF) {
    /* Deal with #PF system calls. */
-   sysno = (uintptr_t)context->c_eip-PERTASK_GET(x86_sysbase);
+   sysno = (uintptr_t)context->c_pip-PERTASK_GET(x86_sysbase);
    sysno = X86_DECODE_PFSYSCALL(sysno);
   }
   if (should_restart_syscall(sysno,
@@ -421,8 +450,8 @@ sigreturn_noexcept:
  }
 
  /* With the signal frame now generated, update context registers to execute the signal action. */
- context->c_esp = (uintptr_t)frame;
- context->c_eip = (uintptr_t)action->sa_handler;
+ context->c_psp = (uintptr_t)frame;
+ context->c_pip = (uintptr_t)action->sa_handler;
 
  /* Resume user-space by executing the signal handler. */
  error_info()->e_error.e_code = E_USER_RESUME;

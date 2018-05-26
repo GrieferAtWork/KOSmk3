@@ -241,7 +241,7 @@ SYMEND(x86_secondary_cpu_idle_loop)
 .x86_secondary_cpu_idle_loop_end = .
 
 
-X86_DEFINE_EXCEPT_HANDLER(
+DEFINE_EXCEPTION_HANDLER(
 	x86_secondary_cpu_idle_loop,
 	.x86_secondary_cpu_idle_loop_end,
 	idle_loop_except_handler,
@@ -252,8 +252,8 @@ X86_DEFINE_EXCEPT_HANDLER(
 .section .rodata
 idle_loop_except_handler:
 	.long x86_secondary_cpu_idle_loop_error /* ed_handler */
-	.word EXCEPT_DESC_TYPE_BYPASS           /* ed_type */
-	.word EXCEPT_DESC_FDEALLOC_CONTINUE     /* ed_flags */
+	.word EXCEPTION_DESCRIPTOR_TYPE_BYPASS           /* ed_type */
+	.word EXCEPTION_DESCRIPTOR_FDEALLOC_CONTINUE     /* ed_flags */
 	.word 0                                 /* ed_safe */
 #endif /* !CONFIG_NO_SMP */
 

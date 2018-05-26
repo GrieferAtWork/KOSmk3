@@ -21,11 +21,15 @@
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
+#include <kernel/sections.h>
 #include <hybrid/xch.h>
 #include <asm/param.h>
+#include <kos/i386-kos/asm/pf-syscall.h>
 #include <i386-kos/interrupt.h>
 #include <i386-kos/vm86.h>
-#include <kernel/sections.h>
+#ifdef __x86_64__
+#include <i386-kos/gdt.h>
+#endif
 
 DECL_BEGIN
 
@@ -93,6 +97,22 @@ FORCELOCAL USER uintptr_t KCALL interrupt_setip(uintptr_t newip);
 FORCELOCAL USER uintptr_t KCALL interrupt_setsp(uintptr_t newsp);
 FORCELOCAL void KCALL interrupt_getipsp(uintptr_t *__restrict pip, uintptr_t *__restrict psp);
 FORCELOCAL void KCALL interrupt_setipsp(uintptr_t newip, uintptr_t newsp);
+
+#ifdef __x86_64__
+/* Return true if the interrupted task was
+ * running in compatibility (32-bit) mode. */
+FORCELOCAL bool KCALL interrupt_iscompat(void) {
+ bool result;
+ struct x86_irregs_user *iret;
+ pflag_t was = PREEMPTION_PUSHOFF();
+ iret = x86_interrupt_getiret();
+ result = iret->ir_cs == X86_SEG_USER_CS32;
+ PREEMPTION_POP(was);
+ return result;
+}
+#else
+#define interrupt_iscompat() true
+#endif
 
 
 FORCELOCAL bool KCALL interrupt_returns_to_user(void) {

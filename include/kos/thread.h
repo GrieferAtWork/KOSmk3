@@ -24,7 +24,7 @@
 #include <bits/types.h>
 
 #if defined(__i386__) || defined(__x86_64__)
-#include "i386-kos/thread.h"
+#include "i386-kos/bits/thread.h"
 #else
 #error "Unsupported arch"
 #endif

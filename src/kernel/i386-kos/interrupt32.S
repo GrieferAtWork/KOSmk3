@@ -632,7 +632,7 @@ INTERN_ENTRY(x86_interrupt_except)
 
 	/* We must rewind the stack to reclaim all the stack-space
 	 * that was deallocated when exception handling unwound the
-	 * stack to account for our `EXCEPT_DESC_FDEALLOC_CONTINUE' flag.
+	 * stack to account for our `EXCEPTION_DESCRIPTOR_FDEALLOC_CONTINUE' flag.
 	 * Luckily, the original stack-value (where the exception happend)
 	 * is still saved in the thread-local exception-context block.
 	 * However, we also need to keep the current stack-pointer around,

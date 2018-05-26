@@ -68,3 +68,19 @@
 #define __PP_PRIVATE_MUL8(x) __PP_PRIVATE_MUL8_/**/x
 #define __PP_MUL8(x)         __PP_PRIVATE_MUL8_/**/x
 #endif /* !__PREPROCESSOR_HAVE_CAT */
+
+#define __PRIVATE_ARG_PLACEHOLDER_     ,
+#define __PRIVATE_ARG_PLACEHOLDER_1    ,
+#define __PRIVATE_TAKE_SECOND_ARG_IMPL(x,val,...) val
+#define __PRIVATE_TAKE_SECOND_ARG(x) __PRIVATE_TAKE_SECOND_ARG_IMPL x
+#define __PRIVATE_IF_DEFINED2(x,tt)  __PRIVATE_TAKE_SECOND_ARG((x tt,))
+#define __PRIVATE_IF_DEFINED(x,tt)   __PRIVATE_IF_DEFINED2(__PRIVATE_ARG_PLACEHOLDER_##x,tt)
+#define __PRIVATE_IS_DEFINED2(x)     __PRIVATE_TAKE_SECOND_ARG((x 1,0))
+#define __PRIVATE_IS_DEFINED(x)      __PRIVATE_IS_DEFINED2(__PRIVATE_ARG_PLACEHOLDER_##x)
+
+/* Expand to `tt' if `x' is defined as `' or `1'. Otherwise expand to nothing. */
+#define __IF_DEFINED(x,tt)           __PRIVATE_IF_DEFINED(x,tt)
+
+/* Expand `1' if `x' is defined as `' or `1'. Otherwise expand to `0'. */
+#define __IS_DEFINED(x)              __PRIVATE_IS_DEFINED(x)
+

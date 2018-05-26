@@ -159,7 +159,7 @@ KCALL smp_allocate_processor(void) {
  bootstrap_state->c_eip            = (uintptr_t)&x86_smp_task0_entry;
  bootstrap_state->c_iret.ir_cs     = X86_SEG_HOST_CS;
  bootstrap_state->c_iret.ir_eflags = EFLAGS_IF;
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
  bootstrap_state->c_segments.sg_ds = X86_SEG_HOST_DS;
  bootstrap_state->c_segments.sg_es = X86_SEG_HOST_ES;
  bootstrap_state->c_segments.sg_fs = X86_SEG_HOST_FS;
@@ -174,7 +174,11 @@ KCALL smp_allocate_processor(void) {
    tss         = &FORCPU(result,x86_cputss);
    X86_SEGMENT_STBASE(*tls_segment,(uintptr_t)tss);
    /* And finally, setup the ESP0 pointer in the TSS for the bootstrap task. */
+#ifdef __x86_64__
+   tss->t_rsp0 = (u64)idle_bootstrap->t_stackend;
+#else
    tss->t_esp0 = (u32)idle_bootstrap->t_stackend;
+#endif
 
 #ifndef __x86_64__
    /* Also setup the TSS used for handling #DF exceptions. */
@@ -223,7 +227,7 @@ INTERN ATTR_FREETEXT void KCALL x86_smp_initialize(void) {
   /* Check pointer location. */
   if (fps->mp_cfgtab >= 0x40000000)
       return;
-  table = (MpConfigurationTable *)fps->mp_cfgtab;
+  table = (MpConfigurationTable *)(uintptr_t)fps->mp_cfgtab;
   /* Check signature. */
   if (*(u32 *)table->tab_sig != ENCODE_INT32('P','C','M','P'))
       return;

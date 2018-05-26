@@ -45,26 +45,26 @@ push_function(module_callback_t func,
 PUBLIC void KCALL
 application_loaduserinit(struct application *__restrict app,
                          struct cpu_hostcontext_user *__restrict context) {
- void **esp = (void **)context->c_esp;
- validate_writable(esp-1,sizeof(*esp));
- *--esp = (void *)context->c_eip;     /* pushl %eip */
- application_enuminit(app,            /* pushl init... */
+ void **psp = (void **)context->c_psp;
+ validate_writable(psp-1,sizeof(*psp));
+ *--psp = (void *)context->c_pip;     /* pushp %pip */
+ application_enuminit(app,            /* pushp init... */
                      (module_enumerator_t)&push_function,
-                      &esp);
- context->c_eip = (uintptr_t)*esp++;  /* popl  %eip */
- context->c_esp = (uintptr_t)esp;
+                      &psp);
+ context->c_pip = (uintptr_t)*psp++;  /* popp  %pip */
+ context->c_psp = (uintptr_t)psp;
 }
 PUBLIC void KCALL
 application_loaduserfini(struct application *__restrict app,
                          struct cpu_hostcontext_user *__restrict context) {
- void **esp = (void **)context->c_esp;
- validate_writable(esp-1,sizeof(*esp));
- *--esp = (void *)context->c_eip;     /* pushl %eip */
- application_enumfini(app,            /* pushl fini... */
+ void **psp = (void **)context->c_psp;
+ validate_writable(psp-1,sizeof(*psp));
+ *--psp = (void *)context->c_pip;     /* pushp %pip */
+ application_enumfini(app,            /* pushp fini... */
                      (module_enumerator_t)&push_function,
-                      &esp);
- context->c_eip = (uintptr_t)*esp++;  /* popl  %eip */
- context->c_esp = (uintptr_t)esp;
+                      &psp);
+ context->c_pip = (uintptr_t)*psp++;  /* popp  %pip */
+ context->c_psp = (uintptr_t)psp;
 }
 
 DECL_END

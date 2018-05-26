@@ -217,6 +217,9 @@ x86_delete_virtual_memory_identity(void) {
  /* Unmap all virtual memory that isn't mapped by a VM node. */
  struct vm_node *node;
  vm_vpage_t last_end = 0;
+#ifdef __x86_64__
+ /* ... */
+#else
  /* Unmap the physical identity mapping of the first 1Gb
   * NOTE: This must be like this, so that the physical pages
   *       used to describe this memory aren't freed by
@@ -228,6 +231,7 @@ x86_delete_virtual_memory_identity(void) {
   *       directory tables would be considered ~free~ and
   *       be used as general purpose RAM. */
  memsetl(pagedir_kernel.p_e2,0,256);
+#endif
 
  node = vm_kernel.vm_byaddr;
  for (;; node = node->vn_byaddr.le_next) {

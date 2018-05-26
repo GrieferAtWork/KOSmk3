@@ -187,7 +187,7 @@ Elf_LoadSections(struct module *__restrict self) {
 
 PRIVATE char *KCALL
 Elf_LoadShStrtab(struct module *__restrict self) {
- char *EXCEPT_VAR result; Elf32_Shdr *strtab;
+ char *EXCEPT_VAR result; Elf_Shdr *strtab;
  ElfModule *mod = self->m_data;
  /* Quick check if the sections have already been loaded. */
  if (mod->e_shstrtab) return mod->e_shstrtab;
@@ -349,9 +349,9 @@ Elf_LoadDynamic(ElfModule *__restrict self,
    case DT_SYMBOLIC: self->e_dyn.di_flags  |= DYN_FSYMBOLIC; break;
 
 #ifdef CONFIG_ELF_USING_RELA
-   case DT_RELA:     self->e_dyn.di_rel.r_rela.ri_rel = dyn->d_un.d_ptr; break;
-   case DT_RELASZ:   self->e_dyn.di_rela.ri_relsiz     = dyn->d_un.d_val; break;
-   case DT_RELAENT:  self->e_dyn.di_rela.ri_relent     = dyn->d_un.d_val;
+   case DT_RELA:     self->e_dyn.di_rel.r_rela.ri_rel    = dyn->d_un.d_ptr; break;
+   case DT_RELASZ:   self->e_dyn.di_rel.r_rela.ri_relsiz = dyn->d_un.d_val; break;
+   case DT_RELAENT:  self->e_dyn.di_rel.r_rela.ri_relent = dyn->d_un.d_val;
                      if (self->e_dyn.di_flags&DYN_FRELAJMP)
                          self->e_dyn.di_rel.r_jmp.ri_relent = dyn->d_un.d_val;
                      break;

@@ -51,8 +51,8 @@ DECL_BEGIN
 
 
 #if !defined(NDEBUG) && 1
-#define FAIL(x)           (debug_printf("%s(%d) : FAIL\n",__FILE__,__LINE__),x)
-#define FAILF(x,...)      (debug_printf("%s(%d) : FAIL\n",__FILE__,__LINE__),debug_printf(__VA_ARGS__),x)
+#define FAIL(x)             (debug_printf("%s(%d) : FAIL\n",__FILE__,__LINE__),x)
+#define FAILF(x,...)        (debug_printf("%s(%d) : FAIL\n",__FILE__,__LINE__),debug_printf(__VA_ARGS__),x)
 #define GOTO_FAIL(x)      do{debug_printf("%s(%d) : FAIL\n",__FILE__,__LINE__); goto x;}__WHILE0
 #define GOTO_FAILF(x,...) do{debug_printf("%s(%d) : FAIL : ",__FILE__,__LINE__),debug_printf(__VA_ARGS__); goto x;}__WHILE0
 #else
@@ -161,7 +161,7 @@ struct dw_state {
     u16                 s_remsz;       /* [<= UNWIND_REMEMBER_STACK_SIZE] Amount of remembered rows. */
 };
 
-LOCAL uintptr_t
+LOCAL uintptr_t KCALL
 _impl_FIX_REGNO(uintptr_t regno,
                 uintptr_t return_register) {
  return regno == return_register ? UNWIND_CONTEXT_RETURN_REGISTER :
@@ -659,7 +659,28 @@ eh_return(struct fde_info *__restrict info,
    !(flags & (EH_FRESTRICT_USERSPACE|EH_FDONT_UNWIND_SIGFRAME))) {
   /* Also unwind the signal frame. */
 #ifdef __x86_64__
-#error TODO
+  if (ctx->c_rip == (uintptr_t)&x86_redirect_preemption) {
+   memcpy(&ctx->c_iret,&PERTASK(iret_saved),sizeof(struct x86_irregs64));
+  } else {
+   struct x86_irregs64 *iret;
+   iret = (struct x86_irregs64 *)ctx->c_rsp-1;
+   assertf(ctx->c_rip == iret->ir_rip,"Forgot to restore RIP at %p",info->fi_pcbegin);
+   assertf(ctx->c_rflags == iret->ir_rflags,"Forgot to restore RFLAGS at %p",info->fi_pcbegin);
+   ctx->c_iret.ir_cs = iret->ir_cs;
+   ctx->c_iret.ir_ss = iret->ir_ss;
+   if (iret->ir_cs & 3) {
+    /* Return to user-space. */
+    ctx->c_rsp = iret->ir_rsp;
+    assertf(iret->ir_eflags & EFLAGS_IF,"Corrupt unwind IRET tail {%p,%p,%p,%p}",
+            ctx->c_rip,ctx->c_rsp,iret->ir_cs,iret->ir_rflags);
+    assertf(iret->ir_cs == X86_USER_CS,"Corrupt unwind IRET tail {%p,%p,%p,%p}",
+            ctx->c_rip,ctx->c_rsp,iret->ir_cs,iret->ir_rflags);
+   } else {
+    assertf(iret->ir_cs == X86_KERNEL_CS,"Corrupt unwind IRET tail=%p {%p,%p,%p,%p}",
+            iret,ctx->c_rip,ctx->c_rsp,iret->ir_cs,iret->ir_rflags);
+   }
+  }
+  changed = true;
 #elif defined(__i386__)
   if (ctx->c_eip == (uintptr_t)&x86_redirect_preemption) {
    struct x86_irregs_user *saved = &PERTASK(iret_saved);

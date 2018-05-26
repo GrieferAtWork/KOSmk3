@@ -23,18 +23,28 @@
 #include <hybrid/host.h>
 #include <bits/types.h>
 
+#include "__exception_data.h"
+
 #if defined(__i386__) || defined(__x86_64__)
-#include "i386-kos/except.h"
+#include "i386-kos/asm/except.h"
+#include "i386-kos/bits/except.h"
+#include "i386-kos/bits/cpu-context.h"
 #else
 #error "Unsupported arch"
 #endif
 
 __DECL_BEGIN
 
+
+#ifndef __except_t_defined
+#define __except_t_defined 1
 #define __SIZEOF_EXCEPT_T__ 2
 #ifdef __CC__
 typedef __UINT16_TYPE__ except_t;
 #endif /* __CC__ */
+#endif /* !__except_t_defined */
+
+
 
 /* Unhandled exception handling / exception handling in different situations:
  *    [[EXCEPTION_IN_SYSTEM_CALL]]
@@ -231,6 +241,7 @@ typedef __UINT16_TYPE__ except_t;
 
 
 /* Exception codes. */
+#ifndef E_OK
 #define E_OK                     0x0000          /* Never thrown; may be used to indicate error-less state */
 #define E_BADALLOC               0x0001          /* [ERRNO(ENOMEM)] Failed to allocate sufficient resources. */
 #define E_INVALID_ARGUMENT       0x0002          /* [ERRNO(EINVAL)] Invalid argument. */
@@ -251,8 +262,10 @@ typedef __UINT16_TYPE__ except_t;
 #define E_NOT_EXECUTABLE         0x0083          /* [ERRNO(ENOEXEC)] The named file was not recognized as a valid executable. */
 #define E_BUFFER_TOO_SMALL       0x0084          /* [ERRNO(ERANGE)] The provided buffer is too small. */
 #define E_UNICODE_ERROR          0x0085          /* [ERRNO(EILSEQ)] An illegal sequence was encountered in a unicode string. */
+#endif /* !E_OK */
 
 /* Signal codes. */
+#ifndef E_INTERRUPT
 #define E_INTERRUPT              0xf000          /* [ERRNO(EINTR)]
                                                   * The thread has been interrupted by a PRC function,
                                                   * causing a premature return to user-space.
@@ -278,24 +291,30 @@ typedef __UINT16_TYPE__ except_t;
                                                   *  #3: Restart the system call if the interrupt wasn't caused by a posix_signal,
                                                   *      or if it was caused by a posix_signal with the `SA_RESTART' flag set. */
 #define __E_RETRY_RWLOCK         0xf001          /* The thread should re-attempt to acquire an R/W-lock. */
+#endif /* !E_INTERRUPT */
 
 /* RTL / Special exception codes. */
+#ifndef E_EXIT_THREAD
 #define E_EXIT_THREAD            0xfe00          /* [ERRNO(EINTR)] The thread is supposed to terminate. */
 #define E_EXIT_PROCESS           0xfe01          /* [ERRNO(EINTR)] The entire process is supposed to terminate. */
 #define E_NONCONTINUABLE         0xfefe          /* [ERRNO(EPERM)] Attempted to resume a non-continuable exception. */
 #define E_UNHANDLED_INTERRUPT    0xfeff          /* [ERRNO(EFAULT)] Unhandled system interrupt. */
+#endif /* !E_EXIT_THREAD */
 
 
 
 #ifdef __KERNEL__
 /* Kernel-specific exception codes. */
+#ifndef E_DRIVER_CLOSED
 #define E_DRIVER_CLOSED          0x0800          /* Attempted to register a new global hook using a closed driver. */
 #define E_USER_RESUME            0xf800          /* Resume execution in user-space (weakened form of `E_INTERRUPT') */
 #define E_RETRY_RWLOCK           __E_RETRY_RWLOCK/* The thread should re-attempt to acquire an R/W-lock. */
+#endif /* !E_DRIVER_CLOSED */
 #endif
 
 
 /* Error flags. */
+#ifndef ERR_FNORMAL
 #define ERR_FNORMAL      0x0000 /* Normal exception context flags. */
 #define ERR_FRESUMABLE   0x0001 /* Execution can be continued after the error. */
 #define ERR_FRESUMEFUNC  0x0002 /* Special handling must be done to continue from this exception.
@@ -303,9 +322,19 @@ typedef __UINT16_TYPE__ except_t;
                                  * `error_throw_current()', or `error_throw_resumable()'. */
 #define ERR_FRESUMENEXT  0x0004 /* The saved instruction pointer is directed at the start of the faulting instruction. */
 #define ERR_FUSERMASK    0xff00 /* Mask of user-defined error flags. */
+#endif /* !ERR_FNORMAL */
 
 
 
+
+/* ========================================================================== */
+/*  EXCEPTION DATA STRUCTURES                                                 */
+/* ========================================================================== */
+
+
+#ifdef E_NONCONTINUABLE
+#ifndef __exception_data_noncontinuable_defined
+#define __exception_data_noncontinuable_defined 1
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_noncontinuable {
     except_t            nc_origcode;  /* The original code of the error that were thrown. (One of `E_*') */
@@ -315,14 +344,24 @@ struct __ATTR_PACKED exception_data_noncontinuable {
 #endif
     __ULONGPTR_TYPE__   nc_origip;    /* The instruction pointer of the original exception. */
 };
-#endif
+#endif /* __CC__ */
+#endif /* !__exception_data_noncontinuable_defined */
+#endif /* E_NONCONTINUABLE */
 
 
+
+
+
+#ifdef E_BADALLOC
+#ifndef ERROR_BADALLOC_VIRTMEMORY
 #define ERROR_BADALLOC_VIRTMEMORY 0x0000 /* Virtual memory resource. */
 #define ERROR_BADALLOC_PHYSMEMORY 0x0001 /* Physical memory resource. */
 #define ERROR_BADALLOC_DEVICEID   0x0002 /* Dynamically allocated device IDs (e.g. `pty' ids). */
 #define ERROR_BADALLOC_IOPORT     0x0003 /* Dynamically allocated I/O port IDs. */
 #define ERROR_BADALLOC_HANDLE     0x0004 /* Too many handles (`ba_amount' total number of handle IDs that would have had to be allocated; not the number of new handles!). */
+#endif /* !ERROR_BADALLOC_VIRTMEMORY */
+#ifndef __exception_data_badalloc_defined
+#define __exception_data_badalloc_defined 1
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_badalloc {
     __UINT16_TYPE__      ba_resource;  /* The type of that was attempted to be allocated (One of `ERROR_BADALLOC_*'). */
@@ -330,7 +369,15 @@ struct __ATTR_PACKED exception_data_badalloc {
     __SIZE_TYPE__        ba_amount;    /* The amount (e.g.: bytes for memory) that could not be allocated. */
 };
 #endif /* __CC__ */
+#endif /* !__exception_data_badalloc_defined */
+#endif /* E_BADALLOC */
 
+
+
+
+
+#ifdef E_INVALID_HANDLE
+#ifndef ERROR_INVALID_HANDLE_FUNDEFINED
 #define ERROR_INVALID_HANDLE_FUNDEFINED     0x0000 /* No object has been assigned to the handle.
                                                     * In this case, `h_istype' and `h_rqtype' are set to `HANDLE_TYPE_FNONE',
                                                     * though may in rare cases be set to some something else (don't rely on this).
@@ -351,9 +398,12 @@ struct __ATTR_PACKED exception_data_badalloc {
 #define ERROR_INVALID_HANDLE_ILLHND_FRMSYM  0x0002 /* The handle refers to an unbound symbolic handle location (e.g. an unmounted DOS DRIVE). */
 #define ERROR_INVALID_HANDLE_ILLHND_FROSYM  0x0003 /* The handle refers to a read-only symbolic handle location. (may be thrown by dup2() with a read-only symbolic DFD) */
 #define ERROR_INVALID_HANDLE_ILLHND_FBOUND  0x0004 /* The handle ID exceeds the limit that is imposed by the kernel on the greatest allowed handle number (may be thrown by dup2()). */
+#endif /* !ERROR_INVALID_HANDLE_FUNDEFINED */
+#ifndef __exception_data_invalid_handle_defined
+#define __exception_data_invalid_handle_defined 1
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_invalid_handle {
-    int                  h_handle;     /* The file descriptor number that is invalid. */
+    __INT32_TYPE__       h_handle;     /* The file descriptor number that is invalid. */
     __UINT16_TYPE__      h_reason;     /* The reason for the error (one of `ERROR_INVALID_HANDLE_F*') */
     __UINT16_TYPE__      h_istype;     /* The type of handle that was found (One of `HANDLE_TYPE_F*') */
     __UINT16_TYPE__      h_rqtype;     /* The type of handle that was expected (One of `HANDLE_TYPE_F*') */
@@ -363,7 +413,14 @@ struct __ATTR_PACKED exception_data_invalid_handle {
     };
 };
 #endif /* __CC__ */
+#endif /* !__exception_data_invalid_handle_defined */
+#endif /* !E_INVALID_HANDLE */
 
+
+
+
+
+#ifdef E_DIVIDE_BY_ZERO
 #ifndef ERROR_DIVIDE_BY_ZERO_INT
 #define ERROR_DIVIDE_BY_ZERO_INT     0x0000 /* Signed integer division by ZERO */
 #define ERROR_DIVIDE_BY_ZERO_UINT    0x0001 /* Unsigned integer division by ZERO */
@@ -373,35 +430,65 @@ struct __ATTR_PACKED exception_data_invalid_handle {
 #define ERROR_DIVIDE_BY_ZERO_LDBL    0x1002 /* Floating point division by ZERO (`long double') */
 #define ERROR_DIVIDE_BY_ZERO_FNORMAL 0x0000 /* Normal flags. */
 #endif /* !ERROR_DIVIDE_BY_ZERO_INT */
-
+#ifndef __exception_data_divide_by_zero_defined
+#define __exception_data_divide_by_zero_defined 1
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_divide_by_zero {
     __UINT16_TYPE__      dz_type;      /* The type of division (One of `ERROR_DIVIDE_BY_ZERO_*') */
     __UINT16_TYPE__      dz_flag;      /* Division flags (Set of `ERROR_DIVIDE_BY_ZERO_F*') */
-#if __SIZEOF_POINTER__ > 4
-     __UINT16_TYPE__   __dz_pad[(__SIZEOF_POINTER__-4)/2];
-#endif
-     union __ATTR_PACKED {
-         __INT64_TYPE__  da_int;       /* [ERROR_DIVIDE_BY_ZERO_INT] Integer operand. */
-         __UINT64_TYPE__ da_uint;      /* [ERROR_DIVIDE_BY_ZERO_UINT] Unsigned integer operand. */
-         float           da_flt;       /* [ERROR_DIVIDE_BY_ZERO_FLT] Floating point operand. */
-         double          da_dbl;       /* [ERROR_DIVIDE_BY_ZERO_DBL] Double precision floating point operand. */
-         long double     da_ldbl;      /* [ERROR_DIVIDE_BY_ZERO_LDBL] Long-double precision floating point operand. */
-     }                   dz_arg;       /* The operand that the division was attempted to divide. */
+    __UINT16_TYPE__    __dz_pad[2];    /* ... */
+    union __ATTR_PACKED {
+        __INT64_TYPE__   da_int;       /* [ERROR_DIVIDE_BY_ZERO_INT] Integer operand. */
+        __UINT64_TYPE__  da_uint;      /* [ERROR_DIVIDE_BY_ZERO_UINT] Unsigned integer operand. */
+        float            da_flt;       /* [ERROR_DIVIDE_BY_ZERO_FLT] Floating point operand. */
+        double           da_dbl;       /* [ERROR_DIVIDE_BY_ZERO_DBL] Double precision floating point operand. */
+        long double      da_ldbl;      /* [ERROR_DIVIDE_BY_ZERO_LDBL] Long-double precision floating point operand. */
+    }                    dz_arg;       /* The operand that the division was attempted to divide. */
 };
+#endif /* __CC__ */
+#endif /* !__exception_data_divide_by_zero_defined */
+#endif /* E_DIVIDE_BY_ZERO */
+
+
+
+
+
+#ifdef E_INDEX_ERROR
+#ifndef __exception_data_index_error_defined
+#define __exception_data_index_error_defined 1
+#ifdef __CC__
 struct __ATTR_PACKED exception_data_index_error {
-    __UINTPTR_TYPE__   __b_pad;         /* ... */
+    __UINT64_TYPE__    __b_pad;         /* ... */
     __UINT64_TYPE__      b_index;       /* The index that was tested, or ZERO(0). */
     __UINT64_TYPE__      b_boundmin;    /* The lower bound, or ZERO(0). */
     __UINT64_TYPE__      b_boundmax;    /* The upper bound, or ZERO(0). */
 };
+#endif /* __CC__ */
+#endif /* !__exception_data_index_error_defined */
+#endif /* E_INDEX_ERROR */
+
+
+
+
+
+#ifdef E_BUFFER_TOO_SMALL
+#ifndef __exception_data_buffer_too_small_defined
+#define __exception_data_buffer_too_small_defined 1
+#ifdef __CC__
 struct __ATTR_PACKED exception_data_buffer_too_small {
     __SIZE_TYPE__        bs_bufsize;    /* Provided buffer size. */
     __SIZE_TYPE__        bs_reqsize;    /* Required buffer size. */
 };
 #endif /* __CC__ */
+#endif /* !__exception_data_buffer_too_small_defined */
+#endif /* E_BUFFER_TOO_SMALL */
 
 
+
+
+
+#ifdef E_FILESYSTEM_ERROR
+#ifndef ERROR_FS_NOERROR
 #define ERROR_FS_NOERROR               0x0000 /* No error. */
 #define ERROR_FS_FILE_NOT_FOUND        0x0001 /* [ERRNO(ENOENT)]       File could not be found (when `foo' does, but `bar' doesn't exist in `/foo/bar').
                                                *                       Also thrown when attempting to operate on a file that has been deleted. */
@@ -434,14 +521,24 @@ struct __ATTR_PACKED exception_data_buffer_too_small {
 #define ERROR_FS_NOT_A_SYMLINK         0x0019 /* [ERRNO(ENOENT)]      `O_SYMLINK' was used with `O_EXCL', but the named file isn't a symbolic link. */
 #define ERROR_FS_IS_A_SYMLINK          0x001a /* [ERRNO(ELOOP)]       `O_NOFOLLOW' was used, but the named file is a symbolic link. */
 #define ERROR_FS_CORRUPTED_FILESYSTEM  0xffff /* [ERRNO(EIO)]          Corrupted, miss-configured, or otherwise not compatible filesystem. */
+#endif /* !ERROR_FS_NOERROR */
+#ifndef __exception_data_filesystem_error_defined
+#define __exception_data_filesystem_error_defined 1
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_filesystem_error {
     __UINT16_TYPE__      fs_errcode;  /* Filesystem operation error code (One of `ERROR_FS_*').
                                        * NOTE: Never `ERROR_FS_NOERROR' */
 };
 #endif /* __CC__ */
+#endif /* !__exception_data_filesystem_error_defined */
+#endif /* E_FILESYSTEM_ERROR */
 
 
+
+
+
+#ifdef E_NET_ERROR
+#ifndef ERROR_NET_NOERROR
 #define ERROR_NET_NOERROR                0x0000 /* No error. */
 #define ERROR_NET_UNSUPPORTED_DOMAIN     0x0001 /* [ERRNO(EAFNOSUPPORT)]    The specified socket domain (address family) is not supported (missing driver?) */
 #define ERROR_NET_UNSUPPORTED_TYPE       0x0002 /* [ERRNO(EINVAL)]          The specified socket type is not supported by the socket domain. */
@@ -460,34 +557,80 @@ struct __ATTR_PACKED exception_data_filesystem_error {
 #define ERROR_NET_CONNECTION_REFUSED     0x000f /* [ERRNO(ECONNREFUSED)]    Failed to connect to an address with no one listen(2)-ing on the other end. */
 #define ERROR_NET_ADDRESS_IN_USE         0x0010 /* [ERRNO(EADDRINUSE)]      Local address is already in use (mainly by `bind()'). */
 #define ERROR_NET_PACKET_TOO_LARGE       0x0011 /* [ERRNO(EMSGSIZE)]        A packet is too large for the associated protocol. */
+#endif /* !ERROR_NET_NOERROR */
+#ifndef __exception_data_net_error_defined
+#define __exception_data_net_error_defined 1
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_net_error {
     __UINT16_TYPE__      n_errcode;   /* Network operation error code (One of `ERROR_NET_*').
                                        * NOTE: Never `ERROR_NET_NOERROR' */
 };
 #endif /* __CC__ */
+#endif /* !__exception_data_net_error_defined */
+#endif /* E_NET_ERROR */
 
+
+
+
+
+#ifdef E_NO_DEVICE
+#ifndef ERROR_NO_DEVICE_FBLOCKDEV
 #define ERROR_NO_DEVICE_FBLOCKDEV 0x0000 /* The missing device is a block-device. */
 #define ERROR_NO_DEVICE_FCHARDEV  0x0001 /* The missing device is a character-device. */
+#endif /* !ERROR_NO_DEVICE_FBLOCKDEV */
+#ifndef __exception_data_no_device_defined
+#define __exception_data_no_device_defined 1
 #ifdef __CC__
 struct __ATTR_PACKED exception_data_no_device {
     __UINT16_TYPE__      d_type;      /* The type of device that is missing (One of `ERROR_NO_DEVICE_F*'). */
     __UINT16_TYPE__    __d_pad[(sizeof(void *)-2)/2]; /* ... */
     __dev_t              d_devno;     /* The missing device number. */
 };
+#endif /* __CC__ */
+#endif /* !__exception_data_no_device_defined */
+#endif /* E_NO_DEVICE */
 
+
+
+
+
+#ifdef E_UNHANDLED_INTERRUPT
+#ifndef __exception_data_unhandled_interrupt_defined
+#define __exception_data_unhandled_interrupt_defined 1
+#ifdef __CC__
 struct __ATTR_PACKED exception_data_unhandled_interrupt {
     __UINTPTR_TYPE__     ui_errcode;   /* An exception code passed alongside the interrupt, or ZERO. */
     __UINT8_TYPE__       ui_intcode;   /* The interrupt vector that has not been handled. */
     __UINT8_TYPE__     __ui_pad[sizeof(void *)-1]; /* ... */
 };
-#ifndef __ARCH_SYSCALL_MAX_ARGC
-#define __ARCH_SYSCALL_MAX_ARGC 6
-#endif
+#endif /* __CC__ */
+#endif /* !__exception_data_unhandled_interrupt_defined */
+#endif /* E_UNHANDLED_INTERRUPT */
+
+
+
+
+
+#ifdef E_UNKNOWN_SYSTEMCALL
+#ifndef __exception_data_unknown_systemcall_defined
+#define __exception_data_unknown_systemcall_defined 1
+#ifdef __CC__
 struct __ATTR_PACKED exception_data_unknown_systemcall {
     __syscall_ulong_t    us_sysno;                         /* System call number. */
     __syscall_ulong_t    us_args[__ARCH_SYSCALL_MAX_ARGC]; /* System call arguments. */
 };
+#endif /* __CC__ */
+#endif /* !__exception_data_unknown_systemcall_defined */
+#endif /* E_UNKNOWN_SYSTEMCALL */
+
+
+
+
+
+#if defined(E_EXIT_PROCESS) || defined(E_EXIT_THREAD)
+#ifndef __exception_data_exit_defined
+#define __exception_data_exit_defined 1
+#ifdef __CC__
 struct __ATTR_PACKED exception_data_exit {
 #ifdef __KERNEL__
     int                  e_status;     /* Wait status (s.a. `union wait' from `<bits/waitstatus.h>') */
@@ -495,18 +638,32 @@ struct __ATTR_PACKED exception_data_exit {
     int                  e_status;     /* Thread/process exit code (as passed to `pthread_exit()' / `exit()') */
 #endif
 };
+#endif /* __CC__ */
+#endif /* !__exception_data_exit_defined */
+#endif /* E_EXIT_PROCESS || E_EXIT_THREAD */
 
+
+
+
+
+#if defined(E_RETRY_RWLOCK) || defined(__E_RETRY_RWLOCK)
+#ifndef __exception_data_retry_rwlock_defined
+#define __exception_data_retry_rwlock_defined 1
+#ifdef __CC__
 struct __ATTR_PACKED exception_data_retry_rwlock {
     struct rwlock       *e_rwlock_ptr; /* Address of the R/W-lock in question. */
 };
-
 #endif /* __CC__ */
+#endif /* !__exception_data_retry_rwlock_defined */
+#endif /* E_RETRY_RWLOCK || __E_RETRY_RWLOCK */
 
 
-/* The number of extended exception information data pointers. */
-#define __EXCEPTION_INFO_NUM_DATA_POINTERS  15
-#define __EXCEPTION_INFO_SIZEOF_DATA       (__EXCEPTION_INFO_NUM_DATA_POINTERS*__SIZEOF_POINTER__)
 
+
+
+
+#ifndef __exception_data_defined
+#define __exception_data_defined 1
 #ifdef __CC__
 struct exception_data {
     except_t                     e_code;       /* The code of the error that was thrown. (One of `E_*') */
@@ -519,35 +676,14 @@ struct exception_data {
         /* Exception-specific data. */
         void            *e_pointers[__EXCEPTION_INFO_NUM_DATA_POINTERS]; /* Exception data as a bunch of untyped pointers. */
         __UINTPTR_TYPE__ e_words[__EXCEPTION_INFO_NUM_DATA_POINTERS];    /* Exception data as a bunch of untyped data words. */
-        struct exception_data_noncontinuable      e_noncont;             /* E_NONCONTINUABLE */
-        struct exception_data_badalloc            e_badalloc;            /* E_BADALLOC */
-        struct exception_data_invalid_handle      e_invalid_handle;      /* E_INVALID_HANDLE */
-        struct exception_data_segfault            e_segfault;            /* E_SEGFAULT, E_STACK_OVERFLOW */
-        struct exception_data_divide_by_zero      e_divide_by_zero;      /* E_DIVIDE_BY_ZERO */
-        struct exception_data_index_error         e_index_error;         /* E_INDEX_ERROR */
-        struct exception_data_buffer_too_small    e_buffer_too_small;    /* E_BUFFER_TOO_SMALL */
-        struct exception_data_filesystem_error    e_filesystem_error;    /* E_FILESYSTEM_ERROR */
-        struct exception_data_net_error           e_net_error;           /* E_NET_ERROR */
-        struct exception_data_no_device           e_no_device;           /* E_NO_DEVICE */
-        struct exception_data_unhandled_interrupt e_unhandled_interrupt; /* E_UNHANDLED_INTERRUPT. */
-        struct exception_data_unknown_systemcall  e_unknown_systemcall;  /* E_UNKNOWN_SYSTEMCALL. */
-        struct exception_data_exit                e_exit;                /* E_EXIT_THREAD, E_EXIT_PROCESS */
-#ifdef __exception_data_system_defined
-        struct exception_data_system              e_system;              /* Common header for system exceptions. */
-#endif
-#ifdef E_ILLEGAL_INSTRUCTION
-        struct exception_data_illegal_instruction e_illegal_instruction; /* E_ILLEGAL_INSTRUCTION. */
-#endif
-#ifdef E_INVALID_SEGMENT
-        struct exception_data_invalid_segment     e_invalid_segment;     /* E_INVALID_SEGMENT. */
-#endif
-        struct exception_data_retry_rwlock      __e_retry_rwlock;        /* __E_RETRY_RWLOCK */
-#ifdef __KERNEL__
-        struct exception_data_retry_rwlock        e_retry_rwlock;        /* E_RETRY_RWLOCK */
-#endif
+#define __PRIVATE_DEFINE_EXCEPTION_DATA_MEMBER(name) \
+  __IF_DEFINED(__exception_data_##name##_defined,struct exception_data_##name e_##name;)
+        __PRIVATE_FOREACH_EXCEPTION_DATA(__PRIVATE_DEFINE_EXCEPTION_DATA_MEMBER)
+#undef __PRIVATE_DEFINE_EXCEPTION_DATA_MEMBER
     };
 };
 #endif /* __CC__ */
+#endif /* !__exception_data_defined */
 
 
 #define __EXCEPTION_INFO_OFFSETOF_CODE      0
@@ -560,12 +696,10 @@ struct exception_data {
 #define __EXCEPTION_INFO_OFFSETOF_CONTEXT  (__SIZEOF_POINTER__+__EXCEPTION_INFO_SIZEOF_DATA)
 #endif
 #define __EXCEPTION_INFO_SIZE              (__EXCEPTION_INFO_OFFSETOF_CONTEXT+__CPU_CONTEXT_SIZE)
-#ifdef __x86_64__
-#define __USEREXCEPTION_INFO_SIZE          (__EXCEPTION_INFO_OFFSETOF_CONTEXT+__CPU_CONTEXT_SIZE)
-#elif defined(__KERNEL__)
-#define __USEREXCEPTION_INFO_SIZE          (__EXCEPTION_INFO_OFFSETOF_CONTEXT+X86_USERCONTEXT32_SIZE)
+#ifdef __KERNEL__
+#define __USEREXCEPTION_INFO_SIZE          (__EXCEPTION_INFO_OFFSETOF_CONTEXT+__CPU_USERCONTEXT_SIZE)
 #else
-#define __USEREXCEPTION_INFO_SIZE          (__EXCEPTION_INFO_OFFSETOF_CONTEXT+X86_CONTEXT32_SIZE)
+#define __USEREXCEPTION_INFO_SIZE          (__EXCEPTION_INFO_OFFSETOF_CONTEXT+__CPU_CONTEXT_SIZE)
 #endif
 
 #if defined(__KERNEL__) || defined(__USE_KOS)
@@ -581,6 +715,12 @@ struct exception_data {
 #define EXCEPTION_INFO_SIZE                 __EXCEPTION_INFO_SIZE
 #endif
 
+
+
+
+
+#ifndef __exception_info_defined
+#define __exception_info_defined 1
 #ifdef __CC__
 struct __ATTR_PACKED exception_info {
     /* The exception-information data structure. */
@@ -593,62 +733,106 @@ struct __ATTR_PACKED exception_info {
                                                  * the faulting instruction, or at the following instruction,
                                                  * depending on the `ERR_FRESUMENEXT' flag. */
 };
+#endif /* __CC__ */
+#endif /* !__exception_info_defined */
+
+
+
+
+
 #ifdef __KERNEL__
+#ifndef __user_exception_info_defined
+#define __user_exception_info_defined 1
+#if !defined(__user_exception_data_defined) && \
+    !defined(__user_exception_rt_data_defined) && \
+    !defined(__cpu_usercontext_defined)
+#define user_exception_info  exception_info
+#else
+#ifndef __user_exception_data_defined
+#define __user_exception_data_defined 1
+#define user_exception_data     exception_data
+#endif
+#ifndef __user_exception_rt_data_defined
+#define __user_exception_rt_data_defined 1
+#define user_exception_rt_data  exception_rt_data
+#endif
+#ifndef __cpu_usercontext_defined
+#define __cpu_usercontext_defined 1
+#define cpu_usercontext         cpu_context
+#endif
+#ifdef __CC__
 struct __ATTR_PACKED user_exception_info {
     /* The exception-information data structure (for user-space). */
-    struct exception_data         e_error;      /* Error information. */
-#ifdef __USER_EXCEPTION_RT_DATA_SIZE
+    struct user_exception_data    e_error;      /* Error information. */
     struct user_exception_rt_data e_rtdata;     /* Exception runtime data. */
-#elif defined(__EXCEPTION_RT_DATA_SIZE)
-    struct exception_rt_data      e_rtdata;     /* Exception runtime data. */
-#endif
-    struct x86_usercontext        e_context;    /* The CPU context at the time of the interrupt happening.
+    struct cpu_usercontext        e_context;    /* The CPU context at the time of the interrupt happening.
                                                  * The instruction pointer is either directed at the start of
                                                  * the faulting instruction, or at the following instruction,
                                                  * depending on the `ERR_FRESUMENEXT' flag. */
 };
-#endif /* __KERNEL__ */
 #endif /* __CC__ */
+#endif
+#endif /* !__user_exception_info_defined */
+#endif /* __KERNEL__ */
 
+
+
+
+
+
+
+
+
+
+
+/* ========================================================================== */
+/*  EXCEPTION RECORD (DESCRIPTOR / HANDLER) DEFINITIONS                       */
+/* ========================================================================== */
 
 /* Exception descriptor types. */
-#define EXCEPT_DESC_TYPE_BYPASS         0x0000 /* The handler bypasses regular exception handling
-                                                * in that the guarded function will be fully unwound
-                                                * before certain aspects are saved/restored according
-                                                * to descriptor flags, followed by a jump to the handler. */
+#ifndef EXCEPTION_DESCRIPTOR_TYPE_BYPASS
+#define EXCEPTION_DESCRIPTOR_TYPE_BYPASS         0x0000 /* The handler bypasses regular exception handling
+                                                         * in that the guarded function will be fully unwound
+                                                         * before certain aspects are saved/restored according
+                                                         * to descriptor flags, followed by a jump to the handler. */
+#endif /* !EXCEPTION_DESCRIPTOR_TYPE_BYPASS */
 
 /* Exception descriptor flags. */
-#define EXCEPT_DESC_FNORMAL             0x0000 /* Normal descriptor flags. */
-#define EXCEPT_DESC_FDEALLOC_CONTINUE   0x0001 /* Deallocate continue-information and set the stack-pointer to the value that the
-                                                * caller of the function in which the guarded area is located inside of is expecting.
-                                                * When this flag is set, `error_continue()' can no longer be used safely, unless the
-                                                * exception descriptor takes it upon itself to undo the updated stack-pointer.
-                                                * If this type of handler returns normally, the faulting function returns with the
-                                                * value that the bypass handler returns.
-                                                * Also note that when this flag is set, rather than being appended at the end,
-                                                * the descriptor handler function will override the faulting function. */
-#define EXCEPT_DESC_FRELATIVE           0x4000 /* Descriptor pointers are relative to the associated application's load address */
+#ifndef EXCEPTION_DESCRIPTOR_FNORMAL
+#define EXCEPTION_DESCRIPTOR_FNORMAL             0x0000 /* Normal descriptor flags. */
+#define EXCEPTION_DESCRIPTOR_FDEALLOC_CONTINUE   0x0001 /* Deallocate continue-information and set the stack-pointer to the value that the
+                                                         * caller of the function in which the guarded area is located inside of is expecting.
+                                                         * When this flag is set, `error_continue()' can no longer be used safely, unless the
+                                                         * exception descriptor takes it upon itself to undo the updated stack-pointer.
+                                                         * If this type of handler returns normally, the faulting function returns with the
+                                                         * value that the bypass handler returns.
+                                                         * Also note that when this flag is set, rather than being appended at the end,
+                                                         * the descriptor handler function will override the faulting function. */
+#define EXCEPTION_DESCRIPTOR_FRELATIVE           0x4000 /* Descriptor pointers are relative to the associated application's load address */
 #ifdef __KERNEL__
-#define EXCEPT_DESC_FDISABLE_PREEMPTION 0x8000 /* Disable preemption before resuming execution. */
-#define EXCEPT_DESC_FMASK               0xc001 /* Mask of known descriptor flags. */
+#define EXCEPTION_DESCRIPTOR_FDISABLE_PREEMPTION 0x8000 /* Disable preemption before resuming execution. */
+#define EXCEPTION_DESCRIPTOR_FMASK               0xc001 /* Mask of known descriptor flags. */
 #else
-#define EXCEPT_DESC_FMASK               0x4001 /* Mask of known descriptor flags. */
+#define EXCEPTION_DESCRIPTOR_FMASK               0x4001 /* Mask of known descriptor flags. */
 #endif
+#endif /* !EXCEPTION_DESCRIPTOR_FNORMAL */
 
+#ifndef __exception_descriptor_defined
+#define __exception_descriptor_defined 1
 #ifdef __CC__
-struct except_desc {
+struct exception_descriptor {
     /* Extended exception descriptor. */
     void            *ed_handler; /* [1..1] Exception descriptor entry address. */
-    __UINT16_TYPE__  ed_type;    /* The type of descriptor (One of `EXCEPT_DESC_TYPE_*'). */
-    __UINT16_TYPE__  ed_flags;   /* Descriptor flags (Set of `EXCEPT_DESC_F*'). */
+    __UINT16_TYPE__  ed_type;    /* The type of descriptor (One of `EXCEPTION_DESCRIPTOR_TYPE_*'). */
+    __UINT16_TYPE__  ed_flags;   /* Descriptor flags (Set of `EXCEPTION_DESCRIPTOR_F*'). */
     __UINT16_TYPE__  ed_safe;    /* The amount of bytes of stack-memory that should be
                                   * reserved before the descriptor is invoked.
                                   * This usually equals the total size of arguments passed to the
                                   * function in which code is being protected (when it's STDCALL),
                                   * plus an additional 4/8 bytes for the return address.
-                                  * Unless the `EXCEPT_DESC_FDEALLOC_CONTINUE' flag is set,
+                                  * Unless the `EXCEPTION_DESCRIPTOR_FDEALLOC_CONTINUE' flag is set,
                                   * this is the amount of stack-memory that is copied before
-                                  * jumping to `ed_handler', and when `EXCEPT_DESC_FDEALLOC_CONTINUE'
+                                  * jumping to `ed_handler', and when `EXCEPTION_DESCRIPTOR_FDEALLOC_CONTINUE'
                                   * isn't set, this is the offset subtracted from SP to re-reserve
                                   * this amount of memory and prevent it from being clobbered.
                                   * In either case, ESP/RSP will point to `CFA(FUNCTION_OF(:eh_begin)) - ed_safe'
@@ -662,8 +846,17 @@ struct except_desc {
     __UINT16_TYPE__ __ed_pad;    /* ... */
 };
 #endif /* __CC__ */
+#endif /* !__exception_descriptor_defined */
+#ifndef __DEFINE_EXCEPTION_DESCRIPTOR
+#error "Patform did not `#define __DEFINE_EXCEPTION_DESCRIPTOR(name,handler,type,flags,safe)'"
+#endif
+
+
+
+
 
 /* Exception handler flags. */
+#ifndef EXCEPTION_HANDLER_FNORMAL
 #define EXCEPTION_HANDLER_FNORMAL      0x0000  /* Normal handler flags. */
 #define EXCEPTION_HANDLER_FHASMASK     0x0001  /* FLAG: `eh_mask' contains a valid value.
                                                 *        When no other mask-related flags are set, `eh_mask' is
@@ -675,9 +868,11 @@ struct except_desc {
 #define EXCEPTION_HANDLER_FRELATIVE    0x4000  /* Handler pointers are relative to the associated application's load address */
 #define EXCEPTION_HANDLER_FDESCRIPTOR  0x8000  /* FLAG:  The handling of this exception is done using an exception descriptor. */
 #define EXCEPTION_HANDLER_FMASK        0xc007  /* Mask of known flags. */
-
+#endif /* !EXCEPTION_HANDLER_FNORMAL */
+#ifndef __exception_handler_defined
+#define __exception_handler_defined 1
 #ifdef __CC__
-struct __ATTR_PACKED except_handler {
+struct __ATTR_PACKED exception_handler {
     /* The internal structure found in `.except'
      * These descriptors are iterated in reverse order, meaning that
      * an entry defined after another is considered after the first.
@@ -702,13 +897,64 @@ struct __ATTR_PACKED except_handler {
     void                        *eh_begin;     /* [<= eh_end] Inclusive start address of the exception handling range */
     void                        *eh_end;       /* [>= eh_begin] Non-inclusive end address of the exception handling range */
     union __ATTR_PACKED {
-        struct except_desc const*eh_descr;     /* [1..1][valid_if(EXCEPTION_HANDLER_FDESCRIPTOR)] Exception descriptor. */
+        struct exception_descriptor const
+                                *eh_descr;     /* [1..1][valid_if(EXCEPTION_HANDLER_FDESCRIPTOR)] Exception descriptor. */
         __UINTPTR_TYPE__         eh_entry;     /* Handler entry point address (Must be part of the same eh_frame as `eh_begin...eh_end') */
     };
     __UINTPTR_HALF_TYPE__        eh_flag;      /* Handler flags (Set of `EXCEPTION_HANDLER_F*') */
     __UINTPTR_HALF_TYPE__        eh_mask;      /* Handler mask (When `EXCEPTION_HANDLER_FHASMASK' is set) */
 };
 #endif /* __CC__ */
+#endif /* !__exception_handler_defined */
+#ifndef __DEFINE_EXCEPTION_HANDLER
+#error "Patform did not `#define __DEFINE_EXCEPTION_HANDLER(begin,end,entry,flags,mask)'"
+#endif
+           
+
+
+
+
+
+
+
+
+#ifndef __DEFINE_FINALLY_BLOCK
+#define __DEFINE_FINALLY_BLOCK(begin,end,entry) \
+        __DEFINE_EXCEPTION_HANDLER(begin,end,entry,EXCEPTION_HANDLER_FFINALLY,0)
+#endif /* !__DEFINE_FINALLY_BLOCK */
+#ifndef __DEFINE_EXCEPT_BLOCK
+#define __DEFINE_EXCEPT_BLOCK(begin,end,entry) \
+        __DEFINE_EXCEPTION_HANDLER(begin,end,entry,EXCEPTION_HANDLER_FNORMAL,0)
+#endif /* !__DEFINE_EXCEPT_BLOCK */
+#ifndef __DEFINE_CATCH_BLOCK
+#define __DEFINE_CATCH_BLOCK(begin,end,entry,mask) \
+        __DEFINE_EXCEPTION_HANDLER(begin,end,entry,EXCEPTION_HANDLER_FMASK,mask)
+#endif /* !__DEFINE_CATCH_BLOCK */
+
+
+
+
+#ifndef __EXCEPT_CLOBBER_REGS
+#define __EXCEPT_CLOBBER_REGS() \
+        __XBLOCK({ __asm__ __volatile__("#%=" : : : "memory"); (void)0; })
+#endif /* !__EXCEPT_CLOBBER_REGS */
+#ifndef __EXCEPT_INVOKE_HANDLED
+#define __EXCEPT_INVOKE_HANDLED(x) \
+   __XBLOCK({ __EXCEPT_CLOBBER_REGS(); \
+              x; \
+              __EXCEPT_CLOBBER_REGS(); \
+   })
+#endif /* !__EXCEPT_INVOKE_HANDLED */
+#ifndef __EXCEPT_INVOKE_DEALLOC_CONTINUE
+#define __EXCEPT_INVOKE_DEALLOC_CONTINUE(x) \
+   __XBLOCK({ __SIZE_TYPE__ __edc_result; \
+              __EXCEPT_CLOBBER_REGS(); \
+              __edc_result = x; \
+              __EXCEPT_CLOBBER_REGS(); \
+              __XRETURN __edc_result; \
+   })
+#endif /* !__EXCEPT_INVOKE_DEALLOC_CONTINUE */
+
 
 __DECL_END
 

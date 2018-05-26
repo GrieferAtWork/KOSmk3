@@ -77,12 +77,6 @@ DECL_BEGIN
 
 #define DEFINE_BSS(x,n_bytes)    x: .skip (n_bytes); SYMEND(x)
 
-#ifdef __PIC__
-#   define PLT_SYM(x) x@PLT
-#else
-#   define PLT_SYM(x) x
-#endif
-
 DECL_END
 
 #endif /* !__GUARD_HYBRID_ASM_H */

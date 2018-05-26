@@ -152,10 +152,8 @@ void KCALL x86_switch_to_userspace(void) {
 
  /* Update the VM context.
   * NOTE: The kernel-share segment is already mapped in the new VM. */
- __asm__ __volatile__("movl %0, %%cr3\n"
-                      :
-                      : "r" (init_vm->vm_physdir)
-                      : "memory");
+ pagedir_set((pagedir_t *)(uintptr_t)init_vm->vm_physdir);
+
  /* With the new context now active, re-enable preemption. */
  PREEMPTION_ENABLE();
  COMPILER_BARRIER();
@@ -192,6 +190,13 @@ void KCALL x86_switch_to_userspace(void) {
 #endif /* !CONFIG_NO_DOS_COMPAT */
 
   memset(&ctx,0,sizeof(struct cpu_hostcontext_user));
+#ifdef __x86_64__
+  ctx.c_iret.ir_rip    = init_app->a_loadaddr+init_mod->m_entry;
+  ctx.c_iret.ir_cs     = X86_USER_CS;
+  ctx.c_iret.ir_rflags = EFLAGS_IF;
+  ctx.c_iret.ir_rsp    = VM_PAGE2ADDR(stack->us_pageend);
+  ctx.c_iret.ir_ss     = X86_SEG_USER_SS;
+#else
   ctx.c_iret.ir_eip     = init_app->a_loadaddr+init_mod->m_entry;
   ctx.c_iret.ir_cs      = X86_USER_CS;
   ctx.c_iret.ir_eflags  = EFLAGS_IF;
@@ -211,6 +216,7 @@ void KCALL x86_switch_to_userspace(void) {
                        : "memory");
 
 #endif /* CONFIG_NO_X86_SEGMENTATION */
+#endif
 
   /* Queue library initializers for all loaded user-space application. */
   vm_apps_initall(&ctx);
@@ -294,6 +300,18 @@ no_free_segment:
     * XXX: We also must send an IPI to other CPUs... But we'd
     *      need to do that _after_ unmapping the code that
     *      would control that operation... */
+#ifdef __x86_64__
+   __asm__ __volatile__("pushq %0\n"                     /* cpu_setcontext([ctx]) */
+                        "pushq $cpu_setcontext_pop\n"    /* pagedir_map() -> RETURN_ADDRESS; */
+                        "jmp   pagedir_map\n"            /* pagedir_map(...) */
+                        :
+                        : "r" (&ctx)
+                        , "D" ((uintptr_t)kernel_free_minpage)   /* pagedir_map([virt_page],num_pages,phys_page,perm); */
+                        , "S" ((uintptr_t)kernel_free_num_pages) /* pagedir_map(virt_page,[num_pages],phys_page,perm); */
+                        , "d" ((uintptr_t)0)                     /* pagedir_map(virt_page,num_pages,[phys_page],perm); */
+                        , "c" ((uintptr_t)PAGEDIR_MAP_FUNMAP)    /* pagedir_map(virt_page,num_pages,phys_page,[perm]); */
+                        : "memory");
+#else
    __asm__ __volatile__("pushl %0\n"                     /* cpu_setcontext([ctx]) */
                         "pushl %1\n"                     /* pagedir_map(virt_page,num_pages,phys_page,[perm]); */
                         "pushl $0\n"                     /* pagedir_map(virt_page,num_pages,[phys_page],perm); */
@@ -305,6 +323,7 @@ no_free_segment:
                         : "r" (&ctx)
                         , "i" (PAGEDIR_MAP_FUNMAP)
                         : "memory");
+#endif
    __builtin_unreachable();
   }
 #endif

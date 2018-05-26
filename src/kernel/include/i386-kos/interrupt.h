@@ -22,7 +22,7 @@
 #include <hybrid/compiler.h>
 #include <kos/types.h>
 #include <kernel/sections.h>
-#include <kos/i386-kos/except.h>
+#include <kos/i386-kos/asm/except.h>
 
 DECL_BEGIN
 
@@ -72,7 +72,7 @@ struct PACKED x86_idtentry {
 #define X86_IDTTYPE_80286_16_INTERRUPT_GATE 0x06
 #define X86_IDTTYPE_80286_16_TRAP_GATE      0x07
 #define X86_IDTTYPE_80386_32_INTERRUPT_GATE 0x0e
-#ifndef __x86_64__
+#if !defined(__x86_64__) || 1 /* ??? */
 #define X86_IDTTYPE_80386_32_TRAP_GATE      0x0f
 #endif
 
@@ -116,7 +116,7 @@ struct PACKED x86_idtentry {
  * searching for exception handlers like usual.
  * Use the below macro `X86_DEFINE_INTERRUPT_GUARD()'
  * to define an interrupt exception guard. */
-DATDEF struct except_desc const x86_interrupt_guard;
+DATDEF struct exception_descriptor const x86_interrupt_guard;
 #endif
 
 /* Define an exception guard for a custom interrupt handler:
@@ -137,25 +137,25 @@ DATDEF struct except_desc const x86_interrupt_guard;
 
 #if X86_INTERRUPT_GUARD_FINTERRUPT == 0
 #define X86_DEFINE_INTERRUPT_GUARD(begin,end) \
-      __X86_DEFINE_EXCEPT_HANDLER(begin,end,x86_interrupt_guard, \
+      __DEFINE_EXCEPTION_HANDLER(begin,end,x86_interrupt_guard, \
                                   EXCEPTION_HANDLER_FDESCRIPTOR| \
                                   EXCEPTION_HANDLER_FUSERFLAGS, \
                                   X86_INTERRUPT_GUARD_FINTERRUPT)
 #else
 #define X86_DEFINE_INTERRUPT_GUARD(begin,end) \
-      __X86_DEFINE_EXCEPT_HANDLER(begin,end,x86_interrupt_guard, \
+      __DEFINE_EXCEPTION_HANDLER(begin,end,x86_interrupt_guard, \
                                   EXCEPTION_HANDLER_FDESCRIPTOR, \
                                   X86_INTERRUPT_GUARD_FINTERRUPT)
 #endif
 #ifndef CONFIG_NO_X86_SYSENTER
 #define X86_DEFINE_SYSENTER_GUARD(begin,end) \
-      __X86_DEFINE_EXCEPT_HANDLER(begin,end,x86_interrupt_guard, \
+      __DEFINE_EXCEPTION_HANDLER(begin,end,x86_interrupt_guard, \
                                   EXCEPTION_HANDLER_FDESCRIPTOR| \
                                   EXCEPTION_HANDLER_FUSERFLAGS, \
                                   X86_INTERRUPT_GUARD_FSYSENTER)
 #endif /* !CONFIG_NO_X86_SYSENTER */
 #define X86_DEFINE_SYSCALL_GUARD(begin,end) \
-      __X86_DEFINE_EXCEPT_HANDLER(begin,end,x86_interrupt_guard, \
+      __DEFINE_EXCEPTION_HANDLER(begin,end,x86_interrupt_guard, \
                                   EXCEPTION_HANDLER_FDESCRIPTOR| \
                                   EXCEPTION_HANDLER_FUSERFLAGS, \
                                   X86_INTERRUPT_GUARD_FSYSCALL)

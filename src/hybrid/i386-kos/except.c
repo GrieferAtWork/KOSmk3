@@ -69,12 +69,12 @@ INTERN void FCALL private_error_continue(int retry) {
  libc_cpu_setcontext((struct cpu_context *)&context.e_context);
 non_continuable:
  /* Setup a non-continuable error. */
- context.e_error.e_noncont.nc_origcode = info->e_error.e_code;
- context.e_error.e_noncont.nc_origflag = info->e_error.e_flag;
- context.e_error.e_noncont.nc_origip   = info->e_context.c_pip;
+ context.e_error.e_noncontinuable.nc_origcode = info->e_error.e_code;
+ context.e_error.e_noncontinuable.nc_origflag = info->e_error.e_flag;
+ context.e_error.e_noncontinuable.nc_origip   = info->e_context.c_pip;
  libc_memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
- libc_memcpy(&info->e_error.e_noncont,(void *)&context.e_error.e_noncont,
-              sizeof(context.e_error.e_noncont));
+ libc_memcpy(&info->e_error.e_noncontinuable,(void *)&context.e_error.e_noncontinuable,
+              sizeof(context.e_error.e_noncontinuable));
 }
 
 

@@ -26,7 +26,49 @@
 DECL_BEGIN
 
 #ifdef __x86_64__
-#error TODO
+/*
+General Purpose Register RAX             0             %rax
+General Purpose Register RDX             1             %rdx
+General Purpose Register RCX             2             %rcx
+General Purpose Register RBX             3             %rbx
+General Purpose Register RSI             4             %rsi
+General Purpose Register RDI             5             %rdi
+Frame Pointer Register RBP               6             %rbp
+Stack Pointer Register RSP               7             %rsp
+Extended Integer Registers 8-15          8-15          %r8–%r15
+Return Address RA                        16            %rip
+SSE Registers 0–7                        17-24         %xmm0–%xmm7
+Extended SSE Registers 8–15              25-32         %xmm8–%xmm15
+Floating Point Registers 0–7             33-40         %st0–%st7
+MMX Registers 0–7                        41-48         %mm0–%mm7
+*/
+
+#define UNWIND_NUM_REGISTERS           17
+#define UNWIND_FRAME_REGSITER          6
+#define UNWIND_REMEMBER_STACK_SIZE     2  /* Remember stack-size. */
+#define UNWIND_CONTEXT_RETURN_REGISTER 16
+#define UNWIND_CONTEXT_IP(x)         ((x)->c_rip)
+#define UNWIND_CONTEXT_SP(x)         ((x)->c_rsp)
+PRIVATE u16 const unwind_register_offsets[UNWIND_NUM_REGISTERS] = {
+    [0]  = offsetof(struct cpu_context,c_gpregs.gp_rax),
+    [1]  = offsetof(struct cpu_context,c_gpregs.gp_rdx),
+    [2]  = offsetof(struct cpu_context,c_gpregs.gp_rcx),
+    [3]  = offsetof(struct cpu_context,c_gpregs.gp_rbx),
+    [4]  = offsetof(struct cpu_context,c_gpregs.gp_rsi),
+    [5]  = offsetof(struct cpu_context,c_gpregs.gp_rdi),
+    [6]  = offsetof(struct cpu_context,c_gpregs.gp_rbp),
+    [7]  = offsetof(struct cpu_context,c_rsp),
+    [8]  = offsetof(struct cpu_context,c_gpregs.gp_r8),
+    [9]  = offsetof(struct cpu_context,c_gpregs.gp_r9),
+    [10] = offsetof(struct cpu_context,c_gpregs.gp_r10),
+    [11] = offsetof(struct cpu_context,c_gpregs.gp_r11),
+    [12] = offsetof(struct cpu_context,c_gpregs.gp_r12),
+    [13] = offsetof(struct cpu_context,c_gpregs.gp_r13),
+    [14] = offsetof(struct cpu_context,c_gpregs.gp_r14),
+    [15] = offsetof(struct cpu_context,c_gpregs.gp_r15),
+    [16] = offsetof(struct cpu_context,c_rip),
+};
+
 #else /* __x86_64__ */
 
 /*

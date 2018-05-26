@@ -641,8 +641,8 @@ libc_rwlock_end(rwlock_t *__restrict self) {
     * conditions that may cause us to act on this a second time, when
     * the exception had already been dealt with! */
    if (error_code() == __E_RETRY_RWLOCK &&
-       error_info()->e_error.__e_retry_rwlock.e_rwlock_ptr == self) {
-    error_info()->e_error.__e_retry_rwlock.e_rwlock_ptr = NULL;
+       error_info()->e_error.e_retry_rwlock.e_rwlock_ptr == self) {
+    error_info()->e_error.e_retry_rwlock.e_rwlock_ptr = NULL;
     return true;
    }
    break;
@@ -957,7 +957,7 @@ wait_unshare:
      libc_memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
      info->e_error.e_code                        = __E_RETRY_RWLOCK;
      info->e_error.e_flag                        = ERR_FNORMAL;
-     info->e_error.__e_retry_rwlock.e_rwlock_ptr = self;
+     info->e_error.e_retry_rwlock.e_rwlock_ptr = self;
      error_throw_current();
     }
    }
@@ -1068,7 +1068,7 @@ wait_unshare:
    libc_memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
    info->e_error.e_code                        = __E_RETRY_RWLOCK;
    info->e_error.e_flag                        = ERR_FNORMAL;
-   info->e_error.__e_retry_rwlock.e_rwlock_ptr = self;
+   info->e_error.e_retry_rwlock.e_rwlock_ptr = self;
    error_throw_current();
   } break;
 
@@ -1086,7 +1086,7 @@ rwlock_killer(rwlock_t *__restrict self) {
   libc_memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
   info->e_error.e_code                        = __E_RETRY_RWLOCK;
   info->e_error.e_flag                        = ERR_FNORMAL;
-  info->e_error.__e_retry_rwlock.e_rwlock_ptr = self;
+  info->e_error.e_retry_rwlock.e_rwlock_ptr = self;
   error_throw_current();
  }
  /* Always restart what we interrupted so this is as seamless as possible. */
@@ -1232,7 +1232,7 @@ wait_unshare:
      libc_memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
      info->e_error.e_code                        = __E_RETRY_RWLOCK;
      info->e_error.e_flag                        = ERR_FNORMAL;
-     info->e_error.__e_retry_rwlock.e_rwlock_ptr = self;
+     info->e_error.e_retry_rwlock.e_rwlock_ptr = self;
      error_throw_current();
     }
    }
@@ -1343,7 +1343,7 @@ wait_unshare:
    libc_memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
    info->e_error.e_code                        = __E_RETRY_RWLOCK;
    info->e_error.e_flag                        = ERR_FNORMAL;
-   info->e_error.__e_retry_rwlock.e_rwlock_ptr = self;
+   info->e_error.e_retry_rwlock.e_rwlock_ptr = self;
    error_throw_current();
   } break;
 
@@ -1542,8 +1542,8 @@ libc_rwlock_end_s(rwlock_t *__restrict self) {
     * conditions that may cause us to act on this a second time, when
     * the exception had already been dealt with! */
    if (error_code() == __E_RETRY_RWLOCK &&
-       error_info()->e_error.__e_retry_rwlock.e_rwlock_ptr == self) {
-    error_info()->e_error.__e_retry_rwlock.e_rwlock_ptr = NULL;
+       error_info()->e_error.e_retry_rwlock.e_rwlock_ptr == self) {
+    error_info()->e_error.e_retry_rwlock.e_rwlock_ptr = NULL;
     return true;
    }
    break;
@@ -1778,7 +1778,7 @@ wait_unshare:
    libc_memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
    info->e_error.e_code                        = __E_RETRY_RWLOCK;
    info->e_error.e_flag                        = ERR_FNORMAL;
-   info->e_error.__e_retry_rwlock.e_rwlock_ptr = self;
+   info->e_error.e_retry_rwlock.e_rwlock_ptr = self;
    error_throw_current();
   } break;
 
@@ -1881,7 +1881,7 @@ wait_unshare:
    libc_memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
    info->e_error.e_code                        = __E_RETRY_RWLOCK;
    info->e_error.e_flag                        = ERR_FNORMAL;
-   info->e_error.__e_retry_rwlock.e_rwlock_ptr = self;
+   info->e_error.e_retry_rwlock.e_rwlock_ptr = self;
    error_throw_current();
   } break;
 

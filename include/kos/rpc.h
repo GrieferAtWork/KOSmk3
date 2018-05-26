@@ -24,7 +24,7 @@
 #include <bits/types.h>
 
 #if defined(__i386__) || defined(__x86_64__)
-#include "i386-kos/rpc.h"
+#include "i386-kos/asm/rpc.h"
 #else
 #error "Unsupported arch"
 #endif
@@ -131,13 +131,14 @@ typedef unsigned int (__LIBCCALL *rpc_t)(void *__arg);
                                            *       ways of entering the kernel, the register format of CTX
                                            *       is saved in the arch-specific portion of the reason.
                                            *       e.g. On X86, the associated flags are `X86_RPC_REASON_*',
-                                           *            as found in <kos/i386-kos/rpc.h> (already included above) */
+                                           *            as found in <kos/i386-kos/asm/rpc.h> (already included above) */
 #define RPC_REASON_SYSCALL         0x0002 /* The RPC interrupted a system call */
 #define RPC_REASON_NOEXCEPT        0x0004 /* (Used with `RPC_REASON_SYSCALL') The system call was invoked without exceptions. */
 #define RPC_REASON_FSHOULD_RESTART 0x0008 /* FLAG: The interrupted system call should be restarted. */
 #define RPC_REASON_FMUST_RESTART   0x0010 /* FLAG: The interrupted system call must be restarted. */
 #define RPC_REASON_MASK            0x00ff /* Mask of platform-independent flags. */
 #ifdef __CC__
+struct cpu_context;
 typedef unsigned int (__LIBCCALL *rpc_interrupt_t)(void *__arg, struct cpu_context *__restrict __ctx, unsigned int __reason);
 #endif /* __CC__ */
 

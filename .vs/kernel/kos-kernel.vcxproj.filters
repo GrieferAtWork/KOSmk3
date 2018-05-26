@@ -543,6 +543,9 @@
     <ClCompile Include="..\..\src\kernel\src\vm\tls.c">
       <Filter>kernel\src\vm</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\src\vm\vio.c">
+      <Filter>kernel\src\vm</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">

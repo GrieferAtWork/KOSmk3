@@ -27,7 +27,7 @@
 #include <kernel/syscall.h>
 
 
-#define Utaskseg  __ASM_USER_TASK_SEGMENT
+#define Utaskseg  __ASM_USERTASK_SEGMENT
 #define t_errno   USER_TASK_SEGMENT_OFFSETOF_ERRNO
 #define t_eformat USER_TASK_SEGMENT_OFFSETOF_EFORMAT
 
@@ -155,7 +155,7 @@ INTERN_ENTRY(x86_ushare_sysenter)
 .syscall_int80_errno:
 	negl  %eax
 	movl  %eax, %Utaskseg:t_errno
-	movb  $TASK_ERRNO_FKOS, %Utaskseg:t_eformat
+	movb  $__X86_TASK_ERRNO_FKOS, %Utaskseg:t_eformat
 	movl  $-1, %eax
 	ret
 .space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
@@ -437,7 +437,7 @@ x86_sysenter_common:
 .syscall_sysenter_errno:
 	negl  %eax
 	movl  %eax, %Utaskseg:t_errno
-	movb  $TASK_ERRNO_FKOS, %Utaskseg:t_eformat
+	movb  $__X86_TASK_ERRNO_FKOS, %Utaskseg:t_eformat
 	movl  $-1, %eax
 	ret
 .space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)

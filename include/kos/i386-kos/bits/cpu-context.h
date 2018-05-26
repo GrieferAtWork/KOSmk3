@@ -16,12 +16,13 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef _KOS_I386_KOS_CONTEXT_H
-#define _KOS_I386_KOS_CONTEXT_H 1
+#ifndef _KOS_I386_KOS_BITS_CPU_CONTEXT_H
+#define _KOS_I386_KOS_BITS_CPU_CONTEXT_H 1
 
 #include <__stdinc.h>
 #include <hybrid/typecore.h>
 #include <hybrid/host.h>
+#include <kos/i386-kos/bits/compat.h>
 
 __SYSDECL_BEGIN
 
@@ -36,11 +37,20 @@ __SYSDECL_BEGIN
 
 
 
-#if defined(__x86_64__) || !defined(__KERNEL__)
+
+#ifdef __EXPOSE_CPU_COMPAT
 #define __X86_DEFINE_GP_REGISTER64_X86_64(prefix,name) \
-     __ULONG64_TYPE__  __X86_CONTEXT_SYMBOL(prefix ## r ## name)
+ union __ATTR_PACKED { \
+     __UINT8_TYPE__    __X86_CONTEXT_SYMBOL(prefix ## r ## name ## l); \
+     __UINT16_TYPE__   __X86_CONTEXT_SYMBOL(prefix ## r ## name ## w); \
+     __ULONG32_TYPE__  __X86_CONTEXT_SYMBOL(prefix ## r ## name ## d); \
+     __ULONG64_TYPE__  __X86_CONTEXT_SYMBOL(prefix ## r ## name); \
+     __ULONGPTR_TYPE__ __X86_CONTEXT_SYMBOL(prefix ## p ## name); \
+ }
+
 #define __X86_DEFINE_GP_REGISTER64_386(prefix,name) \
  union __ATTR_PACKED { \
+     __UINT8_TYPE__    __X86_CONTEXT_SYMBOL(prefix ## name ## l); \
      __UINT16_TYPE__   __X86_CONTEXT_SYMBOL(prefix ## name); \
      __ULONG32_TYPE__  __X86_CONTEXT_SYMBOL(prefix ## e ## name); \
      __ULONG64_TYPE__  __X86_CONTEXT_SYMBOL(prefix ## r ## name); \
@@ -57,7 +67,7 @@ __SYSDECL_BEGIN
      __ULONG64_TYPE__    __X86_CONTEXT_SYMBOL(prefix ## r ## name ## x); \
      __ULONGPTR_TYPE__   __X86_CONTEXT_SYMBOL(prefix ## p ## name ## x); \
  }
-#endif
+#endif /* __EXPOSE_CPU_COMPAT */
 #ifdef __x86_64__
 #define __X86_DEFINE_GP_REGISTER32_386(prefix,name) \
  union __ATTR_PACKED { \
@@ -94,7 +104,7 @@ __SYSDECL_BEGIN
 
 
 
-#if defined(__x86_64__) || !defined(__KERNEL__)
+#ifdef __EXPOSE_CPU_COMPAT
 #define X86_GPREGS64_OFFSETOF_R15  0
 #define X86_GPREGS64_OFFSETOF_R14  8
 #define X86_GPREGS64_OFFSETOF_R13  16
@@ -111,7 +121,8 @@ __SYSDECL_BEGIN
 #define X86_GPREGS64_OFFSETOF_RCX  104
 #define X86_GPREGS64_OFFSETOF_RAX  112
 #define X86_GPREGS64_SIZE          120
-#endif
+#endif /* __EXPOSE_CPU_COMPAT */
+
 #define X86_GPREGS32_OFFSETOF_EDI  0
 #define X86_GPREGS32_OFFSETOF_ESI  4
 #define X86_GPREGS32_OFFSETOF_EBP  8
@@ -158,7 +169,7 @@ __SYSDECL_BEGIN
 #define x86_gpregs32  x86_gpregs
 #endif
 
-#if defined(__x86_64__) || !defined(__KERNEL__)
+#ifdef __EXPOSE_CPU_COMPAT
 struct __ATTR_PACKED x86_gpregs64 {
     __X86_DEFINE_GP_REGISTER64_X86_64(gp_,15);   /* General purpose register #15 */
     __X86_DEFINE_GP_REGISTER64_X86_64(gp_,14);   /* General purpose register #14 */
@@ -176,7 +187,8 @@ struct __ATTR_PACKED x86_gpregs64 {
     __X86_DEFINE_GP_REGISTER64_8086(gp_,c);      /* Count register */
     __X86_DEFINE_GP_REGISTER64_8086(gp_,a);      /* Accumulator register */
 };
-#endif
+#endif /* __EXPOSE_CPU_COMPAT */
+
 struct __ATTR_PACKED x86_gpregs32 {
     __X86_DEFINE_GP_REGISTER32_386(gp_,di);      /* Destination pointer */
     __X86_DEFINE_GP_REGISTER32_386(gp_,si);      /* Source pointer */
@@ -202,11 +214,12 @@ struct __ATTR_PACKED x86_gpregs32 {
 
 
 
-#if defined(__x86_64__) || !defined(__KERNEL__)
+#ifdef __EXPOSE_CPU_COMPAT
 #define X86_SEGMENTS64_OFFSETOF_GSBASE  0
 #define X86_SEGMENTS64_OFFSETOF_FSBASE  8
 #define X86_SEGMENTS64_SIZE             16
-#endif
+#endif /* __EXPOSE_CPU_COMPAT */
+
 #define X86_SEGMENTS32_OFFSETOF_GS      0
 #define X86_SEGMENTS32_OFFSETOF_FS      4
 #define X86_SEGMENTS32_OFFSETOF_ES      8
@@ -231,12 +244,12 @@ struct __ATTR_PACKED x86_gpregs32 {
 #else
 #define x86_segments32 x86_segments
 #endif
-#if defined(__x86_64__) || !defined(__KERNEL__)
+#ifdef __EXPOSE_CPU_COMPAT
 struct __ATTR_PACKED x86_segments64 {
     __ULONG64_TYPE__             __X86_CONTEXT_SYMBOL(sg_gsbase);
     __ULONG64_TYPE__             __X86_CONTEXT_SYMBOL(sg_fsbase);
 };
-#endif
+#endif /* __EXPOSE_CPU_COMPAT */
 struct __ATTR_PACKED x86_segments32 {
     __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(sg_gs); /* G segment register */
     __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(sg_fs); /* F segment register */
@@ -269,8 +282,8 @@ struct __ATTR_PACKED x86_segments32 {
 #define X86_IRREGS_OFFSETOF_RFLAGS  X86_IRREGS64_OFFSETOF_RFLAGS
 #define X86_IRREGS_OFFSETOF_USERRSP X86_IRREGS64_OFFSETOF_USERRSP
 #define X86_IRREGS_OFFSETOF_SS      X86_IRREGS64_OFFSETOF_SS
-#define x86_irregs_host64           x86_irregs64
-#define x86_irregs_host             x86_irregs64
+#define x86_irregs_host             x86_irregs_host64
+#define x86_irregs_user             x86_irregs_user64
 #else
 #define X86_IRREGS_OFFSETOF_EIP     X86_IRREGS32_OFFSETOF_EIP
 #define X86_IRREGS_OFFSETOF_CS      X86_IRREGS32_OFFSETOF_CS
@@ -278,9 +291,10 @@ struct __ATTR_PACKED x86_segments32 {
 #define X86_IRREGS_OFFSETOF_USERESP X86_IRREGS32_OFFSETOF_USERESP
 #define X86_IRREGS_OFFSETOF_SS      X86_IRREGS32_OFFSETOF_SS
 #define x86_irregs_host             x86_irregs_host32
+#define x86_irregs_user             x86_irregs_user32
 #endif
 
-#if defined(__x86_64__) || !defined(__KERNEL__)
+#ifdef __EXPOSE_CPU_COMPAT
 #define X86_IRREGS64_OFFSETOF_RIP      0
 #define X86_IRREGS64_OFFSETOF_CS       8
 #define X86_IRREGS64_OFFSETOF_RFLAGS  16
@@ -288,6 +302,8 @@ struct __ATTR_PACKED x86_segments32 {
 #define X86_IRREGS64_OFFSETOF_SS      32
 #define X86_IRREGS64_SIZE             40
 #ifdef __CC__
+#define x86_irregs_user64   x86_irregs64
+#define x86_irregs_host64   x86_irregs64
 struct __ATTR_PACKED x86_irregs64 {
     __X86_DEFINE_GP_REGISTER64_386(ir_,ip);       /* Instruction pointer */
     __ULONG64_TYPE__ __X86_CONTEXT_SYMBOL(ir_cs); /* Code segment */
@@ -296,7 +312,7 @@ struct __ATTR_PACKED x86_irregs64 {
     __ULONG64_TYPE__ __X86_CONTEXT_SYMBOL(ir_ss); /* Stack segment */
 };
 #endif /* __CC__ */
-#endif /* __x86_64__ */
+#endif /* __EXPOSE_CPU_COMPAT */
 
 #define X86_IRREGS32_OFFSETOF_EIP      0
 #define X86_IRREGS32_OFFSETOF_CS       4
@@ -351,32 +367,54 @@ struct __ATTR_PACKED x86_irregs_user32 {
 #endif
 
 #ifdef __CC__
+#define __cpu_context_defined 1
+#define __x86_context_defined 1
 #define x86_context       cpu_context
 #ifdef __x86_64__
-#define __CPU_ANYCONTEXT_IS_CPU_CONTEXT 1
-#define cpu_anycontext    x86_anycontext
-#define x86_context64     x86_context
-#define x86_anycontext    x86_context64
-#ifndef __KERNEL__
-#define x86_usercontext   x86_anycontext
-#endif
-#define x86_anycontext64  x86_anycontext
-#define x86_usercontext64 x86_usercontext
-#else
-#define x86_anycontext    cpu_anycontext
-#define x86_context32     x86_context
-#define x86_anycontext32  x86_anycontext
-#define x86_usercontext32 x86_usercontext
-#endif
+#define __cpu_anycontext_defined   1
+#define __x86_anycontext_defined   1
+#define __x86_context64_defined    1
+#define __x86_anycontext64_defined 1
+#define cpu_anycontext    cpu_context
+#define x86_context64     cpu_context
+#define x86_anycontext    cpu_context
+#define x86_anycontext64  cpu_context
 #ifdef __KERNEL__
+#define __cpu_usercontext_defined   1
+#define __x86_usercontext_defined   1
+#define __x86_usercontext64_defined 1
+#define x86_usercontext   cpu_usercontext
+#define x86_usercontext64 cpu_usercontext
+#endif
+#else
+#define __cpu_anycontext_defined   1
+#define __x86_anycontext_defined   1
+#define __x86_context32_defined    1
+#define __x86_anycontext32_defined 1
+#define x86_anycontext    cpu_anycontext
+#define x86_anycontext32  cpu_anycontext
+#define x86_context32     cpu_context
+#ifdef __KERNEL__
+#define __cpu_usercontext_defined   1
+#define __x86_usercontext_defined   1
+#define __x86_usercontext32_defined 1
+#define x86_usercontext   cpu_usercontext
+#define x86_usercontext32 cpu_usercontext
+#endif
+#endif
+
+#ifdef __KERNEL__
+#define __x86_hostcontext_host32_defined 1
+#define __x86_context32_defined          1
 #define x86_hostcontext_host32  x86_context32
 #ifdef __x86_64__
+#define __cpu_hostcontext_user_defined   1
 #define cpu_hostcontext_user    x86_context64
 #else
+#define __cpu_hostcontext_user_defined   1
+#define __x86_hostcontext_user32_defined 1
 #define x86_hostcontext_user32  cpu_hostcontext_user
 #endif
-#elif !defined(x86_usercontext)
-#define x86_usercontext   cpu_context
 #endif
 #endif /* __CC__ */
 
@@ -420,9 +458,6 @@ struct __ATTR_PACKED x86_irregs_user32 {
 #define X86_CONTEXT32_OFFSETOF_EIP      X86_HOSTCONTEXT_HOST32_OFFSETOF_EIP
 #define X86_CONTEXT32_OFFSETOF_EFLAGS   X86_HOSTCONTEXT_HOST32_OFFSETOF_EFLAGS
 #define X86_CONTEXT32_SIZE              X86_HOSTCONTEXT_HOST32_SIZE
-#ifdef __CC__
-#define x86_hostcontext_host32 x86_context32
-#endif /* __CC__ */
 #endif
 
 #ifdef __x86_64__
@@ -439,16 +474,24 @@ struct __ATTR_PACKED x86_irregs_user32 {
 #endif
 
 
-#if defined(__x86_64__) || !defined(__KERNEL__)
+#ifdef __EXPOSE_CPU_COMPAT
 #define X86_CONTEXT64_OFFSETOF_GPREGS    0
 #ifdef __KERNEL__
-#define X86_CONTEXT64_OFFSETOF_IRET      X86_GPREGS64_SIZE
-#define X86_CONTEXT64_OFFSETOF_RIP       X86_GPREGS64_SIZE
-#define X86_CONTEXT64_OFFSETOF_CS       (X86_GPREGS64_SIZE+8)
-#define X86_CONTEXT64_OFFSETOF_RFLAGS   (X86_GPREGS64_SIZE+16)
-#define X86_CONTEXT64_OFFSETOF_RSP      (X86_GPREGS64_SIZE+24)
-#define X86_CONTEXT64_OFFSETOF_SS       (X86_GPREGS64_SIZE+32)
-#define X86_CONTEXT64_SIZE              (X86_GPREGS64_SIZE+X86_IRREGS64_SIZE)
+#define X86_CONTEXT64_OFFSETOF_IRET          X86_GPREGS64_SIZE
+#define X86_CONTEXT64_OFFSETOF_RIP           X86_GPREGS64_SIZE
+#define X86_CONTEXT64_OFFSETOF_CS           (X86_GPREGS64_SIZE+8)
+#define X86_CONTEXT64_OFFSETOF_RFLAGS       (X86_GPREGS64_SIZE+16)
+#define X86_CONTEXT64_OFFSETOF_RSP          (X86_GPREGS64_SIZE+24)
+#define X86_CONTEXT64_OFFSETOF_SS           (X86_GPREGS64_SIZE+32)
+#define X86_CONTEXT64_SIZE                  (X86_GPREGS64_SIZE+X86_IRREGS64_SIZE)
+#define X86_USERCONTEXT64_OFFSETOF_SEGMENTS  X86_GPREGS64_SIZE
+#define X86_USERCONTEXT64_OFFSETOF_IRET     (X86_GPREGS64_SIZE+X86_SEGMENTS64_SIZE)
+#define X86_USERCONTEXT64_OFFSETOF_RIP      (X86_GPREGS64_SIZE+X86_SEGMENTS64_SIZE)
+#define X86_USERCONTEXT64_OFFSETOF_CS       (X86_GPREGS64_SIZE+X86_SEGMENTS64_SIZE+8)
+#define X86_USERCONTEXT64_OFFSETOF_RFLAGS   (X86_GPREGS64_SIZE+X86_SEGMENTS64_SIZE+16)
+#define X86_USERCONTEXT64_OFFSETOF_RSP      (X86_GPREGS64_SIZE+X86_SEGMENTS64_SIZE+24)
+#define X86_USERCONTEXT64_OFFSETOF_SS       (X86_GPREGS64_SIZE+X86_SEGMENTS64_SIZE+32)
+#define X86_USERCONTEXT64_SIZE              (X86_GPREGS64_SIZE+X86_SEGMENTS64_SIZE+X86_IRREGS64_SIZE)
 #else
 #define X86_CONTEXT64_OFFSETOF_SEGMENTS  X86_GPREGS64_SIZE
 #define X86_CONTEXT64_OFFSETOF_IRET     (X86_GPREGS64_SIZE+X86_SEGMENTS64_SIZE)
@@ -459,13 +502,13 @@ struct __ATTR_PACKED x86_irregs_user32 {
 #define X86_CONTEXT64_OFFSETOF_SS       (X86_GPREGS64_SIZE+X86_SEGMENTS64_SIZE+32)
 #define X86_CONTEXT64_SIZE              (X86_GPREGS64_SIZE+X86_SEGMENTS64_SIZE+X86_IRREGS64_SIZE)
 #endif
-#endif
 
 #ifdef __CC__
-#if defined(__x86_64__) || !defined(__KERNEL__)
 #ifndef x86_context64
+#define __x86_anycontext64_defined 1
 #define x86_context64      x86_anycontext64
 #endif
+#define __x86_context64_defined 1
 struct __ATTR_PACKED x86_context64 {
     /* CPU Context: host --> host  (As seen in kernel exception handling / during task peemption) */
     struct x86_gpregs64          __X86_CONTEXT_SYMBOL(c_gpregs);         /* General purpose registers */
@@ -499,8 +542,8 @@ struct __ATTR_PACKED x86_usercontext64 {
     };
 };
 #endif /* __KERNEL__ */
-#endif /* __x86_64__ */
 #endif /* __CC__ */
+#endif /* __EXPOSE_CPU_COMPAT */
 
 #ifdef __KERNEL__
 #define X86_USERCONTEXT32_OFFSETOF_GPREGS    0
@@ -524,8 +567,10 @@ struct __ATTR_PACKED x86_usercontext64 {
 
 #ifdef __CC__
 #ifdef __KERNEL__
+#define __x86_usercontext32_defined 1
 struct __ATTR_PACKED x86_usercontext32
 #else
+#define __x86_context32_defined 1
 struct __ATTR_PACKED x86_context32
 #endif
 {   /* CPU Context: user --> user  (As seen in user exception handling) */
@@ -565,6 +610,7 @@ struct __ATTR_PACKED x86_context32
 #define X86_HOSTCONTEXT_HOST32_SIZE              (X86_GPREGS32_SIZE+X86_IRREGS_HOST32_SIZE)
 #endif /* CONFIG_NO_X86_SEGMENTATION */
 #ifdef __CC__
+#define __x86_hostcontext_host32_defined 1
 struct __ATTR_PACKED x86_hostcontext_host32 {
     /* CPU Context: host --> host  (As seen in kernel exception handling / during task peemption) */
     union __ATTR_PACKED {
@@ -605,6 +651,7 @@ struct __ATTR_PACKED x86_hostcontext_host32 {
 #define X86_HOSTCONTEXT_USER32_SIZE               (X86_GPREGS32_SIZE+X86_IRREGS_USER32_SIZE)
 #endif /* CONFIG_NO_X86_SEGMENTATION */
 #ifdef __CC__
+#define __x86_hostcontext_user32_defined 1
 struct __ATTR_PACKED x86_hostcontext_user32 {
     /* CPU Context: host --> user  (As seen during task peemption) */
     struct x86_gpregs32              __X86_CONTEXT_SYMBOL(c_gpregs);   /* General purpose registers */
@@ -621,6 +668,7 @@ struct __ATTR_PACKED x86_hostcontext_user32 {
         };
     };
 };
+#define __x86_anycontext32_defined 1
 struct __ATTR_PACKED x86_anycontext32 {
     /* CPU Context: host --> host / user
      * This context is used to represent what is used during
@@ -638,7 +686,7 @@ struct __ATTR_PACKED x86_anycontext32 {
                 struct x86_gpregs32          __X86_CONTEXT_SYMBOL(c_gpregs);   /* General purpose registers */
                 struct __ATTR_PACKED {
                      __ULONG32_TYPE__        __c_pad1[X86_GPREGS32_OFFSETOF_ESP/4]; /* ... */
-                     __X86_DEFINE_GP_REGISTER32_386(c_host,sp);                /* [valid_if(X86_ANYCONTEXT32_ISHOST(self))] Host stack pointer */
+                     __X86_DEFINE_GP_REGISTER32_386(c_host,sp);                /* [valid_if(X86_ANYCONTEXT_ISHOST(self))] Host stack pointer */
                 };
             };
 #ifndef CONFIG_NO_X86_SEGMENTATION
@@ -650,7 +698,7 @@ struct __ATTR_PACKED x86_anycontext32 {
                      __X86_DEFINE_GP_REGISTER32_386(c_,ip);                    /* Instruction pointer */
                      __ULONG32_TYPE__        __c_pad;                          /* ... */
                      __X86_DEFINE_GP_REGISTER32_386(c_,flags);                 /* Flags register */
-                     __X86_DEFINE_GP_REGISTER32_386(c_user,sp);                /* [valid_if(X86_ANYCONTEXT32_ISUSER(self))] User stack pointer */
+                     __X86_DEFINE_GP_REGISTER32_386(c_user,sp);                /* [valid_if(X86_ANYCONTEXT_ISUSER(self))] User stack pointer */
                 };
             };
         };
@@ -658,20 +706,32 @@ struct __ATTR_PACKED x86_anycontext32 {
 };
 
 #if !defined(__x86_64__) && !defined(CONFIG_NO_VM86)
-#define X86_ANYCONTEXT32_ISUSER(x)  (((x).c_iret.ir_cs&3) || ((x).c_iret.ir_eflags&0x20000))
-#define X86_ANYCONTEXT32_ISHOST(x)   (!X86_ANYCONTEXT32_ISUSER(x))
-#define X86_ANYCONTEXT32_ESP(x)     (*(X86_ANYCONTEXT32_ISUSER(x) ? &(x).c_useresp : &(x).c_hostesp))
+#define X86_ANYCONTEXT_ISUSER(x)  (((x).c_iret.ir_cs&3) || ((x).c_iret.ir_eflags&0x20000))
+#define X86_ANYCONTEXT_ISHOST(x)   (!X86_ANYCONTEXT_ISUSER(x))
+#define X86_ANYCONTEXT32_ESP(x)   (*(X86_ANYCONTEXT_ISUSER(x) ? &(x).c_useresp : &(x).c_hostesp))
 #else
-#define X86_ANYCONTEXT32_ISUSER(x)   ((x).c_iret.ir_cs&3)
-#define X86_ANYCONTEXT32_ISHOST(x) (!((x).c_iret.ir_cs&3))
-#define X86_ANYCONTEXT32_ESP(x)     (*(X86_ANYCONTEXT32_ISUSER(x) ? &(x).c_useresp : &(x).c_hostesp))
+#define X86_ANYCONTEXT_ISUSER(x)   ((x).c_iret.ir_cs&3)
+#define X86_ANYCONTEXT_ISHOST(x) (!((x).c_iret.ir_cs&3))
+#define X86_ANYCONTEXT32_ESP(x)   (*(X86_ANYCONTEXT_ISUSER(x) ? &(x).c_useresp : &(x).c_hostesp))
+#endif
+#ifdef __x86_64__
+#define X86_ANYCONTEXT_USERSP(c)    ((c).c_rsp)
+#define X86_ANYCONTEXT_HOSTSP(c)    ((c).c_rsp)
+#else
+#define X86_ANYCONTEXT_USERSP(c)    ((c).c_useresp)
+#define X86_ANYCONTEXT_HOSTSP(c)    ((c).c_hostesp)
 #endif
 
 #endif /* __CC__ */
+
+#ifdef __x86_64__
+#define __CPU_USERCONTEXT_SIZE  X86_USERCONTEXT64_SIZE
+#else
+#define __CPU_USERCONTEXT_SIZE  X86_USERCONTEXT32_SIZE
+#endif
+
 #endif /* __KERNEL__ */
 
 __SYSDECL_END
 
-#include "fpu_context.h"
-
-#endif /* !_KOS_I386_KOS_CONTEXT_H */
+#endif /* !_KOS_I386_KOS_BITS_CPU_CONTEXT_H */

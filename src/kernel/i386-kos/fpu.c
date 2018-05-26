@@ -209,7 +209,7 @@ check_allocate_state:
    struct heapptr fpu;
 #ifndef CONFIG_NO_SMP
    u16 old_flags; /* Make sure that we don't change cores while allocating the FPU state. */
-   old_flags = ATOMIC_FETCHOR(this_task.t_flags,TASK_FKEEPCORE);
+   old_flags = ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_FKEEPCORE);
 #endif /* !CONFIG_NO_SMP */
    PREEMPTION_ENABLE();
    /* Allocate a new FPU context. */
@@ -226,7 +226,7 @@ check_allocate_state:
     assert(old_task == PERCPU(x86_fpu_current));
 #ifndef CONFIG_NO_SMP
     if (!(old_flags & TASK_FKEEPCORE))
-          ATOMIC_FETCHAND(this_task.t_flags,~TASK_FKEEPCORE);
+          ATOMIC_FETCHAND(THIS_TASK->t_flags,~TASK_FKEEPCORE);
 #endif /* !CONFIG_NO_SMP */
     __clts();
     COMPILER_BARRIER();
@@ -236,7 +236,7 @@ check_allocate_state:
    PERTASK_SET(x86_fpu_size,fpu.hp_siz);
 #ifndef CONFIG_NO_SMP
    if (!(old_flags & TASK_FKEEPCORE))
-         ATOMIC_FETCHAND(this_task.t_flags,~TASK_FKEEPCORE);
+         ATOMIC_FETCHAND(THIS_TASK->t_flags,~TASK_FKEEPCORE);
 #endif /* !CONFIG_NO_SMP */
    /* Initialize the default FPU register state. */
    __clts();

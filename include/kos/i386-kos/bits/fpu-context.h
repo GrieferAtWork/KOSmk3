@@ -16,12 +16,13 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef _KOS_I386_KOS_FPU_CONTEXT_H
-#define _KOS_I386_KOS_FPU_CONTEXT_H 1
+#ifndef _KOS_I386_KOS_BITS_FPU_CONTEXT_H
+#define _KOS_I386_KOS_BITS_FPU_CONTEXT_H 1
 
 #include <__stdinc.h>
 #include <hybrid/typecore.h>
 #include <hybrid/host.h>
+#include "compat.h"
 
 __SYSDECL_BEGIN
 
@@ -34,7 +35,6 @@ __SYSDECL_BEGIN
 #endif
 #endif /* !__X86_CONTEXT_SYMBOL */
 
-
 #define __X86_FPUCONTEXT_SIZE  512
 #define __X86_FPUCONTEXT_ALIGN 16
 #define __FPUCONTEXT_SIZE  __X86_FPUCONTEXT_SIZE
@@ -44,8 +44,6 @@ __SYSDECL_BEGIN
 #define FPUCONTEXT_SIZE    __FPUCONTEXT_SIZE
 #define FPUCONTEXT_ALIGN   __FPUCONTEXT_ALIGN
 #endif
-
-
 
 #define x86_fpucontext         fpu_context
 #ifdef __x86_64__
@@ -83,7 +81,7 @@ struct __ATTR_ALIGNED(__X86_FPUCONTEXT_ALIGN) __ATTR_PACKED x86_fpucontext32 {
     __UINT8_TYPE__        __fp_res3[224];
 };
 
-#if defined(__x86_64__) || !defined(__KERNEL__)
+#if defined(__x86_64__) || defined(__EXPOSE_CPU_COMPAT)
 __ATTR_ALIGNED(__X86_FPUCONTEXT_ALIGN)
 struct __ATTR_PACKED x86_fpucontext64 {
     /* FPU context structure, as described here: 
@@ -115,4 +113,4 @@ struct __ATTR_PACKED x86_fpucontext64 {
 
 __SYSDECL_END
 
-#endif /* !_KOS_I386_KOS_FPU_CONTEXT_H */
+#endif /* !_KOS_I386_KOS_BITS_FPU_CONTEXT_H */

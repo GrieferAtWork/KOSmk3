@@ -144,7 +144,7 @@ INTERN_ENTRY(libc_syscall)
 .syscall_errno:
 	negl  %eax
 	movl  %eax, %Utaskseg:t_errno
-	movb  $TASK_ERRNO_FKOS, %Utaskseg:t_eformat
+	movb  $__X86_TASK_ERRNO_FKOS, %Utaskseg:t_eformat
 	movl  $-1, %eax
 	ret
 	.cfi_endproc

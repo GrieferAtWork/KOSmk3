@@ -16,53 +16,16 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef _KOS_I386_KOS_TLS_H
-#define _KOS_I386_KOS_TLS_H 1
+#ifndef _KOS_I386_KOS_BITS___EXCEPTION_DATA_H
+#define _KOS_I386_KOS_BITS___EXCEPTION_DATA_H 1
 
 #include <__stdinc.h>
 #include <hybrid/host.h>
 
-__SYSDECL_BEGIN
+__DECL_BEGIN
 
-#ifndef __ASM_TASK_SEGMENT
-#ifdef __x86_64__
-#    define __ASM_HOSTTASK_SEGMENT gs
-#    define __ASM_USER_TASK_SEGMENT fs
-#else
-#    define __ASM_HOSTTASK_SEGMENT fs
-#    define __ASM_USER_TASK_SEGMENT gs
-#endif
-#ifdef __KERNEL__
-#ifdef __x86_64__
-#    define __ASM_TASK_SEGMENT_ISGS 1
-#else
-#    define __ASM_TASK_SEGMENT_ISFS 1
-#endif
-#    define __ASM_TASK_SEGMENT __ASM_HOSTTASK_SEGMENT
-#else
-#ifdef __x86_64__
-#    define __ASM_TASK_SEGMENT_ISFS 1
-#else
-#    define __ASM_TASK_SEGMENT_ISGS 1
-#endif
-#    define __ASM_TASK_SEGMENT __ASM_USER_TASK_SEGMENT
-#endif
-#endif /* !__ASM_TASK_SEGMENT */
 
-#ifndef CONFIG_NO_DOS_COMPAT
-#ifdef __x86_64__
-#define __ASM_TIBTASK_SEGMENT  gs
-#define __ASM_TIBTASK_SEGMENT_ISGS 1
-#else
-#define __ASM_TIBTASK_SEGMENT  fs
-#define __ASM_TIBTASK_SEGMENT_ISFS 1
-#endif
-#endif /* !CONFIG_NO_DOS_COMPAT */
 
-#ifdef __ASSEMBLER__
-#define taskseg   __ASM_TASK_SEGMENT
-#endif
+__DECL_END
 
-__SYSDECL_END
-
-#endif /* !_KOS_I386_KOS_TLS_H */
+#endif /* !_KOS_I386_KOS_BITS___EXCEPTION_DATA_H */

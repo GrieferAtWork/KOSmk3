@@ -16,8 +16,8 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef _KOS_I386_KOS_REGISTERS_H
-#define _KOS_I386_KOS_REGISTERS_H 1
+#ifndef _KOS_I386_KOS_ASM_REGISTERS_H
+#define _KOS_I386_KOS_ASM_REGISTERS_H 1
 
 #include <__stdinc.h>
 #include <hybrid/host.h>
@@ -111,12 +111,10 @@ __SYSDECL_BEGIN
 
 /* Segment registers. */
 #define X86_REGISTER_SEGMENT           0x0002
-#ifndef __x86_64__
 #   define X86_REGISTER_SEGMENT_ES          0 /* %es */
-#   define X86_REGISTER_SEGMENT_DS          3 /* %ds */
-#endif
 #   define X86_REGISTER_SEGMENT_CS          1 /* %cs */
 #   define X86_REGISTER_SEGMENT_SS          2 /* %ss */
+#   define X86_REGISTER_SEGMENT_DS          3 /* %ds */
 #   define X86_REGISTER_SEGMENT_FS          4 /* %fs */
 #   define X86_REGISTER_SEGMENT_GS          5 /* %gs */
 
@@ -211,4 +209,4 @@ __SYSDECL_BEGIN
 
 __SYSDECL_END
 
-#endif /* !_KOS_I386_KOS_REGISTERS_H */
+#endif /* !_KOS_I386_KOS_ASM_REGISTERS_H */

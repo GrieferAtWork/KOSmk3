@@ -197,37 +197,6 @@
     PRIVATE ATTR_STRALIGN ATTR_SECTION(section) char const _s[] = str; \
     XRETURN &_s; }))
 
-#define __PRIVATE_ARG_PLACEHOLDER_1    ,
-#define __PRIVATE_ARG_PLACEHOLDER_true ,
-#define __PRIVATE_ARG_PLACEHOLDER_yes  ,
-#define __PRIVATE_ARG_PLACEHOLDER_ok   ,
-#define __PRIVATE_TAKE_SECOND_ARG_IMPL(x,val,...) val
-#define __PRIVATE_TAKE_SECOND_ARG(x) __PRIVATE_TAKE_SECOND_ARG_IMPL x
-#define __PRIVATE_IS_TRUE2(x) __PRIVATE_TAKE_SECOND_ARG((x 1,0))
-#define __PRIVATE_IS_TRUE(x) __PRIVATE_IS_TRUE2(__PRIVATE_ARG_PLACEHOLDER_##x)
-#define __PRIVATE_OR_0(y)   __PRIVATE_IS_TRUE(y)
-#define __PRIVATE_OR_1(y)   1
-#define __PRIVATE_OR2(x,y)  __PRIVATE_OR_##x(y)
-#define __PRIVATE_OR(x,y)   __PRIVATE_OR2(x,y)
-#define __PRIVATE_AND_0(y)  0
-#define __PRIVATE_AND_1(y)  __PRIVATE_IS_TRUE(y)
-#define __PRIVATE_AND2(x,y) __PRIVATE_OR_##x(y)
-#define __PRIVATE_AND(x,y)  __PRIVATE_OR2(x,y)
-
-#define __is_true(x)    __PRIVATE_IS_TRUE(x)
-#define __or(x,y)       __PRIVATE_OR(__PRIVATE_IS_TRUE(x),y)
-#define __and(x,y)      __PRIVATE_AND(__PRIVATE_IS_TRUE(x),y)
-
-#ifdef __KERNEL__
-#   define IS_BUILTIN(x) __PRIVATE_IS_TRUE(x)
-#ifdef CONFIG_BUILDING_KERNEL_CORE
-#   define IS_ENABLED(x) __PRIVATE_IS_TRUE(x)
-#else
-#   define IS_ENABLED(x) __or(x,x##_MODULE)
-#endif
-#endif
-
-
 #ifdef __GUARD_HYBRID_LIMITS_H
 #ifndef PAGESIZE
 #ifdef __PAGESIZE

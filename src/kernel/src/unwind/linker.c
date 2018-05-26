@@ -154,11 +154,11 @@ findexcept_again:
   if (module_loadexcept(app) ||
       app->a_module->m_sect.m_except.ds_size) {
    struct module *mod = app->a_module;
-   struct except_handler *iter;
-   iter = (struct except_handler *)((uintptr_t)mod->m_sect.m_except.ds_base+
+   struct exception_handler *iter;
+   iter = (struct exception_handler *)((uintptr_t)mod->m_sect.m_except.ds_base+
                                                app->a_loadaddr);
    except_ok = except_cache_lookup(iter,
-                                  (struct except_handler *)((uintptr_t)iter+
+                                  (struct exception_handler *)((uintptr_t)iter+
                                                              mod->m_sect.m_except.ds_size),
                                    ip - app->a_loadaddr,exception_code,
                                    app,result);
@@ -267,11 +267,11 @@ except_findexcept(uintptr_t ip, u16 exception_code,
  if (module_loadexcept(app) ||
      app->a_module->m_sect.m_except.ds_size) {
   struct module *mod = app->a_module;
-  struct except_handler *iter;
-  iter = (struct except_handler *)((uintptr_t)mod->m_sect.m_except.ds_base+
+  struct exception_handler *iter;
+  iter = (struct exception_handler *)((uintptr_t)mod->m_sect.m_except.ds_base+
                                               app->a_loadaddr);
   except_ok = except_cache_lookup(iter,
-                                 (struct except_handler *)((uintptr_t)iter+
+                                 (struct exception_handler *)((uintptr_t)iter+
                                                             mod->m_sect.m_except.ds_size),
                                   ip - app->a_loadaddr,exception_code,
                                   app,result);

@@ -16,8 +16,8 @@
  *    misrepresented as being the original software.                          *
  * 3. This notice may not be removed or altered from any source distribution. *
  */
-#ifndef _KOS_I386_KOS_VGA_H
-#define _KOS_I386_KOS_VGA_H 1
+#ifndef _KOS_I386_KOS_IO_VGA_H
+#define _KOS_I386_KOS_IO_VGA_H 1
 
 #include <__stdinc.h>
 #include <hybrid/host.h>
@@ -233,6 +233,7 @@ __SYSDECL_BEGIN
 
 
 
+#ifdef __CC__
 struct __ATTR_PACKED vga_color {
     /* NOTE: When loading/saving the color palette, the kernel
      *       will automatically up/down-scale the color intensity
@@ -291,6 +292,7 @@ struct __ATTR_PACKED vga_mode {
     __UINT8_TYPE__ vm_seq_character_map; /* VGA_SEQ_CHARACTER_MAP. */
     __UINT8_TYPE__ vm_seq_memory_mode;   /* VGA_SEQ_MEMORY_MODE. */
 };
+#endif /* __CC__ */
 
 
 
@@ -331,4 +333,4 @@ struct __ATTR_PACKED vga_mode {
 
 __SYSDECL_END
 
-#endif /* !_KOS_I386_KOS_VGA_H */
+#endif /* !_KOS_I386_KOS_IO_VGA_H */

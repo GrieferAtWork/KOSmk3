@@ -553,7 +553,7 @@ extern bool FINALLY_WILL_RETHROW;
  __EXCEPT_BARRIER(); \
  __IF0 { \
  __TRY_INDIRECTION_END: \
-     __DEFINE_FINALLY_HANDLER(__TRY_INDIRECTION_BEGIN, \
+     __DEFINE_FINALLY_BLOCK(__TRY_INDIRECTION_BEGIN, \
                               __TRY_INDIRECTION_END, \
                               __TRY_INDIRECTION_ENTRY) \
      __builtin_unreachable(); \
@@ -567,7 +567,7 @@ extern bool FINALLY_WILL_RETHROW;
  __IF0 { \
  __TRY_INDIRECTION_END: \
      if (!__builtin_constant_p(mode) || (mode) != EXCEPT_CONTINUE_SEARCH) { \
-         __DEFINE_EXCEPT_HANDLER(__TRY_INDIRECTION_BEGIN, \
+         __DEFINE_EXCEPT_BLOCK(__TRY_INDIRECTION_BEGIN, \
                                  __TRY_INDIRECTION_END, \
                                  __TRY_INDIRECTION_ENTRY) \
      } \
@@ -583,7 +583,7 @@ extern bool FINALLY_WILL_RETHROW;
  __IF0 { \
  __TRY_INDIRECTION_END: \
      if (!__builtin_constant_p(mode) || (mode) != EXCEPT_CONTINUE_SEARCH) { \
-         __DEFINE_EXCEPT_HANDLER(__TRY_INDIRECTION_BEGIN, \
+         __DEFINE_EXCEPT_BLOCK(__TRY_INDIRECTION_BEGIN, \
                                  __TRY_INDIRECTION_END, \
                                  __TRY_INDIRECTION_ENTRY) \
      } \
@@ -600,12 +600,12 @@ extern bool FINALLY_WILL_RETHROW;
  __IF0 { \
  __TRY_INDIRECTION_END: \
      if (__builtin_constant_p(error)) { \
-         __DEFINE_CATCH_HANDLER(__TRY_INDIRECTION_BEGIN, \
+         __DEFINE_CATCH_BLOCK(__TRY_INDIRECTION_BEGIN, \
                                 __TRY_INDIRECTION_END, \
                                 __TRY_INDIRECTION_ENTRY, \
                                 error) \
      } else { \
-         __DEFINE_EXCEPT_HANDLER(__TRY_INDIRECTION_BEGIN, \
+         __DEFINE_EXCEPT_BLOCK(__TRY_INDIRECTION_BEGIN, \
                                  __TRY_INDIRECTION_END, \
                                  __TRY_INDIRECTION_ENTRY) \
      } \
@@ -620,12 +620,12 @@ extern bool FINALLY_WILL_RETHROW;
  __IF0 { \
  __TRY_INDIRECTION_END: \
      if (__builtin_constant_p(error)) { \
-         __DEFINE_CATCH_HANDLER(__TRY_INDIRECTION_BEGIN, \
+         __DEFINE_CATCH_BLOCK(__TRY_INDIRECTION_BEGIN, \
                                 __TRY_INDIRECTION_END, \
                                 __TRY_INDIRECTION_ENTRY, \
                                 error) \
      } else { \
-         __DEFINE_EXCEPT_HANDLER(__TRY_INDIRECTION_BEGIN, \
+         __DEFINE_EXCEPT_BLOCK(__TRY_INDIRECTION_BEGIN, \
                                  __TRY_INDIRECTION_END, \
                                  __TRY_INDIRECTION_ENTRY) \
      } \
@@ -651,7 +651,7 @@ extern bool FINALLY_WILL_RETHROW;
         else{} \
         __EXCEPT_BARRIER(); \
         __try_label_end: \
-        __DEFINE_FINALLY_HANDLER(__try_label_begin, \
+        __DEFINE_FINALLY_BLOCK(__try_label_begin, \
                                  __try_label_end, \
                                  __TRY_LABEL_LINE2) \
         goto __TRY_LABEL_LINE1; \
@@ -665,7 +665,7 @@ extern bool FINALLY_WILL_RETHROW;
         __EXCEPT_BARRIER(); \
         __try_label_end: \
         if (!__builtin_constant_p(mode) || (mode) != EXCEPT_CONTINUE_SEARCH) { \
-            __DEFINE_EXCEPT_HANDLER(__try_label_begin, \
+            __DEFINE_EXCEPT_BLOCK(__try_label_begin, \
                                     __try_label_end, \
                                     __TRY_LABEL_LINE1) \
         } \
@@ -678,7 +678,7 @@ extern bool FINALLY_WILL_RETHROW;
         __EXCEPT_BARRIER(); \
         __try_label_end: \
         if (!__builtin_constant_p(mode) || (mode) != EXCEPT_CONTINUE_SEARCH) { \
-            __DEFINE_EXCEPT_HANDLER(__try_label_begin, \
+            __DEFINE_EXCEPT_BLOCK(__try_label_begin, \
                                     __try_label_end, \
                                     __TRY_LABEL_LINE1) \
         } \
@@ -692,12 +692,12 @@ extern bool FINALLY_WILL_RETHROW;
         __EXCEPT_BARRIER(); \
         __try_label_end: \
         if (__builtin_constant_p(error)) { \
-            __DEFINE_CATCH_HANDLER(__try_label_begin, \
+            __DEFINE_CATCH_BLOCK(__try_label_begin, \
                                    __try_label_end, \
                                    __TRY_LABEL_LINE1, \
                                    error) \
         } else { \
-            __DEFINE_EXCEPT_HANDLER(__try_label_begin, \
+            __DEFINE_EXCEPT_BLOCK(__try_label_begin, \
                                     __try_label_end, \
                                     __TRY_LABEL_LINE1) \
         } \
@@ -708,12 +708,12 @@ extern bool FINALLY_WILL_RETHROW;
         __EXCEPT_BARRIER(); \
         __try_label_end: \
         if (__builtin_constant_p(error)) { \
-            __DEFINE_CATCH_HANDLER(__try_label_begin, \
+            __DEFINE_CATCH_BLOCK(__try_label_begin, \
                                    __try_label_end, \
                                    __TRY_LABEL_LINE1, \
                                    error) \
         } else { \
-            __DEFINE_EXCEPT_HANDLER(__try_label_begin, \
+            __DEFINE_EXCEPT_BLOCK(__try_label_begin, \
                                     __try_label_end, \
                                     __TRY_LABEL_LINE1) \
         } \
@@ -794,9 +794,10 @@ extern bool FINALLY_WILL_RETHROW;
 
 #if defined(__USE_KOS) || defined(__ASSEMBLER__)
 /* Define public versions of the private define-handler macros. */
-#define DEFINE_FINALLY_HANDLER(begin,end,entry)    __DEFINE_FINALLY_HANDLER(begin,end,entry)
-#define DEFINE_EXCEPT_HANDLER(begin,end,entry)     __DEFINE_EXCEPT_HANDLER(begin,end,entry)
-#define DEFINE_CATCH_HANDLER(begin,end,entry,mask) __DEFINE_CATCH_HANDLER(begin,end,entry,mask)
+#define DEFINE_EXCEPTION_HANDLER(begin,end,entry,flags,mask) __DEFINE_EXCEPTION_HANDLER(begin,end,entry,flags,mask)
+#define DEFINE_FINALLY_BLOCK(begin,end,entry)                __DEFINE_FINALLY_BLOCK(begin,end,entry)
+#define DEFINE_EXCEPT_BLOCK(begin,end,entry)                 __DEFINE_EXCEPT_BLOCK(begin,end,entry)
+#define DEFINE_CATCH_BLOCK(begin,end,entry,mask)             __DEFINE_CATCH_BLOCK(begin,end,entry,mask)
 #endif
 
 

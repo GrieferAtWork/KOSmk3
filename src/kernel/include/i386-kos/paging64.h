@@ -319,6 +319,17 @@ typedef struct x86_pdir pagedir_t;
 FORCELOCAL PHYS pagedir_t *KCALL pagedir_get(void);
 FORCELOCAL void KCALL pagedir_set(PHYS pagedir_t *__restrict value);
 
+
+#ifdef __x86_64__
+FORCELOCAL PHYS pagedir_t *KCALL pagedir_get(void) {
+ pagedir_t *result;
+ __asm__("movq %%cr3, %0" : "=r" (result) : : "memory");
+ return result;
+}
+FORCELOCAL void KCALL pagedir_set(PHYS pagedir_t *__restrict value) {
+ __asm__("movq %0, %%cr3" : : "r" (value) : "memory");
+}
+#else
 FORCELOCAL PHYS pagedir_t *KCALL pagedir_get(void) {
  pagedir_t *result;
  __asm__("movl %%cr3, %0" : "=r" (result) : : "memory");
@@ -327,6 +338,7 @@ FORCELOCAL PHYS pagedir_t *KCALL pagedir_get(void) {
 FORCELOCAL void KCALL pagedir_set(PHYS pagedir_t *__restrict value) {
  __asm__("movl %0, %%cr3" : : "r" (value) : "memory");
 }
+#endif
 
 FUNDEF ATTR_NOTHROW bool KCALL pagedir_haschanged(vm_vpage_t vpage);
 FUNDEF ATTR_NOTHROW void KCALL pagedir_unsetchanged(vm_vpage_t vpage);

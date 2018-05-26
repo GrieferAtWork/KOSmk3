@@ -226,16 +226,16 @@ INTERN void FCALL c_x86_double_fault_handler(void) {
           goto no_handler;
      /* Override the IP to use the entry point.  */
      context.c_eip = (uintptr_t)hand.ehi_entry;
-     assert(hand.ehi_desc.ed_type == EXCEPT_DESC_TYPE_BYPASS); /* XXX: What should we do here? */
+     assert(hand.ehi_desc.ed_type == EXCEPTION_DESCRIPTOR_TYPE_BYPASS); /* XXX: What should we do here? */
      /* Allocate the stack-save area. */
      context.c_esp -= hand.ehi_desc.ed_safe;
-     if (!(hand.ehi_desc.ed_flags & EXCEPT_DESC_FDEALLOC_CONTINUE)) {
+     if (!(hand.ehi_desc.ed_flags & EXCEPTION_DESCRIPTOR_FDEALLOC_CONTINUE)) {
       /* Must allocate stack memory at the back and copy data there. */
       sp -= hand.ehi_desc.ed_safe;
       memcpy((void *)sp,(void *)context.c_esp,hand.ehi_desc.ed_safe);
       context.c_esp = sp;
      }
-     if (hand.ehi_desc.ed_flags & EXCEPT_DESC_FDISABLE_PREEMPTION)
+     if (hand.ehi_desc.ed_flags & EXCEPTION_DESCRIPTOR_FDISABLE_PREEMPTION)
          context.c_eflags &= ~EFLAGS_IF;
     } else {
      /* Jump to the entry point of this exception handler. */

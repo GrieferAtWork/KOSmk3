@@ -30,7 +30,7 @@
 #include <string.h>
 #include <kernel/debug.h>
 #include <kernel/interrupt.h>
-#include <kos/i386-kos/context.h>
+#include <kos/i386-kos/bits/cpu-context.h>
 #include <sched/task.h>
 
 #include <unwind/eh_frame.h>
@@ -42,11 +42,11 @@ DECL_BEGIN
 INTDEF void ASMCALL x86_interrupt_except(void);
 
 /* Define the X86 interrupt exception guard. */
-PUBLIC struct except_desc const x86_interrupt_guard = {
+PUBLIC struct exception_descriptor const x86_interrupt_guard = {
     .ed_handler = (void *)&x86_interrupt_except,
-    .ed_type    = EXCEPT_DESC_TYPE_BYPASS,
-    .ed_flags   = (EXCEPT_DESC_FDEALLOC_CONTINUE|
-                   EXCEPT_DESC_FDISABLE_PREEMPTION),
+    .ed_type    = EXCEPTION_DESCRIPTOR_TYPE_BYPASS,
+    .ed_flags   = (EXCEPTION_DESCRIPTOR_FDEALLOC_CONTINUE|
+                   EXCEPTION_DESCRIPTOR_FDISABLE_PREEMPTION),
     .ed_safe    = X86_IRREGS_HOST32_SIZE
 };
 

@@ -36,9 +36,9 @@ PUBLIC ATTR_PERCPU u16 _cpu_basic_features ASMNAME("cpu_basic_features") = CPU_B
 PUBLIC ATTR_PERCPU struct cpu_cpuid _cpu_id_features ASMNAME("cpu_id_features") = { 0, };
 
 INTERN ATTR_FREETEXT void KCALL x86_load_cpuid(void) {
- u32 cpuid_available;
  struct cpu_cpuid *info;
 #ifndef __x86_64__
+ u32 cpuid_available;
  /* Check if CPUID is even available. */
  __asm__ __volatile__("pushfl\n"
                       "pushfl\n"

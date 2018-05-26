@@ -70,7 +70,9 @@ struct futex_handle {
 /* Construct a new futex handle.
  * @throw E_BADALLOC: Failed to allocate sufficient memory. */
 FUNDEF ATTR_MALLOC ATTR_RETNONNULL REF struct futex_handle *
-KCALL futex_handle_alloc(struct futex *__restrict ftx, USER CHECKED u32 *uaddr, u32 value, u32 mask);
+KCALL futex_handle_alloc(struct futex *__restrict ftx,
+                         USER CHECKED u32 *uaddr, u32 value,
+                         uintptr_t mask);
 
 /* Destroy a previously allocated futex handle. */
 FUNDEF void KCALL futex_handle_destroy(struct futex_handle *__restrict self);
@@ -204,9 +206,9 @@ struct vio_ops {
      *       that throwing `E_NOT_IMPLEMENTED' from one of these callbacks will
      *       have that error be transformed into an `E_SEGFAULT' referring to
      *       the original instruction.
-     * HINT: For full support, at least one read, write and cmpxchg operator
+     * HINT: For full support, at least one read, write and cmpxch operator
      *       should be implemented.
-     * NOTE: `cmpxchg' must always return the old value, and only write
+     * NOTE: `cmpxch' must always return the old value, and only write
      *       `new_value' if that old value was equal to `old_value'.
      *       In other words, the caller assumes that the operation
      *       successfully exchanged the stored value when `old_value'
@@ -214,22 +216,59 @@ struct vio_ops {
     u8   (KCALL *v_readb)(void *closure, uintptr_t addr);
     u16  (KCALL *v_readw)(void *closure, uintptr_t addr);
     u32  (KCALL *v_readl)(void *closure, uintptr_t addr);
-#if __SIZEOF_POINTER__ > 4
+#if __SIZEOF_POINTER__ >= 8
     u64  (KCALL *v_readq)(void *closure, uintptr_t addr);
 #endif
     void (KCALL *v_writeb)(void *closure, uintptr_t addr, u8 value);
     void (KCALL *v_writew)(void *closure, uintptr_t addr, u16 value);
     void (KCALL *v_writel)(void *closure, uintptr_t addr, u32 value);
-#if __SIZEOF_POINTER__ > 4
+#if __SIZEOF_POINTER__ >= 8
     void (KCALL *v_writeq)(void *closure, uintptr_t addr, u64 value);
 #endif
-    u8   (KCALL *v_atomic_cmpxchgb)(void *closure, uintptr_t addr, u8 old_value, u8 new_value);
-    u16  (KCALL *v_atomic_cmpxchgw)(void *closure, uintptr_t addr, u16 old_value, u16 new_value);
-    u32  (KCALL *v_atomic_cmpxchgl)(void *closure, uintptr_t addr, u32 old_value, u32 new_value);
-#if __SIZEOF_POINTER__ > 4
-    u64  (KCALL *v_atomic_cmpxchgq)(void *closure, uintptr_t addr, u64 old_value, u64 new_value);
+    u8   (KCALL *v_atomic_cmpxchb)(void *closure, uintptr_t addr, u8 old_value, u8 new_value);
+    u16  (KCALL *v_atomic_cmpxchw)(void *closure, uintptr_t addr, u16 old_value, u16 new_value);
+    u32  (KCALL *v_atomic_cmpxchl)(void *closure, uintptr_t addr, u32 old_value, u32 new_value);
+#if __SIZEOF_POINTER__ >= 8
+    u64  (KCALL *v_atomic_cmpxchq)(void *closure, uintptr_t addr, u64 old_value, u64 new_value);
 #endif
 };
+
+/* VIO Operator invocation.
+ * These functions check address alignment and handle miss-aligned pointers
+ * by either invoking multiple operators (when `CONFIG_VM_ALLOW_UNALIGNED_VIO'
+ * is defined), or by throwing an `E_INVALID_ALIGNMENT' exception.
+ * Additionally, `E_NOT_IMPLEMENTED' is thrown if the operation isn't possible
+ * due to lack of any compatible operators.
+ * @throw: E_INVALID_ALIGNMENT: The given address is miss-aligned.
+ *                              NOTE: Atomic operations may still throw this exception,
+ *                                    even when `CONFIG_VM_ALLOW_UNALIGNED_VIO' has
+ *                                    been defined, in case the accessed memory block
+ *                                    crosses over between 2 unaligned words of the
+ *                                    greatest supported magnitude.
+ *                                    e.g.: `v_atomic_cmpxchl' is supported, but
+ *                                          `vio_atomic_cmpxchw' is used to exchange
+ *                                           a word who's second byte is part of
+ *                                           another DWORD than its first byte.
+ * @throw: E_NOT_IMPLEMENTED:   Cannot perform the memory lookup. */
+FUNDEF u8  KCALL vio_readb(struct vio_ops *__restrict ops, void *closure, uintptr_t addr);
+FUNDEF u16 KCALL vio_readw(struct vio_ops *__restrict ops, void *closure, uintptr_t addr);
+FUNDEF u32 KCALL vio_readl(struct vio_ops *__restrict ops, void *closure, uintptr_t addr);
+#if __SIZEOF_POINTER__ >= 8
+FUNDEF u64 KCALL vio_readq(struct vio_ops *__restrict ops, void *closure, uintptr_t addr);
+#endif
+FUNDEF void KCALL vio_writeb(struct vio_ops *__restrict ops, void *closure, uintptr_t addr, u8 value);
+FUNDEF void KCALL vio_writew(struct vio_ops *__restrict ops, void *closure, uintptr_t addr, u16 value);
+FUNDEF void KCALL vio_writel(struct vio_ops *__restrict ops, void *closure, uintptr_t addr, u32 value);
+#if __SIZEOF_POINTER__ >= 8
+FUNDEF void KCALL vio_writeq(struct vio_ops *__restrict ops, void *closure, uintptr_t addr, u64 value);
+#endif
+FUNDEF u8  KCALL vio_atomic_cmpxchb(struct vio_ops *__restrict ops, void *closure, uintptr_t addr, u8 old_value, u8 new_value);
+FUNDEF u16 KCALL vio_atomic_cmpxchw(struct vio_ops *__restrict ops, void *closure, uintptr_t addr, u16 old_value, u16 new_value);
+FUNDEF u32 KCALL vio_atomic_cmpxchl(struct vio_ops *__restrict ops, void *closure, uintptr_t addr, u32 old_value, u32 new_value);
+#if __SIZEOF_POINTER__ >= 8
+FUNDEF u64 KCALL vio_atomic_cmpxchq(struct vio_ops *__restrict ops, void *closure, uintptr_t addr, u64 old_value, u64 new_value);
+#endif
+
 #endif /* __CC__ */
 #endif /* !CONFIG_NO_VIO */
 

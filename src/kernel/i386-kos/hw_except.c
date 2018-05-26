@@ -22,27 +22,29 @@
 #define _NOSERVE_SOURCE 1
 
 #include <hybrid/compiler.h>
-#include <kos/types.h>
 #include <hybrid/section.h>
-#include <kernel/interrupt.h>
-#include <kernel/malloc.h>
-#include <kernel/vm.h>
+#include <asm/cpu-flags.h>
+#include <except.h>
 #include <i386-kos/interrupt.h>
 #include <i386-kos/vm86.h>
-#include <kos/i386-kos/context.h>
-#include <kos/i386-kos/except.h>
-#include <asm/cpu-flags.h>
 #include <kernel/debug.h>
+#include <kernel/interrupt.h>
+#include <kernel/malloc.h>
 #include <kernel/syscall.h>
-#include <unwind/eh_frame.h>
-#include <unwind/linker.h>
+#include <kernel/vm.h>
 #include <kos/context.h>
-#include <except.h>
-#include <string.h>
+#include <kos/i386-kos/asm/except.h>
+#include <kos/i386-kos/asm/pf-syscall.h>
+#include <kos/i386-kos/bits/cpu-context.h>
+#include <kos/intrin.h>
+#include <kos/types.h>
+#include <sched/pid.h>
 #include <stdbool.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <syscall.h>
-#include <sched/pid.h>
+#include <unwind/eh_frame.h>
+#include <unwind/linker.h>
 
 #include "emulator.h"
 #include "posix_signals.h"
@@ -50,42 +52,10 @@
 
 DECL_BEGIN
 
-#ifdef __x86_64__
-#define CONTEXT_SP(x) ((x).c_rsp)
-#define CONTEXT_IP(x) ((x).c_rip)
-#else
-#define CONTEXT_SP(x) X86_ANYCONTEXT32_ESP(x)
-#define CONTEXT_IP(x) ((x).c_eip)
-#endif
-
 /* For all of this exception handling, we must be extremely careful
  * to always be able to properly determine the ERR_FRESUMENEXT bit.
  * If we fail to determine it properly, then exception handling
  * might not work properly, and error-continue will be broken as well! */
-
-
-#ifdef __x86_64__
-#define fix_user_context(context) (void)0
-#else
-INTERN void FCALL
-fix_user_context(struct x86_anycontext *__restrict context) {
- /* Copy the USER SP into the HOST SP pointer. */
-#ifdef CONFIG_VM86
- if (context->c_eflags & EFLAGS_VM) {
-#ifndef CONFIG_NO_X86_SEGMENTATION
-  context->c_segments.sg_gs = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_gs;
-  context->c_segments.sg_fs = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_fs;
-  context->c_segments.sg_es = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_es;
-  context->c_segments.sg_ds = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_ds;
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
-  context->c_host.c_esp = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_esp;
- } else
-#endif
- if (X86_ANYCONTEXT32_ISUSER(*context)) {
-  context->c_host.c_esp = context->c_user.c_esp;
- }
-}
-#endif
 
 
 #ifdef CONFIG_DEBUG_MALLOC
@@ -102,7 +72,7 @@ x86_handle_vio(struct cpu_anycontext *__restrict context,
 
 INTERN void FCALL
 error_rethrow_atuser(struct cpu_context *__restrict context) {
- if (!(context->c_iret.ir_cs & 3)) {
+ if (!X86_ANYCONTEXT_ISUSER(*context)) {
   if (!(error_info()->e_error.e_flag & ERR_FRESUMENEXT))
         --CONTEXT_IP(*context);
   __error_rethrow_at(context);
@@ -120,11 +90,11 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
  struct exception_info *info;
  void *EXCEPT_VAR fault_address;
  /* Extract the fault address before re-enabling interrupts. */
- __asm__("movl %%cr2, %0" : "=r" (fault_address) : : "memory");
+ fault_address = (void *)__rdcr2();
  assert(!PREEMPTION_ENABLED());
 #if 0
  debug_printf("#PF at %p (from %p; errcode %x)\n",
-              fault_address,context->c_eip,errcode);
+              fault_address,context->c_pip,errcode);
 #endif
  /* Re-enable interrupts if they were enabled before. */
  if (context->c_eflags & EFLAGS_IF)
@@ -196,10 +166,14 @@ again:
         has_vm_lock = false;
         /* Perform a VIO memory access. */
         TRY {
-         if (xcontext->c_iret.ir_cs & 3) {
+         if (X86_ANYCONTEXT_ISUSER(*xcontext)) {
+#ifdef __x86_64__
+          vm_ok = x86_handle_vio(xcontext,vio_region,vio_addr,fault_address);
+#else
           xcontext->c_hostesp = xcontext->c_useresp;
           vm_ok = x86_handle_vio(xcontext,vio_region,vio_addr,fault_address);
           xcontext->c_useresp = xcontext->c_hostesp;
+#endif
          } else {
           vm_ok = x86_handle_vio(xcontext,vio_region,vio_addr,fault_address);
          }
@@ -216,27 +190,41 @@ again:
         * page directory itself if access is allowed.
         * This may still be a sporadic fault if an invtlb hasn't
         * reached use yet, or if the page is being updated lazily. */
+#ifdef __x86_64__
+       unsigned int vec4 = X86_PDIR_E4_INDEX(fault_page);
+       unsigned int vec3 = X86_PDIR_E3_INDEX(fault_page);
+       unsigned int vec2 = X86_PDIR_E2_INDEX(fault_page);
+       unsigned int vec1 = X86_PDIR_E1_INDEX(fault_page);
+       /* Extract data from the page table. */
+       u64 data = X86_PDIR_E4_IDENTITY[vec4].p_flag;
+       if (data & X86_PAGE_FPRESENT) {
+        data = X86_PDIR_E3_IDENTITY[vec4][vec3].p_flag;
+        if ((data & X86_PAGE_FPRESENT) && !(data & X86_PAGE_F1GIB)) {
+         data = X86_PDIR_E2_IDENTITY[vec4][vec3][vec2].p_flag;
+         if ((data & X86_PAGE_FPRESENT) && !(data & X86_PAGE_F2MIB))
+              data = X86_PDIR_E1_IDENTITY[vec4][vec3][vec2][vec1].p_flag;
+        }
+       }
+#else
        unsigned int vec2 = X86_PDIR_VEC2INDEX_VPAGE(fault_page);
        unsigned int vec1 = X86_PDIR_VEC1INDEX_VPAGE(fault_page);
        u32 data = X86_PDIR_E2_IDENTITY[vec2].p_flag;
-       if (!(data & X86_PAGE_FPRESENT)) {
-       } else {
-        if (!(data & X86_PAGE_F4MIB))
-              data = X86_PDIR_E1_IDENTITY[vec2][vec1].p_flag;
-        if (!(data & X86_PAGE_FPRESENT)); /* Not mapped */
-        else if ((errcode & X86_SEGFAULT_FUSER) &&
-                !(data & X86_PAGE_FUSER)); /* Not accessible to user-space. */
-        else if ((errcode & X86_SEGFAULT_FWRITE) &&
-                !(data & X86_PAGE_FWRITE)); /* Not writable. */
-#if 0 /* Already checked above... */
-        else if (errcode & X86_SEGFAULT_FRESWRITE); /* Reserved write. */
+       if ((data & X86_PAGE_FPRESENT) && !(data & X86_PAGE_F4MIB))
+            data = X86_PDIR_E1_IDENTITY[vec2][vec1].p_flag;
 #endif
-        else {
-         /* Synchronize (invalidate) the affected page. */
-         debug_printf("VM memory access race condition at %p\n",fault_address);
-         pagedir_sync(fault_page,1);
-         vm_ok = true;
-        }
+       if (!(data & X86_PAGE_FPRESENT)); /* Not mapped */
+       else if ((errcode & X86_SEGFAULT_FUSER) &&
+               !(data & X86_PAGE_FUSER)); /* Not accessible to user-space. */
+       else if ((errcode & X86_SEGFAULT_FWRITE) &&
+               !(data & X86_PAGE_FWRITE)); /* Not writable. */
+#if 0 /* Already checked above... */
+       else if (errcode & X86_SEGFAULT_FRESWRITE); /* Reserved write. */
+#endif
+       else {
+        /* Synchronize (invalidate) the affected page. */
+        debug_printf("VM memory access race condition at %p\n",fault_address);
+        pagedir_sync(fault_page,1);
+        vm_ok = true;
        }
       } else {
        /* Manually force a remap with the updated permissions. */
@@ -297,7 +285,7 @@ again:
     !(errcode & X86_SEGFAULT_FWRITE)) {
   uintptr_t return_ip;
   if ((errcode & X86_SEGFAULT_FUSER) &&
-      (xcontext->c_iret.ir_cs & 3)) {
+       X86_ANYCONTEXT_ISUSER(*xcontext)) {
    uintptr_t sysno = PERTASK_GET(x86_sysbase);
    if ((uintptr_t)fault_address >= sysno &&
        (uintptr_t)fault_address <  sysno+X86_ENCODE_PFSYSCALL_SIZE) {
@@ -308,8 +296,8 @@ again:
      * constant (to improve security by not using static addresses that would
      * allow for return-to-libc; or rather return-to-kernel; attacks). */
 restart_syscall:
-    xcontext->c_eip = xcontext->c_gpregs.gp_eax; /* #PF uses EAX as return address. */
-    xcontext->c_gpregs.gp_eax = sysno; /* #PF encodes the sysno in EIP. */
+    xcontext->c_pip = xcontext->c_gpregs.gp_pax; /* #PF uses EAX as return address. */
+    xcontext->c_gpregs.gp_pax = sysno; /* #PF encodes the sysno in EIP. */
     COMPILER_BARRIER();
     /* Execute the system calls. */
     TRY {
@@ -321,22 +309,22 @@ restart_syscall:
 #if 1
       COMPILER_WRITE_BARRIER();
       /* Deal with system call restarts. */
-      task_restart_syscall(&xcontext->c_user,
+      task_restart_syscall((struct cpu_hostcontext_user *)xcontext,
                             TASK_USERCTX_TYPE_INTR_SYSCALL|
                             X86_SYSCALL_TYPE_FINT80,
                             sysno);
 #else
       /* Restore the original user-space CPU xcontext. */
-      xcontext->c_gpregs.gp_eax = xcontext->c_eip;
-      xcontext->c_eip           = (uintptr_t)fault_address;
+      xcontext->c_gpregs.gp_pax = xcontext->c_pip;
+      xcontext->c_pip           = (uintptr_t)fault_address;
       COMPILER_WRITE_BARRIER();
       /* Deal with system call restarts. */
       if (!task_tryrestart_syscall(&xcontext->c_user,
                                     TASK_USERCTX_TYPE_INTR_SYSCALL|
                                     X86_SYSCALL_TYPE_FPF,
                                     sysno)) {
-       xcontext->c_eip = xcontext->c_gpregs.gp_eax;
-       xcontext->c_gpregs.gp_eax = sysno;
+       xcontext->c_pip = xcontext->c_gpregs.gp_pax;
+       xcontext->c_gpregs.gp_pax = sysno;
        error_rethrow();
       }
 #endif
@@ -360,12 +348,17 @@ restart_syscall:
    *       criteria of `CONTEXT_IP == fault_address' that is checked
    *       above. */
   TRY {
-   uintptr_t **pesp = (uintptr_t **)&CONTEXT_SP(*xcontext);
-   return_ip = **pesp;
+   uintptr_t **ppsp;
+#ifdef __x86_64__
+   ppsp = (uintptr_t **)&xcontext->c_psp;
+#else
+   ppsp = (uintptr_t **)&X86_ANYCONTEXT32_ESP(*xcontext);
+#endif
+   return_ip = **ppsp;
    /* Check if the supposed return-ip is mapped.
     * XXX: Maybe even check if it is executable? */
    if (pagedir_ismapped(VM_ADDR2PAGE(return_ip))) {
-    ++*pesp; /* Consume the addressed pushed by `call' */
+    ++*ppsp; /* Consume the addressed pushed by `call' */
     CONTEXT_IP(*xcontext) = return_ip;
    }
   } CATCH_HANDLED (E_SEGFAULT) {
@@ -382,7 +375,7 @@ restart_syscall:
  info->e_error.e_segfault.sf_vaddr  = fault_address;
  /* Copy the CPU xcontext at the time of the exception. */
  fix_user_context(xcontext);
- memcpy(&info->e_context,&xcontext->c_host,sizeof(struct cpu_context));
+ memcpy(&info->e_context,xcontext,sizeof(struct cpu_context));
  /* Throw the error. */
  error_rethrow_atuser((struct cpu_context *)xcontext);
 }
@@ -394,22 +387,22 @@ x86_handle_divide_by_zero(struct x86_anycontext *__restrict context) {
  u16 type = ERROR_DIVIDE_BY_ZERO_INT;
  TRY {
   /* Decode source instructions (differentiate between `div' and `idiv'). */
-  byte_t *text = (byte_t *)context->c_eip;
+  byte_t *text = (byte_t *)context->c_pip;
   byte_t opcode = *text++;
   struct modrm_info modrm;
   if (opcode == 0x66 && (*text == 0xf7)) {
    ++text;
-   arg  = (u64)((u32)((u16)context->c_gpregs.gp_edx) << 16);
-   arg |= (u64)((u16)context->c_gpregs.gp_eax);
+   arg  = (u64)((u32)((u16)context->c_gpregs.gp_pdx) << 16);
+   arg |= (u64)((u16)context->c_gpregs.gp_pax);
   } else if (opcode == 0xf6) {
-   arg = (u64)(u16)context->c_gpregs.gp_eax;
+   arg = (u64)(u16)context->c_gpregs.gp_pax;
   } else if (opcode == 0xf7) {
    arg  = (u64)((u64)context->c_gpregs.gp_edx << 32);
-   arg |= (u64)(context->c_gpregs.gp_eax);
+   arg |= (u64)(context->c_gpregs.gp_pax);
   } else {
    goto default_divide;
   }
-  x86_decode_modrm(text,&modrm);
+  x86_decode_modrm(text,&modrm,0);
   if (modrm.mi_rm == 6) {
    /* Unsigned divide */
    type = ERROR_DIVIDE_BY_ZERO_UINT;
@@ -437,7 +430,7 @@ default_divide:
  info->e_error.e_divide_by_zero.dz_arg.da_uint = arg;
  /* Copy the CPU context at the time of the exception. */
  fix_user_context(context);
- memcpy(&info->e_context,&context->c_host,sizeof(struct cpu_context));
+ memcpy(&info->e_context,context,sizeof(struct cpu_context));
  /* Throw the error. */
  error_rethrow_atuser((struct cpu_context *)context);
 }
@@ -464,9 +457,9 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
 #else
  debug_printf("EAX %p  ECX %p  EDX %p  EBX %p  EIP %p\n"
               "ESP %p  EBP %p  ESI %p  EDI %p  EFL %p\n",
-              context->c_gpregs.gp_eax,context->c_gpregs.gp_ecx,
-              context->c_gpregs.gp_edx,context->c_gpregs.gp_ebx,context->c_eip,
-              X86_ANYCONTEXT32_ESP(*context),context->c_gpregs.gp_ebp,
+              context->c_gpregs.gp_pax,context->c_gpregs.gp_ecx,
+              context->c_gpregs.gp_edx,context->c_gpregs.gp_ebx,context->c_pip,
+              X86_ANYCONTEXT32_ESP(*context),context->c_gpregs.gp_pbp,
               context->c_gpregs.gp_esi,context->c_gpregs.gp_edi,
               context->c_eflags);
 #ifndef CONFIG_NO_X86_SEGMENTATION
@@ -487,18 +480,18 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
  debug_printf("THIS_TASK = %p (%u)\n",THIS_TASK,posix_gettid());
 #endif
 #if defined(__KERNEL__) && 1
- //context->c_esp = X86_ANYCONTEXT32_ESP(*INFO->e_context);
- if (context->c_iret.ir_cs & 3) {
+ //context->c_psp = X86_ANYCONTEXT32_ESP(*INFO->e_context);
+ if (X86_ANYCONTEXT_ISUSER(*context)) {
   struct userstack *stack = PERTASK_GET(_this_user_stack);
   if (stack != NULL) {
    debug_printf("stack: %p...%p\n",
           VM_PAGE2ADDR(stack->us_pagemin),
           VM_PAGE2ADDR(stack->us_pageend)-1);
-   if (context->c_useresp >= VM_PAGE2ADDR(stack->us_pagemin) &&
-       context->c_useresp <  VM_PAGE2ADDR(stack->us_pageend)) {
+   if (X86_ANYCONTEXT_USERSP(*context) >= VM_PAGE2ADDR(stack->us_pagemin) &&
+       X86_ANYCONTEXT_USERSP(*context) <  VM_PAGE2ADDR(stack->us_pageend)) {
     debug_printf("%$[hex]\n",
-          (VM_PAGE2ADDR(stack->us_pageend)-context->c_useresp)+16,
-           context->c_useresp-16);
+          (VM_PAGE2ADDR(stack->us_pageend)-X86_ANYCONTEXT_USERSP(*context))+16,
+           X86_ANYCONTEXT_USERSP(*context)-16);
    }
   } else {
    debug_printf("No stack\n");
@@ -507,11 +500,11 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
   debug_printf("stack: %p...%p\n",
         (uintptr_t)PERTASK_GET(this_task.t_stackmin),
         (uintptr_t)PERTASK_GET(this_task.t_stackend)-1);
-  if (context->c_hostesp >= (uintptr_t)PERTASK_GET(this_task.t_stackmin) &&
-      context->c_hostesp <= (uintptr_t)PERTASK_GET(this_task.t_stackend)) {
+  if (X86_ANYCONTEXT_HOSTSP(*context) >= (uintptr_t)PERTASK_GET(this_task.t_stackmin) &&
+      X86_ANYCONTEXT_HOSTSP(*context) <= (uintptr_t)PERTASK_GET(this_task.t_stackend)) {
    debug_printf("%$[hex]\n",
-         (uintptr_t)PERTASK_GET(this_task.t_stackend)-context->c_hostesp,
-                    context->c_hostesp);
+         (uintptr_t)PERTASK_GET(this_task.t_stackend)-X86_ANYCONTEXT_HOSTSP(*context),
+                    X86_ANYCONTEXT_HOSTSP(*context));
   }
  }
 #endif
@@ -528,17 +521,17 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
   old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
   memcpy(&old_info,error_info(),sizeof(struct exception_info));
   TRY {
-   dup = context->c_host;
+   memcpy(&dup,context,sizeof(struct cpu_context));
 #ifndef __x86_64__
-   dup.c_esp = X86_ANYCONTEXT32_ESP(*context);
+   dup.c_psp = X86_ANYCONTEXT32_ESP(*context);
 #endif
    for (;;) {
     debug_printf("%[vinfo:%f(%l,%c) : %n : %p] : ESP %p, EBP %p\n",
-                is_first ? (uintptr_t)dup.c_eip : (uintptr_t)dup.c_eip-1,
-                dup.c_esp,dup.c_gpregs.gp_ebp);
-    if (!is_first) --dup.c_eip;
-    if (!linker_findfde(dup.c_eip,&unwind_info)) {
-     debug_printf("Cannot unwind at %p (%p)\n",dup.c_eip,is_first ? dup.c_eip : dup.c_eip+1);
+                is_first ? (uintptr_t)dup.c_pip : (uintptr_t)dup.c_pip-1,
+                dup.c_psp,dup.c_gpregs.gp_pbp);
+    if (!is_first) --dup.c_pip;
+    if (!linker_findfde(dup.c_pip,&unwind_info)) {
+     debug_printf("Cannot unwind at %p (%p)\n",dup.c_pip,is_first ? dup.c_pip : dup.c_pip+1);
      break;
     }
     if (!eh_return(&unwind_info,&dup,EH_FNORMAL)) {
@@ -548,10 +541,10 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
          void         *f_return;
      };
      struct frame *f;
-     f = (struct frame *)dup.c_gpregs.gp_ebp;
-     dup.c_eip           = (uintptr_t)f->f_return;
-     dup.c_esp           = (uintptr_t)(f+1);
-     dup.c_gpregs.gp_ebp = (uintptr_t)f->f_caller;
+     f = (struct frame *)dup.c_gpregs.gp_pbp;
+     dup.c_pip           = (uintptr_t)f->f_return;
+     dup.c_psp           = (uintptr_t)(f+1);
+     dup.c_gpregs.gp_pbp = (uintptr_t)f->f_caller;
 #else
      break;
 #endif
@@ -585,7 +578,7 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
 
   /* Copy the CPU context at the time of the exception. */
   fix_user_context(context);
-  memcpy(&info->e_context,&context->c_host,sizeof(struct cpu_context));
+  memcpy(&info->e_context,context,sizeof(struct cpu_context));
 
   /* Throw the error. */
   error_rethrow_atuser((struct cpu_context *)context,true);
@@ -605,7 +598,7 @@ x86_handle_overflow(struct x86_anycontext *__restrict context) {
 
  /* Copy the CPU context at the time of the exception. */
  fix_user_context(context);
- memcpy(&info->e_context,&context->c_host,sizeof(struct cpu_context));
+ memcpy(&info->e_context,context,sizeof(struct cpu_context));
 
  /* The overflow error can happen for 3 different reason in KOS:
   *   --> `into'                      (IP = next_instr)
@@ -633,7 +626,6 @@ x86_handle_overflow(struct x86_anycontext *__restrict context) {
  }
 }
 
-#define X86_GPREG(context,no) ((uintptr_t *)&(context).c_gpregs)[7-(no)]
 INTERN void FCALL
 x86_handle_bound(struct x86_anycontext *__restrict context) {
  struct exception_info *info;
@@ -670,7 +662,7 @@ next_flag: ++ptext; goto check_flag;
   }
   if unlikely(ptext[0] != 0x62)
      goto do_throw_error; /* Shouldn't happen (ensure `bound' instruction) */
-  x86_decode_modrm(ptext+1,&modrm);
+  x86_decode_modrm(ptext+1,&modrm,flags);
   if unlikely(modrm.mi_type != MODRM_MEMORY)
      goto do_throw_error; /* Shouldn't happen (ensure memory operand) */
   /* Determine the effective address of the bounds structure. */
@@ -683,7 +675,7 @@ next_flag: ++ptext; goto check_flag;
    COMPILER_BARRIER();
    info->e_error.e_index_error.b_boundmin = low;
    info->e_error.e_index_error.b_boundmax = high;
-   info->e_error.e_index_error.b_index = (u16)X86_GPREG(*context,modrm.mi_reg);
+   info->e_error.e_index_error.b_index    = X86_GPREG16(modrm.mi_reg);
   } else {
    u32 low,high;
    low  = ((u32 *)bounds_struct)[0];
@@ -691,7 +683,7 @@ next_flag: ++ptext; goto check_flag;
    COMPILER_BARRIER();
    info->e_error.e_index_error.b_boundmin = low;
    info->e_error.e_index_error.b_boundmax = high;
-   info->e_error.e_index_error.b_index = (u32)X86_GPREG(*context,modrm.mi_reg);
+   info->e_error.e_index_error.b_index    = X86_GPREG32(modrm.mi_reg);
   }
  } CATCH_HANDLED (E_SEGFAULT) {
  }
@@ -699,7 +691,7 @@ next_flag: ++ptext; goto check_flag;
 do_throw_error:
  /* Copy the CPU context at the time of the exception. */
  fix_user_context(context);
- memcpy(&info->e_context,&context->c_host,sizeof(struct cpu_context));
+ memcpy(&info->e_context,context,sizeof(struct cpu_context));
 
  /* Throw the error. */
  error_rethrow_atuser((struct cpu_context *)context);
@@ -726,7 +718,7 @@ x86_interrupt_handler(struct cpu_anycontext *__restrict context,
 
  /* Copy the CPU context at the time of the exception. */
  fix_user_context(context);
- memcpy(&info->e_context,&context->c_host,sizeof(struct cpu_context));
+ memcpy(&info->e_context,context,sizeof(struct cpu_context));
  error_rethrow_atuser((struct cpu_context *)context);
 }
 

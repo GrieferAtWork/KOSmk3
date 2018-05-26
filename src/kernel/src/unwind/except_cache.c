@@ -137,8 +137,8 @@ again:
 }
 
 PRIVATE ATTR_NOTHROW bool KCALL
-lookup_exception_without_cache(struct except_handler *__restrict iter,
-                               struct except_handler *__restrict end,
+lookup_exception_without_cache(struct exception_handler *__restrict iter,
+                               struct exception_handler *__restrict end,
                                uintptr_t rel_ip, u16 exception_code,
                                struct application *__restrict app,
                                struct exception_handler_info *__restrict result) {
@@ -176,26 +176,26 @@ lookup_exception_without_cache(struct except_handler *__restrict iter,
    result->ehi_mask = iter->eh_mask;
    if (hand_flags & EXCEPTION_HANDLER_FDESCRIPTOR) {
     uintptr_t entry;
-    struct except_desc *descr; u16 descr_type,descr_flag;
+    struct exception_descriptor *descr; u16 descr_type,descr_flag;
     /* The handler uses an exception descriptor. */
-    descr = (struct except_desc *)iter->eh_descr;
+    descr = (struct exception_descriptor *)iter->eh_descr;
     if (hand_flags & EXCEPTION_HANDLER_FRELATIVE)
         *(uintptr_t *)&descr += app->a_loadaddr;
     if ((uintptr_t)descr < app->a_bounds.b_min)
          break;
-    if ((uintptr_t)descr > (app->a_bounds.b_max+1)-sizeof(struct except_desc))
+    if ((uintptr_t)descr > (app->a_bounds.b_max+1)-sizeof(struct exception_descriptor))
          break;
     descr_type = descr->ed_type;
     descr_flag = descr->ed_flags;
-    if unlikely(descr_type != EXCEPT_DESC_TYPE_BYPASS)
+    if unlikely(descr_type != EXCEPTION_DESCRIPTOR_TYPE_BYPASS)
        break; /* Unknown descriptor type. */
-    if unlikely(descr_flag & ~EXCEPT_DESC_FMASK)
+    if unlikely(descr_flag & ~EXCEPTION_DESCRIPTOR_FMASK)
        break; /* Unknown descriptor flags. */
-    if unlikely((descr_flag & EXCEPT_DESC_FDISABLE_PREEMPTION) &&
+    if unlikely((descr_flag & EXCEPTION_DESCRIPTOR_FDISABLE_PREEMPTION) &&
                 (app->a_type != APPLICATION_TYPE_FDRIVER))
        break; /* User-space isn't allowed to use this flag. */
     entry = (uintptr_t)descr->ed_handler;
-    if (descr_flag & EXCEPT_DESC_FRELATIVE)
+    if (descr_flag & EXCEPTION_DESCRIPTOR_FRELATIVE)
         entry += app->a_loadaddr;
     if unlikely(entry <  (app->a_loadaddr + mod->m_imagemin) ||
                 entry >= (app->a_loadaddr + mod->m_imageend))
@@ -287,26 +287,26 @@ KCALL alloc_info(size_t info_count) {
 PRIVATE ATTR_NOTHROW bool KCALL
 load_exception_descriptor(struct module *__restrict mod,
                           struct application *__restrict app, uintptr_t loadaddr,
-                          struct except_desc const *__restrict pdesc,
+                          struct exception_descriptor const *__restrict pdesc,
                           struct exception_handler_info *__restrict result) {
- struct except_desc COMPILER_IGNORE_UNINITIALIZED(desc);
+ struct exception_descriptor COMPILER_IGNORE_UNINITIALIZED(desc);
  TRY {
   COMPILER_BARRIER();
-  memcpy(&desc,pdesc,sizeof(struct except_desc));
+  memcpy(&desc,pdesc,sizeof(struct exception_descriptor));
   COMPILER_BARRIER();
  } EXCEPT_HANDLED (EXCEPT_EXECUTE_HANDLER) {
   return false;
  }
- if (!(desc.ed_flags & EXCEPT_DESC_FRELATIVE))
+ if (!(desc.ed_flags & EXCEPTION_DESCRIPTOR_FRELATIVE))
      *(uintptr_t *)&desc.ed_handler -= loadaddr;
  if ((uintptr_t)desc.ed_handler <  mod->m_imagemin ||
      (uintptr_t)desc.ed_handler >= mod->m_imageend)
       return false;
- if unlikely(desc.ed_type != EXCEPT_DESC_TYPE_BYPASS)
+ if unlikely(desc.ed_type != EXCEPTION_DESCRIPTOR_TYPE_BYPASS)
     return false; /* Unknown descriptor type. */
- if unlikely(desc.ed_flags & ~EXCEPT_DESC_FMASK)
+ if unlikely(desc.ed_flags & ~EXCEPTION_DESCRIPTOR_FMASK)
     return false; /* Unknown descriptor flags. */
- if unlikely((desc.ed_flags & EXCEPT_DESC_FDISABLE_PREEMPTION) &&
+ if unlikely((desc.ed_flags & EXCEPTION_DESCRIPTOR_FDISABLE_PREEMPTION) &&
              (app->a_type != APPLICATION_TYPE_FDRIVER))
     return false; /* User-space isn't allowed to use this flag. */
  result->ehi_entry         = (void *)(uintptr_t)desc.ed_handler;
@@ -319,11 +319,11 @@ load_exception_descriptor(struct module *__restrict mod,
 PRIVATE ATTR_NOTHROW struct except_info_cache *KCALL
 allocate_exception_info(struct module *__restrict mod,
                         struct application *__restrict app,
-                        struct except_handler *__restrict begin,
-                        struct except_handler *__restrict end,
+                        struct exception_handler *__restrict begin,
+                        struct exception_handler *__restrict end,
                         uintptr_t loadaddr, uintptr_t rel_ip) {
  struct except_info_cache *result;
- struct except_handler *iter;
+ struct exception_handler *iter;
  uintptr_t hand_min;
  uintptr_t hand_end;
  uintptr_t hand_entry;
@@ -361,7 +361,7 @@ allocate_exception_info(struct module *__restrict mod,
   * one entry exists for this address range. */
  if (flags & EXCEPTION_HANDLER_FMASK) {
   size_t handler_count,i;
-  struct except_handler *iter2,*lastpart;
+  struct exception_handler *iter2,*lastpart;
   /* The handler uses an exception mask, meaning we must search
    * for additional handlers that may also be visible at this
    * location, by not being obstructed by this one. */
@@ -401,7 +401,7 @@ allocate_exception_info(struct module *__restrict mod,
   if (flags & EXCEPTION_HANDLER_FDESCRIPTOR) {
    /* This is an extended exception descriptor. */
    if (!load_exception_descriptor(mod,app,loadaddr,
-                                 (struct except_desc *)(hand_entry + loadaddr),
+                                 (struct exception_descriptor *)(hand_entry + loadaddr),
                                  &result->ic_info[0]))
         goto corrupted_handler_free;
   }
@@ -437,7 +437,7 @@ allocate_exception_info(struct module *__restrict mod,
    if (flags & EXCEPTION_HANDLER_FDESCRIPTOR) {
     /* This is an extended exception descriptor. */
     if (!load_exception_descriptor(mod,app,loadaddr,
-                                  (struct except_desc *)(hand_entry + loadaddr),
+                                  (struct exception_descriptor *)(hand_entry + loadaddr),
                                   &result->ic_info[i]))
          goto corrupted_handler_free;
    }
@@ -476,7 +476,7 @@ allocate_exception_info(struct module *__restrict mod,
   if (flags & EXCEPTION_HANDLER_FDESCRIPTOR) {
    /* This is an extended exception descriptor. */
    if (!load_exception_descriptor(mod,app,loadaddr,
-                                 (struct except_desc *)(hand_entry + loadaddr),
+                                 (struct exception_descriptor *)(hand_entry + loadaddr),
                                   &result->ic_info[0]))
         goto corrupted_handler_free;
   }
@@ -591,8 +591,8 @@ again:
 }
 
 INTERN ATTR_NOTHROW bool KCALL
-except_cache_lookup(struct except_handler *__restrict iter,
-                    struct except_handler *__restrict end,
+except_cache_lookup(struct exception_handler *__restrict iter,
+                    struct exception_handler *__restrict end,
                     uintptr_t rel_ip, u16 exception_code,
                     struct application *__restrict app,
                     struct exception_handler_info *__restrict result) {
@@ -752,8 +752,8 @@ lookup_fallback:
 }
 #else
 INTERN ATTR_NOTHROW bool KCALL
-except_cache_lookup(struct except_handler *__restrict iter,
-                    struct except_handler *__restrict end,
+except_cache_lookup(struct exception_handler *__restrict iter,
+                    struct exception_handler *__restrict end,
                     uintptr_t rel_ip, u16 exception_code,
                     struct application *__restrict app,
                     struct exception_handler_info *__restrict result) {
@@ -763,8 +763,8 @@ except_cache_lookup(struct except_handler *__restrict iter,
 
 
 
-INTDEF struct except_handler kernel_except_start[];
-INTDEF struct except_handler kernel_except_end[];
+INTDEF struct exception_handler kernel_except_start[];
+INTDEF struct exception_handler kernel_except_end[];
 INTDEF byte_t kernel_except_size[];
 
 /* Find an EXCEPT entry belonging to the kernel core. */

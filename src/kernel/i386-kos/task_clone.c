@@ -227,7 +227,7 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
    host_context->c_iret.ir_cs     = X86_KERNEL_CS;
    host_context->c_iret.ir_eflags = EFLAGS_IF;
    host_context->c_iret.ir_eip    = (uintptr_t)&clone_entry;
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
    host_context->c_segments.sg_gs = X86_SEG_GS;
    host_context->c_segments.sg_fs = X86_SEG_FS;
    host_context->c_segments.sg_es = X86_KERNEL_DS;
@@ -235,17 +235,29 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 
    /* Copy the user-space CPU context. */
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
    memcpy(&user_context->c_gpregs,&context->c_gpregs,
           sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
 #else
+   /* TODO: Deal with segment base initializers: */
+   //context->c_segments.sg_fsbase;
+   //context->c_segments.sg_gsbase;
    memcpy(&user_context->c_gpregs,&context->c_gpregs,
           sizeof(struct x86_gpregs));
 #endif
-   user_context->c_iret.ir_cs = context->c_cs;
-   user_context->c_iret.ir_ss = context->c_ss;
-   user_context->c_eip        = context->c_eip;
-   user_context->c_eflags     = context->c_eflags;
+
+#ifdef __x86_64__
+   /* Copy the user-given IRET tail into the to-be loaded user-context. */
+   memcpy(&user_context->c_iret,&context->c_iret,
+          sizeof(struct x86_irregs64));
+#else
+   user_context->c_iret.ir_cs      = context->c_cs;
+   user_context->c_iret.ir_ss      = context->c_ss;
+   user_context->c_iret.ir_eip     = context->c_eip;
+   user_context->c_iret.ir_eflags  = context->c_eflags;
+   /* Place the stack-pointer given from user-space in its proper slot. */
+   user_context->c_iret.ir_useresp = user_context->c_gpregs.gp_esp;
+#endif
    COMPILER_READ_BARRIER();
 
    /* Force some registers to proper values (don't want user-space to run in ring #0). */
@@ -266,7 +278,7 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
     * user-space would be executed as kernel-code; autsch...) */
    if ((user_context->c_iret.ir_cs & 3) != 3 || !__verr(user_context->c_iret.ir_cs))
         throw_invalid_segment(user_context->c_iret.ir_cs,X86_REGISTER_SEGMENT_CS);
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
    /* Segment registers set to ZERO are set to their default values. */
    if (!user_context->c_segments.sg_gs)
         user_context->c_segments.sg_gs = X86_SEG_USER_GS;
@@ -286,9 +298,8 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
    if (!__verw(user_context->c_segments.sg_gs))
         throw_invalid_segment(user_context->c_segments.sg_gs,X86_REGISTER_SEGMENT_GS);
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
-   /* Place the stack-pointer given from user-space in its proper slot. */
-   user_context->c_iret.ir_useresp = user_context->c_gpregs.gp_esp;
 
+#ifndef __x86_64__
    /* Set the kernel stack as ESP to-be used when execution is
     * redirected to `x86_redirect_preemption()' during thread
     * initialization.
@@ -297,9 +308,6 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
     * not only would cause _a_ _lot_ of problems, but also probably
     * just end up in a #DF caused by the user-space stack now being
     * allocated yet (when #PF can't be called) */
-#ifdef __x86_64__
-   user_context->c_gpregs.gp_rsp = (uintptr_t)new_task->t_stackend;
-#else
    user_context->c_gpregs.gp_esp = (uintptr_t)new_task->t_stackend-8;
 #endif
   }
@@ -387,7 +395,7 @@ task_fork_impl(void *UNUSED(arg),
 
  /* Copy and context the given user-space context to
   * one that can be used to construct a new thread. */
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
  memcpy(&user_state,context,sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
 #else
  memcpy(&user_state,context,sizeof(struct x86_gpregs));
@@ -396,12 +404,20 @@ task_fork_impl(void *UNUSED(arg),
   struct x86_irregs_user *iret;
   pflag_t was = PREEMPTION_PUSHOFF();
   /* Copy from the original IRET tail. */
-  iret                = x86_interrupt_getiret();
+  iret = x86_interrupt_getiret();
+#ifdef __x86_64__
+  user_state.c_rip    = iret->ir_rip;
+  user_state.c_rsp    = iret->ir_rsp;
+  user_state.c_rflags = iret->ir_rflags;
+  user_state.c_cs     = iret->ir_cs;
+  user_state.c_ss     = iret->ir_ss;
+#else
   user_state.c_eip    = iret->ir_eip;
   user_state.c_esp    = iret->ir_useresp;
   user_state.c_eflags = iret->ir_eflags;
   user_state.c_cs     = iret->ir_cs;
   user_state.c_ss     = iret->ir_ss;
+#endif
   PREEMPTION_POP(was);
  }
  /* Return ZERO(0) in the child process. */

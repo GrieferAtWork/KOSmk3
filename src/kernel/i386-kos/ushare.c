@@ -78,7 +78,7 @@ sysenter_pregion_ctl(struct vm_region *__restrict UNUSED(self),
   result->d_file = "$$(KERNEL)";
   if (address < (USHARE_X86_SYSCALL_SYSENTER_COUNT*
                  USHARE_X86_SYSCALL_SYSENTER_STRIDE)) {
-   unsigned int index;
+   uintptr_t index;
    index = address / USHARE_X86_SYSCALL_SYSENTER_STRIDE;
    result->d_begin = (void *)(index * USHARE_X86_SYSCALL_SYSENTER_STRIDE);
    result->d_end   = (void *)((index+1) * USHARE_X86_SYSCALL_SYSENTER_STRIDE);
