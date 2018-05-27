@@ -33,8 +33,10 @@ __SYSDECL_BEGIN
 
 #ifdef __x86_64__
 #define __cpu_context_compat_defined 1
+#define __CPU_CONTEXT_COMPAT_SIZE X86_CONTEXT32_SIZE
 #define   cpu_context_compat x86_context32
 #define __cpu_usercontext_compat_defined 1
+#define __CPU_USERCONTEXT_COMPAT_SIZE X86_USERCONTEXT32_SIZE
 #define   cpu_usercontext_compat x86_usercontext32
 #define __exception_data_segfault32_defined 1
 #define __exception_data_segfault64_defined 1
@@ -140,8 +142,10 @@ __SYSDECL_BEGIN
 #define   exception_handler64 exception_handler
 #else
 #define __cpu_context_compat_defined 1
+#define __CPU_CONTEXT_COMPAT_SIZE X86_CONTEXT64_SIZE
 #define   cpu_context_compat x86_context64
 #define __cpu_usercontext_compat_defined 1
+#define __CPU_USERCONTEXT_COMPAT_SIZE X86_USERCONTEXT64_SIZE
 #define   cpu_usercontext_compat x86_usercontext64
 #define __exception_data_segfault32_defined 1
 #define __exception_data_segfault64_defined 1
@@ -278,10 +282,20 @@ struct __ATTR_PACKED exception_data_invalid_segment_compat {
         __UINT16_TYPE__  is_segment16;
     };
 };
+#endif /* __CC__ */
+
+
+#define __EXCEPTION_RT_DATA_COMPAT_OFFSETOF_FREE_SP 0
+#define __EXCEPTION_RT_DATA_COMPAT_SIZE             __SIZEOF_X86_INTPTRCC__
+#ifdef __CC__
 #define __exception_rt_data_compat_defined 1
 struct __ATTR_PACKED exception_rt_data_compat {
     __X86_INTPTRCC       xrt_free_sp;
 };
+#endif /* __CC__ */
+
+
+#ifdef __CC__
 #define __exception_data_noncontinuable_compat_defined 1
 struct __ATTR_PACKED exception_data_noncontinuable_compat {
     __UINT16_TYPE__     nc_origcode;
@@ -366,6 +380,14 @@ struct __ATTR_PACKED exception_data_exit_compat {
 struct __ATTR_PACKED exception_data_retry_rwlock_compat {
     __X86_PTRCC(struct rwlock)   e_rwlock_ptr;
 };
+#endif /* __CC__ */
+
+
+#define __EXCEPTION_DATA_COMPAT_OFFSETOF_CODE     0
+#define __EXCEPTION_DATA_COMPAT_OFFSETOF_FLAG     2
+#define __EXCEPTION_DATA_COMPAT_OFFSETOF_POINTERS __SIZEOF_X86_INTPTRCC__
+#define __EXCEPTION_DATA_COMPAT_SIZE             (__SIZEOF_X86_INTPTRCC__ * (__EXCEPTION_INFO_NUM_DATA_POINTERS+1))
+#ifdef __CC__
 #define __exception_data_compat_defined 1
 struct exception_data_compat {
     __UINT16_TYPE__              e_code;
@@ -382,28 +404,51 @@ struct exception_data_compat {
 #undef __PRIVATE_DEFINE_EXCEPTION_DATA_MEMBER
     };
 };
+#endif /* __CC__ */
 
 
+#define __EXCEPTION_INFO_COMPAT_OFFSETOF_ERROR    0
+#define __EXCEPTION_INFO_COMPAT_OFFSETOF_RTDATA   __EXCEPTION_DATA_COMPAT_SIZE
+#define __EXCEPTION_INFO_COMPAT_OFFSETOF_CONTEXT (__EXCEPTION_DATA_COMPAT_SIZE+__EXCEPTION_RT_DATA_COMPAT_SIZE)
+#define __EXCEPTION_INFO_COMPAT_SIZE             (__EXCEPTION_DATA_COMPAT_SIZE+__EXCEPTION_RT_DATA_COMPAT_SIZE+__CPU_CONTEXT_COMPAT_SIZE)
+#ifdef __CC__
 #define __exception_info_compat_defined 1
 struct __ATTR_PACKED exception_info_compat {
     struct exception_data_compat    e_error;
     struct exception_rt_data_compat e_rtdata;
     struct cpu_context_compat       e_context;
 };
+#endif /* __CC__ */
 
 #ifdef __KERNEL__
 #define __user_exception_data_compat_defined 1
+#define __USER_EXCEPTION_DATA_COMPAT_SIZE __EXCEPTION_DATA_COMPAT_SIZE
 #define   user_exception_data_compat exception_data_compat
 #define __user_exception_rt_data_compat_defined 1
+#define __USER_EXCEPTION_RT_DATA_COMPAT_SIZE __EXCEPTION_RT_DATA_COMPAT_SIZE
 #define   user_exception_rt_data_compat exception_rt_data_compat
 #define __user_exception_info_compat_defined 1
+#define __USER_EXCEPTION_INFO_COMPAT_OFFSETOF_ERROR    0
+#define __USER_EXCEPTION_INFO_COMPAT_OFFSETOF_RTDATA   __USER_EXCEPTION_DATA_COMPAT_SIZE
+#define __USER_EXCEPTION_INFO_COMPAT_OFFSETOF_CONTEXT (__USER_EXCEPTION_DATA_COMPAT_SIZE+__USER_EXCEPTION_RT_DATA_COMPAT_SIZE)
+#define __USER_EXCEPTION_INFO_COMPAT_SIZE             (__USER_EXCEPTION_DATA_COMPAT_SIZE+__USER_EXCEPTION_RT_DATA_COMPAT_SIZE+__CPU_USERCONTEXT_COMPAT_SIZE)
+#ifdef __CC__
 struct __ATTR_PACKED user_exception_info_compat {
     struct user_exception_data_compat    e_error;
     struct user_exception_rt_data_compat e_rtdata;
     struct cpu_usercontext_compat        e_context;
 };
 #endif /* __KERNEL__ */
+#endif /* __CC__ */
+
+
+#define __EXCEPTION_DESCRIPTOR_COMPAT_OFFSETOF_HANDLER 0
+#define __EXCEPTION_DESCRIPTOR_COMPAT_OFFSETOF_TYPE    __SIZEOF_X86_INTPTRCC__
+#define __EXCEPTION_DESCRIPTOR_COMPAT_OFFSETOF_FLAGS  (__SIZEOF_X86_INTPTRCC__+2)
+#define __EXCEPTION_DESCRIPTOR_COMPAT_OFFSETOF_SAFE   (__SIZEOF_X86_INTPTRCC__+4)
+#define __EXCEPTION_DESCRIPTOR_COMPAT_SIZE            (__SIZEOF_X86_INTPTRCC__+8)
 #define __exception_descriptor_compat_defined 1
+#ifdef __CC__
 struct exception_descriptor_compat {
     __X86_PTRCC(void) ed_handler;
     __UINT16_TYPE__   ed_type;
@@ -411,7 +456,17 @@ struct exception_descriptor_compat {
     __UINT16_TYPE__   ed_safe;
     __UINT16_TYPE__ __ed_pad;
 };
+#endif /* __CC__ */
+
+
+#define __EXCEPTION_HANDLER_COMPAT_OFFSETOF_BEGIN  0
+#define __EXCEPTION_HANDLER_COMPAT_OFFSETOF_END    __SIZEOF_X86_INTPTRCC__
+#define __EXCEPTION_HANDLER_COMPAT_OFFSETOF_ENTRY (__SIZEOF_X86_INTPTRCC__*2)
+#define __EXCEPTION_HANDLER_COMPAT_OFFSETOF_FLAG  (__SIZEOF_X86_INTPTRCC__*3)
+#define __EXCEPTION_HANDLER_COMPAT_OFFSETOF_MASK  (__SIZEOF_X86_INTPTRCC__*3+(__SIZEOF_X86_INTPTRCC__/2))
+#define __EXCEPTION_HANDLER_COMPAT_SIZE           (__SIZEOF_X86_INTPTRCC__*4)
 #define __exception_handler_compat_defined 1
+#ifdef __CC__
 struct __ATTR_PACKED exception_handler_compat {
     __X86_PTRCC(void)    eh_begin;
     __X86_PTRCC(void)    eh_end;

@@ -866,6 +866,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "asm", "asm", "{7FE45CB8-DB3
 		..\include\kos\i386-kos\asm\registers.h = ..\include\kos\i386-kos\asm\registers.h
 		..\include\kos\i386-kos\asm\rpc.h = ..\include\kos\i386-kos\asm\rpc.h
 		..\include\kos\i386-kos\asm\tls.h = ..\include\kos\i386-kos\asm\tls.h
+		..\include\kos\i386-kos\asm\ushare.h = ..\include\kos\i386-kos\asm\ushare.h
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "io", "io", "{16855358-841E-445F-86CC-0373B863BB6B}"

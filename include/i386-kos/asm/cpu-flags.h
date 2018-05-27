@@ -92,6 +92,9 @@
 
 #ifdef __x86_64__
 #define IA32_EFER               0xc0000080
+#define IA32_STAR               0xc0000081
+#define IA32_LSTAR              0xc0000082
+#define IA32_FMASK              0xc0000084
 #define IA32_FS_BASE            0xc0000100
 #define IA32_GS_BASE            0xc0000101
 #define IA32_KERNEL_GS_BASE     0xc0000102

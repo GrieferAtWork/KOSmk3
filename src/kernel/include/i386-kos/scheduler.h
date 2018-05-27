@@ -58,12 +58,6 @@ DATDEF ATTR_PERTASK uintptr_t x86_sysbase;
  (KERNEL_BASE+((rand() % (0x01000000-X86_ENCODE_PFSYSCALL_SIZE)) & ~(16-1)))
 
 
-#ifdef __x86_64__
-#define x86_irregs_user x86_irregs64
-#else
-#define x86_irregs_user x86_irregs_user32
-#endif
-
 /* Get the effective user-space return location
  * where execution will continue after returning
  * back to user-space.

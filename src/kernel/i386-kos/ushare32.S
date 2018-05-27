@@ -35,7 +35,12 @@
 	cmpl  $__ERRNO_THRESHOLD, %eax; \
 	jae   error
 
+#ifdef USHARE_SYSENTER_SECTION_NAME
+.section USHARE_SYSENTER_SECTION_NAME
+#else
 .section .data.ushare.sysenter
+#endif
+
 .align PAGESIZE
 INTERN_ENTRY(x86_ushare_sysenter)
 .cfi_startproc
@@ -129,13 +134,13 @@ INTERN_ENTRY(x86_ushare_sysenter)
 
 	/* Load arguments */
 #define   A  20 /* return+4*register (4+4*4) */
-	movl  A+ 0(%esp), X86_SYSCALL_REGNO /* sysno */
-	movl  A+ 4(%esp), X86_SYSCALL_REG0  /* Arg #1 */
-	movl  A+ 8(%esp), X86_SYSCALL_REG1  /* Arg #2 */
-	movl  A+12(%esp), X86_SYSCALL_REG2  /* Arg #3 */
-	movl  A+16(%esp), X86_SYSCALL_REG3  /* Arg #4 */
-	movl  A+20(%esp), X86_SYSCALL_REG4  /* Arg #5 */
-	movl  A+24(%esp), X86_SYSCALL_REG5  /* Arg #6 */
+	movl  A+ 0(%esp), %eax /* sysno */
+	movl  A+ 4(%esp), %ebx /* Arg #1 */
+	movl  A+ 8(%esp), %ecx /* Arg #2 */
+	movl  A+12(%esp), %edx /* Arg #3 */
+	movl  A+16(%esp), %esi /* Arg #4 */
+	movl  A+20(%esp), %edi /* Arg #5 */
+	movl  A+24(%esp), %ebp /* Arg #6 */
 #undef A
 
 	int   $0x80 /* Invoke the system call interrupt vector */

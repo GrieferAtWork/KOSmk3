@@ -203,6 +203,7 @@ FORCELOCAL void x86_interrupt_pop(pflag_t flag) {
 #define PREEMPTION_POP(flag)  x86_interrupt_pop(flag)
 
 #ifdef CONFIG_BUILDING_KERNEL_CORE
+#ifndef __x86_64__
 /* Load kernel segment registers.
  * Usually called at the start of an interrupt.
  * CLOBBER: %eax
@@ -214,6 +215,7 @@ INTDEF void ASMCALL x86_load_segments(void);
 /* Same as `x86_load_segments()', but clobber ECX, rather than EAX */
 INTDEF void ASMCALL x86_load_segments_ecx(void);
 #endif /* CONFIG_BUILDING_KERNEL_CORE */
+#endif /* !__x86_64__ */
 #endif /* __CC__ */
 
 
@@ -262,6 +264,61 @@ INTDEF void ASMCALL x86_load_segments_ecx(void);
 #define X86_IRQ_ATA1     irq_ff
 #define X86_IRQ_KBD      irq_f1
 #define X86_IRQ_PS2M     irq_fc
+
+
+#ifdef __x86_64__
+#ifdef __ASSEMBLER__
+
+/* Must be invoked at the start of any interrupt handler.
+ * This macro will safely load the kernel's GS segment if
+ * the interrupt originated from user-space.
+ * Similarly, `irq_leave' must be used instead of `iretq'
+ * to safely restore the user-space GS segment before
+ * returning from an interrupt that may originate from there.
+ * NOTE: If interrupts were enabled by the interrupt handler,
+ *       or if `irq_enter' was invoked with `do_sti=1',
+ *       they _must_ be disabled either by invoking `irq_leave'
+ *       with `do_cli=1', or by disabling them before by executing
+ *       the `cli' instruction manually.
+ * @param: do_sti: When non-zero, re-enable interrupts if the
+ *                 interrupted code location had them enabled.
+ *           NOTE: If it is known that the interrupted location
+ *                 had interrupts enabled, it is faster to pass
+ *                 ZERO(0) for this argument, or leave it undefined,
+ *                 then call `sti' manually afterward, as this will
+ *                 allow the CPU to skip a test that would otherwise
+ *                 have to check if interrupts were enabled before.
+ *                 This should be done for hardware-generated
+ *                 interrupts, such as PS/2 or ATA.
+ */
+.macro irq_enter  do_sti=0
+    testb  $3, 8(%rsp)
+    jz     998f
+    swapgs
+998:
+.if \do_sti
+    /* Only re-enable interrupts when were enabled before. */
+    testw  $0x0200, 16(%rsp) /* EFLAGS_IF */
+    jz     998f
+    sti
+998:
+.endif
+.endm
+
+.macro irq_leave  do_cli=0
+.if \do_cli
+    cli
+.endif
+    testq  $3, 8(%rsp)
+    jz     998f
+    swapgs
+998:
+    iretq
+.endm
+
+
+#endif
+#endif
 
 
 DECL_END

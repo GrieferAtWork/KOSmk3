@@ -33,6 +33,11 @@ DECL_BEGIN
 #ifdef __x86_64__
 /* Instruct the kernel to implement compatibility system calls. */
 #define CONFIG_SYSCALL_COMPAT 1
+//#define CONFIG_NO_X86_SYSCALL 1
+//#define CONFIG_NO_X86_SYSENTER 1
+#else
+#define CONFIG_NO_X86_SYSCALL 1
+//#define CONFIG_NO_X86_SYSENTER 1
 #endif
 
 
@@ -43,6 +48,9 @@ DECL_BEGIN
 #define X86_SYSCALL_TYPE_FSYSENTER 0x0100 /* Restart a system call using a register state used by `sysenter' */
 #endif /* !CONFIG_NO_X86_SYSENTER */
 #define X86_SYSCALL_TYPE_FPF       0x0200 /* Restart a system call using a register state used by #PF-based system calls. */
+#ifndef CONFIG_NO_X86_SYSCALL
+#define X86_SYSCALL_TYPE_FSYSCALL  0x0300 /* Restart a system call using a register state used by `syscall' */
+#endif /* !CONFIG_NO_X86_SYSCALL */
 
 
 #ifndef CONFIG_NO_X86_SYSENTER
@@ -86,6 +94,39 @@ DECL_BEGIN
  *   >>     popl    %esi
  *   >>     popl    %edi
  *   >>     popl    %ebp
+ *   >>     ret
+ */
+#endif /* !CONFIG_NO_X86_SYSENTER */
+
+
+#ifndef CONFIG_NO_X86_SYSCALL
+/* KOS's sysenter ABI (for x86_64):
+ *   
+ * CLOBBER:
+ *   - %rcx
+ *   - %r11
+ *   - %rdx (Only for 32-bit return values)
+ * ARGUMENTS:
+ *   - SYSCALLNO:      %rax
+ *   - ARG0:           %rdi
+ *   - ARG1:           %rsi
+ *   - ARG2:           %rdx
+ *   - ARG3:           %r10
+ *   - ARG4:           %r8
+ *   - ARG5:           %r9
+ * RETURN:
+ *   - RET1:           %rax
+ *   - RET2:           %rdx    (When set, don't use sysret for return)
+ * INVOCATION:
+ *   >> syscall:
+ *   >>     movq       %rdi,   %rax // SYSCALLNO
+ *   >>     movq       %rsi,   %rdi // ARG0
+ *   >>     movq       %rdx,   %rsi // ARG1
+ *   >>     movq       %rcx,   %rdx // ARG2
+ *   >>     movq       %r8,    %r10 // ARG3
+ *   >>     movq       %r9,    %r8  // ARG4
+ *   >>     movq      8(%rsp), %r9  // ARG5
+ *   >>     syscall
  *   >>     ret
  */
 #endif /* !CONFIG_NO_X86_SYSENTER */

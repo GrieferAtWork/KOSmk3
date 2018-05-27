@@ -58,9 +58,9 @@ PRIVATE void KCALL urpc_validate(struct urpc_data *__restrict data) {
  if (data->ud_mode & X86_JOB_FLOAD_SEGMENTS) {
 #ifdef __x86_64__
   if (!data->ud_context.c_cs)
-       data->ud_context.c_cs = interrupt_getcompat() ? X86_SEG_USER_CS32 : X86_SEG_USER_CS;
+       data->ud_context.c_cs = interrupt_iscompat() ? X86_SEG_USER_CS32 : X86_SEG_USER_CS;
   if (!data->ud_context.c_ss)
-       data->ud_context.c_ss = interrupt_getcompat() ? X86_SEG_USER_SS32 : X86_SEG_USER_SS;
+       data->ud_context.c_ss = interrupt_iscompat() ? X86_SEG_USER_SS32 : X86_SEG_USER_SS;
 #else
   if (!data->ud_context.c_cs)
        data->ud_context.c_cs = X86_SEG_USER_CS;

@@ -129,8 +129,10 @@ INTERN_ENTRY(x86_check_spurious_interrupt_PIC1)
 	inb    $(X86_PIC2_CMD),     %al
 	testb  $0x80,               %al
 	jz     99f /* if (!(inb(X86_PIC2_CMD) & 0x80)) goto 2f; */
-	popl_cfi %eax
+	.cfi_remember_state
+	popl_cfi_r %eax
 	ret
+	.cfi_restore_state
 99:	/* Preserve scratch registers. */
 	pushl_cfi_r %ecx
 	pushl_cfi_r %edx
@@ -141,8 +143,8 @@ INTERN_ENTRY(x86_check_spurious_interrupt_PIC1)
 	pushl_cfi_r %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 	call   x86_load_segments
-	call   x86_pic2_spur
-	jmp    98f
+	pushl_cfi $98f
+	jmp    x86_pic2_spur
 	.cfi_endproc
 SYMEND(x86_check_spurious_interrupt_PIC1)
 
@@ -157,9 +159,10 @@ INTERN_ENTRY(x86_check_spurious_interrupt_PIC2)
 	inb    $(X86_PIC2_CMD),     %al
 	testb  $0x80,               %al
 	jz     99f /* if (!(inb(X86_PIC2_CMD) & 0x80)) goto 2f; */
-	popl_cfi %eax
+	.cfi_remember_state
+	popl_cfi_r %eax
 	ret
-	.cfi_adjust_cfa_offset 4
+	.cfi_restore_state
 99:	/* Preserve scratch registers. */
 	pushl_cfi_r %ecx
 	pushl_cfi_r %edx
