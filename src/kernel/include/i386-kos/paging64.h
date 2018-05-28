@@ -26,6 +26,12 @@
 
 DECL_BEGIN
 
+#if 0
+#undef CONFIG_NO_GIGABYTE_PAGES
+#define CONFIG_NO_GIGABYTE_PAGES 1
+#endif
+
+
 #define VM_VPAGE_SIZE  8
 #define VM_PPAGE_SIZE  8
 #define VM_VIRT_SIZE   8
@@ -70,6 +76,7 @@ typedef PHYS u64 vm_phys_t;  /* A physical memory pointer. */
 /* Base address of where to load the kernel core into memory.
  * HINT: This address is located at -2GB */
 #define KERNEL_CORE_BASE  __UINT64_C(0xffffffff80000000)
+#define KERNEL_CORE_SIZE  __UINT64_C(0x0000000080000000)
 
 #define ADDR_ISUSER(x)  ((__CCAST(uintptr_t)(x) & VM_ADDRMASK) < (KERNEL_BASE & VM_ADDRMASK))
 #define ADDR_ISHOST(x)  ((__CCAST(uintptr_t)(x) & VM_ADDRMASK) >= (KERNEL_BASE & VM_ADDRMASK))
@@ -77,17 +84,17 @@ typedef PHYS u64 vm_phys_t;  /* A physical memory pointer. */
 
 #define X86_VM_KERNEL_PDIR_IDENTITY_BASE     __UINT64_C(0xffff808000000000) /* KERNEL_BASE + 512GiB */
 #define X86_VM_KERNEL_PDIR_IDENTITY_SIZE     __UINT64_C(0x0000008000000000) /* 512GiB */
-#define X86_VM_KERNEL_KERNELHEAP_LOCKED_BASE __UINT64_C(0xffff7fffff800000)
+#define X86_VM_KERNEL_KERNELHEAP_LOCKED_BASE __UINT64_C(0xffff9fffff800000)
 #define X86_VM_KERNEL_KERNELHEAP_TAIL        __UINT64_C(0xffff800000000000)
-#define X86_VM_KERNEL_SHAREDHEAP_BASE        __UINT64_C(0xffffffffa1200000)
-#define X86_VM_KERNEL_SHAREDHEAP_LOCKED_TAIL __UINT64_C(0xffffffffa1a00000)
-#define X86_VM_KERNEL_TEMPPAGE_BASE          __UINT64_C(0xffffffffaf100000) /* Hint for where to allocate thread-local temporary pages. */
-#define X86_VM_KERNEL_MALLHEAP_TAIL          __UINT64_C(0xffffffffa0000000)
-#define X86_VM_KERNEL_DRIVER_BASE            __UINT64_C(0xffffffffa0000000)
-#define X86_VM_KERNEL_DEBUG_BASE             __UINT64_C(0xffffffffaa000000)
-#define X86_VM_KERNEL_COREBASE_TAIL          __UINT64_C(0xffffffffb0000000) /* Hint for where to allocate core-base pointers. */
-#define X86_VM_KERNEL_STACK_TAIL             __UINT64_C(0xffffffffbfbff000)
-#define X86_VM_KERNEL_LAPIC_TAIL             __UINT64_C(0xffffffffbfc00000)
+#define X86_VM_KERNEL_SHAREDHEAP_BASE        __UINT64_C(0xffffa000a1200000)
+#define X86_VM_KERNEL_SHAREDHEAP_LOCKED_TAIL __UINT64_C(0xffffa000a1a00000)
+#define X86_VM_KERNEL_TEMPPAGE_BASE          __UINT64_C(0xffffa000af100000) /* Hint for where to allocate thread-local temporary pages. */
+#define X86_VM_KERNEL_MALLHEAP_TAIL          __UINT64_C(0xffffa000a0000000)
+#define X86_VM_KERNEL_DRIVER_BASE            __UINT64_C(0xffffa000a0000000)
+#define X86_VM_KERNEL_DEBUG_BASE             __UINT64_C(0xffffa000aa000000)
+#define X86_VM_KERNEL_COREBASE_TAIL          __UINT64_C(0xffffa000b0000000) /* Hint for where to allocate core-base pointers. */
+#define X86_VM_KERNEL_STACK_TAIL             __UINT64_C(0xffffa000bfbff000)
+#define X86_VM_KERNEL_LAPIC_TAIL             __UINT64_C(0xffffa000bfc00000)
 
 
 /* VM hints.
@@ -144,9 +151,11 @@ typedef PHYS u64 vm_phys_t;  /* A physical memory pointer. */
 #define X86_PAGE_F2MIB     __UINT64_C(0x0000000000000080) /* Directly map a physical address on level #2, creating a 2-MIB page.
                                                            * NOTE: This flag may only be set in `union x86_pdir_e2::p_flag'
                                                            * NOTE: Use of this requires the `CR4_PSE' bit to be set. */
+#ifndef CONFIG_NO_GIGABYTE_PAGES
 #define X86_PAGE_F1GIB     __UINT64_C(0x0000000000000080) /* Directly map a physical address on level #3, creating a 1-GIB page.
                                                            * NOTE: This flag may only be set in `union x86_pdir_e3::p_flag'
                                                            * NOTE: Use of this requires the `CR4_PSE' bit to be set. */
+#endif /* !CONFIG_NO_GIGABYTE_PAGES */
 #define X86_PAGE_FDIRTY    __UINT64_C(0x0000000000000040) /* The page has been written to. */
 #define X86_PAGE_FACCESSED __UINT64_C(0x0000000000000020) /* The page has been read from, or written to. */
 #define X86_PAGE_FUSER     __UINT64_C(0x0000000000000004) /* User-space may access this page (read, or write). */
@@ -180,15 +189,15 @@ typedef PHYS u64 vm_phys_t;  /* A physical memory pointer. */
 #define X86_PDIR_E4_TOTALSIZE  __UINT64_C(0x0001000000000000) /* 256 TiB */
 
 /* Page directory level indices. */
-#define X86_PDIR_E4_INDEX(vpage)  (((u64)(vpage) >> 27) & 0x1ff) /* For `struct x86_pdir::p_e4' */
-#define X86_PDIR_E3_INDEX(vpage)  (((u64)(vpage) >> 18) & 0x1ff) /* For `union x86_pdir_e4::p_e3' */
-#define X86_PDIR_E2_INDEX(vpage)  (((u64)(vpage) >> 9) & 0x1ff)  /* For `union x86_pdir_e3::p_e2' */
-#define X86_PDIR_E1_INDEX(vpage)   ((u64)(vpage) & 0x1ff)        /* For `union x86_pdir_e2::p_e1' */
+#define X86_PDIR_E4_INDEX(vpage)  ((__CCAST(u64)(vpage) >> 27) & 0x1ff) /* For `struct x86_pdir::p_e4' */
+#define X86_PDIR_E3_INDEX(vpage)  ((__CCAST(u64)(vpage) >> 18) & 0x1ff) /* For `union x86_pdir_e4::p_e3' */
+#define X86_PDIR_E2_INDEX(vpage)  ((__CCAST(u64)(vpage) >> 9) & 0x1ff)  /* For `union x86_pdir_e3::p_e2' */
+#define X86_PDIR_E1_INDEX(vpage)   (__CCAST(u64)(vpage) & 0x1ff)        /* For `union x86_pdir_e2::p_e1' */
 
 /* Page directory address offsets (Added to the mapped address when `X86_PDIR_E?_ISADDR(...)' is true). */
-#define PDIR_E3_OFFSET(virt_addr)  ((u64)(virt_addr) & (X86_PDIR_E3_SIZE-1)) /* 1GIB offsets */
-#define PDIR_E2_OFFSET(virt_addr)  ((u64)(virt_addr) & (X86_PDIR_E2_SIZE-1)) /* 2MIB offsets */
-#define PDIR_E1_OFFSET(virt_addr)  ((u64)(virt_addr) & (X86_PDIR_E1_SIZE-1)) /* 1KIB offsets */
+#define PDIR_E3_OFFSET(virt_addr)  (__CCAST(u64)(virt_addr) & (X86_PDIR_E3_SIZE-1)) /* 1GIB offsets */
+#define PDIR_E2_OFFSET(virt_addr)  (__CCAST(u64)(virt_addr) & (X86_PDIR_E2_SIZE-1)) /* 2MIB offsets */
+#define PDIR_E1_OFFSET(virt_addr)  (__CCAST(u64)(virt_addr) & (X86_PDIR_E1_SIZE-1)) /* 1KIB offsets */
 
 #ifdef __CC__
 union x86_pdir_e1 {
@@ -207,7 +216,7 @@ union x86_pdir_e2 {
                                           * [valid_if(X86_PAGE_FPRESENT && X86_PAGE_F2MIB)]
                                           *  _Physical_ page address. */
     u64                      p_flag;     /* [MASK(X86_PAGE_FMASK)] Page flags. */
-    PHYS union x86_pdir_e1 (*p_e1)[512]; /* [MASK(X86_PAGE_FADDR)]
+    PHYS union x86_pdir_e1 (*p_e1)[X86_PDIR_E1_COUNT]; /* [MASK(X86_PAGE_FADDR)]
                                           * [owned_if(p_data != X86_PAGE_ABSENT && !X86_PAGE_F2MIB)]
                                           * [valid_if(X86_PAGE_FPRESENT && !X86_PAGE_F2MIB)]
                                           *  _Physical_ pointer to a level #1 paging vector.
@@ -216,20 +225,27 @@ union x86_pdir_e2 {
 union x86_pdir_e3 {
     /* Level #3 (PDP) entry. */
     u64                      p_data;     /* Mapping data. */
+    u64                      p_flag;     /* [MASK(X86_PAGE_FMASK)] Page flags. */
+#ifdef CONFIG_NO_GIGABYTE_PAGES
+    PHYS union x86_pdir_e2 (*p_e2)[X86_PDIR_E2_COUNT]; /* [MASK(X86_PAGE_FADDR)]
+                                          * [owned_if(p_data != X86_PAGE_ABSENT)]
+                                          * [valid_if(X86_PAGE_FPRESENT)]
+                                          *  _Physical_ pointer to a level #2 paging vector. */
+#else
     PHYS u64                 p_addr;     /* [MASK(X86_PDIR_E3_MASK)]
                                           * [valid_if(X86_PAGE_FPRESENT && X86_PAGE_F1GIB)]
                                           *  _Physical_ page address. */
-    u64                      p_flag;     /* [MASK(X86_PAGE_FMASK)] Page flags. */
-    PHYS union x86_pdir_e2 (*p_e2)[512]; /* [MASK(X86_PAGE_FADDR)]
+    PHYS union x86_pdir_e2 (*p_e2)[X86_PDIR_E2_COUNT]; /* [MASK(X86_PAGE_FADDR)]
                                           * [owned_if(p_data != X86_PAGE_ABSENT && !X86_PAGE_F1GIB)]
                                           * [valid_if(X86_PAGE_FPRESENT && !X86_PAGE_F1GIB)]
                                           *  _Physical_ pointer to a level #2 paging vector. */
+#endif
 };
 union x86_pdir_e4 {
     /* Level #4 (PML4) entry. */
     u64                      p_data;     /* Mapping data. */
     u64                      p_flag;     /* [MASK(X86_PAGE_FMASK)] Page flags. */
-    PHYS union x86_pdir_e3 (*p_e3)[512]; /* [MASK(X86_PAGE_FADDR)]
+    PHYS union x86_pdir_e3 (*p_e3)[X86_PDIR_E3_COUNT]; /* [MASK(X86_PAGE_FADDR)]
                                           * [owned_if(p_data != X86_PAGE_ABSENT &&
                                           *         ((self - :p_e4) < X86_PDIR_E4_INDEX(KERNEL_BASE_PAGE)))]
                                           * [const_if((self - :p_e4) >= X86_PDIR_E4_INDEX(KERNEL_BASE_PAGE))]
@@ -253,7 +269,7 @@ union x86_pdir_ent {
 
 #ifdef __CC__
 struct x86_pdir {
-    union x86_pdir_e4   p_e4[512];  /* Level#4 page directory mappings. */
+    union x86_pdir_e4   p_e4[X86_PDIR_E4_COUNT];  /* Level#4 page directory mappings. */
 };
 #endif /* __CC__ */
 

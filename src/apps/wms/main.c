@@ -115,7 +115,7 @@ void print_bios_vga_mode(int mode) {
  context.c_cs            = ((uintptr_t)text & ~0xffff)/16;
  context.c_ss            = ((uintptr_t)sp & ~0xffff)/16;
  context.c_eip           = (uintptr_t)text & 0xffff;
- context.c_gpregs.gp_esp = (uintptr_t)sp & 0xffff;
+ context.c_psp           = (uintptr_t)sp & 0xffff;
  context.c_gpregs.gp_eax = mode;
  child = Xxclone(&context,CLONE_NEW_THREAD & ~CLONE_THREAD,NULL,NULL,NULL);
  Xwaitpid(child,NULL,WEXITED);

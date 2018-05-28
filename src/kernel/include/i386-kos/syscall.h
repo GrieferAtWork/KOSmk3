@@ -370,7 +370,7 @@ __asm__(".hidden argc_sys_" #name "_compat\n" \
         ".global sys_" #name "_compat\n" \
         ".section .text\n" \
         "sys_" #name "_compat:\n" \
-        "    addl $x86_syscall_compat64_adjustment, (%esp)\n" \
+        "    addl $x86_syscall64_adjustment_compat, (%esp)\n" \
         "    jmp  sys64_" #name "_compat\n" \
         ".size sys_" #name "_compat, . - sys_" #name "_compat\n"); \
 LOCAL u64 ATTR_CDECL SYSC_##name##_compat(__SYSCALL_COMPAT_DECL(argc,argv)); \
@@ -414,10 +414,10 @@ DATDEF u8 const x86_xsyscall_argc[];
 #ifdef CONFIG_SYSCALL_COMPAT
 DATDEF void *const x86_syscall_compat_router[];
 DATDEF void *const x86_xsyscall_compat_router[];
-#ifndef CONFIG_NO_X86_SYSENTER
+DATDEF u8 const x86_syscall_compat_restart[];
+DATDEF u8 const x86_xsyscall_compat_restart[];
 DATDEF u8 const x86_syscall_compat_argc[];
 DATDEF u8 const x86_xsyscall_compat_argc[];
-#endif /* !CONFIG_NO_X86_SYSENTER */
 #endif /* !CONFIG_SYSCALL_COMPAT */
 #endif /* __CC__ */
 

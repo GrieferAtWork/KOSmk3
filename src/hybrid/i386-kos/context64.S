@@ -46,9 +46,9 @@ INTERN_ENTRY(libc_cpu_getcontext)
 	movq   $0,   X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_RAX(%rdi) /* Return 0 the second time */
 #ifndef __KERNEL__
 	rdgsbaseq  %rsi
-	movq   %rsi, X86_CONTEXT64_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GSBASE(%rdi)
+	movq   %rsi, X86_CONTEXT64_OFFSETOF_SEGMENTS+X86_SEGMENTS64_OFFSETOF_GSBASE(%rdi)
 	rdfsbaseq  %rsi
-	movq   %rsi, X86_CONTEXT64_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FSBASE(%rdi)
+	movq   %rsi, X86_CONTEXT64_OFFSETOF_SEGMENTS+X86_SEGMENTS64_OFFSETOF_FSBASE(%rdi)
 #endif /* !__KERNEL__ */
 	popq_cfi %rsi
 	.cfi_register %rip, %rsi
@@ -93,10 +93,12 @@ INTERN_ENTRY(libc_cpu_xchcontext)
 	movq   %rdx, X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_RDX(%rsi)
 	movq   %rcx, X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_RCX(%rsi)
 	movq   %rax, X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_RAX(%rsi)
+#ifndef __KERNEL__
 	rdgsbaseq  %rcx
-	movq   %rcx, X86_CONTEXT64_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GSBASE(%rsi)
+	movq   %rcx, X86_CONTEXT64_OFFSETOF_SEGMENTS+X86_SEGMENTS64_OFFSETOF_GSBASE(%rsi)
 	rdfsbaseq  %rcx
-	movq   %rcx, X86_CONTEXT64_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FSBASE(%rsi)
+	movq   %rcx, X86_CONTEXT64_OFFSETOF_SEGMENTS+X86_SEGMENTS64_OFFSETOF_FSBASE(%rsi)
+#endif
 	movq   0(%rsp), %rax
 	movq   %rax, X86_CONTEXT64_OFFSETOF_RIP(%rsi)
 #ifdef __KERNEL__
@@ -116,7 +118,7 @@ INTERN_ENTRY(libc_cpu_xchcontext)
 	/* Now load the new context. */
 PUBLIC_ENTRY(cpu_setcontext)
 INTERN_ENTRY(libc_cpu_setcontext)
-	/* EDI: struct cpu_context const *__restrict new_context */
+	/* RDI: struct cpu_context const *__restrict new_context */
 	movq   X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_R15(%rdi), %r15
 	movq   X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_R14(%rdi), %r14
 	movq   X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_R13(%rdi), %r13
@@ -130,13 +132,13 @@ INTERN_ENTRY(libc_cpu_setcontext)
 	movq   X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_RBX(%rdi), %rbx
 	movq   X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_RDX(%rdi), %rdx
 	movq   X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_RCX(%rdi), %rcx
-	movq   X86_CONTEXT64_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GSBASE(%rdi), %rax
 #ifndef __KERNEL__
-	movq   X86_CONTEXT64_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FSBASE(%rdi), %rax
+	movq   X86_CONTEXT64_OFFSETOF_SEGMENTS+X86_SEGMENTS64_OFFSETOF_GSBASE(%rdi), %rax
 	wrgsbaseq  %rax
-	movq   X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_RAX(%rdi), %rax
+	movq   X86_CONTEXT64_OFFSETOF_SEGMENTS+X86_SEGMENTS64_OFFSETOF_FSBASE(%rdi), %rax
 	wrfsbaseq  %rax
 #endif /* !__KERNEL__ */
+	movq   X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_RAX(%rdi), %rax
 #ifdef __KERNEL__
 	movq   X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_RDI(%rdi), %rdi
 	cli    /* Prevent interrupts while we have an invalid stack loaded */
@@ -160,4 +162,10 @@ SYMEND(cpu_setcontext)
 SYMEND(cpu_xchcontext)
 
 
+#ifdef __KERNEL__
+INTERN_ENTRY(cpu_setcontext_pop)
+	popq %rdi
+	jmp  libc_cpu_setcontext
+SYMEND(cpu_setcontext_pop)
+#endif
 

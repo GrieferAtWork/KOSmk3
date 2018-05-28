@@ -66,6 +66,7 @@ BEGIN
 
 		/* Configure GCC for a memory model to address -2Gb...2Gb */
 		IF ($TARGET_ARCH == x86_64)
+			//C_FLAGS("-mcmodel=large")
 			C_FLAGS("-mcmodel=kernel")
 		FI
 
@@ -206,7 +207,7 @@ BEGIN
 			}
 			local data = fp.pack();
 			local old_data;
-			local symfile = "src/kernel/src/fs/kernel-symbols.h";
+			local symfile = expand_options("src/kernel/src/fs/${TARGET_ARCH}-kos-kernel-symbols.h");
 			try {
 				old_data = file.open(symfile,"r").read();
 			} catch (...) {

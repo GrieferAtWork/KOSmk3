@@ -32,7 +32,7 @@
 #include <i386-kos/ipi.h>
 #include <kernel/vm.h>
 #include <sched/task.h>
-#include <asm/cfi.h>
+#include <asm/universal.h>
 #include <asm/cpu-flags.h>
 
 /* struct cpu { */
@@ -79,36 +79,36 @@
 INTERN_ENTRY(X86_IRQ_APICSPUR)
 	.cfi_startproc simple
 	.cfi_signal_frame
-	.cfi_def_cfa %esp,    3*4
-	.cfi_offset %eflags, -1*4
-	.cfi_offset %eip,    -3*4
-	pushl_cfi_r %eax
-	pushl_cfi_r %ecx
-	pushl_cfi_r %edx
+	.cfi_def_cfa %rsp,    5*8
+	.cfi_offset %eflags, -3*8
+	.cfi_offset %rip,    -5*8
+	irq_enter
+	pushq_cfi_r %rax
+	pushq_cfi_r %rcx
+	pushq_cfi_r %rdx
+	pushq_cfi_r %rdx
+	pushq_cfi_r %rsi
+	pushq_cfi_r %rdi
+	pushq_cfi_r %r8
+	pushq_cfi_r %r9
+	pushq_cfi_r %r10
+	pushq_cfi_r %r11
 
-#ifndef CONFIG_NO_X86_SEGMENTATION
-	pushl_cfi_r %ds
-	pushl_cfi_r %es
-	pushl_cfi_r %fs
-	pushl_cfi_r %gs
-#endif
-
-	call    x86_load_segments
 	call    x86_apic_spur
-	movl    x86_lapic_base_address, %eax
-	movl    $(APIC_EOI_FSIGNAL), APIC_EOI(%eax)
+	movq    x86_lapic_base_address, %rax
+	movl    $(APIC_EOI_FSIGNAL), APIC_EOI(%rax)
 
-#ifndef CONFIG_NO_X86_SEGMENTATION
-	popl_cfi_r  %gs
-	popl_cfi_r  %fs
-	popl_cfi_r  %es
-	popl_cfi_r  %ds
-#endif
-
-	popl_cfi_r  %edx
-	popl_cfi_r  %ecx
-	popl_cfi_r  %eax
-	iret
+	popq_cfi_r  %r11
+	popq_cfi_r  %r10
+	popq_cfi_r  %r9
+	popq_cfi_r  %r8
+	popq_cfi_r  %rdi
+	popq_cfi_r  %rsi
+	popq_cfi_r  %rdx
+	popq_cfi_r  %rdx
+	popq_cfi_r  %rcx
+	popq_cfi_r  %rax
+	irq_leave
 	.cfi_endproc
 SYMEND(X86_IRQ_APICSPUR)
 
@@ -120,28 +120,27 @@ SYMEND(X86_IRQ_APICSPUR)
 INTERN_ENTRY(X86_IRQ_APICIPI)
 	.cfi_startproc simple
 	.cfi_signal_frame
-	.cfi_def_cfa %esp,    3*4
-	.cfi_offset %eflags, -1*4
-	.cfi_offset %eip,    -3*4
-	/* Save callee-scratch registers. */
-	pushl_cfi_r %eax
-	pushl_cfi_r %ecx
-	pushl_cfi_r %edx
-
-#ifndef CONFIG_NO_X86_SEGMENTATION
-	pushl_cfi_r %ds
-	pushl_cfi_r %es
-	pushl_cfi_r %fs
-	pushl_cfi_r %gs
-#endif
-	call    x86_load_segments
+	.cfi_def_cfa %rsp,    5*8
+	.cfi_offset %eflags, -3*8
+	.cfi_offset %rip,    -5*8
+	irq_enter
+	pushq_cfi_r %rax
+	pushq_cfi_r %rcx
+	pushq_cfi_r %rdx
+	pushq_cfi_r %rdx
+	pushq_cfi_r %rsi
+	pushq_cfi_r %rdi
+	pushq_cfi_r %r8
+	pushq_cfi_r %r9
+	pushq_cfi_r %r10
+	pushq_cfi_r %r11
 
 	/* Process IPIs. */
 	call    x86_ipi_process
 
 	/* If `x86_ipi_process' already acknowledged
 	 * the IPI, then we mustn't do so again. */
-	testl   %eax, %eax
+	testq   %rax, %rax
 	jnz     1f
 
 	/* Acknowledge the IPI in our LAPIC and check for additional
@@ -150,25 +149,25 @@ INTERN_ENTRY(X86_IRQ_APICIPI)
 	 * If we didn't do this check, there would be a race
 	 * condition where IPIs could get lost in the abyss,
 	 * leaving the kernel in a soft-lock state. */
-	movl    x86_lapic_base_address, %eax
-	movl    $(APIC_EOI_FSIGNAL), APIC_EOI(%eax)
-	movl    %taskseg:t_cpu, %eax
-	cmpl    $0, ipi_valid(%eax)
+	movq    x86_lapic_base_address, %rax
+	movl    $(APIC_EOI_FSIGNAL), APIC_EOI(%rax)
+	movq    %taskseg:t_cpu, %rax
+	cmpl    $0, ipi_valid(%rax)
 	je      1f
 	call    x86_ipi_process
 1:
 
-#ifndef CONFIG_NO_X86_SEGMENTATION
-	popl_cfi_r  %gs
-	popl_cfi_r  %fs
-	popl_cfi_r  %es
-	popl_cfi_r  %ds
-#endif
-
-	popl_cfi_r  %edx
-	popl_cfi_r  %ecx
-	popl_cfi_r  %eax
-	iret
+	popq_cfi_r  %r11
+	popq_cfi_r  %r10
+	popq_cfi_r  %r9
+	popq_cfi_r  %r8
+	popq_cfi_r  %rdi
+	popq_cfi_r  %rsi
+	popq_cfi_r  %rdx
+	popq_cfi_r  %rdx
+	popq_cfi_r  %rcx
+	popq_cfi_r  %rax
+	irq_leave
 	.cfi_endproc
 SYMEND(X86_IRQ_APICIPI)
 #endif
@@ -193,32 +192,32 @@ SYMEND(x86_smp_task0_entry)
 	 * exists in all CPUs other than the boot CPU. */
 INTERN_ENTRY(x86_secondary_cpu_idle_loop_error)
 	/* Fix the expected register state and handle the exception. */
-	movl    %taskseg:t_stackend, %esp
+	movq    %taskseg:t_stackend, %rsp
 	call    x86_cpu_idle_exception
-	movl    %taskseg:TASK_SEGMENT_OFFSETOF_SELF, %esi
-	movl    t_cpu(%esi), %edx
+	movq    %taskseg:TASK_SEGMENT_OFFSETOF_SELF, %rsi
+	movq    t_cpu(%rsi), %rdx
 INTERN_ENTRY(x86_secondary_cpu_idle_loop)
-	/* EBX: THIS_CPU */
-	/* ESI: THIS_TASK */
+	/* RBX: THIS_CPU */
+	/* RSI: THIS_TASK */
 	/* Try to yield to other running tasks. */
 	cli
-1:	cmpl    t_sched+re_next(%esi), %esi
+1:	cmpq    t_sched+re_next(%rsi), %rsi
 	jne     .switch_to_next
 	/* Check for pending tasks. */
-	cmpl    $0, c_pending(%ebx)
+	cmpq    $0, c_pending(%rbx)
 	je      .no_pending
 	/* Extract pending tasks from the chain. */
-	xorl    %edi, %edi
-	lock xchgl c_pending(%ebx), %edi
-	testl   %edi, %edi
+	xorq    %rdi, %rdi
+	lock xchgq c_pending(%rbx), %rdi
+	testq   %rdi, %rdi
 	jz      .no_pending /* if (!c_pending) goto .no_pending; */
-	pushl   %edi        /* Load the new pending tasks. */
-	pushl   $1b /* Return address for `x86_scheduler_loadpending_chain()' */
-	jmp     x86_scheduler_loadpending_chain
+	call    x86_scheduler_loadpending_chain /* Load the new pending tasks. */
+	movq    %taskseg:TASK_SEGMENT_OFFSETOF_SELF, %rsi
+	jmp     1b
 .no_pending:
 
 	/* Serve RPC functions in the calling thread. */
-	testw   $(TASK_STATE_FINTERRUPTED), t_state(%esi)
+	testw   $(TASK_STATE_FINTERRUPTED), t_state(%rsi)
 	jnz     .serve_rpc_functions
 
 	/* Re-enable interrupts and wait for preemption.
@@ -229,8 +228,8 @@ INTERN_ENTRY(x86_secondary_cpu_idle_loop)
 	jmp     x86_secondary_cpu_idle_loop
 .switch_to_next:
 	/* Switch to the next task. */
-	movl    t_sched+re_next(%esi), %edi
-	movl    %edi, c_running(%ebx)
+	movq    t_sched+re_next(%rsi), %rdi
+	movq    %rdi, c_running(%rbx)
 	call    x86_exchange_context
 	jmp     x86_secondary_cpu_idle_loop
 .serve_rpc_functions:
@@ -257,7 +256,6 @@ DEFINE_EXCEPTION_DESCRIPTOR(
 	EXCEPTION_DESCRIPTOR_FDEALLOC_CONTINUE,
 	0
 )
-
 #endif /* !CONFIG_NO_SMP */
 
 
@@ -274,17 +272,17 @@ INTERN_ENTRY(x86_smp_entry)
 	movl    %cr0, %eax
 	orb     $(CR0_PE), %al
 	movl    %eax, %cr0
-	ljmpl   $8, $(x86_smp_entry32 - KERNEL_BASE)
+	ljmpl   $8, $(x86_smp_entry32 - KERNEL_CORE_BASE)
 .code32
 INTERN_OBJECT(x86_smp_gdt)
 	.word   3*8-1
-	.long   1f - KERNEL_BASE
-1:	.long   __X86_SEG_ENCODELO(0,0,0)
-	.long   __X86_SEG_ENCODEHI(0,0,0)
-	.long   __X86_SEG_ENCODELO(0,X86_SEG_LIMIT_MAX,X86_SEG_CODE_PL0)
-	.long   __X86_SEG_ENCODEHI(0,X86_SEG_LIMIT_MAX,X86_SEG_CODE_PL0)
-	.long   __X86_SEG_ENCODELO(0,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL0)
-	.long   __X86_SEG_ENCODEHI(0,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL0)
+	.long   1f - KERNEL_CORE_BASE
+1:	.long   __X86_SEG_ENCODELO_32(0,0,0)
+	.long   __X86_SEG_ENCODEHI_32(0,0,0)
+	.long   __X86_SEG_ENCODELO_32(0,X86_SEG_LIMIT_MAX,X86_SEG_CODE_PL0)
+	.long   __X86_SEG_ENCODEHI_32(0,X86_SEG_LIMIT_MAX,X86_SEG_CODE_PL0)
+	.long   __X86_SEG_ENCODELO_32(0,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL0)
+	.long   __X86_SEG_ENCODEHI_32(0,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL0)
 SYMEND(x86_smp_gdt)
 SYMEND(x86_smp_entry)
 #undef S
@@ -293,96 +291,7 @@ x86_smp_entry_end = .
 .global x86_smp_entry_end
 
 INTERN_ENTRY(x86_smp_entry32)
-	movw    $16, %cx
-	movw    %cx, %ds
-	movw    %cx, %es
-	movw    %cx, %ss
-	/* Enable paging. */
-	leal    pagedir_kernel_phys, %ecx
-	movl    %ecx, %cr3
-	orl     $(CR0_PG), %eax
-	movl    %eax, %cr0
-	movl    x86_lapic_base_address, %eax
-	movl    APIC_ID(%eax), %eax
-	shrl    $(APIC_ID_FSHIFT), %eax
-	/* Find the CPU how's APIC_ID matches `%al' (that's us then) */
-	movl    cpu_count, %ecx
-	subl    $1, %ecx
-	jz      .x86_smp_kill
-1:	subl    $1, %ecx
-	movl    cpu_vector + 4(,%ecx,4), %ebx
-	movb    x86_lapic_id(%ebx), %dl
-	cmpb    %dl, %al
-	je      1f
-	testl   %ecx, %ecx
-	jnz     1b
-	jmp     .x86_smp_kill
-1:
-
-	/* Tell the boot-cpu that we're now online. */
-	incl    %ecx
-	movl    %ecx, %eax
-	andl    $7,   %ecx
-	movl    $1,   %edx
-	shrl    $3,   %eax /* EAX = CPU_ID / 8 */
-	shll    %cl,  %edx /* EDX = 1 << (CPU_ID % 8) */
-	not     %edx       /* EDX = ~(1 << (CPU_ID % 8)) */
-	andb    %dl,  cpu_offline_mask(,%eax,1)
-
-	/* Found our CPU (now stored in %EBX) */
-	movl    c_running(%ebx), %edi /* TARGET task. */
-	movl    t_context(%edi), %esp /* stack */
-
-	/* Load the GDT of our new CPU */
-	leal    x86_cpugdt(%ebx), %ecx
-	pushl   %ecx
-	pushw   $((X86_SEG_BUILTIN * 8) - 1)
-	lgdt    (%esp)
-	addl    $6, %esp
-
-	/* Load the Task register. */
-	movw    $(X86_SEG(X86_SEG_CPUTSS)), %ax
-	ltr     %ax
-
-	/* Load basic segments. */
-	movw    $(X86_KERNEL_DS), %ax
-	movw    %ax, %ds
-	movw    %ax, %es
-	movw    %ax, %ss
-#ifdef CONFIG_NO_X86_SEGMENTATION
-	movw    $(X86_SEG_FS), %ax
-	movw    %ax, %fs
-	movw    $(X86_SEG_GS), %ax
-	movw    %ax, %gs
-#endif /* CONFIG_NO_X86_SEGMENTATION */
-	/* NOTE: This also does the jump from physical into virtual memory! */
-	ljmp    $(X86_KERNEL_CS), $1f
-1:
-
-	/* Load the interrupt descriptor table. */
-	pushl   $_idt_start
-	pushw   $((256 * X86_IDTENTRY_SIZE) - 1)
-	lidt    (%esp)
-	addl    $6, %esp
-
-	/* Load the VM of the target task. */
-	movl    t_vm(%edi), %eax
-	cmpl    $(vm_kernel), %eax
-	je      1f
-	movl    VM_OFFSETOF_PHYSDIR(%eax), %eax
-	movl    %eax, %cr3
-
-1:	/* Load user-space sharable segments when full segmentation is disabled. */
-#ifdef CONFIG_NO_X86_SEGMENTATION
-	movw    $(X86_USER_DS), %ax
-	movw    %ax, %ds
-	movw    %ax, %es
-#endif /* CONFIG_NO_X86_SEGMENTATION */
-
-	/* Finally, jump to load the CPU state pointed by to ESP.
-	 *  -> That state should then lead us into
-	 *     the `x86_secondary_cpu_idle_loop' loop */
-	jmp     x86_load_cpu_state
+	/* TODO */
 
 .x86_smp_kill:
 	/* Shouldn't really get here... */

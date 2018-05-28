@@ -46,9 +46,17 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
    return; /* Not these (they're called to generate tracebacks) */
   default: break;
   }
+#ifdef __x86_64__
+  debug_printf("[%u]trace.%s%s",
+               posix_gettid(),
+               interrupt_iscompat() ? "compat_" : "",
+               regs->str_args.a_sysno & 0x80000000 ? "X" : "");
+#else
   debug_printf("[%u]trace.%s",
                posix_gettid(),
                regs->str_args.a_sysno & 0x80000000 ? "X" : "");
+#endif
+
   switch (sysno) {
 
   case SYS_ioctl:
@@ -577,9 +585,17 @@ print_name:
     if (sysno >= __NR_syscall_min &&
         sysno <= __NR_syscall_max) {
      argc = x86_syscall_argc[sysno-__NR_syscall_min];
+#ifdef __x86_64__
+     if (interrupt_iscompat())
+         argc = x86_syscall_compat_argc[sysno-__NR_syscall_min];
+#endif
     } else if (sysno >= __NR_xsyscall_min &&
                sysno <= __NR_xsyscall_max) {
      argc = x86_xsyscall_argc[sysno-__NR_xsyscall_min];
+#ifdef __x86_64__
+     if (interrupt_iscompat())
+         argc = x86_xsyscall_compat_argc[sysno-__NR_xsyscall_min];
+#endif
     }
     switch (argc) {
     case 0: debug_printf("()\n"); break;

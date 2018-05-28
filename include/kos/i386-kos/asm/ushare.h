@@ -44,6 +44,10 @@ __SYSDECL_BEGIN
 #if defined(__x86_64__) || defined(__i386__)
 /* User-share segment: the x86 syscall entry page. */
 #define USHARE_X86_SYSCALL_FNAME            USHARE_NAME(0x86,1)
+#ifdef __x86_64__
+#define USHARE_X86_SYSCALL32_FNAME          USHARE_NAME(0x86,2)
+#define USHARE_X86_SYSCALL64_FNAME          USHARE_NAME(0x86,3)
+#endif
 #define USHARE_X86_SYSCALL_FSIZE            0x1000
 #define USHARE_X86_SYSCALL_SYSENTER_STRIDE  0x100
 #define USHARE_X86_SYSCALL_SYSENTER_COUNT   7
@@ -72,7 +76,7 @@ __SYSDECL_BEGIN
 /* User-share segment: The first 1Mb of physical memory.
  *                     Can be used to identity map memory needed for vm86 tasks.
  *               NOTE: Mapping this segment as writable will force-enable copy-on-write. */
-#define USHARE_X86_VM86BIOS_FNAME           USHARE_NAME(0x86,2)
+#define USHARE_X86_VM86BIOS_FNAME           USHARE_NAME(0x86,16)
 #define USHARE_X86_VM86BIOS_FSIZE           0x100000
 #endif
 

@@ -29,9 +29,9 @@
 .section .text.crt.rpc
 .cfi_startproc
 INTERN_ENTRY(libc_rpc_pushoff)
-	movzlq %taskseg:USER_TASK_SEGMENT_OFFSETOF_NO_RPC, %rcx
+	movzlq %taskseg:TASK_SEGMENT_OFFSETOF_NO_RPC, %rcx
 	incq   %rcx
-	movl   %ecx, %taskseg:USER_TASK_SEGMENT_OFFSETOF_NO_RPC
+	movl   %ecx, %taskseg:TASK_SEGMENT_OFFSETOF_NO_RPC
 	xorq   %rax, %rax
 	cmpq   $1, %rcx
 	sete   %al
@@ -44,7 +44,7 @@ EXPORT(rpc_pushoff,libc_rpc_pushoff)
 
 INTERN_ENTRY(libc_rpc_pop)
 	xorq   %rax, %rax
-	decq   %taskseg:USER_TASK_SEGMENT_OFFSETOF_NO_RPC
+	decq   %taskseg:TASK_SEGMENT_OFFSETOF_NO_RPC
 	setz   %al
 	jnz    1f
 	movq   $0, %rdi

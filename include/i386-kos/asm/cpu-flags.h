@@ -371,7 +371,7 @@
 #define CPUID_80000001D_MMX           0x00800000 /* [bit(23)] MMX instructions. */
 #define CPUID_80000001D_FXSR          0x01000000 /* [bit(24)] FXSAVE, FXRSTOR instructions, CR4 bit 9. */
 #define CPUID_80000001D_FXSR_OPT      0x02000000 /* [bit(25)] FXSAVE/FXRSTOR optimizations. */
-#define CPUID_80000001D_PDPE1GB       0x04000000 /* [bit(26)] Gibibyte pages. */
+#define CPUID_80000001D_PDPE1GB       0x04000000 /* [bit(26)] Gibabyte pages. */
 #define CPUID_80000001D_RDTSCP        0x08000000 /* [bit(27)] RDTSCP instruction. */
 /*      CPUID_80000001D_              0x10000000 /* [bit(28)] RESERVED. */
 #define CPUID_80000001D_LM            0x20000000 /* [bit(29)] Long mode. */

@@ -258,7 +258,7 @@ INTDEF byte_t mall_tracked_end[];
 
 PRIVATE void KCALL
 mall_search_task(struct task *__restrict thread) {
- struct cpu_anycontext *context;
+ struct cpu_schedcontext *context;
  /* Search the registers of this thread. */
  context = thread->t_context;
  if (X86_ANYCONTEXT_ISUSER(*context)) {

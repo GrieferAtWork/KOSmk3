@@ -27,24 +27,37 @@
 #include <kernel/syscall.h>
 
 
+#ifndef Utaskseg
 #define Utaskseg  __ASM_USERTASK_SEGMENT
 #define t_errno   USER_TASK_SEGMENT_OFFSETOF_ERRNO
 #define t_eformat USER_TASK_SEGMENT_OFFSETOF_EFORMAT
+#endif /* !Utaskseg */
+
+
+#ifdef __WITHOUT_CFI
+#define pushl_cfi_r   pushl
+#define pushl_cfi     pushl
+#define popl_cfi_r    popl
+#define popl_cfi      popl
+#define CFI_STARTPROC /* nothing */
+#define CFI_ENDPROC   /* nothing */
+#else
+#define CFI_STARTPROC .cfi_startproc
+#define CFI_ENDPROC   .cfi_endproc
+#endif
 
 #define SYSCALL_ERRNO_TAIL(error) \
-	cmpl  $__ERRNO_THRESHOLD, %eax; \
+	cmpl  $__ERRNO_THRESHOLD32, %eax; \
 	jae   error
 
-#ifdef USHARE_SYSENTER_SECTION_NAME
-.section USHARE_SYSENTER_SECTION_NAME
+#ifdef DATA_USHARE_SYSENTER_SECTION_NAME
+.section DATA_USHARE_SYSENTER_SECTION_NAME
 #else
 .section .data.ushare.sysenter
 #endif
-
 .align PAGESIZE
 INTERN_ENTRY(x86_ushare_sysenter)
-.cfi_startproc
-
+CFI_STARTPROC
 1:	/* SYSCALL_0 */
 	int   $0x80
 	ret
@@ -255,13 +268,13 @@ INTERN_ENTRY(x86_ushare_sysenter)
 
 	/* Load arguments */
 #define   A  20 /* return+4*register (4+4*4) */
-	movl  A+ 0(%esp), X86_SYSCALL_REGNO /* sysno */
-	movl  A+ 4(%esp), X86_SYSCALL_REG0  /* Arg #1 */
-	movl  A+ 8(%esp), X86_SYSCALL_REG1  /* Arg #2 */
-	movl  A+12(%esp), X86_SYSCALL_REG2  /* Arg #3 */
-	movl  A+16(%esp), X86_SYSCALL_REG3  /* Arg #4 */
-	movl  A+20(%esp), X86_SYSCALL_REG4  /* Arg #5 */
-	movl  A+24(%esp), X86_SYSCALL_REG5  /* Arg #6 */
+	movl  A+ 0(%esp), %eax /* sysno */
+	movl  A+ 4(%esp), %ebx /* Arg #1 */
+	movl  A+ 8(%esp), %ecx /* Arg #2 */
+	movl  A+12(%esp), %edx /* Arg #3 */
+	movl  A+16(%esp), %esi /* Arg #4 */
+	movl  A+20(%esp), %edi /* Arg #5 */
+	movl  A+24(%esp), %ebp /* Arg #6 */
 #undef A
 
 	int   $0x80 /* Invoke the system call interrupt vector */
@@ -275,22 +288,13 @@ INTERN_ENTRY(x86_ushare_sysenter)
 	ret
 .space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
 
-.cfi_endproc
+CFI_ENDPROC
 .space PAGESIZE - (. - x86_ushare_sysenter)
 SYMEND(x86_ushare_sysenter)
 
 
-
-
-
-
-
-
-#define SYSENTER_BASE(i) \
-	(x86_fast_sysenter_##i - USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(i))
-
 .section .text.free
-.cfi_startproc
+CFI_STARTPROC
 INTERN_ENTRY(x86_fast_sysenter)
 1:	/* SYSCALL_0 */
 	pushl_cfi_r %ebp
@@ -303,13 +307,21 @@ INTERN_ENTRY(x86_fast_sysenter)
 	/* Common sysenter stub for the fast_sysenter assembly functions below.
 	 * This one's required because `sysenter' doesn't save the return address. */
 x86_sysenter_common:
+#ifndef __WITHOUT_CFI
 	.cfi_remember_state
+#endif
 	popl_cfi  %edi   /* EIP */
+#ifndef __WITHOUT_CFI
 	.cfi_register %eip, %edi
+#endif
 	movl  %esp, %ebp /* ESP */
+#ifndef __WITHOUT_CFI
 	.cfi_def_cfa_register %ebp
+#endif
 	sysenter
+#ifndef __WITHOUT_CFI
 	.cfi_restore_state
+#endif
 .space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
 
 1:	/* SYSCALL_1 */
@@ -380,7 +392,9 @@ x86_sysenter_common:
 	pushl_cfi 36(%esp) /* ARG #4 */
 	call  x86_sysenter_common
 	addl  $4, %esp
+#ifndef __WITHOUT_CFI
 	.cfi_adjust_cfa_offset -4
+#endif
 	popl_cfi_r  %esi
 	popl_cfi_r  %ebx
 	popl_cfi_r  %edi
@@ -401,7 +415,9 @@ x86_sysenter_common:
 	pushl_cfi 40(%esp) /* ARG #4 */
 	call  x86_sysenter_common
 	addl  $8, %esp
+#ifndef __WITHOUT_CFI
 	.cfi_adjust_cfa_offset -8
+#endif
 	popl_cfi_r  %esi
 	popl_cfi_r  %ebx
 	popl_cfi_r  %edi
@@ -423,7 +439,9 @@ x86_sysenter_common:
 	pushl_cfi 44(%esp)       /* ARG #4 */
 	call  x86_sysenter_common
 	addl  $8, %esp
+#ifndef __WITHOUT_CFI
 	.cfi_adjust_cfa_offset -8
+#endif
 	popl_cfi_r  %esi
 	popl_cfi_r  %ebx
 	popl_cfi_r  %edi
@@ -519,7 +537,9 @@ x86_sysenter_common:
 	pushl_cfi 36(%esp) /* ARG #4 */
 	call  x86_sysenter_common
 	addl  $4, %esp
+#ifndef __WITHOUT_CFI
 	.cfi_adjust_cfa_offset -4
+#endif
 	popl_cfi_r  %esi
 	popl_cfi_r  %ebx
 	popl_cfi_r  %edi
@@ -541,7 +561,9 @@ x86_sysenter_common:
 	pushl_cfi 40(%esp) /* ARG #4 */
 	call  x86_sysenter_common
 	addl  $8, %esp
+#ifndef __WITHOUT_CFI
 	.cfi_adjust_cfa_offset -8
+#endif
 	popl_cfi_r  %esi
 	popl_cfi_r  %ebx
 	popl_cfi_r  %edi
@@ -564,7 +586,9 @@ x86_sysenter_common:
 	pushl_cfi 44(%esp)       /* ARG #4 */
 	call  x86_sysenter_common
 	addl  $8, %esp
+#ifndef __WITHOUT_CFI
 	.cfi_adjust_cfa_offset -8
+#endif
 	popl_cfi_r  %esi
 	popl_cfi_r  %ebx
 	popl_cfi_r  %edi
@@ -573,7 +597,7 @@ x86_sysenter_common:
 	ret
 .space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
 
-	.cfi_endproc
+	CFI_ENDPROC
 INTERN_CONST(x86_fast_sysenter_size,. - x86_fast_sysenter)
 SYMEND(x86_fast_sysenter)
 
@@ -581,9 +605,15 @@ SYMEND(x86_fast_sysenter)
 
 
 
+#undef SYSCALL_ERRNO_TAIL
 
 
-
+#ifdef __WITHOUT_CFI
+#undef pushl_cfi_r
+#undef pushl_cfi
+#undef popl_cfi_r
+#undef popl_cfi
+#endif
 
 
 

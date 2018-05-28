@@ -54,9 +54,11 @@ typedef union x86_pdir_ent ENT;
 #define PAGE_F2MIB     X86_PAGE_F2MIB     /* Directly map a physical address on level #2, creating a 2-MIB page.
                                            * NOTE: This flag may only be set in `union x86_pdir_e2::p_flag'
                                            * NOTE: Use of this requires the `CR4_PSE' bit to be set. */
+#ifndef CONFIG_NO_GIGABYTE_PAGES
 #define PAGE_F1GIB     X86_PAGE_F1GIB     /* Directly map a physical address on level #3, creating a 1-GIB page.
                                            * NOTE: This flag may only be set in `union x86_pdir_e3::p_flag'
                                            * NOTE: Use of this requires the `CR4_PSE' bit to be set. */
+#endif /* !CONFIG_NO_GIGABYTE_PAGES */
 #define PAGE_FDIRTY    X86_PAGE_FDIRTY    /* The page has been written to. */
 #define PAGE_FACCESSED X86_PAGE_FACCESSED /* The page has been read from, or written to. */
 #define PAGE_FUSER     X86_PAGE_FUSER     /* User-space may access this page (read, or write). */
@@ -153,7 +155,21 @@ STATIC_ASSERT_MSG(PAGING_E4_IDENTITY_INDEX != PAGING_E4_SHARE_INDEX,
  * NOTE: This buffer is quite large (1Mb), but we'd need
  *       to allocate it sooner or later, no matter what. */
 INTERN ATTR_SECTION(".bss.pagedir.kernel.share") VIRT
-union x86_pdir_e3 pagedir_kernel_share[PAGING_E4_SHARE_COUNT][512];
+union x86_pdir_e3 pagedir_kernel_share_e3[PAGING_E4_SHARE_COUNT][X86_PDIR_E3_COUNT];
+
+/* The layer-2 indirection used to describe the permanent identity
+ * mapping of the last 2Gb of virtual memory, mapping to the first
+ * 2Gb of physical memory, which also contain the kernel core.
+ * HINT: This goes hand-in-hand with `KERNEL_CORE_BASE', which
+ *       maps the kernel core, starting at -2Gb.
+ * NOTE: These are only used when the host doesn't support `CPUID_80000001D_PDPE1GB' */
+INTERN ATTR_SECTION(".bss.pagedir.kernel.share2") VIRT
+union x86_pdir_e2 pagedir_kernel_share_e2[X86_PDIR_E3_INDEX(VM_ADDR2PAGE(KERNEL_CORE_SIZE))][X86_PDIR_E2_COUNT];
+
+STATIC_ASSERT_MSG(X86_PDIR_E3_INDEX(VM_ADDR2PAGE(KERNEL_CORE_SIZE)) == 2,
+                  "`boot64.S' expects that there are exactly 2 E2-vectors mapped "
+                  "to the last 2 entires of `pagedir_kernel_share_e3'");
+
 
 INTERN ATTR_SECTION(".data.pervm.head")
 struct vm vm_kernel_head = {
@@ -193,24 +209,22 @@ PRIVATE u64 x86_pageperm_matrix[0xf+1] = {
 };
 
 PRIVATE u64 x86_page_global = PAGE_FGLOBAL;
+#ifndef CONFIG_NO_GIGABYTE_PAGES
 PRIVATE unsigned int x86_paging_features = 0;
-#define PAGING_FEATURE_2MIB_PAGES  0x0001 /* Host supports 2MIB pages. */
-#define PAGING_FEATURE_1GIB_PAGES  0x0002 /* Host supports 1GIB pages. */
+#define PAGING_FEATURE_1GIB_PAGES  0x0001 /* Host supports 1GIB pages. */
+#endif /* !CONFIG_NO_GIGABYTE_PAGES */
 
 
 INTERN ATTR_FREETEXT void KCALL x86_configure_paging(void) {
  struct cpu_cpuid const *feat = &CPU_FEATURES;
  if (!(feat->ci_1d & CPUID_1D_PGE))
        x86_page_global = 0;
- if ((feat->ci_1d & CPUID_1D_PSE) ||
-     (feat->ci_80000001d & CPUID_80000001D_PSE)) {
-  debug_printf(FREESTR("[X86] Enable 2MIB pages\n"));
-  x86_paging_features |= PAGING_FEATURE_2MIB_PAGES;
- }
+#ifndef CONFIG_NO_GIGABYTE_PAGES
  if (feat->ci_80000001d & CPUID_80000001D_PDPE1GB) {
   debug_printf(FREESTR("[X86] Enable 1GIB pages\n"));
   x86_paging_features |= PAGING_FEATURE_1GIB_PAGES;
  }
+#endif /* !CONFIG_NO_GIGABYTE_PAGES */
 }
 
 
@@ -281,8 +295,10 @@ pagedir_fini(VIRT pagedir_t *__restrict self) {
    union x86_pdir_e2 *e2_vector;
    if ((e3_vector[j].p_data & PAGE_FADDR) == PAGE_ABSENT)
        continue; /* Block was never mapped. */
+#ifndef CONFIG_NO_GIGABYTE_PAGES
    if (e3_vector[j].p_flag & PAGE_F1GIB)
        continue; /* Block is a gigabyte-page. */
+#endif /* !CONFIG_NO_GIGABYTE_PAGES */
    /* Scan the E2-vector */
    e2_vector = X86_PDIR_E2_IDENTITY[i][j];
    for (k = 0; k < E2_COUNT; ++k) {
@@ -406,8 +422,10 @@ pagedir_translate(VIRT vm_virt_t virt_addr) {
          "E4 at %p is not mapped",virt_addr);
  e.e3 = E3_IDENTITY[x4][x3 = E3_INDEX(vpage)];
  assertf(e.e3.p_flag & PAGE_FPRESENT,"E3 at %p is not mapped",virt_addr);
+#ifndef CONFIG_NO_GIGABYTE_PAGES
  if (e.e3.p_flag & PAGE_F1GIB)
      return (e.e3.p_addr & X86_PDIR_E3_MASK) | PDIR_E3_OFFSET(virt_addr);
+#endif /* !CONFIG_NO_GIGABYTE_PAGES */
  e.e2 = E2_IDENTITY[x4][x3][x2 = E2_INDEX(vpage)];
  assertf(e.e2.p_flag & PAGE_FPRESENT,"E2 at %p is not mapped",virt_addr);
  if (e.e2.p_flag & PAGE_F2MIB)
@@ -426,7 +444,9 @@ pagedir_ismapped(vm_vpage_t vpage) {
  if (!(e.e4.p_flag & PAGE_FPRESENT)) return false;
  e.e3 = E3_IDENTITY[x4][x3 = E3_INDEX(vpage)];
  if (!(e.e3.p_flag & PAGE_FPRESENT)) return false;
+#ifndef CONFIG_NO_GIGABYTE_PAGES
  if (e.e3.p_flag & PAGE_F1GIB) return true;
+#endif /* !CONFIG_NO_GIGABYTE_PAGES */
  e.e2 = E2_IDENTITY[x4][x3][x2 = E2_INDEX(vpage)];
  if (!(e.e2.p_flag & PAGE_FPRESENT)) return false;
  if (e.e2.p_flag & PAGE_F2MIB) return true;
@@ -441,7 +461,9 @@ pagedir_iswritable(vm_vpage_t vpage) {
  if (!(e.e4.p_flag & PAGE_FPRESENT)) return false;
  e.e3 = E3_IDENTITY[x4][x3 = E3_INDEX(vpage)];
  if (!(e.e3.p_flag & PAGE_FPRESENT)) return false;
+#ifndef CONFIG_NO_GIGABYTE_PAGES
  if (e.e3.p_flag & PAGE_F1GIB) return (e.e3.p_flag & PAGE_FWRITE) != 0;
+#endif /* !CONFIG_NO_GIGABYTE_PAGES */
  e.e2 = E2_IDENTITY[x4][x3][x2 = E2_INDEX(vpage)];
  if (!(e.e2.p_flag & PAGE_FPRESENT)) return false;
  if (e.e2.p_flag & PAGE_F2MIB) return (e.e2.p_flag & PAGE_FWRITE) != 0;
@@ -456,7 +478,9 @@ pagedir_isuseraccessible(vm_vpage_t vpage) {
  if (!(e.e4.p_flag & PAGE_FPRESENT)) return false;
  e.e3 = E3_IDENTITY[x4][x3 = E3_INDEX(vpage)];
  if (!(e.e3.p_flag & PAGE_FPRESENT)) return false;
+#ifndef CONFIG_NO_GIGABYTE_PAGES
  if (e.e3.p_flag & PAGE_F1GIB) return (e.e3.p_flag & PAGE_FUSER) != 0;
+#endif /* !CONFIG_NO_GIGABYTE_PAGES */
  e.e2 = E2_IDENTITY[x4][x3][x2 = E2_INDEX(vpage)];
  if (!(e.e2.p_flag & PAGE_FPRESENT)) return false;
  if (e.e2.p_flag & PAGE_F2MIB) return (e.e2.p_flag & PAGE_FUSER) != 0;
@@ -472,7 +496,9 @@ pagedir_haschanged(vm_vpage_t vpage) {
  if (!(e.e4.p_flag & PAGE_FPRESENT)) return false;
  e.e3 = E3_IDENTITY[x4][x3 = E3_INDEX(vpage)];
  if (!(e.e3.p_flag & PAGE_FPRESENT)) return false;
+#ifndef CONFIG_NO_GIGABYTE_PAGES
  if (e.e3.p_flag & PAGE_F1GIB) return (e.e3.p_flag & PAGE_FDIRTY) != 0;
+#endif /* !CONFIG_NO_GIGABYTE_PAGES */
  e.e2 = E2_IDENTITY[x4][x3][x2 = E2_INDEX(vpage)];
  if (!(e.e2.p_flag & PAGE_FPRESENT)) return false;
  if (e.e2.p_flag & PAGE_F2MIB) return (e.e2.p_flag & PAGE_FDIRTY) != 0;
@@ -488,6 +514,7 @@ pagedir_unsetchanged(vm_vpage_t vpage) {
  if (!(e.e4.p_flag & PAGE_FPRESENT)) return;
  e.e3 = E3_IDENTITY[x4][x3 = E3_INDEX(vpage)];
  if (!(e.e3.p_flag & PAGE_FPRESENT)) return;
+#ifndef CONFIG_NO_GIGABYTE_PAGES
  if (e.e3.p_flag & PAGE_F1GIB) {
   if (e.e3.p_flag & PAGE_FDIRTY)
       __asm__ __volatile__("andq %1, %0"
@@ -495,6 +522,7 @@ pagedir_unsetchanged(vm_vpage_t vpage) {
                            : "Zr" (~X86_PAGE_FDIRTY));
   return;
  }
+#endif /* !CONFIG_NO_GIGABYTE_PAGES */
  e.e2 = E2_IDENTITY[x4][x3][x2 = E2_INDEX(vpage)];
  if (!(e.e2.p_flag & PAGE_FPRESENT)) return;
  if (e.e2.p_flag & PAGE_F2MIB) {

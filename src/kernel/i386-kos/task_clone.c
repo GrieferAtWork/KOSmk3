@@ -139,7 +139,7 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
 
  new_task = task_alloc();
  TRY {
-  struct cpu_context *host_context;
+  struct cpu_schedcontext *host_context;
   struct cpu_hostcontext_user *user_context;
   task_alloc_stack(new_task,CONFIG_KERNELSTACK_SIZE/PAGESIZE);
 
@@ -216,10 +216,10 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
     *       This is required for signal handlers and user-space redirection to work
     *       properly during thread initialization. */
    user_context = (struct cpu_hostcontext_user *)new_task->t_stackend-1;
-   host_context = (struct cpu_context *)user_context-1;
-   new_task->t_context = (struct cpu_anycontext *)host_context;
+   host_context = (struct cpu_schedcontext *)user_context-1;
+   new_task->t_context = (struct cpu_schedcontext *)host_context;
    memset(host_context,0,
-          sizeof(struct cpu_context)+
+          sizeof(struct cpu_schedcontext)+
           sizeof(struct cpu_hostcontext_user));
    /* Setup the initial register state. */
    host_context->c_gpregs.gp_ecx  = (uintptr_t)user_context;

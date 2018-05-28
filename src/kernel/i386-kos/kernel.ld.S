@@ -165,8 +165,10 @@
 .hidden _boot_page2_size
 .hidden _x86_gdt_tss_lo
 .hidden _x86_gdt_tss_hi
+#ifndef __x86_64__
 .hidden _x86_gdt_tssdf_lo
 .hidden _x86_gdt_tssdf_hi
+#endif
 .hidden _x86_gdt_tls_lo
 .hidden _x86_gdt_tls_hi
 .hidden kernel_rx_minpage

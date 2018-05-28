@@ -113,13 +113,13 @@ INTERN_ENTRY(libc_error_throw)
 	movw   $(ERR_FNORMAL), %taskseg:ts_xcurrent+e_flag
 1:	movw   %cx, %taskseg:ts_xcurrent+e_code
 	/* Save basic registers. */
-	movl   %eax, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX
-	movl   %ecx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ECX
-	movl   %edx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDX
-	movl   %ebx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EBX
-	movl   %ebp, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EBP
-	movl   %edi, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDI
-	movl   %esi, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ESI
+	movl   %eax, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EAX
+	movl   %ecx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_ECX
+	movl   %edx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EDX
+	movl   %ebx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EBX
+	movl   %ebp, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EBP
+	movl   %edi, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EDI
+	movl   %esi, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_ESI
 	pushfl_cfi
 	popl_cfi     %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_EFLAGS
 	/* Clear extended exception informations. */
@@ -134,13 +134,13 @@ INTERN_ENTRY(libc_error_throw)
 	jmp    1f
 INTERN_ENTRY(libc_error_throw_current)
 	/* Save the current CPU context. */
-	movl   %eax, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX
-	movl   %ecx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ECX
-	movl   %edx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDX
-	movl   %ebx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EBX
-	movl   %ebp, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EBP
-	movl   %edi, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDI
-	movl   %esi, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ESI
+	movl   %eax, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EAX
+	movl   %ecx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_ECX
+	movl   %edx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EDX
+	movl   %ebx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EBX
+	movl   %ebp, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EBP
+	movl   %edi, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EDI
+	movl   %esi, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_ESI
 	pushfl_cfi
 	popl_cfi     %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_EFLAGS
 1:	popl_cfi %eax  /* Return address. */
@@ -148,14 +148,14 @@ INTERN_ENTRY(libc_error_throw_current)
 	movl   %eax, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_EIP
 	movl   %esp, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_ESP
 #ifndef CONFIG_NO_X86_SEGMENTATION
-	movw   %gs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GS
-	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GS+2
-	movw   %fs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FS
-	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FS+2
-	movw   %es,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_ES
-	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_ES+2
-	movw   %ds,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_DS
-	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_DS+2
+	movw   %gs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS
+	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS+2
+	movw   %fs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_FS
+	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_FS+2
+	movw   %es,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_ES
+	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_ES+2
+	movw   %ds,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_DS
+	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_DS+2
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 #ifdef __KERNEL__
 	movw   %cs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_CS

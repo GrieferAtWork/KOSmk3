@@ -86,6 +86,15 @@
     <None Include="..\..\src\hybrid\i386-kos\context64.S">
       <Filter>hybrid\i386-kos</Filter>
     </None>
+    <None Include="..\..\src\kernel\i386-kos\boot64.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\smp64.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\scheduler64.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="kernel">

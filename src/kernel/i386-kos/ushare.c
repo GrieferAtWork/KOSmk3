@@ -123,6 +123,35 @@ PRIVATE struct vm_region x86_syscall_region = {
 };
 
 
+#ifdef __x86_64__
+INTDEF byte_t x86_ushare_sysenter_compat_pageno[];
+PRIVATE struct vm_region x86_syscall_region_compat = {
+    .vr_refcnt = 1,
+    .vr_lock   = MUTEX_INIT,
+    .vr_type   = VM_REGION_MEM,
+    .vr_flags  = VM_REGION_FCANTSHARE|VM_REGION_FDONTMERGE,
+    .vr_size   = 1,
+    .vr_parts  = &x86_syscall_region_compat.vr_part0,
+    .vr_part0  = {
+        .vp_refcnt = 1,
+        .vp_chain  = { .le_pself = &x86_syscall_region_compat.vr_parts },
+        .vp_state  = VM_PART_INCORE,
+        .vp_flags  = VM_PART_FNOSWAP|VM_PART_FKEEP|VM_PART_FWEAKREF,
+        .vp_phys = {
+            .py_num_scatter = 1,
+            .py_iscatter = {
+                [0] = {
+                    .ps_addr = (uintptr_t)x86_ushare_sysenter_compat_pageno,
+                    .ps_size = 1
+                }
+            }
+        }
+    },
+    .vr_ctl = &sysenter_pregion_ctl
+};
+#endif /* __x86_64__ */
+
+
 
 /* Lookup a user-share segment, given its `name'.
  * @throw: E_INVALID_ARGUMENT: The given `name' does not refer to a known ushare segment. */
@@ -130,9 +159,31 @@ INTERN ATTR_RETNONNULL REF struct vm_region *
 KCALL arch_ushare_lookup(u32 name) {
  switch (name) {
 
+
+#ifdef __x86_64__
+ {
+  REF struct vm_region *result;
+ case USHARE_X86_SYSCALL_FNAME:
+  result = &x86_syscall_region;
+  /* Load the compatibility syscall segment
+   * if the calling program is 32-bit. */
+  if (interrupt_iscompat())
+      result = &x86_syscall_region_compat;
+  vm_region_incref(result);
+  return result;
+ }
+
+ case USHARE_X86_SYSCALL32_FNAME:
+  vm_region_incref(&x86_syscall_region);
+  return &x86_syscall_region;
+ case USHARE_X86_SYSCALL64_FNAME:
+  vm_region_incref(&x86_syscall_region_compat);
+  return &x86_syscall_region_compat;
+#else
  case USHARE_X86_SYSCALL_FNAME:
   vm_region_incref(&x86_syscall_region);
   return &x86_syscall_region;
+#endif
 
 #ifdef CONFIG_VM86
  case USHARE_X86_VM86BIOS_FNAME:

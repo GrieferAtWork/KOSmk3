@@ -46,12 +46,15 @@ INTDEF byte_t x86_ushare_sysenter[];
 INTDEF byte_t x86_fast_sysenter[];
 INTDEF byte_t x86_fast_sysenter_size[];
 INTERN byte_t *x86_sysenter_ushare_base = x86_ushare_sysenter;
+#ifndef __x86_64__
 INTDEF byte_t x86_sysexit_fixup_1[];
 INTDEF byte_t x86_sysexit_fixup_2[];
+#endif
 
 
 INTDEF void ASMCALL sysenter_kernel_entry(void);
 INTERN ATTR_FREETEXT void KCALL x86_initialize_sysenter(void) {
+#ifndef __x86_64__
  struct cpu_cpuid *feat = (struct cpu_cpuid *)&CPU_FEATURES;
  if (!(feat->ci_1d & CPUID_1D_SEP)) {
   if (THIS_CPU == &_boot_cpu) {
@@ -60,6 +63,7 @@ INTERN ATTR_FREETEXT void KCALL x86_initialize_sysenter(void) {
   }
   return; /* Not available. */
  }
+#endif
  /* Write sysenter-specific MSRs */
  __wrmsr(SYSENTER_CS_MSR,X86_KERNEL_CS);
 #ifdef __x86_64__
@@ -69,6 +73,7 @@ INTERN ATTR_FREETEXT void KCALL x86_initialize_sysenter(void) {
 #endif
  __wrmsr(SYSENTER_EIP_MSR,(uintptr_t)&sysenter_kernel_entry);
 
+#ifndef __x86_64__
  if (THIS_CPU == &_boot_cpu) {
   /* The boot CPU is responsible for re-writing the ushare
    * segment containing the system call entry points. */
@@ -76,6 +81,7 @@ INTERN ATTR_FREETEXT void KCALL x86_initialize_sysenter(void) {
         (size_t)x86_fast_sysenter_size);
   x86_sysenter_ushare_base = x86_fast_sysenter;
  }
+#endif
 }
 
 DECL_END

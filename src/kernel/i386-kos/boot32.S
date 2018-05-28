@@ -23,10 +23,6 @@
 #include <kos/context.h>
 #include <asm/cpu-flags.h>
 
-#ifndef CONFIG_KERNELSTACK_SIZE
-#define CONFIG_KERNELSTACK_SIZE 4096*8
-#endif
-
 /* The starting VEC2-index (in `x86_pdir::p_e2') and amount
  * of continuous indices thereafter of the kernel-share segment.
  * That is the segment where the kernel itself resides at, which
@@ -50,21 +46,21 @@ SYMEND(x86_boot_stack)
 
 #if 1
 .section .text.free
-PUBLIC_ENTRY(_start)
+INTERN_ENTRY(_start)
 	/* Save the initial register state. */
-	movl   %eax,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX
-	movl   %ecx,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ECX
-	movl   %edx,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDX
-	movl   %ebx,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EBX
+	movl   %eax,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EAX
+	movl   %ecx,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_ECX
+	movl   %edx,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EDX
+	movl   %ebx,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EBX
 	movl   %esp,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_ESP
-	movl   %ebp,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EBP
-	movl   %esi,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_ESI
-	movl   %edi,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EDI
+	movl   %ebp,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EBP
+	movl   %esi,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_ESI
+	movl   %edi,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EDI
 #ifndef CONFIG_NO_X86_SEGMENTATION
-	movw   %ds,     (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_DS
-	movw   %es,     (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_ES
-	movw   %fs,     (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FS
-	movw   %gs,     (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_GS
+	movw   %ds,     (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_DS
+	movw   %es,     (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_ES
+	movw   %fs,     (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_FS
+	movw   %gs,     (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 	movw   %cs,     (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_CS
 	movl   $(_start - KERNEL_BASE), (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_EIP /* Kind-of unnecessary, but eh... */

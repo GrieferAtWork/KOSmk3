@@ -429,7 +429,11 @@ __NAMESPACE_INT_END
 #endif
 
 #define __ERRNO_THRESHOLD32          0xfffffc00
+#ifdef __ASSEMBLER__
+#define __ERRNO_THRESHOLD64  0xfffffffffffffc00
+#else
 #define __ERRNO_THRESHOLD64  0xfffffffffffffc00ull
+#endif
 #if __SIZEOF_POINTER__ >= 8
 #   define __ERRNO_THRESHOLD __ERRNO_THRESHOLD64
 #else

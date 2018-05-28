@@ -77,7 +77,7 @@ __LIBC __BOOL (__LIBCCALL __bound_chk_failq)(struct boundq const *__restrict __b
  * HINT: If an error is thrown, details about the faulting index
  *       and associated range can be retrieved from exception
  *       information found in `error_info()->e_error.e_index_error' */
-#if (defined(__i386__) || defined(__x86_64__)) && \
+#if (defined(__i386__) && !defined(__x86_64__)) && \
      defined(__COMPILER_HAVE_GCC_ASM)
 /* Use hardware acceleration. */
 #ifdef __OPTIMIZE_SIZE__

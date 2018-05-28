@@ -37,9 +37,9 @@
 #define ts_xcurrent  TASK_SEGMENT_OFFSETOF_XCURRENT
 
 #define c_gpregs     X86_CONTEXT_OFFSETOF_GPREGS
-#define c_rsp        X86_CONTEXT_OFFSETOF_RSP
-#define c_rip        X86_CONTEXT_OFFSETOF_RIP
-#define c_rflags     X86_CONTEXT_OFFSETOF_RFLAGS
+#define c_rsp        X86_CONTEXT64_OFFSETOF_RSP
+#define c_rip        X86_CONTEXT64_OFFSETOF_RIP
+#define c_rflags     X86_CONTEXT64_OFFSETOF_RFLAGS
 
 #ifdef __KERNEL__
 #define __KERNEL_SELECT(tt,ff) tt
@@ -98,7 +98,7 @@ INTERN_ENTRY(libc_error_rethrow)
 #endif
 	/* Fix RIP to point into the middle of the
 	 * instruction the caller used to get here. */
-	decq   X86_CONTEXT_OFFSETOF_RIP(%rsp)
+	decq   X86_CONTEXT64_OFFSETOF_RIP(%rsp)
 	/* Rethrow the exception. */
 	movq   %rsp, %rdi
 	call   libc_error_rethrow_at
@@ -157,7 +157,7 @@ INTERN_ENTRY(libc_error_throw)
 	movq   %rcx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_RCX
 	movq   %rax, %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_RAX
 	pushfq_cfi
-	popq_cfi     %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_RFLAGS
+	popq_cfi     %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_RFLAGS
 	/* Clear extended exception informations. */
 	movq   $(ts_xcurrent+e_data), %rdi
 	addq   %taskseg:ts_self, %rdi
@@ -186,11 +186,11 @@ INTERN_ENTRY(libc_error_throw_current)
 	movq   %rcx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_RCX
 	movq   %rax, %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_RAX
 	pushfq_cfi
-	popq_cfi     %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_RFLAGS
+	popq_cfi     %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_RFLAGS
 1:	popq_cfi %rax  /* Return address. */
 	.cfi_register %rip, %rax
-	movq   %rax, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_RIP
-	movq   %rsp, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_RSP
+	movq   %rax, %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_RIP
+	movq   %rsp, %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_RSP
 #ifndef __KERNEL__
 	rdgsbase %rcx
 	movq   %rcx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS64_OFFSETOF_GSBASE
@@ -274,7 +274,7 @@ INTERN_ENTRY(libc_error_handled)
 	.cfi_def_cfa %rsp, 8
 	popq_cfi %rdx
 	.cfi_register %rip, %rdx
-	cmpq     %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_RSP, %rsp
+	cmpq     %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_RSP, %rsp
 	jne      1f
 	movq     %taskseg:ts_xcurrent+EXCEPTION_INFO_OFFSETOF_RTDATA+__EXCEPTION_RT_DATA_OFFSETOF_FREE_SP, %rsp
 1:	jmpq     *%rdx
@@ -284,7 +284,7 @@ EXPORT(error_handled,libc_error_handled)
 INTERN_ENTRY(libc_error_dealloc_continue)
 	popq_cfi %rdx
 	.cfi_register %rip, %rdx
-	cmpq     %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_RSP, %rsp
+	cmpq     %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_RSP, %rsp
 	jne      1f
 	movq     %taskseg:ts_xcurrent+EXCEPTION_INFO_OFFSETOF_RTDATA+__EXCEPTION_RT_DATA_OFFSETOF_FREE_SP, %rcx
 	.cfi_def_cfa %rcx, 0

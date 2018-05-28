@@ -795,6 +795,7 @@ extern bool FINALLY_WILL_RETHROW;
 #if defined(__USE_KOS) || defined(__ASSEMBLER__)
 /* Define public versions of the private define-handler macros. */
 #define DEFINE_EXCEPTION_HANDLER(begin,end,entry,flags,mask) __DEFINE_EXCEPTION_HANDLER(begin,end,entry,flags,mask)
+#define DEFINE_EXCEPTION_DESCRIPTOR(name,handler,type,flags,safe) __DEFINE_EXCEPTION_DESCRIPTOR(name,handler,type,flags,safe)
 #define DEFINE_FINALLY_BLOCK(begin,end,entry)                __DEFINE_FINALLY_BLOCK(begin,end,entry)
 #define DEFINE_EXCEPT_BLOCK(begin,end,entry)                 __DEFINE_EXCEPT_BLOCK(begin,end,entry)
 #define DEFINE_CATCH_BLOCK(begin,end,entry,mask)             __DEFINE_CATCH_BLOCK(begin,end,entry,mask)

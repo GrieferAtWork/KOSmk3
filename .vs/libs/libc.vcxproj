@@ -150,7 +150,9 @@
     <None Include="..\..\src\libs\libc\i386-kos\errno64.S" />
     <None Include="..\..\src\libs\libc\i386-kos\malloc32.S" />
     <None Include="..\..\src\libs\libc\i386-kos\rpc32.S" />
+    <None Include="..\..\src\libs\libc\i386-kos\rpc64.S" />
     <None Include="..\..\src\libs\libc\i386-kos\setjmp32.S" />
+    <None Include="..\..\src\libs\libc\i386-kos\setjmp64.S" />
     <None Include="..\..\src\libs\libc\i386-kos\syscall32.S" />
     <None Include="..\..\src\libs\libc\i386-kos\syscall64.S" />
   </ItemGroup>

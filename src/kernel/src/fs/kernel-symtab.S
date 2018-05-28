@@ -18,10 +18,23 @@
  */
 #include <hybrid/compiler.h>
 #include <hybrid/asm.h>
-#define PTR  .int
+#include <hybrid/host.h>
 
-#if __has_include("kernel-symbols.h")
-#include "kernel-symbols.h"
+#ifdef __x86_64__
+#define PTR  .quad
+#if __has_include("x86_64-kos-kernel-symbols.h")
+#define SYMBOL_TABLE_FILENAME "x86_64-kos-kernel-symbols.h"
+#endif
+#else
+#define PTR  .int
+#if __has_include("i386-kos-kernel-symbols.h")
+#define SYMBOL_TABLE_FILENAME "i386-kos-kernel-symbols.h"
+#endif
+#endif
+
+
+#ifdef SYMBOL_TABLE_FILENAME
+#include SYMBOL_TABLE_FILENAME
 #else
 .section .rodata.kernel_symtab
 INTERN_ENTRY(kernel_symbol_table)

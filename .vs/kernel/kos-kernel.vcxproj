@@ -33,6 +33,7 @@
     <None Include="..\..\src\hybrid\string-template.c.inl" />
     <None Include="..\..\src\kernel\.sources" />
     <None Include="..\..\src\kernel\i386-kos\boot32.S" />
+    <None Include="..\..\src\kernel\i386-kos\boot64.S" />
     <None Include="..\..\src\kernel\i386-kos\device_interrupts32.S" />
     <None Include="..\..\src\kernel\i386-kos\hw_except32.S" />
     <None Include="..\..\src\kernel\i386-kos\interrupt32.S" />
@@ -44,7 +45,9 @@
     <None Include="..\..\src\kernel\i386-kos\paging64.S" />
     <None Include="..\..\src\kernel\i386-kos\safecall32.S" />
     <None Include="..\..\src\kernel\i386-kos\scheduler32.S" />
+    <None Include="..\..\src\kernel\i386-kos\scheduler64.S" />
     <None Include="..\..\src\kernel\i386-kos\smp32.S" />
+    <None Include="..\..\src\kernel\i386-kos\smp64.S" />
     <None Include="..\..\src\kernel\i386-kos\syscall32.S" />
     <None Include="..\..\src\kernel\i386-kos\ushare32.S" />
     <None Include="..\..\src\kernel\src\vm\ushare.S" />

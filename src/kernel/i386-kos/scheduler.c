@@ -885,7 +885,7 @@ task_setup_kernel_environ(struct task *__restrict thread) {
 PUBLIC void KCALL
 task_setup_kernel(struct task *__restrict thread,
                   task_main_t thread_main, void *arg) {
- struct cpu_context *context;
+ struct cpu_schedcontext *context;
  task_alloc_stack(thread,CONFIG_KERNELSTACK_SIZE / PAGESIZE);
  thread->t_vm = &vm_kernel;
  vm_incref(&vm_kernel);
@@ -904,9 +904,9 @@ task_setup_kernel(struct task *__restrict thread,
  /* Setup the thread's initial CPU state (arch-specific portion). */
 #ifdef __x86_64__
  ((void **)thread->t_stackend)[-1] = &task_exit; /* `thread_main()' return address. */
- context = ((struct cpu_context *)((uintptr_t)thread->t_stackend - 1*sizeof(void *)))-1;
- thread->t_context = (struct cpu_anycontext *)context;
- memset(context,0,sizeof(struct cpu_context));
+ context = ((struct cpu_schedcontext *)((uintptr_t)thread->t_stackend - 1*sizeof(void *)))-1;
+ thread->t_context = context;
+ memset(context,0,sizeof(struct cpu_schedcontext));
  context->c_gpregs.gp_rdi  = (u64)arg;           /* `thread_main()' argument. */
  context->c_iret.ir_rflags = EFLAGS_IF;
  context->c_iret.ir_rip    = (u64)thread_main;
@@ -916,8 +916,8 @@ task_setup_kernel(struct task *__restrict thread,
 #else
  ((void **)thread->t_stackend)[-1] = arg;        /* `thread_main()' argument. */
  ((void **)thread->t_stackend)[-2] = &task_exit; /* `thread_main()' return address. */
- context = ((struct cpu_context *)((uintptr_t)thread->t_stackend - 2*sizeof(void *)))-1;
- thread->t_context = (struct cpu_anycontext *)context;
+ context = (struct cpu_schedcontext *)((struct cpu_context *)((uintptr_t)thread->t_stackend - 2*sizeof(void *))-1);
+ thread->t_context = context;
  memset(context,0,sizeof(struct cpu_context));
  context->c_eflags         = EFLAGS_IF;
  context->c_eip            = (uintptr_t)thread_main;
@@ -966,10 +966,9 @@ task_start(struct task *__restrict self) {
  if (!(self->t_flags & TASK_FVM86))
 #endif
  {
-  struct x86_irregs_user *iret = (struct x86_irregs_user *)self->t_stackend-1;
-  assertf(iret->ir_cs == X86_KERNEL_CS ||
-        !(self->t_flags & TASK_FKERNELJOB),
-         "iret->ir_cs = %p:%p",&iret->ir_cs,iret->ir_cs);
+  assertf(!(self->t_flags & TASK_FKERNELJOB) ||
+            self->t_context->c_iret.ir_cs == X86_KERNEL_CS,
+         "iret->ir_cs = %p",self->t_context->c_iret.ir_cs);
  }
 #if 0 /* Can't be asserted. - If user-space doesn't follow this, it'll just get a GPF after launch. */
  assert((iret->ir_cs == X86_USER_CS) ? (iret->ir_eip < KERNEL_BASE) :

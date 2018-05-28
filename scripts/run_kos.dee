@@ -117,7 +117,9 @@ function find_diskfile(name) {
 	if ("/" in name)
 		name = name[name.rfind("/")+1:];
 	name = name.strip();
-	return "bin/"+name;
+	if (name in expand_options("${KERNEL_BINARY}"))
+		return "bin/"+name;
+	return expand_options("${BINPATH}")+"/"+name;
 }
 function format_address2line(outfile,format,file,line,func,address) {
 	for (local i = 0; i < #format; ++i) {
@@ -364,32 +366,32 @@ on_line_start:
 try {
 	run_kernel_binary = expand_options("${KERNEL_BINARY}");
 	start_addr2line();
-#ifdef TARGET_X86_64
-	/* QEMU doesn't realize that it _CAN_ load a 64-bit kernel and
-	 * instead decides to not even try when loading a 64-bit image.
-	 * Sadly, this fix breaks tools like addr2line, meaning we must
-	 * create a copy of the kernel binary just for qemu...
-	 */
-	local fixed =
-		fs::path::head(run_kernel_binary)+
-		fs::path::file(run_kernel_binary)+"-qemu"+
-		fs::path::ext(run_kernel_binary);
-	local fixed_time;
-	try {
-		fixed_time = fast_getmtime(fixed);
-	} catch (...) {
-		fixed_time = time.years(0);
+	if (config_options["TARGET_ARCH"] == "x86_64") {
+		/* QEMU doesn't realize that it _CAN_ load a 64-bit kernel and
+		 * instead decides to not even try when loading a 64-bit image.
+		 * Sadly, this fix breaks tools like addr2line, meaning we must
+		 * create a copy of the kernel binary just for qemu...
+		 */
+		local fixed =
+			fs::path::head(run_kernel_binary)+
+			fs::path::file(run_kernel_binary)+"-qemu"+
+			fs::path::ext(run_kernel_binary);
+		local fixed_time;
+		try {
+			fixed_time = fast_getmtime(fixed);
+		} catch (...) {
+			fixed_time = time.years(0);
+		}
+		if (fixed_time < fast_getmtime(run_kernel_binary)) {
+			try fs::unlink(fixed); catch (...);
+			fs::copy_(run_kernel_binary,fixed);
+			local fp = file.open(fixed,"r+");
+			fp.seek(18);         /* offsetof(Elf64_Ehdr,e_machine); */
+			fp.writeo(int16(3)); /* (Elf64_Half)EM_386; */
+			fp.close();
+		}
+		run_kernel_binary = fixed;
 	}
-	if (fixed_time < fast_getmtime(run_kernel_binary)) {
-		try fs::unlink(fixed); catch (...);
-		fs::copy_(run_kernel_binary,fixed);
-		local fp = file.open(fixed,"r+");
-		fp.seek(18);         /* offsetof(Elf64_Ehdr,e_machine); */
-		fp.writeo(int16(3)); /* (Elf64_Half)EM_386; */
-		fp.close();
-	}
-	run_kernel_binary = fixed;
-#endif
 #if 1
 	run_qemu(run_kernel_binary,false);
 #else

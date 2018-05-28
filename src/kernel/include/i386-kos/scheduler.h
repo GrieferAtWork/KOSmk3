@@ -55,7 +55,7 @@ DATDEF ATTR_PERTASK uintptr_t x86_sysbase;
 
 /* Generate a new, random value for `x86_sysbase' */
 #define X86_SYSBASE_RAND()  \
- (KERNEL_BASE+((rand() % (0x01000000-X86_ENCODE_PFSYSCALL_SIZE)) & ~(16-1)))
+       (KERNEL_BASE+((rand() % (0x01000000-X86_ENCODE_PFSYSCALL_SIZE)) & ~(16-1)))
 
 
 /* Get the effective user-space return location

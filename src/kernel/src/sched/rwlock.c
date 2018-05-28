@@ -245,7 +245,12 @@ __os_rwlock_tryread(struct rwlock *__restrict self) {
    return true;
   }
   assertf(!rwlock_find_readlock(self),
-          "You can't be holding read locks when another thread is writing");
+          "You can't be holding read locks when another thread is writing\n"
+          "THIS_TASK       = %p\n"
+          "self->rw_xowner = %p\n"
+          "self->rw_xind   = %I16u\n",
+          THIS_TASK,self->rw_xowner,
+          self->rw_xind);
   return false;
  }
  desc = rwlock_get_readlock(self);

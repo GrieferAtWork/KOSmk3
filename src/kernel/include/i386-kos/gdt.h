@@ -23,6 +23,7 @@
 #include <kos/types.h>
 #include <kernel/sections.h>
 #include <assert.h>
+#include <kos/i386-kos/asm/tls.h>
 #ifdef __x86_64__
 #include <asm/cpu-flags.h>
 #include <kos/intrin.h>
@@ -285,7 +286,9 @@ typedef u16 segid_t; /* == Segment index*X86_SEG_INDEX_MULTIPLIER */
 #define X86_SEG_HOST_DATA16  6 /* [0x30] Ring #0 16-bit data segment. */
 #endif
 #define X86_SEG_CPUTSS       7 /* [0x38] TSS segment of the current CPU. */
+#ifndef __x86_64__
 #define X86_SEG_CPUTSS_DF    8 /* [0x40] TSS segment of the current CPU (for #DF handling). */
+#endif
 #define X86_SEG_KERNEL_LDT   9 /* [0x48] Symbolic kernel LDT (Usually empty). */
 #define X86_SEG_HOST_TLS    10 /* [0x50] Ring #0 thread-local block. */
 #define X86_SEG_USER_TLS    11 /* [0x58] Ring #3 thread-local block. */
@@ -350,7 +353,7 @@ typedef u16 segid_t; /* == Segment index*X86_SEG_INDEX_MULTIPLIER */
 #define X86_SEG_HOST_DS    X86_KERNEL_DS
 #define X86_SEG_HOST_ES    X86_KERNEL_DS
 #define X86_SEG_HOST_SS    X86_KERNEL_DS
-#ifdef __x86_64__
+#ifdef __ASM_TASK_SEGMENT_ISGS
 #define X86_SEG_HOST_FS    X86_KERNEL_DS
 #define X86_SEG_HOST_GS    X86_HOST_TLS
 #else

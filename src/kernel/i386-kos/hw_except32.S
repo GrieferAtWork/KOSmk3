@@ -90,9 +90,9 @@ INTERN_ENTRY(irq_\id)
 
 	/* Fix the stack-pointer `c_gpregs.gp_esp'. */
 #ifndef CONFIG_NO_X86_SEGMENTATION
-	addl    $(X86_SEGMENTS_SIZE+X86_IRREGS_HOST32_SIZE), X86_GPREGS_OFFSETOF_ESP(%esp)
+	addl    $(X86_SEGMENTS_SIZE+X86_IRREGS_HOST32_SIZE), X86_GPREGS32_OFFSETOF_ESP(%esp)
 #else /* !CONFIG_NO_X86_SEGMENTATION */
-	addl    $(X86_IRREGS_HOST32_SIZE), X86_GPREGS_OFFSETOF_ESP(%esp)
+	addl    $(X86_IRREGS_HOST32_SIZE), X86_GPREGS32_OFFSETOF_ESP(%esp)
 #endif /* CONFIG_NO_X86_SEGMENTATION */
 
 	movl    %esp,     %ecx /* context */

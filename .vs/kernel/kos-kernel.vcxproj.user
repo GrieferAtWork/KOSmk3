@@ -13,4 +13,14 @@
   <PropertyGroup>
     <ShowAllFiles>false</ShowAllFiles>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LocalDebuggerCommand>E:\c\deemon\deemon\deemon.exe</LocalDebuggerCommand>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerCommandArguments>$(SolutionDir)..\magic.dee --format-error-messages TARGET_ARCH=x86_64 TARGET_CPU=x86_64</LocalDebuggerCommandArguments>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LocalDebuggerCommand>E:\c\deemon\deemon\deemon.exe</LocalDebuggerCommand>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerCommandArguments>$(SolutionDir)..\magic.dee --format-error-messages CONFIG_OPTIMIZE TARGET_ARCH=x86_64 TARGET_CPU=x86_64</LocalDebuggerCommandArguments>
+  </PropertyGroup>
 </Project>

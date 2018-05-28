@@ -121,7 +121,7 @@ ATTR_USED struct mb2_header mb_multiboot2 = {
 
 
 /* The CPU context as it was when the KOS was started. */
-INTERN ATTR_FREEBSS struct cpu_context x86_boot_context;
+INTERN ATTR_FREEBSS struct x86_context32 x86_boot_context;
 
 INTDEF void KCALL x86_load_mb1info(PHYS mb_info_t *__restrict info);
 INTDEF void KCALL x86_load_mb2info(PHYS u8 *__restrict info);

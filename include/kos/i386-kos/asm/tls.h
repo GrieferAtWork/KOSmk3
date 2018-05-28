@@ -26,41 +26,55 @@ __SYSDECL_BEGIN
 
 #ifndef __ASM_TASK_SEGMENT
 #ifdef __x86_64__
-#    define __ASM_HOSTTASK_SEGMENT gs
-#    define __ASM_USERTASK_SEGMENT fs
+#    define __ASM_HOSTTASK_SEGMENT        gs
+#    define __ASM_USERTASK_SEGMENT        fs
+#    define __ASM_HOSTTASK_SEGMENT_COMPAT fs
+#    define __ASM_USERTASK_SEGMENT_COMPAT gs
 #else
-#    define __ASM_HOSTTASK_SEGMENT fs
-#    define __ASM_USERTASK_SEGMENT gs
+#    define __ASM_HOSTTASK_SEGMENT        fs
+#    define __ASM_USERTASK_SEGMENT        gs
+#    define __ASM_HOSTTASK_SEGMENT_COMPAT gs
+#    define __ASM_USERTASK_SEGMENT_COMPAT fs
 #endif
 #ifdef __KERNEL__
 #ifdef __x86_64__
 #    define __ASM_TASK_SEGMENT_ISGS 1
+#    define __ASM_TASK_SEGMENT_COMPAT_ISFS 1
 #else
 #    define __ASM_TASK_SEGMENT_ISFS 1
+#    define __ASM_TASK_SEGMENT_COMPAT_ISGS 1
 #endif
-#    define __ASM_TASK_SEGMENT __ASM_HOSTTASK_SEGMENT
+#    define __ASM_TASK_SEGMENT        __ASM_HOSTTASK_SEGMENT
+#    define __ASM_TASK_SEGMENT_COMPAT __ASM_HOSTTASK_SEGMENT_COMPAT
 #else
 #ifdef __x86_64__
 #    define __ASM_TASK_SEGMENT_ISFS 1
+#    define __ASM_TASK_SEGMENT_COMPAT_ISGS 1
 #else
 #    define __ASM_TASK_SEGMENT_ISGS 1
+#    define __ASM_TASK_SEGMENT_COMPAT_ISFS 1
 #endif
-#    define __ASM_TASK_SEGMENT __ASM_USERTASK_SEGMENT
+#    define __ASM_TASK_SEGMENT        __ASM_USERTASK_SEGMENT
+#    define __ASM_TASK_SEGMENT_COMPAT __ASM_USERTASK_SEGMENT_COMPAT
 #endif
 #endif /* !__ASM_TASK_SEGMENT */
 
 #ifndef CONFIG_NO_DOS_COMPAT
 #ifdef __x86_64__
-#define __ASM_TIBTASK_SEGMENT  gs
-#define __ASM_TIBTASK_SEGMENT_ISGS 1
+#    define __ASM_TIBTASK_SEGMENT             gs
+#    define __ASM_TIBTASK_SEGMENT_COMPAT      fs
+#    define __ASM_TIBTASK_SEGMENT_ISGS        1
+#    define __ASM_TIBTASK_SEGMENT_COMPAT_ISFS 1
 #else
-#define __ASM_TIBTASK_SEGMENT  fs
-#define __ASM_TIBTASK_SEGMENT_ISFS 1
+#    define __ASM_TIBTASK_SEGMENT             fs
+#    define __ASM_TIBTASK_SEGMENT_COMPAT      gs
+#    define __ASM_TIBTASK_SEGMENT_ISFS        1
+#    define __ASM_TIBTASK_SEGMENT_COMPAT_ISGS 1
 #endif
 #endif /* !CONFIG_NO_DOS_COMPAT */
 
 #ifdef __ASSEMBLER__
-#define taskseg   __ASM_TASK_SEGMENT
+#    define taskseg   __ASM_TASK_SEGMENT
 #endif
 
 __SYSDECL_END

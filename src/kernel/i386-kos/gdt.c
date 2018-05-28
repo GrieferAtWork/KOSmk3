@@ -30,8 +30,10 @@ DECL_BEGIN
 
 INTDEF byte_t _x86_gdt_tss_lo[];
 INTDEF byte_t _x86_gdt_tss_hi[];
+#ifndef __x86_64__
 INTDEF byte_t _x86_gdt_tssdf_lo[];
 INTDEF byte_t _x86_gdt_tssdf_hi[];
+#endif
 INTDEF byte_t _x86_gdt_tls_lo[];
 INTDEF byte_t _x86_gdt_tls_hi[];
 
@@ -49,7 +51,9 @@ PUBLIC ATTR_PERCPU struct x86_segment x86_cpugdt[X86_SEG_BUILTIN] = {
     [X86_SEG_HOST_DATA16] = X86_SEGMENT_INIT(0,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL0_16), /* 16-bit kernel data segment. */
 #endif
     [X86_SEG_CPUTSS]      = {{{(uintptr_t)_x86_gdt_tss_lo,(uintptr_t)_x86_gdt_tss_hi}}}, /* CPU TSS */
+#ifndef __x86_64__
     [X86_SEG_CPUTSS_DF]   = {{{(uintptr_t)_x86_gdt_tssdf_lo,(uintptr_t)_x86_gdt_tssdf_hi}}}, /* CPU TSS (for #DF) */
+#endif
     [X86_SEG_KERNEL_LDT]  = X86_SEGMENT_INIT(0,0,X86_SEG_LDT), /* Kernel LDT table. */
     [X86_SEG_HOST_TLS]    = {{{(uintptr_t)_x86_gdt_tls_lo,(uintptr_t)_x86_gdt_tls_hi}}}, /* task-self */
     [X86_SEG_USER_TLS]    = X86_SEGMENT_INIT(0,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL3),

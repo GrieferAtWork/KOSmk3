@@ -141,7 +141,7 @@ SYMEND(x86_pic_acknowledge)
 	testl   $EFLAGS_VM, X86_CONTEXT32_OFFSETOF_EFLAGS(%esp)
 	jnz     3f
 #endif
-	testl   $3, X86_CONTEXT32_OFFSETOF_IRET+X86_IRREGS32_OFFSETOF_CS(%esp)
+	testb   $3, X86_CONTEXT32_OFFSETOF_IRET+X86_IRREGS32_OFFSETOF_CS(%esp)
 	jz      1f
 	/* Use this chance to track user-space preemption statistics. */
 3:	INCSTAT(ts_uswitch)
@@ -177,8 +177,8 @@ SYMEND(x86_pic_acknowledge)
 	movl    jiffies, %ecx /* Check if the task is supposed to time out. */
 	cmpl    %ecx, t_timeout(%eax)
 	ja      .switch_tasks /* if (t_timeout[0] > jiffies[0]) goto .switch_tasks; */
-1:	andl    $(~TASK_STATE_FSLEEPING), t_state(%eax) /* Clear the sleeping flag. */
-	orl     $(TASK_STATE_FTIMEDOUT),  t_state(%eax) /* Set the timed-out flag. */
+1:	andw    $(~TASK_STATE_FSLEEPING), t_state(%eax) /* Clear the sleeping flag. */
+	orw     $(TASK_STATE_FTIMEDOUT),  t_state(%eax) /* Set the timed-out flag. */
 	/* Remove the sleeper for the sleeping-task chain. */
 	movl    t_sched + le_next(%eax), %ecx
 	movl    %ecx, c_sleeping + CPU
@@ -330,7 +330,7 @@ INTERN_ENTRY(x86_exchange_context)
 	pushfl_cfi
 	.cfi_offset %eflags,   -4
 	orl     $(EFLAGS_IF), 0(%esp) /* Set the #IF flag when the task resumes. */
-	pushl_cfi %cs
+	pushl_cfi $X86_SEG_HOST_CS
 	subl    $4, %esp /* Skip EIP */
 	.cfi_adjust_cfa_offset  4
 	/* With that, the IRET is now complete. */
@@ -347,7 +347,7 @@ INTERN_ENTRY(x86_exchange_context)
 	pushal_cfi_r
 
 	/* Fix the ESP value of the register state. */
-	/* addl  $(X86_SEGMENTS_SIZE+X86_IRREGS_HOST32_SIZE), X86_GPREGS_OFFSETOF_ESP(%esp) */
+	/* addl  $(X86_SEGMENTS_SIZE+X86_IRREGS_HOST32_SIZE), X86_GPREGS32_OFFSETOF_ESP(%esp) */
 
 	/* Save the generated CPU context in the old task. */
 	movl    %esp, %taskseg:t_context

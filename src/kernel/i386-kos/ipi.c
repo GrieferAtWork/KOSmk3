@@ -27,6 +27,7 @@
 #include <i386-kos/apic.h>
 #include <i386-kos/ipi.h>
 #include <i386-kos/interrupt.h>
+#include <i386-kos/gdt.h>
 #include <i386-kos/fpu.h>
 #include <kernel/debug.h>
 #include <kernel/interrupt.h>
@@ -176,13 +177,20 @@ x86_ipi_handle(struct x86_ipi const *__restrict ipi,
      /* Set the next pending thread as the one now actively running. */
      THIS_CPU->c_running = sched_next;
 #ifdef __x86_64__
-     __asm__ __volatile__ goto("movq   %%rsp, %%rax\n\t"
+     __asm__ __volatile__ goto("movq   %%rsp, %%r8\n\t"
+                               "rdfsbase %%rax\n\t"
+                               "pushq  %%rax\n\t"                   /* SEGS.USER_FS_BASE */
+                               "movl   %[ia32_kernel_gs_base], %%ecx\n\t"
+                               "rdmsr\n\t"
+                               "subq   $8, %%rsp\n\t"
+                               "movl   %%edx, 4(%%rsp)\n\t"         /* SEGS.USER_GS_BASE(hi) */
+                               "movl   %%eax, 0(%%rsp)\n\t"         /* SEGS.USER_GS_BASE(lo) */
                                "pushq  %[host_ss]\n\t"              /* IRET.SS */
-                               "pushq  %%rax\n\t"                   /* IRET.RSP */
+                               "pushq  %%r8\n\t"                    /* IRET.RSP */
                                "pushfq\n\t"                         /* IRET.EFLAGS */
                                "orq    %[eflags_if], (%%esp)\n\t"   /* IRET.EFLAGS */
                                "pushq  %[host_cs]\n\t"              /* IRET.CS */
-                               "pushq  $%l7\n\t"                    /* IRET.RIP */
+                               "pushq  $%l8\n\t"                    /* IRET.RIP */
                                "pushq  %%rax\n\t"                   /* GPREGS... */
                                "pushq  %%rcx\n\t"
                                "pushq  %%rdx\n\t"
@@ -207,14 +215,15 @@ x86_ipi_handle(struct x86_ipi const *__restrict ipi,
                                /* Resume execution in this CPU by loading the next thread */
                                "jmp    x86_load_context"
                                :
-                               : [next]      "c" (sched_next)
-                               , [physdir]   "d" ((uintptr_t)thread->t_vm->vm_physdir)
+                               : [next]      "D" (sched_next)
+                               , [physdir]   "S" ((uintptr_t)thread->t_vm->vm_physdir)
                                , [status]    "m" (*ipi->ipi_unschedule.us_status)
                                , [eflags_if] "Z" (EFLAGS_IF)
                                , [status_ok] "Z" (X86_IPI_UNSCHEDULE_OK)
                                , [host_ss]   "Z" (X86_SEG_HOST_SS)
                                , [host_cs]   "Z" (X86_SEG_HOST_CS)
-                               : "memory", "cc", "rsp", "rax"
+                               , [ia32_kernel_gs_base] "Ze" (IA32_KERNEL_GS_BASE)
+                               : "memory", "cc", "rsp", "rax", "rcx", "rdx", "r8"
                                : newcpu_continue);
 #else
      __asm__ __volatile__ goto("pushfl\n\t"                         /* IRET.EFLAGS */

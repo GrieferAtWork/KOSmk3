@@ -323,7 +323,7 @@ struct task {
     /* This is the data structure pointed by the %FS / %GS register. */
     struct task_segment          t_segment;   /* Must be located at offset=0 */
     ATOMIC_DATA ref_t            t_refcnt;    /* Task reference counter. */
-    struct cpu_anycontext       *t_context;   /* [lock(THIS_CPU == t_cpu)][valid_if(self != THIS_TASK)]
+    struct cpu_schedcontext     *t_context;   /* [lock(THIS_CPU == t_cpu)][valid_if(self != THIS_TASK)]
                                                * The CPU context to which this task will return
                                                * when scheduling resumes its execution. */
 #ifndef CONFIG_NO_SMP

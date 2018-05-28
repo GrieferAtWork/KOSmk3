@@ -205,7 +205,7 @@ unwind_check_signal_frame(struct cpu_context_ss *__restrict context,
  if (signal_set_size)
      memcpy(signal_set,&frame->sf_sigmask,signal_set_size);
  frame->sf_return.m_context.c_cs;
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
  memcpy(context,&frame->sf_return.m_context,
         sizeof(struct x86_gpregs32)+
         sizeof(struct x86_segments32));

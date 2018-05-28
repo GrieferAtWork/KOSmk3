@@ -125,7 +125,7 @@ PRIVATE ATTR_FREETEXT ATTR_RETNONNULL struct cpu *
 KCALL smp_allocate_processor(void) {
  struct cpu *result;
  struct task *idle_bootstrap;
- struct cpu_context *bootstrap_state;
+ struct cpu_schedcontext *bootstrap_state;
  result = (struct cpu *)kmalloc((size_t)kernel_percpu_size,
                                  GFP_SHARED|GFP_LOCKED);
  /* Copy the per-cpu template into the newly allocated CPU. */
@@ -146,13 +146,13 @@ KCALL smp_allocate_processor(void) {
  idle_bootstrap->t_vm            = &vm_kernel;
  LIST_INSERT(vm_kernel.vm_tasks,idle_bootstrap,t_vmtasks);
  vm_incref(&vm_kernel);
- bootstrap_state           = ((struct cpu_context *)idle_bootstrap->t_stackend)-1;
- idle_bootstrap->t_context = (struct cpu_anycontext *)bootstrap_state;
+ bootstrap_state           = ((struct cpu_schedcontext *)idle_bootstrap->t_stackend)-1;
+ idle_bootstrap->t_context = bootstrap_state;
 
  /* Setup environment components of the new thread. */
  task_setup_kernel_environ(idle_bootstrap);
 
- memset(bootstrap_state,0,sizeof(struct cpu_anycontext));
+ memset(bootstrap_state,0,sizeof(struct cpu_schedcontext));
  /* Setup the register state that is expected by `x86_secondary_cpu_idle_loop()'. */
  bootstrap_state->c_gpregs.gp_ebx  = (uintptr_t)result;          /* EBX: THIS_CPU */
  bootstrap_state->c_gpregs.gp_esi  = (uintptr_t)idle_bootstrap;  /* ESI: THIS_TASK */

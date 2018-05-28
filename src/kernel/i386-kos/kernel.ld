@@ -40,14 +40,19 @@
 #define SECTIONS  int foo()
 #endif
 
+#ifndef KERNEL_CORE_BASE
+#define KERNEL_CORE_BASE KERNEL_BASE
+#endif
+
+
 #define SECTION(name) \
-	name BLOCK(1) : AT(ADDR(name) - KERNEL_BASE)
+	name BLOCK(1) : AT(ADDR(name) - KERNEL_CORE_BASE)
 #define PHYSICAL_SECTION(name) \
 	name BLOCK(1) : AT(ADDR(name))
 #define DEFINE_PEROBJECT_SECTION_EX(section_name,name,base_offset,sections) \
 	PROVIDE_HIDDEN(name##_start = ABSOLUTE(.)); \
 	. = ABSOLUTE(base_offset); \
-	section_name base_offset : AT(name##_start - KERNEL_BASE) sections \
+	section_name base_offset : AT(name##_start - KERNEL_CORE_BASE) sections \
 	PROVIDE_HIDDEN(name##_size = ABSOLUTE(. - base_offset)); \
 	. = ABSOLUTE(name##_start + name##_size); \
 	PROVIDE_HIDDEN(name##_end = ABSOLUTE(.));
@@ -67,7 +72,7 @@ SECTIONS {
 
 #undef NULL
 	PROVIDE_HIDDEN(NULL = 0);
-	. = KERNEL_BASE + 1M;
+	. = KERNEL_CORE_BASE + 1M;
 
 	/* Boot header */
 	SECTION(.multiboot) {
@@ -227,6 +232,10 @@ SECTIONS {
 		IP_ALIGN(PAGESIZE);
 		*(.data.ushare.sysenter)
 		IP_ALIGN(PAGESIZE);
+#ifdef __x86_64__
+		*(.data.ushare.sysenter_compat)
+		IP_ALIGN(PAGESIZE);
+#endif
 		*(.data.ushare.strerror)
 		IP_ALIGN(PAGESIZE);
 		*(.data.ushare.utsname)
@@ -248,9 +257,12 @@ SECTIONS {
 	})
 	PROVIDE_HIDDEN(kernel_data_end = ABSOLUTE(.));
 	PROVIDE_HIDDEN(kernel_data_size = ABSOLUTE(kernel_data_end - kernel_data_start));
-	PROVIDE_HIDDEN(x86_ushare_sysenter_pageno = ABSOLUTE((x86_ushare_sysenter - KERNEL_BASE) / PAGESIZE));
-	PROVIDE_HIDDEN(ushare_strerror_pageno = ABSOLUTE((ushare_strerror - KERNEL_BASE) / PAGESIZE));
-	PROVIDE_HIDDEN(ushare_utsname_pageno = ABSOLUTE((ushare_utsname - KERNEL_BASE) / PAGESIZE));
+	PROVIDE_HIDDEN(x86_ushare_sysenter_pageno = ABSOLUTE((x86_ushare_sysenter - KERNEL_CORE_BASE) / PAGESIZE));
+#ifdef __x86_64__
+	PROVIDE_HIDDEN(x86_ushare_sysenter_compat_pageno = ABSOLUTE((x86_ushare_sysenter_compat - KERNEL_CORE_BASE) / PAGESIZE));
+#endif
+	PROVIDE_HIDDEN(ushare_strerror_pageno = ABSOLUTE((ushare_strerror - KERNEL_CORE_BASE) / PAGESIZE));
+	PROVIDE_HIDDEN(ushare_utsname_pageno = ABSOLUTE((ushare_utsname - KERNEL_CORE_BASE) / PAGESIZE));
 	PROVIDE_HIDDEN(kernel_rwx_size_raw = ABSOLUTE(kernel_rwx_end_raw - kernel_rwx_start));
 	PROVIDE_HIDDEN(kernel_rwx_size = ABSOLUTE(kernel_rwx_end - kernel_rwx_start));
 	PROVIDE_HIDDEN(kernel_rwnx_end = ABSOLUTE(.));
@@ -287,7 +299,7 @@ SECTIONS {
 		IP_ALIGN(PAGEDIR_ALIGN);
 		PROVIDE(vm_kernel = ABSOLUTE(.));
 		PROVIDE(pagedir_kernel = ABSOLUTE(.));
-		PROVIDE(pagedir_kernel_phys = ABSOLUTE(pagedir_kernel - KERNEL_BASE));
+		PROVIDE(pagedir_kernel_phys = ABSOLUTE(pagedir_kernel - KERNEL_CORE_BASE));
 		. += PAGEDIR_SIZE;
 		PROVIDE_HIDDEN(boot_vm_start = ABSOLUTE(.));
 		. += kernel_pervm_size;
@@ -295,9 +307,11 @@ SECTIONS {
 #ifndef CONFIG_NO_DEBUG_MALLOC
 		PROVIDE_HIDDEN(mall_tracked_end = ABSOLUTE(.));
 #endif
-#ifndef __x86_64__
 		IP_ALIGN(PAGESIZE);
 		*(.bss.pagedir.kernel.share)
+#ifdef __x86_64__
+		IP_ALIGN(PAGESIZE);
+		*(.bss.pagedir.kernel.share2)
 #endif
 #ifndef CONFIG_NO_DEBUG_MALLOC
 		*(.bss.mall.untracked)
@@ -350,9 +364,9 @@ SECTIONS {
 	PROVIDE_HIDDEN(kernel_size = ABSOLUTE(kernel_end - kernel_start));
 
 	/* Boot page initialization constants used to initialize paging of the first 1Gb. */
-	PROVIDE_HIDDEN(_boot_page0_size = ((kernel_start - KERNEL_BASE) - 0) / PAGESIZE); /* -RW */
-	PROVIDE_HIDDEN(_boot_page1_size = kernel_ro_size / PAGESIZE);                     /* XR- */
-	PROVIDE_HIDDEN(_boot_page2_size = (((X86_PDIR_E1_IDENTITY_BASE - KERNEL_BASE) & 0xffffffff) / PAGESIZE) - (_boot_page0_size + _boot_page1_size)); /* -WR */
+	PROVIDE_HIDDEN(_boot_page0_size = ((kernel_start - KERNEL_CORE_BASE) - 0) / PAGESIZE); /* -RW */
+	PROVIDE_HIDDEN(_boot_page1_size = kernel_ro_size / PAGESIZE);                          /* XR- */
+	PROVIDE_HIDDEN(_boot_page2_size = (((X86_PDIR_E1_IDENTITY_BASE - KERNEL_CORE_BASE) & 0xffffffff) / PAGESIZE) - (_boot_page0_size + _boot_page1_size)); /* -WR */
 	/* Added together, `_boot_page?_size' must equate to `1Gb / PAGESIZE' */
 	
 
@@ -360,13 +374,17 @@ SECTIONS {
 #ifdef CONFIG_NO_SMP
 	PROVIDE_HIDDEN(_x86_gdt_tss_lo   = __X86_SEG_ENCODELO(x86_cputss,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
 	PROVIDE_HIDDEN(_x86_gdt_tss_hi   = __X86_SEG_ENCODEHI(x86_cputss,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
+#ifndef __x86_64__
 	PROVIDE_HIDDEN(_x86_gdt_tssdf_lo = __X86_SEG_ENCODELO(x86_cputssdf,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
 	PROVIDE_HIDDEN(_x86_gdt_tssdf_hi = __X86_SEG_ENCODEHI(x86_cputssdf,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
+#endif
 #else
 	PROVIDE_HIDDEN(_x86_gdt_tss_lo   = __X86_SEG_ENCODELO(boot_cpu_start + x86_cputss,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
 	PROVIDE_HIDDEN(_x86_gdt_tss_hi   = __X86_SEG_ENCODEHI(boot_cpu_start + x86_cputss,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
+#ifndef __x86_64__
 	PROVIDE_HIDDEN(_x86_gdt_tssdf_lo = __X86_SEG_ENCODELO(boot_cpu_start + x86_cputssdf,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
 	PROVIDE_HIDDEN(_x86_gdt_tssdf_hi = __X86_SEG_ENCODEHI(boot_cpu_start + x86_cputssdf,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
+#endif
 #endif
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	/* With full segmentation, we don't need to expose the TLS segment to user-space. */
@@ -412,6 +430,7 @@ SECTIONS {
 	PROVIDE_HIDDEN(kernel_coredriver_param_size = ABSOLUTE(kernel_coredriver_param_end - kernel_coredriver_param_start));
 	PROVIDE_HIDDEN(kernel_coredriver_param_count = ABSOLUTE(kernel_coredriver_param_size / (4*__SIZEOF_POINTER__)));
 
+	PROVIDE_HIDDEN(boot_cpu_id_features = ABSOLUTE(boot_cpu_start + cpu_id_features));
 
 	/DISCARD/ : {
 		*(.rel*)

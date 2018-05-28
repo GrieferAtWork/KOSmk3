@@ -563,9 +563,9 @@ INTERN_ENTRY(irq_common)
 	 *       ESP points at the end of GPREGS, aka. at
 	 *       the start of the segment state. */
 #ifndef CONFIG_NO_X86_SEGMENTATION
-	addl    $(X86_SEGMENTS_SIZE+X86_IRREGS_HOST32_SIZE), X86_GPREGS_OFFSETOF_ESP(%ecx)
+	addl    $(X86_SEGMENTS_SIZE+X86_IRREGS_HOST32_SIZE), X86_GPREGS32_OFFSETOF_ESP(%ecx)
 #else /* !CONFIG_NO_X86_SEGMENTATION */
-	addl    $(X86_IRREGS_HOST32_SIZE), X86_GPREGS_OFFSETOF_ESP(%ecx)
+	addl    $(X86_IRREGS_HOST32_SIZE), X86_GPREGS32_OFFSETOF_ESP(%ecx)
 #endif /* CONFIG_NO_X86_SEGMENTATION */
 
 	/* With everything now set up, switch to the interrupt handler. */
@@ -672,9 +672,9 @@ INTERN_ENTRY(x86_interrupt_except)
 	/* We already know that the interrupt is originating from kernel-space,
 	 * so we also know that we must fix the ESP of the cpu-context. */
 #ifndef CONFIG_NO_X86_SEGMENTATION
-	addl    $(X86_SEGMENTS_SIZE+X86_IRREGS_HOST32_SIZE), X86_GPREGS_OFFSETOF_ESP(%esp)
+	addl    $(X86_SEGMENTS_SIZE+X86_IRREGS_HOST32_SIZE), X86_GPREGS32_OFFSETOF_ESP(%esp)
 #else
-	addl    $(X86_IRREGS_HOST32_SIZE), X86_GPREGS_OFFSETOF_ESP(%esp)
+	addl    $(X86_IRREGS_HOST32_SIZE), X86_GPREGS32_OFFSETOF_ESP(%esp)
 #endif
 
 	/* Restore the original stack pointer now that we can use all the GP
@@ -780,7 +780,7 @@ INTERN_ENTRY(x86_interrupt_except)
 	/* Fix the user-space %fs register, which we temporaryly
 	 * saved at the other end of the kernel stack above. */
 	movzwl  (+0 + (-CONFIG_KERNELSTACK_SIZE))(%edx), %eax
-	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS_OFFSETOF_FS(%esp)
+	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_FS(%esp)
 #endif
 
 	/* Copy the proper IRET Tail information. */
@@ -822,7 +822,7 @@ INTERN_ENTRY(x86_interrupt_except)
 	                                 EXCEPTION_INFO_OFFSETOF_CODE
 	jne     9f
 	pushl_cfi %edx /* saved */
-	pushl_cfi X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS_OFFSETOF_EAX(%ecx) /* sysno */
+	pushl_cfi X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EAX(%ecx) /* sysno */
 	call    task_tryrestart_syscall
 	.cfi_adjust_cfa_offset -4
 	popl_cfi %edx
