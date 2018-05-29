@@ -40,8 +40,15 @@
 #endif
 #define DEFINE_INTERRUPT(id) \
    DEFINE_INTERRUPT_EX(id,X86_IDTTYPE_80386_32_INTERRUPT_GATE)
+#ifdef __x86_64__
+/* Can't use traps on x86_64, because we need to
+ * be able to do swapgs without being interrupted. */
+#define DEFINE_GATE(id) \
+   DEFINE_INTERRUPT_EX(id,X86_IDTTYPE_80386_32_INTERRUPT_GATE)
+#else
 #define DEFINE_GATE(id) \
    DEFINE_INTERRUPT_EX(id,X86_IDTTYPE_80386_32_TRAP_GATE)
+#endif
 
 /* GATE:      Leave EFLAGS.IF unchanged */
 /* INTERRUPT: Clear EFLAGS.IF to disable preemption. */

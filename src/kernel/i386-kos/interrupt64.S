@@ -132,10 +132,10 @@ irq_\id:
 	.cfi_def_cfa %rsp,    6*8
 	/*.cfi_offset %ss,   -1*8*/
 	/*.cfi_offset %rsp,  -2*8*/
-	.cfi_offset %eflags, -3*8
+	.cfi_offset %rflags, -3*8
 	/*.cfi_offset %cs,   -4*8*/
 	.cfi_offset %rip,    -5*8
-	irq_enter
+	irq_enter_errcode
 	/* Check for spurios interrupts */
 .if \type == INTERRUPT_TYPE_SPUR1
 	call    x86_check_spurious_interrupt_PIC1
@@ -147,7 +147,7 @@ irq_\id:
 	.cfi_def_cfa %rsp,    5*8
 	/*.cfi_offset %ss,   -1*8*/
 	/*.cfi_offset %rsp,  -2*8*/
-	.cfi_offset %eflags, -3*8
+	.cfi_offset %rflags, -3*8
 	/*.cfi_offset %cs,   -4*8*/
 	.cfi_offset %rip,    -5*8
 	irq_enter
@@ -176,7 +176,11 @@ define_interrupt 04, 3                       /* #OF  Overflow. */
 define_interrupt 05, 3                       /* #BR  Bound Range Exceeded. */
 define_interrupt 06                          /* #UD  Invalid Opcode. */
 define_interrupt 07                          /* #NM  Device Not Available. */
+#if 1 /* I'm not seeing any exception code here... */
+define_interrupt 08, 0                       /* #DF  Double Fault. */
+#else
 define_interrupt 08, 0, INTERRUPT_TYPE_ERROR /* #DF  Double Fault. */
+#endif
 define_interrupt 09
 define_interrupt 0a, 0, INTERRUPT_TYPE_ERROR /* #TS  Invalid TSS. */
 define_interrupt 0b, 0, INTERRUPT_TYPE_ERROR /* #NP  Segment Not Present. */
@@ -435,7 +439,7 @@ INTERN_ENTRY(irq_common)
 	.cfi_def_cfa %rsp,    5*8
 	/*.cfi_offset %ss,   -1*8*/
 	/*.cfi_offset %rsp,  -2*8*/
-	.cfi_offset %eflags, -3*8
+	.cfi_offset %rflags, -3*8
 	/*.cfi_offset %cs,   -4*8*/
 	.cfi_offset %rip,    -5*8
 
@@ -460,8 +464,8 @@ INTERN_ENTRY(irq_common)
 	.cfi_adjust_cfa_offset 16
 
 	/* Load the ERRCODE and INTNO values into registers. */
-	popq_cfi %rdx      /* register_t errcode */
 	popq_cfi %rsi      /* register_t intno */
+	popq_cfi %rdx      /* register_t errcode */
 	movq    %rsp, %rdi /* struct cpu_anycontext *__restrict context */
 
 	/* With everything now set up, switch to the interrupt handler. */
@@ -494,6 +498,9 @@ SYMEND(irq_common)
 .section .text.interrupt_except
 INTERN_ENTRY(x86_interrupt_except)
 	/* TODO */
+	int3
+1:	hlt
+	jmp 1b
 SYMEND(x86_interrupt_except)
 
 

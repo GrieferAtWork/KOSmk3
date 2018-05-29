@@ -555,6 +555,9 @@
     <ClCompile Include="..\..\src\kernel\src\vm\vio.c">
       <Filter>kernel\src\vm</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\segment.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">
@@ -891,6 +894,9 @@
       <Filter>kernel\include\kernel</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\kernel\include\i386-kos\paging64.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\segment.h">
       <Filter>kernel\include\i386-kos</Filter>
     </ClInclude>
   </ItemGroup>

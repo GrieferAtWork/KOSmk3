@@ -27,6 +27,7 @@
 #ifdef __x86_64__
 #include <asm/cpu-flags.h>
 #include <kos/intrin.h>
+#include "segment.h"
 #endif
 
 DECL_BEGIN

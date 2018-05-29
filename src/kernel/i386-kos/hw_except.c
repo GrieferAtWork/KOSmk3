@@ -92,12 +92,13 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
  /* Extract the fault address before re-enabling interrupts. */
  fault_address = (void *)__rdcr2();
  assert(!PREEMPTION_ENABLED());
-#if 0
- debug_printf("#PF at %p (from %p; errcode %x)\n",
-              fault_address,context->c_pip,errcode);
+#ifdef __x86_64__
+ debug_printf("#PF at %p (from %p; errcode %x; gs_base: %p)\n",
+              fault_address,context->c_pip,errcode,
+              __rdgsbaseq());
 #endif
  /* Re-enable interrupts if they were enabled before. */
- if (context->c_eflags & EFLAGS_IF)
+ if (context->c_pflags & EFLAGS_IF)
      x86_interrupt_enable();
 
 again:
@@ -461,7 +462,7 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
               context->c_gpregs.gp_edx,context->c_gpregs.gp_ebx,context->c_pip,
               X86_ANYCONTEXT32_ESP(*context),context->c_gpregs.gp_pbp,
               context->c_gpregs.gp_esi,context->c_gpregs.gp_edi,
-              context->c_eflags);
+              context->c_pflags);
 #ifndef CONFIG_NO_X86_SEGMENTATION
  debug_printf("CS %.4IX DS %.4IX ES %.4IX FS %.4IX GS %.4IX\n",
               context->c_iret.ir_cs,
@@ -704,8 +705,9 @@ INTERN void KCALL
 x86_interrupt_handler(struct cpu_anycontext *__restrict context,
                       register_t intno, register_t errcode) {
  struct exception_info *info;
+ assertf(intno <= 0xff,"intno = %p",intno);
  /* Re-enable interrupts if they were enabled before. */
- if (context->c_eflags & EFLAGS_IF)
+ if (context->c_pflags & EFLAGS_IF)
      x86_interrupt_enable();
 
  /* Throw an unhandled-interrupt error. */

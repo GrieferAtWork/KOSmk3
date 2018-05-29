@@ -195,7 +195,8 @@ function run_qemu(bin,tap) {
 	goto on_line_start;
 #endif
 	while (local c = r.readall(1)) {
-#if 1
+#define CONFIG_PROCESS_OUTPUT 1
+#ifdef CONFIG_PROCESS_OUTPUT
 		if (c == "%") {
 process_format:
 			c = r.readall(1);
@@ -244,14 +245,17 @@ process_format:
 				}
 				continue;
 			} else outfile.write("%"+c);
+		} else
+#endif
 #ifdef __WINDOWS__
-		} else if (c == "\n") {
+		if (c == "\n") {
 			outfile.write("\n");
 on_line_start:
 			c = r.readall(1);
-			if (c == "%") {
+#ifdef CONFIG_PROCESS_OUTPUT
+			if (c == "%")
 				goto process_format;
-			}
+#endif
 			/* Since Visual Studio debugging sucks, the double-click & go-to-source
 			 * feature uses the '.sln'-folder instead of the debugger-pwd, meaning
 			 * that because that sln-file is in .vs, we need to manually prepend
@@ -265,10 +269,12 @@ on_line_start:
 					outfile.write(fix_path("../../",part));
 					goto on_line_start;
 				}
+#ifdef CONFIG_PROCESS_OUTPUT
 				if (c == "%") {
 					outfile.write(part);
 					goto process_format;
 				}
+#endif
 				if (!c || c.isspace())
 					break;
 				if (c in ["\"","\'","(",")","[","]","?","*"])
@@ -277,83 +283,6 @@ on_line_start:
 			}
 			outfile.write(part);
 			if (c == "\n") goto on_line_start;
-		} else
-#endif
-#else
-		if (c == "\n") {
-			outfile.write("\n");
-on_line_start:
-			c = r.readall(1);
-			if (c == "#") {
-				c = r.readall(1);
-				if (c == "!") {
-					c = r.readall(1);
-					if (c == "$") {
-						// Parse special command, as output through serial #01
-						local cmd = r.readline().strip();
-						local name,args;
-						try name,args = cmd.scanf("%[A-Za-z0-9] %[^]")...;
-						catch (...) name = "",args = "";
-						name = name.strip();
-						args = args.strip();
-						try {
-							if (name == "addr2line") {
-								// Quick & dirty way of getting tracebacks...
-								// I know this is a really questionable solution.
-								// >> If it looks stupid but works, it ain't stupid!
-								local addr,fmt = args.scanf(" ( %[^)] ) '%[^']'")...;
-								for (local file,line,func: run_addr2line(addr.strip())) {
-									outfile.write(fmt.format({
-										.file = file.strip(),
-										.line = line.strip(),
-										.func = func.strip(),
-									})+"\n");
-								}
-							} else if (name == "output") {
-								local filename,count = args.scanf(" ( \"%[^\"]\" , %[^)])")...;
-								count = (int)count.strip();
-								local out = file.open(filename,"w");
-								local ok = 0;
-								for (;;) {
-									local data = r.read(1);
-									out.write(data);
-									ok += #data;
-									if (ok >= count) break;
-								}
-								out.close();
-							} else {
-								outfile.write("UNKNOWN CMD:"+repr(name ?: cmd)+"\n");
-							}
-						} catch (e...) {
-							outfile.write("CMD FAILED:"+repr(e)+"\n");
-						}
-						goto on_line_start;
-					} else outfile.write("#!"+c);
-				} else outfile.write("#"+c);
-				continue;
-			}
-#ifdef __WINDOWS__
-			/* Since Visual Studio debugging sucks, the double-click & go-to-source
-			 * feature uses the '.sln'-folder instead of the debugger-pwd, meaning
-			 * that because that sln-file is in .vs, we need to manually prepend
-			 * '../', so that one can actually click it!
-			 * >> The pattern recognized is: '\n%[^ ]/' --> '\n../%[^ ]/' */
-			local part = "";
-			for (;;) {
-				part += c;
-				if (c == "/") {
-					part += r.readline();
-					outfile.write(fix_path("../../",part));
-					goto on_line_start;
-				}
-				if (!c || c.isspace()) {
-					break;
-				}
-				c = r.readall(1);
-			}
-			outfile.write(part);
-			if (c == "\n") goto on_line_start;
-#endif
 		} else
 #endif
 		{

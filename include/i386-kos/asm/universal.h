@@ -59,6 +59,17 @@
 
 /* Some instructions that don't exist with a suffix. */
 #ifdef __x86_64__
+#ifdef __KERNEL__
+#include <i386-kos/segment.h>
+#define rdfsbasel  rdfsbase
+#define rdfsbaseq  safe_rdfsbase
+#define wrfsbasel  wrfsbase
+#define wrfsbaseq  safe_wrfsbase
+#define rdgsbasel  rdgsbase
+#define rdgsbaseq  safe_rdgsbase
+#define wrgsbasel  wrgsbase
+#define wrgsbaseq  safe_wrgsbase
+#else
 #define rdfsbasel  rdfsbase
 #define rdfsbaseq  rdfsbase
 #define wrfsbasel  wrfsbase
@@ -67,6 +78,7 @@
 #define rdgsbaseq  rdgsbase
 #define wrgsbasel  wrgsbase
 #define wrgsbaseq  wrgsbase
+#endif
 #endif
 
 #define aaap      __UNIVERSAL(aaa)

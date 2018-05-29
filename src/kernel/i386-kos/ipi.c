@@ -178,7 +178,7 @@ x86_ipi_handle(struct x86_ipi const *__restrict ipi,
      THIS_CPU->c_running = sched_next;
 #ifdef __x86_64__
      __asm__ __volatile__ goto("movq   %%rsp, %%r8\n\t"
-                               "rdfsbase %%rax\n\t"
+                               "safe_rdfsbase %%rax\n\t"
                                "pushq  %%rax\n\t"                   /* SEGS.USER_FS_BASE */
                                "movl   %[ia32_kernel_gs_base], %%ecx\n\t"
                                "rdmsr\n\t"

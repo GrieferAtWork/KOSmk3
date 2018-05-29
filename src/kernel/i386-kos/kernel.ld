@@ -334,6 +334,13 @@ SECTIONS {
 		*(.rodata.free)
 		*(.rodata.str.free)
 
+#ifdef __x86_64__
+		IP_ALIGN(4);
+		PROVIDE_HIDDEN(kernel_fixup_fsgsbase_start = ABSOLUTE(.));
+		*(.rodata.fixup_fsgsbase.free)
+		PROVIDE_HIDDEN(kernel_fixup_fsgsbase_end = ABSOLUTE(.));
+#endif
+
 		IP_ALIGN(__SIZEOF_POINTER__);
 		PROVIDE_HIDDEN(kernel_coredriver_param_start = ABSOLUTE(.));
 		*(.rodata.core_driver.param)
@@ -431,6 +438,7 @@ SECTIONS {
 	PROVIDE_HIDDEN(kernel_coredriver_param_count = ABSOLUTE(kernel_coredriver_param_size / (4*__SIZEOF_POINTER__)));
 
 	PROVIDE_HIDDEN(boot_cpu_id_features = ABSOLUTE(boot_cpu_start + cpu_id_features));
+	PROVIDE_HIDDEN(boot_cpu_x86_cpugdt  = ABSOLUTE(boot_cpu_start + x86_cpugdt));
 
 	/DISCARD/ : {
 		*(.rel*)

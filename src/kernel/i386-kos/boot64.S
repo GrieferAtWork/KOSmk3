@@ -22,6 +22,7 @@
 #include <kernel/paging.h>
 #include <kernel/memory.h>
 #include <kos/context.h>
+#include <i386-kos/gdt.h>
 #include <asm/cpu-flags.h>
 #include <asm/universal.h>
 
@@ -298,7 +299,7 @@ INTERN_ENTRY(_start)
 	movw   %gs,     SYM(x86_boot_context)+X86_CONTEXT32_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS
 	movw   %cs,     SYM(x86_boot_context)+X86_CONTEXT32_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_CS
 	movl   $(_start - KERNEL_CORE_BASE), SYM(x86_boot_context)+X86_CONTEXT32_OFFSETOF_EIP /* Kind-of unnecessary, but eh... */
-	leal   x86_boot_stack + CONFIG_KERNELSTACK_SIZE - KERNEL_CORE_BASE, %esp
+	leal   SYM(x86_boot_stack) + CONFIG_KERNELSTACK_SIZE, %esp
 	pushfl
 	movl   0(%esp), %eax
 	movl   %eax, SYM(x86_boot_context)+X86_CONTEXT32_OFFSETOF_EFLAGS
@@ -596,23 +597,40 @@ INTERN_ENTRY(_start)
 	 * located at the end of the 64-bit address space until we've actually went into long
 	 * mode. */
 
-	/* TODO: Load the 64-bit GDT */
-	/* TODO: Do an `ljmp' into the physical-identity mapping of `_start64' */
 
-
+	/* Continue by loading a GDT we can use to jump to long mode. */
 .pushsection .rodata.free
-1:	.string "Hello Assembly!\nHow are you doing?\n"
+.align 8
+PRIVATE_OBJECT(bootstrap_gdt_vector)
+#define SEGMENT(base,size,config) \
+	(__ASM_X86_SEG_ENCODELO_32(base,size,config) | \
+	(__ASM_X86_SEG_ENCODEHI_32(base,size,config) << 32))
+#define COMPAT_SEG_CODE_PL0 (X86_SEG_FLAG_LONGMODE|X86_SEG_ACCESS_SYSTEM|X86_SEG_ACCESS_PRESENT|X86_SEG_ACCESS_PRIVL(0)|X86_SEG_ACCESS_EXECUTE|X86_SEG_ACCESS_RW)
+#define COMPAT_SEG_DATA_PL0 (X86_SEG_FLAG_LONGMODE|X86_SEG_ACCESS_SYSTEM|X86_SEG_ACCESS_PRESENT|X86_SEG_ACCESS_PRIVL(0)|X86_SEG_ACCESS_RW)
+	.quad SEGMENT(0,0,0)
+	.quad SEGMENT(0,X86_SEG_LIMIT_MAX,COMPAT_SEG_CODE_PL0) /* code */
+	.quad SEGMENT(0,X86_SEG_LIMIT_MAX,COMPAT_SEG_DATA_PL0) /* data */
+.bootstrap_gdt_vector_end = .
+SYMEND(bootstrap_gdt_vector)
+.align 2
+PRIVATE_OBJECT(bootstrap_gdt)
+	.word (.bootstrap_gdt_vector_end - bootstrap_gdt_vector)-1
+	.long  SYM(bootstrap_gdt_vector)
+SYMEND(bootstrap_gdt)
 .popsection
-	leal  SYM(1b), %esi
-	call  vga_puts
-	leal  SYM(1b), %esi
-	call  vga_puts
 
+	lgdt  SYM(bootstrap_gdt)
 
-	/* TODO */
-1:	hlt
-	jmp 1b
+	/* Load 64-bit segment registers. */
+	movw  $0x10, %ax
+	movw  %ax, %ds
+	movw  %ax, %es
+	movw  %ax, %fs
+	movw  %ax, %gs
+	movw  %ax, %ss
 
+	/* And finally, jump into 64-bit mode! */
+	ljmpl $0x08, $SYM(_start64)
 SYMEND(_start)
 
 
@@ -623,10 +641,87 @@ INTERN_ENTRY(_start64)
 	 * memory and into the virtual world! */
 	movabs $1f, %rax
 	jmpq  *%rax
-1:
+1:	/* Also reload our stack-pointer for its virtual version. */
+	leaq   x86_boot_stack + CONFIG_KERNELSTACK_SIZE, %rsp
+	/* Now we're truly in virtual, 64-bit mode! */
 
-	/* TODO: Unmap the 3 unused identity mappings. */
+	/* Unmap the 3 unused identity mappings. */
+	movq  $X86_PAGE_ABSENT, pagedir_kernel + (0 * 8)
+#define IDENTITY_MAP_LOW(i) \
+	movq  $X86_PAGE_ABSENT, pagedir_kernel_share_e3 + (i * 8);
+	KERNEL_IDENTITY_FOREACH(IDENTITY_MAP_LOW)
+#undef IDENTITY_MAP_LOW
 
-	jmp    x86_kernel_main
+	/* Copy per-component templates into active data buffers.
+	 * This must be done before we load the GDT, because the
+	 * kernel's boot-cpu GDT is apart of one of those buffers. */
+
+#ifndef CONFIG_NO_SMP
+	leaq   boot_cpu_start,      %rdi
+	leaq   kernel_percpu_start, %rsi
+	movq   $kernel_percpu_size, %rdx
+	call   memcpy
+#endif /* !CONFIG_NO_SMP */
+
+	leaq   boot_task_start,      %rdi
+	leaq   kernel_pertask_start, %rsi
+	movq   $kernel_pertask_size, %rdx
+	call   memcpy
+
+	leaq   boot_vm_start,        %rdi
+	leaq   kernel_pervm_start,   %rsi
+	movq   $kernel_pervm_size,   %rdx
+	call   memcpy
+
+	/* Setup proper values for EFLAGS (Shouldn't be necessary...). */
+	/* NOTE: This is done to ensure that the NT flag isn't set
+	 *      (Which would break the IRETQ used to set CS below). */
+	pushq  $EFLAGS_IOPL(0)
+	popfq
+
+	/* Load the ~real~ 64-bit GDT (from virtual memory) */
+.pushsection .rodata.free
+.align 2
+1:	.word  (X86_SEG_BUILTIN * 16) - 1
+	.quad  boot_cpu_x86_cpugdt
+.popsection
+	lgdt   1b
+
+	/* Now load all the segments with indices pointing into the 64-bit GDT */
+	movq   $X86_KERNEL_DS, %rax
+	movw   %ax, %ds /* XXX: Why do DS and ES still exist? */
+	movw   %ax, %es
+	movw   %ax, %fs
+	movq   $X86_SEG_HOST_GS, %rax
+	movw   %ax, %gs
+
+	/* Don't forget about this segment register! */
+	movw   $(X86_SEG(X86_SEG_CPUTSS) | 3), %ax
+	ltr    %ax
+
+	/* With the TLS segment registers all set, we still have
+	 * to set the current GD_BASE value to the boot_task_start.
+	 * Normally, we'd just use `wrgsbaseq' for this, however
+	 * at this point we havn't yet checked if that instruction
+	 * even exists (if it doesn't all kernel-space uses get
+	 * replaced with a function call that emulates the behavior).
+	 * However that relocation is done later, so we must still
+	 * rely on MSRs to write that register! */
+	leaq   boot_task_start, %rdx
+	movl   %edx, %eax
+	shrq   $32,  %rdx
+	movl   $IA32_GS_BASE, %ecx
+	wrmsr
+
+	/* Load SS and CS. In PMODE, we'd use ljmp for this, but that
+	 * instruction doesn't exist in LONGMODE, so we need to use an IRET.
+	 * That's not too bad though, considering we can also use that to
+	 * jump to the C entry point in `boot.c'! */
+	pushq  $X86_SEG_HOST_SS
+	pushq  $x86_boot_stack + CONFIG_KERNELSTACK_SIZE
+	pushq  $EFLAGS_IOPL(0)
+	pushq  $X86_SEG_HOST_CS
+	pushq  $x86_kernel_main
+	iretq
 SYMEND(_start64)
 

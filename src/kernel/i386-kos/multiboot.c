@@ -44,23 +44,27 @@ INTERN ATTR_FREERODATA u8 const memtype_bios_matrix[6] = {
 
 INTERN ATTR_FREETEXT void KCALL
 x86_load_mb1info(PHYS mb_info_t *__restrict info) {
+ VIRT mb_info_t *vinfo = X86_EARLY_PHYS2VIRT(info);
  /* Save the kernel commandline pointer (will be loaded later) */
- kernel_driver.d_cmdline = (char *)(uintptr_t)info->cmdline;
+ kernel_driver.d_cmdline = (char *)(uintptr_t)vinfo->cmdline;
  if (kernel_driver.d_cmdline) {
+  kernel_driver.d_cmdline = X86_EARLY_PHYS2VIRT(kernel_driver.d_cmdline);
   if (!kernel_driver.d_cmdline[0])
        kernel_driver.d_cmdline = NULL;
   else {
-   mem_install((uintptr_t)kernel_driver.d_cmdline,
+   mem_install((uintptr_t)X86_EARLY_VIRT2PHYS(kernel_driver.d_cmdline),
                 strlen(kernel_driver.d_cmdline),
                 MEMTYPE_PRESERVE);
   }
  }
 
- if (info->flags&MB_INFO_MEM_MAP) {
+ if (vinfo->flags & MB_INFO_MEM_MAP) {
   mb_memory_map_t *iter,*end;
-  mem_install(info->mmap_addr,info->mmap_length,MEMTYPE_PRESERVE);
-  iter = (struct mb_mmap_entry *)(uintptr_t)info->mmap_addr;
-  end  = (mb_memory_map_t *)((uintptr_t)iter+info->mmap_length);
+  mem_install(vinfo->mmap_addr,vinfo->mmap_length,MEMTYPE_PRESERVE);
+  iter = (struct mb_mmap_entry *)(uintptr_t)vinfo->mmap_addr;
+  end  = (mb_memory_map_t *)((uintptr_t)iter+vinfo->mmap_length);
+  iter = X86_EARLY_PHYS2VIRT(iter);
+  end  = X86_EARLY_PHYS2VIRT(end);
   for (; iter < end; iter = (mb_memory_map_t *)((uintptr_t)&iter->addr+iter->size)) {
    if (iter->type >= COMPILER_LENOF(memtype_bios_matrix)) iter->type = 0;
    if (memtype_bios_matrix[iter->type] >= MEMTYPE_COUNT) continue;

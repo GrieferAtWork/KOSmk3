@@ -725,6 +725,10 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
  PRINTF("CS %.4IX DS %.4IX\n",
         INFO->e_context.c_cs,
         INFO->e_context.c_ss);
+ PRINTF("FS_BASE %p GS_BASE %p\nUSER_GS_BASE %p\n",
+        __rdfsbaseq(),
+        __rdgsbaseq(),
+        __rdmsr(IA32_KERNEL_GS_BASE));
 #elif !defined(CONFIG_NO_X86_SEGMENTATION)
  PRINTF("CS %.4IX SS %.4IX DS %.4IX ES %.4IX FS %.4IX GS %.4IX\n",
         INFO->e_context.c_iret.ir_cs,GETREG("%ss"),
@@ -802,18 +806,18 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
 #endif
 
 #if defined(__KERNEL__) && 1
- //INFO->e_context.c_esp = X86_ANYCONTEXT32_ESP(*INFO->e_context);
+ //INFO->e_context.c_psp = X86_ANYCONTEXT32_ESP(*INFO->e_context);
  if (INFO->e_context.c_iret.ir_cs & 3) {
   struct userstack *stack = PERTASK_GET(_this_user_stack);
   if (stack != NULL) {
    PRINTF("stack: %p...%p\n",
           VM_PAGE2ADDR(stack->us_pagemin),
           VM_PAGE2ADDR(stack->us_pageend)-1);
-   if (INFO->e_context.c_esp >= VM_PAGE2ADDR(stack->us_pagemin) &&
-       INFO->e_context.c_esp <  VM_PAGE2ADDR(stack->us_pageend)) {
+   if (INFO->e_context.c_psp >= VM_PAGE2ADDR(stack->us_pagemin) &&
+       INFO->e_context.c_psp <  VM_PAGE2ADDR(stack->us_pageend)) {
     PRINTF("%$[hex]\n",
-          (VM_PAGE2ADDR(stack->us_pageend)-INFO->e_context.c_esp)+16,
-           INFO->e_context.c_esp-16);
+          (VM_PAGE2ADDR(stack->us_pageend)-INFO->e_context.c_psp)+16,
+           INFO->e_context.c_psp-16);
    }
   } else {
    PRINTF("No stack\n");
@@ -822,11 +826,11 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
   PRINTF("stack: %p...%p\n",
         (uintptr_t)PERTASK_GET(this_task.t_stackmin),
         (uintptr_t)PERTASK_GET(this_task.t_stackend)-1);
-  if (INFO->e_context.c_esp >= (uintptr_t)PERTASK_GET(this_task.t_stackmin) &&
-      INFO->e_context.c_esp <= (uintptr_t)PERTASK_GET(this_task.t_stackend)) {
+  if (INFO->e_context.c_psp >= (uintptr_t)PERTASK_GET(this_task.t_stackmin) &&
+      INFO->e_context.c_psp <= (uintptr_t)PERTASK_GET(this_task.t_stackend)) {
    PRINTF("%$[hex]\n",
-         (uintptr_t)PERTASK_GET(this_task.t_stackend)-INFO->e_context.c_esp,
-                    INFO->e_context.c_esp);
+         (uintptr_t)PERTASK_GET(this_task.t_stackend)-INFO->e_context.c_psp,
+                    INFO->e_context.c_psp);
   }
  }
 #endif
@@ -835,36 +839,37 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
 #ifdef __KERNEL__
  TRY {
   bool is_first = true;
-  uintptr_t last_eip = 0;
+  uintptr_t last_pip = 0;
   struct cpu_context context;
   context = INFO->e_context;
   for (;;) {
    struct fde_info finfo;
-   if (last_eip != context.c_eip) {
+   if (last_pip != context.c_pip) {
     PRINTF("%[vinfo:%f(%l,%c) : %n] : %p : ESP %p, EBP %p\n",
            is_first && (INFO->e_error.e_flag&ERR_FRESUMENEXT) ?
-           context.c_eip : context.c_eip-1,
-           context.c_eip,
-           context.c_esp,context.c_gpregs.gp_ebp);
+           context.c_pip : context.c_pip-1,
+           context.c_pip,
+           context.c_psp,context.c_gpregs.gp_pbp);
    }
    if (!is_first || !(INFO->e_error.e_flag&ERR_FRESUMENEXT))
-        --context.c_eip;
-   last_eip = context.c_eip;
-   if (!linker_findfde_consafe(context.c_eip,&finfo)) {
+        --context.c_pip;
+   last_pip = context.c_pip;
+   if (!linker_findfde_consafe(context.c_pip,&finfo)) {
+    PRINTF("End traceback: No frame at %p\n",context.c_pip);
  #if 0
     /* For the first entry, assume a standard unwind which can be used
      * to properly display tracebacks when execution tries to call a
      * NULL-function pointer. */
     if (!is_first) break;
-    if (context.c_esp >= (uintptr_t)PERTASK_GET(this_task.t_stackend)) {
+    if (context.c_psp >= (uintptr_t)PERTASK_GET(this_task.t_stackend)) {
      PRINTF("SP is out-of-bounds (%p not in %p...%p)\n",
-            context.c_esp,
+            context.c_psp,
            (uintptr_t)PERTASK_GET(this_task.t_stackmin),
            (uintptr_t)PERTASK_GET(this_task.t_stackend)-1);
      break;
     }
-    context.c_eip = *(u32 *)context.c_esp;
-    context.c_esp += 4;
+    context.c_pip = *(u32 *)context.c_psp;
+    context.c_psp += 4;
  #else
     break;
  #endif
@@ -876,10 +881,10 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
          void         *f_return;
      };
      struct frame *f;
-     f = (struct frame *)context.c_gpregs.gp_ebp;
-     context.c_eip           = (uintptr_t)f->f_return;
-     context.c_esp           = (uintptr_t)(f+1);
-     context.c_gpregs.gp_ebp = (uintptr_t)f->f_caller;
+     f = (struct frame *)context.c_gpregs.gp_pbp;
+     context.c_pip           = (uintptr_t)f->f_return;
+     context.c_psp           = (uintptr_t)(f+1);
+     context.c_gpregs.gp_pbp = (uintptr_t)f->f_caller;
  #else
      break;
  #endif

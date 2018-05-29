@@ -87,6 +87,7 @@
     <ClCompile Include="..\..\src\kernel\i386-kos\rtl.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\safecall.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\scheduler.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\segment.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\smp.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\syscall.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\sysenter.c" />
@@ -238,6 +239,7 @@
     <ClInclude Include="..\..\src\kernel\include\i386-kos\posix_signals.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\scheduler.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\sections.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\segment.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\smp.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\syscall.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\tss.h" />

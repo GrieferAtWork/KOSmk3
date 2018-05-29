@@ -147,6 +147,9 @@ INTDEF INITCALL void KCALL x86_fpu_initialize(void);
 #ifndef CONFIG_NO_X86_SYSENTER
 INTDEF INITCALL void KCALL x86_initialize_sysenter(void);
 #endif /* !CONFIG_NO_X86_SYSENTER */
+#ifdef __x86_64__
+INTDEF INITCALL void KCALL x86_fixup_fsgsbase(void);
+#endif
 INTDEF INITCALL void KCALL x86_load_cpuid(void);
 INTDEF INITCALL void KCALL x86_mem_relocate_info(void);
 INTDEF INITCALL void KCALL x86_mem_construct_zones(void);
@@ -163,23 +166,25 @@ INTDEF INITCALL void KCALL kernel_eval_commandline(void);
 INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
  debug_printf(FREESTR("[INIT] Hello!\n"));
 
-
  /* Load the kernel binary into the addr2line cache of `magic.dee' */
- debug_printf(FREESTR("%%{vload:%s}"),FREESTR(KERNEL_BIN_FILENAME));
+ debug_printf(FREESTR("%%{vload:%s}"),
+              FREESTR(KERNEL_BIN_FILENAME));
 
-
+#ifndef __x86_64__ /* X86_64 does this from assembly. */
  /* Initialize the PER-context object segments for the BOOT process. */
 #ifndef CONFIG_NO_SMP
  memcpy(boot_cpu_start,kernel_percpu_start,(size_t)kernel_percpu_size);
 #endif /* !CONFIG_NO_SMP */
  memcpy(boot_task_start,kernel_pertask_start,(size_t)kernel_pertask_size);
  memcpy(boot_vm_start,kernel_pervm_start,(size_t)kernel_pervm_size);
+#endif
 
  /* Mark the boot task as having started (which we couldn't do
   * until now because we still had to copy the pertask template
   * into the boot task TLS segment). */
  _boot_task.t_state |= TASK_STATE_FSTARTED;
 
+#ifndef __x86_64__
  /* Load the initial (boot) GDT. (now that it's been copied) */
  {
   struct x86_idt_pointer gdt;
@@ -199,31 +204,39 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
                        "    movw %w[r], %%fs\n"
                        "    movw %[gs], %w[r]\n"
                        "    movw %w[r], %%gs\n"
-#ifndef __x86_64__
                        "    ljmp %[cs], $1f\n"
                        "1:\n"
-#endif
                        "    movw %[tr], %w[r]\n"
                        "    ltr %w[r]\n"
                        : [r]  "=r" (temp)
                        : [ds] "i" (X86_KERNEL_DS)
                        , [fs] "i" (X86_SEG_FS)
                        , [gs] "i" (X86_SEG_GS)
-#ifndef __x86_64__
                        , [cs] "i" (X86_KERNEL_CS)
-#endif
                        , [tr] "i" (X86_SEG(X86_SEG_CPUTSS))
                        : "memory");
  }
+#endif
+
+ /* Initialize CPUID information. */
+ x86_load_cpuid();
+
+#ifdef __x86_64__
+ /* Fixup use of the (rd|wr)(fs|gs)base instructions, so we can
+  * start using them (or rather, their `safe_*' counterparts).
+  * What this means is, that if the hosting CPU doesn't support
+  * those instruction, we will replace all of their appearances
+  * with function class to wrappers that emulate their behavior
+  * using MSR instructions (which _must_ be supported to even
+  * get into long mode). */
+ x86_fixup_fsgsbase();
+#endif
 
  /* Initialize the interrupt handling subsystem. */
  x86_interrupt_initialize();
 
  /* Initialize some basic boot template components. */
  x86_scheduler_initialize();
-
- /* Initialize CPUID information. */
- x86_load_cpuid();
 
  /* Collect information about the host. */
  x86_configure_paging();

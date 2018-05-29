@@ -150,7 +150,7 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
    new_task->t_flags |= TASK_FVM86;
    vm_context   = (struct cpu_context_vm86 *)new_task->t_stackend-1;
    user_context = (struct cpu_hostcontext_user *)vm_context;
-   host_context = (struct cpu_context *)user_context-1;
+   host_context = (struct cpu_schedcontext *)((struct cpu_context *)user_context-1);
    new_task->t_context = (struct cpu_anycontext *)host_context;
    memset(host_context,0,
           sizeof(struct cpu_context)+

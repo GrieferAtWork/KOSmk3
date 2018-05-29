@@ -26,6 +26,13 @@
 
 DECL_BEGIN
 
+#ifdef CONFIG_BUILDING_KERNEL_CORE
+/* Access a physical memory pointer during early boot. */
+#define X86_EARLY_PHYS2VIRT(pptr) (pptr)
+#define X86_EARLY_VIRT2PHYS(pptr) (pptr)
+#endif
+
+
 #define VM_VPAGE_SIZE  4
 #define VM_PPAGE_SIZE  4
 #define VM_VIRT_SIZE   4

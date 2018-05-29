@@ -305,11 +305,27 @@ INTDEF void ASMCALL x86_load_segments_ecx(void);
 .endif
 .endm
 
+/* Same as `ireq_enter', but must be used for
+ * interrupt handler that take an exception code. */
+.macro irq_enter_errcode  do_sti=0
+    testb  $3, 16(%rsp)
+    jz     998f
+    swapgs
+998:
+.if \do_sti
+    /* Only re-enable interrupts when were enabled before. */
+    testw  $0x0200, 24(%rsp) /* EFLAGS_IF */
+    jz     998f
+    sti
+998:
+.endif
+.endm
+
 .macro irq_leave  do_cli=0
 .if \do_cli
     cli
 .endif
-    testq  $3, 8(%rsp)
+    testb  $3, 8(%rsp)
     jz     998f
     swapgs
 998:

@@ -168,6 +168,17 @@ __FORCELOCAL void (__writegsptr)(__UINTPTR_TYPE__ __offset, void *__val) { __wri
 
 
 #ifdef __x86_64__
+#ifdef __KERNEL__
+#include <i386-kos/segment.h>
+__FORCELOCAL __UINT32_TYPE__ (__rdfsbasel)(void) { register __UINT32_TYPE__ __result; __asm__("safe_rdfsbase %d0" : "=r" (__result)); return __result; }
+__FORCELOCAL __UINT32_TYPE__ (__rdgsbasel)(void) { register __UINT32_TYPE__ __result; __asm__("safe_rdgsbase %d0" : "=r" (__result)); return __result; }
+__FORCELOCAL void (__wrfsbasel)(__UINT32_TYPE__ __val) { __asm__("safe_wrfsbase %d0" : : "r" (__val)); }
+__FORCELOCAL void (__wrgsbasel)(__UINT32_TYPE__ __val) { __asm__("safe_wrgsbase %d0" : : "r" (__val)); }
+__FORCELOCAL __UINT64_TYPE__ (__rdfsbaseq)(void) { register __UINT64_TYPE__ __result; __asm__("safe_rdfsbase %0" : "=r" (__result)); return __result; }
+__FORCELOCAL __UINT64_TYPE__ (__rdgsbaseq)(void) { register __UINT64_TYPE__ __result; __asm__("safe_rdgsbase %0" : "=r" (__result)); return __result; }
+__FORCELOCAL void (__wrfsbaseq)(__UINT64_TYPE__ __val) { __asm__("safe_wrfsbase %0" : : "r" (__val)); }
+__FORCELOCAL void (__wrgsbaseq)(__UINT64_TYPE__ __val) { __asm__("safe_wrgsbase %0" : : "r" (__val)); }
+#else
 __FORCELOCAL __UINT32_TYPE__ (__rdfsbasel)(void) { register __UINT32_TYPE__ __result; __asm__("rdfsbase %d0" : "=r" (__result)); return __result; }
 __FORCELOCAL __UINT32_TYPE__ (__rdgsbasel)(void) { register __UINT32_TYPE__ __result; __asm__("rdgsbase %d0" : "=r" (__result)); return __result; }
 __FORCELOCAL void (__wrfsbasel)(__UINT32_TYPE__ __val) { __asm__("wrfsbase %d0" : : "r" (__val)); }
@@ -176,6 +187,7 @@ __FORCELOCAL __UINT64_TYPE__ (__rdfsbaseq)(void) { register __UINT64_TYPE__ __re
 __FORCELOCAL __UINT64_TYPE__ (__rdgsbaseq)(void) { register __UINT64_TYPE__ __result; __asm__("rdgsbase %0" : "=r" (__result)); return __result; }
 __FORCELOCAL void (__wrfsbaseq)(__UINT64_TYPE__ __val) { __asm__("wrfsbase %0" : : "r" (__val)); }
 __FORCELOCAL void (__wrgsbaseq)(__UINT64_TYPE__ __val) { __asm__("wrgsbase %0" : : "r" (__val)); }
+#endif
 __FORCELOCAL void (__swapgs)(void) { __asm__("swapgs"); }
 #endif
 #endif /* __CC__ */

@@ -31,6 +31,12 @@ DECL_BEGIN
 #define CONFIG_NO_GIGABYTE_PAGES 1
 #endif
 
+#ifdef CONFIG_BUILDING_KERNEL_CORE
+/* Access a physical memory pointer during early boot. */
+#define X86_EARLY_PHYS2VIRT(pptr) ((__typeof__(pptr))((uintptr_t)(pptr) + KERNEL_CORE_BASE))
+#define X86_EARLY_VIRT2PHYS(pptr) ((__typeof__(pptr))((uintptr_t)(pptr) - KERNEL_CORE_BASE))
+#endif
+
 
 #define VM_VPAGE_SIZE  8
 #define VM_PPAGE_SIZE  8
@@ -76,6 +82,7 @@ typedef PHYS u64 vm_phys_t;  /* A physical memory pointer. */
 /* Base address of where to load the kernel core into memory.
  * HINT: This address is located at -2GB */
 #define KERNEL_CORE_BASE  __UINT64_C(0xffffffff80000000)
+#define KERNEL_CORE_BASE_ASM         0xffffffff80000000
 #define KERNEL_CORE_SIZE  __UINT64_C(0x0000000080000000)
 
 #define ADDR_ISUSER(x)  ((__CCAST(uintptr_t)(x) & VM_ADDRMASK) < (KERNEL_BASE & VM_ADDRMASK))

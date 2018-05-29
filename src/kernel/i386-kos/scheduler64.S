@@ -103,12 +103,41 @@ INTERN_ENTRY(X86_IRQ_PIT)
 	.cfi_startproc simple
 	.cfi_signal_frame
 	.cfi_def_cfa %rsp,    5*8
-	.cfi_offset %eflags, -3*8
+	.cfi_offset %rflags, -3*8
 	.cfi_offset %rip,    -5*8
 	irq_enter
 
-	/* Save general-purpose registers. */
+	subq    $16, %rsp /* Reserve memory for segment registers. */
+	.cfi_adjust_cfa_offset 16
+
 	pushq_cfi_r  %rax
+
+	/* Move the IRET tail and fixup segment registers.
+	 * NOTE: After this, we must hide the additional registers
+	 *       from the CFI signal frame, because the CFA must
+	 *       point at the tail of the (moved) IIREGS data block. */
+#define OLD_IRET_OFFSET  (3*8)
+#define NEW_IRET_OFFSET  (1*8)
+	movq    OLD_IRET_OFFSET + 0(%rsp), %rax  /* RIP */
+	movq    %rax, NEW_IRET_OFFSET + 0(%rsp)
+	.cfi_rel_offset %rip,    NEW_IRET_OFFSET + 0
+	movq    OLD_IRET_OFFSET + 8(%rsp), %rax  /* CS */
+	movq    %rax, NEW_IRET_OFFSET + 8(%rsp)
+	movq    OLD_IRET_OFFSET + 16(%rsp), %rax /* RFLAGS */
+	movq    %rax, NEW_IRET_OFFSET + 16(%rsp)
+	.cfi_rel_offset %rflags, NEW_IRET_OFFSET + 16
+	movq    OLD_IRET_OFFSET + 24(%rsp), %rax /* RSP */
+	movq    %rax, NEW_IRET_OFFSET + 24(%rsp)
+	movq    OLD_IRET_OFFSET + 32(%rsp), %rax /* SS */
+	movq    %rax, NEW_IRET_OFFSET + 32(%rsp)
+	.cfi_def_cfa    %rsp,    6*8
+	.cfi_rel_offset %rax,    0*8
+	.cfi_rel_offset %rip,    1*8
+	.cfi_rel_offset %rflags, 3*8
+#undef NEW_IRET_OFFSET
+#undef OLD_IRET_OFFSET
+
+	/* Save general-purpose registers. */
 	pushq_cfi_r  %rcx
 	pushq_cfi_r  %rdx
 	pushq_cfi_r  %rbx
@@ -124,6 +153,8 @@ INTERN_ENTRY(X86_IRQ_PIT)
 	pushq_cfi_r  %r14
 	pushq_cfi_r  %r15
 
+
+
 	/* Acknowledge the interrupt. */
 INTERN_ENTRY(x86_pic_acknowledge)
 	movq x86_lapic_base_address, %rax
@@ -131,7 +162,7 @@ INTERN_ENTRY(x86_pic_acknowledge)
 //	.byte   0xa1
 //	.long   x86_lapic_base_address
 
-	movl $APIC_EOI_FSIGNAL, APIC_EOI(%rax)
+	movl    $APIC_EOI_FSIGNAL, APIC_EOI(%rax)
 //	/* movl $APIC_EOI_FSIGNAL, APIC_EOI(%eax) */
 //	.byte   0xc7
 //	.byte   0x80
@@ -464,7 +495,7 @@ SYMEND(x86_load_context)
 	.cfi_startproc simple
 	.cfi_signal_frame
 	.cfi_def_cfa %rsp,    5*8
-	.cfi_offset %eflags, -3*8
+	.cfi_offset %rflags, -3*8
 	.cfi_offset %rip,    -5*8
 	nop /* Keep this here for the sake of tracebacks. */
 INTERN_ENTRY(x86_redirect_preemption)

@@ -192,9 +192,9 @@ INTERN_ENTRY(libc_error_throw_current)
 	movq   %rax, %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_RIP
 	movq   %rsp, %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_RSP
 #ifndef __KERNEL__
-	rdgsbase %rcx
+	rdgsbaseq %rcx
 	movq   %rcx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS64_OFFSETOF_GSBASE
-	rdfsbase %rcx
+	rdfsbaseq %rcx
 	movq   %rcx, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS64_OFFSETOF_FSBASE
 #endif
 #ifdef __KERNEL__

@@ -81,7 +81,15 @@ findfde_again:
   if (vm_release_read(effective_vm))
       goto findfde_again;
  }
- if (!app) return false;
+ if (!app) {
+  /* Early during booting, before the kernel app has been cached,
+   * we still want to be able to unwind the stack if something goes
+   * wrong. So even when the kernel-app hasn't been loaded, still
+   * try to read from the kernel's FDE table. */
+  if (effective_vm != &vm_kernel)
+      return false;
+  return kernel_eh_findfde(ip,result);
+ }
  TRY {
   if (!module_loadexcept(app) &&
       !app->a_module->m_sect.m_eh_frame.ds_size)
@@ -148,7 +156,12 @@ findexcept_again:
   if (vm_release_read(effective_vm))
       goto findexcept_again;
  }
- if (!app) return false;
+ if (!app) {
+  /* Same reason as with FDE: The kernel app may not have been loaded, yet. */
+  if (effective_vm != &vm_kernel)
+      return false;
+  return kernel_findexcept(ip,exception_code,result);
+ }
  TRY {
   except_ok = false;
   if (module_loadexcept(app) ||
@@ -182,13 +195,17 @@ except_findfde(uintptr_t ip, struct fde_info *__restrict result) {
    vm_acquire(effective_vm);
   } else {
    /* Can only search the kernel itself. */
+search_kernel:
    if (effective_vm != &vm_kernel)
        return false;
    return kernel_eh_findfde(ip,result);
   }
  }
  node = vm_getnode(VM_ADDR2PAGE(ip));
- if (!node) { COMPILER_UNUSED(vm_release_any(effective_vm)); return false; }
+ if (!node) {
+  COMPILER_UNUSED(vm_release_any(effective_vm));
+  goto search_kernel;
+ }
  if (node->vn_notify == &application_notify) {
   REF struct application *app; struct module *mod;
   app = (REF struct application *)node->vn_closure;
@@ -250,6 +267,7 @@ except_findexcept(uintptr_t ip, u16 exception_code,
    vm_acquire(effective_vm);
   } else {
    /* Can only search the kernel itself. */
+search_kernel:
    if (effective_vm != &vm_kernel)
        return false;
    return kernel_findexcept(ip,exception_code,result);
@@ -258,7 +276,7 @@ except_findexcept(uintptr_t ip, u16 exception_code,
  node = vm_getnode(VM_ADDR2PAGE(ip));
  if (!node || node->vn_notify != &application_notify) {
   COMPILER_UNUSED(vm_release_any(effective_vm));
-  return false;
+  goto search_kernel;
  }
  app = (REF struct application *)node->vn_closure;
  application_incref(app);
