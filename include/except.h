@@ -154,6 +154,7 @@ __LIBC __EXCEPT_NORETURN void (__FCALL error_throw)(except_t __code);
  *   (except_t code = E_EXIT_THREAD, int e_status);
  *   (except_t code = E_EXIT_PROCESS, int e_status);
  *   (except_t code = E_INVALID_SEGMENT, unsigned int is_register, unsigned int is_segment);
+ *   (except_t code = E_NOT_EXECUTABLE, unsigned int ne_errcode);
  * All other codes are thrown without additional arguments,
  * meaning the same way the functions above are thrown. */
 __LIBC __BOOL (__ATTR_CDECL error_throw_resumablef)(except_t __code, ...);

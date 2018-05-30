@@ -908,5 +908,8 @@
     <ClInclude Include="..\..\src\kernel\include\i386-kos\vm86-soft.h">
       <Filter>kernel\include\i386-kos</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\elf-reloc.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

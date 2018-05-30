@@ -24,16 +24,31 @@
 
 DECL_BEGIN
 
+#undef CONFIG_ELF_USING_RELA
+#undef CONFIG_ELF_SUPPORT_CLASS3264
 #ifdef __x86_64__
 #define EM_HOST  EM_X86_64
+#define ELF_HEADER_SUPPORTED(x) \
+ ((x).e_ident[EI_DATA] == ELFDATA2LSB && \
+ (((x).e_ident[EI_CLASS] == ELFCLASS64 && (x).e_machine == EM_X86_64) || \
+  ((x).e_ident[EI_CLASS] == ELFCLASS32 && (x).e_machine == EM_386)))
+
+/* Given a machine code, return indicative of that machine being 32-bit, or 64-bit */
+#define ELF_ISMACHINE32(x) ((x) == EM_386)
+#define ELF_ISMACHINE64(x) ((x) == EM_X86_64)
+
+/* On x86_64, we must support both 32-bit and 64-bit ELF objects.
+ * NOTE: This option can only be defined when the preferred class is 64-bit! */
+#define CONFIG_ELF_SUPPORT_CLASS3264 1
+
+#define CONFIG_ELF_USING_RELA 1
 #else
 #define EM_HOST  EM_386
+#define ELF_HEADER_SUPPORTED(x) \
+ ((x).e_ident[EI_DATA] == ELFDATA2LSB && \
+ ((x).e_ident[EI_CLASS] == ELFCLASS32 && (x).e_machine == EM_386))
 #endif
 
-#undef CONFIG_ELF_USING_RELA
-#ifdef __x86_64__
-#define CONFIG_ELF_USING_RELA 1
-#endif
 
 #ifdef __x86_64__
 #define R_NONE      R_X86_64_NONE
@@ -64,6 +79,7 @@ DECL_BEGIN
 #endif
 
 typedef uintptr_t Elf_RelValue;
+
 
 
 DECL_END

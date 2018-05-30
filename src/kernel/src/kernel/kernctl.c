@@ -86,7 +86,7 @@ kernel_control(syscall_ulong_t command, syscall_ulong_t arg0,
                    (struct inode **)&node,FS_MODE_FNORMAL);
   TRY {
    if (!INODE_ISREG(&node->re_node))
-        error_throw(E_NOT_EXECUTABLE);
+        error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_NOTFILE);
    /* Open a module under that path. */
    mod = module_open(node,modpath);
   } FINALLY {

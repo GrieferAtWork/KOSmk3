@@ -464,7 +464,7 @@ rT *(__LIBCCALL name)(rT const *__haystack, nT __needle, __SIZE_TYPE__ n) { \
                          "    jz 1f\n" \
                          "    repne; scas" width "\n" \
                          "    jne 1f\n" \
-                         "    " dec " %%edi\n" \
+                         "    " dec " %%rdi\n" \
                          "1:\n" \
                          __ASM_LEAVE_CLD \
                          : "=D" (__result), "+c" (n) \
@@ -507,7 +507,7 @@ __DEFINE_MEMEND(__asm_memendq,n_qwords,__UINT64_TYPE__,__UINT64_TYPE__,__UINT64_
 #define __DEFINE_MEMLEN(name,n,rT,nT,T,alt) \
 __FORCELOCAL __ATTR_PURE __NONNULL((1)) \
 __SIZE_TYPE__ (__LIBCCALL name)(rT const *__haystack, nT __needle, __SIZE_TYPE__ n) { \
-    return (T *)alt(__haystack,__needle,n) - (T *)__haystack; \
+    return (__SIZE_TYPE__)((T *)alt(__haystack,__needle,n) - (T *)__haystack); \
 }
 #define __asm_memlen(haystack,needle,n_bytes)   __asm_memlen(haystack,needle,n_bytes)
 __DEFINE_MEMLEN(__asm_memlen,n_bytes,void,int,__BYTE_TYPE__,__asm_memend)

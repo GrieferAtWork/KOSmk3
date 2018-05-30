@@ -156,6 +156,7 @@ libc_error_setf(except_t code, va_list args) {
 
  case E_FILESYSTEM_ERROR:
  case E_NET_ERROR:
+ case E_NOT_EXECUTABLE:
   info->e_error.e_filesystem_error.fs_errcode = (u16)va_arg(args,unsigned int);
   break;
 

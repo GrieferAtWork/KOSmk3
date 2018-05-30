@@ -145,6 +145,7 @@ struct module_type {
      *   - m_imagemin
      *   - m_imageend
      *   - m_entry
+     *   - m_machine
      *   - m_flags (Optionally; pre-initialized to `MODULE_FNORMAL')
      *   - m_data (Optionally; pre-initialized to `NULL')
      * @assume(mod->m_type   == self);
@@ -222,12 +223,12 @@ struct fde_cache {
 
 struct except_info_cache; /* Defined in `<unwind/linker.h>' */
 struct except_cache {
-    atomic_rwlock_t           ec_lock;   /* The lock of this cache. */
-    struct except_info_cache *ec_tree;   /* [0..1][lock(ec_lock)][owned] The head of this EXCEPT cache tree. */
+    atomic_rwlock_t               ec_lock;   /* The lock of this cache. */
+    struct except_info_cache     *ec_tree;   /* [0..1][lock(ec_lock)][owned] The head of this EXCEPT cache tree. */
     /* The LEVEL0 and SEMI0 are lazily calculated the first time a cache node is saved (hence the `WRITE_ONCE').
      * Their values are calculated to best fit the max address range potentially mapped by `m_imagemin...m_imageend'. */
-    unsigned int              ec_level0; /* [lock(ec_lock,WRITE_ONCE)] The initial level when searching for cached EXCEPT entries. */
-    image_rva_t               ec_semi0;  /* [lock(ec_lock,WRITE_ONCE)] The initial semi when searching for cached EXCEPT entries. */
+    unsigned int                  ec_level0; /* [lock(ec_lock,WRITE_ONCE)] The initial level when searching for cached EXCEPT entries. */
+    image_rva_t                   ec_semi0;  /* [lock(ec_lock,WRITE_ONCE)] The initial semi when searching for cached EXCEPT entries. */
 };
 
 
@@ -258,11 +259,13 @@ struct module {
     size_t                        m_tlsalign;  /* [const][valid_if(m_tlsmin != m_tlsend)]
                                                 * Alignment requirements of the module's TLS segment. */
     u16                           m_flags;     /* Module flags (Set of `MODULE_F*') */
+    u16                           m_machine;   /* [const] The machine architecture needed to run this module.
+                                                * On most hosts, only 1 architecture is allowed, however if
+                                                * the host supports more than 1 instruction set, this field
+                                                * describes the execution context required when executing the
+                                                * module. (One of `EM_*' from <elf.h>) */
+    u16                           m_pad;       /* ... */
     u16                           m_recent;    /* [INTERNAL] How often has this module been used recently. */
-#if __SIZEOF_POINTER__ > 4
-    u16                           m_pad[(sizeof(void *)-4)/2];
-#endif
-
     struct module_data           *m_data;      /* [0..?] Module type-specific data (pre-initialized to NULL) */
     struct {
         struct dl_section         m_except;    /* The `.except' section (NOTE: You can assume that this section has `SHF_ALLOC' set if it exists).

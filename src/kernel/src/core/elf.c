@@ -43,16 +43,40 @@
 
 #if defined(__i386__) || defined(__x86_64__)
 #include <i386-kos/elf.h>
+#include <i386-kos/elf-reloc.h>
 #else
 #error "Unsupported architecture"
 #endif
 
 DECL_BEGIN
 
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+#if (ELFCLASS != ELFCLASS64) || (__SIZEOF_POINTER__ <= 4)
+#error "CONFIG_ELF_SUPPORT_CLASS3264 can only be used if the preferred host is a 64-bit host"
+#endif
+#endif
+
 #ifdef CONFIG_ELF_USING_RELA
 #define RELINFO_COUNT 3
 #else
 #define RELINFO_COUNT 2
+#endif
+
+#ifndef ELF_HEADER_SUPPORTED
+#ifndef EM_HOST
+#error "Arch must either define `EM_HOST' or `ELF_HEADER_SUPPORTED(x)'"
+#endif
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define ELF_HEADER_SUPPORTED(x) \
+ ((x).e_ident[EI_DATA] == ELFDATA2LSB && \
+  (x).e_ident[EI_CLASS] == ELFCLASS && \
+  (x).e_machine == EM_HOST)
+#else
+#define ELF_HEADER_SUPPORTED(x) \
+ ((x).e_ident[EI_DATA] == ELFDATA2MSB && \
+  (x).e_ident[EI_CLASS] == ELFCLASS && \
+  (x).e_machine == EM_HOST)
+#endif
 #endif
 
 
@@ -172,14 +196,29 @@ Elf_LoadSections(struct module *__restrict self) {
                               GFP_SHARED|GFP_CALLOC);
  TRY {
   /* Read section header data from disk. */
-  inode_kreadall(&self->m_fsloc->re_node,vector,
-                  mod->e_shnum*sizeof(Elf_Shdr),
-                  mod->e_shoff,IO_RDONLY);
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+  if (ELF_ISMACHINE32(self->m_machine)) {
+   unsigned int i;
+   inode_kreadall(&self->m_fsloc->re_node,vector,
+                   mod->e_shnum*sizeof(Elf32_Shdr),
+                   mod->e_shoff,IO_RDONLY);
+   i = mod->e_shnum;
+   while (i--) {
+    Elf32_Shdr hdr;
+    memcpy(&hdr,&((Elf32_Shdr *)vector)[i],sizeof(Elf32_Phdr));
+    ELF_SHDR32TO64(vector[i],hdr);
+   }
+  } else
+#endif
+  {
+   inode_kreadall(&self->m_fsloc->re_node,vector,
+                   mod->e_shnum*sizeof(Elf_Shdr),
+                   mod->e_shoff,IO_RDONLY);
+  }
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   kfree(vector);
   error_rethrow();
  }
-
  /* Save the section vector, WRITE_ONCE-style. */
  if (!ATOMIC_CMPXCH(mod->e_shdr,NULL,vector))
       kfree(vector);
@@ -274,6 +313,13 @@ typedef struct {
     Elf_Word ht_nchains;
 } Elf_HashTable;
 
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+typedef struct {
+    Elf32_Word ht_nbuckts;
+    Elf32_Word ht_nchains;
+} Elf32_HashTable;
+#endif
+
 LOCAL void KCALL
 Elf_LoadDynamic(ElfModule *__restrict self,
                 struct module *__restrict mod,
@@ -299,15 +345,44 @@ Elf_LoadDynamic(ElfModule *__restrict self,
   self->e_dyn.di_symsiz             = (Elf_Word)-1;
   self->e_dyn.di_name               = (Elf_String)-1;
   self->e_dyn.di_runpath            = (Elf_String)-1;
-  self->e_dyn.di_syment             = sizeof(Elf_Sym);
-  self->e_dyn.di_reloc[0].ri_relent = sizeof(Elf_Rel);
-  self->e_dyn.di_reloc[1].ri_relent = sizeof(Elf_Rel);
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+  if (ELF_ISMACHINE32(mod->m_machine)) {
+   self->e_dyn.di_syment             = sizeof(Elf32_Sym);
+   self->e_dyn.di_reloc[0].ri_relent = sizeof(Elf32_Rel);
+   self->e_dyn.di_reloc[1].ri_relent = sizeof(Elf32_Rel);
 #ifdef CONFIG_ELF_USING_RELA
-  self->e_dyn.di_reloc[2].ri_relent = sizeof(Elf_Rela);
+   self->e_dyn.di_reloc[2].ri_relent = sizeof(Elf32_Rela);
 #endif
+  } else
+#endif
+  {
+   self->e_dyn.di_syment             = sizeof(Elf_Sym);
+   self->e_dyn.di_reloc[0].ri_relent = sizeof(Elf_Rel);
+   self->e_dyn.di_reloc[1].ri_relent = sizeof(Elf_Rel);
+#ifdef CONFIG_ELF_USING_RELA
+   self->e_dyn.di_reloc[2].ri_relent = sizeof(Elf_Rela);
+#endif
+  }
 
-  for (; dyn < (Elf_Dyn *)end; ++dyn) {
-   switch (dyn->d_tag) {
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+  for (; dyn < (Elf_Dyn *)end; *(byte_t **)&dyn +=
+       ELF_ISMACHINE32(mod->m_machine) ? sizeof(Elf32_Dyn)
+                                       : sizeof(Elf64_Dyn))
+#else
+  for (; dyn < (Elf_Dyn *)end; ++dyn)
+#endif
+  {
+   Elf_Dyn tag;
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+   if (ELF_ISMACHINE32(mod->m_machine)) {
+    ELF_DYN32TO64(tag,*(Elf32_Dyn *)dyn);
+   } else
+#endif
+   {
+    memcpy(&tag,dyn,sizeof(Elf_Dyn));
+   }
+
+   switch (tag.d_tag) {
 
    case DT_NULL:
     /* Sentinel-style terminator. */
@@ -320,11 +395,18 @@ Elf_LoadDynamic(ElfModule *__restrict self,
     tagaddr = (image_rva_t)((uintptr_t)dyn - loadaddr);
     if (self->e_dyn.di_needmin > tagaddr)
         self->e_dyn.di_needmin = tagaddr;
-    self->e_dyn.di_needend = tagaddr+sizeof(Elf_Dyn);
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+    if (ELF_ISMACHINE32(mod->m_machine)) {
+     self->e_dyn.di_needend = tagaddr+sizeof(Elf32_Dyn);
+    } else
+#endif
+    {
+     self->e_dyn.di_needend = tagaddr+sizeof(Elf_Dyn);
+    }
    } break;
 
    case DT_HASH:
-    self->e_dyn.di_hashtab = dyn->d_un.d_ptr;
+    self->e_dyn.di_hashtab = tag.d_un.d_ptr;
     /* Load basic information from the hash-table (if it exists). */
     if (self->e_dyn.di_hashtab >= image_end)
      self->e_dyn.di_hashsiz = 0;
@@ -339,32 +421,32 @@ Elf_LoadDynamic(ElfModule *__restrict self,
     }
     break;
 
-   case DT_STRTAB:   self->e_dyn.di_strtab  = dyn->d_un.d_ptr; break;
-   case DT_SYMTAB:   self->e_dyn.di_symtab  = dyn->d_un.d_ptr; break;
-   case DT_STRSZ:    self->e_dyn.di_strsiz  = dyn->d_un.d_val; break;
-   case DT_SYMENT:   self->e_dyn.di_syment  = dyn->d_un.d_val; break;
-   case DT_INIT:     self->e_dyn.di_init    = dyn->d_un.d_ptr; break;
-   case DT_FINI:     self->e_dyn.di_fini    = dyn->d_un.d_ptr; break;
-   case DT_SONAME:   self->e_dyn.di_name    = dyn->d_un.d_val; break;
+   case DT_STRTAB:   self->e_dyn.di_strtab  = tag.d_un.d_ptr; break;
+   case DT_SYMTAB:   self->e_dyn.di_symtab  = tag.d_un.d_ptr; break;
+   case DT_STRSZ:    self->e_dyn.di_strsiz  = tag.d_un.d_val; break;
+   case DT_SYMENT:   self->e_dyn.di_syment  = tag.d_un.d_val; break;
+   case DT_INIT:     self->e_dyn.di_init    = tag.d_un.d_ptr; break;
+   case DT_FINI:     self->e_dyn.di_fini    = tag.d_un.d_ptr; break;
+   case DT_SONAME:   self->e_dyn.di_name    = tag.d_un.d_val; break;
    case DT_SYMBOLIC: self->e_dyn.di_flags  |= DYN_FSYMBOLIC; break;
 
 #ifdef CONFIG_ELF_USING_RELA
-   case DT_RELA:     self->e_dyn.di_rel.r_rela.ri_rel    = dyn->d_un.d_ptr; break;
-   case DT_RELASZ:   self->e_dyn.di_rel.r_rela.ri_relsiz = dyn->d_un.d_val; break;
-   case DT_RELAENT:  self->e_dyn.di_rel.r_rela.ri_relent = dyn->d_un.d_val;
+   case DT_RELA:     self->e_dyn.di_rel.r_rela.ri_rel    = tag.d_un.d_ptr; break;
+   case DT_RELASZ:   self->e_dyn.di_rel.r_rela.ri_relsiz = tag.d_un.d_val; break;
+   case DT_RELAENT:  self->e_dyn.di_rel.r_rela.ri_relent = tag.d_un.d_val;
                      if (self->e_dyn.di_flags&DYN_FRELAJMP)
-                         self->e_dyn.di_rel.r_jmp.ri_relent = dyn->d_un.d_val;
+                         self->e_dyn.di_rel.r_jmp.ri_relent = tag.d_un.d_val;
                      break;
 #endif
-   case DT_REL:      self->e_dyn.di_rel.r_rel.ri_rel    = dyn->d_un.d_ptr; break;
-   case DT_RELSZ:    self->e_dyn.di_rel.r_rel.ri_relsiz = dyn->d_un.d_val; break;
-   case DT_RELENT:   self->e_dyn.di_rel.r_rel.ri_relent = dyn->d_un.d_val; break;
-   case DT_PLTGOT:   self->e_dyn.di_pltgot              = dyn->d_un.d_ptr; break;
-   case DT_JMPREL:   self->e_dyn.di_rel.r_jmp.ri_rel    = dyn->d_un.d_ptr; break;
-   case DT_PLTRELSZ: self->e_dyn.di_rel.r_jmp.ri_relsiz = dyn->d_un.d_val; break;
+   case DT_REL:      self->e_dyn.di_rel.r_rel.ri_rel    = tag.d_un.d_ptr; break;
+   case DT_RELSZ:    self->e_dyn.di_rel.r_rel.ri_relsiz = tag.d_un.d_val; break;
+   case DT_RELENT:   self->e_dyn.di_rel.r_rel.ri_relent = tag.d_un.d_val; break;
+   case DT_PLTGOT:   self->e_dyn.di_pltgot              = tag.d_un.d_ptr; break;
+   case DT_JMPREL:   self->e_dyn.di_rel.r_jmp.ri_rel    = tag.d_un.d_ptr; break;
+   case DT_PLTRELSZ: self->e_dyn.di_rel.r_jmp.ri_relsiz = tag.d_un.d_val; break;
 #ifdef CONFIG_ELF_USING_RELA
    case DT_PLTREL:
-    if (dyn->d_un.d_val == DT_RELA) {
+    if (tag.d_un.d_val == DT_RELA) {
      self->e_dyn.di_flags              |= DYN_FRELAJMP;
      self->e_dyn.di_rel.r_jmp.ri_relent = self->e_dyn.di_rel.r_rela.ri_relent;
     }
@@ -375,28 +457,28 @@ Elf_LoadDynamic(ElfModule *__restrict self,
 #endif
    case DT_TEXTREL:         self->e_dyn.di_flags |= DYN_FTEXTREL; break;
    case DT_DEBUG:           self->e_dyn.di_flags |= DYN_FDEBUG; break;
-   case DT_INIT_ARRAY:      self->e_dyn.di_init_array = dyn->d_un.d_ptr; break;
-   case DT_FINI_ARRAY:      self->e_dyn.di_fini_array = dyn->d_un.d_ptr; break;
-   case DT_INIT_ARRAYSZ:    self->e_dyn.di_init_array_siz = dyn->d_un.d_val; break;
-   case DT_FINI_ARRAYSZ:    self->e_dyn.di_fini_array_siz = dyn->d_un.d_val; break;
-   case DT_PREINIT_ARRAY:   self->e_dyn.di_preinit_array = dyn->d_un.d_ptr; break;
-   case DT_PREINIT_ARRAYSZ: self->e_dyn.di_preinit_array_siz = dyn->d_un.d_val; break;
+   case DT_INIT_ARRAY:      self->e_dyn.di_init_array = tag.d_un.d_ptr; break;
+   case DT_FINI_ARRAY:      self->e_dyn.di_fini_array = tag.d_un.d_ptr; break;
+   case DT_INIT_ARRAYSZ:    self->e_dyn.di_init_array_siz = tag.d_un.d_val; break;
+   case DT_FINI_ARRAYSZ:    self->e_dyn.di_fini_array_siz = tag.d_un.d_val; break;
+   case DT_PREINIT_ARRAY:   self->e_dyn.di_preinit_array = tag.d_un.d_ptr; break;
+   case DT_PREINIT_ARRAYSZ: self->e_dyn.di_preinit_array_siz = tag.d_un.d_val; break;
 
    case DT_BIND_NOW: self->e_dyn.di_flags |= DYN_FBINDNOW; break;
    case DT_FLAGS:
-    if (dyn->d_un.d_val & DF_SYMBOLIC)   self->e_dyn.di_flags |= DYN_FSYMBOLIC;
-    if (dyn->d_un.d_val & DF_TEXTREL)    self->e_dyn.di_flags |= DYN_FTEXTREL;
-    if (dyn->d_un.d_val & DF_BIND_NOW)   self->e_dyn.di_flags |= DYN_FBINDNOW;
-    if (dyn->d_un.d_val & DF_STATIC_TLS) self->e_dyn.di_flags |= DYN_FSTATICTLS;
+    if (tag.d_un.d_val & DF_SYMBOLIC)   self->e_dyn.di_flags |= DYN_FSYMBOLIC;
+    if (tag.d_un.d_val & DF_TEXTREL)    self->e_dyn.di_flags |= DYN_FTEXTREL;
+    if (tag.d_un.d_val & DF_BIND_NOW)   self->e_dyn.di_flags |= DYN_FBINDNOW;
+    if (tag.d_un.d_val & DF_STATIC_TLS) self->e_dyn.di_flags |= DYN_FSTATICTLS;
     break;
 
    case DT_RPATH:
     if (!(self->e_dyn.di_flags&DYN_FNORUNPATH))
-           self->e_dyn.di_runpath = dyn->d_un.d_val;
+           self->e_dyn.di_runpath = tag.d_un.d_val;
     break;
    case DT_RUNPATH:
     /* Library search path when scanning for dependencies. */
-    self->e_dyn.di_runpath = dyn->d_un.d_val;
+    self->e_dyn.di_runpath = tag.d_un.d_val;
     self->e_dyn.di_flags |= (DYN_FNORUNPATH);
     break;
 
@@ -443,22 +525,44 @@ no_symbols:
   }
   if (!self->e_dyn.di_symsiz)
        self->e_dyn.di_hashsiz = 0; /* Without a symbol table, there can be no hash-table. */
-  if ((self->e_dyn.di_rel.r_rel.ri_relent < sizeof(Elf_Rel)) ||
-      (self->e_dyn.di_rel.r_rel.ri_relent > self->e_dyn.di_rel.r_rel.ri_relsiz))
-       self->e_dyn.di_rel.r_rel.ri_relsiz = 0;
-  if ((self->e_dyn.di_rel.r_jmp.ri_relent < sizeof(Elf_Rel)) ||
-      (self->e_dyn.di_rel.r_jmp.ri_relent > self->e_dyn.di_rel.r_jmp.ri_relsiz)
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+  if (ELF_ISMACHINE32(mod->m_machine)) {
+   if ((self->e_dyn.di_rel.r_rel.ri_relent < sizeof(Elf32_Rel)) ||
+       (self->e_dyn.di_rel.r_rel.ri_relent > self->e_dyn.di_rel.r_rel.ri_relsiz))
+        self->e_dyn.di_rel.r_rel.ri_relsiz = 0;
+   if ((self->e_dyn.di_rel.r_jmp.ri_relent < sizeof(Elf32_Rel)) ||
+       (self->e_dyn.di_rel.r_jmp.ri_relent > self->e_dyn.di_rel.r_jmp.ri_relsiz)
 #ifdef CONFIG_ELF_USING_RELA
-      || ((self->e_dyn.di_flags & DYN_FRELAJMP) &&
-           self->e_dyn.di_rel.r_jmp.ri_relent < sizeof(Elf_Rela))
+       || ((self->e_dyn.di_flags & DYN_FRELAJMP) &&
+            self->e_dyn.di_rel.r_jmp.ri_relent < sizeof(Elf32_Rela))
 #endif
-      )
-       self->e_dyn.di_rel.r_jmp.ri_relsiz = 0;
+       )
+        self->e_dyn.di_rel.r_jmp.ri_relsiz = 0;
 #ifdef CONFIG_ELF_USING_RELA
-  if ((self->e_dyn.di_rel.r_rela.ri_relent < sizeof(Elf_Rela)) ||
-      (self->e_dyn.di_rel.r_rela.ri_relent > self->e_dyn.di_rel.r_rela.ri_relsiz))
-       self->e_dyn.di_rel.r_rela.ri_relsiz = 0;
+   if ((self->e_dyn.di_rel.r_rela.ri_relent < sizeof(Elf32_Rela)) ||
+       (self->e_dyn.di_rel.r_rela.ri_relent > self->e_dyn.di_rel.r_rela.ri_relsiz))
+        self->e_dyn.di_rel.r_rela.ri_relsiz = 0;
 #endif
+  } else
+#endif
+  {
+   if ((self->e_dyn.di_rel.r_rel.ri_relent < sizeof(Elf_Rel)) ||
+       (self->e_dyn.di_rel.r_rel.ri_relent > self->e_dyn.di_rel.r_rel.ri_relsiz))
+        self->e_dyn.di_rel.r_rel.ri_relsiz = 0;
+   if ((self->e_dyn.di_rel.r_jmp.ri_relent < sizeof(Elf_Rel)) ||
+       (self->e_dyn.di_rel.r_jmp.ri_relent > self->e_dyn.di_rel.r_jmp.ri_relsiz)
+#ifdef CONFIG_ELF_USING_RELA
+       || ((self->e_dyn.di_flags & DYN_FRELAJMP) &&
+            self->e_dyn.di_rel.r_jmp.ri_relent < sizeof(Elf_Rela))
+#endif
+       )
+        self->e_dyn.di_rel.r_jmp.ri_relsiz = 0;
+#ifdef CONFIG_ELF_USING_RELA
+   if ((self->e_dyn.di_rel.r_rela.ri_relent < sizeof(Elf_Rela)) ||
+       (self->e_dyn.di_rel.r_rela.ri_relent > self->e_dyn.di_rel.r_rela.ri_relsiz))
+        self->e_dyn.di_rel.r_rela.ri_relsiz = 0;
+#endif
+  }
   if (self->e_dyn.di_name >= self->e_dyn.di_strsiz)
       self->e_dyn.di_name = self->e_dyn.di_strsiz;
   if (self->e_dyn.di_runpath >= self->e_dyn.di_strsiz)
@@ -503,6 +607,9 @@ Application_AllocateStaticTLSSegment(struct application *__restrict app) {
   struct module *mod = app->a_module;
   TRY {
    /* Allocate a static TLS segment for the application. */
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+   /* XXX: Special handling? */
+#endif
    app->a_tlsoff = tls_alloc((void *)(app->a_loadaddr +
                                       mod->m_tlsmin),
                               mod->m_tlstplsz,
@@ -603,7 +710,7 @@ Elf_NewApplication(struct module_patcher *__restrict self) {
     if unlikely((uintptr_t)dynend < (uintptr_t)dynbegin ||
                 (uintptr_t)dynbegin < image_min ||
                 (uintptr_t)dynend > image_end)
-       error_throw(E_NOT_EXECUTABLE);
+       error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_BADDYNAMIC);
     /* Load dynamic linkage information the first time around. */
     if (!(mod->e_flags & ELFMODULE_FDYNLOADED)) {
      Elf_LoadDynamic(mod,app->a_module,dynbegin,dynend,
@@ -616,6 +723,9 @@ Elf_NewApplication(struct module_patcher *__restrict self) {
      char *strtab = (char *)(loadaddr + mod->e_dyn.di_strtab);
      iter = (Elf_Dyn *)(loadaddr + mod->e_dyn.di_needmin);
      end  = (Elf_Dyn *)(loadaddr + mod->e_dyn.di_needend);
+     /* Set the alternative module run path according to what the ELF binary wants. */
+     if (mod->e_dyn.di_runpath < mod->e_dyn.di_strsiz)
+         patcher_setaltpath(self,strtab + mod->e_dyn.di_runpath);
      for (; iter < end; ++iter) {
       char *name = strtab + iter->d_un.d_ptr;
       if (iter->d_tag != DT_NEEDED) continue;
@@ -682,6 +792,13 @@ make_readonly(ElfModule *__restrict mod, uintptr_t loadaddr,
  }
 }
 
+PRIVATE bool ignore_elf_type = false;
+PRIVATE bool ignore_elf_reloc = false;
+DEFINE_DRIVER_BOOL(ignore_elf_type,"elf-ignore-type");
+DEFINE_DRIVER_BOOL(ignore_elf_reloc,"elf-ignore-bad-reloc");
+
+
+
 
 PRIVATE void KCALL
 Elf_PatchApplication(struct module_patcher *__restrict self) {
@@ -699,352 +816,135 @@ Elf_PatchApplication(struct module_patcher *__restrict self) {
 #else
  byte_t *image_min = (byte_t *)APPLICATION_MAPMIN(app);
 #endif
- /* Set the alternative module run path according to what the ELF binary wants. */
- if (mod->e_dyn.di_runpath < mod->e_dyn.di_strsiz)
-     patcher_setaltpath(self,strtab + mod->e_dyn.di_runpath);
  if (mod->e_dyn.di_flags & DYN_FTEXTREL)
      make_writable(mod,loadaddr,app);
  /* Initialize this application's static TLS segment. */
  if (app->a_flags & APPLICATION_FHASTLS)
      tls_init(app->a_tlsoff,(void *)(loadaddr + app->a_module->m_tlsmin),
               app->a_module->m_tlstplsz,MODULE_TLSSIZE(app->a_module));
- for (relocation_group = 0;
-      relocation_group < RELINFO_COUNT; ++relocation_group) {
-  Elf_Word ent = mod->e_dyn.di_reloc[relocation_group].ri_relent;
-  Elf_Rel *iter = (Elf_Rel *)(loadaddr + mod->e_dyn.di_reloc[relocation_group].ri_rel);
-  Elf_Rel *end = (Elf_Rel *)((uintptr_t)iter + mod->e_dyn.di_reloc[relocation_group].ri_relsiz);
-  assert(iter >= end || ent);
-  for (; iter < end; *(uintptr_t *)&iter += ent) {
-   char const *sym_name; u32 sym_hash;
-   bool extern_sym = false;
-   Elf_Sym *sym; Elf_RelValue value;
-   byte_t *reladdr    = (byte_t *)(loadaddr + iter->r_offset);
-   unsigned int symid = ELF_R_SYM(iter->r_info);
-   unsigned int type  = ELF_R_TYPE(iter->r_info);
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+ if (ELF_ISMACHINE32(app->a_module->m_machine)) {
+  for (relocation_group = 0;
+       relocation_group < RELINFO_COUNT; ++relocation_group) {
+   Elf32_Word ent = mod->e_dyn.di_reloc[relocation_group].ri_relent;
+   Elf32_Rel *iter = (Elf32_Rel *)(loadaddr + mod->e_dyn.di_reloc[relocation_group].ri_rel);
+   Elf32_Rel *end = (Elf32_Rel *)((uintptr_t)iter + mod->e_dyn.di_reloc[relocation_group].ri_relsiz);
+   assert(iter >= end || ent);
+   for (; iter < end; *(uintptr_t *)&iter += ent) {
+    byte_t *reladdr = (byte_t *)(loadaddr + iter->r_offset);
 #ifdef CONFIG_ELF_USING_RELA
-   Elf32_Sword addend = 0;
-   if (relocation_group == RELINFO_RELA ||
-      (relocation_group == RELINFO_JMP &&
-       mod->e_dyn.di_flags & DYN_FRELAJMP))
-       addend = ((Elf_Rela *)iter)->r_addend;
+    Elf32_Sword addend = 0;
+    if (relocation_group == RELINFO_RELA ||
+       (relocation_group == RELINFO_JMP &&
+        mod->e_dyn.di_flags & DYN_FRELAJMP))
+        addend = ((Elf_Rela *)iter)->r_addend;
 #endif
 #ifdef CONFIG_HIGH_KERNEL
-   if (reladdr >= image_end)
-       error_throw(E_NOT_EXECUTABLE);
+    if (reladdr >= image_end)
+        error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_BADRELADDR);
 #else
-   if (reladdr < image_min)
-       error_throw(E_NOT_EXECUTABLE);
+    if (reladdr < image_min)
+        error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_BADRELADDR);
 #endif
-#if defined(R_RELATIVE)
-   switch (type) {
-   case R_RELATIVE:
-    vm_cow_ptr(reladdr);
-    *(uintptr_t *)reladdr += (uintptr_t)loadaddr;
-    continue;
-
-    /* Arch-specific relocations. */
-#if defined(__x86_64__) || defined(__i386__)
-   {
-    struct kernel_symbol_info symbol;
-#if defined(__x86_64__)
-    /* ... */
-#elif defined(__i386__)
-   case R_386_TLS_DTPMOD32:
-   case R_386_TLS_DTPOFF32:
+    if (!Elf32_PerformRelocation(reladdr,
+                                (Elf32_Word)iter->r_info,
+#ifdef CONFIG_ELF_USING_RELA
+                                (Elf32_Sword)addend,
 #endif
-    if unlikely(symid >= mod->e_dyn.di_symcnt)
-       error_throw(E_NOT_EXECUTABLE);
-    sym   = (Elf_Sym *)(symtab + (symid * mod->e_dyn.di_syment));
-    symbol.si_symbol.ds_base = (void *)(loadaddr + sym->st_value);
-    if (sym->st_shndx != SHN_UNDEF) {
-     /* Link against local symbols by default. */
-     if (ELF_ST_TYPE(sym->st_info) == STT_TLS)
-         symbol.si_symbol.ds_base = (void *)(sym->st_value + (app->a_tlsoff - MODULE_TLSSIZE(app->a_module)));
-     else if (sym->st_shndx == SHN_ABS)
-         symbol.si_symbol.ds_base = (void *)sym->st_value;
-got_symbol_ex:
-     symbol.si_symbol.ds_size = sym->st_size;
-     symbol.si_defmod         = app;
-    } else {
+                                 app,
+                                (u32)(uintptr_t)loadaddr,
+                                (u32)(uintptr_t)image_end,
+                                 symtab,
+                                (Elf32_Word)mod->e_dyn.di_symcnt,
+                                (Elf32_Word)mod->e_dyn.di_syment,
+                                 strtab,
+#ifdef CONFIG_HIGH_KERNEL
+                                 strtab_end,
+#endif
+                                 self,
+                                (mod->e_dyn.di_flags & DYN_FSYMBOLIC) != 0)) {
+     char *sym_name; Elf32_Sym *sym;
+     unsigned int symid = ELF32_R_SYM(iter->r_info);
+     COMPILER_READ_BARRIER();
+     if unlikely(symid >= mod->e_dyn.di_symcnt)
+        error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_BADSYMBOL);
+     sym = (Elf32_Sym *)(symtab + (symid * (Elf32_Word)mod->e_dyn.di_syment));
      sym_name = strtab+sym->st_name;
-#ifdef CONFIG_HIGH_KERNEL
-     if (sym_name >= strtab_end)
-         error_throw(E_NOT_EXECUTABLE);
-#else
-     if (sym_name < strtab)
-         error_throw(E_NOT_EXECUTABLE);
-#endif
-     /* Find the symbol within shared libraries. */
-     sym_hash = patcher_symhash(sym_name);
-     symbol = patcher_syminfo(self,sym_name,sym_hash,false);
-     /* NOTE: Weak symbols are linked as NULL when not found. */
-     if (symbol.si_symbol.ds_type == MODULE_SYMBOL_INVALID) {
-      if (ELF_ST_BIND(sym->st_info) != STB_WEAK) goto patch_failed;
-      symbol.si_symbol.ds_base = (void *)0;
-      goto got_symbol_ex;
-     }
+     if (sym_name < strtab || sym_name >= strtab_end)
+         sym_name = "??" "?";
+     debug_printf(COLDSTR("[ELF] Unknown 32-bit relocation #%u at %p(%p) (%#Ix with symbol %#Ix; %q) in `%[path]'\n"),
+                ((uintptr_t)iter-(loadaddr + mod->e_dyn.di_reloc[relocation_group].ri_rel))/
+                                             mod->e_dyn.di_reloc[relocation_group].ri_relent,
+                  iter,iter->r_offset,
+                 (uintptr_t)ELF32_R_TYPE(iter->r_info),
+                 (uintptr_t)symid,
+                  sym_name,app->a_module->m_path);
+     if (!ignore_elf_reloc)
+          error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_BADRELOC);
     }
-    switch (type) {
-
-#if defined(__x86_64__)
-    /* ... */
-#elif defined(__i386__)
-    case R_386_TLS_DTPMOD32:
-#endif
-     vm_cow_ptr(reladdr);
-     if (symbol.si_defmod->a_flags & APPLICATION_FHASTLS) {
-      value   = (symbol.si_defmod->a_tlsoff - MODULE_TLSSIZE(symbol.si_defmod->a_module));
-      value <<= 1;
-      /* Libc's version of `__tls_get_addr()' uses
-       * this bit to detect static TLS allocation. */
-      value  |= 1;
-      *(uintptr_t *)reladdr = value;
-     } else {
-      value = symbol.si_defmod->a_loadaddr;
-      *(uintptr_t *)reladdr = CEIL_ALIGN(value,2);
-     }
-     break;
-
-#if defined(__x86_64__)
-    /* ... */
-#elif defined(__i386__)
-    case R_386_TLS_DTPOFF32:
-#endif
-     value  = (uintptr_t)symbol.si_symbol.ds_base;
-     value -= (symbol.si_defmod->a_tlsoff - MODULE_TLSSIZE(symbol.si_defmod->a_module));
-     vm_cow_ptr(reladdr);
-     *(uintptr_t *)reladdr = value;
-     break;
-
-    default: __builtin_unreachable();
-    }
-
-    continue;
-   } break;
-#endif
-
-   default: break;
    }
-#endif /* ... */
-
-   if unlikely(symid >= mod->e_dyn.di_symcnt)
-      error_throw(E_NOT_EXECUTABLE);
-   sym   = (Elf_Sym *)(symtab + (symid * mod->e_dyn.di_syment));
-   value = (Elf_RelValue)loadaddr + sym->st_value;
-   if (sym->st_shndx != SHN_UNDEF) {
-    /* Link against local symbols by default. */
-    if (ELF_ST_TYPE(sym->st_info) == STT_TLS)
-        value = sym->st_value + (app->a_tlsoff - MODULE_TLSSIZE(app->a_module));
-    else if (sym->st_shndx == SHN_ABS)
-        value = (uintptr_t)sym->st_value;
-   } else {
-find_extern:
-    if (sym->st_shndx != SHN_UNDEF &&
-       (mod->e_dyn.di_flags & DYN_FSYMBOLIC)) {
-     /* Use symbolic symbol resolution (Keep using the private symbol version). */
-     goto got_symbol;
-    }
-
-    sym_name = strtab+sym->st_name;
-#ifdef CONFIG_HIGH_KERNEL
-    if (sym_name >= strtab_end)
-        error_throw(E_NOT_EXECUTABLE);
-#else
-    if (sym_name < strtab)
-        error_throw(E_NOT_EXECUTABLE);
+  }
+ } else
 #endif
-
-    /* NOTE: Don't search the module itself. - We already know its
-     *       symbol address and can link them below without a lookup. */
-    if ((self->mp_flags & DL_OPEN_FDEEPBIND) &&
-        (sym->st_shndx != SHN_UNDEF)) {
-     value = (Elf_RelValue)loadaddr+sym->st_value;
-     if (ELF_ST_TYPE(sym->st_info) == STT_TLS)
-         value = sym->st_value + (app->a_tlsoff - MODULE_TLSSIZE(app->a_module));
-     else if (sym->st_shndx == SHN_ABS)
-         value = (Elf_RelValue)sym->st_value;
-    } else {
-     /* Find the symbol within shared libraries. */
-     sym_hash = patcher_symhash(sym_name);
-     value = (Elf_RelValue)patcher_symaddr(self,sym_name,sym_hash,
-                                           sym->st_shndx != SHN_UNDEF);
-     /* NOTE: Weak symbols are linked as NULL when not found. */
-     if (!value) {
-      if (ELF_ST_BIND(sym->st_info) == STB_WEAK) goto got_symbol;
-patch_failed:
-      debug_printf(COLDSTR("[ELF] Failed to patch symbol %q in %q\n"),
-                   sym_name,app->a_module->m_path->p_dirent->de_name);
-      error_throw(E_NOT_EXECUTABLE);
-     }
-    }
-got_symbol:
-    extern_sym = true;
-   }
+ {
+  for (relocation_group = 0;
+       relocation_group < RELINFO_COUNT; ++relocation_group) {
+   Elf_Word ent = mod->e_dyn.di_reloc[relocation_group].ri_relent;
+   Elf_Rel *iter = (Elf_Rel *)(loadaddr + mod->e_dyn.di_reloc[relocation_group].ri_rel);
+   Elf_Rel *end = (Elf_Rel *)((uintptr_t)iter + mod->e_dyn.di_reloc[relocation_group].ri_relsiz);
+   assert(iter >= end || ent);
+   for (; iter < end; *(uintptr_t *)&iter += ent) {
+    byte_t *reladdr = (byte_t *)(loadaddr + iter->r_offset);
 #ifdef CONFIG_ELF_USING_RELA
-   /* Add the added to the symbol address. */
-   value += addend;
+    Elf_Sword addend = 0;
+    if (relocation_group == RELINFO_RELA ||
+       (relocation_group == RELINFO_JMP &&
+        mod->e_dyn.di_flags & DYN_FRELAJMP))
+        addend = ((Elf_Rela *)iter)->r_addend;
 #endif
-   switch (type) {
-
-#ifdef R_NONE
-   case R_NONE: break;
+#ifdef CONFIG_HIGH_KERNEL
+    if (reladdr >= image_end)
+        error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_BADRELADDR);
+#else
+    if (reladdr < image_min)
+        error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_BADRELADDR);
 #endif
-
-#ifdef R_8
-   case R_8:
-    vm_cowb(reladdr);
-    *(u8 *)reladdr += (u8)value;
-    break;
+    if (!Elf_PerformRelocation(reladdr,
+                               iter->r_info,
+#ifdef CONFIG_ELF_USING_RELA
+                               addend,
 #endif
-
-#ifdef R_PC8
-   case R_PC8:
-    vm_cowb(reladdr);
-    *(u8 *)reladdr += (u8)((uintptr_t)value - (uintptr_t)reladdr);
-    break;
+                               app,
+                               loadaddr,
+                              (uintptr_t)image_end,
+                               symtab,
+                               mod->e_dyn.di_symcnt,
+                               mod->e_dyn.di_syment,
+                               strtab,
+#ifdef CONFIG_HIGH_KERNEL
+                               strtab_end,
 #endif
-
-#ifdef R_16
-   case R_16:
-    vm_coww(reladdr);
-    *(u16 *)reladdr += (u16)value;
-    break;
-#endif
-
-#ifdef R_PC16
-   case R_PC16:
-    vm_coww(reladdr);
-    *(u16 *)reladdr += (u16)((uintptr_t)value - (uintptr_t)reladdr);
-    break;
-#endif
-
-#ifdef R_32
-   case R_32:
-    vm_cowl(reladdr);
-    *(u32 *)reladdr += (u32)value;
-    break;
-#endif
-
-#ifdef R_PC32
-   case R_PC32:
-    vm_cowl(reladdr);
-    *(u32 *)reladdr += (u32)((uintptr_t)value - (uintptr_t)reladdr);
-    break;
-#endif
-
-#ifdef R_64
-   case R_64:
-    vm_cowq(reladdr);
-    *(u64 *)reladdr += (u64)value;
-    break;
-#endif
-
-#ifdef R_PC64
-   case R_PC64:
-    vm_cowq(reladdr);
-    *(u64 *)reladdr += (u64)((uintptr_t)value - (uintptr_t)reladdr);
-    break;
-#endif
-
-#ifdef R_COPY
-   case R_COPY:
-    if (!extern_sym) goto find_extern;
-    if (self->mp_apptype != APPLICATION_TYPE_FDRIVER) {
-     /* Make sure not to copy kernel data.
-      * NOTE: We can't just do 'DATA_CHECK(rel_value,sym->st_size)',
-      *       because the symbol may be apart of a different module.
-      *       But if it is, it would be too expensive to search
-      *       the potentially _very_ large chain of loaded modules
-      *       for the one containing `rel_value'.
-      * >> So instead we rely on the fact that the caller is capturing
-      *    page faults, and simply go ahead and copy the data.
-      *    If it fails, the caller will correctly determine `-EFAULT'
-      *    and everything can go on as normal without us having to
-      *    waste a whole bunch of time validating a pointer. */
-     uintptr_t sym_end;
-     if (__builtin_add_overflow(value,sym->st_size,&sym_end))
-         goto symend_overflow;
-     if (sym_end > KERNEL_BASE) {
-      char *sym_name;
-symend_overflow:
-      sym_name = strtab+sym->st_name;
-      if (sym_name < strtab || sym_name >= strtab_end)
-          sym_name = "??" "?";
-      debug_printf(COLDSTR("[ELF] Faulty copy-relocation against %q targeting %p...%p in kernel space from `%q'\n"),
-                   sym_name,value,sym_end-1,app->a_module->m_path->p_dirent->de_name);
-      error_throw(E_NOT_EXECUTABLE);
-     }
+                               self,
+                              (mod->e_dyn.di_flags & DYN_FSYMBOLIC) != 0)) {
+     char *sym_name; Elf_Sym *sym;
+     unsigned int symid = ELF_R_SYM(iter->r_info);
+     COMPILER_READ_BARRIER();
+     if unlikely(symid >= mod->e_dyn.di_symcnt)
+        error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_BADSYMBOL);
+     sym = (Elf_Sym *)(symtab + (symid * (Elf_Word)mod->e_dyn.di_syment));
+     sym_name = strtab+sym->st_name;
+     if (sym_name < strtab || sym_name >= strtab_end)
+         sym_name = "??" "?";
+     debug_printf(COLDSTR("[ELF] Unknown relocation #%u at %p(%p) (%#Ix with symbol %#Ix; %q) in `%[path]'\n"),
+                ((uintptr_t)iter-(loadaddr + mod->e_dyn.di_reloc[relocation_group].ri_rel))/
+                                             mod->e_dyn.di_reloc[relocation_group].ri_relent,
+                  iter,iter->r_offset,
+                 (uintptr_t)ELF_R_TYPE(iter->r_info),
+                 (uintptr_t)symid,
+                  sym_name,app->a_module->m_path);
+     if (!ignore_elf_reloc)
+          error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_BADRELOC);
     }
-    vm_cow(reladdr,sym->st_size);
-    memcpy((void *)reladdr,
-           (void *)(uintptr_t)value,
-            sym->st_size);
-    break;
-#endif
-
-#ifdef R_GLOB_DAT
-   case R_GLOB_DAT:
-    if (!extern_sym) goto find_extern;
-    ATTR_FALLTHROUGH
-#endif
-#ifdef R_JMP_SLOT
-   case R_JMP_SLOT:
-#endif
-#if defined(R_JMP_SLOT) || defined(R_GLOB_DAT)
-    vm_cow_ptr(reladdr);
-    *(uintptr_t *)reladdr = (uintptr_t)value;
-    break;
-#endif
-
-    /* Arch-specific relocations. */
-#if defined(__x86_64__)
-    /* ... */
-#elif defined(__i386__)
-   case R_386_TLS_TPOFF:
-    vm_cowl(reladdr);
-    *(u32 *)reladdr += (u32)value;
-    break;
-   case R_386_TLS_TPOFF32:
-    vm_cowl(reladdr);
-    *(u32 *)reladdr -= (u32)value;
-    break;
-#endif
-
-#define R_386_GOT32        3            /* 32 bit GOT entry */
-#define R_386_PLT32        4            /* 32 bit PLT address */
-#define R_386_GOTOFF       9            /* 32 bit offset to GOT */
-#define R_386_GOTPC        10           /* 32 bit PC relative offset to GOT */
-#define R_386_32PLT        11
-#define R_386_TLS_IE       15           /* Address of GOT entry for static TLS block offset */
-#define R_386_TLS_GOTIE    16           /* GOT entry for static TLS block offset */
-#define R_386_TLS_LE       17           /* Offset relative to static TLS block */
-
-#define R_386_TLS_GD       18           /* Direct 32 bit for GNU version of general dynamic thread local data */
-#define R_386_TLS_LDM      19           /* Direct 32 bit for GNU version of local dynamic thread local data in LE code */
-#define R_386_TLS_GD_32    24           /* Direct 32 bit for general dynamic thread local data */
-#define R_386_TLS_GD_PUSH  25           /* Tag for pushl in GD TLS code */
-#define R_386_TLS_GD_CALL  26           /* Relocation for call to __tls_get_addr() */
-#define R_386_TLS_GD_POP   27           /* Tag for popl in GD TLS code */
-#define R_386_TLS_LDM_32   28           /* Direct 32 bit for local dynamic thread local data in LE code */
-#define R_386_TLS_LDM_PUSH 29           /* Tag for pushl in LDM TLS code */
-#define R_386_TLS_LDM_CALL 30           /* Relocation for call to __tls_get_addr() in LDM code */
-#define R_386_TLS_LDM_POP  31           /* Tag for popl in LDM TLS code */
-#define R_386_TLS_LDO_32   32           /* Offset relative to TLS block */
-#define R_386_TLS_IE_32    33           /* GOT entry for negated static TLS block offset */
-#define R_386_TLS_LE_32    34           /* Negated offset relative to static TLS block */
-
-   {
-    char *sym_name;
-   default:
-    sym_name = strtab+sym->st_name;
-    if (sym_name < strtab || sym_name >= strtab_end)
-        sym_name = "??" "?";
-    debug_printf(COLDSTR("[ELF] Unknown relocation #%u at %p(%p) = %p (%#I8x with symbol %#x; %q) in `%[path]'\n"),
-               ((uintptr_t)iter-(loadaddr + mod->e_dyn.di_reloc[relocation_group].ri_rel))/
-                                            mod->e_dyn.di_reloc[relocation_group].ri_relent,
-                 iter,iter->r_offset,value,type,(unsigned)(ELF_R_SYM(iter->r_info)),
-                 sym_name,app->a_module->m_path);
-   } break;
    }
   }
  }
@@ -1063,99 +963,190 @@ Elf_GetSymbolAddress(struct application *__restrict app,
  struct dl_symbol result;
  result.ds_type = MODULE_SYMBOL_INVALID;
  if (self->e_dyn.di_symcnt != 0) {
-  Elf_Sym *symtab_begin,*symtab_end,*symtab_iter;
-  char *string_table = (char *)(load_addr + self->e_dyn.di_strtab);
-  char *string_end = (char *)((uintptr_t)string_table+self->e_dyn.di_strsiz);
-  while (string_end != string_table && string_end[-1] != '\0') --string_end;
-  if unlikely(string_end == string_table) goto end;
-  symtab_begin = (Elf_Sym *)(load_addr + self->e_dyn.di_symtab);
-  symtab_end   = (Elf_Sym *)((uintptr_t)symtab_begin+self->e_dyn.di_symsiz);
-  if (self->e_dyn.di_hashsiz != 0) {
-   /* Make use of '.hash' information! */
-   Elf_HashTable *phashtab;
-   Elf_HashTable hashtab; Elf_Word *ptable,chain;
-   phashtab = (Elf_HashTable *)(load_addr + self->e_dyn.di_hashtab);
-   hashtab = *phashtab;
-   COMPILER_READ_BARRIER();
-   if unlikely(!hashtab.ht_nbuckts || !hashtab.ht_nbuckts) {
-    /* Nope. - The hash-table is broken. */
-broken_hash:
-    debug_printf(COLDSTR("[ELF] Module `%q' contains invalid hash table\n"),
-                 app->a_module->m_path->p_dirent->de_name);
-    ATOMIC_WRITE(self->e_dyn.di_hashsiz,0);
-   } else {
-    Elf_Word max_attempts = hashtab.ht_nchains;
-    /* Make sure the hash-table isn't too large. */
-    if unlikely((sizeof(Elf_HashTable)+(hashtab.ht_nbuckts+
-                                        hashtab.ht_nchains)*
-                 sizeof(Elf_Word)) > self->e_dyn.di_hashsiz) goto broken_hash;
-    /* Make sure the hash-table isn't trying to go out-of-bounds. */
-    if unlikely(hashtab.ht_nchains > self->e_dyn.di_symcnt) goto broken_hash;
-    ptable  = (Elf_Word *)(phashtab+1);
-    chain   = ptable[hash % hashtab.ht_nbuckts];
-    ptable += hashtab.ht_nbuckts;
-    while likely(max_attempts--) {
-     char *sym_name;
-     if unlikely(chain == STN_UNDEF ||
-                 chain >= self->e_dyn.di_symcnt)
-        break;
-     /* Check this candidate. */
-     symtab_iter = (Elf_Sym *)((uintptr_t)symtab_begin+chain*self->e_dyn.di_syment);
-     assert(symtab_iter >= symtab_begin);
-     assert(symtab_iter <  symtab_end);
-     sym_name = string_table+symtab_iter->st_name;
-     if unlikely((uintptr_t)sym_name <  (uintptr_t)string_table || 
-                 (uintptr_t)sym_name >= (uintptr_t)string_end) break;
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+  if (ELF_ISMACHINE32(app->a_module->m_machine)) {
+   Elf32_Sym *symtab_begin,*symtab_end,*symtab_iter;
+   char *string_table = (char *)(load_addr + self->e_dyn.di_strtab);
+   char *string_end = (char *)((uintptr_t)string_table+self->e_dyn.di_strsiz);
+   while (string_end != string_table && string_end[-1] != '\0') --string_end;
+   if unlikely(string_end == string_table) goto end;
+   symtab_begin = (Elf32_Sym *)(load_addr + self->e_dyn.di_symtab);
+   symtab_end   = (Elf32_Sym *)((uintptr_t)symtab_begin+self->e_dyn.di_symsiz);
+   if (self->e_dyn.di_hashsiz != 0) {
+    /* Make use of '.hash' information! */
+    Elf32_HashTable *phashtab;
+    Elf32_HashTable hashtab; Elf32_Word *ptable,chain;
+    phashtab = (Elf32_HashTable *)(load_addr + self->e_dyn.di_hashtab);
+    hashtab = *phashtab;
+    COMPILER_READ_BARRIER();
+    if unlikely(!hashtab.ht_nbuckts || !hashtab.ht_nbuckts) {
+     /* Nope. - The hash-table is broken. */
+broken_hash32:
+     debug_printf(COLDSTR("[ELF] Module `%q' contains invalid hash table\n"),
+                  app->a_module->m_path->p_dirent->de_name);
+     ATOMIC_WRITE(self->e_dyn.di_hashsiz,0);
+    } else {
+     Elf32_Word max_attempts = hashtab.ht_nchains;
+     /* Make sure the hash-table isn't too large. */
+     if unlikely((sizeof(Elf32_HashTable)+(hashtab.ht_nbuckts+
+                                           hashtab.ht_nchains)*
+                  sizeof(Elf32_Word)) > self->e_dyn.di_hashsiz) goto broken_hash32;
+     /* Make sure the hash-table isn't trying to go out-of-bounds. */
+     if unlikely(hashtab.ht_nchains > self->e_dyn.di_symcnt) goto broken_hash32;
+     ptable  = (Elf32_Word *)(phashtab+1);
+     chain   = ptable[hash % hashtab.ht_nbuckts];
+     ptable += hashtab.ht_nbuckts;
+     while likely(max_attempts--) {
+      char *sym_name;
+      if unlikely(chain == STN_UNDEF ||
+                  chain >= self->e_dyn.di_symcnt)
+         break;
+      /* Check this candidate. */
+      symtab_iter = (Elf32_Sym *)((uintptr_t)symtab_begin+chain*self->e_dyn.di_syment);
+      assert(symtab_iter >= symtab_begin);
+      assert(symtab_iter <  symtab_end);
+      sym_name = string_table+symtab_iter->st_name;
+      if unlikely((uintptr_t)sym_name <  (uintptr_t)string_table || 
+                  (uintptr_t)sym_name >= (uintptr_t)string_end) break;
 #if 0
-     debug_printf(COLDSTR("Checking hashed symbol name %q == %q (chain = %X; value = %p)\n"),
-                  name,sym_name,chain,symtab_iter->st_value);
+      debug_printf(COLDSTR("Checking hashed symbol name %q == %q (chain = %X; value = %p)\n"),
+                   name,sym_name,chain,symtab_iter->st_value);
 #endif
-     if (strcmp(sym_name,name) != 0) goto next_candidate;
-     if (symtab_iter->st_shndx == SHN_UNDEF) goto end; /* Symbol not defined by this library. */
-     result.ds_base = (void *)symtab_iter->st_value;
-     result.ds_size = symtab_iter->st_size;
-     if (ELF_ST_TYPE(symtab_iter->st_info) == STT_TLS)
-       *(uintptr_t *)&result.ds_base += (app->a_tlsoff - MODULE_TLSSIZE(app->a_module));
-     else if (symtab_iter->st_shndx != SHN_ABS)
-       *(uintptr_t *)&result.ds_base += load_addr;
-     result.ds_type = MODULE_SYMBOL_NORMAL;
-     if (ELF_ST_BIND(symtab_iter->st_info) == STB_WEAK)
-         result.ds_type = MODULE_SYMBOL_WEAK;
-     goto end;
-next_candidate:
-     if unlikely(chain >= hashtab.ht_nchains) /* Shouldn't happen. */
-          chain = ptable[chain % hashtab.ht_nchains];
-     else chain = ptable[chain];
+      if (strcmp(sym_name,name) != 0) goto next_candidate32;
+      if (symtab_iter->st_shndx == SHN_UNDEF) goto end; /* Symbol not defined by this library. */
+      result.ds_base = (void *)(uintptr_t)(u32)symtab_iter->st_value;
+      result.ds_size = symtab_iter->st_size;
+      if (ELF32_ST_TYPE(symtab_iter->st_info) == STT_TLS)
+        *(uintptr_t *)&result.ds_base += (app->a_tlsoff - MODULE_TLSSIZE(app->a_module));
+      else if (symtab_iter->st_shndx != SHN_ABS)
+        *(uintptr_t *)&result.ds_base += load_addr;
+      result.ds_type = MODULE_SYMBOL_NORMAL;
+      if (ELF32_ST_BIND(symtab_iter->st_info) == STB_WEAK)
+          result.ds_type = MODULE_SYMBOL_WEAK;
+      goto end;
+next_candidate32:
+      if unlikely(chain >= hashtab.ht_nchains) /* Shouldn't happen. */
+           chain = ptable[chain % hashtab.ht_nchains];
+      else chain = ptable[chain];
+     }
+#if 0
+     debug_printf(COLDSTR("[ELF] Failed to find symbol %q in hash table of `%q' (hash = %x)\n"),
+                  name,app->a_module->m_path->p_dirent->de_name,hash);
+#endif
     }
-#if 0
-    debug_printf(COLDSTR("[ELF] Failed to find symbol %q in hash table of `%q' (hash = %x)\n"),
-                 name,app->a_module->m_path->p_dirent->de_name,hash);
-#endif
    }
-  }
-  for (symtab_iter = symtab_begin;
-       symtab_iter < symtab_end;
-     *(uintptr_t *)&symtab_iter += self->e_dyn.di_syment) {
-   char *sym_name = string_table+symtab_iter->st_name;
-   if unlikely((uintptr_t)sym_name <  (uintptr_t)string_table || 
-               (uintptr_t)sym_name >= (uintptr_t)string_end) break;
-   if (strcmp(sym_name,name) != 0) continue;
-   if (symtab_iter->st_shndx == SHN_UNDEF) goto end; /* Symbol not defined by this library. */
-   result.ds_base = (void *)symtab_iter->st_value;
-   result.ds_size = symtab_iter->st_size;
-   if (symtab_iter->st_shndx != SHN_ABS)
-     *(uintptr_t *)&result.ds_base += load_addr;
-   result.ds_type = MODULE_SYMBOL_NORMAL;
-   if (ELF_ST_BIND(symtab_iter->st_info) == STB_WEAK)
-       result.ds_type = MODULE_SYMBOL_WEAK;
-   goto end;
+   for (symtab_iter = symtab_begin;
+        symtab_iter < symtab_end;
+      *(uintptr_t *)&symtab_iter += self->e_dyn.di_syment) {
+    char *sym_name = string_table+symtab_iter->st_name;
+    if unlikely((uintptr_t)sym_name <  (uintptr_t)string_table || 
+                (uintptr_t)sym_name >= (uintptr_t)string_end) break;
+    if (strcmp(sym_name,name) != 0) continue;
+    if (symtab_iter->st_shndx == SHN_UNDEF) goto end; /* Symbol not defined by this library. */
+    result.ds_base = (void *)(uintptr_t)(u32)symtab_iter->st_value;
+    result.ds_size = symtab_iter->st_size;
+    if (symtab_iter->st_shndx != SHN_ABS)
+      *(uintptr_t *)&result.ds_base += load_addr;
+    result.ds_type = MODULE_SYMBOL_NORMAL;
+    if (ELF32_ST_BIND(symtab_iter->st_info) == STB_WEAK)
+        result.ds_type = MODULE_SYMBOL_WEAK;
+    goto end;
+   }
+  } else
+#endif
+  {
+   Elf_Sym *symtab_begin,*symtab_end,*symtab_iter;
+   char *string_table = (char *)(load_addr + self->e_dyn.di_strtab);
+   char *string_end = (char *)((uintptr_t)string_table+self->e_dyn.di_strsiz);
+   while (string_end != string_table && string_end[-1] != '\0') --string_end;
+   if unlikely(string_end == string_table) goto end;
+   symtab_begin = (Elf_Sym *)(load_addr + self->e_dyn.di_symtab);
+   symtab_end   = (Elf_Sym *)((uintptr_t)symtab_begin+self->e_dyn.di_symsiz);
+   if (self->e_dyn.di_hashsiz != 0) {
+    /* Make use of '.hash' information! */
+    Elf_HashTable *phashtab;
+    Elf_HashTable hashtab; Elf_Word *ptable,chain;
+    phashtab = (Elf_HashTable *)(load_addr + self->e_dyn.di_hashtab);
+    hashtab = *phashtab;
+    COMPILER_READ_BARRIER();
+    if unlikely(!hashtab.ht_nbuckts || !hashtab.ht_nbuckts) {
+     /* Nope. - The hash-table is broken. */
+broken_hash:
+     debug_printf(COLDSTR("[ELF] Module `%q' contains invalid hash table\n"),
+                  app->a_module->m_path->p_dirent->de_name);
+     ATOMIC_WRITE(self->e_dyn.di_hashsiz,0);
+    } else {
+     Elf_Word max_attempts = hashtab.ht_nchains;
+     /* Make sure the hash-table isn't too large. */
+     if unlikely((sizeof(Elf_HashTable)+(hashtab.ht_nbuckts+
+                                         hashtab.ht_nchains)*
+                  sizeof(Elf_Word)) > self->e_dyn.di_hashsiz) goto broken_hash;
+     /* Make sure the hash-table isn't trying to go out-of-bounds. */
+     if unlikely(hashtab.ht_nchains > self->e_dyn.di_symcnt) goto broken_hash;
+     ptable  = (Elf_Word *)(phashtab+1);
+     chain   = ptable[hash % hashtab.ht_nbuckts];
+     ptable += hashtab.ht_nbuckts;
+     while likely(max_attempts--) {
+      char *sym_name;
+      if unlikely(chain == STN_UNDEF ||
+                  chain >= self->e_dyn.di_symcnt)
+         break;
+      /* Check this candidate. */
+      symtab_iter = (Elf_Sym *)((uintptr_t)symtab_begin+chain*self->e_dyn.di_syment);
+      assert(symtab_iter >= symtab_begin);
+      assert(symtab_iter <  symtab_end);
+      sym_name = string_table+symtab_iter->st_name;
+      if unlikely((uintptr_t)sym_name <  (uintptr_t)string_table || 
+                  (uintptr_t)sym_name >= (uintptr_t)string_end) break;
+#if 0
+      debug_printf(COLDSTR("Checking hashed symbol name %q == %q (chain = %X; value = %p)\n"),
+                   name,sym_name,chain,symtab_iter->st_value);
+#endif
+      if (strcmp(sym_name,name) != 0) goto next_candidate;
+      if (symtab_iter->st_shndx == SHN_UNDEF) goto end; /* Symbol not defined by this library. */
+      result.ds_base = (void *)symtab_iter->st_value;
+      result.ds_size = symtab_iter->st_size;
+      if (ELF_ST_TYPE(symtab_iter->st_info) == STT_TLS)
+        *(uintptr_t *)&result.ds_base += (app->a_tlsoff - MODULE_TLSSIZE(app->a_module));
+      else if (symtab_iter->st_shndx != SHN_ABS)
+        *(uintptr_t *)&result.ds_base += load_addr;
+      result.ds_type = MODULE_SYMBOL_NORMAL;
+      if (ELF_ST_BIND(symtab_iter->st_info) == STB_WEAK)
+          result.ds_type = MODULE_SYMBOL_WEAK;
+      goto end;
+next_candidate:
+      if unlikely(chain >= hashtab.ht_nchains) /* Shouldn't happen. */
+           chain = ptable[chain % hashtab.ht_nchains];
+      else chain = ptable[chain];
+     }
+#if 0
+     debug_printf(COLDSTR("[ELF] Failed to find symbol %q in hash table of `%q' (hash = %x)\n"),
+                  name,app->a_module->m_path->p_dirent->de_name,hash);
+#endif
+    }
+   }
+   for (symtab_iter = symtab_begin;
+        symtab_iter < symtab_end;
+      *(uintptr_t *)&symtab_iter += self->e_dyn.di_syment) {
+    char *sym_name = string_table+symtab_iter->st_name;
+    if unlikely((uintptr_t)sym_name <  (uintptr_t)string_table || 
+                (uintptr_t)sym_name >= (uintptr_t)string_end) break;
+    if (strcmp(sym_name,name) != 0) continue;
+    if (symtab_iter->st_shndx == SHN_UNDEF) goto end; /* Symbol not defined by this library. */
+    result.ds_base = (void *)symtab_iter->st_value;
+    result.ds_size = symtab_iter->st_size;
+    if (symtab_iter->st_shndx != SHN_ABS)
+      *(uintptr_t *)&result.ds_base += load_addr;
+    result.ds_type = MODULE_SYMBOL_NORMAL;
+    if (ELF_ST_BIND(symtab_iter->st_info) == STB_WEAK)
+        result.ds_type = MODULE_SYMBOL_WEAK;
+    goto end;
+   }
   }
  }
 end:
  return result;
 }
-
-
 
 PRIVATE bool KCALL
 Elf_LoadModule(REF struct module *__restrict self) {
@@ -1166,33 +1157,49 @@ Elf_LoadModule(REF struct module *__restrict self) {
  if (hdr.e_ident[EI_MAG1] != ELFMAG1) goto fail;
  if (hdr.e_ident[EI_MAG2] != ELFMAG2) goto fail;
  if (hdr.e_ident[EI_MAG3] != ELFMAG3) goto fail;
-#if __SIZEOF_POINTER__ == 4
- if (hdr.e_ident[EI_CLASS] != ELFCLASS32) goto fail;
-#else
- if (hdr.e_ident[EI_CLASS] != ELFCLASS64) goto fail;
-#endif
-#if __BYTE_ORDER == __LITTLE_ENDIAN
- if (hdr.e_ident[EI_DATA] != ELFDATA2LSB) goto fail;
-#else
- if (hdr.e_ident[EI_DATA] != ELFDATA2MSB) goto fail;
-#endif
  if (hdr.e_ident[EI_VERSION] != EV_CURRENT) goto fail;
  if (hdr.e_version != EV_CURRENT) goto fail;
  /*if (hdr.e_ident[EI_OSABI] != ELFOSABI_SYSV) goto fail;*/
- if (hdr.e_type != ET_EXEC &&
-     hdr.e_type != ET_DYN) goto fail;
- if (hdr.e_machine != EM_HOST) goto fail;
- if (hdr.e_ehsize < sizeof(Elf_Ehdr)) goto fail;
- if (!hdr.e_phnum) goto fail;
- if (hdr.e_phnum > 0xff) goto fail; /* Limit the max number of program headers
-                                     * (there should really only be around 5-10) */
- if (hdr.e_phentsize != sizeof(Elf_Phdr)) goto fail; /* XXX: Allow padding? */
- if (hdr.e_shentsize != sizeof(Elf_Shdr) && hdr.e_shnum) goto fail;
+ if ((hdr.e_type != ET_EXEC && hdr.e_type != ET_DYN) &&
+     !ignore_elf_type) goto fail;
+ if (!ELF_HEADER_SUPPORTED(hdr)) goto fail;
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+ if (hdr.e_ident[EI_CLASS] == ELFCLASS32) {
+  /* Convert header into 64-bit. */
+  Elf32_Ehdr hdr32;
+  memcpy(&hdr32,&hdr,sizeof(Elf32_Ehdr));
+  hdr.e_entry     = hdr32.e_entry;
+  hdr.e_phoff     = hdr32.e_phoff;
+  hdr.e_shoff     = hdr32.e_shoff;
+  hdr.e_flags     = hdr32.e_flags;
+  hdr.e_ehsize    = hdr32.e_ehsize;
+  hdr.e_phentsize = hdr32.e_phentsize;
+  hdr.e_phnum     = hdr32.e_phnum;
+  hdr.e_shentsize = hdr32.e_shentsize;
+  hdr.e_shnum     = hdr32.e_shnum;
+  hdr.e_shstrndx  = hdr32.e_shstrndx;
+  if (hdr.e_ehsize < sizeof(Elf32_Ehdr)) goto fail;
+  if (!hdr.e_phnum) goto fail;
+  if (hdr.e_phnum > 0xff) goto fail; /* Limit the max number of program headers
+                                      * (there should really only be around 5-10) */
+  if (hdr.e_phentsize != sizeof(Elf32_Phdr)) goto fail; /* XXX: Allow padding? */
+  if (hdr.e_shentsize != sizeof(Elf32_Shdr) && hdr.e_shnum) goto fail;
+ } else
+#endif
+ {
+  if (hdr.e_ehsize < sizeof(Elf_Ehdr)) goto fail;
+  if (!hdr.e_phnum) goto fail;
+  if (hdr.e_phnum > 0xff) goto fail; /* Limit the max number of program headers
+                                      * (there should really only be around 5-10) */
+  if (hdr.e_phentsize != sizeof(Elf_Phdr)) goto fail; /* XXX: Allow padding? */
+  if (hdr.e_shentsize != sizeof(Elf_Shdr) && hdr.e_shnum) goto fail;
+ }
 
  result = (REF ElfModule *)kmalloc(offsetof(ElfModule,e_phdr)+
                                   (hdr.e_phnum*sizeof(Elf_Phdr)),
                                    GFP_SHARED|GFP_CALLOC);
- self->m_entry = hdr.e_entry;
+ self->m_entry   = hdr.e_entry;
+ self->m_machine = hdr.e_machine;
  if (hdr.e_type == ET_EXEC)
      self->m_flags = MODULE_FFIXED|MODULE_FENTRY;
  result->e_shoff    = hdr.e_shoff;
@@ -1200,8 +1207,24 @@ Elf_LoadModule(REF struct module *__restrict self) {
  result->e_shnum    = hdr.e_shnum;
  result->e_shstrndx = hdr.e_shstrndx;
  TRY {
-  inode_kreadall(&self->m_fsloc->re_node,result->e_phdr,
-                 hdr.e_phnum*sizeof(Elf_Phdr),hdr.e_phoff,IO_RDONLY);
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+  if (hdr.e_ident[EI_CLASS] == ELFCLASS32) {
+   unsigned int i;
+   inode_kreadall(&self->m_fsloc->re_node,result->e_phdr,
+                  hdr.e_phnum*sizeof(Elf32_Phdr),
+                  hdr.e_phoff,IO_RDONLY);
+   i = hdr.e_phnum;
+   while (i--) {
+    Elf32_Phdr hdr;
+    memcpy(&hdr,&((Elf32_Phdr *)result->e_phdr)[i],sizeof(Elf32_Phdr));
+    ELF_PHDR32TO64(result->e_phdr[i],hdr);
+   }
+  } else
+#endif
+  {
+   inode_kreadall(&self->m_fsloc->re_node,result->e_phdr,
+                  hdr.e_phnum*sizeof(Elf_Phdr),hdr.e_phoff,IO_RDONLY);
+  }
  } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
   kfree(result);
   error_rethrow();
@@ -1274,15 +1297,31 @@ Elf_EnumInitializers(struct application *__restrict app,
                      module_enumerator_t func, void *arg) {
  uintptr_t loadaddr = app->a_loadaddr;
  ElfModule *mod = app->a_module->m_data;
- if (mod->e_dyn.di_init_array_siz) {
-  module_callback_t *begin = (module_callback_t *)(loadaddr + mod->e_dyn.di_init_array);
-  module_callback_t *iter  = (module_callback_t *)((uintptr_t)begin + mod->e_dyn.di_init_array_siz);
-  while (iter-- > begin) SAFECALL_KCALL_VOID_2(*func,*iter,arg);
- }
- if (mod->e_dyn.di_preinit_array_siz) {
-  module_callback_t *begin = (module_callback_t *)(loadaddr + mod->e_dyn.di_preinit_array);
-  module_callback_t *iter  = (module_callback_t *)((uintptr_t)begin + mod->e_dyn.di_preinit_array_siz);
-  while (iter-- > begin) SAFECALL_KCALL_VOID_2(*func,*iter,arg);
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+ if (ELF_ISMACHINE32(app->a_module->m_machine)) {
+  if (mod->e_dyn.di_init_array_siz) {
+   u32 *begin = (u32 *)(loadaddr + mod->e_dyn.di_init_array);
+   u32 *iter  = (u32 *)((uintptr_t)begin + mod->e_dyn.di_init_array_siz);
+   while (iter-- > begin) SAFECALL_KCALL_VOID_2(*func,(module_callback_t)(uintptr_t)*iter,arg);
+  }
+  if (mod->e_dyn.di_preinit_array_siz) {
+   u32 *begin = (u32 *)(loadaddr + mod->e_dyn.di_preinit_array);
+   u32 *iter  = (u32 *)((uintptr_t)begin + mod->e_dyn.di_preinit_array_siz);
+   while (iter-- > begin) SAFECALL_KCALL_VOID_2(*func,(module_callback_t)(uintptr_t)*iter,arg);
+  }
+ } else
+#endif
+ {
+  if (mod->e_dyn.di_init_array_siz) {
+   module_callback_t *begin = (module_callback_t *)(loadaddr + mod->e_dyn.di_init_array);
+   module_callback_t *iter  = (module_callback_t *)((uintptr_t)begin + mod->e_dyn.di_init_array_siz);
+   while (iter-- > begin) SAFECALL_KCALL_VOID_2(*func,*iter,arg);
+  }
+  if (mod->e_dyn.di_preinit_array_siz) {
+   module_callback_t *begin = (module_callback_t *)(loadaddr + mod->e_dyn.di_preinit_array);
+   module_callback_t *iter  = (module_callback_t *)((uintptr_t)begin + mod->e_dyn.di_preinit_array_siz);
+   while (iter-- > begin) SAFECALL_KCALL_VOID_2(*func,*iter,arg);
+  }
  }
  if (mod->e_dyn.di_init != 0)
      SAFECALL_KCALL_VOID_2(*func,(module_callback_t)(loadaddr + mod->e_dyn.di_init),arg);
@@ -1295,9 +1334,18 @@ Elf_EnumFinalizers(struct application *__restrict app,
  if (mod->e_dyn.di_fini != 0)
      SAFECALL_KCALL_VOID_2(*func,(module_callback_t)(loadaddr + mod->e_dyn.di_fini),arg);
  if (mod->e_dyn.di_fini_array_siz) {
-  module_callback_t *iter = (module_callback_t *)(loadaddr + mod->e_dyn.di_fini_array);
-  module_callback_t *end  = (module_callback_t *)((uintptr_t)iter + mod->e_dyn.di_fini_array_siz);
-  for (; iter < end; ++iter) SAFECALL_KCALL_VOID_2(*func,*iter,arg);
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+  if (ELF_ISMACHINE32(app->a_module->m_machine)) {
+   u32 *iter = (u32 *)(loadaddr + mod->e_dyn.di_fini_array);
+   u32 *end  = (u32 *)((uintptr_t)iter + mod->e_dyn.di_fini_array_siz);
+   for (; iter < end; ++iter) SAFECALL_KCALL_VOID_2(*func,(module_callback_t)(uintptr_t)*iter,arg);
+  } else
+#endif
+  {
+   module_callback_t *iter = (module_callback_t *)(loadaddr + mod->e_dyn.di_fini_array);
+   module_callback_t *end  = (module_callback_t *)((uintptr_t)iter + mod->e_dyn.di_fini_array_siz);
+   for (; iter < end; ++iter) SAFECALL_KCALL_VOID_2(*func,*iter,arg);
+  }
  }
 }
 

@@ -811,6 +811,7 @@ FUNDEF void KCALL inode_kwriteall(struct inode *__restrict self, void const *__r
  * @param: how: Set of `X_OK|W_OK|R_OK' from <unistd.h>
  * @throw: E_FILESYSTEM_ERROR.ERROR_FS_ACCESS_ERROR: [...] */
 FUNDEF void KCALL inode_access(struct inode *__restrict self, int how);
+FUNDEF bool KCALL inode_tryaccess(struct inode *__restrict self, int how);
 
 /* Returns a set `X_OK|W_OK|R_OK' from <unistd.h> describing what
  * operations may be performed on the given inode by the calling thread. */

@@ -223,6 +223,7 @@
     <ClInclude Include="..\..\src\kernel\include\i386-kos\debug.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\devconfig.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\driver.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\elf-reloc.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\elf.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\fpu.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\gdt.h" />

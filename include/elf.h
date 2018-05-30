@@ -306,6 +306,18 @@ typedef struct
   Elf64_Xword   sh_addralign;           /* Section alignment */
   Elf64_Xword   sh_entsize;             /* Entry size if section holds table */
 } Elf64_Shdr;
+
+#define ELF_SHDR32TO64(dst,src) \
+  ((dst).sh_name      = (src).sh_name, \
+   (dst).sh_type      = (src).sh_type, \
+   (dst).sh_flags     = (src).sh_flags, \
+   (dst).sh_addr      = (src).sh_addr, \
+   (dst).sh_offset    = (src).sh_offset, \
+   (dst).sh_size      = (src).sh_size, \
+   (dst).sh_link      = (src).sh_link, \
+   (dst).sh_info      = (src).sh_info, \
+   (dst).sh_addralign = (src).sh_addralign, \
+   (dst).sh_entsize   = (src).sh_entsize)
 #endif
 
 /* Special section indices. */
@@ -577,6 +589,16 @@ typedef struct
   Elf64_Xword   p_memsz;                /* Segment size in memory */
   Elf64_Xword   p_align;                /* Segment alignment */
 } Elf64_Phdr;
+#define ELF_PHDR32TO64(dst,src) \
+  ((dst).p_type   = (src).p_type, \
+   (dst).p_flags  = (src).p_flags, \
+   (dst).p_offset = (src).p_offset, \
+   (dst).p_vaddr  = (src).p_vaddr, \
+   (dst).p_paddr  = (src).p_paddr, \
+   (dst).p_filesz = (src).p_filesz, \
+   (dst).p_memsz  = (src).p_memsz, \
+   (dst).p_align  = (src).p_align)
+
 #endif
 
 /* Legal values for p_type (segment type). */
@@ -686,6 +708,11 @@ typedef struct
       Elf64_Addr d_ptr;                 /* Address value */
     } d_un;
 } Elf64_Dyn;
+#define ELF_DYN32TO64(dst,src) \
+  ((dst).d_tag      = (src).d_tag, \
+   (dst).d_un.d_val = (src).d_un.d_val)
+
+
 #endif
 
 /* Legal values for d_tag (dynamic entry type). */
@@ -2710,16 +2737,14 @@ typedef Elf32_Addr Elf32_Conflict;
 #ifndef ELF_POINTER_SIZE
 #define ELF_POINTER_SIZE __SIZEOF_POINTER__
 #endif
-#if ELF_POINTER_SIZE == 4
-#   define Elf(x) Elf32_##x
-#   define ELF(x) ELF32_##x
-#   define ELFCLASS ELFCLASS32
-#elif ELF_POINTER_SIZE == 8
+#if ELF_POINTER_SIZE > 4
 #   define Elf(x) Elf64_##x
 #   define ELF(x) ELF64_##x
 #   define ELFCLASS ELFCLASS64
 #else
-#   error "Unsupported ELF pointer size"
+#   define Elf(x) Elf32_##x
+#   define ELF(x) ELF32_##x
+#   define ELFCLASS ELFCLASS32
 #endif
 
 /* Define ELF-pointer-size based types and macros. */

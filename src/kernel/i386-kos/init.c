@@ -116,12 +116,12 @@ void KCALL x86_switch_to_userspace(void) {
                       FS_MODE_FNORMAL);
   /* Check if the initial executable is a regular file. */
   if unlikely(!INODE_ISREG(init_node))
-     error_throw(E_NOT_EXECUTABLE);
+     error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_NOTFILE);
   /* Open the init executable as a module. */
   init_mod = module_open((struct regular_node *)init_node,init_path);
   /* Check if the module has an entry point. */
   if unlikely(!(init_mod->m_flags & MODULE_FENTRY))
-     error_throw(E_NOT_EXECUTABLE);
+     error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_NOENTRY);
   inode_decref(init_node);
   path_decref(init_path);
  }

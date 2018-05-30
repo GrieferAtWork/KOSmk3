@@ -46,6 +46,7 @@ __DECL_BEGIN
      FUNC(buffer_too_small) \
      FUNC(filesystem_error) \
      FUNC(net_error) \
+     FUNC(not_executable) \
      FUNC(no_device) \
      FUNC(unhandled_interrupt) \
      FUNC(unknown_systemcall) \
@@ -59,16 +60,19 @@ __DECL_BEGIN
 
 
 
+#ifndef __PRIVATE_ARCH_FOREACH_EXCEPTION_DATA
+#define __PRIVATE_ARCH_FOREACH_EXCEPTION_DATA(FUNC) /* nothing */
+#endif
+#ifndef __PRIVATE_USER_FOREACH_EXCEPTION_DATA
+#define __PRIVATE_USER_FOREACH_EXCEPTION_DATA(FUNC) /* nothing */
+#endif
+
 /* Enumerate all exception data containers. */
 #ifndef __PRIVATE_FOREACH_EXCEPTION_DATA
-#ifdef __PRIVATE_ARCH_FOREACH_EXCEPTION_DATA
 #define __PRIVATE_FOREACH_EXCEPTION_DATA(FUNC) \
         __PRIVATE_DEFAULT_FOREACH_EXCEPTION_DATA(FUNC) \
-        __PRIVATE_ARCH_FOREACH_EXCEPTION_DATA(FUNC)
-#else
-#define __PRIVATE_FOREACH_EXCEPTION_DATA(FUNC) \
-        __PRIVATE_DEFAULT_FOREACH_EXCEPTION_DATA(FUNC)
-#endif
+        __PRIVATE_ARCH_FOREACH_EXCEPTION_DATA(FUNC) \
+        __PRIVATE_USER_FOREACH_EXCEPTION_DATA(FUNC)
 #endif /* !__PRIVATE_FOREACH_EXCEPTION_DATA */
 
 /* The number of extended exception information data pointers. */
@@ -78,8 +82,6 @@ __DECL_BEGIN
 #define __EXCEPTION_INFO_SIZEOF_DATA       \
        (__EXCEPTION_INFO_NUM_DATA_POINTERS*__SIZEOF_POINTER__)
 
-
 __DECL_END
-
 
 #endif /* !_KOS___EXCEPTION_DATA_H */

@@ -381,7 +381,7 @@ Pe_ImportSymbol(struct application *__restrict pApp,
               pEntry->Name,
               pApp->a_module->m_path->p_dirent->de_name,
               pDependency->a_module->m_path->p_dirent->de_name);
- error_throw(E_NOT_EXECUTABLE);
+ error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_NOSYMBOL);
 }
 
 

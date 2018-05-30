@@ -1569,9 +1569,10 @@ DEFINE_SYSCALL5(execveat,fd_t,dfd,
                       (struct inode **)&exec_node,FS_ATMODE(flags));
  TRY {
   if (!INODE_ISREG(exec_node))
-       error_throw(E_NOT_EXECUTABLE);
+       error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_NOTFILE);
   /* Check for execute and read permissions. */
-  inode_access(exec_node,R_OK|X_OK);
+  if (!inode_tryaccess(exec_node,R_OK|X_OK))
+       error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_NOTEXEC);
   /* Open a new module under the given path. */
   exec_module = module_open((struct regular_node *)exec_node,exec_path);
  } FINALLY {
@@ -1592,7 +1593,7 @@ DEFINE_SYSCALL5(execveat,fd_t,dfd,
  TRY {
   /* Check if the module actually has an entry point. */
   if (!(exec_module->m_flags & MODULE_FENTRY))
-        error_throw(E_NOT_EXECUTABLE);
+        error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_NOENTRY);
 
   /* Send a request to the. */
   if (!task_queue_rpc_user(get_this_process(),(task_user_rpc_t)&exec_user,
@@ -2406,7 +2407,7 @@ DEFINE_SYSCALL5(xfdlopenat,
                         (struct inode **)&module_inode,at_flags);
  TRY {
   if (!INODE_ISREG(module_inode))
-       error_throw(E_NOT_EXECUTABLE);
+       error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_NOTFILE);
   /* Open a module under the given path. */
   mod = module_open((struct regular_node *)module_inode,module_path);
  } FINALLY {

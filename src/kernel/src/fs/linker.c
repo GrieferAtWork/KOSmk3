@@ -364,6 +364,7 @@ module_load(struct module *__restrict mod) {
  assert(mod->m_fixedbase == 0);
  assert(mod->m_flags == MODULE_FNORMAL);
  assert(mod->m_data == NULL);
+ assert(mod->m_machine == 0);
 #ifndef NDEBUG
  /* Debug-initialize members that must be initialized by `m_loadmodule()' */
  memset(&mod->m_imagemin,0xcc,sizeof(image_rva_t));
@@ -380,6 +381,11 @@ module_load(struct module *__restrict mod) {
       return false;
   error_rethrow();
  }
+#if ET_NONE == 0
+ assertf(!result || mod->m_machine != 0,
+         "`m_loadmodule' at %p forgot to set `m_machine'",
+         mod->m_type->m_loadmodule);
+#endif
  return result;
 }
 
@@ -435,7 +441,8 @@ module_open_new(struct regular_node *__restrict node,
  size_t magsz = inode_read(&node->re_node,magic,sizeof(magic),0,IO_RDONLY);
  struct module_type *EXCEPT_VAR type;
  REF struct module *EXCEPT_VAR result;
- if unlikely(!magsz) error_throw(E_NOT_EXECUTABLE);
+ if unlikely(!magsz)
+    error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_BADFORMAT);
  /* Search for a fitting type. */
 again:
  atomic_rwlock_read(&module_types.mt_lock);
@@ -485,7 +492,7 @@ continue_searching:
   }
  }
  atomic_rwlock_endread(&module_types.mt_lock);
- error_throw(E_NOT_EXECUTABLE);
+ error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_BADFORMAT);
 }
 
 
@@ -531,7 +538,7 @@ module_openpath(struct path *__restrict modpath) {
  module_node = (REF struct regular_node *)modpath->p_node;
  if unlikely(!INODE_ISREG(&module_node->re_node)) {
   atomic_rwlock_endread(&modpath->p_lock);
-  error_throw(E_NOT_EXECUTABLE);
+  error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_NOTFILE);
  }
  inode_incref(&module_node->re_node);
  atomic_rwlock_endread(&modpath->p_lock);
@@ -676,20 +683,48 @@ application_destroy(struct application *__restrict self) {
  application_weak_decref(self);
 }
 
+PRIVATE ATTR_NOINLINE void KCALL app_translate_noexec(void) {
+ except_t code = error_code();
+ struct exception_info *info = error_info();
+ switch (code) {
+
+#if defined(NDEBUG) || 0 /* TODO: Re-enable `E_SEGFAULT' */
+ case E_SEGFAULT:
+#endif
+ case E_INDEX_ERROR:
+  memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
+  info->e_error.e_code                      = E_NOT_EXECUTABLE;
+  info->e_error.e_not_executable.ne_errcode = ERROR_NOT_EXECUTABLE_BADDYNAMIC;
+  break;
+
+ case E_DIVIDE_BY_ZERO:
+  memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
+  info->e_error.e_code                      = E_NOT_EXECUTABLE;
+  info->e_error.e_not_executable.ne_errcode = ERROR_NOT_EXECUTABLE_BADOPERATION;
+  break;
+
+ case E_OVERFLOW:
+  memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
+  info->e_error.e_code                      = E_NOT_EXECUTABLE;
+  info->e_error.e_not_executable.ne_errcode = ERROR_NOT_EXECUTABLE_BADRELADDR;
+  break;
+
+ case E_NO_DATA:
+  memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
+  info->e_error.e_code                      = E_NOT_EXECUTABLE;
+  info->e_error.e_not_executable.ne_errcode = ERROR_NOT_EXECUTABLE_BADCONTENT;
+  break;
+
+ default: break;
+ }
+}
+
 
 PRIVATE void KCALL app_doload(struct module_patcher *__restrict self) {
  TRY {
   SAFECALL_KCALL_VOID_1(*self->mp_app->a_module->m_type->m_loadapp,self);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  except_t code = error_code();
-  /* TODO: Re-enable `E_SEGFAULT' */
-  if (/*code == E_SEGFAULT || */code == E_NO_DATA ||
-      code == E_DIVIDE_BY_ZERO || code == E_OVERFLOW ||
-      code == E_INDEX_ERROR) {
-   struct exception_info *info = error_info();
-   memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
-   info->e_error.e_code = E_NOT_EXECUTABLE;
-  }
+  app_translate_noexec();
   error_rethrow();
  }
 }
@@ -697,15 +732,7 @@ PRIVATE void KCALL app_dopatch(struct module_patcher *__restrict self) {
  TRY {
   SAFECALL_KCALL_VOID_1(*self->mp_app->a_module->m_type->m_patchapp,self);
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  except_t code = error_code();
-  /* TODO: Re-enable `E_SEGFAULT' */
-  if (/*code == E_SEGFAULT || */code == E_NO_DATA ||
-      code == E_DIVIDE_BY_ZERO || code == E_OVERFLOW ||
-      code == E_INDEX_ERROR) {
-   struct exception_info *info = error_info();
-   memset(info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
-   info->e_error.e_code = E_NOT_EXECUTABLE;
-  }
+  app_translate_noexec();
   error_rethrow();
  }
 }
@@ -807,7 +834,7 @@ application_load(struct module_patcher *__restrict self) {
    vm_unmap(VM_ADDR2PAGE(app_base+mod->m_imagemin),
             req_pages,VM_UNMAP_NOEXCEPT|VM_UNMAP_SYNC,NULL);
 #endif
-   error_throw(E_NOT_EXECUTABLE);
+   error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_BADCONTENT);
   }
  }
 #ifndef CONFIG_NO_RECENT_MODULES
@@ -816,7 +843,7 @@ application_load(struct module_patcher *__restrict self) {
 #endif /* !CONFIG_NO_RECENT_MODULES */
  return;
 noexec:
- error_throw(E_NOT_EXECUTABLE);
+ error_throwf(E_NOT_EXECUTABLE,ERROR_NOT_EXECUTABLE_BADSIZE);
 }
 
 PUBLIC void KCALL

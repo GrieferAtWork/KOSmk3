@@ -573,6 +573,66 @@ struct __ATTR_PACKED exception_data_net_error {
 
 
 
+#ifdef E_NOT_EXECUTABLE
+#define ERROR_NOT_EXECUTABLE_NOERROR      0x0000 /* No error. */
+/* Execution failure reasons caused by permission/context violation. */
+#define ERROR_NOT_EXECUTABLE_NOTFILE      0x0001 /* The name file is not a regular file, as is required from an executable. */
+#define ERROR_NOT_EXECUTABLE_NOTEXEC      0x0002 /* The calling thread does not have EXEC-permissions on the named file (to fix: `chmod +x ...'). */
+#define ERROR_NOT_EXECUTABLE_NOENTRY      0x0003 /* The name file is a library, rather than an executable and doesn't contain an entry. */
+/* Execution failure reasons caused by an  unknown, or corrupted format. */
+#define ERROR_NOT_EXECUTABLE_BADFORMAT    0x0101 /* Unknown format, or corrupt header. */
+#define ERROR_NOT_EXECUTABLE_BADTYPE      0x0102 /* The executable is recognized as a potential binary, however
+                                                  * either it hadn't been fully linked, or the header has been
+                                                  * corrupted.
+                                                  * Note that some drivers used for loading modules something accept
+                                                  * a commandline option to force loading of partially linked modules,
+                                                  * such as the ELF driver's `--elf-ignore-type' flag. */
+#define ERROR_NOT_EXECUTABLE_BADSIZE      0x0103 /* The module is too large to be loaded (thrown if the module overflows into kernel-space). */
+#define ERROR_NOT_EXECUTABLE_BADCONTENT   0x0104 /* The module does not contain sufficient content to be able to be loaded.
+                                                  * e.g.: Thrown when trying to load an empty ELF binary. */
+#define ERROR_NOT_EXECUTABLE_BADMACHINE   0x0105 /* The module wasn't compiled for the hosting machine, or some other
+                                                  * machine for which the host is offering a compatibility mode. */
+#define ERROR_NOT_EXECUTABLE_BADDYNAMIC   0x0106 /* Dynamic linking pointers are invalid and point outside the image. */
+#define ERROR_NOT_EXECUTABLE_BADRELOC     0x0107 /* An unknown relocation was encountered (dynamic linking).
+                                                  * Note that some drivers used for loading modules something accept
+                                                  * a commandline option to ignore unknown relocations, such as the
+                                                  * ELF driver's `--elf-ignore-bad-reloc' flag. */
+#define ERROR_NOT_EXECUTABLE_BADSYMBOL    0x0108 /* An invalid symbol index was encountered (dynamic linking). */
+#define ERROR_NOT_EXECUTABLE_BADSTRING    0x0109 /* An invalid string offset was encountered (dynamic linking). */
+#define ERROR_NOT_EXECUTABLE_BADRELADDR   0x010a /* A relocation attempted to write to unmapped, or protected memory. */
+#define ERROR_NOT_EXECUTABLE_BADSYMADDR   0x010b /* A relocation attempted to read from a symbol in unmapped, or protected memory. */
+#define ERROR_NOT_EXECUTABLE_BADOPERATION 0x010c /* A relocation attempted an invalid operation, such as division by ZERO(0) */
+/* Execution failure reasons caused by missing components.
+ * For more information on which symbol or dependency could
+ * not be found, let a human monitor the system log while
+ * attempting the operation. Upon failure caused by one of
+ * the following reasons, a message is written that details
+ * the names of modules, dependencies, and missing symbols. */
+#define ERROR_NOT_EXECUTABLE_NODEP        0x0200 /* A module dependency could not be found. */
+#define ERROR_NOT_EXECUTABLE_NOSYMBOL     0x0202 /* A symbol could not be resolved. */
+#define ERROR_NOT_EXECUTABLE_FNORMAL      0x0000 /* Normal flags. */
+#define ERROR_NOT_EXECUTABLE_FDEPENDENCY  0x8000 /* The exception was caused by a dependency of the
+                                                  * primary application being loaded, rather than the
+                                                  * primary application itself. */
+#ifndef __exception_data_not_executable_defined
+#define __exception_data_not_executable_defined 1
+#ifdef __CC__
+struct __ATTR_PACKED exception_data_not_executable {
+    __UINT16_TYPE__      ne_errcode;   /* Not-executable error code (One of `ERROR_NOT_EXECUTABLE_*').
+                                        * NOTE: Never `ERROR_NET_NOERROR' */
+    __UINT16_TYPE__      ne_flags;     /* Not-executable flags (Set of `ERROR_NOT_EXECUTABLE_F*'). */
+#if __SIZEOF_POINTER__ > 4
+    __UINT16_TYPE__      ne_pad[(sizeof(void *)-4)/2]; /* ... */
+#endif
+};
+#endif /* __CC__ */
+#endif /* !__exception_data_not_executable_defined */
+#endif /* E_NET_ERROR */
+
+
+
+
+
 #ifdef E_NO_DEVICE
 #ifndef ERROR_NO_DEVICE_FBLOCKDEV
 #define ERROR_NO_DEVICE_FBLOCKDEV 0x0000 /* The missing device is a block-device. */

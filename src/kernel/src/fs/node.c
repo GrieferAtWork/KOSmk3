@@ -272,6 +272,14 @@ inode_access(struct inode *__restrict self, int how) {
  (void)how;
 }
 
+PUBLIC bool KCALL
+inode_tryaccess(struct inode *__restrict self, int how) {
+ /* TODO */
+ (void)self;
+ (void)how;
+ return true;
+}
+
 PUBLIC WUNUSED int KCALL
 inode_accessok(struct inode *__restrict self) {
  /* TODO */
