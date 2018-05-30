@@ -44,35 +44,65 @@ INTERN_LABEL(x86_boot_stack_top)
 #endif
 SYMEND(x86_boot_stack)
 
-#if 1
+#define SYM(x) (x - KERNEL_BASE)
+
 .section .text.free
 INTERN_ENTRY(_start)
 	/* Save the initial register state. */
-	movl   %eax,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EAX
-	movl   %ecx,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_ECX
-	movl   %edx,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EDX
-	movl   %ebx,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EBX
-	movl   %esp,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_ESP
-	movl   %ebp,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EBP
-	movl   %esi,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_ESI
-	movl   %edi,    (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EDI
+	movl   %eax,    SYM(x86_boot_context)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EAX
+	movl   %ecx,    SYM(x86_boot_context)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_ECX
+	movl   %edx,    SYM(x86_boot_context)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EDX
+	movl   %ebx,    SYM(x86_boot_context)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EBX
+	movl   %esp,    SYM(x86_boot_context)+X86_CONTEXT_OFFSETOF_ESP
+	movl   %ebp,    SYM(x86_boot_context)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EBP
+	movl   %esi,    SYM(x86_boot_context)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_ESI
+	movl   %edi,    SYM(x86_boot_context)+X86_CONTEXT_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EDI
 #ifndef CONFIG_NO_X86_SEGMENTATION
-	movw   %ds,     (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_DS
-	movw   %es,     (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_ES
-	movw   %fs,     (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_FS
-	movw   %gs,     (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS
+	movw   %ds,     SYM(x86_boot_context)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_DS
+	movw   %es,     SYM(x86_boot_context)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_ES
+	movw   %fs,     SYM(x86_boot_context)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_FS
+	movw   %gs,     SYM(x86_boot_context)+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
-	movw   %cs,     (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_CS
-	movl   $(_start - KERNEL_BASE), (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_EIP /* Kind-of unnecessary, but eh... */
-	leal   x86_boot_stack + CONFIG_KERNELSTACK_SIZE - KERNEL_BASE, %esp
+	movw   %cs,     SYM(x86_boot_context)+X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_CS
+	movl   $SYM(_start), SYM(x86_boot_context)+X86_CONTEXT_OFFSETOF_EIP /* Kind-of unnecessary, but eh... */
+	leal   SYM(x86_boot_stack) + CONFIG_KERNELSTACK_SIZE, %esp
 	pushfl
-	popl   (x86_boot_context - KERNEL_BASE)+X86_CONTEXT_OFFSETOF_EFLAGS
+	movl   0(%esp), %eax
+	movl   %eax, SYM(x86_boot_context)+X86_CONTEXT_OFFSETOF_EFLAGS
 
+	cli  /* Disable interrupts */
+	cld  /* Clear the direction bit (required for REP instructions) */
+
+	/* Check if CPUID is supported. */
+	xorl  $(EFLAGS_ID), 0(%esp)
+	popf
+	pushf
+	movl  0(%esp), %ebx
+	andl  $(~EFLAGS_ID), 0(%esp)
+	popf
+	andl  $(EFLAGS_ID), %eax
+	andl  $(EFLAGS_ID), %ebx
+	cmpl  %eax, %ebx
+	je    .Lno_cpuuid
+
+	movl  $1, %eax
+	cpuid
+	testl $CPUID_1D_PGE, %edx /* Check if the PAGE_FGLOBAL bit is supported. */
+	jnz   1f
+	movl  $0,   SYM(x86_page_global)
+1:	movl  %eax, SYM(boot_cpu_id_features) + 8  /* ci_1a */
+	movl  %ebx, SYM(boot_cpu_id_features) + 12 /* ci_1b */
+	movl  %edx, SYM(boot_cpu_id_features) + 16 /* ci_1d */
+	movl  %ecx, SYM(boot_cpu_id_features) + 20 /* ci_1c */
+
+
+.Lno_cpuuid:
 	/* Setup the kernel page directory. */
 	leal   pagedir_kernel_phys + VEC2_SHARE_BEGIN * 4, %edi
-	leal   (pagedir_kernel_share - KERNEL_BASE) + \
-	       (X86_PAGE_FGLOBAL | X86_PAGE_FDIRTY | X86_PAGE_FACCESSED | \
+	leal   SYM(pagedir_kernel_share) + \
+	       (X86_PAGE_FDIRTY | X86_PAGE_FACCESSED | \
 	        X86_PAGE_FWRITE | X86_PAGE_FPRESENT),   %eax
+	orl    SYM(x86_page_global), %eax
 	movl   $(VEC2_SHARE_SIZE), %ecx
 1:	stosl
 	addl   $4096, %eax /* Advance to the next table. */
@@ -85,16 +115,17 @@ INTERN_ENTRY(_start)
 	/* Create an identity mapping of first 1Gb(-1K) by mapping the
 	 * shared kernel segment a second time to cover the low memory area. */
 	leal   pagedir_kernel_phys,                     %edi
-	leal   (pagedir_kernel_share - KERNEL_BASE) + \
-	       (X86_PAGE_FGLOBAL | X86_PAGE_FDIRTY | X86_PAGE_FACCESSED | \
+	leal   SYM(pagedir_kernel_share) + \
+	       (X86_PAGE_FDIRTY | X86_PAGE_FACCESSED | \
 	        X86_PAGE_FWRITE | X86_PAGE_FPRESENT),   %eax
+	orl    SYM(x86_page_global), %eax
 	movl   $(VEC2_SHARE_SIZE/* + VEC2_IDENTITY_SIZE*/), %ecx
 1:	stosl
 	addl   $4096, %eax /* Advance to the next table. */
 	loop   1b
 
-#define PERM_XR   (X86_PAGE_FGLOBAL|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT)
-#define PERM_RW   (X86_PAGE_FGLOBAL|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT|X86_PAGE_FDIRTY|X86_PAGE_FWRITE)
+#define PERM_XR   (X86_PAGE_FACCESSED|X86_PAGE_FPRESENT)
+#define PERM_RW   (X86_PAGE_FACCESSED|X86_PAGE_FPRESENT|X86_PAGE_FDIRTY|X86_PAGE_FWRITE)
 	/* With all that set up, now we must initialize
 	 * the P1 entires from `pagedir_kernel_share'.
 	 * We do this in 3 stages:
@@ -102,7 +133,7 @@ INTERN_ENTRY(_start)
 	 *   kernel_start ... kernel_ro_end --> XR-  (If possible, execute permissions are removed later)
 	 *   kernel_ro_end ... 1Gb          --> -RW
 	 */
-	leal   pagedir_kernel_share - KERNEL_BASE, %edi
+	leal   SYM(pagedir_kernel_share), %edi
 
 	movl   $_boot_page0_size, %ecx
 	leal   0 + PERM_RW, %eax
@@ -111,21 +142,24 @@ INTERN_ENTRY(_start)
 	loop   1b
 
 	movl   $_boot_page1_size, %ecx
-	leal   kernel_start - KERNEL_BASE + PERM_XR, %eax
+	leal   SYM(kernel_start) + PERM_XR, %eax
+	orl    SYM(x86_page_global), %eax
 1:	stosl
 	addl   $(PAGESIZE), %eax /* Advance to the next page. */
 	loop   1b
 
 	movl   $_boot_page2_size, %ecx
-	leal   kernel_ro_end - KERNEL_BASE + PERM_RW, %eax
+	leal   SYM(kernel_ro_end) + PERM_RW, %eax
+	orl    SYM(x86_page_global), %eax
 1:	stosl
 	addl   $(PAGESIZE), %eax /* Advance to the next page. */
 	loop   1b
 
-	/* EDI = (pagedir_kernel_share - KERNEL_BASE) + VEC2_IDENTITY_BEGIN */
+	/* EDI = SYM(pagedir_kernel_share) + VEC2_IDENTITY_BEGIN */
 	/* Finally, initialize the page-directory self mapping. */
 	movl   $1024, %ecx
-	leal   pagedir_kernel_share - KERNEL_BASE + PERM_RW, %eax
+	leal   SYM(pagedir_kernel_share) + PERM_RW, %eax
+	orl    SYM(x86_page_global), %eax
 1:	stosl
 	addl   $(PAGESIZE), %eax /* Advance to the next page. */
 	loop   1b
@@ -149,6 +183,4 @@ INTERN_ENTRY(_start)
 	/* Initialize the kernel. */
 	jmp    x86_kernel_main
 SYMEND(_start)
-
-#endif
 

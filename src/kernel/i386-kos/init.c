@@ -261,8 +261,8 @@ void KCALL x86_switch_to_userspace(void) {
 
    /* Remove the node for the .free section from the kernel VM. */
    asserte(vm_pop_nodes(&vm_kernel,
-                       (vm_vpage_t)kernel_free_minpage,
-                       (vm_vpage_t)kernel_free_maxpage,
+                       (vm_vpage_t)LOAD_FAR_POINTER(kernel_free_minpage),
+                       (vm_vpage_t)LOAD_FAR_POINTER(kernel_free_maxpage),
                         VM_UNMAP_NORMAL|
                         VM_UNMAP_IMMUTABLE,
                         NULL) == &kernel_free_node);
@@ -306,10 +306,10 @@ no_free_segment:
                         "jmp   pagedir_map\n"            /* pagedir_map(...) */
                         :
                         : "r" (&ctx)
-                        , "D" ((uintptr_t)kernel_free_minpage)   /* pagedir_map([virt_page],num_pages,phys_page,perm); */
-                        , "S" ((uintptr_t)kernel_free_num_pages) /* pagedir_map(virt_page,[num_pages],phys_page,perm); */
-                        , "d" ((uintptr_t)0)                     /* pagedir_map(virt_page,num_pages,[phys_page],perm); */
-                        , "c" ((uintptr_t)PAGEDIR_MAP_FUNMAP)    /* pagedir_map(virt_page,num_pages,phys_page,[perm]); */
+                        , "D" (LOAD_FAR_POINTER(kernel_free_minpage))   /* pagedir_map([virt_page],num_pages,phys_page,perm); */
+                        , "S" (LOAD_FAR_POINTER(kernel_free_num_pages)) /* pagedir_map(virt_page,[num_pages],phys_page,perm); */
+                        , "d" ((uintptr_t)0)                            /* pagedir_map(virt_page,num_pages,[phys_page],perm); */
+                        , "c" ((uintptr_t)PAGEDIR_MAP_FUNMAP)           /* pagedir_map(virt_page,num_pages,phys_page,[perm]); */
                         : "memory");
 #else
    __asm__ __volatile__("pushl %0\n"                     /* cpu_setcontext([ctx]) */

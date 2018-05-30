@@ -21,6 +21,7 @@
 
 #include <hybrid/compiler.h>
 #include <hybrid/host.h>
+#include <hybrid/typecore.h>
 
 DECL_BEGIN
 
@@ -46,6 +47,12 @@ DECL_BEGIN
 #endif
 #else
 #ifdef __x86_64__
+#define LOAD_FAR_POINTER(x) \
+ __XBLOCK({ register __UINT64_TYPE__ __lfp_res; \
+            __asm__("movabs $" __PP_PRIVATE_STR(x) ", %0" : "=r" (__lfp_res)); \
+            __XRETURN __lfp_res; })
+
+
 #define DEFINE_ABS_CALLBACK(sect,func) \
     __asm__(".pushsection " sect "\n\t" \
             "\t.quad " PP_PRIVATE_STR(func) "\n\t" \

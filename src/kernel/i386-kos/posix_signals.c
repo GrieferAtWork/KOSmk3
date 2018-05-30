@@ -329,8 +329,10 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
   xframe = (struct signal_frame_ex *)context->c_psp-1;
   validate_writable(xframe,sizeof(*xframe));
   frame  = &xframe->sf_frame;
+#ifndef __x86_64__
   xframe->sf_infop    = &xframe->sf_info;
   xframe->sf_contextp = &xframe->sf_return;
+#endif
   /* Fill in extended-signal-frame-specific fields. */
   memcpy(&xframe->sf_info,info,sizeof(siginfo_t));
   if (stack) {
@@ -413,7 +415,17 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
   frame->sf_return.m_flags |= __MCONTEXT_FHAVEFPU;
  }
 #endif
+#ifdef __x86_64__
+ context->c_gpregs.gp_rdi = info->si_signo; /* Arg #1 */
+ if (action->sa_flags & SA_SIGINFO) {
+  struct signal_frame_ex *xframe;
+  xframe = (struct signal_frame_ex *)frame;
+  context->c_gpregs.gp_rsi = (u64)&xframe->sf_info;   /* Arg #2 */
+  context->c_gpregs.gp_rdx = (u64)&xframe->sf_return; /* Arg #3 */
+ }
+#else
  frame->sf_signo = info->si_signo;
+#endif
 
  /* Redirect the frame's sig-return pointer to direct it at the `sys_sigreturn' system call.
   * Being able to do this right here is the main reason why #PF-syscalls were introduced. */

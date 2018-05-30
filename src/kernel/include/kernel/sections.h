@@ -32,6 +32,11 @@ DECL_BEGIN
 
 #ifdef __CC__
 
+#ifndef LOAD_FAR_POINTER
+#define LOAD_FAR_POINTER(x) ((__UINTPTR_TYPE__)(x))
+#endif
+
+
 #ifdef CONFIG_BUILDING_KERNEL_CORE
 /* Section addresses within the kernel core. */
 

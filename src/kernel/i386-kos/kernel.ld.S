@@ -160,9 +160,11 @@
 .hidden kernel_end
 .hidden kernel_size_raw
 .hidden kernel_size
+#ifndef __x86_64__
 .hidden _boot_page0_size
 .hidden _boot_page1_size
 .hidden _boot_page2_size
+#endif
 .hidden _x86_gdt_tss_lo
 .hidden _x86_gdt_tss_hi
 #ifndef __x86_64__

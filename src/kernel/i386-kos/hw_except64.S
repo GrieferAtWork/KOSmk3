@@ -66,10 +66,10 @@ INTERN_ENTRY(irq_\id)
 	pushq_cfi_r %r14
 	pushq_cfi_r %r15
 
-.if \has_ecode != 0
-	movq    0(%rsp), %rsi /* ECODE */
-.endif
 	movq    %rsp,    %rdi /* context */
+.if \has_ecode != 0
+	movq    -8(%rsp), %rsi /* ECODE */
+.endif
 
 	/* Invoke the high-level interrupt handler. */
 	call    \name

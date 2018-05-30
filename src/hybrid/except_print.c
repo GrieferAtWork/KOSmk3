@@ -70,11 +70,9 @@ PRIVATE ATTR_RARERODATA char const x86_gpnames2[4][2] = {
     { 's', 'i' }, { 'd', 'i' }
 };
 PRIVATE ATTR_RARERODATA char const x86_spnames[6] = {
-#ifndef __x86_64__
     [X86_REGISTER_SEGMENT_ES] = 'e',
     [X86_REGISTER_SEGMENT_SS] = 's',
     [X86_REGISTER_SEGMENT_DS] = 'd',
-#endif
     [X86_REGISTER_SEGMENT_CS] = 'c',
     [X86_REGISTER_SEGMENT_FS] = 'f',
     [X86_REGISTER_SEGMENT_GS] = 'g'
@@ -855,7 +853,6 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
         --context.c_pip;
    last_pip = context.c_pip;
    if (!linker_findfde_consafe(context.c_pip,&finfo)) {
-    PRINTF("End traceback: No frame at %p\n",context.c_pip);
  #if 0
     /* For the first entry, assume a standard unwind which can be used
      * to properly display tracebacks when execution tries to call a

@@ -34,6 +34,10 @@
 
 DECL_BEGIN
 
+#ifndef KERNEL_CORE_BASE
+#define KERNEL_CORE_BASE KERNEL_BASE
+#endif
+
 PUBLIC struct mzone *_mzones[MZONE_MAXCOUNT] ASMNAME("mzones");
 PUBLIC size_t _mzone_count ASMNAME("mzone_count");
 
@@ -48,20 +52,22 @@ INTERN ATTR_FREERODATA struct meminfo const predefined_meminfo[MEMINSTALL_EARLY_
     { .mi_type = MEMTYPE_DEVICE,    .mi_addr   = __UINT64_C(0x00000000000A0000), },
     { .mi_type = MEMTYPE_NDEF,      .mi_addr   = __UINT64_C(0x0000000000100000), },
 #ifdef __x86_64__
-    { .mi_type = MEMTYPE_KERNEL,    .mi_addr   = (uintptr_t)kernel_start - KERNEL_BASE },
-    { .mi_type = MEMTYPE_KFREE,     .mi_addr   = (uintptr_t)kernel_free_start - KERNEL_BASE },
-    { .mi_type = MEMTYPE_NDEF,      .mi_addr   = (uintptr_t)kernel_free_end - KERNEL_BASE }
+    { .mi_type = MEMTYPE_KERNEL,    .mi_addr   = (uintptr_t)kernel_start - KERNEL_CORE_BASE },
+    { .mi_type = MEMTYPE_KFREE,     .mi_addr   = (uintptr_t)kernel_free_start - KERNEL_CORE_BASE },
+    { .mi_type = MEMTYPE_NDEF,      .mi_addr   = (uintptr_t)kernel_free_end - KERNEL_CORE_BASE }
 #else
-    { .mi_type = MEMTYPE_KERNEL,    .mi_addr32 = (uintptr_t)kernel_start - KERNEL_BASE },
-    { .mi_type = MEMTYPE_KFREE,     .mi_addr32 = (uintptr_t)kernel_free_start - KERNEL_BASE },
-    { .mi_type = MEMTYPE_NDEF,      .mi_addr32 = (uintptr_t)kernel_free_end - KERNEL_BASE }
+    { .mi_type = MEMTYPE_KERNEL,    .mi_addr32 = (uintptr_t)kernel_start - KERNEL_CORE_BASE },
+    { .mi_type = MEMTYPE_KFREE,     .mi_addr32 = (uintptr_t)kernel_free_start - KERNEL_CORE_BASE },
+    { .mi_type = MEMTYPE_NDEF,      .mi_addr32 = (uintptr_t)kernel_free_end - KERNEL_CORE_BASE }
 #endif
 };
 
 /* Fallback heap address for memory zones. */
-INTERN ATTR_FREEDATA PHYS byte_t *mzone_heap_end = kernel_end_raw - KERNEL_BASE;
+INTERN ATTR_FREEDATA PHYS byte_t *mzone_heap_end = kernel_end_raw - KERNEL_CORE_BASE;
 
-#if 1 /* Don't allow physical memory that would identity-map into the identity mapping. */
+#ifdef __x86_64__
+#define MZONE_HEAP_END  0x40000000
+#elif 1 /* Don't allow physical memory that would identity-map into the identity mapping. */
 #define MZONE_HEAP_END  (X86_PDIR_E1_IDENTITY_BASE - 0xc0000000)
 #else
 #define MZONE_HEAP_END  0x40000000
@@ -100,11 +106,15 @@ mzone_heap_malloc(size_t n_bytes) {
   result          = (uintptr_t)mzone_heap_end;
   mzone_heap_end += n_bytes;
  }
+#ifdef __x86_64__
+ assertf(result+n_bytes <= MZONE_HEAP_END,"Not part of the first 2Gb");
+#else
  assertf(result+n_bytes <= MZONE_HEAP_END,"Not part of the first 1Gb");
+#endif
  /* Override the memory region to already be allocated. */
  mem_install(result,n_bytes,MEMTYPE_ALLOCATED);
  COMPILER_BARRIER();
- return (VIRT void *)(result + KERNEL_BASE);
+ return (VIRT void *)(result + KERNEL_CORE_BASE);
 }
 
 
@@ -117,6 +127,9 @@ struct mzone_spec {
 };
 
 PUBLIC unsigned int _X86_MZONE_1GB ASMNAME("X86_MZONE_1GB");
+#ifdef __x86_64__
+PUBLIC unsigned int _X86_MZONE_2GB ASMNAME("X86_MZONE_2GB");
+#endif
 PUBLIC unsigned int _X86_MZONE_4GB ASMNAME("X86_MZONE_4GB");
 
 struct below_addr_zone {
@@ -126,6 +139,9 @@ struct below_addr_zone {
 PRIVATE ATTR_FREERODATA
 struct below_addr_zone const special_zones[] = {
     { &_X86_MZONE_1GB, (pageptr_t)(((__UINT64_C(0x000000003fffffff)+1)/PAGESIZE)-1) },
+#ifdef __x86_64__
+    { &_X86_MZONE_2GB, (pageptr_t)(((__UINT64_C(0x000000007fffffff)+1)/PAGESIZE)-1) },
+#endif
     { &_X86_MZONE_4GB, (pageptr_t)(((__UINT64_C(0x00000000ffffffff)+1)/PAGESIZE)-1) },
 };
 
@@ -307,6 +323,12 @@ x86_vm_add_identity(vm_vpage_t page_index, size_t num_pages) {
  vm_vpage_t page_max = page_index+num_pages-1;
  assert(num_pages);
  assert(page_index >= KERNEL_BASE_PAGE);
+ assert(page_max >= page_index);
+ assertf(page_max <= VM_VPAGE_MAX,
+        "page_index = %p\n"
+        "page_max   = %p\n"
+        "num_pages  = %p\n",
+        page_index,page_max,num_pages);
  node = vm_pop_nodes(&vm_kernel,
                      page_index,page_max,
                      VM_UNMAP_IMMUTABLE,NULL);
@@ -375,7 +397,6 @@ x86_vm_add_identity(vm_vpage_t page_index, size_t num_pages) {
 
  /* Insert the new node. */
  vm_insert_node(&vm_kernel,node);
-
 }
 
 
@@ -392,7 +413,7 @@ x86_mem_construct_zone_nodes(void) {
   zone_size  = (offsetof(struct mzone,mz_fpages)+
                ((zone->mz_max-zone->mz_min)+1+7)/8+2*sizeof(void *));
   zone_size += (uintptr_t)zone & (PAGESIZE-1);
-  zone_page  = (uintptr_t)zone / PAGESIZE;
+  zone_page  = VM_ADDR2PAGE((uintptr_t)zone);
   zone_size += (PAGESIZE-1);
   zone_size /= PAGESIZE;
 #if 0

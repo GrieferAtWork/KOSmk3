@@ -257,12 +257,12 @@ SECTIONS {
 	})
 	PROVIDE_HIDDEN(kernel_data_end = ABSOLUTE(.));
 	PROVIDE_HIDDEN(kernel_data_size = ABSOLUTE(kernel_data_end - kernel_data_start));
-	PROVIDE_HIDDEN(x86_ushare_sysenter_pageno = ABSOLUTE((x86_ushare_sysenter - KERNEL_CORE_BASE) / PAGESIZE));
+	PROVIDE_HIDDEN(x86_ushare_sysenter_pageno = VM_ADDR2PAGE(ABSOLUTE(x86_ushare_sysenter) - KERNEL_CORE_BASE));
 #ifdef __x86_64__
-	PROVIDE_HIDDEN(x86_ushare_sysenter_compat_pageno = ABSOLUTE((x86_ushare_sysenter_compat - KERNEL_CORE_BASE) / PAGESIZE));
+	PROVIDE_HIDDEN(x86_ushare_sysenter_compat_pageno = VM_ADDR2PAGE(ABSOLUTE(x86_ushare_sysenter_compat) - KERNEL_CORE_BASE));
 #endif
-	PROVIDE_HIDDEN(ushare_strerror_pageno = ABSOLUTE((ushare_strerror - KERNEL_CORE_BASE) / PAGESIZE));
-	PROVIDE_HIDDEN(ushare_utsname_pageno = ABSOLUTE((ushare_utsname - KERNEL_CORE_BASE) / PAGESIZE));
+	PROVIDE_HIDDEN(ushare_strerror_pageno = VM_ADDR2PAGE(ABSOLUTE(ushare_strerror) - KERNEL_CORE_BASE));
+	PROVIDE_HIDDEN(ushare_utsname_pageno = VM_ADDR2PAGE(ABSOLUTE(ushare_utsname) - KERNEL_CORE_BASE));
 	PROVIDE_HIDDEN(kernel_rwx_size_raw = ABSOLUTE(kernel_rwx_end_raw - kernel_rwx_start));
 	PROVIDE_HIDDEN(kernel_rwx_size = ABSOLUTE(kernel_rwx_end - kernel_rwx_start));
 	PROVIDE_HIDDEN(kernel_rwnx_end = ABSOLUTE(.));
@@ -279,7 +279,7 @@ SECTIONS {
 		*(.bss.cold)
 		IP_ALIGN(PAGESIZE);
 		PROVIDE_HIDDEN(x86_boot_stack_guard_addr = ABSOLUTE(.));
-		PROVIDE_HIDDEN(x86_boot_stack_guard_page = ABSOLUTE(.) / PAGESIZE);
+		PROVIDE_HIDDEN(x86_boot_stack_guard_page = VM_ADDR2PAGE(ABSOLUTE(.)));
 		. += PAGESIZE;
 		IP_ALIGN(CACHELINE);
 		*(.bss.boot.boot_stack)
@@ -370,11 +370,13 @@ SECTIONS {
 	PROVIDE_HIDDEN(kernel_size_raw = ABSOLUTE(kernel_end_raw - kernel_start));
 	PROVIDE_HIDDEN(kernel_size = ABSOLUTE(kernel_end - kernel_start));
 
+#ifndef __x86_64__
 	/* Boot page initialization constants used to initialize paging of the first 1Gb. */
 	PROVIDE_HIDDEN(_boot_page0_size = ((kernel_start - KERNEL_CORE_BASE) - 0) / PAGESIZE); /* -RW */
 	PROVIDE_HIDDEN(_boot_page1_size = kernel_ro_size / PAGESIZE);                          /* XR- */
 	PROVIDE_HIDDEN(_boot_page2_size = (((X86_PDIR_E1_IDENTITY_BASE - KERNEL_CORE_BASE) & 0xffffffff) / PAGESIZE) - (_boot_page0_size + _boot_page1_size)); /* -WR */
 	/* Added together, `_boot_page?_size' must equate to `1Gb / PAGESIZE' */
+#endif
 	
 
 	/* Pre-calculate TSS and TLS segment initializers. */
@@ -412,32 +414,33 @@ SECTIONS {
 
 
 	/* Pre-calculate page numbers and sizes of kernel segments. */
-	PROVIDE_HIDDEN(kernel_rx_minpage     = ABSOLUTE(kernel_rx_start / PAGESIZE));
-	PROVIDE_HIDDEN(kernel_rx_maxpage     = ABSOLUTE((kernel_rx_end / PAGESIZE)-1));
+	PROVIDE_HIDDEN(kernel_rx_minpage     = ABSOLUTE(VM_ADDR2PAGE(kernel_rx_start)));
+	PROVIDE_HIDDEN(kernel_rx_maxpage     = ABSOLUTE(VM_ADDR2PAGE(kernel_rx_end)-1));
 	PROVIDE_HIDDEN(kernel_rx_num_pages   = ABSOLUTE((kernel_rx_maxpage - kernel_rx_minpage)+1));
-	PROVIDE_HIDDEN(kernel_ro_minpage     = ABSOLUTE(kernel_ro_start / PAGESIZE));
-	PROVIDE_HIDDEN(kernel_ro_maxpage     = ABSOLUTE((kernel_ro_end / PAGESIZE)-1));
+	PROVIDE_HIDDEN(kernel_ro_minpage     = ABSOLUTE(VM_ADDR2PAGE(kernel_ro_start)));
+	PROVIDE_HIDDEN(kernel_ro_maxpage     = ABSOLUTE(VM_ADDR2PAGE(kernel_ro_end)-1));
 	PROVIDE_HIDDEN(kernel_ro_num_pages   = ABSOLUTE((kernel_ro_maxpage - kernel_ro_minpage)+1));
-	PROVIDE_HIDDEN(kernel_ronx_minpage   = ABSOLUTE(kernel_ronx_start / PAGESIZE));
-	PROVIDE_HIDDEN(kernel_ronx_maxpage   = ABSOLUTE((kernel_ronx_end / PAGESIZE)-1));
+	PROVIDE_HIDDEN(kernel_ronx_minpage   = ABSOLUTE(VM_ADDR2PAGE(kernel_ronx_start)));
+	PROVIDE_HIDDEN(kernel_ronx_maxpage   = ABSOLUTE(VM_ADDR2PAGE(kernel_ronx_end)-1));
 	PROVIDE_HIDDEN(kernel_ronx_num_pages = ABSOLUTE((kernel_ronx_maxpage - kernel_ronx_minpage)+1));
-	PROVIDE_HIDDEN(kernel_rw_minpage     = ABSOLUTE(kernel_rw_start / PAGESIZE));
-	PROVIDE_HIDDEN(kernel_rw_maxpage     = ABSOLUTE((kernel_rw_end / PAGESIZE)-1));
+	PROVIDE_HIDDEN(kernel_rw_minpage     = ABSOLUTE(VM_ADDR2PAGE(kernel_rw_start)));
+	PROVIDE_HIDDEN(kernel_rw_maxpage     = ABSOLUTE(VM_ADDR2PAGE(kernel_rw_end)-1));
 	PROVIDE_HIDDEN(kernel_rw_num_pages   = ABSOLUTE((kernel_rw_maxpage - kernel_rw_minpage)+1));
-	PROVIDE_HIDDEN(kernel_rwx_minpage    = ABSOLUTE(kernel_rwx_start / PAGESIZE));
-	PROVIDE_HIDDEN(kernel_rwx_maxpage    = ABSOLUTE((kernel_rwx_end / PAGESIZE)-1));
+	PROVIDE_HIDDEN(kernel_rwx_minpage    = ABSOLUTE(VM_ADDR2PAGE(kernel_rwx_start)));
+	PROVIDE_HIDDEN(kernel_rwx_maxpage    = ABSOLUTE(VM_ADDR2PAGE(kernel_rwx_end)-1));
 	PROVIDE_HIDDEN(kernel_rwx_num_pages  = ABSOLUTE((kernel_rwx_maxpage - kernel_rwx_minpage)+1));
-	PROVIDE_HIDDEN(kernel_rwnf_minpage   = ABSOLUTE(kernel_rwnf_start / PAGESIZE));
-	PROVIDE_HIDDEN(kernel_rwnf_maxpage   = ABSOLUTE((kernel_rwnf_end / PAGESIZE)-1));
+	PROVIDE_HIDDEN(kernel_rwnf_minpage   = ABSOLUTE(VM_ADDR2PAGE(kernel_rwnf_start)));
+	PROVIDE_HIDDEN(kernel_rwnf_maxpage   = ABSOLUTE(VM_ADDR2PAGE(kernel_rwnf_end)-1));
 	PROVIDE_HIDDEN(kernel_rwnf_num_pages = ABSOLUTE((kernel_rwnf_maxpage - kernel_rwnf_minpage)+1));
-	PROVIDE_HIDDEN(kernel_free_minpage   = ABSOLUTE(kernel_free_start / PAGESIZE));
-	PROVIDE_HIDDEN(kernel_free_maxpage   = ABSOLUTE((kernel_free_end / PAGESIZE)-1));
+	PROVIDE_HIDDEN(kernel_free_minpage   = ABSOLUTE(VM_ADDR2PAGE(kernel_free_start)));
+	PROVIDE_HIDDEN(kernel_free_maxpage   = ABSOLUTE(VM_ADDR2PAGE(kernel_free_end)-1));
 	PROVIDE_HIDDEN(kernel_free_num_pages = ABSOLUTE((kernel_free_maxpage - kernel_free_minpage)+1));
 
 	PROVIDE_HIDDEN(kernel_coredriver_param_size = ABSOLUTE(kernel_coredriver_param_end - kernel_coredriver_param_start));
 	PROVIDE_HIDDEN(kernel_coredriver_param_count = ABSOLUTE(kernel_coredriver_param_size / (4*__SIZEOF_POINTER__)));
 
 	PROVIDE_HIDDEN(boot_cpu_id_features = ABSOLUTE(boot_cpu_start + cpu_id_features));
+	PROVIDE_HIDDEN(boot_cpu_id_basic_features = ABSOLUTE(boot_cpu_start + cpu_basic_features));
 	PROVIDE_HIDDEN(boot_cpu_x86_cpugdt  = ABSOLUTE(boot_cpu_start + x86_cpugdt));
 
 	/DISCARD/ : {

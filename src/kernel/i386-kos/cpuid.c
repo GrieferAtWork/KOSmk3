@@ -37,6 +37,7 @@ PUBLIC ATTR_PERCPU struct cpu_cpuid _cpu_id_features ASMNAME("cpu_id_features") 
 
 INTERN ATTR_FREETEXT void KCALL x86_load_cpuid(void) {
  struct cpu_cpuid *info;
+ /* TODO: A lot of this stuff was already done by the boot(32|64).S. */
 #ifndef __x86_64__
  u32 cpuid_available;
  /* Check if CPUID is even available. */

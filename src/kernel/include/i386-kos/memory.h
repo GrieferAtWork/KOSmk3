@@ -27,10 +27,16 @@ DECL_BEGIN
 #define             X86_MZONE_1MB  0        /* 0x0000000000000000..0x00000000000fffff */
 #define             X86_MZONE_16MB 1        /* 0x0000000000100000..0x0000000000ffffff */
 #define             X86_MZONE_1GB X86_MZONE_1GB
+#ifdef __x86_64__
+#define             X86_MZONE_2GB X86_MZONE_2GB
+#endif
 #define             X86_MZONE_4GB X86_MZONE_4GB
 #ifdef __CC__
 DATDEF unsigned int const X86_MZONE_1GB;    /* 0x0000000001000000..0x000000003fffffff (NOTE: `0x000000003fffffff' is the max-end; this zone may end before then) */
-DATDEF unsigned int const X86_MZONE_4GB;    /* 0x0000000040000000..0x00000000ffffffff (NOTE: `0x00000000ffffffff' is the max-end; this zone may end before then) */
+#ifdef __x86_64__
+DATDEF unsigned int const X86_MZONE_2GB;    /* 0x0000000040000000..0x000000007fffffff (NOTE: `0x000000007fffffff' is the max-end; this zone may end before then) */
+#endif
+DATDEF unsigned int const X86_MZONE_4GB;    /* 0x0000000080000000..0x00000000ffffffff (NOTE: `0x00000000ffffffff' is the max-end; this zone may end before then) */
 #endif /* __CC__ */
 #define             X86_MZONE_PSE MZONE_ANY /* 0x0000000100000000..0xffffffffffffffff */
 
@@ -41,7 +47,11 @@ DATDEF unsigned int const X86_MZONE_4GB;    /* 0x0000000040000000..0x00000000fff
 
 
 /* Max amount of memory zones. */
+#ifdef __x86_64__
+#define MZONE_MAXCOUNT        16
+#else
 #define MZONE_MAXCOUNT        8
+#endif
 
 #ifdef __x86_64__
 /* The stack size of kernel threads. */

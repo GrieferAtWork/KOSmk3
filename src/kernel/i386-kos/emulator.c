@@ -111,8 +111,8 @@ INTERN uintptr_t const x86_reg8_offsets[8] = {
 
 
 INTERN byte_t *
-(KCALL x86_decode_modrm)(byte_t *__restrict text,
-                         struct modrm_info *__restrict info
+(KCALL X86_ModRmDecode)(byte_t *__restrict text,
+                         X86ModRm *__restrict info
 #ifdef __x86_64__
                          , u16 flags
 #endif
@@ -162,7 +162,7 @@ INTDEF void FCALL
 error_rethrow_atuser(struct cpu_context *__restrict context);
 
 #ifndef __x86_64__
-PRIVATE uintptr_t FCALL
+PRIVATE ATTR_PURE uintptr_t FCALL
 get_segment_base(struct cpu_anycontext *__restrict context, u16 segid) {
  struct PACKED {
    u16                 limit;
@@ -209,27 +209,15 @@ fail:
 }
 #endif
 
-INTERN uintptr_t KCALL
-x86_modrm_getmem(struct cpu_anycontext *__restrict context,
-                 struct modrm_info *__restrict modrm,
-                 u16 flags) {
+
+INTERN ATTR_PURE uintptr_t KCALL
+X86_SegmentBase(struct cpu_anycontext *__restrict context, u16 flags) {
  uintptr_t result;
- if (modrm->mi_type == MODRM_REGISTER)
-     return (uintptr_t)&X86_GPREG(modrm->mi_reg);
- result = modrm->mi_offset;
- if (modrm->mi_reg != 0xff)
-     result += X86_GPREG(modrm->mi_reg);
- if (modrm->mi_index != 0xff)
-     result += X86_GPREG(modrm->mi_index) << modrm->mi_shift;
  switch (flags & F_SEGMASK) {
-#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
- case F_SEGDS: result += get_segment_base(context,context->c_segments.sg_ds); break;
- case F_SEGES: result += get_segment_base(context,context->c_segments.sg_es); break;
- case F_SEGFS: result += get_segment_base(context,context->c_segments.sg_fs); break;
- case F_SEGGS: result += get_segment_base(context,context->c_segments.sg_gs); break;
-#elif defined(__x86_64__)
+#if defined(__x86_64__)
+ default: result = 0; break;
  case F_SEGFS:
-  result += __rdfsbaseq();
+  result = __rdfsbaseq();
   break;
  case F_SEGGS:
   if (context->c_cs & 3)
@@ -239,7 +227,17 @@ x86_modrm_getmem(struct cpu_anycontext *__restrict context,
   else result += (uintptr_t)THIS_TASK;
   result += __rdgsbaseq();
   break;
+#elif !defined(CONFIG_NO_X86_SEGMENTATION)
+ default:
+ case F_SEGDS: result = get_segment_base(context,context->c_segments.sg_ds); break;
+ case F_SEGES: result = get_segment_base(context,context->c_segments.sg_es); break;
+ case F_SEGFS: result = get_segment_base(context,context->c_segments.sg_fs); break;
+ case F_SEGGS: result = get_segment_base(context,context->c_segments.sg_gs); break;
+ case F_SEGCS: result = get_segment_base(context,context->c_iret.ir_cs); break;
+ case F_SEGSS: result = get_segment_base(context,context->c_iret.ir_ss); break;
 #else
+ case F_SEGCS: result = get_segment_base(context,context->c_iret.ir_cs); break;
+ case F_SEGSS: result = get_segment_base(context,context->c_iret.ir_ss); break;
 #ifdef __ASM_TASK_SEGMENT_ISFS /* If we're using %fs, user-space is using %gs */
  case F_SEGGS: result += (uintptr_t)THIS_TASK->t_userseg; break;
  case F_SEGFS:
@@ -256,97 +254,56 @@ x86_modrm_getmem(struct cpu_anycontext *__restrict context,
   break;
 #endif
 #endif
-#ifndef __x86_64__
- case F_SEGCS: result += get_segment_base(context,context->c_iret.ir_cs); break;
- case F_SEGSS: result += get_segment_base(context,context->c_iret.ir_ss); break;
-#endif
- default: break;
  }
  return result;
 }
 
-INTERN u8 KCALL
-x86_modrm_getb(struct cpu_anycontext *__restrict context,
-               struct modrm_info *__restrict modrm, u16 flags) {
- uintptr_t addr;
+INTERN ATTR_PURE uintptr_t KCALL
+X86_ModRmGetMem(struct cpu_anycontext *__restrict context,
+                 X86ModRm *__restrict modrm,
+                 u16 flags) {
+ uintptr_t result;
  if (modrm->mi_type == MODRM_REGISTER)
-     return modrm_getreg8(*modrm);
- addr = x86_modrm_getmem(context,modrm,flags);
- if ((context->c_iret.ir_cs & 3) ||
-     (context->c_eflags & EFLAGS_VM))
-      validate_readable((void *)addr,1);
- return *(u8 *)addr;
-}
-INTERN u16 KCALL
-x86_modrm_getw(struct cpu_anycontext *__restrict context,
-               struct modrm_info *__restrict modrm, u16 flags) {
- uintptr_t addr;
- if (modrm->mi_type == MODRM_REGISTER)
-     return modrm_getreg32(*modrm);
- addr = x86_modrm_getmem(context,modrm,flags);
- if ((context->c_iret.ir_cs & 3) ||
-     (context->c_eflags & EFLAGS_VM))
-      validate_readable((void *)addr,2);
- return *(u16 *)addr;
-}
-INTERN u32 KCALL
-x86_modrm_getl(struct cpu_anycontext *__restrict context,
-               struct modrm_info *__restrict modrm, u16 flags) {
- uintptr_t addr;
- if (modrm->mi_type == MODRM_REGISTER)
-     return modrm_getreg32(*modrm);
- addr = x86_modrm_getmem(context,modrm,flags);
- if ((context->c_iret.ir_cs & 3) ||
-     (context->c_eflags & EFLAGS_VM))
-      validate_readable((void *)addr,4);
- return *(u32 *)addr;
+     return (uintptr_t)&X86_GPREG(context,modrm->mi_rm);
+ result = modrm->mi_offset;
+ if (modrm->mi_rm != 0xff)
+     result += X86_GPREG(context,modrm->mi_rm);
+ if (modrm->mi_index != 0xff)
+     result += X86_GPREG(context,modrm->mi_index) << modrm->mi_shift;
+ result += X86_SegmentBase(context,flags);
+ return result;
 }
 
-INTERN void KCALL
-x86_modrm_setb(struct cpu_anycontext *__restrict context,
-               struct modrm_info *__restrict modrm,
-               u16 flags, u8 value) {
+
+INTERN ATTR_PURE u8 *KCALL
+_X86_ModRmGetB(struct cpu_anycontext *__restrict context,
+               X86ModRm *__restrict modrm, u16 flags) {
+ uintptr_t addr;
  if (modrm->mi_type == MODRM_REGISTER)
-     modrm_getreg8(*modrm) = value;
- else {
-  uintptr_t addr;
-  addr = x86_modrm_getmem(context,modrm,flags);
-  if ((context->c_iret.ir_cs & 3) ||
-      (context->c_eflags & EFLAGS_VM))
-       validate_writable((void *)addr,1);
-  *(u8 *)addr = value;
- }
+     return &X86_GPREG8(context,modrm->mi_rm);
+ addr = X86_ModRmGetMem(context,modrm,flags);
+ if ((context->c_iret.ir_cs & 3)
+#ifndef CONFIG_NO_VM86
+     || (context->c_eflags & EFLAGS_VM)
+#endif
+     ) validate_readable((void *)addr,1);
+ return (u8 *)addr;
 }
-INTERN void KCALL
-x86_modrm_setw(struct cpu_anycontext *__restrict context,
-               struct modrm_info *__restrict modrm,
-               u16 flags, u16 value) {
+INTERN ATTR_PURE u16 *KCALL
+_X86_ModRmGetW(struct cpu_anycontext *__restrict context,
+               X86ModRm *__restrict modrm, u16 flags) {
+ uintptr_t addr;
  if (modrm->mi_type == MODRM_REGISTER)
-     modrm_getreg32(*modrm) = value;
- else {
-  uintptr_t addr;
-  addr = x86_modrm_getmem(context,modrm,flags);
-  if ((context->c_iret.ir_cs & 3) ||
-      (context->c_eflags & EFLAGS_VM))
-       validate_writable((void *)addr,2);
-  *(u16 *)addr = value;
- }
+     return &X86_GPREG16(context,modrm->mi_rm);
+ addr = X86_ModRmGetMem(context,modrm,flags);
+ if ((context->c_iret.ir_cs & 3)
+#ifndef CONFIG_NO_VM86
+     || (context->c_eflags & EFLAGS_VM)
+#endif
+     ) validate_readable((void *)addr,2);
+ return (u16 *)addr;
 }
-INTERN void KCALL
-x86_modrm_setl(struct cpu_anycontext *__restrict context,
-               struct modrm_info *__restrict modrm,
-               u16 flags, u32 value) {
- if (modrm->mi_type == MODRM_REGISTER)
-     modrm_getreg32(*modrm) = value;
- else {
-  uintptr_t addr;
-  addr = x86_modrm_getmem(context,modrm,flags);
-  if ((context->c_iret.ir_cs & 3) ||
-      (context->c_eflags & EFLAGS_VM))
-       validate_writable((void *)addr,4);
-  *(u32 *)addr = value;
- }
-}
+
 
 
 #ifndef __x86_64__
@@ -371,7 +328,7 @@ fix_user_context(struct x86_anycontext *__restrict context) {
 #endif
 
 
-INTERN u32 (KCALL x86_readopcode)(
+INTERN u32 (KCALL X86_ReadOpcode)(
 #ifdef __x86_64__
                                   struct x86_anycontext *__restrict context,
 #endif

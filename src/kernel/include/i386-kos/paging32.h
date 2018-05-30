@@ -180,6 +180,9 @@ struct x86_pdir {
 #define X86_PDIR_E1_IDENTITY_SIZE 0x00400000
 #define X86_PDIR_E2_IDENTITY_BASE 0xfffff000 /* The `x86_pdir::p_e2' vector is mapped here. */
 
+#define X86_VM_KERNEL_PDIR_RESERVED_BASE 0xffc00000 /* Start of the address range reserved for page-directory self-modifications. */
+#define X86_VM_KERNEL_PDIR_RESERVED_SIZE 0x00400000 /* Amount of memory reserved for page-directory self-modifications. */
+
 #ifdef __CC__
 typedef union x86_pdir_e1 x86_pdir_e1_identity_t[1024][1024];
 typedef union x86_pdir_e2 x86_pdir_e2_identity_t[1024];

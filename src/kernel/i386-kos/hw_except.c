@@ -93,7 +93,7 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
  fault_address = (void *)__rdcr2();
  assert(!PREEMPTION_ENABLED());
 #ifdef __x86_64__
- debug_printf("#PF at %p (from %p; errcode %x; gs_base: %p)\n",
+ debug_printf("#PF at %p (from %p; errcode %Ix; gs_base: %p)\n",
               fault_address,context->c_pip,errcode,
               __rdgsbaseq());
 #endif
@@ -390,7 +390,7 @@ x86_handle_divide_by_zero(struct x86_anycontext *__restrict context) {
   /* Decode source instructions (differentiate between `div' and `idiv'). */
   byte_t *text = (byte_t *)context->c_pip;
   byte_t opcode = *text++;
-  struct modrm_info modrm;
+  X86ModRm modrm;
   if (opcode == 0x66 && (*text == 0xf7)) {
    ++text;
    arg  = (u64)((u32)((u16)context->c_gpregs.gp_pdx) << 16);
@@ -403,7 +403,7 @@ x86_handle_divide_by_zero(struct x86_anycontext *__restrict context) {
   } else {
    goto default_divide;
   }
-  x86_decode_modrm(text,&modrm,0);
+  X86_ModRmDecode(text,&modrm,0);
   if (modrm.mi_rm == 6) {
    /* Unsigned divide */
    type = ERROR_DIVIDE_BY_ZERO_UINT;
@@ -639,7 +639,7 @@ x86_handle_bound(struct x86_anycontext *__restrict context) {
  /* Try to retrieve information on the index that was out-of-bounds. */
  TRY {
   u8 *ptext = (u8 *)CONTEXT_IP(*context);
-  struct modrm_info modrm;
+  X86ModRm modrm;
   uintptr_t bounds_struct;
   u16 flags = 0;
 check_flag:
@@ -663,11 +663,11 @@ next_flag: ++ptext; goto check_flag;
   }
   if unlikely(ptext[0] != 0x62)
      goto do_throw_error; /* Shouldn't happen (ensure `bound' instruction) */
-  x86_decode_modrm(ptext+1,&modrm,flags);
+  X86_ModRmDecode(ptext+1,&modrm,flags);
   if unlikely(modrm.mi_type != MODRM_MEMORY)
      goto do_throw_error; /* Shouldn't happen (ensure memory operand) */
   /* Determine the effective address of the bounds structure. */
-  bounds_struct = x86_modrm_getmem(context,&modrm,flags);
+  bounds_struct = X86_ModRmGetMem(context,&modrm,flags);
   /* Read data from the bounds structure. */
   if (flags & F_OP16) {
    u16 low,high;
@@ -676,7 +676,7 @@ next_flag: ++ptext; goto check_flag;
    COMPILER_BARRIER();
    info->e_error.e_index_error.b_boundmin = low;
    info->e_error.e_index_error.b_boundmax = high;
-   info->e_error.e_index_error.b_index    = X86_GPREG16(modrm.mi_reg);
+   info->e_error.e_index_error.b_index    = X86_GPREG16(context,modrm.mi_reg);
   } else {
    u32 low,high;
    low  = ((u32 *)bounds_struct)[0];
@@ -684,7 +684,7 @@ next_flag: ++ptext; goto check_flag;
    COMPILER_BARRIER();
    info->e_error.e_index_error.b_boundmin = low;
    info->e_error.e_index_error.b_boundmax = high;
-   info->e_error.e_index_error.b_index    = X86_GPREG32(modrm.mi_reg);
+   info->e_error.e_index_error.b_index    = X86_GPREG32(context,modrm.mi_reg);
   }
  } CATCH_HANDLED (E_SEGFAULT) {
  }

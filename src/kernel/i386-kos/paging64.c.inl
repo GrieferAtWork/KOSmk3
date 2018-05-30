@@ -38,12 +38,16 @@
 DECL_BEGIN
 
 #undef CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS
-#if !defined(NDEBUG) && 0
+#if !defined(NDEBUG) && 1
 #define CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS 1
 #endif
 
 /* Define some shorter names for structures and macros. */
 typedef union x86_pdir_ent ENT;
+typedef union x86_pdir_e1  E1;
+typedef union x86_pdir_e2  E2;
+typedef union x86_pdir_e3  E3;
+typedef union x86_pdir_e4  E4;
 
 #define PAGE_ALIGN     X86_PAGE_ALIGN     /* Required page alignment. */
 #define PAGE_SIZE      X86_PAGE_SIZE      /* Required page size. */
@@ -75,9 +79,11 @@ typedef union x86_pdir_ent ENT;
 #define E4_SIZE      X86_PDIR_E4_SIZE /* 512 GiB */
 
 /* Physical address masks of different page directory levels. */
-#define E1_MASK      X86_PDIR_E1_MASK /* == (~(X86_PDIR_E1_SIZE-1) & X86_PAGE_FADDR) */
-#define E2_MASK      X86_PDIR_E2_MASK /* == (~(X86_PDIR_E2_SIZE-1) & X86_PAGE_FADDR) */
-#define E3_MASK      X86_PDIR_E3_MASK /* == (~(X86_PDIR_E3_SIZE-1) & X86_PAGE_FADDR) */
+#define E1_MASK      X86_PDIR_E1_ADDRMASK /* == (~(X86_PDIR_E1_SIZE-1) & X86_PAGE_FADDR) */
+#define E2_MASK      X86_PDIR_E2_ADDRMASK /* == (~(X86_PDIR_E2_SIZE-1) & X86_PAGE_FADDR) */
+#ifdef X86_PDIR_E3_ADDRMASK
+#define E3_MASK      X86_PDIR_E3_ADDRMASK /* == (~(X86_PDIR_E3_SIZE-1) & X86_PAGE_FADDR) */
+#endif
 
 /* The amount of sub-level entries contained within any given level. */
 #define E1_COUNT     X86_PDIR_E1_COUNT /* Amount of level #0 entries (pages). */
@@ -90,6 +96,13 @@ typedef union x86_pdir_ent ENT;
 #define E2_TOTALSIZE X86_PDIR_E2_TOTALSIZE /* 1 GiB */
 #define E3_TOTALSIZE X86_PDIR_E3_TOTALSIZE /* 512 GiB */
 #define E4_TOTALSIZE X86_PDIR_E4_TOTALSIZE /* 256 TiB */
+
+/* Page index masks of different page directory levels.
+ * These masks describe the bits that affect the path chosen to each a given E-level. */
+#define E1_PAGEMASK  X86_PDIR_E1_PAGEMASK
+#define E2_PAGEMASK  X86_PDIR_E2_PAGEMASK
+#define E3_PAGEMASK  X86_PDIR_E3_PAGEMASK
+#define E4_PAGEMASK  X86_PDIR_E4_PAGEMASK
 
 /* Page directory level indices. */
 #define E4_INDEX     X86_PDIR_E4_INDEX /* For `struct x86_pdir::p_e4' */
@@ -208,7 +221,7 @@ PRIVATE u64 x86_pageperm_matrix[0xf+1] = {
     [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC] = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
 };
 
-PRIVATE u64 x86_page_global = PAGE_FGLOBAL;
+INTERN u64 x86_page_global = PAGE_FGLOBAL;
 #ifndef CONFIG_NO_GIGABYTE_PAGES
 PRIVATE unsigned int x86_paging_features = 0;
 #define PAGING_FEATURE_1GIB_PAGES  0x0001 /* Host supports 1GIB pages. */
@@ -219,6 +232,11 @@ INTERN ATTR_FREETEXT void KCALL x86_configure_paging(void) {
  struct cpu_cpuid const *feat = &CPU_FEATURES;
  if (!(feat->ci_1d & CPUID_1D_PGE))
        x86_page_global = 0;
+ if (!(feat->ci_80000001d & CPUID_80000001D_NX)) {
+  unsigned int i; /* The NX bit isn't supported. */
+  for (i = 0; i < COMPILER_LENOF(x86_pageperm_matrix); ++i)
+       x86_pageperm_matrix[i] &= ~X86_PAGE_FNOEXEC;
+ }
 #ifndef CONFIG_NO_GIGABYTE_PAGES
  if (feat->ci_80000001d & CPUID_80000001D_PDPE1GB) {
   debug_printf(FREESTR("[X86] Enable 1GIB pages\n"));
@@ -228,6 +246,8 @@ INTERN ATTR_FREETEXT void KCALL x86_configure_paging(void) {
 }
 
 
+/* The memory zone used to allocate memory for page directories. */
+#define MZONE_PAGING  MZONE_ANY
 
 
 
@@ -323,13 +343,147 @@ pagedir_fini(VIRT pagedir_t *__restrict self) {
  }
 }
 
+/* Similar to `VM_PAGE2ADDR', but don't set sign bits, meaning that
+ * the generated address is suitable for `ENT::*::p_data' fields. */
+#define VM_PAGE2ENTADDR(pageno) ((pageno) << 12)
 
 PRIVATE void KCALL
-pagedir_split_before(VIRT vm_vpage_t virt_page) {
- /* TODO */
+pagedir_allocate_e4(unsigned int x4) {
+ E4 ent; E3 *vec;
+ ent = E4_IDENTITY[x4];
+ if ((ent.p_data & PAGE_FADDR) != PAGE_ABSENT)
+      return; /* Page has already been allocated. */
+ assertf(x4 < E4_INDEX(KERNEL_BASE_PAGE),
+        "All E4-vectors above KERNEL_BASE_PAGE must be allocated at all times!\n"
+        "They're the indirection vectors that are shared between all directories!\n"
+        "x4 = 0x%x",x4);
+ E4_IDENTITY[x4].p_data = (VM_PAGE2ENTADDR(page_malloc(1,MZONE_PAGING)) |
+                          (PAGE_FDIRTY | PAGE_FACCESSED |
+                           PAGE_FWRITE | PAGE_FPRESENT));
+ /* Load the virtual address of the E3 vector that we've just mapped. */
+ vec = E3_IDENTITY[x4];
+ pagedir_syncone(VM_ADDR2PAGE(vec));
+ COMPILER_BARRIER();
+ /* Clear out the E3 vector. */
+ memsetq(vec,PAGE_ABSENT,E3_COUNT);
+ COMPILER_WRITE_BARRIER();
+}
+PRIVATE void KCALL
+pagedir_allocate_e3(unsigned int x4, unsigned int x3) {
+ E3 ent; E2 *vec;
+ ent = E3_IDENTITY[x4][x3];
+#ifndef CONFIG_NO_GIGABYTE_PAGES
+ if (ent.p_flag & PAGE_F1GIB) {
+  unsigned int i;
+  /* Split the 1Gib E3-entry into an E2-vector of 2Mib pages. */
+  assertf((ent.p_data & (X86_PAGE_FADDR & ~X86_PDIR_E3_ADDRMASK)) == 0,
+          "Invalid 1Gib page address: %p",ent.p_data);
+  COMPILER_WRITE_BARRIER();
+  E3_IDENTITY[x4][x3].p_data = (VM_PAGE2ENTADDR(page_malloc(1,MZONE_PAGING)) |
+                               (PAGE_FDIRTY | PAGE_FACCESSED |
+                                PAGE_FWRITE | PAGE_FPRESENT));
+  COMPILER_WRITE_BARRIER();
+  vec = E2_IDENTITY[x4][x3];
+  pagedir_syncone(VM_ADDR2PAGE(vec));
+#if PAGE_F1GIB != PAGE_F2MIB
+  ent.p_flag &= ~PAGE_F1GIB;
+  ent.p_flag |=  PAGE_F2MIB;
+#endif
+  COMPILER_BARRIER();
+  /* Fill in the E2 vector. */
+  for (i = 0; i < E2_COUNT; ++i) {
+   vec[i].p_data = ent.p_data;
+   ent.p_data += E2_SIZE;
+  }
+  COMPILER_WRITE_BARRIER();
+  /* Re-add permission bits. */
+  E3_IDENTITY[x4][x3].p_data |= ent.p_flag & (PAGE_FMASK & ~PAGE_F1GIB);
+  COMPILER_WRITE_BARRIER();
+ } else
+#endif
+ {
+  if ((ent.p_data & PAGE_FADDR) != PAGE_ABSENT)
+       return; /* Page has already been allocated. */
+  /* NOTE: Don't set the FUSER bit, so user-space
+   *       can't fiddle with uninitialized mappings! */
+  COMPILER_WRITE_BARRIER();
+  E3_IDENTITY[x4][x3].p_data = (VM_PAGE2ENTADDR(page_malloc(1,MZONE_PAGING)) |
+                               (PAGE_FDIRTY | PAGE_FACCESSED |
+                                PAGE_FWRITE | PAGE_FPRESENT));
+  COMPILER_WRITE_BARRIER();
+  /* Load the virtual address of the E3 vector that we've just mapped. */
+  vec = E2_IDENTITY[x4][x3];
+  pagedir_syncone(VM_ADDR2PAGE(vec));
+  COMPILER_BARRIER();
+  /* Clear out the E2 vector. */
+  memsetq(vec,PAGE_ABSENT,E2_COUNT);
+  COMPILER_WRITE_BARRIER();
+ }
+}
+PRIVATE void KCALL
+pagedir_allocate_e2(unsigned int x4, unsigned int x3, unsigned int x2) {
+ E2 ent; E1 *vec;
+ ent = E2_IDENTITY[x4][x3][x2];
+ if (ent.p_flag & PAGE_F2MIB) {
+  unsigned int i;
+  /* Split the 1Gib E3-entry into an E2-vector of 2Mib pages. */
+  assertf((ent.p_data & (X86_PAGE_FADDR & ~X86_PDIR_E3_ADDRMASK)) == 0,
+          "Invalid 1Gib page address: %p",ent.p_data);
+  COMPILER_WRITE_BARRIER();
+  E2_IDENTITY[x4][x3][x2].p_data = (VM_PAGE2ENTADDR(page_malloc(1,MZONE_PAGING)) |
+                                   (PAGE_FDIRTY | PAGE_FACCESSED |
+                                    PAGE_FWRITE | PAGE_FPRESENT));
+  COMPILER_WRITE_BARRIER();
+  vec = E1_IDENTITY[x4][x3][x2];
+  pagedir_syncone(VM_ADDR2PAGE(vec));
+  ent.p_flag &= ~PAGE_F2MIB;
+  COMPILER_BARRIER();
+  /* Fill in the E1 vector. */
+  for (i = 0; i < E1_COUNT; ++i) {
+   vec[i].p_data = ent.p_data;
+   ent.p_data += E1_SIZE;
+  }
+  COMPILER_WRITE_BARRIER();
+  /* Re-add permission bits. */
+  E2_IDENTITY[x4][x3][x2].p_data |= ent.p_flag & PAGE_FMASK;
+  COMPILER_WRITE_BARRIER();
+ } else {
+  if ((ent.p_data & PAGE_FADDR) != PAGE_ABSENT)
+       return; /* Page has already been allocated. */
+  /* NOTE: Don't set the FUSER bit, so user-space
+   *       can't fiddle with uninitialized mappings! */
+  COMPILER_WRITE_BARRIER();
+  E2_IDENTITY[x4][x3][x2].p_data = (VM_PAGE2ENTADDR(page_malloc(1,MZONE_PAGING)) |
+                                   (PAGE_FDIRTY | PAGE_FACCESSED |
+                                    PAGE_FWRITE | PAGE_FPRESENT));
+  COMPILER_WRITE_BARRIER();
+  /* Load the virtual address of the E3 vector that we've just mapped. */
+  vec = E1_IDENTITY[x4][x3][x2];
+  pagedir_syncone(VM_ADDR2PAGE(vec));
+  COMPILER_BARRIER();
+  /* Clear out the E1 vector. */
+  memsetq(vec,PAGE_ABSENT,E1_COUNT);
+  COMPILER_WRITE_BARRIER();
+ }
 }
 
-PRIVATE void KCALL
+
+
+LOCAL void KCALL
+pagedir_split_before(VIRT vm_vpage_t virt_page) {
+ unsigned int x4,x3;
+ if (!(virt_page & ~E4_PAGEMASK))
+       return; /* Address is located on an E4-boundary (nothing to do here!) */
+ pagedir_allocate_e4(x4 = E4_INDEX(virt_page));
+ if (!(virt_page & ~E3_PAGEMASK))
+       return; /* Address is located on an E3-boundary */
+ pagedir_allocate_e3(x4,x3 = E3_INDEX(virt_page));
+ if (!(virt_page & ~E2_PAGEMASK))
+       return; /* Address is located on an E3-boundary */
+ pagedir_allocate_e2(x4,x3,E2_INDEX(virt_page));
+}
+
+LOCAL void KCALL
 pagedir_merge_before(VIRT vm_vpage_t virt_page) {
  /* TODO */
 }
@@ -346,10 +500,10 @@ PUBLIC void KCALL
 pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
             PHYS vm_ppage_t phys_page, u16 perm) {
  vm_vpage_t vpage_start,vpage_end;
- u64 edata;
+ u64 edata; unsigned int max_pages;
  /* Check for special case: no mapping. */
  if (!num_pages) return;
-#if 1
+#if !defined(NDEBUG) && 1
  if ((perm & PAGEDIR_MAP_FUSER) &&
       virt_page >= KERNEL_BASE_PAGE)
       asm("int3");
@@ -392,14 +546,43 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
  edata = (u64)VM_PAGE2ADDR(phys_page) | x86_pageperm_matrix[perm & 0xf];
  if (virt_page >= KERNEL_BASE_PAGE)
      edata |= x86_page_global; /* Kernel-share mapping. */
-
- pagedir_split_before(virt_page);
+ pagedir_split_before(vpage_start);
  pagedir_split_before(vpage_end);
+
+ /* First off: Map all unaligned 4Kib pages.
+  *            Thanks to `pagedir_split_before(vpage_start)',
+  *            we can be certain that if such pages exist, they
+  *            have all been fully allocated! */
+ max_pages = E1_INDEX(virt_page);
+ if (max_pages != 0) {
+  E1 *vec; unsigned int offset,i;
+  offset    = max_pages;
+  max_pages = E1_COUNT - max_pages;
+  if (max_pages > num_pages)
+      max_pages = num_pages;
+  assert(max_pages != 0);
+  vec = E1_IDENTITY[E4_INDEX(virt_page)]
+                   [E3_INDEX(virt_page)]
+                   [E2_INDEX(virt_page)];
+  for (i = 0; i < max_pages; ++i) {
+   vec[offset + i].p_addr = edata;
+   edata += E1_SIZE;
+  }
+  num_pages -= max_pages;
+  if (!num_pages)
+       goto done;
+  virt_page += max_pages;
+ }
+ /* At this point, we're aligned for 2Mib pages. */
+ assertf(IS_ALIGNED(virt_page,X86_PDIR_E2_SIZE / PAGESIZE),
+         "Not aligned: %p",virt_page);
+ assertf(0,"TODO");
 
  /* TODO */
 
+done:
  pagedir_merge_before(vpage_end);
- pagedir_merge_before(virt_page);
+ pagedir_merge_before(vpage_start);
 }
 
 
@@ -424,15 +607,15 @@ pagedir_translate(VIRT vm_virt_t virt_addr) {
  assertf(e.e3.p_flag & PAGE_FPRESENT,"E3 at %p is not mapped",virt_addr);
 #ifndef CONFIG_NO_GIGABYTE_PAGES
  if (e.e3.p_flag & PAGE_F1GIB)
-     return (e.e3.p_addr & X86_PDIR_E3_MASK) | PDIR_E3_OFFSET(virt_addr);
+     return (e.e3.p_addr & X86_PDIR_E3_ADDRMASK) | PDIR_E3_OFFSET(virt_addr);
 #endif /* !CONFIG_NO_GIGABYTE_PAGES */
  e.e2 = E2_IDENTITY[x4][x3][x2 = E2_INDEX(vpage)];
  assertf(e.e2.p_flag & PAGE_FPRESENT,"E2 at %p is not mapped",virt_addr);
  if (e.e2.p_flag & PAGE_F2MIB)
-     return (e.e2.p_addr & X86_PDIR_E2_MASK) | PDIR_E2_OFFSET(virt_addr);
+     return (e.e2.p_addr & X86_PDIR_E2_ADDRMASK) | PDIR_E2_OFFSET(virt_addr);
  e.e1 = E1_IDENTITY[x4][x3][x2][E1_INDEX(vpage)];
  assertf(e.e1.p_flag & PAGE_FPRESENT,"E1 at %p is not mapped",virt_addr);
- return (e.e1.p_addr & X86_PDIR_E1_MASK) | PDIR_E1_OFFSET(virt_addr);
+ return (e.e1.p_addr & X86_PDIR_E1_ADDRMASK) | PDIR_E1_OFFSET(virt_addr);
 }
 
 /* Check if the given page is mapped. */

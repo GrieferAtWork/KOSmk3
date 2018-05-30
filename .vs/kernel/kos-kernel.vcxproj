@@ -96,6 +96,7 @@
     <ClCompile Include="..\..\src\kernel\i386-kos\user.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\ushare.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\vio.c" />
+    <ClCompile Include="..\..\src\kernel\i386-kos\vm86-soft.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\vm86.c" />
     <ClCompile Include="..\..\src\kernel\i386-kos\vm_kernel.c" />
     <ClCompile Include="..\..\src\kernel\src\core\ata.c" />
@@ -246,6 +247,7 @@
     <ClInclude Include="..\..\src\kernel\include\i386-kos\unwind.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\user.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\vm.h" />
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\vm86-soft.h" />
     <ClInclude Include="..\..\src\kernel\include\i386-kos\vm86.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\bind.h" />
     <ClInclude Include="..\..\src\kernel\include\kernel\boot.h" />

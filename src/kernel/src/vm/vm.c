@@ -133,14 +133,15 @@
 #endif
 
 
-#if __SIZEOF_POINTER__ == 4
+#ifdef VM_ADDRBITS
+#define VM_PAGE_BITS   (VM_ADDRBITS-VM_PAGE_UNUSED_BITS)
+#elif __SIZEOF_POINTER__ == 4
 #define VM_PAGE_BITS   (32-VM_PAGE_UNUSED_BITS)
 #elif __SIZEOF_POINTER__ == 8
 #define VM_PAGE_BITS   (64-VM_PAGE_UNUSED_BITS)
 #else
 #define VM_PAGE_BITS   ((__SIZEOF_POINTER__*8)-VM_PAGE_UNUSED_BITS)
 #endif
-
 #if VM_PAGE_UNUSED_BITS == 0
 #define VM_SEMI0         ATREE_SEMI0(VIRT vm_vpage_t)
 #define VM_LEVEL0        ATREE_LEVEL0(VIRT vm_vpage_t)

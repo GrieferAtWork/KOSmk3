@@ -49,12 +49,19 @@ typedef VIRT u64 vm_virt_t;  /* A virtual memory pointer. */
 typedef PHYS u64 vm_phys_t;  /* A physical memory pointer. */
 #endif /* __CC__ */
 
+
+#define VM_ADDRBITS        48                             /* The number of usable bits in an address. */
 #define VM_ADDRMASK        __UINT64_C(0x0000ffffffffffff) /* Mask of all address bits that can actually be used.
                                                            * NOTE: On x86_64, this is 48 bits. */
 #define VM_VPAGE_MAX       __UINT64_C(0xfffffffff)        /* Max VPAGE (48 - 12bits == 36 bits) */
 #define VM_PPAGE_MAX       __UINT64_C(0xffffffffff)       /* This matches what is allowed by `X86_PAGE_FADDR' */
 #define KERNEL_BASE_PAGE   __UINT64_C(0x800000000)        /* The page index of the start of kernel memory. */
 #define KERNEL_NUM_PAGES   __UINT64_C(0x800000000)        /* The number of pages associated with the kernel. */
+
+/* The range of non-canonical virtual addresses. */
+#define X86_PAGING_NONCANON_MIN  __UINT64_C(0x0001000000000000)
+#define X86_PAGING_NONCANON_MAX  __UINT64_C(0xffff7fffffffffff)
+#define X86_PAGING_ISNONCANON(x) ((x) >= X86_PAGING_NONCANON_MIN && (x) <= X86_PAGING_NONCANON_MAX)
 
 
 /* Convert an address into a page number.
@@ -66,7 +73,12 @@ typedef PHYS u64 vm_phys_t;  /* A physical memory pointer. */
  * NOTE: This function takes sign extension into account, meaning
  *       that page numbers `>= 0x800000000' will produce sign-extended
  *       memory addresses. */
-#define VM_PAGE2ADDR(x)  (__CCAST(uintptr_t)((__CCAST(intptr_t)((x) << 28)) >> 16))
+#ifdef __CC__
+#define VM_PAGE2ADDR(x)  ((uintptr_t)(((intptr_t)((x) << 28)) >> 16))
+#else
+#define VM_PAGE2ADDR(x)  ((0xffff800000000000 * (((x) & 0x800000000) >> 35)) + \
+                                                (((x) & 0x7ffffffff) << 12))
+#endif
 
 
 /* Configure to indicate that the kernel is a high-kernel. */
@@ -91,6 +103,9 @@ typedef PHYS u64 vm_phys_t;  /* A physical memory pointer. */
 
 #define X86_VM_KERNEL_PDIR_IDENTITY_BASE     __UINT64_C(0xffff808000000000) /* KERNEL_BASE + 512GiB */
 #define X86_VM_KERNEL_PDIR_IDENTITY_SIZE     __UINT64_C(0x0000008000000000) /* 512GiB */
+#define X86_VM_KERNEL_PDIR_RESERVED_BASE     __UINT64_C(0xffff808000000000) /* Start of the address range reserved for page-directory self-modifications. */
+#define X86_VM_KERNEL_PDIR_RESERVED_SIZE     __UINT64_C(0x0000008000000000) /* Amount of memory reserved for page-directory self-modifications. */
+
 #define X86_VM_KERNEL_KERNELHEAP_LOCKED_BASE __UINT64_C(0xffff9fffff800000)
 #define X86_VM_KERNEL_KERNELHEAP_TAIL        __UINT64_C(0xffff800000000000)
 #define X86_VM_KERNEL_SHAREDHEAP_BASE        __UINT64_C(0xffffa000a1200000)
@@ -171,7 +186,6 @@ typedef PHYS u64 vm_phys_t;  /* A physical memory pointer. */
 #define X86_PAGE_FNOEXEC   __UINT64_C(0x8000000000000000) /* Memory within the page cannot be executed. */
 #define X86_PAGE_ABSENT    __UINT64_C(0x0000000000000000) /* Value found in any TIER _EXCEPT_ TIER#1 (so just TIER#2) to indicate that the page hasn't been allocated. */
 
-
 /* Pagesizes of different page directory levels. */
 #define X86_PDIR_E1_SIZE     __UINT64_C(0x0000000000001000) /* 4 KiB (Same as `PAGESIZE') */
 #define X86_PDIR_E2_SIZE     __UINT64_C(0x0000000000200000) /* 2 MiB */
@@ -179,9 +193,11 @@ typedef PHYS u64 vm_phys_t;  /* A physical memory pointer. */
 #define X86_PDIR_E4_SIZE     __UINT64_C(0x0000008000000000) /* 512 GiB */
 
 /* Physical address masks of different page directory levels. */
-#define X86_PDIR_E1_MASK     __UINT64_C(0x000ffffffffff000) /* == (~(X86_PDIR_E1_SIZE-1) & X86_PAGE_FADDR) */
-#define X86_PDIR_E2_MASK     __UINT64_C(0x000fffffffe00000) /* == (~(X86_PDIR_E2_SIZE-1) & X86_PAGE_FADDR) */
-#define X86_PDIR_E3_MASK     __UINT64_C(0x000fffffc0000000) /* == (~(X86_PDIR_E3_SIZE-1) & X86_PAGE_FADDR) */
+#define X86_PDIR_E1_ADDRMASK __UINT64_C(0x000ffffffffff000) /* == (~(X86_PDIR_E1_SIZE-1) & X86_PAGE_FADDR) (For 4KiB pages) */
+#define X86_PDIR_E2_ADDRMASK __UINT64_C(0x000fffffffe00000) /* == (~(X86_PDIR_E2_SIZE-1) & X86_PAGE_FADDR) (For 2Mib pages) */
+#ifndef CONFIG_NO_GIGABYTE_PAGES
+#define X86_PDIR_E3_ADDRMASK __UINT64_C(0x000fffffc0000000) /* == (~(X86_PDIR_E3_SIZE-1) & X86_PAGE_FADDR) (For 1Gib pages) */
+#endif
 
 /* The amount of sub-level entries contained within any given level. */
 #define X86_PDIR_E1_COUNT    512 /* Amount of level #0 entries (pages). */
@@ -195,31 +211,40 @@ typedef PHYS u64 vm_phys_t;  /* A physical memory pointer. */
 #define X86_PDIR_E3_TOTALSIZE  __UINT64_C(0x0000008000000000) /* 512 GiB */
 #define X86_PDIR_E4_TOTALSIZE  __UINT64_C(0x0001000000000000) /* 256 TiB */
 
+/* Page index masks of different page directory levels.
+ * These masks describe the bits that affect the path chosen to each a given E-level. */
+#define X86_PDIR_E1_PAGEMASK   __UINT64_C(0xfffffffff)
+#define X86_PDIR_E2_PAGEMASK   __UINT64_C(0xffffffe00)
+#define X86_PDIR_E3_PAGEMASK   __UINT64_C(0xffffc0000)
+#define X86_PDIR_E4_PAGEMASK   __UINT64_C(0xff8000000)
+
 /* Page directory level indices. */
-#define X86_PDIR_E4_INDEX(vpage)  ((__CCAST(u64)(vpage) >> 27) & 0x1ff) /* For `struct x86_pdir::p_e4' */
-#define X86_PDIR_E3_INDEX(vpage)  ((__CCAST(u64)(vpage) >> 18) & 0x1ff) /* For `union x86_pdir_e4::p_e3' */
-#define X86_PDIR_E2_INDEX(vpage)  ((__CCAST(u64)(vpage) >> 9) & 0x1ff)  /* For `union x86_pdir_e3::p_e2' */
 #define X86_PDIR_E1_INDEX(vpage)   (__CCAST(u64)(vpage) & 0x1ff)        /* For `union x86_pdir_e2::p_e1' */
+#define X86_PDIR_E2_INDEX(vpage)  ((__CCAST(u64)(vpage) >> 9) & 0x1ff)  /* For `union x86_pdir_e3::p_e2' */
+#define X86_PDIR_E3_INDEX(vpage)  ((__CCAST(u64)(vpage) >> 18) & 0x1ff) /* For `union x86_pdir_e4::p_e3' */
+#define X86_PDIR_E4_INDEX(vpage)  ((__CCAST(u64)(vpage) >> 27) & 0x1ff) /* For `struct x86_pdir::p_e4' */
 
 /* Page directory address offsets (Added to the mapped address when `X86_PDIR_E?_ISADDR(...)' is true). */
-#define PDIR_E3_OFFSET(virt_addr)  (__CCAST(u64)(virt_addr) & (X86_PDIR_E3_SIZE-1)) /* 1GIB offsets */
-#define PDIR_E2_OFFSET(virt_addr)  (__CCAST(u64)(virt_addr) & (X86_PDIR_E2_SIZE-1)) /* 2MIB offsets */
 #define PDIR_E1_OFFSET(virt_addr)  (__CCAST(u64)(virt_addr) & (X86_PDIR_E1_SIZE-1)) /* 1KIB offsets */
+#define PDIR_E2_OFFSET(virt_addr)  (__CCAST(u64)(virt_addr) & (X86_PDIR_E2_SIZE-1)) /* 2MIB offsets */
+#ifndef CONFIG_NO_GIGABYTE_PAGES
+#define PDIR_E3_OFFSET(virt_addr)  (__CCAST(u64)(virt_addr) & (X86_PDIR_E3_SIZE-1)) /* 1GIB offsets */
+#endif
 
 #ifdef __CC__
 union x86_pdir_e1 {
     /* Level #1 (PT) entry. */
-    u64                 p_data;      /* Mapping data. */
-    PHYS u64            p_addr;      /* [MASK(X86_PDIR_E1_MASK)]
-                                      * [valid_if(X86_PAGE_FPRESENT)]
-                                      * _Physical_ page address. */
-    u64                 p_flag;      /* [MASK(X86_PAGE_FMASK)] Page flags. */
+    u64                      p_data;      /* Mapping data. */
+    PHYS u64                 p_addr;      /* [MASK(X86_PDIR_E1_ADDRMASK)]
+                                           * [valid_if(X86_PAGE_FPRESENT)]
+                                           * _Physical_ page address. */
+    u64                      p_flag;      /* [MASK(X86_PAGE_FMASK)] Page flags. */
 };
 
 union x86_pdir_e2 {
     /* Level #2 (PD) entry. */
     u64                      p_data;     /* Mapping data. */
-    PHYS u64                 p_addr;     /* [MASK(X86_PDIR_E2_MASK)]
+    PHYS u64                 p_addr;     /* [MASK(X86_PDIR_E2_ADDRMASK)]
                                           * [valid_if(X86_PAGE_FPRESENT && X86_PAGE_F2MIB)]
                                           *  _Physical_ page address. */
     u64                      p_flag;     /* [MASK(X86_PAGE_FMASK)] Page flags. */
@@ -239,7 +264,7 @@ union x86_pdir_e3 {
                                           * [valid_if(X86_PAGE_FPRESENT)]
                                           *  _Physical_ pointer to a level #2 paging vector. */
 #else
-    PHYS u64                 p_addr;     /* [MASK(X86_PDIR_E3_MASK)]
+    PHYS u64                 p_addr;     /* [MASK(X86_PDIR_E3_ADDRMASK)]
                                           * [valid_if(X86_PAGE_FPRESENT && X86_PAGE_F1GIB)]
                                           *  _Physical_ page address. */
     PHYS union x86_pdir_e2 (*p_e2)[X86_PDIR_E2_COUNT]; /* [MASK(X86_PAGE_FADDR)]

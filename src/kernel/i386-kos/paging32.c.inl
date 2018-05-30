@@ -108,7 +108,7 @@ PRIVATE u16 x86_pageperm_matrix[0xf+1] = {
     [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE]                   = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
     [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC] = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
 };
-PRIVATE u32 x86_page_global = X86_PAGE_FGLOBAL;
+INTERN u32 x86_page_global = X86_PAGE_FGLOBAL;
 PRIVATE unsigned int x86_paging_features = 0;
 #define PAGING_FEATURE_4MIB_PAGES  0x0001/* Host supports 4MIB pages. */
 
@@ -188,16 +188,18 @@ pagedir_split_before(VIRT vm_vpage_t virt_page) {
      return; /* Mapping is at the start of a E1-vector */
  e2 = &X86_PDIR_E2_IDENTITY[X86_PDIR_VEC2INDEX_VPAGE(virt_page)];
  e2_data = e2->p_data;
- if (e2_data&X86_PAGE_F4MIB) {
+ if (e2_data & X86_PAGE_F4MIB) {
   /* Convert a 4MIB page to a E1-page vector. */
   assertf(virt_page < KERNEL_BASE_PAGE,
           "Kernel-share pages must not be 4MIB pages");
   assertf(x86_paging_features & PAGING_FEATURE_4MIB_PAGES,"4MIB Page without PSE support");
   /* Start by mapping the page in the page directory identity mapping. */
   e2_data &= ~(X86_PAGE_F4MIB);
+  COMPILER_WRITE_BARRIER();
   e2->p_addr = ((u32)VM_PAGE2ADDR(page_malloc(1,MZONE_PAGING)) |
                 (X86_PAGE_FDIRTY | X86_PAGE_FACCESSED |
                  X86_PAGE_FWRITE | X86_PAGE_FPRESENT));
+  COMPILER_WRITE_BARRIER();
   /* Load the virtual address of the E1 vector that we've just mapped. */
   e1_vector = X86_PDIR_E1_IDENTITY[X86_PDIR_VEC2INDEX_VPAGE(virt_page)];
   /* Synchronize the page at the E1 vector (to ensure that it's been mapped to the new address). */
@@ -218,9 +220,12 @@ pagedir_split_before(VIRT vm_vpage_t virt_page) {
           "but page %p...%p isn't",
           VM_PAGE2ADDR(virt_page),
           VM_PAGE2ADDR(virt_page)+PAGESIZE-1);
+  /* NOTE: Don't set the FUSER bit, so user-space can't fiddle with uninitialized mappings! */
+  COMPILER_WRITE_BARRIER();
   e2->p_addr = ((u32)VM_PAGE2ADDR(page_malloc(1,MZONE_PAGING)) |
                 (X86_PAGE_FDIRTY | X86_PAGE_FACCESSED |
                  X86_PAGE_FWRITE | X86_PAGE_FPRESENT));
+  COMPILER_WRITE_BARRIER();
   e1_vector = X86_PDIR_E1_IDENTITY[X86_PDIR_VEC2INDEX_VPAGE(virt_page)];
   pagedir_syncone(VM_ADDR2PAGE((uintptr_t)e1_vector));
   COMPILER_BARRIER();
@@ -284,7 +289,7 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
  vm_vpage_t vpage_start,vpage_end;
  /* Check for special case: no mapping. */
  if (!num_pages) return;
-#if 1
+#if !defined(NDEBUG) && 1
  if ((perm & PAGEDIR_MAP_FUSER) &&
       virt_page >= KERNEL_BASE_PAGE)
       asm("int3");

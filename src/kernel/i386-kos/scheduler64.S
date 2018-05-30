@@ -68,12 +68,12 @@
 
 /* struct RING_NODE { */
 #define re_prev       0
-#define re_next       4
+#define re_next       8
 /* }; */
 
 /* struct LIST_NODE { */
 #define le_next       0
-#define le_pself      4
+#define le_pself      8
 /* }; */
 
 /* struct taskstat { */
@@ -157,24 +157,25 @@ INTERN_ENTRY(X86_IRQ_PIT)
 
 	/* Acknowledge the interrupt. */
 INTERN_ENTRY(x86_pic_acknowledge)
-	movq x86_lapic_base_address, %rax
-//	/* movq x86_lapic_base_address, %rax */
-//	.byte   0xa1
-//	.long   x86_lapic_base_address
-
-	movl    $APIC_EOI_FSIGNAL, APIC_EOI(%rax)
-//	/* movl $APIC_EOI_FSIGNAL, APIC_EOI(%eax) */
-//	.byte   0xc7
-//	.byte   0x80
-//	.long   APIC_EOI
-//	.long   APIC_EOI_FSIGNAL
+	/* movq x86_lapic_base_address, %rax */
+	.byte 0x48
+	.byte 0x8b
+	.byte 0x04
+	.byte 0x25
+	.reloc ., R_X86_64_32S, x86_lapic_base_address
+	.long 0
+	/* movl $APIC_EOI_FSIGNAL, APIC_EOI(%rax) */
+	.byte   0xc7
+	.byte   0x80
+	.long   APIC_EOI
+	.long   APIC_EOI_FSIGNAL
 SYMEND(x86_pic_acknowledge)
 
 	/* Increment the jiffies counter.
 	 * XXX: `jiffies' should become a PER-CPU variable! */
 	incq    jiffies
 
-	testq   $3, X86_CONTEXT64_OFFSETOF_CS(%esp)
+	testb   $3, X86_CONTEXT64_OFFSETOF_CS(%rsp)
 	jz      1f
 	/* Use this chance to track user-space preemption statistics. */
 3:	INCSTAT(ts_uswitch)
@@ -194,7 +195,7 @@ SYMEND(x86_pic_acknowledge)
 #define CPU      _boot_cpu
 #else
 	movq    %taskseg:t_cpu,  %rbx  /* Load the hosting CPU */
-#define CPU      0(%ebx)
+#define CPU      0(%rbx)
 #endif
 	movq    c_running + CPU, %rsi  /* Load the old task. */
 	movq    %rsp, t_context(%rsi)  /* Save the old CPU context. */

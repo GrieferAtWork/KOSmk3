@@ -558,6 +558,9 @@
     <ClCompile Include="..\..\src\kernel\i386-kos\segment.c">
       <Filter>kernel\i386-kos</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\kernel\i386-kos\vm86-soft.c">
+      <Filter>kernel\i386-kos</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\kernel\include\proprietary\multiboot2.h">
@@ -897,6 +900,9 @@
       <Filter>kernel\include\i386-kos</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\kernel\include\i386-kos\segment.h">
+      <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\include\i386-kos\vm86-soft.h">
       <Filter>kernel\include\i386-kos</Filter>
     </ClInclude>
   </ItemGroup>

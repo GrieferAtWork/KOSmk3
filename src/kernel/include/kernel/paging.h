@@ -34,12 +34,12 @@ DECL_BEGIN
 
 /* Convert addresses/sizes to/from whole pages. */
 #ifndef VM_ADDR2PAGE
-#define VM_ADDR2PAGE(x)  ((x)/PAGEALIGN)
-#define VM_PAGE2ADDR(x)  ((x)*PAGEALIGN)
+#define VM_ADDR2PAGE(x)  ((x) / PAGEALIGN)
+#define VM_PAGE2ADDR(x)  ((x) * PAGEALIGN)
 #endif
 #ifndef VM_SIZE2PAGES
-#define VM_SIZE2PAGES(x) ((x)/PAGESIZE)
-#define VM_PAGES2SIZE(x) ((x)*PAGESIZE)
+#define VM_SIZE2PAGES(x) ((x) / PAGESIZE)
+#define VM_PAGES2SIZE(x) ((x) * PAGESIZE)
 #endif
 
 #ifdef __CC__

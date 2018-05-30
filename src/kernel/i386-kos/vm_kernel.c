@@ -36,6 +36,10 @@
 
 DECL_BEGIN
 
+#ifndef KERNEL_CORE_BASE
+#define KERNEL_CORE_BASE KERNEL_BASE
+#endif
+
 #ifdef __INTELLISENSE__
 #define DEFINE_VM_REGION_PHYS(self,num_pages,physical_starting_page) { }
 #define DEFINE_VM_REGION_RESV(self,num_pages)                        { }
@@ -96,6 +100,15 @@ DECL_BEGIN
 #ifndef NDEBUG
 #define CONFIG_X86_RESERVE_DEBUG_PAGES 1
 #endif
+#ifdef __x86_64__
+/* On x86_64, all debug pages lie in non-canonical addresses, meaning that
+ * we don't have to bother reserving them, as they simply _cannot_ exist!
+ * Also note that the debug pages on x86_64 would be:
+ *   - 0xcccccccccccc0000
+ *   - 0xdeadbeefdead0000
+ */
+#undef CONFIG_X86_RESERVE_DEBUG_PAGES
+#endif
 
 
 PRIVATE struct vm_region kernel_vm_regions[] = {
@@ -140,9 +153,9 @@ PRIVATE struct vm_node kernel_vm_nodes[] = {
     DEFINE_VM_NODE((vm_vpage_t)kernel_rwnf_minpage,
                    (vm_vpage_t)kernel_rwnf_maxpage,
                     PROT_READ|PROT_WRITE|PROT_NOUSER,&kernel_vm_regions[3]),
-    DEFINE_VM_NODE(VM_ADDR2PAGE(X86_PDIR_E1_IDENTITY_BASE),
-                  (VM_ADDR2PAGE(X86_PDIR_E1_IDENTITY_BASE)+
-                               (X86_PDIR_E1_IDENTITY_SIZE/PAGESIZE))-1,
+    DEFINE_VM_NODE(VM_ADDR2PAGE(X86_VM_KERNEL_PDIR_RESERVED_BASE),
+                  (VM_ADDR2PAGE(X86_VM_KERNEL_PDIR_RESERVED_BASE)+
+                               (X86_VM_KERNEL_PDIR_RESERVED_SIZE/PAGESIZE))-1,
                    PROT_READ|PROT_WRITE|PROT_NOUSER,&kernel_vm_regions[4]),
 #ifdef CONFIG_X86_RESERVE_DEBUG_PAGES
 #define VM_NODES_RESERVED_UNMAP_BEGIN  5
@@ -181,7 +194,7 @@ INTDEF PHYS byte_t *mzone_heap_end;
 INTERN ATTR_FREETEXT void KCALL
 x86_initialize_kernel_vm_mappings(void) {
  unsigned int i; size_t kfree_size;
- kfree_size  = (size_t)(((uintptr_t)mzone_heap_end + KERNEL_BASE) - (uintptr_t)kernel_free_start);
+ kfree_size  = (size_t)(((uintptr_t)mzone_heap_end + KERNEL_CORE_BASE) - (uintptr_t)kernel_free_start);
  kfree_size += (PAGESIZE-1);
  kfree_size /= PAGESIZE;
  assert(kfree_size >= (uintptr_t)kernel_free_num_pages);
@@ -212,13 +225,20 @@ x86_initialize_kernel_vm_mappings(void) {
 
 INTDEF byte_t x86_boot_stack_guard_page[];
 
+/* On x86_64, we don't delete the virtual
+ * identity mapping of the first 2 Gib at -2Gb! */
+#ifndef __x86_64__
 INTERN ATTR_FREETEXT void KCALL
 x86_delete_virtual_memory_identity(void) {
  /* Unmap all virtual memory that isn't mapped by a VM node. */
  struct vm_node *node;
  vm_vpage_t last_end = 0;
 #ifdef __x86_64__
- /* ... */
+ /* On x86_64, we permanently keep the first 2Gib identity
+  * mapped into the last 2 Gib of virtual memory.
+  * Other identity mappings have already been deleted,
+  * even before execution left assembly and entered C,
+  * meaning that there's nothing for us to do here! */
 #else
  /* Unmap the physical identity mapping of the first 1Gb
   * NOTE: This must be like this, so that the physical pages
@@ -254,8 +274,10 @@ x86_delete_virtual_memory_identity(void) {
   if (!node) break;
   last_end = VM_NODE_END(node);
  }
- pagedir_map((vm_vpage_t)x86_boot_stack_guard_page,1,0,PAGEDIR_MAP_FUNMAP);
+ pagedir_map((vm_vpage_t)LOAD_FAR_POINTER(x86_boot_stack_guard_page),
+              1,0,PAGEDIR_MAP_FUNMAP);
 }
+#endif /* !__x86_64__ */
 
 DECL_END
 

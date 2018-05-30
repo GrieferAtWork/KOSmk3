@@ -31,9 +31,11 @@ DECL_BEGIN
 struct PACKED signal_frame {
     /* Regular signal frame (without `SA_SIGINFO') */
     void                          *sf_sigreturn; /* #PF-syscall address for `sys_sigreturn'. */
+#ifndef __x86_64__
     intptr_t                       sf_signo;     /* Signal number argument. */
     void                          *sf_pad[2];    /* Padding... (for sf_infop and sf_contextp, and required for
                                                   * binary compatibility when unwinding `signal_frame_ex') */
+#endif
     uintptr_t                      sf_mode;      /* The signal handler return mode (One of `TASK_USERCTX_F*',
                                                   * or one of `X86_SYSCALL_TYPE_F*'). */
     struct user_exception_info     sf_except;    /* Return exception information. */
@@ -46,9 +48,11 @@ struct PACKED signal_frame_ex {
         struct signal_frame        sf_frame;     /* Basic frame (has binary compatibility) */
         struct PACKED {
             void                  *sf_sigreturn; /* #PF-syscall address for `sys_sigreturn'. */
+#ifndef __x86_64__
             intptr_t               sf_signo;     /* Signal number argument. */
             siginfo_t             *sf_infop;     /* [== &sf_info] Signal info argument. */
             ucontext_t            *sf_contextp;  /* [== &sf_return] Signal context argument. */
+#endif
             uintptr_t              sf_mode;      /* The signal handler return mode (One of `TASK_USERCTX_F*',
                                                   * or one of `X86_SYSCALL_TYPE_F*'). */
             struct user_exception_info sf_except;/* Return exception information. */

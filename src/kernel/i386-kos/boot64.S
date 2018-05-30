@@ -308,7 +308,6 @@ INTERN_ENTRY(_start)
 	cld  /* Clear the direction bit (required for REP instructions) */
 
 	/* Check if CPUID is supported. */
-	movl  0(%esp), %eax
 	xorl  $(EFLAGS_ID), 0(%esp)
 	popf
 	pushf
@@ -373,7 +372,11 @@ INTERN_ENTRY(_start)
 1:	testl $(CPUID_1D_CMOV), %edx /* Check for CMOV support */
 	jnz   1f
 	call  boot_warning_no_cmov
-1:	movl  %ebx, SYM(boot_cpu_id_features) + 12 /* ci_1b */
+1:	testl $(CPUID_1D_PGE), %edx  /* Check for PGE support */
+	jnz   1f
+	movl  $0,   SYM(x86_page_global)
+1:	movl  %eax, SYM(boot_cpu_id_features) + 8  /* ci_1a */
+	movl  %ebx, SYM(boot_cpu_id_features) + 12 /* ci_1b */
 	movl  %edx, SYM(boot_cpu_id_features) + 16 /* ci_1d */
 	movl  %ecx, SYM(boot_cpu_id_features) + 20 /* ci_1c */
 
@@ -403,6 +406,7 @@ INTERN_ENTRY(_start)
 	      X86_PAGE_FWRITE | \
 	      X86_PAGE_FPRESENT \
 	), %edx
+	orl   SYM(x86_page_global), %edx
 1:	movl  %edx, %eax
 	addl  $(X86_PDIR_E3_COUNT * 8), %edx
 	stosl
@@ -423,7 +427,9 @@ INTERN_ENTRY(_start)
 	      (X86_PAGE_FDIRTY | X86_PAGE_FACCESSED | \
 	       X86_PAGE_FWRITE | X86_PAGE_FPRESENT | \
 	       X86_PAGE_F1GIB) \
-	),  SYM(pagedir_kernel_share_e3) + ((PAGING_E4_SHARE_COUNT - (KERNEL_IDENTITY_SIZE - i)) * 8);
+	),    %eax; \
+	orl   SYM(x86_page_global), %eax; \
+	movl  %eax, SYM(pagedir_kernel_share_e3) + ((PAGING_E4_SHARE_COUNT - (KERNEL_IDENTITY_SIZE - i)) * 8);
 	KERNEL_IDENTITY_FOREACH(IDENTITY_MAP_HIGH)
 #undef IDENTITY_MAP_HIGH
 	jmp   .Ldone_2mib_pages
@@ -442,7 +448,9 @@ INTERN_ENTRY(_start)
 	      (i * (X86_PDIR_E2_COUNT * 8)) + \
 	      X86_PAGE_FDIRTY | X86_PAGE_FACCESSED | \
 	      X86_PAGE_FWRITE | X86_PAGE_FPRESENT \
-	),  SYM(pagedir_kernel_share_e3) + ((PAGING_E4_SHARE_COUNT * X86_PDIR_E3_COUNT) - (KERNEL_IDENTITY_SIZE - i)) * 8;
+	),    %eax; \
+	orl   SYM(x86_page_global), %eax; \
+	movl  %eax, SYM(pagedir_kernel_share_e3) + ((PAGING_E4_SHARE_COUNT * X86_PDIR_E3_COUNT) - (KERNEL_IDENTITY_SIZE - i)) * 8;
 	KERNEL_IDENTITY_FOREACH(IDENTITY_MAP_HIGH)
 #undef IDENTITY_MAP_HIGH
 	/* With our 2 E2-identity vectors now linked, we must still map

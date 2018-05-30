@@ -41,9 +41,14 @@ SSE Registers 0–7                        17-24         %xmm0–%xmm7
 Extended SSE Registers 8–15              25-32         %xmm8–%xmm15
 Floating Point Registers 0–7             33-40         %st0–%st7
 MMX Registers 0–7                        41-48         %mm0–%mm7
+// Not part of the specs, but GCC seems to use this.
+// -> I feel like sysv forgot about rflags when they designed the
+//    specs, and this had to be re-added as an afterthought.
+//    Oh well...
+Flag Register                            49            %rflags
 */
 
-#define UNWIND_NUM_REGISTERS           17
+#define UNWIND_NUM_REGISTERS           18
 #define UNWIND_FRAME_REGSITER          6
 #define UNWIND_REMEMBER_STACK_SIZE     2  /* Remember stack-size. */
 #define UNWIND_CONTEXT_RETURN_REGISTER 16
@@ -67,6 +72,29 @@ PRIVATE u16 const unwind_register_offsets[UNWIND_NUM_REGISTERS] = {
     [14] = offsetof(struct cpu_context,c_gpregs.gp_r14),
     [15] = offsetof(struct cpu_context,c_gpregs.gp_r15),
     [16] = offsetof(struct cpu_context,c_rip),
+    [17] = offsetof(struct cpu_context,c_rflags),
+};
+#define UNWIND_TRANSFORM_REGISTER(x) \
+                 unwind_register_matrix[(u8)(x)]
+PRIVATE u8 const unwind_register_matrix[256] = {
+    [0]  = 0,  /* %rax */
+    [1]  = 1,  /* %rdx */
+    [2]  = 2,  /* %rcx */
+    [3]  = 3,  /* %rbx */
+    [4]  = 4,  /* %rsi */
+    [5]  = 5,  /* %rdi */
+    [6]  = 6,  /* %rbp */
+    [7]  = 7,  /* %rsp */
+    [8]  = 8,  /* %r8  */
+    [9]  = 9,  /* %r9  */
+    [10] = 10, /* %r10 */
+    [11] = 11, /* %r11 */
+    [12] = 12, /* %r12 */
+    [13] = 13, /* %r13 */
+    [14] = 14, /* %r14 */
+    [15] = 15, /* %r15 */
+    [16] = 16, /* %rip */
+    [49] = 17,
 };
 
 #else /* __x86_64__ */
@@ -81,7 +109,7 @@ Frame Pointer Register EBP                  5            %ebp
 General Purpose Register ESI                6            %esi
 General Purpose Register EDI                7            %edi
 Return Address RA                           8            %eip
-Flag Register                               9            %EFLAGS
+Flag Register                               9            %eflags
 Reserved                                    10
 Floating Point Registers 0–7                11-18        %st0–%st7
 Reserved                                    19-20

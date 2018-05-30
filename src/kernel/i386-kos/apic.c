@@ -148,6 +148,16 @@ LOCAL bool KCALL all_all_cpus_online(void) {
 INTDEF byte_t x86_pic_acknowledge[];
 
 /* NOTE: This code must match the text size in `x86_pic_acknowledge' */
+#ifdef __x86_64__
+PRIVATE ATTR_FREERODATA u8 const x86_ack_pic[18] = {
+    0xb0, X86_PIC_CMD_EOI, /* movb $X86_PIC_CMD_EOI, %al */
+    0xe6, X86_PIC1_CMD,    /* outb %al, $X86_PIC1_CMD */
+    /* Fill the remaining space with NOPs. */
+    0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+    0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+    0x90, 0x90
+};
+#else
 PRIVATE ATTR_FREERODATA u8 const x86_ack_pic[15] = {
     0xb0, X86_PIC_CMD_EOI, /* movb $X86_PIC_CMD_EOI, %al */
     0xe6, X86_PIC1_CMD,    /* outb %al, $X86_PIC1_CMD */
@@ -155,6 +165,7 @@ PRIVATE ATTR_FREERODATA u8 const x86_ack_pic[15] = {
     0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
     0x90, 0x90, 0x90, 0x90, 0x90
 };
+#endif
 
 
 INTERN ATTR_FREETEXT void KCALL
@@ -331,6 +342,8 @@ x86_apic_initialize(void) {
 all_online:;
 #endif
  } else {
+  debug_printf(FREESTR("[APIC] LAPIC unavailable. Using PIC\n"));
+
   /* Enable all interrupts. */
   outb_p(X86_PIC1_DATA,0);
   outb_p(X86_PIC2_DATA,0);

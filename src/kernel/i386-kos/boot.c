@@ -155,7 +155,9 @@ INTDEF INITCALL void KCALL x86_mem_relocate_info(void);
 INTDEF INITCALL void KCALL x86_mem_construct_zones(void);
 INTDEF INITCALL void KCALL x86_mem_construct_zone_nodes(void);
 INTDEF INITCALL void KCALL x86_initialize_kernel_vm_mappings(void);
+#ifndef __x86_64__
 INTDEF INITCALL void KCALL x86_delete_virtual_memory_identity(void);
+#endif
 INTDEF INITCALL void KCALL x86_mount_rootfs(void);
 INTERN ATTR_NORETURN INITCALL void KCALL x86_switch_to_userspace(void);
 
@@ -363,8 +365,10 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
  /* Unpreserve previously reserved memory. */
  mem_unpreserve();
 
+#ifndef __x86_64__
  /* Unmap all virtual memory that isn't mapped by a VM node. */
  x86_delete_virtual_memory_identity();
+#endif
 
  pagedir_syncall();
 
