@@ -263,12 +263,12 @@ generate_pid:
 #if __SIZEOF_PID_T__ > __SIZEOF_INT__
   if (random_bits > sizeof(int)*8) {
    pid_value  = (pid_t)rand();
-   pid_value |= ((pid_t)(rand() & ((1 << (random_bits % (sizeof(int)*8)))-1))) << sizeof(int)*8;
+   pid_value |= ((pid_t)(rand() & (((pid_t)1 << (random_bits % (sizeof(int)*8)))-1))) << sizeof(int)*8;
   } else {
-   pid_value  = (pid_t)(rand() & ((1 << (random_bits % (sizeof(int)*8)))-1));
+   pid_value  = (pid_t)(rand() & (((pid_t)1 << (random_bits % (sizeof(int)*8)))-1));
   }
 #else
-  pid_value = (pid_t)(rand() & ((1 << (random_bits % (sizeof(pid_t)*8)))-1));
+  pid_value = (pid_t)(rand() & (((pid_t)1 << (random_bits % (sizeof(pid_t)*8)))-1));
 #endif
   /* In case our RNG isn't good enough,
    * add some linear scaling into the mix. */

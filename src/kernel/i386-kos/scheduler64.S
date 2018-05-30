@@ -153,17 +153,23 @@ INTERN_ENTRY(X86_IRQ_PIT)
 	pushq_cfi_r  %r14
 	pushq_cfi_r  %r15
 
-
+	/* Save segment registers. */
+	rdfsbaseq    %rax
+	movq         %rax, X86_SCHEDCONTEXT64_OFFSETOF_SEGMENTS+X86_SEGMENTS64_OFFSETOF_FSBASE(%rsp)
+	movq         $IA32_KERNEL_GS_BASE, %rcx
+	rdmsr
+	movl         %eax, X86_SCHEDCONTEXT64_OFFSETOF_SEGMENTS+X86_SEGMENTS64_OFFSETOF_GSBASE(%rsp)
+	movl         %edx, X86_SCHEDCONTEXT64_OFFSETOF_SEGMENTS+X86_SEGMENTS64_OFFSETOF_GSBASE+4(%rsp)
 
 	/* Acknowledge the interrupt. */
 INTERN_ENTRY(x86_pic_acknowledge)
 	/* movq x86_lapic_base_address, %rax */
-	.byte 0x48
-	.byte 0x8b
-	.byte 0x04
-	.byte 0x25
-	.reloc ., R_X86_64_32S, x86_lapic_base_address
-	.long 0
+	.byte   0x48
+	.byte   0x8b
+	.byte   0x04
+	.byte   0x25
+	.reloc  ., R_X86_64_32S, x86_lapic_base_address
+	.long   0
 	/* movl $APIC_EOI_FSIGNAL, APIC_EOI(%rax) */
 	.byte   0xc7
 	.byte   0x80
@@ -353,10 +359,11 @@ PUBLIC_ENTRY(task_yield)
 	/* Apply the new context. */
 INTERN_ENTRY(x86_exchange_context)
 	/* Save the current CPU context. */
-	subq    $16, %rsp /* for FS/GS base. */
-	popq    -40(%rsp) /* RIP */
+	popq    -56(%rsp) /* RIP */
 	.cfi_adjust_cfa_offset -8
-	.cfi_offset %rip,      -40
+	.cfi_offset %rip, -56
+	subq    $16, %rsp  /* for FS/GS base. */
+	.cfi_adjust_cfa_offset 16
 	pushq_cfi   $X86_SEG_HOST_SS
 	pushq_cfi   %rsp
 	addq    $24, 0(%rsp) /* Return to before `c_segments' */

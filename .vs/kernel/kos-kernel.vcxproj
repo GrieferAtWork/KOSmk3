@@ -35,6 +35,7 @@
     <None Include="..\..\src\kernel\i386-kos\boot32.S" />
     <None Include="..\..\src\kernel\i386-kos\boot64.S" />
     <None Include="..\..\src\kernel\i386-kos\device_interrupts32.S" />
+    <None Include="..\..\src\kernel\i386-kos\device_interrupts64.S" />
     <None Include="..\..\src\kernel\i386-kos\hw_except32.S" />
     <None Include="..\..\src\kernel\i386-kos\interrupt32.S" />
     <None Include="..\..\src\kernel\i386-kos\kernel.ld" />

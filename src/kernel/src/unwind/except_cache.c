@@ -698,7 +698,7 @@ except_cache_lookup(struct exception_handler *__restrict iter,
   first_uncommon_bit = (sizeof(image_rva_t)*8)-1;
   while (first_uncommon_bit) {
    image_rva_t mask;
-   mask = 1 << first_uncommon_bit;
+   mask = (image_rva_t)1 << first_uncommon_bit;
    if ((image_min & mask) != (image_max & mask))
         break;
    --first_uncommon_bit;
@@ -710,10 +710,10 @@ except_cache_lookup(struct exception_handler *__restrict iter,
   /* Now with that out of the way, SEMI0 is quite simple, as
    * all it really is, are all the common bits with the first
    * uncommon bit set to ONE(1) */
-  assert((image_min & ~((1 << (first_uncommon_bit+1))-1)) ==
-         (image_max & ~((1 << (first_uncommon_bit+1))-1)));
-  mod->m_exc_cache.ec_semi0  = image_min & ~((1 << (first_uncommon_bit+1))-1);
-  mod->m_exc_cache.ec_semi0 |= 1 << first_uncommon_bit;
+  assert((image_min & ~(((image_rva_t)1 << (first_uncommon_bit+1))-1)) ==
+         (image_max & ~(((image_rva_t)1 << (first_uncommon_bit+1))-1)));
+  mod->m_exc_cache.ec_semi0  = image_min & ~(((image_rva_t)1 << (first_uncommon_bit+1))-1);
+  mod->m_exc_cache.ec_semi0 |= (image_rva_t)1 << first_uncommon_bit;
   assertf(ATREE_MAPMIN(uintptr_t,mod->m_exc_cache.ec_semi0,mod->m_exc_cache.ec_level0) <= image_min,
           "ATREE_MAPMIN(uintptr_t,%p,%u) = %p\n"
           "image_min                     = %p\n",

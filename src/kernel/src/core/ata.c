@@ -59,7 +59,7 @@ DECL_BEGIN
 
 #define Ata_ResetBusInterruptCounter() \
  (Ata_BusInterruptCounter[0] = Ata_BusInterruptCounter[1] = 0)
-INTERN volatile unsigned int Ata_BusInterruptCounter[2] = { 0, 0 };
+INTERN volatile u32 Ata_BusInterruptCounter[2] = { 0, 0 };
 INTERN struct async_sig Ata_BusInterruptSignal[2] = { ASYNC_SIG_INIT, ASYNC_SIG_INIT };
 INTERN DEFINE_MUTEX(Ata_SubSystemLock);
 

@@ -291,7 +291,10 @@ fs_walk_path_one(struct path *__restrict root,
        (ch = *remaining_path,ch == '/' || isspace(ch)))
         --remaining_pathlen,++remaining_path;
  segment_length = memlen(remaining_path,'/',remaining_pathlen);
- assert(segment_length <= remaining_pathlen);
+ assertf(segment_length <= remaining_pathlen,
+        "segment_length    = %Iu\n"
+        "remaining_pathlen = %Iu\n",
+         segment_length,remaining_pathlen);
  segment_relevant = segment_length;
  /* Skip trailing whitespace. */
  while (segment_relevant && isspace(remaining_path[segment_relevant-1]))

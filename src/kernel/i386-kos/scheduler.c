@@ -876,7 +876,6 @@ task_setup_kernel_environ(struct task *__restrict thread) {
  FORTASK(thread,_this_group).tg_process.h_procgroup.pg_master.m_session = thread; /* Own process sessions. (`setsid()' - style) */
  fs_incref(&fs_kernel);
  handle_manager_incref(&handle_manager_kernel);
- pidns_incref(&pidns_kernel);
  /* Generate a random base address for the sysbase segment. */
  FORTASK(thread,x86_sysbase) = X86_SYSBASE_RAND();
 }
