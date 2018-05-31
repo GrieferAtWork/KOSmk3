@@ -82,10 +82,6 @@ __FORCELOCAL __UINT16_TYPE__ (__rolw)(__UINT16_TYPE__ __x, __UINT8_TYPE__ __y) {
 __FORCELOCAL __UINT32_TYPE__ (__roll)(__UINT32_TYPE__ __x, __UINT8_TYPE__ __y) { __UINT32_TYPE__ __result; __asm__("roll %1, %0" : "=g" (__result) : "nc" (__y), "0" (__x) : "cc"); return __result; }
 __FORCELOCAL __UINT16_TYPE__ (__rorw)(__UINT16_TYPE__ __x, __UINT8_TYPE__ __y) { __UINT16_TYPE__ __result; __asm__("rorw %1, %w0" : "=g" (__result) : "nc" (__y), "0" (__x) : "cc"); return __result; }
 __FORCELOCAL __UINT32_TYPE__ (__rorl)(__UINT32_TYPE__ __x, __UINT8_TYPE__ __y) { __UINT32_TYPE__ __result; __asm__("rorl %1, %0" : "=g" (__result) : "nc" (__y), "0" (__x) : "cc"); return __result; }
-__FORCELOCAL __UINT64_TYPE__ (__rdmsr)(__UINT32_TYPE__ __id) { __UINT64_TYPE__ __result; __asm__ __volatile__("rdmsr" : "=A" (__result) : "c" (__id)); return __result; }
-__FORCELOCAL __UINT64_TYPE__ (__rdpmc)(__UINT32_TYPE__ __id) { __UINT64_TYPE__ __result; __asm__ __volatile__("rdpmc" : "=A" (__result) : "c" (__id)); return __result; }
-__FORCELOCAL __UINT64_TYPE__ (__rdtsc)(void) { __UINT64_TYPE__ __result; __asm__ __volatile__("rdtsc" : "=A" (__result)); return __result; }
-__FORCELOCAL void (__wrmsr)(__UINT32_TYPE__ __id, __UINT64_TYPE__ __val) { __asm__ __volatile__("wrmsr" : : "c" (__id), "A" (__val)); }
 __FORCELOCAL __ATTR_NORETURN void (__sysenter)(void) { __asm__ __volatile__("sysenter"); __builtin_unreachable(); }
 __FORCELOCAL __ATTR_NORETURN void (__sysexit)(__UINT32_TYPE__ __uesp, __UINT32_TYPE__ __ueip) { __asm__ __volatile__("sysexit" : : "c" (__uesp), "d" (__ueip)); __builtin_unreachable(); }
 __FORCELOCAL void (__movsb)(void *__restrict __dst, void const *__restrict __src, __SIZE_TYPE__ __count) { __asm__("rep; movsb" : "+D" (__dst), "+S" (__src), "+c" (__count), "=m" (__COMPILER_ASM_BUFFER(__UINT8_TYPE__,__count,__dst)) : "m" (__COMPILER_ASM_BUFFER(__UINT8_TYPE__,__count,__src))); }
@@ -166,7 +162,7 @@ __FORCELOCAL void (__writefsptr)(__UINTPTR_TYPE__ __offset, void *__val) { __wri
 __FORCELOCAL void (__writegsptr)(__UINTPTR_TYPE__ __offset, void *__val) { __writegsl(__offset,(__UINT32_TYPE__)__val); }
 #endif /* !__x86_64__ */
 
-
+/* FS/GS-base registers. */
 #ifdef __x86_64__
 #ifdef __KERNEL__
 #include <i386-kos/segment.h>
@@ -190,6 +186,20 @@ __FORCELOCAL void (__wrgsbaseq)(__UINT64_TYPE__ __val) { __asm__("wrgsbase %0" :
 #endif
 __FORCELOCAL void (__swapgs)(void) { __asm__("swapgs"); }
 #endif
+
+/* MachineSpecificRegisters (MSRs) */
+#ifdef __x86_64__
+__FORCELOCAL __UINT64_TYPE__ (__rdmsr)(__UINT32_TYPE__ __id) { union __ATTR_PACKED { __UINT32_TYPE__ __lohi[2]; __UINT64_TYPE__ __result; } __res; __asm__ __volatile__("rdmsr" : "=a" (__res.__lohi[0]), "=d" (__res.__lohi[1]) : "c" (__id)); return __res.__result; }
+__FORCELOCAL __UINT64_TYPE__ (__rdpmc)(__UINT32_TYPE__ __id) { union __ATTR_PACKED { __UINT32_TYPE__ __lohi[2]; __UINT64_TYPE__ __result; } __res; __asm__ __volatile__("rdpmc" : "=a" (__res.__lohi[0]), "=d" (__res.__lohi[1]) : "c" (__id)); return __res.__result; }
+__FORCELOCAL __UINT64_TYPE__ (__rdtsc)(void) { union __ATTR_PACKED { __UINT32_TYPE__ __lohi[2]; __UINT64_TYPE__ __result; } __res; __asm__ __volatile__("rdtsc" : "=a" (__res.__lohi[0]), "=d" (__res.__lohi[1])); return __res.__result; }
+__FORCELOCAL void (__wrmsr)(__UINT32_TYPE__ __id, __UINT64_TYPE__ __val) { union __ATTR_PACKED { __UINT32_TYPE__ __lohi[2]; __UINT64_TYPE__ __val; } __arg; __arg.__val = __val; __asm__ __volatile__("wrmsr" : : "c" (__id), "a" (__arg.__lohi[0]), "d" (__arg.__lohi[1])); }
+#else
+__FORCELOCAL __UINT64_TYPE__ (__rdmsr)(__UINT32_TYPE__ __id) { __UINT64_TYPE__ __result; __asm__ __volatile__("rdmsr" : "=A" (__result) : "c" (__id)); return __result; }
+__FORCELOCAL __UINT64_TYPE__ (__rdpmc)(__UINT32_TYPE__ __id) { __UINT64_TYPE__ __result; __asm__ __volatile__("rdpmc" : "=A" (__result) : "c" (__id)); return __result; }
+__FORCELOCAL __UINT64_TYPE__ (__rdtsc)(void) { __UINT64_TYPE__ __result; __asm__ __volatile__("rdtsc" : "=A" (__result)); return __result; }
+__FORCELOCAL void (__wrmsr)(__UINT32_TYPE__ __id, __UINT64_TYPE__ __val) { __asm__ __volatile__("wrmsr" : : "c" (__id), "A" (__val)); }
+#endif
+
 #endif /* __CC__ */
 
 __SYSDECL_END

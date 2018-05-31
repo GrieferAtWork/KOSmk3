@@ -207,7 +207,7 @@ x86_apic_initialize(void) {
 
 #ifndef CONFIG_NO_SMP
   /* Copy AP entry code. */
-  memcpy((void *)X86_SMP_ENTRY_IP,x86_smp_entry,entry_size);
+  memcpy((void *)X86_EARLY_PHYS2VIRT(X86_SMP_ENTRY_IP),x86_smp_entry,entry_size);
 
   /* Send INIT commands to all CPUs. */
   for (i = 1; i < cpu_count; ++i) {

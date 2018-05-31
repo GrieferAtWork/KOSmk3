@@ -507,9 +507,11 @@ SYMEND(x86_load_context)
 	.cfi_offset %rip,    -5*8
 	nop /* Keep this here for the sake of tracebacks. */
 INTERN_ENTRY(x86_redirect_preemption)
-
 	/* TODO */
-
+	int3
+1:	cli
+	hlt
+	jmp 1b
 .cfi_endproc
 .x86_redirect_preemption_end = .
 SYMEND(x86_redirect_preemption)

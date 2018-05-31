@@ -33,7 +33,7 @@
 
 #ifdef CONFIG_USE_USHARE_LAZY_SYSCALLS
 
-.section .data
+.section .xdata, "awx"
 INTERN_ENTRY(libc_Xsyscall)
 	/* Set the exception-support bit in the system call number
 	 * Other than that, this is exactly the same as the regular syscall() function. */
@@ -272,7 +272,7 @@ SYMEND(x86_syscall_load_1)
 SYMEND(x86_syscall_load_0)
 .cfi_endproc
 
-.section .data.hot
+.section .xdata.hot, "awx"
 
 
 #elif defined(CONFIG_USE_PF)
@@ -1367,7 +1367,7 @@ EXPORT(Xlsyscall,libc_Xsyscall)
 
 
 #ifdef CONFIG_USE_USHARE_LAZY_SYSCALLS
-.section .data
+.section .xdata, "awx"
 #else
 .section .text
 #endif

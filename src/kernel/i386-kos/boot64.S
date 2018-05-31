@@ -699,8 +699,9 @@ INTERN_ENTRY(_start64)
 	movq   $X86_KERNEL_DS, %rax
 	movw   %ax, %ds /* XXX: Why do DS and ES still exist? */
 	movw   %ax, %es
+	movq   $X86_USER_TLS, %rax
 	movw   %ax, %fs
-	movq   $X86_SEG_HOST_GS, %rax
+	movq   $X86_USER_TIB, %rax
 	movw   %ax, %gs
 
 	/* Don't forget about this segment register! */

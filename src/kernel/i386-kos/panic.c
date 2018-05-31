@@ -22,11 +22,13 @@
 
 #include "scheduler.h"
 
+#include <kos/intrin.h>
 #include <hybrid/compiler.h>
 #include <kernel/panic.h>
 #include <kernel/debug.h>
 #include <i386-kos/ipi.h>
 #include <hybrid/section.h>
+#include <asm/cpu-flags.h>
 
 DECL_BEGIN
 
@@ -49,18 +51,22 @@ PUBLIC ATTR_NOTHROW void KCALL kernel_panic_recover(void) {
 #endif
    {
     /* Only one CPU, so we know that's us! */
-    __wrgsbaseq((u64)cpu_vector[0]->c_running);
+    gs_base = (u64)cpu_vector[0]->c_running;
    }
 #ifndef CONFIG_NO_SMP
    else {
     /* XXX: Use the LAPIC ID to find our CPU? */
-
-    /* Just go with the boot task. - We've shut down
-     * everything already, so it shouldn't hurt too much... */
-    __wrgsbaseq((u64)&_boot_task);
    }
 #endif
-   debug_printf("[PANIC] Recovered gs_base = %p\n",__rdgsbaseq());
+
+   if (gs_base < KERNEL_BASE) {
+    /* Just go with the boot task. - We'll shut down
+     * everything anyways, so it shouldn't hurt too much... */
+    debug_printf("[PANIC] CPU->c_running = %p is broken, too\n",gs_base);
+    gs_base = (u64)&_boot_task;
+   }
+   __wrgsbaseq(gs_base);
+   debug_printf("[PANIC] Recovered gs_base = %p\n",gs_base);
   }
  }
 #endif

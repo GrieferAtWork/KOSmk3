@@ -486,7 +486,7 @@ x86_ipi_broadcast(struct x86_ipi const *__restrict ipi,
 restart:
  flags = ATOMIC_FETCHOR(THIS_TASK->t_flags,TASK_FKEEPCORE);
  was = PREEMPTION_PUSHOFF();
- if (!X86_HAVE_LAPIC) {
+ if (!X86_HAVE_LAPIC || cpu_count <= 1) {
   /* Special handling when we're running on a uni-core system. */
   if (also_send_to_self)
       x86_ipi_handle(ipi,true);

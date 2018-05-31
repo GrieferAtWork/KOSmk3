@@ -59,6 +59,9 @@ DATDEF unsigned int const X86_MZONE_4GB;    /* 0x0000000080000000..0x00000000fff
 
 /* The stack size of automatically allocated user-space stacks. */
 #define CONFIG_USERSTACK_SIZE   (4096*16)
+
+/* Size of the kernel stack used for handling #DF exceptions. */
+#define CONFIG_X86_DFSTACK_SIZE (4096*16)
 #else
 /* The stack size of kernel threads. */
 #define CONFIG_KERNELSTACK_SIZE (4096*8)

@@ -32,9 +32,16 @@ DECL_BEGIN
 
 INTDEF byte_t x86_boot_stack_top[];
 
+/* Considerably smaller than a regular stack. */
+INTERN ATTR_SECTION(".bss.boot.df_stack")
+byte_t x86_bootcpu_df_stack[CONFIG_X86_DFSTACK_SIZE];
+
+
+
 PUBLIC ATTR_PERCPU struct x86_tss x86_cputss = {
 #ifdef __x86_64__
     .t_rsp0       = (uintptr_t)x86_boot_stack_top,
+    .t_rsp1       = (uintptr_t)x86_bootcpu_df_stack,
 #else
     .t_esp0       = (uintptr_t)x86_boot_stack_top,
     .t_ss0        = X86_KERNEL_DS,
@@ -52,10 +59,6 @@ PUBLIC ATTR_PERCPU struct x86_tss x86_cputss = {
 
 #ifndef __x86_64__
 INTDEF void KCALL x86_double_fault_handler(void);
-
-/* Considerably smaller than a regular stack. */
-INTERN ATTR_SECTION(".bss.boot.df_stack")
-byte_t x86_bootcpu_df_stack[CONFIG_X86_DFSTACK_SIZE];
 
 PUBLIC ATTR_PERCPU struct x86_tss x86_cputssdf = {
     .t_esp0       = (uintptr_t)COMPILER_ENDOF(x86_bootcpu_df_stack),

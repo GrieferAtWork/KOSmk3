@@ -224,6 +224,21 @@ typedef PHYS u64 vm_phys_t;  /* A physical memory pointer. */
 #define X86_PDIR_E3_INDEX(vpage)  ((__CCAST(u64)(vpage) >> 18) & 0x1ff) /* For `union x86_pdir_e4::p_e3' */
 #define X86_PDIR_E4_INDEX(vpage)  ((__CCAST(u64)(vpage) >> 27) & 0x1ff) /* For `struct x86_pdir::p_e4' */
 
+#define X86_PDIR_PAGE4(x4,x3,x2,x1) \
+      ((__CCAST(uintptr_t)(x4) << 27) | \
+       (__CCAST(uintptr_t)(x3) << 18) | \
+       (__CCAST(uintptr_t)(x2) << 9) | \
+        __CCAST(uintptr_t)(x1))
+#define X86_PDIR_PAGE3(x4,x3,x2) \
+      ((__CCAST(uintptr_t)(x4) << 27) | \
+       (__CCAST(uintptr_t)(x3) << 18) | \
+       (__CCAST(uintptr_t)(x2) << 9))
+#define X86_PDIR_PAGE2(x4,x3) \
+      ((__CCAST(uintptr_t)(x4) << 27) | \
+       (__CCAST(uintptr_t)(x3) << 18))
+#define X86_PDIR_PAGE1(x4) \
+       (__CCAST(uintptr_t)(x4) << 27)
+
 /* Page directory address offsets (Added to the mapped address when `X86_PDIR_E?_ISADDR(...)' is true). */
 #define PDIR_E1_OFFSET(virt_addr)  (__CCAST(u64)(virt_addr) & (X86_PDIR_E1_SIZE-1)) /* 1KIB offsets */
 #define PDIR_E2_OFFSET(virt_addr)  (__CCAST(u64)(virt_addr) & (X86_PDIR_E2_SIZE-1)) /* 2MIB offsets */

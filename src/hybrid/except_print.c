@@ -41,6 +41,7 @@
 #include <kos/addr2line.h>
 #include <kos/registers.h>
 #include <kos/handle.h>
+#include <kos/intrin.h>
 #include <hybrid/compiler.h>
 #include <hybrid/section.h>
 #include <hybrid/host.h>

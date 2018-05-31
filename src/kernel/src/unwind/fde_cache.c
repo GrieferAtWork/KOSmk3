@@ -372,6 +372,14 @@ pc_ok:
   return;
  }
  /* Insert the new leaf. */
+#if 0
+ debug_printf("fde_cache_tree_insert_at():\n");
+ debug_printf("    entry  = { %p, %p }\n",
+              entry->ic_info.fi_pcbegin,
+              entry->ic_info.fi_pcend);
+ debug_printf("    semi0  = %p\n",self->m_fde_cache.fc_semi0);
+ debug_printf("    level0 = %p\n",self->m_fde_cache.fc_level0);
+#endif
  fde_cache_tree_insert_at(&self->m_fde_cache.fc_tree,
                            entry,
                            self->m_fde_cache.fc_semi0,

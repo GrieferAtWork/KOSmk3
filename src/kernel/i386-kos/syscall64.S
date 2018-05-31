@@ -215,22 +215,57 @@ SYMEND(x86_xsyscall_compat_restart)
 .section .text.hot
 INTERN_ENTRY(sysenter_kernel_entry)
 	/* TODO */
+	int3
+1:	cli
+	hlt
+	jmp 1b
 SYMEND(sysenter_kernel_entry)
 
 .section .text.hot
 INTERN_ENTRY(irq_80)
+	.cfi_startproc simple
+	.cfi_signal_frame
+	.cfi_def_cfa %rsp,    5*8
+	.cfi_offset %rflags, -3*8
+	.cfi_offset %rip,    -5*8
+	irq_enter
 	/* TODO */
+	int3
+1:	cli
+	hlt
+	jmp 1b
+	irq_leave
+	.cfi_endproc
 SYMEND(irq_80)
 
 
 .section .text.hot
 INTERN_ENTRY(sysenter_kernel_entry_trace)
+	.cfi_startproc simple
+	.cfi_signal_frame
 	/* TODO */
+	int3
+1:	cli
+	hlt
+	jmp 1b
+	.cfi_endproc
 SYMEND(sysenter_kernel_entry_trace)
 
 .section .text.hot
 INTERN_ENTRY(irq_80_trace)
+	.cfi_startproc simple
+	.cfi_signal_frame
+	.cfi_def_cfa %rsp,    5*8
+	.cfi_offset %rflags, -3*8
+	.cfi_offset %rip,    -5*8
+	irq_enter
 	/* TODO */
+	int3
+1:	cli
+	hlt
+	jmp 1b
+	irq_leave
+	.cfi_endproc
 SYMEND(irq_80_trace)
 
 
@@ -244,7 +279,13 @@ SYMEND(x86_bad_syscall)
 
 .section .text.hot
 INTERN_ENTRY(x86_bad_syscall_except)
+	.cfi_startproc
 	/* TODO */
+	int3
+1:	cli
+	hlt
+	jmp 1b
+	.cfi_endproc
 SYMEND(x86_bad_syscall_except)
 
 
@@ -265,12 +306,24 @@ SYMEND(x86_syscall_exec80)
 
 .section .text
 PUBLIC_ENTRY(x86_syscall_exec80_trace)
+	.cfi_startproc
 	/* TODO */
+	int3
+1:	cli
+	hlt
+	jmp 1b
+	.cfi_endproc
 SYMEND(x86_syscall_exec80_trace)
 
 .section .text
 PUBLIC_ENTRY(x86_syscall_exec80_ntrace)
+	.cfi_startproc
 	/* TODO */
+	int3
+1:	cli
+	hlt
+	jmp 1b
+	.cfi_endproc
 SYMEND(x86_syscall_exec80_ntrace)
 
 

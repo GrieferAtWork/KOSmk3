@@ -38,8 +38,10 @@
 DECL_BEGIN
 
 #undef CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS
+#undef CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN
 #if !defined(NDEBUG) && 0
 #define CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS 1
+#define CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN 1
 #endif
 
 /* Define some shorter names for structures and macros. */
@@ -170,7 +172,7 @@ STATIC_ASSERT_MSG(PAGING_E4_IDENTITY_INDEX != PAGING_E4_SHARE_INDEX,
 INTERN ATTR_SECTION(".bss.pagedir.kernel.share") VIRT
 union x86_pdir_e3 pagedir_kernel_share_e3[PAGING_E4_SHARE_COUNT][X86_PDIR_E3_COUNT];
 
-/* The layer-2 indirection used to describe the permanent identity
+/* The layer-2 indirection used to describe the initial identity
  * mapping of the last 2Gb of virtual memory, mapping to the first
  * 2Gb of physical memory, which also contain the kernel core.
  * HINT: This goes hand-in-hand with `KERNEL_CORE_BASE', which
@@ -203,22 +205,22 @@ PRIVATE u64 x86_pageperm_matrix[0xf+1] = {
      /* Configure to always set the DIRTY and ACCESSED bits (KOS doesn't use
       * them, and us already setting them will allow the CPU to skip setting
       * them if the time comes) */
-    [0]                                                                        = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FNOEXEC,
-    [PAGEDIR_MAP_FEXEC]                                                        = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT,
-    [PAGEDIR_MAP_FWRITE]                                                       = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT|X86_PAGE_FWRITE|X86_PAGE_FNOEXEC,
-    [PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC]                                     = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
-    [PAGEDIR_MAP_FREAD]                                                        = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT|X86_PAGE_FNOEXEC,
-    [PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FEXEC]                                      = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT,
-    [PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE]                                     = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT|X86_PAGE_FWRITE|X86_PAGE_FNOEXEC,
-    [PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC]                   = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
-    [PAGEDIR_MAP_FUSER]                                                        = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FNOEXEC,
-    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FEXEC]                                      = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT,
-    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FWRITE]                                     = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FWRITE|X86_PAGE_FNOEXEC,
-    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FEXEC|PAGEDIR_MAP_FWRITE]                   = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
-    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD]                                      = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FNOEXEC,
-    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FEXEC]                    = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT,
-    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE]                   = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FWRITE|X86_PAGE_FNOEXEC,
-    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC] = X86_PAGE_FDIRTY|X86_PAGE_FACCESSED|X86_PAGE_FUSER|X86_PAGE_FPRESENT|X86_PAGE_FWRITE,
+    [0]                                                                        = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FNOEXEC,
+    [PAGEDIR_MAP_FEXEC]                                                        = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT,
+    [PAGEDIR_MAP_FWRITE]                                                       = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT|PAGE_FWRITE|PAGE_FNOEXEC,
+    [PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC]                                     = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT|PAGE_FWRITE,
+    [PAGEDIR_MAP_FREAD]                                                        = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT|PAGE_FNOEXEC,
+    [PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FEXEC]                                      = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT,
+    [PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE]                                     = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT|PAGE_FWRITE|PAGE_FNOEXEC,
+    [PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC]                   = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT|PAGE_FWRITE,
+    [PAGEDIR_MAP_FUSER]                                                        = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FNOEXEC,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FEXEC]                                      = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FWRITE]                                     = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT|PAGE_FWRITE|PAGE_FNOEXEC,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FEXEC|PAGEDIR_MAP_FWRITE]                   = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT|PAGE_FWRITE,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD]                                      = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT|PAGE_FNOEXEC,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FEXEC]                    = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE]                   = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT|PAGE_FWRITE|PAGE_FNOEXEC,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC] = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT|PAGE_FWRITE,
 };
 
 INTERN u64 x86_page_global = PAGE_FGLOBAL;
@@ -427,8 +429,8 @@ pagedir_allocate_e1(unsigned int x4, unsigned int x3, unsigned int x2) {
  if (ent.p_flag & PAGE_F2MIB) {
   unsigned int i;
   /* Split the 1Gib E3-entry into an E2-vector of 2Mib pages. */
-  assertf((ent.p_data & (X86_PAGE_FADDR & ~X86_PDIR_E3_ADDRMASK)) == 0,
-          "Invalid 1Gib page address: %p",ent.p_data);
+  assertf((ent.p_data & (X86_PAGE_FADDR & ~X86_PDIR_E2_ADDRMASK)) == 0,
+          "Invalid 2Mib page address: %p",ent.p_data);
   COMPILER_WRITE_BARRIER();
   E2_IDENTITY[x4][x3][x2].p_data = (VM_PAGE2ENTADDR(page_malloc(1,MZONE_PAGING)) |
                                    (PAGE_FDIRTY | PAGE_FACCESSED |
@@ -502,6 +504,11 @@ pagedir_delete_e2(unsigned int x4, unsigned int x3) {
 LOCAL void KCALL
 pagedir_trydelete_e1(unsigned int x4, unsigned int x3, unsigned int x2) {
  E4 ent4; E3 ent3;
+#ifdef CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN
+ debug_printf("DELET[lv3](%p...%p)\n",
+              VM_PAGE2ADDR(X86_PDIR_PAGE3(x4,x3,x2)),
+              VM_PAGE2ADDR(X86_PDIR_PAGE3(x4,x3,x2+1))-1);
+#endif /* CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN */
  ent4 = E4_IDENTITY[x4];
  if ((ent4.p_data & PAGE_FADDR) == PAGE_ABSENT)
       return; /* Nothing mapped here! */
@@ -513,11 +520,16 @@ pagedir_trydelete_e1(unsigned int x4, unsigned int x3, unsigned int x2) {
 #endif
      )
       return; /* Nothing mapped here! */
- pagedir_delete_e2(x4,x3);
+ pagedir_delete_e1(x4,x3,x2);
 }
 LOCAL void KCALL
 pagedir_trydelete_e2(unsigned int x4, unsigned int x3) {
  E4 ent4 = E4_IDENTITY[x4];
+#ifdef CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN
+ debug_printf("DELET[lv2](%p...%p)\n",
+              VM_PAGE2ADDR(X86_PDIR_PAGE2(x4,x3)),
+              VM_PAGE2ADDR(X86_PDIR_PAGE2(x4,x3+1))-1);
+#endif /* CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN */
  if ((ent4.p_data & PAGE_FADDR) == PAGE_ABSENT)
       return; /* Nothing mapped here! */
  pagedir_delete_e2(x4,x3);
@@ -526,13 +538,21 @@ LOCAL void KCALL
 pagedir_trydelete_e3(unsigned int x4) {
  E4 ent; unsigned int x3;
  ent = E4_IDENTITY[x4];
+#ifdef CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN
+ debug_printf("DELET[lv1](%p...%p)\n",
+              VM_PAGE2ADDR(X86_PDIR_PAGE1(x4)),
+              VM_PAGE2ADDR(X86_PDIR_PAGE1(x4+1))-1);
+#endif /* CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN */
  if ((ent.p_data & PAGE_FADDR) == PAGE_ABSENT)
       return; /* Nothing mapped here! */
  for (x3 = 0; x3 < E3_COUNT; ++x3) {
   pagedir_delete_e2(x4,x3);
  }
- E4_IDENTITY[x4].p_data = PAGE_ABSENT;
- page_free(VM_ADDR2PAGE(ent.p_data),1);
+ /* Don't free level#4 vectors above KERNEL_BASE. */
+ if (x4 < E4_INDEX(KERNEL_BASE_PAGE)) {
+  E4_IDENTITY[x4].p_data = PAGE_ABSENT;
+  page_free(VM_ADDR2PAGE(ent.p_data),1);
+ }
 }
 
 
@@ -639,15 +659,15 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
          X86_VM_KERNEL_PDIR_IDENTITY_BASE,
          X86_VM_KERNEL_PDIR_IDENTITY_BASE+
          X86_VM_KERNEL_PDIR_IDENTITY_SIZE-1);
- assertf(virt_page < VM_VPAGE_MAX,"virt_page = %p",virt_page);
- assertf((perm&PAGEDIR_MAP_FUNMAP) || phys_page < VM_PPAGE_MAX,"phys_page = %p",phys_page);
+ assertf(virt_page <= VM_VPAGE_MAX,"virt_page = %p",virt_page);
+ assertf((perm&PAGEDIR_MAP_FUNMAP) || phys_page <= VM_PPAGE_MAX,"phys_page = %p",phys_page);
  assert(virt_page+num_pages >= virt_page);
  assert((perm&PAGEDIR_MAP_FUNMAP) || phys_page+num_pages >= phys_page);
- assertf(virt_page+num_pages < VM_VPAGE_MAX,
+ assertf(virt_page+num_pages <= (VM_VPAGE_MAX+1),
          "virt_page = %p\n"
          "num_pages = %p\n",
          virt_page,num_pages);
- assert((perm&PAGEDIR_MAP_FUNMAP) || phys_page+num_pages < VM_PPAGE_MAX);
+ assert((perm&PAGEDIR_MAP_FUNMAP) || phys_page+num_pages <= (VM_PPAGE_MAX+1));
  edata = (u64)VM_PAGE2ADDR(phys_page) | x86_pageperm_matrix[perm & 0xf];
  if (virt_page >= KERNEL_BASE_PAGE)
      edata |= x86_page_global; /* Kernel-share mapping. */
@@ -671,6 +691,11 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
                    [x3 = E3_INDEX(virt_page)]
                    [x2 = E2_INDEX(virt_page)];
   if (perm & PAGEDIR_MAP_FUNMAP) {
+#ifdef CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN
+   debug_printf("UNMAP[lv4](%p...%p)\n",
+                VM_PAGE2ADDR(X86_PDIR_PAGE4(x4,x3,x2,offset)),
+                VM_PAGE2ADDR(X86_PDIR_PAGE4(x4,x3,x2,offset+max_pages))-1);
+#endif /* CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN */
    memsetq(&vec[offset],PAGE_ABSENT,max_pages);
   } else {
    unsigned int x1;
@@ -690,34 +715,37 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
  max_pages = E2_INDEX(virt_page);
  if (max_pages != 0 &&
     (perm & PAGEDIR_MAP_FUNMAP || IS_ALIGNED(edata & X86_PAGE_FADDR,E2_SIZE))) {
-  E2 *vec; unsigned int offset;
+  E2 *vec; unsigned int offset,x4,x3;
   /* At this point, we're aligned for 2Mib pages. */
-  assertf(IS_ALIGNED(virt_page,X86_PDIR_E2_SIZE / PAGESIZE),
-          "Not aligned: %p",virt_page);
   offset    = max_pages;
   max_pages = E2_COUNT - max_pages;
-  if (max_pages > num_pages / ((~X86_PDIR_E2_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK))
-      max_pages = num_pages / ((~X86_PDIR_E2_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK);
-  if (max_pages) {
-   unsigned int x4,x3;
-   vec = E2_IDENTITY[x4 = E4_INDEX(virt_page)]
-                    [x3 = E3_INDEX(virt_page)];
-   if (perm & PAGEDIR_MAP_FUNMAP) {
-    memsetq(&vec[offset],PAGE_ABSENT,max_pages);
-   } else {
-    unsigned int i;
-    for (i = 0; i < max_pages; ++i) {
-     vec[offset + i].p_addr = edata | PAGE_F2MIB;
-     edata += E2_SIZE;
-    }
-    pagedir_addperm_e3(x4,x3,edata);
-    pagedir_addperm_e4(x4,edata);
+  if (max_pages > num_pages / (E2_SIZE / PAGESIZE))
+      max_pages = num_pages / (E2_SIZE / PAGESIZE);
+  if (!max_pages) goto do_full_1kib_pages;
+  assertf(IS_ALIGNED(virt_page,X86_PDIR_E2_SIZE / PAGESIZE),
+          "Not aligned: %p (%p)",virt_page,VM_PAGE2ADDR(virt_page));
+  vec = E2_IDENTITY[x4 = E4_INDEX(virt_page)]
+                   [x3 = E3_INDEX(virt_page)];
+  if (perm & PAGEDIR_MAP_FUNMAP) {
+#ifdef CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN
+   debug_printf("UNMAP[lv3](%p...%p)\n",
+                VM_PAGE2ADDR(X86_PDIR_PAGE3(x4,x3,offset)),
+                VM_PAGE2ADDR(X86_PDIR_PAGE3(x4,x3,offset+max_pages))-1);
+#endif /* CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN */
+   memsetq(&vec[offset],PAGE_ABSENT,max_pages);
+  } else {
+   unsigned int i;
+   for (i = 0; i < max_pages; ++i) {
+    vec[offset + i].p_addr = edata | PAGE_F2MIB;
+    edata += E2_SIZE;
    }
-   num_pages -= max_pages * ((~X86_PDIR_E2_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK);
-   if (!num_pages)
-        goto done;
-   virt_page += max_pages;
+   pagedir_addperm_e3(x4,x3,edata);
+   pagedir_addperm_e4(x4,edata);
   }
+  num_pages -= max_pages * (E2_SIZE / PAGESIZE);
+  if (!num_pages)
+       goto done;
+  virt_page += max_pages * (E2_SIZE / PAGESIZE);
  }
  max_pages = E3_INDEX(virt_page);
 #ifndef CONFIG_NO_GIGABYTE_PAGES
@@ -729,42 +757,45 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
  if (max_pages != 0 && (perm & PAGEDIR_MAP_FUNMAP))
 #endif /* CONFIG_NO_GIGABYTE_PAGES */
  {
-  E3 *vec; unsigned int offset;
-  /* At this point, we're aligned for 1Gib pages. */
-  assertf(IS_ALIGNED(virt_page,X86_PDIR_E3_SIZE / PAGESIZE),
-          "Not aligned: %p",virt_page);
+  E3 *vec; unsigned int offset,x4;
   offset    = max_pages;
   max_pages = E3_COUNT - max_pages;
-  if (max_pages > num_pages / (~X86_PDIR_E3_PAGEMASK + 1))
-      max_pages = num_pages / (~X86_PDIR_E3_PAGEMASK + 1);
-  if (max_pages) {
-   unsigned int x4;
-   vec = E3_IDENTITY[x4 = E4_INDEX(virt_page)];
+  if (max_pages > num_pages / (E3_SIZE / PAGESIZE))
+      max_pages = num_pages / (E3_SIZE / PAGESIZE);
+  if (!max_pages) goto do_full_2mib_pages;
+  /* At this point, we're aligned for 1Gib pages. */
+  assertf(IS_ALIGNED(virt_page,X86_PDIR_E3_SIZE / PAGESIZE),
+          "Not aligned: %p (%p)",virt_page,VM_PAGE2ADDR(virt_page));
+  vec = E3_IDENTITY[x4 = E4_INDEX(virt_page)];
 #ifndef CONFIG_NO_GIGABYTE_PAGES
-   if (!(perm & PAGEDIR_MAP_FUNMAP)) {
-    unsigned int i;
-    for (i = 0; i < max_pages; ++i) {
-     vec[offset + i].p_addr = edata | PAGE_F1GIB;
-     edata += E3_SIZE;
-    }
-    pagedir_addperm_e4(x4,edata);
-   } else
-#endif
-   {
-    memsetq(&vec[offset],PAGE_ABSENT,max_pages);
+  if (!(perm & PAGEDIR_MAP_FUNMAP)) {
+   unsigned int i;
+   for (i = 0; i < max_pages; ++i) {
+    vec[offset + i].p_addr = edata | PAGE_F1GIB;
+    edata += E3_SIZE;
    }
-   num_pages -= max_pages * ((~X86_PDIR_E3_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK);
-   if (!num_pages)
-        goto done;
-   virt_page += max_pages;
+   pagedir_addperm_e4(x4,edata);
+  } else
+#endif
+  {
+#ifdef CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN
+   debug_printf("UNMAP[lv2](%p...%p)\n",
+                VM_PAGE2ADDR(X86_PDIR_PAGE2(x4,offset)),
+                VM_PAGE2ADDR(X86_PDIR_PAGE2(x4,offset+max_pages))-1);
+#endif /* CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN */
+   memsetq(&vec[offset],PAGE_ABSENT,max_pages);
   }
+  num_pages -= max_pages * (E3_SIZE / PAGESIZE);
+  if (!num_pages)
+       goto done;
+  virt_page += max_pages * (E3_SIZE / PAGESIZE);
  }
  /* Now map all full 512 Gib pages! */
- while (num_pages >= ((~X86_PDIR_E4_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK)) {
+ while (num_pages >= (E4_SIZE / PAGESIZE)) {
   unsigned int x4,x3,x2,x1;
   x4 = E4_INDEX(virt_page);
   assertf(IS_ALIGNED(virt_page,X86_PDIR_E4_SIZE / PAGESIZE),
-          "Not aligned: %p",virt_page);
+          "Not aligned: %p (%p)",virt_page,VM_PAGE2ADDR(virt_page));
   if (perm & PAGEDIR_MAP_FUNMAP) {
    pagedir_trydelete_e3(x4);
   } else {
@@ -809,17 +840,17 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
    }
    pagedir_addperm_e4(x4,edata);
   }
-  num_pages -= (~X86_PDIR_E4_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK;
+  num_pages -= (E4_SIZE / PAGESIZE);
   if (!num_pages) goto done;
-  virt_page += (~X86_PDIR_E4_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK;
+  virt_page += (E4_SIZE / PAGESIZE);
  }
  /* Now map all full 1 Gib pages! */
- while (num_pages >= ((~X86_PDIR_E3_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK)) {
+ while (num_pages >= (E3_SIZE / PAGESIZE)) {
   unsigned int x4,x3,x2,x1;
   x4 = E4_INDEX(virt_page);
   x3 = E3_INDEX(virt_page);
   assertf(IS_ALIGNED(virt_page,X86_PDIR_E3_SIZE / PAGESIZE),
-          "Not aligned: %p",virt_page);
+          "Not aligned: %p (%p)",virt_page,VM_PAGE2ADDR(virt_page));
   pagedir_allocate_e3(x4);
   if (perm & PAGEDIR_MAP_FUNMAP) {
    pagedir_trydelete_e2(x4,x3);
@@ -858,18 +889,19 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
     pagedir_addperm_e4(x4,edata);
    }
   }
-  num_pages -= (~X86_PDIR_E3_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK;
+  num_pages -= (E3_SIZE / PAGESIZE);
   if (!num_pages) goto done;
-  virt_page += (~X86_PDIR_E3_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK;
+  virt_page += (E3_SIZE / PAGESIZE);
  }
  /* Now map all full 2 Mib pages! */
- while (num_pages >= ((~X86_PDIR_E2_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK)) {
+do_full_2mib_pages:
+ while (num_pages >= (E2_SIZE / PAGESIZE)) {
   unsigned int x4,x3,x2,x1;
   x4 = E4_INDEX(virt_page);
   x3 = E3_INDEX(virt_page);
   x2 = E2_INDEX(virt_page);
   assertf(IS_ALIGNED(virt_page,X86_PDIR_E2_SIZE / PAGESIZE),
-          "Not aligned: %p",virt_page);
+          "Not aligned: %p (%p)",virt_page,VM_PAGE2ADDR(virt_page));
   pagedir_allocate_e3(x4);
   pagedir_allocate_e2(x4,x3);
   if (perm & PAGEDIR_MAP_FUNMAP) {
@@ -892,13 +924,14 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
    pagedir_addperm_e3(x4,x3,edata);
    pagedir_addperm_e4(x4,edata);
   }
-  num_pages -= (~X86_PDIR_E2_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK;
+  num_pages -= (E2_SIZE / PAGESIZE);
   if (!num_pages) goto done;
-  virt_page += (~X86_PDIR_E2_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK;
+  virt_page += (E2_SIZE / PAGESIZE);
  }
  /* Now map all the remaining pages! */
+do_full_1kib_pages:
  while (num_pages) {
-  STATIC_ASSERT(((~X86_PDIR_E1_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK) == 1);
+  STATIC_ASSERT((E1_SIZE / PAGESIZE) == 1);
   unsigned int x4,x3,x2,x1;
   x4 = E4_INDEX(virt_page);
   x3 = E3_INDEX(virt_page);
@@ -906,13 +939,21 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
   x1 = E1_INDEX(virt_page);
 #if 0 /* This would be: aligned-by-one (which everything is.) */
   assertf(IS_ALIGNED(virt_page,X86_PDIR_E1_SIZE / PAGESIZE),
-          "Not aligned: %p",virt_page);
+          "Not aligned: %p (%p)",virt_page,VM_PAGE2ADDR(virt_page));
 #endif
   pagedir_allocate_e3(x4);
   pagedir_allocate_e2(x4,x3);
   pagedir_allocate_e1(x4,x3,x2);
   if (perm & PAGEDIR_MAP_FUNMAP) {
+#ifdef CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN
+   if (E1_IDENTITY[x4][x3][x2][x1].p_addr != PAGE_ABSENT) {
+    debug_printf("UNMAP[lv4](%p...%p)\n",
+                 VM_PAGE2ADDR(X86_PDIR_PAGE4(x4,x3,x2,x1)),
+                 VM_PAGE2ADDR(X86_PDIR_PAGE4(x4,x3,x2,x1+1))-1);
+   }
+#endif /* CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN */
    E1_IDENTITY[x4][x3][x2][x1].p_addr = PAGE_ABSENT;
+   pagedir_syncone(X86_PDIR_PAGE4(x4,x3,x2,x1));
   } else {
    E1_IDENTITY[x4][x3][x2][x1].p_addr = edata;
    edata += X86_PDIR_E1_SIZE;
@@ -928,6 +969,11 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
 done:
  pagedir_merge_before(vpage_end);
  pagedir_merge_before(vpage_start);
+ assert((perm & PAGEDIR_MAP_FUNMAP) ||
+        VM_PAGE2ADDR(phys_page) == pagedir_translate(VM_PAGE2ADDR(virt_page)));
+ assert((perm & PAGEDIR_MAP_FUNMAP) ||
+        VM_PAGE2ADDR(phys_page+(vpage_end-virt_page)-1) ==
+        pagedir_translate(VM_PAGE2ADDR(vpage_end-1)));
 }
 
 

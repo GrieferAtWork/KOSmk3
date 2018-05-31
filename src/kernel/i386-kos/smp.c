@@ -76,10 +76,11 @@ PRIVATE ATTR_FREETEXT MpFloatingPointerStructure *KCALL
 Mp_LocateFloatingPointStructureInAddressRange(PHYS uintptr_t base, size_t bytes) {
  uintptr_t iter,end;
  end = (iter = (uintptr_t)base)+bytes;
+ debug_printf("[MPFPS] Search %p...%p\n",iter,end-1);
  /* Clamp the search area to a 16-byte alignment. */
  iter = CEIL_ALIGN(iter,MPFPS_ALIGN);
  end  = FLOOR_ALIGN(end,MPFPS_ALIGN);
- if (iter < end) for (; iter != end; iter += MPFPS_ALIGN) {
+ for (; iter < end; iter += MPFPS_ALIGN) {
   MpFloatingPointerStructure *result = (MpFloatingPointerStructure *)iter;
   if (*(u32 *)result->mp_sig != MP_FLOATING_POINTER_SIGNATURE) continue;
   /* When found, check the length and checksum. */
@@ -97,9 +98,9 @@ Mp_LocateFloatingPointStructure(void) {
  /* NOTE: No need to identity-map these, as they're all part of the
   *       first 1Gb of physical memory, which is fully mapped at this
   *       point, both in 32-bit and 64-bit mode. */
- /*        */ result = Mp_LocateFloatingPointStructureInAddressRange((uintptr_t)*(__u16 volatile *)X86_EARLY_PHYS2VIRT(0x40E),1024);
- if (!result) result = Mp_LocateFloatingPointStructureInAddressRange((uintptr_t)X86_EARLY_PHYS2VIRT((*(__u16 volatile *)X86_EARLY_PHYS2VIRT(0x413))*1024),1024);
- if (!result) result = Mp_LocateFloatingPointStructureInAddressRange((uintptr_t)X86_EARLY_PHYS2VIRT(0x0F0000),64*1024);
+ /*        */ result = Mp_LocateFloatingPointStructureInAddressRange(X86_EARLY_PHYS2VIRT((uintptr_t)*(__u16 volatile *)X86_EARLY_PHYS2VIRT(0x40E)),1024);
+ if (!result) result = Mp_LocateFloatingPointStructureInAddressRange(X86_EARLY_PHYS2VIRT(((uintptr_t)*(__u16 volatile *)X86_EARLY_PHYS2VIRT(0x413))*1024),1024);
+ if (!result) result = Mp_LocateFloatingPointStructureInAddressRange(X86_EARLY_PHYS2VIRT((uintptr_t)0x0F0000),64*1024);
  return result;
 }
 

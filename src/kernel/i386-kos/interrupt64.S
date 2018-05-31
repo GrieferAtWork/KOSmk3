@@ -117,7 +117,11 @@ SYMEND(x86_check_spurious_interrupt_PIC2)
 	.weak   irqdpl_\id
 	.hidden irqdpl_\id
 	.global irqdpl_\id
+	.weak   irqist_\id
+	.hidden irqist_\id
+	.global irqist_\id
 irqdpl_\id = \dpl
+irqist_\id = 0
 irq_\id:
 	.cfi_startproc simple
 	.cfi_signal_frame

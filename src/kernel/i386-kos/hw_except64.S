@@ -46,7 +46,11 @@ INTERN_ENTRY(irq_\id)
 	.cfi_def_cfa %rsp,    5*8
 	.cfi_offset %rflags, -3*8
 	.cfi_offset %rip,    -5*8
+.ifc \id,03
+	irq_enter 0,0
+.else
 	irq_enter
+.endif
 .endif
 
 	/* Save general-purpose registers. */
@@ -107,6 +111,13 @@ define_hardware_exception_handler 0e, x86_handle_pagefault, 1
 .hidden irqdpl_08
 .global irqdpl_08
 irqdpl_08 = 0
+
+.hidden irqist_08
+.global irqist_08
+irqist_08 = 1 /* Use the secondary stack when handling #DFs */
+
+define_hardware_exception_handler 08, x86_handle_df, 1
+
 
 #ifndef CONFIG_NO_FPU
 INTERN_ENTRY(irq_07)

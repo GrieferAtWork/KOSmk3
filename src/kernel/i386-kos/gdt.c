@@ -29,6 +29,11 @@
 
 DECL_BEGIN
 
+#ifdef __x86_64__
+STATIC_ASSERT_MSG(X86_SEG_USER_CS32 == 0x53,
+                 "Update `interrupt_iscompat()'");
+#endif
+
 INTDEF byte_t _x86_gdt_tss_lo[];
 INTDEF byte_t _x86_gdt_tss_hi[];
 #ifndef __x86_64__

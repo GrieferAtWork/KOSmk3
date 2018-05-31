@@ -227,18 +227,13 @@ INTDEF byte_t x86_boot_stack_guard_page[];
 
 /* On x86_64, we don't delete the virtual
  * identity mapping of the first 2 Gib at -2Gb! */
-#ifndef __x86_64__
 INTERN ATTR_FREETEXT void KCALL
 x86_delete_virtual_memory_identity(void) {
  /* Unmap all virtual memory that isn't mapped by a VM node. */
  struct vm_node *node;
  vm_vpage_t last_end = 0;
 #ifdef __x86_64__
- /* On x86_64, we permanently keep the first 2Gib identity
-  * mapped into the last 2 Gib of virtual memory.
-  * Other identity mappings have already been deleted,
-  * even before execution left assembly and entered C,
-  * meaning that there's nothing for us to do here! */
+ /* On x86_64, assembly already got rid of any secondary identity mappings. */
 #else
  /* Unmap the physical identity mapping of the first 1Gb
   * NOTE: This must be like this, so that the physical pages
@@ -277,7 +272,6 @@ x86_delete_virtual_memory_identity(void) {
  pagedir_map((vm_vpage_t)LOAD_FAR_POINTER(x86_boot_stack_guard_page),
               1,0,PAGEDIR_MAP_FUNMAP);
 }
-#endif /* !__x86_64__ */
 
 DECL_END
 

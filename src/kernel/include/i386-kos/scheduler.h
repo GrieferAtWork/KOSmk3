@@ -27,9 +27,6 @@
 #include <kos/i386-kos/asm/pf-syscall.h>
 #include <i386-kos/interrupt.h>
 #include <i386-kos/vm86.h>
-#ifdef __x86_64__
-#include <i386-kos/gdt.h>
-#endif
 
 DECL_BEGIN
 
@@ -100,7 +97,11 @@ FORCELOCAL bool KCALL interrupt_iscompat(void) {
  struct x86_irregs_user *iret;
  pflag_t was = PREEMPTION_PUSHOFF();
  iret = x86_interrupt_getiret();
+#ifdef X86_SEG_USER_CS32
  result = iret->ir_cs == X86_SEG_USER_CS32;
+#else
+ result = iret->ir_cs == 0x53;
+#endif
  PREEMPTION_POP(was);
  return result;
 }

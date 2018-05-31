@@ -26,7 +26,7 @@
 	SHORT(irq_##id & 0xffff); \
 	SHORT(X86_KERNEL_CS); \
 	SHORT((X86_IDTFLAG_PRESENT | type | \
-	       X86_IDTFLAG_DPL(irqdpl_##id)) << 8); \
+	       X86_IDTFLAG_DPL(irqdpl_##id)) << 8 | irqist_##id); \
 	SHORT((irq_##id & 0xffff0000) >> 16); \
 	LONG((irq_##id & 0xffffffff00000000) >> 32); \
 	LONG(0);
@@ -61,15 +61,17 @@ DEFINE_GATE(04)       /* #OF -- Overflow */
 DEFINE_GATE(05)       /* #BR -- Bound Range */
 DEFINE_GATE(06)       /* #UD -- Illegal Instruction */
 DEFINE_GATE(07)       /* #NM -- Device not available (Keep interrupts on for lazy FPU switching). */
-#ifndef __x86_64__
+
+#ifdef __x86_64__
+DEFINE_INTERRUPT(02)  /* #DF -- Double Fault. */
+#else
 /* Special handling for #DF (implemented using a task gate on i386) */
 SHORT(0);
 SHORT(X86_SEG(X86_SEG_CPUTSS_DF));
 SHORT((X86_IDTFLAG_PRESENT | X86_IDTTYPE_80386_32_TASK_GATE | X86_IDTFLAG_DPL(irqdpl_08)) << 8);
 SHORT(0);
-#else
-DEFINE_INTERRUPT(08)  /* #DF -- Double Fault. */
 #endif
+
 DEFINE_INTERRUPT(09)
 DEFINE_INTERRUPT(0a)  /* #TS -- Invalid TSS. */
 DEFINE_INTERRUPT(0b)  /* #NP -- Segment not present. */

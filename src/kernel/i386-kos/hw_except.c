@@ -92,13 +92,17 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
  /* Extract the fault address before re-enabling interrupts. */
  fault_address = (void *)__rdcr2();
  assert(!PREEMPTION_ENABLED());
-#ifdef __x86_64__
- assertf(__rdgsbaseq() >= KERNEL_BASE,"GS segment base corrupted");
-#endif
 #if defined(__x86_64__) && 0
- debug_printf("#PF at %p (from %p; errcode %Ix; gs_base: %p)\n",
-              fault_address,context->c_pip,errcode,
-              __rdgsbaseq());
+ debug_printf("#PF at %p (from %p; errcode %Ix)\n",
+              fault_address,context->c_pip,errcode);
+#endif
+#ifdef __x86_64__
+ if (__rdgsbaseq() < KERNEL_BASE) {
+  debug_printf("context->c_psp = %p\n",context->c_psp);
+  debug_printf("context->c_pip = %p\n",context->c_pip);
+  debug_printf("context->c_cs  = %p\n",context->c_cs);
+  assertf(0,"GS segment base corrupted");
+ }
 #endif
  /* Re-enable interrupts if they were enabled before. */
  if (context->c_pflags & EFLAGS_IF)
@@ -443,8 +447,8 @@ INTDEF void KCALL error_print_other_thread(void);
 INTDEF void KCALL error_print_vm(void);
 INTERN void FCALL
 x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
- debug_printf("Breakpoint at %p (LASTERROR = %x)\n",
-               CONTEXT_IP(*context),error_code());
+ debug_printf("Breakpoint at %p\n",
+               CONTEXT_IP(*context));
 #ifdef __x86_64__
  debug_printf("RAX %p  RCX %p  RDX %p  RBX %p  RIP %p\n"
               "RSP %p  RBP %p  RSI %p  RDI %p  ---\n"
@@ -458,6 +462,18 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
               context->c_gpregs.gp_r10,context->c_gpregs.gp_r11,
               context->c_gpregs.gp_r12,context->c_gpregs.gp_r13,
               context->c_gpregs.gp_r14,context->c_gpregs.gp_r15);
+ debug_printf("RFLAGS %.4IX CS %.4IX SS %.4IX\n",
+              context->c_iret.ir_rflags,
+              context->c_iret.ir_cs,context->c_iret.ir_ss);
+ if (context->c_cs & 3) {
+  debug_printf("FS_BASE %p GS_BASE %p\n",
+               __rdfsbaseq(),
+               __rdmsr(IA32_KERNEL_GS_BASE));
+ } else {
+  debug_printf("FS_BASE %p GS_BASE %p USER_GS_BASE %p\n",
+               __rdfsbaseq(),__rdgsbaseq(),
+               __rdmsr(IA32_KERNEL_GS_BASE));
+ }
 #else
  debug_printf("EAX %p  ECX %p  EDX %p  EBX %p  EIP %p\n"
               "ESP %p  EBP %p  ESI %p  EDI %p  EFL %p\n",

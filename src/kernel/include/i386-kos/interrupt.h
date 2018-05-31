@@ -269,6 +269,20 @@ INTDEF void ASMCALL x86_load_segments_ecx(void);
 #ifdef __x86_64__
 #ifdef __ASSEMBLER__
 
+#if !defined(NDEBUG) && 1
+#include <asm/universal.h>
+#define __X86_IRQENTER_CHK_GSBASE  \
+    pushq_cfi_r %rax; \
+    rdgsbaseq %rax; \
+    /* assert(__rdgsbase() >= KERNEL_BASE); */ \
+    shrq  $32, %rax; \
+    cmpl  $0xffff0000, %eax; \
+    popq_cfi_r %rax; \
+    jae   998f; \
+997:int3;cli;hlt;jmp 997b; \
+998:
+#endif
+
 /* Must be invoked at the start of any interrupt handler.
  * This macro will safely load the kernel's GS segment if
  * the interrupt originated from user-space.
@@ -291,7 +305,7 @@ INTDEF void ASMCALL x86_load_segments_ecx(void);
  *                 This should be done for hardware-generated
  *                 interrupts, such as PS/2 or ATA.
  */
-.macro irq_enter  do_sti=0
+.macro irq_enter  do_sti=0, do_debug=1
     testb  $3, 8(%rsp)
     jz     998f
     swapgs
@@ -303,11 +317,16 @@ INTDEF void ASMCALL x86_load_segments_ecx(void);
     sti
 998:
 .endif
+#ifdef __X86_IRQENTER_CHK_GSBASE
+.if \do_debug
+    __X86_IRQENTER_CHK_GSBASE
+.endif
+#endif
 .endm
 
 /* Same as `ireq_enter', but must be used for
  * interrupt handler that take an exception code. */
-.macro irq_enter_errcode  do_sti=0
+.macro irq_enter_errcode  do_sti=0, do_debug=1
     testb  $3, 16(%rsp)
     jz     998f
     swapgs
@@ -319,16 +338,37 @@ INTDEF void ASMCALL x86_load_segments_ecx(void);
     sti
 998:
 .endif
+#ifdef __X86_IRQENTER_CHK_GSBASE
+.if \do_debug
+    __X86_IRQENTER_CHK_GSBASE
+.endif
+#endif
 .endm
 
-.macro irq_leave  do_cli=0
+.macro irq_leave  do_cli=0, do_debug=1
 .if \do_cli
     cli
 .endif
     testb  $3, 8(%rsp)
     jz     998f
     swapgs
+#if !defined(NDEBUG) && 1
+.if \do_debug
+    /* assert(IRET.RIP < KERNEL_BASE) */
+    testl  $0xffff0000, 4(%rsp)
+    jz     997f
+991:int3   /* INVALID IRET.RIP for IRET.CS */
+    cli; hlt; jmp 991b
+998:/* assert(IRET.RIP >= KERNEL_BASE) */
+    cmpl   $0xffff0000, 4(%rsp)
+    jb     991b
+997:
+.else
 998:
+.endif
+#else
+998:
+#endif
     iretq
 .endm
 

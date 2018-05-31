@@ -326,7 +326,11 @@ no_free_segment:
     * The thing is: I'm not quite sure how to deal with this, as I really
     *               don't want to re-introduce segment indices in CPU
     *               contexts. (There has to be a better way...)
-    */
+    * NOTE FOR THE FUTURE:
+    *   - The reason was that the fs/gs segments weren't marked as
+    *     available to user-space (DPL vs. CPL), and that was why
+    *     they were getting reset! */
+   enable_syscall_tracing();
    cpu_setcontext(&ctx);
 #else
    /* With all memory descriptors now updated to view the
