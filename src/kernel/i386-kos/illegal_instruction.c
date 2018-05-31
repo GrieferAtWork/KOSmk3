@@ -2007,7 +2007,7 @@ generic_failure:
  if (xcontext->c_iret.ir_cs & 3)
      goto e_privileged_instruction;
 #ifndef CONFIG_NO_VM86
- if (xcontext->c_iret.ir_eflags & EFLAGS_VM)
+ if (xcontext->c_iret.ir_pflags & EFLAGS_VM)
      goto e_privileged_instruction;
 #endif
  /* In kernel space, this one's a wee bit more complicated... */

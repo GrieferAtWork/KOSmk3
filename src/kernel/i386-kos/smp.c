@@ -155,11 +155,11 @@ KCALL smp_allocate_processor(void) {
 
  memset(bootstrap_state,0,sizeof(struct cpu_schedcontext));
  /* Setup the register state that is expected by `x86_secondary_cpu_idle_loop()'. */
- bootstrap_state->c_gpregs.gp_ebx  = (uintptr_t)result;          /* EBX: THIS_CPU */
- bootstrap_state->c_gpregs.gp_esi  = (uintptr_t)idle_bootstrap;  /* ESI: THIS_TASK */
- bootstrap_state->c_eip            = (uintptr_t)&x86_smp_task0_entry;
+ bootstrap_state->c_gpregs.gp_pbx  = (uintptr_t)result;          /* EBX: THIS_CPU */
+ bootstrap_state->c_gpregs.gp_psi  = (uintptr_t)idle_bootstrap;  /* ESI: THIS_TASK */
+ bootstrap_state->c_pip            = (uintptr_t)&x86_smp_task0_entry;
  bootstrap_state->c_iret.ir_cs     = X86_SEG_HOST_CS;
- bootstrap_state->c_iret.ir_eflags = EFLAGS_IF;
+ bootstrap_state->c_iret.ir_pflags = EFLAGS_IF;
 #if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
  bootstrap_state->c_segments.sg_ds = X86_SEG_HOST_DS;
  bootstrap_state->c_segments.sg_es = X86_SEG_HOST_ES;

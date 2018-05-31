@@ -86,7 +86,6 @@ INTERN_ENTRY(X86_IRQ_APICSPUR)
 	pushq_cfi_r %rax
 	pushq_cfi_r %rcx
 	pushq_cfi_r %rdx
-	pushq_cfi_r %rdx
 	pushq_cfi_r %rsi
 	pushq_cfi_r %rdi
 	pushq_cfi_r %r8
@@ -104,7 +103,6 @@ INTERN_ENTRY(X86_IRQ_APICSPUR)
 	popq_cfi_r  %r8
 	popq_cfi_r  %rdi
 	popq_cfi_r  %rsi
-	popq_cfi_r  %rdx
 	popq_cfi_r  %rdx
 	popq_cfi_r  %rcx
 	popq_cfi_r  %rax
@@ -126,7 +124,6 @@ INTERN_ENTRY(X86_IRQ_APICIPI)
 	irq_enter
 	pushq_cfi_r %rax
 	pushq_cfi_r %rcx
-	pushq_cfi_r %rdx
 	pushq_cfi_r %rdx
 	pushq_cfi_r %rsi
 	pushq_cfi_r %rdi
@@ -163,7 +160,6 @@ INTERN_ENTRY(X86_IRQ_APICIPI)
 	popq_cfi_r  %r8
 	popq_cfi_r  %rdi
 	popq_cfi_r  %rsi
-	popq_cfi_r  %rdx
 	popq_cfi_r  %rdx
 	popq_cfi_r  %rcx
 	popq_cfi_r  %rax

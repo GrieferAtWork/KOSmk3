@@ -390,7 +390,7 @@ again:
  if (X86_ANYCONTEXT_ISUSER(*context))
      goto do_serve;
  /* Even if it doesn't, there's still the whole thing about `x86_redirect_preemption' */
- if (context->c_eip != (uintptr_t)&x86_redirect_preemption)
+ if (context->c_pip != (uintptr_t)&x86_redirect_preemption)
      goto rethrow_p;
  assertf(!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB),
          "How did a kernel job manage to redirect its preemption? "
@@ -448,13 +448,13 @@ again:
          "Preemption must be enabled during execution of a system call");
  /* Check if the context returns to user-space. */
  assertf(X86_ANYCONTEXT_ISUSER(*context) ||
-         context->c_eip != (uintptr_t)&x86_redirect_preemption,
+         context->c_pip != (uintptr_t)&x86_redirect_preemption,
          "Only user-space must be allowed to execute system calls");
  assertf(!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB),
          "How did a kernel job manage to redirect its preemption? "
          "Also from what should that preemption have been redirected?");
  assert((mode & TASK_USERCTX_TYPE_FMASK) == TASK_USERCTX_TYPE_INTR_SYSCALL);
- if (context->c_eip == (uintptr_t)&x86_redirect_preemption) {
+ if (context->c_pip == (uintptr_t)&x86_redirect_preemption) {
   /* Ok. So we got here as the result of a preemption redirection (`task_wake_for_rpc()'),
    * meaning that at some point the calling interrupt must have been waiting for some
    * kind of lock, before it got interrupted when some other thread scheduled an RPC.
@@ -502,13 +502,13 @@ again:
          "Preemption must be enabled during execution of a system call");
  /* Check if the context returns to user-space. */
  assertf(X86_ANYCONTEXT_ISUSER(*context) ||
-         context->c_eip != (uintptr_t)&x86_redirect_preemption,
+         context->c_pip != (uintptr_t)&x86_redirect_preemption,
          "Only user-space must be allowed to execute system calls");
  assertf(!PERTASK_TESTF(this_task.t_flags,TASK_FKERNELJOB),
          "How did a kernel job manage to redirect its preemption? "
          "Also from what should that preemption have been redirected?");
  assert((mode & TASK_USERCTX_TYPE_FMASK) == TASK_USERCTX_TYPE_INTR_SYSCALL);
- if (context->c_eip == (uintptr_t)&x86_redirect_preemption) {
+ if (context->c_pip == (uintptr_t)&x86_redirect_preemption) {
   /* Ok. So we got here as the result of a preemption redirection (`task_wake_for_rpc()'),
    * meaning that at some point the calling interrupt must have been waiting for some
    * kind of lock, before it got interrupted when some other thread scheduled an RPC.
@@ -1337,7 +1337,7 @@ errorinfo_copy_to_user(USER CHECKED struct user_task_segment *useg,
 #endif
  if (info->e_error.e_code == E_NONCONTINUABLE &&
      info->e_error.e_noncontinuable.nc_origip >= KERNEL_BASE)
-     info->e_error.e_noncontinuable.nc_origip = context->c_eip;
+     info->e_error.e_noncontinuable.nc_origip = context->c_pip;
  /* Delete error context flags that wouldn't make sense after the propagation. */
  info->e_error.e_flag &= ~(ERR_FRESUMEFUNC);
  if (TASK_USERCTX_TYPE(mode) == TASK_USERCTX_TYPE_INTR_SYSCALL)

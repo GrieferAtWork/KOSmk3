@@ -222,11 +222,11 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
           sizeof(struct cpu_schedcontext)+
           sizeof(struct cpu_hostcontext_user));
    /* Setup the initial register state. */
-   host_context->c_gpregs.gp_ecx  = (uintptr_t)user_context;
-   host_context->c_gpregs.gp_edx  = (uintptr_t)flags;
+   host_context->c_gpregs.gp_pcx  = (uintptr_t)user_context;
+   host_context->c_gpregs.gp_pdx  = (uintptr_t)flags;
    host_context->c_iret.ir_cs     = X86_KERNEL_CS;
-   host_context->c_iret.ir_eflags = EFLAGS_IF;
-   host_context->c_iret.ir_eip    = (uintptr_t)&clone_entry;
+   host_context->c_iret.ir_pflags = EFLAGS_IF;
+   host_context->c_iret.ir_pip    = (uintptr_t)&clone_entry;
 #if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
    host_context->c_segments.sg_gs = X86_SEG_GS;
    host_context->c_segments.sg_fs = X86_SEG_FS;
@@ -261,9 +261,9 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
    COMPILER_READ_BARRIER();
 
    /* Force some registers to proper values (don't want user-space to run in ring #0). */
-   user_context->c_iret.ir_eflags |= EFLAGS_IF;
-   user_context->c_iret.ir_eflags &= ~EFLAGS_ID;
-   if (user_context->c_iret.ir_eflags &
+   user_context->c_iret.ir_pflags |= EFLAGS_IF;
+   user_context->c_iret.ir_pflags &= ~EFLAGS_ID;
+   if (user_context->c_iret.ir_pflags &
       (EFLAGS_TF|EFLAGS_IOPL(3)|
        EFLAGS_NT|EFLAGS_RF|EFLAGS_VM|
        EFLAGS_AC|EFLAGS_VIF|EFLAGS_VIP))
@@ -406,18 +406,14 @@ task_fork_impl(void *UNUSED(arg),
   /* Copy from the original IRET tail. */
   iret = x86_interrupt_getiret();
 #ifdef __x86_64__
-  user_state.c_rip    = iret->ir_rip;
-  user_state.c_rsp    = iret->ir_rsp;
-  user_state.c_rflags = iret->ir_rflags;
-  user_state.c_cs     = iret->ir_cs;
-  user_state.c_ss     = iret->ir_ss;
+  user_state.c_rsp = iret->ir_rsp;
 #else
-  user_state.c_eip    = iret->ir_eip;
-  user_state.c_esp    = iret->ir_useresp;
-  user_state.c_eflags = iret->ir_eflags;
+  user_state.c_esp = iret->ir_useresp;
+#endif
+  user_state.c_pip    = iret->ir_pip;
+  user_state.c_pflags = iret->ir_pflags;
   user_state.c_cs     = iret->ir_cs;
   user_state.c_ss     = iret->ir_ss;
-#endif
   PREEMPTION_POP(was);
  }
  /* Return ZERO(0) in the child process. */

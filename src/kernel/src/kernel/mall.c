@@ -804,15 +804,9 @@ mall_register(gfp_t flags, struct heapptr pointer,
                            : "=r" (temp)
                            : "m" (f->f_return)
                            : "memory");
-#ifdef __x86_64__
-      allocator_context->c_rip           = (uintptr_t)f->f_return;
-      allocator_context->c_rsp           = (uintptr_t)(f+1);
-      allocator_context->c_gpregs.gp_rbp = (uintptr_t)f->f_caller;
-#else
-      allocator_context->c_eip           = (uintptr_t)f->f_return;
-      allocator_context->c_esp           = (uintptr_t)(f+1);
-      allocator_context->c_gpregs.gp_ebp = (uintptr_t)f->f_caller;
-#endif
+      allocator_context->c_pip           = (uintptr_t)f->f_return;
+      allocator_context->c_psp           = (uintptr_t)(f+1);
+      allocator_context->c_gpregs.gp_pbp = (uintptr_t)f->f_caller;
       continue; /* Skip the slow FINDFDE and EH_RETURN below. */
      }
     } CATCH_HANDLED (E_SEGFAULT) {

@@ -39,6 +39,7 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
  TRY {
   uintptr_t sysno;
   sysno = regs->str_args.a_sysno & ~0x80000000;
+#if !defined(__x86_64__) || 0
   switch (sysno) {
   case SYS_xsyslog:
   case SYS_xaddr2line:
@@ -46,6 +47,7 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
    return; /* Not these (they're called to generate tracebacks) */
   default: break;
   }
+#endif
 #ifdef __x86_64__
   debug_printf("[%u]trace.%s%s",
                posix_gettid(),

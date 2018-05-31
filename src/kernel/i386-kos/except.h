@@ -29,7 +29,9 @@ DECL_BEGIN
 
 struct cpu_context_ss {
     struct cpu_context c_context;
+#ifndef __x86_64__
     uintptr_t          c_ss;
+#endif
 };
 
 INTDEF bool FCALL

@@ -35,7 +35,8 @@ INTERN uintptr_t LIBCCALL x86_get_syscall_segment(void) {
  /* Quick check: has the syscall segment already been loaded? */
  new_address = x86_syscall_segment;
  if (new_address != (uintptr_t)-1) {
-  if (x86_syscall_segment == 0) __asm__("int3");
+  if (x86_syscall_segment == 0)
+      __asm__("int3"); /* TODO: Remove me! */
   return new_address;
  }
 
@@ -55,9 +56,16 @@ INTERN uintptr_t LIBCCALL x86_get_syscall_segment(void) {
  __asm__ __volatile__("int $0x80"
                       : "=a" (new_address)
                       : "a" (SYS_xmmap)
+#ifdef __x86_64__
+                      , "D" (MMAP_INFO_CURRENT)
+                      , "S" (&info)
+                      : "memory", "rdx"
+#else
                       , "b" (MMAP_INFO_CURRENT)
                       , "c" (&info)
-                      : "memory", "edx");
+                      : "memory", "edx"
+#endif
+                      );
 #if 0 /* Shouldn't really happen to begin with... (If mmap() fails, we might as well crash spectacularly)
        * Also: If libc isn't able to initialize properly, we
        *       probably won't be able to tell the user at all...
@@ -80,9 +88,16 @@ INTERN uintptr_t LIBCCALL x86_get_syscall_segment(void) {
  __asm__ __volatile__("int $0x80"
                       :
                       : "a" (SYS_munmap)
+#ifdef __x86_64__
+                      , "D" (new_address)
+                      , "S" (USHARE_X86_SYSCALL_FSIZE)
+                      : "memory", "rdx"
+#else
                       , "b" (new_address)
                       , "c" (USHARE_X86_SYSCALL_FSIZE)
-                      : "memory", "edx");
+                      : "memory", "edx"
+#endif
+                      );
  return old_address;
 }
 

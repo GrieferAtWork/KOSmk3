@@ -63,7 +63,7 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
          "to represent what was going on when the exception was thrown...");
 #if 0
  debug_printf("%[vinfo:%f(%l,%c) : %n : __error_rethrow_at(%p)]\n",
-             (uintptr_t)CPU_CONTEXT_IP(*context));
+             (uintptr_t)context->c_pip);
 #endif
  /* Must disable serving of RPC functions to prevent the following recursion:
   *    #0  -- libc_error_rethrow_at()
@@ -96,17 +96,17 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
    /* Account for the fact that return addresses point to the
     * first instruction _after_ the `call', when it is actually
     * that call which we are trying to guard. */
-   if (!is_first) --CPU_CONTEXT_IP(*context);
-   if (CPU_CONTEXT_IP(*context) < KERNEL_BASE &&
+   if (!is_first) --context->c_pip;
+   if (context->c_pip < KERNEL_BASE &&
      !(THIS_TASK->t_flags & TASK_FKERNELJOB))
        goto no_handler; /* Exception must be propagated to userspace. */
-   if (!except_findfde(CPU_CONTEXT_IP(*context),&info)) {
-    debug_printf("No frame at %p\n",CPU_CONTEXT_IP(*context));
+   if (!except_findfde(context->c_pip,&info)) {
+    debug_printf("No frame at %p\n",context->c_pip);
     goto no_handler;
    }
    is_first = false;
    /* Search for a suitable exception handler (in reverse order!). */
-   if (except_findexcept(CPU_CONTEXT_IP(*context),error_code(),&hand)) {
+   if (except_findexcept(context->c_pip,error_code(),&hand)) {
      if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS)
          error_info()->e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK;
     if (hand.ehi_flag & EXCEPTION_HANDLER_FDESCRIPTOR) {
@@ -114,7 +114,7 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
      if (!eh_return(&info,context,EH_FDONT_UNWIND_SIGFRAME))
           goto cannot_unwind;
      /* Override the IP to use the entry point. */
-     context->c_eip = (uintptr_t)hand.ehi_entry;
+     context->c_pip = (uintptr_t)hand.ehi_entry;
      assert(hand.ehi_desc.ed_type == EXCEPTION_DESCRIPTOR_TYPE_BYPASS); /* XXX: What should we do here? */
 
      CPU_CONTEXT_SP(*context) -= hand.ehi_desc.ed_safe;
@@ -126,7 +126,7 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
       CPU_CONTEXT_SP(*context) = sp;
      }
      if (hand.ehi_desc.ed_flags & EXCEPTION_DESCRIPTOR_FDISABLE_PREEMPTION)
-         context->c_eflags &= ~EFLAGS_IF;
+         context->c_pflags &= ~EFLAGS_IF;
     } else {
      /* Jump to the entry point of this exception handler. */
      if (!eh_jmp(&info,context,(uintptr_t)hand.ehi_entry,EH_FNORMAL)) {
@@ -146,7 +146,7 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
     debug_printf("%[vinfo:%f(%l,%c) : %n : cpu_setcontext(%p)] cs = %p, eflags = %p\n",
                 (uintptr_t)CPU_CONTEXT_IP(unwind)-1,
                 unwind.c_iret.ir_cs,
-                unwind.c_iret.ir_eflags);
+                unwind.c_iret.ir_pflags);
     debug_printf("CONTEXT %p: { ds: %p, es: %p, fs: %p, gs: %p }\n",
                  &unwind,
                  unwind.c_segments.sg_ds,
@@ -163,18 +163,18 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
 #if 0
    else {
     debug_printf("%[vinfo:%f(%l,%c) : %n : Missing except %p\n]",
-                 CPU_CONTEXT_IP(*context));
+                 context->c_pip);
    }
 #endif
    /* Continue unwinding the stack. */
    if (!eh_return(&info,context,EH_FDONT_UNWIND_SIGFRAME)) {
 cannot_unwind:
-    debug_printf("Failed to unwind frame at %p\n",CPU_CONTEXT_IP(*context));
+    debug_printf("Failed to unwind frame at %p\n",context->c_pip);
     goto no_handler;
    }
 #if 0
    debug_printf("%[vinfo:%f(%l,%c) : %n :] Unwind %p (ebp %p; fs: %p)\n",
-                CPU_CONTEXT_IP(*context),CPU_CONTEXT_IP(*context),
+                context->c_pip,context->c_pip,
                 context->c_gpregs.gp_ebp,context->c_segments.sg_fs);
 #endif
   }
@@ -195,9 +195,9 @@ unwind_check_signal_frame(struct cpu_context_ss *__restrict context,
                           USER CHECKED sigset_t *signal_set,
                           size_t signal_set_size) {
  struct signal_frame *frame;
- if (context->c_context.c_eip != PERTASK_GET(x86_sysbase)+X86_ENCODE_PFSYSCALL(SYS_sigreturn))
+ if (context->c_context.c_pip != PERTASK_GET(x86_sysbase)+X86_ENCODE_PFSYSCALL(SYS_sigreturn))
      return false;
- frame = (struct signal_frame *)(context->c_context.c_esp -
+ frame = (struct signal_frame *)(context->c_context.c_psp -
                                  COMPILER_OFFSETAFTER(struct signal_frame,sf_sigreturn));
  validate_readable(frame,sizeof(*frame));
  /* XXX: FPU Context? */
@@ -213,10 +213,14 @@ unwind_check_signal_frame(struct cpu_context_ss *__restrict context,
  memcpy(context,&frame->sf_return.m_context,
         sizeof(struct x86_gpregs32));
 #endif /* CONFIG_NO_X86_SEGMENTATION */
- context->c_context.c_iret.ir_eip    = frame->sf_return.m_context.c_eip;
+ context->c_context.c_iret.ir_pip    = frame->sf_return.m_context.c_pip;
  context->c_context.c_iret.ir_cs     = frame->sf_return.m_context.c_cs;
- context->c_context.c_iret.ir_eflags = frame->sf_return.m_context.c_eflags;
+ context->c_context.c_iret.ir_pflags = frame->sf_return.m_context.c_pflags;
+#ifdef __x86_64__
+ context->c_context.c_iret.ir_ss     = frame->sf_return.m_context.c_ss;
+#else
  context->c_ss                       = frame->sf_return.m_context.c_ss;
+#endif
  return true;
 }
 
@@ -251,7 +255,7 @@ error_rethrow_at_user(USER CHECKED struct user_exception_info *except_info,
                     EH_FRESTRICT_USERSPACE|EH_FDONT_UNWIND_SIGFRAME))
          return false;
     /* Override the IP to use the entry point.  */
-    context->c_context.c_eip = (uintptr_t)hand.ehi_entry;
+    context->c_context.c_pip = (uintptr_t)hand.ehi_entry;
     assert(hand.ehi_desc.ed_type == EXCEPTION_DESCRIPTOR_TYPE_BYPASS); /* XXX: What should we do here? */
     CPU_CONTEXT_SP(context->c_context) -= hand.ehi_desc.ed_safe;
     except_info->e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(context->c_context);
@@ -306,10 +310,15 @@ DEFINE_SYSCALL3(xunwind_except,
  validate_writable(except_info,sizeof(struct user_exception_info));
  validate_writable(dispatcher_context,sizeof(struct x86_usercontext));
  unwind.c_context.c_iret.ir_cs     = dispatcher_context->c_cs;
- unwind.c_context.c_iret.ir_eip    = dispatcher_context->c_eip;
- unwind.c_context.c_iret.ir_eflags = dispatcher_context->c_eflags;
+ unwind.c_context.c_iret.ir_pip    = dispatcher_context->c_pip;
+ unwind.c_context.c_iret.ir_pflags = dispatcher_context->c_pflags;
+#ifdef __x86_64__
+ unwind.c_context.c_iret.ir_ss     = dispatcher_context->c_ss;
+ if (!unwind.c_context.c_iret.ir_ss) unwind.c_context.c_iret.ir_ss = X86_SEG_USER_SS;
+#else
  unwind.c_ss                       = dispatcher_context->c_ss;
  if (!unwind.c_ss)                   unwind.c_ss                   = X86_SEG_USER_SS;
+#endif
  if (!unwind.c_context.c_iret.ir_cs) unwind.c_context.c_iret.ir_cs = X86_SEG_USER_CS;
 #if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
  memcpy(&unwind.c_context.c_gpregs,dispatcher_context,
@@ -333,10 +342,14 @@ DEFINE_SYSCALL3(xunwind_except,
  memcpy(&dispatcher_context->c_gpregs,&unwind.c_context.c_gpregs,
         sizeof(struct x86_gpregs));
 #endif
+#ifdef __x86_64__
+ dispatcher_context->c_ss     = unwind.c_context.c_iret.ir_ss;
+#else
  dispatcher_context->c_ss     = unwind.c_ss;
+#endif
  dispatcher_context->c_cs     = unwind.c_context.c_iret.ir_cs;
- dispatcher_context->c_eip    = unwind.c_context.c_iret.ir_eip;
- dispatcher_context->c_eflags = unwind.c_context.c_iret.ir_eflags;
+ dispatcher_context->c_pip    = unwind.c_context.c_iret.ir_pip;
+ dispatcher_context->c_pflags = unwind.c_context.c_iret.ir_pflags;
  return 0;
 }
 
@@ -352,12 +365,17 @@ DEFINE_SYSCALL4(xunwind,
              sigset_size = sizeof(sigset_t);
  if (sigset_size)
      validate_writable(signal_set,sigset_size);
- unwind.c_ss                       = context->c_ss;
  unwind.c_context.c_iret.ir_cs     = context->c_cs;
- unwind.c_context.c_iret.ir_eip    = context->c_eip;
- unwind.c_context.c_iret.ir_eflags = context->c_eflags;
- if (!unwind.c_ss)                   unwind.c_ss                   = X86_SEG_USER_SS;
+ unwind.c_context.c_iret.ir_pip    = context->c_pip;
+ unwind.c_context.c_iret.ir_pflags = context->c_pflags;
  if (!unwind.c_context.c_iret.ir_cs) unwind.c_context.c_iret.ir_cs = X86_SEG_USER_CS;
+#ifdef __x86_64__
+ unwind.c_context.c_iret.ir_ss     = context->c_ss;
+ if (!unwind.c_context.c_iret.ir_ss) unwind.c_context.c_iret.ir_ss = X86_SEG_USER_SS;
+#else
+ unwind.c_ss                       = context->c_ss;
+ if (!unwind.c_ss)                   unwind.c_ss                   = X86_SEG_USER_SS;
+#endif
 #if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
  memcpy(&unwind.c_context.c_gpregs,&context->c_gpregs,
         sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
@@ -385,10 +403,14 @@ DEFINE_SYSCALL4(xunwind,
  memcpy(&context->c_gpregs,&unwind.c_context.c_gpregs,
         sizeof(struct x86_gpregs));
 #endif
+#ifdef __x86_64__
+ context->c_ss     = unwind.c_context.c_iret.ir_ss;
+#else
  context->c_ss     = unwind.c_ss;
+#endif
  context->c_cs     = unwind.c_context.c_iret.ir_cs;
- context->c_eip    = unwind.c_context.c_iret.ir_eip;
- context->c_eflags = unwind.c_context.c_iret.ir_eflags;
+ context->c_pip    = unwind.c_context.c_iret.ir_pip;
+ context->c_pflags = unwind.c_context.c_iret.ir_pflags;
  return 0;
 }
 

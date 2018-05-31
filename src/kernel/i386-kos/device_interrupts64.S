@@ -41,7 +41,6 @@ INTERN_ENTRY(X86_IRQ_ATA0)
 	pushq_cfi_r %rax
 	pushq_cfi_r %rcx
 	pushq_cfi_r %rdx
-	pushq_cfi_r %rdx
 	pushq_cfi_r %rsi
 	pushq_cfi_r %rdi
 	pushq_cfi_r %r8
@@ -68,7 +67,6 @@ INTERN_ENTRY(X86_IRQ_ATA0)
 	popq_cfi_r  %rdi
 	popq_cfi_r  %rsi
 	popq_cfi_r  %rdx
-	popq_cfi_r  %rdx
 	popq_cfi_r  %rcx
 	popq_cfi_r  %rax
 	irq_leave
@@ -78,7 +76,6 @@ INTERN_ENTRY(X86_IRQ_ATA1)
 	call   x86_check_spurious_interrupt_PIC2
 	pushq_cfi_r %rax
 	pushq_cfi_r %rcx
-	pushq_cfi_r %rdx
 	pushq_cfi_r %rdx
 	pushq_cfi_r %rsi
 	pushq_cfi_r %rdi
@@ -109,7 +106,6 @@ INTERN_ENTRY(X86_IRQ_KBD)
 	pushq_cfi_r %rax
 	pushq_cfi_r %rcx
 	pushq_cfi_r %rdx
-	pushq_cfi_r %rdx
 	pushq_cfi_r %rsi
 	pushq_cfi_r %rdi
 	pushq_cfi_r %r8
@@ -126,7 +122,6 @@ INTERN_ENTRY(X86_IRQ_KBD)
 	popq_cfi_r  %rdi
 	popq_cfi_r  %rsi
 	popq_cfi_r  %rdx
-	popq_cfi_r  %rdx
 	popq_cfi_r  %rcx
 	popq_cfi_r  %rax
 	irq_leave
@@ -136,7 +131,6 @@ INTERN_ENTRY(X86_IRQ_PS2M)
 	irq_enter
 	pushq_cfi_r %rax
 	pushq_cfi_r %rcx
-	pushq_cfi_r %rdx
 	pushq_cfi_r %rdx
 	pushq_cfi_r %rsi
 	pushq_cfi_r %rdi
@@ -154,7 +148,6 @@ INTERN_ENTRY(X86_IRQ_PS2M)
 	popq_cfi_r  %r8
 	popq_cfi_r  %rdi
 	popq_cfi_r  %rsi
-	popq_cfi_r  %rdx
 	popq_cfi_r  %rdx
 	popq_cfi_r  %rcx
 	popq_cfi_r  %rax

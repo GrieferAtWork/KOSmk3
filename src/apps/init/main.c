@@ -370,14 +370,14 @@ void print_ptr(uintptr_t ptr) {
 
 pid_t start_thread(void *(*func)(void *arg), void *arg) {
  struct cpu_context context;
- context.c_gpregs.gp_edi  = 0;
- context.c_gpregs.gp_esi  = 0;
- context.c_gpregs.gp_ebp  = 0;
- context.c_gpregs.gp_esp  = (uintptr_t)CLONE_CHILDSTACK_AUTO;
- context.c_gpregs.gp_ebx  = 0;
- context.c_gpregs.gp_edx  = (uintptr_t)arg;
- context.c_gpregs.gp_ecx  = (uintptr_t)func;
- context.c_gpregs.gp_eax  = 0;
+ context.c_gpregs.gp_pdi  = 0;
+ context.c_gpregs.gp_psi  = 0;
+ context.c_gpregs.gp_pbp  = 0;
+ context.c_gpregs.gp_psp  = (uintptr_t)CLONE_CHILDSTACK_AUTO;
+ context.c_gpregs.gp_pbx  = 0;
+ context.c_gpregs.gp_pdx  = (uintptr_t)arg;
+ context.c_gpregs.gp_pcx  = (uintptr_t)func;
+ context.c_gpregs.gp_pax  = 0;
 #ifndef CONFIG_NO_X86_SEGMENTATION
  context.c_segments.sg_gs = 0;
  context.c_segments.sg_fs = 0;
@@ -386,8 +386,8 @@ pid_t start_thread(void *(*func)(void *arg), void *arg) {
  context.c_cs             = 0;
  context.c_ss             = 0;
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
- context.c_eip            = (uintptr_t)&thread_entry;
- context.c_eflags         = 0;
+ context.c_pip            = (uintptr_t)&thread_entry;
+ context.c_pflags         = 0;
 
  return sys_clone(&context,
                   CLONE_VM|

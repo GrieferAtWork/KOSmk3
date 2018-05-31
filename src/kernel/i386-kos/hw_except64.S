@@ -130,7 +130,6 @@ INTERN_ENTRY(irq_07)
 	pushq_cfi_r %rax
 	pushq_cfi_r %rcx
 	pushq_cfi_r %rdx
-	pushq_cfi_r %rdx
 	pushq_cfi_r %rsi
 	pushq_cfi_r %rdi
 	pushq_cfi_r %r8
@@ -147,7 +146,6 @@ INTERN_ENTRY(irq_07)
 	popq_cfi_r  %r8
 	popq_cfi_r  %rdi
 	popq_cfi_r  %rsi
-	popq_cfi_r  %rdx
 	popq_cfi_r  %rdx
 	popq_cfi_r  %rcx
 	testq  %rax, %rax

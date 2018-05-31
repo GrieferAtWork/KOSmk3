@@ -48,7 +48,6 @@ INTDEF void KCALL print_tb(struct cpu_context *__restrict context);
 
 INTERN void FCALL x86_handle_df(struct cpu_context *__restrict context) {
  struct exception_info *info;
-
 #ifdef __x86_64__
  struct cpu *calling_cpu;
  u8 cpu_id; cpuid_t id;

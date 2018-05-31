@@ -30,6 +30,18 @@
 
 DECL_BEGIN
 
+/* TODO: Instead of using a bit in the system call itself, use `EFLAGS.CF'
+ *       to determine if exceptions should be enabled for the system call!
+ *      (SET -> Exceptions are enabled)
+ *       User-space could just use `clc' and `stc' to enable/disable
+ *       exceptions before invoking a system call, and kernel-space can
+ *       immediately act on the decision using `jc' and `jnc'.
+ *       Additionally, since `EFLAGS' must always be saved during an
+ *       interrupt, there wouldn't be any additional overhead, either,
+ *       and exception-enabled complexity caused by #PF-system calls
+ *       would become non-existent, too! */
+
+
 #ifdef __x86_64__
 /* Instruct the kernel to implement compatibility system calls. */
 #define CONFIG_SYSCALL_COMPAT 1
@@ -203,10 +215,19 @@ DECL_BEGIN
 #define __SYSCALL_ASSERT_NAME(name) /* Nothing */
 #endif
 
+#ifdef __x86_64__
 #define __X86_DEFINE_SYSCALLn(name,argc,argv) \
-__asm__(".hidden argc_sys_" #name "\n" \
-        ".global argc_sys_" #name "\n" \
-        ".set argc_sys_" #name ", " #argc "\n"); \
+__asm__(".hidden argc_sys_" #name "\n\t" \
+        ".global argc_sys_" #name "\n\t" \
+        ".set argc_sys_" #name ", " #argc "\n" \
+        ".ifndef sys_" #name "_compat\n\t" \
+        ".hidden argc_sys_" #name "_compat\n\t" \
+        ".global argc_sys_" #name "_compat\n\t" \
+        ".hidden sys_" #name "_compat\n\t" \
+        ".global sys_" #name "_compat\n\t" \
+        ".set argc_sys_" #name "_compat, " #argc "\n" \
+        ".set sys_" #name "_compat, sys_" #name "\n\t" \
+        ".endif"); \
 LOCAL syscall_ulong_t ATTR_CDECL SYSC_##name(__SYSCALL_DECL(argc,argv)); \
 INTERN syscall_ulong_t ATTR_CDECL sys_##name(__SYSCALL_LONG(argc,argv)) \
 { \
@@ -215,6 +236,20 @@ INTERN syscall_ulong_t ATTR_CDECL sys_##name(__SYSCALL_LONG(argc,argv)) \
     return SYSC_##name(__SYSCALL_CAST(argc,argv)); \
 } \
 LOCAL syscall_ulong_t ATTR_CDECL SYSC_##name(__SYSCALL_DECL(argc,argv))
+#else
+#define __X86_DEFINE_SYSCALLn(name,argc,argv) \
+__asm__(".hidden argc_sys_" #name "\n\t" \
+        ".global argc_sys_" #name "\n\t" \
+        ".set argc_sys_" #name ", " #argc); \
+LOCAL syscall_ulong_t ATTR_CDECL SYSC_##name(__SYSCALL_DECL(argc,argv)); \
+INTERN syscall_ulong_t ATTR_CDECL sys_##name(__SYSCALL_LONG(argc,argv)) \
+{ \
+    __SYSCALL_ASSERT(argc,argv) \
+    __SYSCALL_ASSERT_NAME(name) \
+    return SYSC_##name(__SYSCALL_CAST(argc,argv)); \
+} \
+LOCAL syscall_ulong_t ATTR_CDECL SYSC_##name(__SYSCALL_DECL(argc,argv))
+#endif
 
 
 
@@ -223,16 +258,16 @@ LOCAL syscall_ulong_t ATTR_CDECL SYSC_##name(__SYSCALL_DECL(argc,argv))
         __X86_DEFINE_SYSCALLn(name,argc,argv)
 #else
 #define __X86_DEFINE_SYSCALLn64(name,argc,argv) \
-__asm__(".hidden argc_sys_" #name "\n" \
-        ".global argc_sys_" #name "\n" \
-        ".set argc_sys_" #name ", " #argc "\n" \
-        ".hidden sys_" #name "\n" \
-        ".global sys_" #name "\n" \
+__asm__(".hidden argc_sys_" #name "\n\t" \
+        ".global argc_sys_" #name "\n\t" \
+        ".set argc_sys_" #name ", " #argc "\n\t" \
+        ".hidden sys_" #name "\n\t" \
+        ".global sys_" #name "\n\t" \
         ".section .text\n" \
-        "sys_" #name ":\n" \
-        "    addl $x86_syscall64_adjustment, (%esp)\n" \
-        "    jmp  sys64_" #name "\n" \
-        ".size sys_" #name ", . - sys_" #name "\n"); \
+        "sys_" #name ":\n\t" \
+        "addl $x86_syscall64_adjustment, (%esp)\n\t" \
+        "jmp  sys64_" #name "\n" \
+        ".size sys_" #name ", . - sys_" #name); \
 LOCAL u64 ATTR_CDECL SYSC_##name(__SYSCALL_DECL(argc,argv)); \
 INTERN u64 ATTR_CDECL sys64_##name(__SYSCALL_LONG(argc,argv)) \
 { \
@@ -370,7 +405,7 @@ __asm__(".hidden argc_sys_" #name "_compat\n" \
         ".global sys_" #name "_compat\n" \
         ".section .text\n" \
         "sys_" #name "_compat:\n" \
-        "    addl $x86_syscall64_adjustment_compat, (%esp)\n" \
+        "    addl $x86_syscall64_adjustment, (%esp)\n" \
         "    jmp  sys64_" #name "_compat\n" \
         ".size sys_" #name "_compat, . - sys_" #name "_compat\n"); \
 LOCAL u64 ATTR_CDECL SYSC_##name##_compat(__SYSCALL_COMPAT_DECL(argc,argv)); \
@@ -414,8 +449,6 @@ DATDEF u8 const x86_xsyscall_argc[];
 #ifdef CONFIG_SYSCALL_COMPAT
 DATDEF void *const x86_syscall_compat_router[];
 DATDEF void *const x86_xsyscall_compat_router[];
-DATDEF u8 const x86_syscall_compat_restart[];
-DATDEF u8 const x86_xsyscall_compat_restart[];
 DATDEF u8 const x86_syscall_compat_argc[];
 DATDEF u8 const x86_xsyscall_compat_argc[];
 #endif /* !CONFIG_SYSCALL_COMPAT */
@@ -425,13 +458,25 @@ DATDEF u8 const x86_xsyscall_compat_argc[];
 #ifdef __CC__
 struct PACKED syscall_trace_regs {
     struct PACKED {
-        syscall_ulong_t      a_arg0;       /* Arg #0 */
-        syscall_ulong_t      a_arg1;       /* Arg #1 */
-        syscall_ulong_t      a_arg2;       /* Arg #2 */
-        syscall_ulong_t      a_arg3;       /* Arg #3 */
-        syscall_ulong_t      a_arg4;       /* Arg #4 */
-        syscall_ulong_t      a_arg5;       /* Arg #5 */
-        syscall_ulong_t      a_sysno;      /* System call number (including special flags). */
+#ifdef __x86_64__
+        u64                __a_pad0;
+        u64                  a_arg1;       /* Arg #1 */
+        u64                  a_arg0;       /* Arg #0 */
+        u64                  a_arg4;       /* Arg #4 */
+        u64                  a_arg5;       /* Arg #5 */
+        u64                  a_arg3;       /* Arg #3 */
+        u64                __a_pad1;
+        u64                  a_arg2;       /* Arg #2 */
+        u64                  a_sysno;      /* System call number (including special flags). */
+#else
+        u32                  a_arg0;       /* Arg #0 */
+        u32                  a_arg1;       /* Arg #1 */
+        u32                  a_arg2;       /* Arg #2 */
+        u32                  a_arg3;       /* Arg #3 */
+        u32                  a_arg4;       /* Arg #4 */
+        u32                  a_arg5;       /* Arg #5 */
+        u32                  a_sysno;      /* System call number (including special flags). */
+#endif
     }                        str_args;     /* System call arguments. */
 #if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
     struct x86_segments32    str_segments; /* User-space segment registers. */

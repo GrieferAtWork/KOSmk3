@@ -56,10 +56,10 @@ SYMEND(x86_syscall_router)
 .section .rodata.hot
 PUBLIC_OBJECT(x86_xsyscall_router)
 .last_sysno = __NR_xsyscall_min
-#define __XSYSCALL(id,sym)     define_syscall_entry id, sym, x86_bad_syscall_except;
+#define __XSYSCALL(id,sym)     define_syscall_entry id, sym, x86_bad_syscall;
 #include <asm/syscallno.ci>
 	.rept (__NR_xsyscall_max+1) - .last_sysno
-		.quad x86_bad_syscall_except
+		.quad x86_bad_syscall
 	.endr
 SYMEND(x86_xsyscall_router)
 
@@ -76,10 +76,10 @@ SYMEND(x86_syscall_compat_router)
 .section .rodata.hot
 PUBLIC_OBJECT(x86_xsyscall_compat_router)
 .last_sysno = __NR_xsyscall_min
-#define __XSYSCALL(id,sym)     define_syscall_entry id, sym ## _compat, x86_bad_syscall_except;
+#define __XSYSCALL(id,sym)     define_syscall_entry id, sym ## _compat, x86_bad_syscall;
 #include <asm/syscallno.ci>
 	.rept (__NR_xsyscall_max+1) - .last_sysno
-		.quad x86_bad_syscall_except
+		.quad x86_bad_syscall
 	.endr
 SYMEND(x86_xsyscall_compat_router)
 
@@ -168,27 +168,6 @@ PUBLIC_OBJECT(x86_xsyscall_restart)
 	.endr
 SYMEND(x86_xsyscall_restart)
 
-.section .rodata
-PUBLIC_OBJECT(x86_syscall_compat_restart)
-.last_sysno = __NR_syscall_min
-#define __SYSCALL(id,sym)     define_syscall_restart id, sym ## _compat;
-#include <asm/syscallno.ci>
-	.rept (__NR_syscall_max+1) - .last_sysno
-		.byte X86_SYSCALL_RESTART_FAUTO
-	.endr
-SYMEND(x86_syscall_compat_restart)
-
-.section .rodata
-PUBLIC_OBJECT(x86_xsyscall_compat_restart)
-.last_sysno = __NR_xsyscall_min
-#define __XSYSCALL(id,sym)     define_syscall_restart id, sym ## _compat;
-#include <asm/syscallno.ci>
-	.rept (__NR_xsyscall_max+1) - .last_sysno
-		.byte X86_SYSCALL_RESTART_FAUTO
-	.endr
-SYMEND(x86_xsyscall_compat_restart)
-
-
 
 /* Weakly redirect all unimplemented system calls. */
 #if X86_SYSCALL_RESTART_FAUTO != 0
@@ -198,18 +177,33 @@ SYMEND(x86_xsyscall_compat_restart)
 #endif
 
 #define __SYSCALL(id,sym) \
-	.hidden sym, argc_##sym, restart_##sym, sym##_compat, argc_##sym##_compat, restart_##sym##_compat; \
-	.global sym, argc_##sym, restart_##sym, sym##_compat, argc_##sym##_compat, restart_##sym##_compat; \
-	.weak sym, argc_##sym, restart_##sym, sym##_compat, argc_##sym##_compat, restart_##sym##_compat; \
-	sym##_compat = sym; \
-	argc_##sym##_compat = argc_##sym; \
-	restart_##sym##_compat = restart_##sym; \
-	sym = x86_bad_syscall; \
-	argc_##sym = 6; \
+	.hidden sym, argc_##sym, restart_##sym, sym##_compat, argc_##sym##_compat; \
+	.global sym, argc_##sym, restart_##sym, sym##_compat, argc_##sym##_compat; \
+	.weak sym, argc_##sym, restart_##sym, sym##_compat, argc_##sym##_compat; \
+	.set sym##_compat, x86_bad_syscall; \
+	.set sym, x86_bad_syscall; \
+	.set argc_##sym##_compat, 6; \
+	.set argc_##sym, 6; \
 	__SET_RESTART(sym)
 #define __XSYSCALL(id,sym)     __SYSCALL(id,sym)
 #include <asm/syscallno.ci>
 
+
+
+/* Since only user-space is allowed to invoke system calls,
+ * we can optimize interrupt entry using that assumption. */
+.macro irq_enter_syscall
+	swapgs
+	sti
+#ifdef __X86_IRQENTER_CHK_GSBASE
+	__X86_IRQENTER_CHK_GSBASE
+#endif
+.endm
+.macro irq_leave_syscall
+	cli
+	swapgs
+	iretq
+.endm
 
 
 .section .text.hot
@@ -228,16 +222,15 @@ INTERN_ENTRY(irq_80)
 	.cfi_def_cfa %rsp,    5*8
 	.cfi_offset %rflags, -3*8
 	.cfi_offset %rip,    -5*8
-	irq_enter
+	irq_enter_syscall
 	/* TODO */
 	int3
 1:	cli
 	hlt
 	jmp 1b
-	irq_leave
+	irq_leave_syscall
 	.cfi_endproc
 SYMEND(irq_80)
-
 
 .section .text.hot
 INTERN_ENTRY(sysenter_kernel_entry_trace)
@@ -251,47 +244,175 @@ INTERN_ENTRY(sysenter_kernel_entry_trace)
 	.cfi_endproc
 SYMEND(sysenter_kernel_entry_trace)
 
+
 .section .text.hot
+.irq_80_trace_start = .
 INTERN_ENTRY(irq_80_trace)
 	.cfi_startproc simple
 	.cfi_signal_frame
 	.cfi_def_cfa %rsp,    5*8
 	.cfi_offset %rflags, -3*8
 	.cfi_offset %rip,    -5*8
-	irq_enter
-	/* TODO */
-	int3
-1:	cli
-	hlt
-	jmp 1b
-	irq_leave
+	irq_enter_syscall
+
+	/* Check for compatibility mode. */
+	cmpq    $X86_SEG_USER_CS32, X86_IRREGS64_OFFSETOF_CS(%rsp)
+	je      irq_80_compat_trace
+
+	/* Save callee-clobber registers. */
+	pushq_cfi_r %rax  /* System call number. */
+	pushq_cfi_r %rdx  /* Arg #2 */
+	pushq_cfi_r %r11
+	pushq_cfi_r %r10  /* Arg #3 */
+	pushq_cfi_r %r9   /* Arg #5 */
+	pushq_cfi_r %r8   /* Arg #4 */
+	pushq_cfi_r %rdi  /* Arg #0 */
+	pushq_cfi_r %rsi  /* Arg #1 */
+	pushq_cfi_r %rcx
+
+	/* Trace this system call. */
+	movq    %rsp, %rdi
+	call    syscall_trace
+
+	/* Invoke the system call for real! */
+	movq    8 * 8(%rsp), %rax
+	movq    2 * 8(%rsp), %rdi
+	movq    1 * 8(%rsp), %rsi
+	movq    7 * 8(%rsp), %rdx
+	movq    5 * 8(%rsp), %rcx
+	movq    3 * 8(%rsp), %r8
+	movq    4 * 8(%rsp), %r9
+
+	cmpq    $__NR_syscall_max, %rax
+	ja      .Lirq_80_trace_xsyscall
+	callq   *x86_syscall_router(,%rax,8)
+.Lirq_80_trace_return:
+	.cfi_remember_state
+	popq_cfi_r  %rcx
+	popq_cfi_r  %rsi
+	popq_cfi_r  %rdi
+	popq_cfi_r  %r8
+	popq_cfi_r  %r9
+	popq_cfi_r  %r10
+	popq_cfi_r  %r11
+	popq_cfi_r  %rdx
+	popq_void_cfi
+	irq_leave_syscall
+	.cfi_restore_state
+.Lirq_80_trace_return64:
+	.cfi_remember_state
+	popq_cfi_r  %rcx
+	popq_cfi_r  %rsi
+	popq_cfi_r  %rdi
+	popq_cfi_r  %r8
+	popq_cfi_r  %r9
+	popq_cfi_r  %r10
+	popq_cfi_r  %r11
+	pop_void_cfi 2*8
+	irq_leave_syscall
+	.cfi_restore_state
+.Lirq_80_trace_xsyscall:
+	subq    $__NR_xsyscall_min, %rax
+	jb      .Lirq_80_trace_badsyscall
+	cmpq    $(__NR_xsyscall_max - __NR_xsyscall_min), %rax
+	ja      .Lirq_80_trace_badsyscall
+	pushq_cfi $.Lirq_80_trace_return
+	jmpq    *x86_xsyscall_router(,%rax,8)
+	.cfi_adjust_cfa_offset -8
+.Lirq_80_trace_badsyscall:
+	call     x86_bad_syscall
 	.cfi_endproc
 SYMEND(irq_80_trace)
+
+/* This must be added to the return RIP if a system call wants to return 64 bits. */
+INTERN_CONST(x86_syscall64_adjustment,.Lirq_80_trace_return64 - .Lirq_80_trace_return)
+
+INTERN_ENTRY(irq_80_compat_trace)
+	.cfi_startproc simple
+	.cfi_signal_frame
+	.cfi_def_cfa %rsp,    5*8
+	.cfi_offset %rflags, -3*8
+	.cfi_offset %rip,    -5*8
+	pushq_cfi_r %rax  /* System call number. */
+	pushq_cfi_r %rdx  /* Arg #2 */
+	pushq_void_cfi
+	pushq_cfi_r %rsi  /* Arg #3 */
+	pushq_cfi_r %rbp  /* Arg #5 */
+	pushq_cfi_r %rdi  /* Arg #4 */
+	pushq_cfi_r %rbx  /* Arg #0 */
+	pushq_cfi_r %rcx  /* Arg #1 */
+	pushq_void_cfi
+	movq    %rsp, %rdi
+
+	/* Trace this system call. */
+	call    syscall_trace
+
+	/* Invoke the system call for real! */
+	movq    8 * 8(%rsp), %rax
+	movq    2 * 8(%rsp), %rdi
+	movq    1 * 8(%rsp), %rsi
+	movq    7 * 8(%rsp), %rdx
+	movq    5 * 8(%rsp), %rcx
+	movq    3 * 8(%rsp), %r8
+	movq    4 * 8(%rsp), %r9
+	popq_void_cfi
+
+	cmpq    $__NR_syscall_max, %rax
+	ja      .Lirq_80_compat_trace_xsyscall
+	callq   *x86_syscall_compat_router(,%rax,8)
+.Lirq_80_compat_trace_return:
+	.cfi_remember_state
+	popq_cfi_r %rcx
+	popq_cfi_r %rbx
+	popq_cfi_r %rdi
+	popq_cfi_r %rbp
+	popq_cfi_r %rsi
+	popq_void_cfi
+	popq_cfi_r %rdx
+	popq_void_cfi
+	irq_leave_syscall
+	.cfi_restore_state
+	.space x86_syscall64_adjustment - (. - .Lirq_80_compat_trace_return)
+.Lirq_80_compat_trace_return64:
+	.cfi_remember_state
+	popq_cfi_r %rcx
+	popq_cfi_r %rbx
+	popq_cfi_r %rdi
+	popq_cfi_r %rbp
+	popq_cfi_r %rsi
+	pop_void_cfi 3*8
+	irq_leave_syscall
+	.cfi_restore_state
+.Lirq_80_compat_trace_xsyscall:
+	subq    $__NR_xsyscall_min, %rax
+	jb      .Lirq_80_compat_trace_badsyscall
+	cmpq    $(__NR_xsyscall_max - __NR_xsyscall_min), %rax
+	ja      .Lirq_80_compat_trace_badsyscall
+	pushq_cfi $.Lirq_80_compat_trace_return
+	jmpq    *x86_xsyscall_compat_router(,%rax,8)
+	.cfi_adjust_cfa_offset -8
+.Lirq_80_compat_trace_badsyscall:
+	call     x86_bad_syscall
+	.cfi_endproc
+SYMEND(irq_80_compat_trace)
+
+.irq_80_trace_end = .
+X86_DEFINE_SYSCALL_GUARD(
+	.irq_80_trace_start,
+	.irq_80_trace_end
+)
 
 
 .section .text.hot
 INTERN_ENTRY(x86_bad_syscall)
 	.cfi_startproc
-	movq    $(-ENOSYS), %rax
-	ret
-	.cfi_endproc
-SYMEND(x86_bad_syscall)
-
-.section .text.hot
-INTERN_ENTRY(x86_bad_syscall_except)
-	.cfi_startproc
 	/* TODO */
 	int3
 1:	cli
 	hlt
 	jmp 1b
 	.cfi_endproc
-SYMEND(x86_bad_syscall_except)
-
-
-/* This must be added to the return EIP if a system call wants to return 64 bits. */
-INTERN_CONST(x86_syscall64_adjustment,0)
-INTERN_CONST(x86_syscall64_adjustment_compat,0)
+SYMEND(x86_bad_syscall)
 
 
 .section .data

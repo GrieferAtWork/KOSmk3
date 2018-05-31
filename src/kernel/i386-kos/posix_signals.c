@@ -94,7 +94,7 @@ x86_sigreturn_impl(void *UNUSED(arg),
  frame_mode = frame->sf_mode;
 
  if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG|TASK_FUSEREXCEPT) &&
-     frame->sf_except.e_context.c_eip != (uintptr_t)-1) {
+     frame->sf_except.e_context.c_pip != (uintptr_t)-1) {
   /* Copy user-space exception information. */
   USER CHECKED struct user_task_segment *useg;
   useg = PERTASK_GET(this_task.t_userseg);
@@ -129,8 +129,8 @@ x86_sigreturn_impl(void *UNUSED(arg),
  COMPILER_READ_BARRIER();
 
  /* Sanitize the new user-space register state. */
- context->c_iret.ir_eflags |=  (EFLAGS_IF);
- context->c_iret.ir_eflags &= ~(EFLAGS_TF|EFLAGS_IOPL(3)|
+ context->c_iret.ir_pflags |=  (EFLAGS_IF);
+ context->c_iret.ir_pflags &= ~(EFLAGS_TF|EFLAGS_IOPL(3)|
                                 EFLAGS_NT|EFLAGS_RF|EFLAGS_VM|
                                 EFLAGS_AC|EFLAGS_VIF|EFLAGS_VIP|
                                 EFLAGS_ID);
@@ -319,7 +319,7 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
 #if 0
  debug_printf("REDIRECT_ACTION %u:%p -> %p\n",
               posix_gettid(),
-              context->c_eip,
+              context->c_pip,
               action->sa_handler);
 #endif
 

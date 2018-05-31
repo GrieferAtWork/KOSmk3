@@ -56,10 +56,10 @@ SYMEND(x86_syscall_router)
 .section .rodata.hot
 PUBLIC_OBJECT(x86_xsyscall_router)
 .last_sysno = __NR_xsyscall_min
-#define __XSYSCALL(id,sym)     define_syscall_entry id, sym, x86_bad_syscall_except;
+#define __XSYSCALL(id,sym)     define_syscall_entry id, sym, x86_bad_syscall;
 #include <asm/syscallno.ci>
 	.rept (__NR_xsyscall_max+1) - .last_sysno
-		.long x86_bad_syscall_except
+		.long x86_bad_syscall
 	.endr
 SYMEND(x86_xsyscall_router)
 
@@ -361,9 +361,8 @@ INTERN_ENTRY(sysenter_after_segments)
 	testl   $(0x80000000), %eax
 	jnz     .sysenter_with_exceptions
 .sysenter_bad_syscall:
-	pushl_cfi $.sysenter_return /* Return address... */
-	jmp     x86_bad_syscall
-	.cfi_adjust_cfa_offset -4
+	movl    $(-ENOSYS), %eax
+	jmp     .sysenter_return
 SYMEND(sysenter_after_segments)
 SYMEND(sysenter_kernel_entry)
 
@@ -490,9 +489,8 @@ INTERN_ENTRY(irq_80_after_segments)
 	testl   $(0x80000000), %eax
 	jnz     .irq_80_with_exceptions
 .irq_80_bad_syscall:
-	pushl_cfi $.irq_80_return /* Return address... */
-	jmp     x86_bad_syscall
-	.cfi_adjust_cfa_offset -4
+	movl    $(-ENOSYS), %eax
+	jmp     .irq_80_return
 SYMEND(irq_80)
 
 .irq_80_with_exceptions:
@@ -659,28 +657,8 @@ X86_DEFINE_SYSCALL_GUARD(.syscall_trace_begin,.syscall_trace_end)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-.section .text.hot
+.section .text.cold
 INTERN_ENTRY(x86_bad_syscall)
-	.cfi_startproc
-	movl    $(-ENOSYS), %eax
-	ret
-	.cfi_endproc
-SYMEND(x86_bad_syscall)
-
-.section .text.hot
-INTERN_ENTRY(x86_bad_syscall_except)
 	.cfi_startproc
 	popl_cfi  %edx /* Return address */
 	.cfi_register %eip, %edx
@@ -695,7 +673,7 @@ INTERN_ENTRY(x86_bad_syscall_except)
 	.cfi_adjust_cfa_offset -4
 	jmp       *%edx
 	.cfi_endproc
-SYMEND(x86_bad_syscall_except)
+SYMEND(x86_bad_syscall)
 
 
 

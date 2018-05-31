@@ -671,7 +671,7 @@ eh_return(struct fde_info *__restrict info,
    if (iret->ir_cs & 3) {
     /* Return to user-space. */
     ctx->c_rsp = iret->ir_rsp;
-    assertf(iret->ir_eflags & EFLAGS_IF,"Corrupt unwind IRET tail {%p,%p,%p,%p}",
+    assertf(iret->ir_pflags & EFLAGS_IF,"Corrupt unwind IRET tail {%p,%p,%p,%p}",
             ctx->c_rip,ctx->c_rsp,iret->ir_cs,iret->ir_rflags);
     assertf(iret->ir_cs == X86_USER_CS || iret->ir_cs == X86_USER_CS32,
             "Corrupt unwind IRET tail {%p,%p,%p,%p}",

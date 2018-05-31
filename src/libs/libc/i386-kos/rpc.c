@@ -230,9 +230,15 @@ libc_queue_interrupt(pid_t pid, rpc_interrupt_t func,
   data.func               = func;
   data.arg                = arg;
   data.pending            = 1;
+#ifdef __x86_64__
+  context.c_rip           = (uintptr_t)&x86_rpc_entry_full;
+  context.c_gpregs.gp_rdi = (uintptr_t)&full_waitfor_rpc_wrapper;
+  context.c_gpregs.gp_rsi = (uintptr_t)&data;
+#else
   context.c_eip           = (uintptr_t)&x86_rpc_entry_full;
   context.c_gpregs.gp_ecx = (uintptr_t)&full_waitfor_rpc_wrapper;
   context.c_gpregs.gp_edx = (uintptr_t)&data;
+#endif
   result = libc_queue_job(pid,&context,
                          (mode & ~RPC_FWAITFOR)|
                           JOB_FWAITACK|
@@ -256,9 +262,15 @@ libc_queue_interrupt(pid_t pid, rpc_interrupt_t func,
    result = ATOMIC_READ(data.pending) == 0;
   }
  } else {
+#ifdef __x86_64__
+  context.c_rip           = (uintptr_t)&x86_rpc_entry_full;
+  context.c_gpregs.gp_rdi = (uintptr_t)func;
+  context.c_gpregs.gp_rsi = (uintptr_t)arg;
+#else
   context.c_eip           = (uintptr_t)&x86_rpc_entry_full;
   context.c_gpregs.gp_ecx = (uintptr_t)func;
   context.c_gpregs.gp_edx = (uintptr_t)arg;
+#endif
   /* Invoke the RPC */
   result = libc_queue_job(pid,&context,mode|
                           X86_JOB_FSAVE_RETURN|

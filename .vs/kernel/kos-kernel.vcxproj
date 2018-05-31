@@ -51,6 +51,7 @@
     <None Include="..\..\src\kernel\i386-kos\smp32.S" />
     <None Include="..\..\src\kernel\i386-kos\smp64.S" />
     <None Include="..\..\src\kernel\i386-kos\syscall32.S" />
+    <None Include="..\..\src\kernel\i386-kos\syscall64.S" />
     <None Include="..\..\src\kernel\i386-kos\ushare32.S" />
     <None Include="..\..\src\kernel\src\vm\ushare.S" />
   </ItemGroup>
