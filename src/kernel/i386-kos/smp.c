@@ -97,9 +97,9 @@ Mp_LocateFloatingPointStructure(void) {
  /* NOTE: No need to identity-map these, as they're all part of the
   *       first 1Gb of physical memory, which is fully mapped at this
   *       point, both in 32-bit and 64-bit mode. */
- /*        */ result = Mp_LocateFloatingPointStructureInAddressRange((uintptr_t)*(__u16 volatile *)0x40E,1024);
- if (!result) result = Mp_LocateFloatingPointStructureInAddressRange((uintptr_t)((*(__u16 volatile *)0x413)*1024),1024);
- if (!result) result = Mp_LocateFloatingPointStructureInAddressRange((uintptr_t)0x0F0000,64*1024);
+ /*        */ result = Mp_LocateFloatingPointStructureInAddressRange((uintptr_t)*(__u16 volatile *)X86_EARLY_PHYS2VIRT(0x40E),1024);
+ if (!result) result = Mp_LocateFloatingPointStructureInAddressRange((uintptr_t)X86_EARLY_PHYS2VIRT((*(__u16 volatile *)X86_EARLY_PHYS2VIRT(0x413))*1024),1024);
+ if (!result) result = Mp_LocateFloatingPointStructureInAddressRange((uintptr_t)X86_EARLY_PHYS2VIRT(0x0F0000),64*1024);
  return result;
 }
 
@@ -227,7 +227,7 @@ INTERN ATTR_FREETEXT void KCALL x86_smp_initialize(void) {
   /* Check pointer location. */
   if (fps->mp_cfgtab >= 0x40000000)
       return;
-  table = (MpConfigurationTable *)(uintptr_t)fps->mp_cfgtab;
+  table = (MpConfigurationTable *)X86_EARLY_PHYS2VIRT((uintptr_t)fps->mp_cfgtab);
   /* Check signature. */
   if (*(u32 *)table->tab_sig != ENCODE_INT32('P','C','M','P'))
       return;

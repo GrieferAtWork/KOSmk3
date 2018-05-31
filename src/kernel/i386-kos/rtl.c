@@ -31,6 +31,7 @@
 #include <sched/userstack.h>
 #include <unwind/linker.h>
 #include <kos/context.h>
+#include <kos/intrin.h>
 #include <sched/task.h>
 #include <sched/pid.h>
 #include <except.h>
@@ -222,10 +223,11 @@ core_assertion_failure(char const *expr, DEBUGINFO,
               __file,__line,__func,expr);
  if (format) debug_vprintf(format,args),
              debug_printf("\n");
- cpu_getcontext(&context);
- task_disconnect();
+ kernel_panic_recover();
  kernel_panic_shootdown();
  kernel_panic_lockall(PANIC_LOCK_GENERIC);
+ cpu_getcontext(&context);
+ task_disconnect();
  for (;; ++frame_id) {
   struct fde_info finfo;
   if (frame_id >= 2) {

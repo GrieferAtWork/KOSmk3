@@ -32,7 +32,7 @@ typedef int (*pmain)(int argc, char **argv, char **envp);
 extern int (main)(int argc, char *argv[], char *envp[]);
 IMPDEF ATTR_NORETURN void (FCALL __entry1)(pmain m);
 
-#if defined(__i386__) || defined(__x86_64__)
+#if 0 && (defined(__i386__) || defined(__x86_64__))
 __asm__(".hidden _start\n"
         ".global _start\n"
         ".section .data.free\n"

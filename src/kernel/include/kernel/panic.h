@@ -27,6 +27,9 @@ DECL_BEGIN
 
 #ifdef __CC__
 
+/* Check for corrupted registers and try to recover their contents. */
+FUNDEF ATTR_NOTHROW void KCALL kernel_panic_recover(void);
+
 /* Shoot down all secondary CPUs and unschedule all but the
  * calling thread from the set of actively scheduled threads.
  * Threads that were sleeping with a timeout will never wake up.

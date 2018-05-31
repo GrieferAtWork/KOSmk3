@@ -21,6 +21,7 @@
 
 #include <hybrid/compiler.h>
 #include <kos/types.h>
+#include <kos/intrin.h>
 #include <kernel/sections.h>
 #include <i386-kos/gdt.h>
 #include <kos/thread.h>
@@ -63,6 +64,13 @@ PUBLIC ATTR_PERCPU struct x86_segment x86_cpugdt[X86_SEG_BUILTIN] = {
 };
 
 PUBLIC void KCALL set_user_tls_register(void *value) {
+#ifdef __x86_64__
+ if (interrupt_iscompat()) {
+  WR_USER_FSBASE((u64)value);
+ } else {
+  WR_USER_GSBASE((u64)value);
+ }
+#else
  struct x86_segment *seg;
  /* Set the base address of the user-space TLS segment. */
  seg = &PERCPU(x86_cpugdt)[X86_SEG_USER_TLS];
@@ -74,14 +82,23 @@ PUBLIC void KCALL set_user_tls_register(void *value) {
                       :
                       : "r" (X86_USER_TLS));
 #endif
+#endif
 }
 
 #ifndef CONFIG_NO_DOS_COMPAT
 PUBLIC void KCALL set_user_tib_register(void *value) {
+#ifdef __x86_64__
+ if (interrupt_iscompat()) {
+  WR_USER_GSBASE((u64)value);
+ } else {
+  WR_USER_FSBASE((u64)value);
+ }
+#else
  struct x86_segment *seg;
  /* Set the base address of the user-space TLS segment. */
  seg = &PERCPU(x86_cpugdt)[X86_SEG_USER_TIB];
  X86_SEGMENT_STBASE(*seg,value);
+#endif
 }
 #endif /* !CONFIG_NO_DOS_COMPAT */
 

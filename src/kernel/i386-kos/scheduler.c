@@ -1330,7 +1330,8 @@ INTERN void KCALL take_down_process(unsigned int status) {
 PRIVATE void KCALL
 errorinfo_copy_to_user(USER CHECKED struct user_task_segment *useg,
                        struct exception_info *__restrict info,
-                       struct cpu_hostcontext_user *__restrict context) {
+                       struct cpu_hostcontext_user *__restrict context,
+                       unsigned int mode) {
 #if __SIZEOF_POINTER__ > 4
  memset(info->e_error.__e_pad,0,sizeof(info->e_error.__e_pad));
 #endif
@@ -1338,7 +1339,9 @@ errorinfo_copy_to_user(USER CHECKED struct user_task_segment *useg,
      info->e_error.e_noncontinuable.nc_origip >= KERNEL_BASE)
      info->e_error.e_noncontinuable.nc_origip = context->c_eip;
  /* Delete error context flags that wouldn't make sense after the propagation. */
- info->e_error.e_flag &= ~(ERR_FRESUMABLE|ERR_FRESUMEFUNC|ERR_FRESUMENEXT);
+ info->e_error.e_flag &= ~(ERR_FRESUMEFUNC);
+ if (TASK_USERCTX_TYPE(mode) == TASK_USERCTX_TYPE_INTR_SYSCALL)
+     info->e_error.e_flag &= ~(ERR_FRESUMENEXT|ERR_FRESUMABLE);
  memcpy(&useg->ts_xcurrent.e_error,
         &info->e_error,
         sizeof(struct exception_data));
@@ -1479,7 +1482,7 @@ serve_rpc:
    unwind.c_ss                       = context->c_iret.ir_ss;
 #endif
    if (info.e_error.e_flag & ERR_FRESUMENEXT)
-       ++unwind.c_context.c_iret.ir_eip;
+       ++unwind.c_context.c_iret.ir_pip;
    TRY {
     USER CHECKED struct user_task_segment *useg;
     sigset_t user_signal_set;
@@ -1492,13 +1495,13 @@ serve_rpc:
     useg = useg->ts_self;
     validate_writable(useg,COMPILER_OFFSETAFTER(struct user_task_segment,ts_xcurrent));
     /* Unwind the stack and search for user-space exception handlers. */
-    while (unwind.c_context.c_iret.ir_eip < KERNEL_BASE) {
+    while (unwind.c_context.c_iret.ir_pip < KERNEL_BASE) {
      struct fde_info fde;
      struct exception_handler_info hand;
-     --unwind.c_context.c_iret.ir_eip;
-     if (!linker_findfde(unwind.c_context.c_iret.ir_eip,&fde))
+     --unwind.c_context.c_iret.ir_pip;
+     if (!linker_findfde(unwind.c_context.c_iret.ir_pip,&fde))
           goto cannot_unwind;
-     if (linker_findexcept(unwind.c_context.c_iret.ir_eip,info.e_error.e_code,&hand)) {
+     if (linker_findexcept(unwind.c_context.c_iret.ir_pip,info.e_error.e_code,&hand)) {
       /* Found a user-space exception handler! */
       if (hand.ehi_flag & EXCEPTION_HANDLER_FUSERFLAGS)
           info.e_error.e_flag |= hand.ehi_mask & ERR_FUSERMASK;
@@ -1507,7 +1510,7 @@ serve_rpc:
        if (!eh_return(&fde,&unwind.c_context,EH_FRESTRICT_USERSPACE|EH_FDONT_UNWIND_SIGFRAME))
             goto cannot_unwind;
        /* Override the IP to use the entry point.  */
-       unwind.c_context.c_eip = (uintptr_t)hand.ehi_entry;
+       unwind.c_context.c_pip = (uintptr_t)hand.ehi_entry;
        assert(hand.ehi_desc.ed_type == EXCEPTION_DESCRIPTOR_TYPE_BYPASS); /* XXX: What should we do here? */
        CPU_CONTEXT_SP(unwind.c_context) -= hand.ehi_desc.ed_safe;
        useg->ts_xcurrent.e_rtdata.xrt_free_sp = CPU_CONTEXT_SP(unwind.c_context);
@@ -1553,7 +1556,7 @@ serve_rpc:
                                              EFLAGS_AC|EFLAGS_VIF|EFLAGS_VIP|
                                              EFLAGS_ID);
       /* Now copy the exception context to user-space. */
-      errorinfo_copy_to_user(useg,(struct exception_info *)&info,context);
+      errorinfo_copy_to_user(useg,(struct exception_info *)&info,context,mode);
       /* Set the unwound context as what should be returned to for user-space. */
 #if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
       memcpy(&context->c_gpregs,&unwind.c_context.c_gpregs,
@@ -1564,9 +1567,9 @@ serve_rpc:
              sizeof(struct x86_gpregs));
 #endif /* CONFIG_NO_X86_SEGMENTATION */
 #ifdef __x86_64__
-   memcpy(&context->c_iret,
-          &unwind.c_context.c_iret,
-          sizeof(struct x86_irregs64));
+      memcpy(&context->c_iret,
+             &unwind.c_context.c_iret,
+             sizeof(struct x86_irregs64));
 #else
       context->c_iret.ir_useresp = unwind.c_context.c_esp;
       context->c_iret.ir_eip     = unwind.c_context.c_iret.ir_eip;
@@ -1766,7 +1769,7 @@ cannot_signal:;
      if (ueh.ds_type != MODULE_SYMBOL_INVALID) {
       void *ueh_sp;
       /* Found a handler! - Copy exception information to user-space. */
-      errorinfo_copy_to_user(useg,&info,context);
+      errorinfo_copy_to_user(useg,&info,context,mode);
       /* Set the user-defined context that should be used for UEH handlers. */
       ueh_sp = useg->ts_ueh_sp;
       COMPILER_BARRIER();

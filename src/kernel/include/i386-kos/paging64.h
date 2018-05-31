@@ -213,10 +213,10 @@ typedef PHYS u64 vm_phys_t;  /* A physical memory pointer. */
 
 /* Page index masks of different page directory levels.
  * These masks describe the bits that affect the path chosen to each a given E-level. */
-#define X86_PDIR_E1_PAGEMASK   __UINT64_C(0xfffffffff)
-#define X86_PDIR_E2_PAGEMASK   __UINT64_C(0xffffffe00)
-#define X86_PDIR_E3_PAGEMASK   __UINT64_C(0xffffc0000)
-#define X86_PDIR_E4_PAGEMASK   __UINT64_C(0xff8000000)
+#define X86_PDIR_E1_PAGEMASK   __UINT64_C(0xfffffffff) /* 1 Kib */
+#define X86_PDIR_E2_PAGEMASK   __UINT64_C(0xffffffe00) /* 2 MiB */
+#define X86_PDIR_E3_PAGEMASK   __UINT64_C(0xffffc0000) /* 1 GiB */
+#define X86_PDIR_E4_PAGEMASK   __UINT64_C(0xff8000000) /* 512 GiB */
 
 /* Page directory level indices. */
 #define X86_PDIR_E1_INDEX(vpage)   (__CCAST(u64)(vpage) & 0x1ff)        /* For `union x86_pdir_e2::p_e1' */

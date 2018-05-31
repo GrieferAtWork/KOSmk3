@@ -98,7 +98,7 @@ struct module_state_info {
 #if __SIZEOF_POINTER__ > 4
     __uint16_t    __si_pad[(sizeof(void *)-2)/2]; /* ... */
 #endif
-    void           *si_entry;    /* [valid_if(si_flags & MODULE_FENTRY)] Module entry address. */
+    void           *si_entry;    /* [valid_if(si_modflags & MODULE_FENTRY)] Module entry address. */
 };
 #endif /* __CC__ */
 

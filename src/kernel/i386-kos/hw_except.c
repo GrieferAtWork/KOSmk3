@@ -92,6 +92,9 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
  /* Extract the fault address before re-enabling interrupts. */
  fault_address = (void *)__rdcr2();
  assert(!PREEMPTION_ENABLED());
+#ifdef __x86_64__
+ assertf(__rdgsbaseq() >= KERNEL_BASE,"GS segment base corrupted");
+#endif
 #if defined(__x86_64__) && 0
  debug_printf("#PF at %p (from %p; errcode %Ix; gs_base: %p)\n",
               fault_address,context->c_pip,errcode,
@@ -369,9 +372,9 @@ restart_syscall:
 
  /* Construct and emit a SEGFAULT exception. */
  info                 = error_info();
+ memset(&info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
  info->e_error.e_code = E_SEGFAULT;
  info->e_error.e_flag = ERR_FRESUMABLE|ERR_FRESUMENEXT;
- memset(&info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
  info->e_error.e_segfault.sf_reason = errcode; /* The reason flags are defined to mirror the #PF error code. */
  info->e_error.e_segfault.sf_vaddr  = fault_address;
  /* Copy the CPU xcontext at the time of the exception. */

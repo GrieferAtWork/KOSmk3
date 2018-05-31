@@ -24,12 +24,48 @@
 
 #include <hybrid/compiler.h>
 #include <kernel/panic.h>
+#include <kernel/debug.h>
 #include <i386-kos/ipi.h>
 #include <hybrid/section.h>
 
 DECL_BEGIN
 
 PRIVATE ATTR_COLDBSS ATOMIC_DATA struct cpu *panic_cpu = NULL;
+
+PUBLIC ATTR_NOTHROW void KCALL kernel_panic_recover(void) {
+#ifdef __x86_64__
+ /* Try to fix a corrupted GS_BASE value. */
+ u64 gs_base = __rdgsbaseq();
+ if (gs_base < KERNEL_BASE) {
+  debug_printf("[PANIC] Corrupted gs_base = %p. Trying to recover\n",gs_base);
+  /* Maybe just a missing / superfluous swapgs? */
+  __swapgs();
+  gs_base = __rdgsbaseq();
+  if (gs_base < KERNEL_BASE) {
+   /* This is bad... */
+   debug_printf("[PANIC] user_gs_base = %p isn't it, either\n",gs_base);
+#ifndef CONFIG_NO_SMP
+   if (cpu_count == 1)
+#endif
+   {
+    /* Only one CPU, so we know that's us! */
+    __wrgsbaseq((u64)cpu_vector[0]->c_running);
+   }
+#ifndef CONFIG_NO_SMP
+   else {
+    /* XXX: Use the LAPIC ID to find our CPU? */
+
+    /* Just go with the boot task. - We've shut down
+     * everything already, so it shouldn't hurt too much... */
+    __wrgsbaseq((u64)&_boot_task);
+   }
+#endif
+   debug_printf("[PANIC] Recovered gs_base = %p\n",__rdgsbaseq());
+  }
+ }
+#endif
+}
+
 
 PUBLIC ATTR_NOTHROW NOIRQ bool KCALL kernel_panic_shootdown(void) {
  struct x86_ipi command;

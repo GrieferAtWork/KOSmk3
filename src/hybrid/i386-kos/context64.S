@@ -24,6 +24,7 @@
 #include "../hybrid.h"
 #ifdef __KERNEL__
 #include <i386-kos/gdt.h>
+#include <i386-kos/interrupt.h>
 #endif
 
 PUBLIC_ENTRY(cpu_getcontext)
@@ -143,7 +144,7 @@ INTERN_ENTRY(libc_cpu_setcontext)
 	cli    /* Prevent interrupts while we have an invalid stack loaded */
 	leaq   X86_CONTEXT64_OFFSETOF_IRET(%rdi), %rsp
 	movq   X86_CONTEXT64_OFFSETOF_GPREGS+X86_GPREGS64_OFFSETOF_RDI(%rdi), %rdi
-	iretq  /* Return to the context target. */
+	irq_leave /* Return to the context target. */
 #else /* __KERNEL__ */
 /*	movq   X86_CONTEXT64_OFFSETOF_CS(%rdi), %cs */
 /*	movq   X86_CONTEXT64_OFFSETOF_SS(%rdi), %ss */

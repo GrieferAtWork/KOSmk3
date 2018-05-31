@@ -169,8 +169,13 @@ struct PACKED x86_segment {
 #define X86_SEG_CODE_PL3    (X86_SEG_FLAG_LONGMODE|X86_SEG_ACCESS_SYSTEM|X86_SEG_ACCESS_PRESENT|X86_SEG_ACCESS_PRIVL(3)|X86_SEG_CODE_EXRD)
 #define X86_SEG_DATA_PL3                          (X86_SEG_ACCESS_SYSTEM|X86_SEG_ACCESS_PRESENT|X86_SEG_ACCESS_PRIVL(3)|X86_SEG_DATA_RDWR)
 /* TODO: The following two have not been confirmed, yet (so they probably don't work...). */
+#if 1 /* XXX: This seems to work (just a copy & paste of the 32-bit flags...) */
+#define X86_SEG_CODE_PL3_32 (X86_SEG_FLAG_32BIT|X86_SEG_FLAG_AVAILABLE|X86_SEG_FLAG_GRAN|X86_SEG_ACCESS_SYSTEM|X86_SEG_ACCESS_PRESENT|X86_SEG_ACCESS_PRIVL(3)|X86_SEG_CODE_EXRD)
+#define X86_SEG_DATA_PL3_32 (X86_SEG_FLAG_32BIT|X86_SEG_FLAG_AVAILABLE|X86_SEG_FLAG_GRAN|X86_SEG_ACCESS_SYSTEM|X86_SEG_ACCESS_PRESENT|X86_SEG_ACCESS_PRIVL(3)|X86_SEG_DATA_RDWR)
+#else
 #define X86_SEG_CODE_PL3_32                       (X86_SEG_ACCESS_SYSTEM|X86_SEG_ACCESS_PRESENT|X86_SEG_ACCESS_PRIVL(3)|X86_SEG_CODE_EXRD)
 #define X86_SEG_DATA_PL3_32                       (X86_SEG_ACCESS_SYSTEM|X86_SEG_ACCESS_PRESENT|X86_SEG_ACCESS_PRIVL(3)|X86_SEG_DATA_RDWR)
+#endif
 #else
 /* Useful predefined x86_segment configurations
  * NOTE: The following configs match what is described here: http://wiki.osdev.org/Getting_to_Ring_3

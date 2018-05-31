@@ -673,7 +673,8 @@ eh_return(struct fde_info *__restrict info,
     ctx->c_rsp = iret->ir_rsp;
     assertf(iret->ir_eflags & EFLAGS_IF,"Corrupt unwind IRET tail {%p,%p,%p,%p}",
             ctx->c_rip,ctx->c_rsp,iret->ir_cs,iret->ir_rflags);
-    assertf(iret->ir_cs == X86_USER_CS,"Corrupt unwind IRET tail {%p,%p,%p,%p}",
+    assertf(iret->ir_cs == X86_USER_CS || iret->ir_cs == X86_USER_CS32,
+            "Corrupt unwind IRET tail {%p,%p,%p,%p}",
             ctx->c_rip,ctx->c_rsp,iret->ir_cs,iret->ir_rflags);
    } else {
     assertf(iret->ir_cs == X86_KERNEL_CS,"Corrupt unwind IRET tail=%p {%p,%p,%p,%p}",

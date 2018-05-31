@@ -45,11 +45,16 @@
 #include <string.h>
 #include <except.h>
 #include <stdlib.h>
+#include <elf.h>
 #include <kos/context.h>
 #include <i386-kos/gdt.h>
 #include <asm/cpu-flags.h>
 
 DECL_BEGIN
+
+#ifndef KERNEL_CORE_BASE
+#define KERNEL_CORE_BASE KERNEL_BASE
+#endif
 
 
 /* Mount the kernel VFS root filesystem. */
@@ -184,19 +189,32 @@ void KCALL x86_switch_to_userspace(void) {
 
   /* Allocate a user-space thread segment for the boot task. */
   task_alloc_userseg();
+  memset(&ctx,0,sizeof(struct cpu_hostcontext_user));
+#ifdef __x86_64__
+  ctx.c_iret.ir_rip = init_app->a_loadaddr+init_mod->m_entry;
+  if (init_app->a_module->m_machine == EM_386) {
+   /* XXX: Use 32-bit user-task-segments. */
+   WR_USER_FSBASE((u64)_boot_task.t_userseg);
+#ifndef CONFIG_NO_DOS_COMPAT
+   WR_USER_GSBASE((u64)&_boot_task.t_userseg->ts_tib);
+#endif /* !CONFIG_NO_DOS_COMPAT */
+   ctx.c_iret.ir_cs = X86_USER_CS32;
+   ctx.c_iret.ir_ss = X86_SEG_USER_SS32;
+  } else {
+   WR_USER_GSBASE((u64)_boot_task.t_userseg);
+#ifndef CONFIG_NO_DOS_COMPAT
+   WR_USER_FSBASE((u64)&_boot_task.t_userseg->ts_tib);
+#endif /* !CONFIG_NO_DOS_COMPAT */
+   ctx.c_iret.ir_cs = X86_USER_CS;
+   ctx.c_iret.ir_ss = X86_SEG_USER_SS;
+  }
+  ctx.c_iret.ir_rflags = EFLAGS_IF;
+  ctx.c_iret.ir_rsp    = VM_PAGE2ADDR(stack->us_pageend);
+#else
   set_user_tls_register(_boot_task.t_userseg);
 #ifndef CONFIG_NO_DOS_COMPAT
   set_user_tib_register(&_boot_task.t_userseg->ts_tib);
 #endif /* !CONFIG_NO_DOS_COMPAT */
-
-  memset(&ctx,0,sizeof(struct cpu_hostcontext_user));
-#ifdef __x86_64__
-  ctx.c_iret.ir_rip    = init_app->a_loadaddr+init_mod->m_entry;
-  ctx.c_iret.ir_cs     = X86_USER_CS;
-  ctx.c_iret.ir_rflags = EFLAGS_IF;
-  ctx.c_iret.ir_rsp    = VM_PAGE2ADDR(stack->us_pageend);
-  ctx.c_iret.ir_ss     = X86_SEG_USER_SS;
-#else
   ctx.c_iret.ir_eip     = init_app->a_loadaddr+init_mod->m_entry;
   ctx.c_iret.ir_cs      = X86_USER_CS;
   ctx.c_iret.ir_eflags  = EFLAGS_IF;
@@ -274,8 +292,8 @@ void KCALL x86_switch_to_userspace(void) {
                                * .free segment in bad or NVS ram (which it really shouldn't have) */
     ++iter;
    }
-   assert(iter[0].mi_addr == (uintptr_t)kernel_free_start - KERNEL_BASE);
-   assert(iter[1].mi_addr == (uintptr_t)kernel_free_end - KERNEL_BASE);
+   assert(iter[0].mi_addr == (uintptr_t)kernel_free_start - KERNEL_CORE_BASE);
+   assert(iter[1].mi_addr == (uintptr_t)kernel_free_end - KERNEL_CORE_BASE);
    if (iter[1].mi_type == MEMTYPE_RAM) {
     /* Merge with the next segment. */
     iter[1].mi_addr = iter[0].mi_addr;
@@ -288,11 +306,29 @@ void KCALL x86_switch_to_userspace(void) {
     iter[0].mi_type = MEMTYPE_RAM;
    }
 no_free_segment:
-   page_free(VM_ADDR2PAGE((uintptr_t)kernel_free_start - KERNEL_BASE),
+   page_free(VM_ADDR2PAGE((uintptr_t)kernel_free_start - KERNEL_CORE_BASE),
             (uintptr_t)kernel_free_size / PAGESIZE);
 
    debug_printf("[BOOT] Commencing initial switch to user-space\n");
 
+#ifdef __x86_64__
+   /* On x86_64, we don't get rid of the identity mapping,
+    * meaning that we can directly switch to user-space! */
+   /* XXX: I think, fs/gs base registers are silently re-loaded by the CPU
+    *      when entering compatibility mode, so us setting the user-space
+    *      segment register bases above isn't being preserved in user-space.
+    * Right now, everything is configured to start the 32-bit version of
+    * /bin/init in compatibility mode. And don't get me wrong: it does start,
+    * and works just as intended. However, the problems start when it tries
+    * to access it's task segment to read the process environment pointer,
+    * at which point it E_SEGFAULT-s because FS.BASE is NULL (contrary to
+    * what we had set before)
+    * The thing is: I'm not quite sure how to deal with this, as I really
+    *               don't want to re-introduce segment indices in CPU
+    *               contexts. (There has to be a better way...)
+    */
+   cpu_setcontext(&ctx);
+#else
    /* With all memory descriptors now updated to view the
     * kernel's .free segment as unused RAM, the only thing
     * left for us to do, is to unmap() the segment in the
@@ -300,18 +336,6 @@ no_free_segment:
     * XXX: We also must send an IPI to other CPUs... But we'd
     *      need to do that _after_ unmapping the code that
     *      would control that operation... */
-#ifdef __x86_64__
-   __asm__ __volatile__("pushq %0\n"                     /* cpu_setcontext([ctx]) */
-                        "pushq $cpu_setcontext_pop\n"    /* pagedir_map() -> RETURN_ADDRESS; */
-                        "jmp   pagedir_map\n"            /* pagedir_map(...) */
-                        :
-                        : "r" (&ctx)
-                        , "D" (LOAD_FAR_POINTER(kernel_free_minpage))   /* pagedir_map([virt_page],num_pages,phys_page,perm); */
-                        , "S" (LOAD_FAR_POINTER(kernel_free_num_pages)) /* pagedir_map(virt_page,[num_pages],phys_page,perm); */
-                        , "d" ((uintptr_t)0)                            /* pagedir_map(virt_page,num_pages,[phys_page],perm); */
-                        , "c" ((uintptr_t)PAGEDIR_MAP_FUNMAP)           /* pagedir_map(virt_page,num_pages,phys_page,[perm]); */
-                        : "memory");
-#else
    __asm__ __volatile__("pushl %0\n"                     /* cpu_setcontext([ctx]) */
                         "pushl %1\n"                     /* pagedir_map(virt_page,num_pages,phys_page,[perm]); */
                         "pushl $0\n"                     /* pagedir_map(virt_page,num_pages,[phys_page],perm); */

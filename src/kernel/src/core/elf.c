@@ -718,6 +718,30 @@ Elf_NewApplication(struct module_patcher *__restrict self) {
     }
 
     /* Load required dependencies. */
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+    if (ELF_ISMACHINE32(app->a_module->m_machine)) {
+     Elf32_Dyn *iter,*end;
+     char *strtab = (char *)(loadaddr + mod->e_dyn.di_strtab);
+     iter = (Elf32_Dyn *)(loadaddr + mod->e_dyn.di_needmin);
+     end  = (Elf32_Dyn *)(loadaddr + mod->e_dyn.di_needend);
+     /* Set the alternative module run path according to what the ELF binary wants. */
+     if (mod->e_dyn.di_runpath < mod->e_dyn.di_strsiz)
+         patcher_setaltpath(self,strtab + mod->e_dyn.di_runpath);
+     for (; iter < end; ++iter) {
+      Elf32_Addr offset;
+      char *name;
+      if (iter->d_tag != DT_NEEDED)
+          continue;
+      offset = iter->d_un.d_ptr;
+      COMPILER_READ_BARRIER();
+      name = strtab + offset;
+      if (offset >= mod->e_dyn.di_strsiz)
+          continue;
+      /* Load the required dependency. */
+      patcher_require_string(self,name,strlen(name));
+     }
+    } else
+#endif
     {
      Elf_Dyn *iter,*end;
      char *strtab = (char *)(loadaddr + mod->e_dyn.di_strtab);
@@ -727,9 +751,15 @@ Elf_NewApplication(struct module_patcher *__restrict self) {
      if (mod->e_dyn.di_runpath < mod->e_dyn.di_strsiz)
          patcher_setaltpath(self,strtab + mod->e_dyn.di_runpath);
      for (; iter < end; ++iter) {
-      char *name = strtab + iter->d_un.d_ptr;
-      if (iter->d_tag != DT_NEEDED) continue;
-      if (iter->d_un.d_ptr >= mod->e_dyn.di_strsiz) continue;
+      Elf_Addr offset;
+      char *name;
+      if (iter->d_tag != DT_NEEDED)
+          continue;
+      offset = iter->d_un.d_ptr;
+      COMPILER_READ_BARRIER();
+      name = strtab + offset;
+      if (offset >= mod->e_dyn.di_strsiz)
+          continue;
       /* Load the required dependency. */
       patcher_require_string(self,name,strlen(name));
      }

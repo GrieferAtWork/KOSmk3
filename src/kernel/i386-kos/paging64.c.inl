@@ -327,13 +327,13 @@ pagedir_fini(VIRT pagedir_t *__restrict self) {
     if (e2_vector[k].p_flag & PAGE_F2MIB)
         continue; /* Block is a 2-megabyte-page. */
     /* Free the E1-vector. */
-    page_free(e2_vector[k].p_addr & PAGE_FADDR,1);
+    page_free(VM_ADDR2PAGE(e2_vector[k].p_addr),1);
    }
    /* Free the E2-vector. */
-   page_free(e3_vector[j].p_addr & PAGE_FADDR,1);
+   page_free(VM_ADDR2PAGE(e3_vector[j].p_addr),1);
   }
   /* Free the E3-vector. */
-  page_free(e.e4.p_data & PAGE_FADDR,1);
+  page_free(VM_ADDR2PAGE(e.e4.p_data),1);
  }
  /* Switch back to the real page directory if we had to change it. */
  if (did_switch) {
@@ -348,7 +348,7 @@ pagedir_fini(VIRT pagedir_t *__restrict self) {
 #define VM_PAGE2ENTADDR(pageno) ((pageno) << 12)
 
 PRIVATE void KCALL
-pagedir_allocate_e4(unsigned int x4) {
+pagedir_allocate_e3(unsigned int x4) {
  E4 ent; E3 *vec;
  ent = E4_IDENTITY[x4];
  if ((ent.p_data & PAGE_FADDR) != PAGE_ABSENT)
@@ -369,7 +369,7 @@ pagedir_allocate_e4(unsigned int x4) {
  COMPILER_WRITE_BARRIER();
 }
 PRIVATE void KCALL
-pagedir_allocate_e3(unsigned int x4, unsigned int x3) {
+pagedir_allocate_e2(unsigned int x4, unsigned int x3) {
  E3 ent; E2 *vec;
  ent = E3_IDENTITY[x4][x3];
 #ifndef CONFIG_NO_GIGABYTE_PAGES
@@ -421,7 +421,7 @@ pagedir_allocate_e3(unsigned int x4, unsigned int x3) {
  }
 }
 PRIVATE void KCALL
-pagedir_allocate_e2(unsigned int x4, unsigned int x3, unsigned int x2) {
+pagedir_allocate_e1(unsigned int x4, unsigned int x3, unsigned int x2) {
  E2 ent; E1 *vec;
  ent = E2_IDENTITY[x4][x3][x2];
  if (ent.p_flag & PAGE_F2MIB) {
@@ -469,23 +469,128 @@ pagedir_allocate_e2(unsigned int x4, unsigned int x3, unsigned int x2) {
 
 
 
+PRIVATE void KCALL
+pagedir_delete_e1(unsigned int x4, unsigned int x3, unsigned int x2) {
+ E2 ent = E2_IDENTITY[x4][x3][x2];
+ if (ent.p_flag & PAGE_F2MIB) {
+  E2_IDENTITY[x4][x3][x2].p_addr = PAGE_ABSENT;
+  return;
+ }
+ if ((ent.p_data & PAGE_FADDR) == PAGE_ABSENT)
+      return; /* Nothing mapped here! */
+ E2_IDENTITY[x4][x3][x2].p_addr = PAGE_ABSENT;
+ page_free(VM_ADDR2PAGE(ent.p_data),1);
+}
+PRIVATE void KCALL
+pagedir_delete_e2(unsigned int x4, unsigned int x3) {
+ E3 ent; unsigned int x2;
+ ent = E3_IDENTITY[x4][x3];
+#ifndef CONFIG_NO_GIGABYTE_PAGES
+ if (ent.p_flag & PAGE_F1GIB) {
+  E3_IDENTITY[x4][x3].p_addr = PAGE_ABSENT;
+  return;
+ }
+#endif /* !CONFIG_NO_GIGABYTE_PAGES */
+ if ((ent.p_data & PAGE_FADDR) == PAGE_ABSENT)
+      return; /* Nothing mapped here! */
+ for (x2 = 0; x2 < E2_COUNT; ++x2) {
+  pagedir_delete_e1(x4,x3,x2);
+ }
+ E3_IDENTITY[x4][x3].p_data = PAGE_ABSENT;
+ page_free(VM_ADDR2PAGE(ent.p_data),1);
+}
 LOCAL void KCALL
-pagedir_split_before(VIRT vm_vpage_t virt_page) {
+pagedir_trydelete_e1(unsigned int x4, unsigned int x3, unsigned int x2) {
+ E4 ent4; E3 ent3;
+ ent4 = E4_IDENTITY[x4];
+ if ((ent4.p_data & PAGE_FADDR) == PAGE_ABSENT)
+      return; /* Nothing mapped here! */
+ ent3 = E3_IDENTITY[x4][x3];
+ if ((ent3.p_data & PAGE_FADDR) == PAGE_ABSENT
+#ifndef CONFIG_NO_GIGABYTE_PAGES
+     ||
+     (ent3.p_flag & X86_PAGE_F1GIB)
+#endif
+     )
+      return; /* Nothing mapped here! */
+ pagedir_delete_e2(x4,x3);
+}
+LOCAL void KCALL
+pagedir_trydelete_e2(unsigned int x4, unsigned int x3) {
+ E4 ent4 = E4_IDENTITY[x4];
+ if ((ent4.p_data & PAGE_FADDR) == PAGE_ABSENT)
+      return; /* Nothing mapped here! */
+ pagedir_delete_e2(x4,x3);
+}
+LOCAL void KCALL
+pagedir_trydelete_e3(unsigned int x4) {
+ E4 ent; unsigned int x3;
+ ent = E4_IDENTITY[x4];
+ if ((ent.p_data & PAGE_FADDR) == PAGE_ABSENT)
+      return; /* Nothing mapped here! */
+ for (x3 = 0; x3 < E3_COUNT; ++x3) {
+  pagedir_delete_e2(x4,x3);
+ }
+ E4_IDENTITY[x4].p_data = PAGE_ABSENT;
+ page_free(VM_ADDR2PAGE(ent.p_data),1);
+}
+
+
+LOCAL void KCALL
+pagedir_split_before(VIRT vm_vpage_t virt_page, bool for_unmap) {
  unsigned int x4,x3;
- if (!(virt_page & ~E4_PAGEMASK))
+ if (!(virt_page & ~E4_PAGEMASK) && for_unmap)
        return; /* Address is located on an E4-boundary (nothing to do here!) */
- pagedir_allocate_e4(x4 = E4_INDEX(virt_page));
- if (!(virt_page & ~E3_PAGEMASK))
+ pagedir_allocate_e3(x4 = E4_INDEX(virt_page));
+ if (!(virt_page & ~E3_PAGEMASK) &&
+      (for_unmap
+#ifndef CONFIG_NO_GIGABYTE_PAGES
+    || x86_paging_features & PAGING_FEATURE_1GIB_PAGES
+#endif
+       ))
        return; /* Address is located on an E3-boundary */
- pagedir_allocate_e3(x4,x3 = E3_INDEX(virt_page));
+ pagedir_allocate_e2(x4,x3 = E3_INDEX(virt_page));
  if (!(virt_page & ~E2_PAGEMASK))
        return; /* Address is located on an E3-boundary */
- pagedir_allocate_e2(x4,x3,E2_INDEX(virt_page));
+ pagedir_allocate_e1(x4,x3,E2_INDEX(virt_page));
 }
 
 LOCAL void KCALL
 pagedir_merge_before(VIRT vm_vpage_t virt_page) {
  /* TODO */
+}
+
+
+
+LOCAL void KCALL
+pagedir_addperm_e2(unsigned int x4,
+                   unsigned int x3,
+                   unsigned int x2,
+                   u64 edata) {
+ u64 flags;
+ flags = E2_IDENTITY[x4][x3][x2].p_flag;
+ flags |= edata & (PAGE_FMASK & ~PAGE_FNOEXEC);
+ flags &= (edata & PAGE_FNOEXEC) | ~PAGE_FNOEXEC;
+ E2_IDENTITY[x4][x3][x2].p_flag = flags;
+}
+LOCAL void KCALL
+pagedir_addperm_e3(unsigned int x4,
+                   unsigned int x3,
+                   u64 edata) {
+ u64 flags;
+ flags = E3_IDENTITY[x4][x3].p_flag;
+ flags |= edata & (PAGE_FMASK & ~PAGE_FNOEXEC);
+ flags &= (edata & PAGE_FNOEXEC) | ~PAGE_FNOEXEC;
+ E3_IDENTITY[x4][x3].p_flag = flags;
+}
+LOCAL void KCALL
+pagedir_addperm_e4(unsigned int x4,
+                   u64 edata) {
+ u64 flags;
+ flags = E4_IDENTITY[x4].p_flag;
+ flags |= edata & (PAGE_FMASK & ~PAGE_FNOEXEC);
+ flags &= (edata & PAGE_FNOEXEC) | ~PAGE_FNOEXEC;
+ E4_IDENTITY[x4].p_flag = flags;
 }
 
 
@@ -546,8 +651,8 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
  edata = (u64)VM_PAGE2ADDR(phys_page) | x86_pageperm_matrix[perm & 0xf];
  if (virt_page >= KERNEL_BASE_PAGE)
      edata |= x86_page_global; /* Kernel-share mapping. */
- pagedir_split_before(vpage_start);
- pagedir_split_before(vpage_end);
+ pagedir_split_before(vpage_start,(perm & PAGEDIR_MAP_FUNMAP) != 0);
+ pagedir_split_before(vpage_end,(perm & PAGEDIR_MAP_FUNMAP) != 0);
 
  /* First off: Map all unaligned 4Kib pages.
   *            Thanks to `pagedir_split_before(vpage_start)',
@@ -555,31 +660,271 @@ pagedir_map(VIRT vm_vpage_t virt_page, size_t num_pages,
   *            have all been fully allocated! */
  max_pages = E1_INDEX(virt_page);
  if (max_pages != 0) {
-  E1 *vec; unsigned int offset,i;
+  E1 *vec; unsigned int offset;
+  unsigned int x4,x3,x2;
   offset    = max_pages;
   max_pages = E1_COUNT - max_pages;
   if (max_pages > num_pages)
       max_pages = num_pages;
   assert(max_pages != 0);
-  vec = E1_IDENTITY[E4_INDEX(virt_page)]
-                   [E3_INDEX(virt_page)]
-                   [E2_INDEX(virt_page)];
-  for (i = 0; i < max_pages; ++i) {
-   vec[offset + i].p_addr = edata;
-   edata += E1_SIZE;
+  vec = E1_IDENTITY[x4 = E4_INDEX(virt_page)]
+                   [x3 = E3_INDEX(virt_page)]
+                   [x2 = E2_INDEX(virt_page)];
+  if (perm & PAGEDIR_MAP_FUNMAP) {
+   memsetq(&vec[offset],PAGE_ABSENT,max_pages);
+  } else {
+   unsigned int x1;
+   for (x1 = 0; x1 < max_pages; ++x1) {
+    vec[offset + x1].p_addr = edata;
+    edata += E1_SIZE;
+   }
+   pagedir_addperm_e2(x4,x3,x2,edata);
+   pagedir_addperm_e3(x4,x3,edata);
+   pagedir_addperm_e4(x4,edata);
   }
   num_pages -= max_pages;
   if (!num_pages)
        goto done;
   virt_page += max_pages;
  }
- /* At this point, we're aligned for 2Mib pages. */
- assertf(IS_ALIGNED(virt_page,X86_PDIR_E2_SIZE / PAGESIZE),
-         "Not aligned: %p",virt_page);
- assertf(0,"TODO");
-
- /* TODO */
-
+ max_pages = E2_INDEX(virt_page);
+ if (max_pages != 0 &&
+    (perm & PAGEDIR_MAP_FUNMAP || IS_ALIGNED(edata & X86_PAGE_FADDR,E2_SIZE))) {
+  E2 *vec; unsigned int offset;
+  /* At this point, we're aligned for 2Mib pages. */
+  assertf(IS_ALIGNED(virt_page,X86_PDIR_E2_SIZE / PAGESIZE),
+          "Not aligned: %p",virt_page);
+  offset    = max_pages;
+  max_pages = E2_COUNT - max_pages;
+  if (max_pages > num_pages / ((~X86_PDIR_E2_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK))
+      max_pages = num_pages / ((~X86_PDIR_E2_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK);
+  if (max_pages) {
+   unsigned int x4,x3;
+   vec = E2_IDENTITY[x4 = E4_INDEX(virt_page)]
+                    [x3 = E3_INDEX(virt_page)];
+   if (perm & PAGEDIR_MAP_FUNMAP) {
+    memsetq(&vec[offset],PAGE_ABSENT,max_pages);
+   } else {
+    unsigned int i;
+    for (i = 0; i < max_pages; ++i) {
+     vec[offset + i].p_addr = edata | PAGE_F2MIB;
+     edata += E2_SIZE;
+    }
+    pagedir_addperm_e3(x4,x3,edata);
+    pagedir_addperm_e4(x4,edata);
+   }
+   num_pages -= max_pages * ((~X86_PDIR_E2_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK);
+   if (!num_pages)
+        goto done;
+   virt_page += max_pages;
+  }
+ }
+ max_pages = E3_INDEX(virt_page);
+#ifndef CONFIG_NO_GIGABYTE_PAGES
+ if (max_pages != 0 &&
+    (perm & PAGEDIR_MAP_FUNMAP ||
+    (x86_paging_features & PAGING_FEATURE_1GIB_PAGES &&
+     IS_ALIGNED(edata & X86_PAGE_FADDR,E3_SIZE))))
+#else /* !CONFIG_NO_GIGABYTE_PAGES */
+ if (max_pages != 0 && (perm & PAGEDIR_MAP_FUNMAP))
+#endif /* CONFIG_NO_GIGABYTE_PAGES */
+ {
+  E3 *vec; unsigned int offset;
+  /* At this point, we're aligned for 1Gib pages. */
+  assertf(IS_ALIGNED(virt_page,X86_PDIR_E3_SIZE / PAGESIZE),
+          "Not aligned: %p",virt_page);
+  offset    = max_pages;
+  max_pages = E3_COUNT - max_pages;
+  if (max_pages > num_pages / (~X86_PDIR_E3_PAGEMASK + 1))
+      max_pages = num_pages / (~X86_PDIR_E3_PAGEMASK + 1);
+  if (max_pages) {
+   unsigned int x4;
+   vec = E3_IDENTITY[x4 = E4_INDEX(virt_page)];
+#ifndef CONFIG_NO_GIGABYTE_PAGES
+   if (!(perm & PAGEDIR_MAP_FUNMAP)) {
+    unsigned int i;
+    for (i = 0; i < max_pages; ++i) {
+     vec[offset + i].p_addr = edata | PAGE_F1GIB;
+     edata += E3_SIZE;
+    }
+    pagedir_addperm_e4(x4,edata);
+   } else
+#endif
+   {
+    memsetq(&vec[offset],PAGE_ABSENT,max_pages);
+   }
+   num_pages -= max_pages * ((~X86_PDIR_E3_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK);
+   if (!num_pages)
+        goto done;
+   virt_page += max_pages;
+  }
+ }
+ /* Now map all full 512 Gib pages! */
+ while (num_pages >= ((~X86_PDIR_E4_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK)) {
+  unsigned int x4,x3,x2,x1;
+  x4 = E4_INDEX(virt_page);
+  assertf(IS_ALIGNED(virt_page,X86_PDIR_E4_SIZE / PAGESIZE),
+          "Not aligned: %p",virt_page);
+  if (perm & PAGEDIR_MAP_FUNMAP) {
+   pagedir_trydelete_e3(x4);
+  } else {
+   pagedir_allocate_e3(x4);
+#ifndef CONFIG_NO_GIGABYTE_PAGES
+   if ((x86_paging_features & PAGING_FEATURE_1GIB_PAGES) &&
+        IS_ALIGNED(edata & X86_PAGE_FADDR,E3_SIZE)) {
+    for (x3 = 0; x3 < E3_COUNT; ++x3) {
+     pagedir_trydelete_e2(x4,x3);
+     /* Map as 1GiB pages. */
+     E3_IDENTITY[x4][x3].p_addr = edata | PAGE_F1GIB;
+     edata += X86_PDIR_E3_SIZE;
+    }
+    pagedir_addperm_e4(x4,edata);
+   } else
+#endif
+   if (IS_ALIGNED(edata & X86_PAGE_FADDR,E2_SIZE)) {
+    /* Map as 512x512 2Mib pages. */
+    for (x3 = 0; x3 < E3_COUNT; ++x3) {
+     pagedir_allocate_e2(x4,x3);
+     for (x2 = 0; x2 < E2_COUNT; ++x2) {
+      pagedir_trydelete_e1(x4,x3,x2);
+      E2_IDENTITY[x4][x3][x2].p_addr = edata | PAGE_F2MIB;
+      edata += X86_PDIR_E2_SIZE;
+     }
+     pagedir_addperm_e3(x4,x3,edata);
+    }
+   } else {
+    /* Map as 512x512x512 1Kib pages. */
+    for (x3 = 0; x3 < E3_COUNT; ++x3) {
+     pagedir_allocate_e2(x4,x3);
+     for (x2 = 0; x2 < E2_COUNT; ++x2) {
+      pagedir_allocate_e1(x4,x3,x2);
+      for (x1 = 0; x1 < E1_COUNT; ++x1) {
+       E1_IDENTITY[x4][x3][x2][x1].p_addr = edata;
+       edata += X86_PDIR_E1_SIZE;
+      }
+      pagedir_addperm_e2(x4,x3,x2,edata);
+     }
+     pagedir_addperm_e3(x4,x3,edata);
+    }
+   }
+   pagedir_addperm_e4(x4,edata);
+  }
+  num_pages -= (~X86_PDIR_E4_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK;
+  if (!num_pages) goto done;
+  virt_page += (~X86_PDIR_E4_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK;
+ }
+ /* Now map all full 1 Gib pages! */
+ while (num_pages >= ((~X86_PDIR_E3_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK)) {
+  unsigned int x4,x3,x2,x1;
+  x4 = E4_INDEX(virt_page);
+  x3 = E3_INDEX(virt_page);
+  assertf(IS_ALIGNED(virt_page,X86_PDIR_E3_SIZE / PAGESIZE),
+          "Not aligned: %p",virt_page);
+  pagedir_allocate_e3(x4);
+  if (perm & PAGEDIR_MAP_FUNMAP) {
+   pagedir_trydelete_e2(x4,x3);
+  } else {
+#ifndef CONFIG_NO_GIGABYTE_PAGES
+   if ((x86_paging_features & PAGING_FEATURE_1GIB_PAGES) &&
+        IS_ALIGNED(edata & X86_PAGE_FADDR,E3_SIZE)) {
+    pagedir_trydelete_e2(x4,x3);
+    /* Map as 1GiB pages. */
+    E3_IDENTITY[x4][x3].p_addr = edata | PAGE_F1GIB;
+    edata += X86_PDIR_E3_SIZE;
+    pagedir_addperm_e4(x4,edata);
+   } else
+#endif
+   {
+    pagedir_allocate_e2(x4,x3);
+    if (IS_ALIGNED(edata & X86_PAGE_FADDR,E2_SIZE)) {
+     /* Map as 512 2Mib pages. */
+     for (x2 = 0; x2 < E2_COUNT; ++x2) {
+      pagedir_trydelete_e1(x4,x3,x2);
+      E2_IDENTITY[x4][x3][x2].p_addr = edata | PAGE_F2MIB;
+      edata += X86_PDIR_E2_SIZE;
+     }
+    } else {
+     /* Map as 512x512 1Kib pages. */
+     for (x2 = 0; x2 < E2_COUNT; ++x2) {
+      pagedir_allocate_e1(x4,x3,x2);
+      for (x1 = 0; x1 < E1_COUNT; ++x1) {
+       E1_IDENTITY[x4][x3][x2][x1].p_addr = edata;
+       edata += X86_PDIR_E1_SIZE;
+      }
+      pagedir_addperm_e2(x4,x3,x2,edata);
+     }
+    }
+    pagedir_addperm_e3(x4,x3,edata);
+    pagedir_addperm_e4(x4,edata);
+   }
+  }
+  num_pages -= (~X86_PDIR_E3_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK;
+  if (!num_pages) goto done;
+  virt_page += (~X86_PDIR_E3_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK;
+ }
+ /* Now map all full 2 Mib pages! */
+ while (num_pages >= ((~X86_PDIR_E2_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK)) {
+  unsigned int x4,x3,x2,x1;
+  x4 = E4_INDEX(virt_page);
+  x3 = E3_INDEX(virt_page);
+  x2 = E2_INDEX(virt_page);
+  assertf(IS_ALIGNED(virt_page,X86_PDIR_E2_SIZE / PAGESIZE),
+          "Not aligned: %p",virt_page);
+  pagedir_allocate_e3(x4);
+  pagedir_allocate_e2(x4,x3);
+  if (perm & PAGEDIR_MAP_FUNMAP) {
+   pagedir_trydelete_e1(x4,x3,x2);
+  } else {
+   if (IS_ALIGNED(edata & X86_PAGE_FADDR,E2_SIZE)) {
+    /* Map as 1 2Mib pages. */
+    pagedir_trydelete_e1(x4,x3,x2);
+    E2_IDENTITY[x4][x3][x2].p_addr = edata | PAGE_F2MIB;
+    edata += X86_PDIR_E2_SIZE;
+   } else {
+    pagedir_allocate_e1(x4,x3,x2);
+    /* Map as 512 1Kib pages. */
+    for (x1 = 0; x1 < E1_COUNT; ++x1) {
+     E1_IDENTITY[x4][x3][x2][x1].p_addr = edata;
+     edata += X86_PDIR_E1_SIZE;
+    }
+    pagedir_addperm_e2(x4,x3,x2,edata);
+   }
+   pagedir_addperm_e3(x4,x3,edata);
+   pagedir_addperm_e4(x4,edata);
+  }
+  num_pages -= (~X86_PDIR_E2_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK;
+  if (!num_pages) goto done;
+  virt_page += (~X86_PDIR_E2_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK;
+ }
+ /* Now map all the remaining pages! */
+ while (num_pages) {
+  STATIC_ASSERT(((~X86_PDIR_E1_PAGEMASK + 1) & X86_PDIR_E1_PAGEMASK) == 1);
+  unsigned int x4,x3,x2,x1;
+  x4 = E4_INDEX(virt_page);
+  x3 = E3_INDEX(virt_page);
+  x2 = E2_INDEX(virt_page);
+  x1 = E1_INDEX(virt_page);
+#if 0 /* This would be: aligned-by-one (which everything is.) */
+  assertf(IS_ALIGNED(virt_page,X86_PDIR_E1_SIZE / PAGESIZE),
+          "Not aligned: %p",virt_page);
+#endif
+  pagedir_allocate_e3(x4);
+  pagedir_allocate_e2(x4,x3);
+  pagedir_allocate_e1(x4,x3,x2);
+  if (perm & PAGEDIR_MAP_FUNMAP) {
+   E1_IDENTITY[x4][x3][x2][x1].p_addr = PAGE_ABSENT;
+  } else {
+   E1_IDENTITY[x4][x3][x2][x1].p_addr = edata;
+   edata += X86_PDIR_E1_SIZE;
+   pagedir_addperm_e2(x4,x3,x2,edata);
+   pagedir_addperm_e3(x4,x3,edata);
+   pagedir_addperm_e4(x4,edata);
+  }
+  --num_pages;
+  if (!num_pages) goto done;
+  ++virt_page;
+ }
+ __builtin_unreachable();
 done:
  pagedir_merge_before(vpage_end);
  pagedir_merge_before(vpage_start);

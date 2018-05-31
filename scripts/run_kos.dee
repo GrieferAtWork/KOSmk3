@@ -119,7 +119,11 @@ function find_diskfile(name) {
 	name = name.strip();
 	if (name in expand_options("${KERNEL_BINARY}"))
 		return "bin/"+name;
+#if 1
+	return "bin/i686-kos/"+name;
+#else
 	return expand_options("${BINPATH}")+"/"+name;
+#endif
 }
 function format_address2line(outfile,format,file,line,func,address) {
 	for (local i = 0; i < #format; ++i) {
