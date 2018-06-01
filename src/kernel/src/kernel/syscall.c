@@ -39,7 +39,7 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
  TRY {
   uintptr_t sysno;
   sysno = regs->str_args.a_sysno & ~0x80000000;
-#if !defined(__x86_64__) || 0
+#if !defined(__x86_64__) || 1
   switch (sysno) {
   case SYS_xsyslog:
   case SYS_xaddr2line:
@@ -562,6 +562,11 @@ syscall_trace(struct syscall_trace_regs *__restrict regs) {
 #define SYS_xunwind __NR_xunwind
 #define SYS_xfdlopenat __NR_xfdlopenat
 #define SYS_xdlclose __NR_xdlclose
+  case SYS_xdlsym:
+   debug_printf("sys_xdlsym(%p,%q)\n",
+               (void *)regs->str_args.a_arg0,
+               (char *)regs->str_args.a_arg1);
+   break;
 #define SYS_xdlsym __NR_xdlsym
 #define SYS_xdlfini __NR_xdlfini
 #define SYS_xdlmodule_info __NR_xdlmodule_info

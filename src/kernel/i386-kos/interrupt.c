@@ -47,7 +47,11 @@ PUBLIC struct exception_descriptor const x86_interrupt_guard = {
     .ed_type    = EXCEPTION_DESCRIPTOR_TYPE_BYPASS,
     .ed_flags   = (EXCEPTION_DESCRIPTOR_FDEALLOC_CONTINUE|
                    EXCEPTION_DESCRIPTOR_FDISABLE_PREEMPTION),
+#ifdef __x86_64__
+    .ed_safe    = X86_IRREGS64_SIZE
+#else
     .ed_safe    = X86_IRREGS_HOST32_SIZE
+#endif
 };
 
 

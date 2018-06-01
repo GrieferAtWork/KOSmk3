@@ -195,7 +195,8 @@ unwind_check_signal_frame(struct cpu_context_ss *__restrict context,
                           USER CHECKED sigset_t *signal_set,
                           size_t signal_set_size) {
  struct signal_frame *frame;
- if (context->c_context.c_pip != PERTASK_GET(x86_sysbase)+X86_ENCODE_PFSYSCALL(SYS_sigreturn))
+ if (context->c_context.c_pip != PERTASK_GET(x86_sysbase)+X86_ENCODE_PFSYSCALL(SYS_sigreturn) &&
+     context->c_context.c_pip != PERTASK_GET(x86_sysbase)+X86_ENCODE_PFSYSCALL(SYS_sigreturn|0x80000000))
      return false;
  frame = (struct signal_frame *)(context->c_context.c_psp -
                                  COMPILER_OFFSETAFTER(struct signal_frame,sf_sigreturn));

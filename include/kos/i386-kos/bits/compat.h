@@ -22,12 +22,13 @@
 #include <__stdinc.h>
 #include <hybrid/host.h>
 #include <hybrid/typecore.h>
+#include <features.h>
 
 __SYSDECL_BEGIN
 
 #ifndef __EXPOSE_CPU_COMPAT
-#if (defined(__USE_KOS) && !defined(__KERNEL__)) || \
-     defined(__x86_64__)
+#if ((defined(__USE_KOS) && !defined(__KERNEL__)) || \
+      defined(__x86_64__)) && defined(__CRT_KOS)
 #define __EXPOSE_CPU_COMPAT 1
 #endif
 #endif /* !__EXPOSE_CPU_COMPAT */

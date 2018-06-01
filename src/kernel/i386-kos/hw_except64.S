@@ -116,7 +116,65 @@ irqdpl_08 = 0
 .global irqist_08
 irqist_08 = 1 /* Use the secondary stack when handling #DFs */
 
+#if 1
+INTERN_ENTRY(irq_08)
+	.cfi_startproc simple
+	.cfi_signal_frame
+	.cfi_def_cfa %rsp,    6*8
+	.cfi_offset %rflags, -3*8
+	.cfi_offset %rip,    -5*8
+1:	cli
+	hlt
+	jmp 1b
+	irq_enter_errcode
+	/* Move the exception code above the CPU-state. */
+	popq_cfi -(8+X86_GPREGS_SIZE)(%rsp) /* ECODE */
+
+	/* Save general-purpose registers. */
+	pushq_cfi_r %rax
+	pushq_cfi_r %rcx
+	pushq_cfi_r %rdx
+	pushq_cfi_r %rbx
+	pushq_cfi_r %rbp
+	pushq_cfi_r %rsi
+	pushq_cfi_r %rdi
+	pushq_cfi_r %r8
+	pushq_cfi_r %r9
+	pushq_cfi_r %r10
+	pushq_cfi_r %r11
+	pushq_cfi_r %r12
+	pushq_cfi_r %r13
+	pushq_cfi_r %r14
+	pushq_cfi_r %r15
+
+	movq    %rsp,    %rdi /* context */
+	movq    -8(%rsp), %rsi /* ECODE */
+
+	/* Invoke the high-level interrupt handler. */
+	call    x86_handle_df
+
+	/* Restore registers. */
+	popq_cfi_r %r15
+	popq_cfi_r %r14
+	popq_cfi_r %r13
+	popq_cfi_r %r12
+	popq_cfi_r %r11
+	popq_cfi_r %r10
+	popq_cfi_r %r9
+	popq_cfi_r %r8
+	popq_cfi_r %rdi
+	popq_cfi_r %rsi
+	popq_cfi_r %rbp
+	popq_cfi_r %rbx
+	popq_cfi_r %rdx
+	popq_cfi_r %rcx
+	popq_cfi_r %rax
+	irq_leave
+	.cfi_endproc
+SYMEND(irq_08)
+#else
 define_hardware_exception_handler 08, x86_handle_df, 1
+#endif
 
 
 #ifndef CONFIG_NO_FPU

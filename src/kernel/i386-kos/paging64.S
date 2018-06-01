@@ -60,7 +60,8 @@ PUBLIC_ENTRY(pagedir_sync)
 4:	movq    %cr3, %rax
 	movq    %rax, %cr3
 2:	xchgq   %rcx, %rsi
-	shlq    $(X86_PAGESHIFT), %rsi
+	shlq    $28, %rsi
+	sarq    $16, %rsi
 1:	invlpg  (%rsi)
 	addq    $(PAGESIZE), %rsi
 	loop    1b
@@ -72,7 +73,8 @@ PUBLIC_ENTRY(pagedir_sync)
 SYMEND(pagedir_sync)
 
 PUBLIC_ENTRY(pagedir_syncone)
-	shlq    $(X86_PAGESHIFT), %rdi
+	shlq    $28, %rdi
+	sarq    $16, %rdi
 	invlpg  (%rdi)
 	ret
 SYMEND(pagedir_syncone)

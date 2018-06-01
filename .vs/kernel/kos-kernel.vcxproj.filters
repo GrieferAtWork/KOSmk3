@@ -104,6 +104,9 @@
     <None Include="..\..\src\kernel\i386-kos\syscall64.S">
       <Filter>kernel\i386-kos</Filter>
     </None>
+    <None Include="..\..\src\hybrid\i386-kos\string64.S">
+      <Filter>hybrid\i386-kos</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="kernel">

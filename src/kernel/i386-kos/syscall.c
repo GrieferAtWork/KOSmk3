@@ -38,7 +38,6 @@ DECL_BEGIN
 
 INTERN u8 KCALL restart_syscall_mode(syscall_ulong_t sysno) {
  u8 mode;
- sysno &= ~0x80000000;
  if (sysno <= __NR_syscall_max)
   mode = x86_syscall_restart[sysno];
  else if (sysno >= __NR_xsyscall_min && sysno <= __NR_xsyscall_max)

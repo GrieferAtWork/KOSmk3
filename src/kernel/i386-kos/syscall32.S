@@ -270,6 +270,7 @@ name##64:; \
 
 #ifndef CONFIG_NO_X86_SYSENTER
 .section .text.hot
+.sysenter_kernel_entry_start = .
 INTERN_ENTRY(sysenter_kernel_entry)
 	/* `SYSENTER_ESP_MSR' points at the ESP0 field of the CPU's TSS
 	 * In other words: we only need to replace ESP with its own
@@ -332,10 +333,6 @@ INTERN_ENTRY(sysenter_after_segments)
 1:	calll  *x86_syscall_router(,%eax,4)
 	SYSCALL_EXIT_BLOCK(.sysenter_return)
 
-.sysenter_bad_args:
-	movl    $(-EFAULT), %eax
-	jmp     .sysenter_return
-
 .sysenter_extended_syscall:
 	cmpl    $(__NR_xsyscall_max), %eax
 	ja      .sysenter_except_syscall
@@ -356,81 +353,31 @@ INTERN_ENTRY(sysenter_after_segments)
 1:	pushl_cfi $.sysenter_return /* Return address... */
 	jmpl    *(x86_xsyscall_router - (__NR_xsyscall_min*4) & 0xffffffff)(,%eax,4)
 	.cfi_adjust_cfa_offset -4
-
-.sysenter_except_syscall:
-	testl   $(0x80000000), %eax
-	jnz     .sysenter_with_exceptions
-.sysenter_bad_syscall:
-	movl    $(-ENOSYS), %eax
-	jmp     .sysenter_return
-SYMEND(sysenter_after_segments)
-SYMEND(sysenter_kernel_entry)
-
-.sysenter_with_exceptions:
-	cmpl    $(__NR_syscall_max + 0x80000000), %eax
-	ja      2f
-	/* Load additional arguments from user-space. */
-	cmpl    $5, (x86_syscall_argc - 0x80000000)(,%eax,1)
-	jb      1f
-	cmpl    $(KERNEL_BASE), %ebp
-	jae     .sysenter_bad_args_except
-	movl    0(%ebp), %ecx /* ARG#4 (CAUTION: SEGFAULT) */
-	movl    %ecx, 16(%esp)
-	cmpl    $6, (x86_syscall_argc - 0x80000000)(,%eax,1)
-	jb      1f
-	movl    4(%ebp), %ecx /* ARG#5 (CAUTION: SEGFAULT) */
-	movl    %ecx, 20(%esp)
-	/* Regular, linux-compatible system call */
-1:	pushl_cfi $.sysenter_return_except /* Return address... */
-	jmpl    *(x86_syscall_router - (0x80000000*4) & 0xffffffff)(,%eax,4)
-	.cfi_adjust_cfa_offset -4
-2:	cmpl    $(__NR_xsyscall_min + 0x80000000), %eax
-	jb      .sysenter_bad_syscall_sysenter_except
-	cmpl    $(__NR_xsyscall_max + 0x80000000), %eax
-	ja      .sysenter_bad_syscall_sysenter_except
-	/* Load additional arguments from user-space. */
-	cmpb    $5, (x86_xsyscall_argc - (__NR_xsyscall_min + 0x80000000))(,%eax,1)
-	jb      1f
-	cmpl    $(KERNEL_BASE), %ebp
-	jae     .sysenter_bad_args_except
-	movl    0(%ebp), %ecx /* ARG#4 (CAUTION: SEGFAULT) */
-	movl    %ecx, 16(%esp)
-	cmpb    $6, (x86_xsyscall_argc - (__NR_xsyscall_min + 0x80000000))(,%eax,1)
-	jb      1f
-	movl    4(%ebp), %ecx /* ARG#5 (CAUTION: SEGFAULT) */
-	movl    %ecx, 20(%esp)
-	/* Extended, kos-specific system call */
-1:	calll   *(x86_xsyscall_router - ((__NR_xsyscall_min+0x80000000)*4) & 0xffffffff)(,%eax,4)
-	SYSCALL_EXIT_BLOCK(.sysenter_return_except)
-
-.sysenter_bad_args_except:
+.sysenter_bad_args:
 	pushl_cfi %ebp          /* addr */
 	pushl_cfi $0            /* reason */
 	pushl_cfi $(E_SEGFAULT) /* code */
 	call      error_throwf
-#if 0 /* Never returns */
-	addl      $12, %esp
-	.cfi_adjust_cfa_offset -8
-	jmp       .sysenter_return_except
-#else
-	.cfi_adjust_cfa_offset -8
-#endif
-.sysenter_bad_syscall_sysenter_except:
+	.cfi_adjust_cfa_offset -12
+.sysenter_except_syscall:
+	testl     $0x80000000, %eax
+	jz        .sysenter_bad_syscall
+	andl      $~0x80000000, %eax
+	jmp       .sysenter_after_tracing
+.sysenter_bad_syscall:
 	pushl_cfi %eax /* Sysno */
 	pushl_cfi %ebp /* Extended arguments vector */
 	movl      %esp, %ecx
 	call      x86_throw_bad_syscall_sysenter
-#if 0 /* Never returns */
-	addl      $8, %esp /* Sysno + extended arguments vector */
-	.cfi_adjust_cfa_offset -8
-	jmp       .sysenter_return_except
-#else
-/*	.cfi_adjust_cfa_offset -8 */
-#endif
+SYMEND(sysenter_after_segments)
+SYMEND(sysenter_kernel_entry)
 	.cfi_endproc
-SYMEND(.sysenter_with_exceptions)
 .sysenter_kernel_entry_end = .
-X86_DEFINE_SYSCALL_GUARD(sysenter_kernel_entry,.sysenter_kernel_entry_end)
+
+X86_DEFINE_SYSCALL_GUARD(
+	.sysenter_kernel_entry_start,
+	.sysenter_kernel_entry_end
+)
 #endif /* !CONFIG_NO_X86_SYSENTER */
 
 
@@ -443,6 +390,8 @@ X86_DEFINE_SYSCALL_GUARD(sysenter_kernel_entry,.sysenter_kernel_entry_end)
 /* .xdata, because we may modify this code */
 .section .xdata.hot
 #endif
+
+.irq_80_start = .
 INTERN_ENTRY(irq_80)
 	.cfi_startproc simple
 	.cfi_signal_frame
@@ -486,44 +435,23 @@ INTERN_ENTRY(irq_80_after_segments)
 	.cfi_adjust_cfa_offset -4
 
 .irq_80_except_syscall:
-	testl   $(0x80000000), %eax
-	jnz     .irq_80_with_exceptions
+	testl   $0x80000000, %eax
+	jz      .irq_80_bad_syscall
+	andl    $~0x80000000, %eax
+	jmp     .irq_80_after_tracing
 .irq_80_bad_syscall:
-	movl    $(-ENOSYS), %eax
-	jmp     .irq_80_return
-SYMEND(irq_80)
-
-.irq_80_with_exceptions:
-	cmpl    $(__NR_syscall_max + 0x80000000), %eax
-	ja      1f
-	/* Regular, linux-compatible system call */
-	pushl_cfi $.irq_80_return_except
-	jmpl    *(x86_syscall_router - (0x80000000*4) & 0xffffffff)(,%eax,4)
-	.cfi_adjust_cfa_offset -4
-1:	cmpl    $(__NR_xsyscall_min + 0x80000000), %eax
-	jb      .irq_80_bad_syscall_except
-	cmpl    $(__NR_xsyscall_max + 0x80000000), %eax
-	ja      .irq_80_bad_syscall_except
-	/* Extended, kos-specific system call */
-	calll   *(x86_xsyscall_router - ((__NR_xsyscall_min+0x80000000)*4) & 0xffffffff)(,%eax,4)
-	SYSCALL_EXIT_BLOCK(.irq_80_return_except)
-
-.irq_80_bad_syscall_except:
 	pushl_cfi %eax /* Sysno */
 	movl      %esp, %ecx
 	call      x86_throw_bad_syscall
-#if 0 /* Never returns */
-	addl      $4, %esp /* Sysno */
-	.cfi_adjust_cfa_offset -4
-	jmp       .irq_80_return_except
-#else
-/*	.cfi_adjust_cfa_offset -4 */
-#endif
 	.cfi_endproc
+SYMEND(irq_80)
 .irq_80_end = .
-SYMEND(.irq_80_with_exceptions)
+
 /* Define a syscall guard that will translate exceptions into errno values. */
-X86_DEFINE_SYSCALL_GUARD(irq_80,.irq_80_end)
+X86_DEFINE_SYSCALL_GUARD(
+	.irq_80_start,
+	.irq_80_end
+)
 
 
 
@@ -682,10 +610,9 @@ INTERN_CONST(x86_syscall64_adjustment,.irq_80_return64 - .irq_80_return)
 
 
 #ifndef CONFIG_NO_X86_SYSENTER
-/* Define the 2 memory locations that need to be updated
- * if the `sysexit' instruction isn't supported by the host. */
+/* Define the memory location that need to be updated if
+ * the `sysexit' instruction isn't supported by the host. */
 DEFINE_INTERN_ALIAS(x86_sysexit_fixup_1,.irq_80_return_iret_fixup)
-DEFINE_INTERN_ALIAS(x86_sysexit_fixup_2,.irq_80_return_except_iret_fixup)
 #endif
 
 
@@ -744,6 +671,7 @@ PUBLIC_ENTRY(x86_syscall_exec80_ntrace)
 	 * the fact that `sys_sigreturn' would normally have to query an RPC
 	 * callback to gain access to the full user-space register state, we
 	 * specifically optimize for it, as we already have that state! */
+	andl  $~0x80000000, %eax
 	cmpl  $(SYS_sigreturn), %eax
 	jne   1f
 	leal  (-X86_HOSTCONTEXT_USER32_SIZE)(%ecx), %eax
@@ -773,9 +701,10 @@ PUBLIC_ENTRY(x86_syscall_exec80_ntrace)
 	ret
 	.cfi_adjust_cfa_offset 24
 .exec80_bad_syscall:
-	movl  $-ENOSYS, %eax
-	jmp   .exec80_return
-.space x86_syscall64_adjustment - (. - .exec80_return)
+	pushl_cfi %eax /* Sysno */
+	movl      %esp, %ecx
+	call      x86_throw_bad_syscall
+	.cfi_adjust_cfa_offset -4
 .exec80_return64:
 	addl  $24, %esp
 	.cfi_adjust_cfa_offset -24
@@ -788,51 +717,11 @@ PUBLIC_ENTRY(x86_syscall_exec80_ntrace)
 	cmpl  $(__NR_xsyscall_min), %eax
 	jb    .exec80_bad_syscall
 	cmpl  $(__NR_xsyscall_max), %eax
-	ja    .exec80_with_exceptions
+	ja    .exec80_bad_syscall
 	/* Extended, kos-specific system call */
 	pushl_cfi $.exec80_return
 	jmpl  *(x86_xsyscall_router - (__NR_xsyscall_min*4) & 0xffffffff)(,%eax,4)
-	.cfi_adjust_cfa_offset -4
-.exec80_with_exceptions:
-	/* System call w/ exceptions. */
-	cmpl    $(__NR_syscall_max + 0x80000000), %eax
-	ja      2f
-	/* Regular, linux-compatible system call */
-1:	pushl_cfi $.exec80_with_exceptions_return /* Return address... */
-	jmpl    *(x86_syscall_router - (0x80000000*4) & 0xffffffff)(,%eax,4)
-	.cfi_adjust_cfa_offset -4
-2:	cmpl    $(__NR_xsyscall_min + 0x80000000), %eax
-	jb      .exec80_bad_syscall_except
-	cmpl    $(__NR_xsyscall_max + 0x80000000), %eax
-	ja      .exec80_bad_syscall_except
-	/* Extended, kos-specific system call */
-1:	calll   *(x86_xsyscall_router - ((__NR_xsyscall_min+0x80000000)*4) & 0xffffffff)(,%eax,4)
-.exec80_with_exceptions_return:
-	addl  $24, %esp
-	.cfi_adjust_cfa_offset -24
-	movl  %taskseg:TASK_OFFSETOF_STACKEND, %ecx
-	movl  %eax, ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EAX)(%ecx)
-	ret
-.exec80_bad_syscall_except:
-	pushl_cfi %eax /* Sysno */
-	movl      %esp, %ecx
-	call      x86_throw_bad_syscall
-#if 0 /* Never returns */
-	addl      $4, %esp /* Sysno */
-	.cfi_adjust_cfa_offset -4
-	jmp       .exec80_with_exceptions_return
-#else
-	.cfi_adjust_cfa_offset -4
-#endif
-.space x86_syscall64_adjustment - (. - .exec80_with_exceptions_return)
-.exec80_with_exceptions_return64:
-	addl  $24, %esp
-	.cfi_adjust_cfa_offset -24
-	movl  %taskseg:TASK_OFFSETOF_STACKEND, %ecx
-	movl  %eax, ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EAX)(%ecx)
-	movl  %edx, ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EDX)(%ecx)
-	ret
-//	.cfi_adjust_cfa_offset 24
+//	.cfi_adjust_cfa_offset -4
 	.cfi_endproc
 SYMEND(x86_syscall_exec80_ntrace)
 

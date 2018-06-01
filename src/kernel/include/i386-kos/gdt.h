@@ -326,11 +326,11 @@ typedef u16 segid_t; /* == Segment index*X86_SEG_INDEX_MULTIPLIER */
 #ifdef __x86_64__
 #define X86_SEG_FS         X86_USER_TLS
 #define X86_SEG_GS         X86_HOST_TLS
-#define X86_SEG_USER_FS    X86_USER_TLS
+#define X86_SEG_USER_GS32  X86_USER_TLS
 #ifndef CONFIG_NO_DOS_COMPAT
-#define X86_SEG_USER_GS    X86_USER_TIB
+#define X86_SEG_USER_FS32  X86_USER_TIB
 #else
-#define X86_SEG_USER_GS    X86_HOST_TLS
+#define X86_SEG_USER_FS32  X86_USER_TLS
 #endif
 #else
 #define X86_SEG_FS         X86_HOST_TLS

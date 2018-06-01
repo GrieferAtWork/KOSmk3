@@ -240,5 +240,8 @@
     <None Include="..\..\src\libs\libc\i386-kos\setjmp64.S">
       <Filter>i386-kos</Filter>
     </None>
+    <None Include="..\..\src\hybrid\i386-kos\string64.S">
+      <Filter>hybrid\i386-kos</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -283,6 +283,7 @@ INTERN_ENTRY(irq_80_trace)
 	movq    3 * 8(%rsp), %r8
 	movq    4 * 8(%rsp), %r9
 
+.Lirq_80_trace_begin:
 	cmpq    $__NR_syscall_max, %rax
 	ja      .Lirq_80_trace_xsyscall
 	callq   *x86_syscall_router(,%rax,8)
@@ -313,13 +314,19 @@ INTERN_ENTRY(irq_80_trace)
 	.cfi_restore_state
 .Lirq_80_trace_xsyscall:
 	subq    $__NR_xsyscall_min, %rax
-	jb      .Lirq_80_trace_badsyscall
+	jb      .Lirq_80_trace_bad_syscall
 	cmpq    $(__NR_xsyscall_max - __NR_xsyscall_min), %rax
-	ja      .Lirq_80_trace_badsyscall
+	ja      .Lirq_80_trace_except_syscall
 	pushq_cfi $.Lirq_80_trace_return
 	jmpq    *x86_xsyscall_router(,%rax,8)
 	.cfi_adjust_cfa_offset -8
-.Lirq_80_trace_badsyscall:
+.Lirq_80_trace_except_syscall:
+	cmpl    $(0x80000000 - __NR_xsyscall_min), %eax
+	jb      .Lirq_80_trace_bad_syscall
+	addl    $(__NR_xsyscall_min - 0x80000000), %eax
+	jmp     .Lirq_80_trace_begin
+.Lirq_80_trace_bad_syscall:
+	addq    $__NR_xsyscall_min, %rax
 	call     x86_bad_syscall
 	.cfi_endproc
 SYMEND(irq_80_trace)
@@ -357,6 +364,7 @@ INTERN_ENTRY(irq_80_compat_trace)
 	movq    4 * 8(%rsp), %r9
 	popq_void_cfi
 
+.Lirq_80_compat_trace_begin:
 	cmpq    $__NR_syscall_max, %rax
 	ja      .Lirq_80_compat_trace_xsyscall
 	callq   *x86_syscall_compat_router(,%rax,8)
@@ -385,13 +393,19 @@ INTERN_ENTRY(irq_80_compat_trace)
 	.cfi_restore_state
 .Lirq_80_compat_trace_xsyscall:
 	subq    $__NR_xsyscall_min, %rax
-	jb      .Lirq_80_compat_trace_badsyscall
+	jb      .Lirq_80_compat_trace_bad_syscall
 	cmpq    $(__NR_xsyscall_max - __NR_xsyscall_min), %rax
-	ja      .Lirq_80_compat_trace_badsyscall
+	ja      .Lirq_80_compat_trace_except_syscall
 	pushq_cfi $.Lirq_80_compat_trace_return
 	jmpq    *x86_xsyscall_compat_router(,%rax,8)
 	.cfi_adjust_cfa_offset -8
-.Lirq_80_compat_trace_badsyscall:
+.Lirq_80_compat_trace_except_syscall:
+	cmpl    $(0x80000000 - __NR_xsyscall_min), %eax
+	jb      .Lirq_80_compat_trace_bad_syscall
+	addl    $(__NR_xsyscall_min - 0x80000000), %eax
+	jmp     .Lirq_80_compat_trace_begin
+.Lirq_80_compat_trace_bad_syscall:
+	addq    $__NR_xsyscall_min, %rax
 	call     x86_bad_syscall
 	.cfi_endproc
 SYMEND(irq_80_compat_trace)

@@ -231,7 +231,7 @@ INTERN ATTR_FREETEXT void KCALL
 x86_delete_virtual_memory_identity(void) {
  /* Unmap all virtual memory that isn't mapped by a VM node. */
  struct vm_node *node;
- vm_vpage_t last_end = 0;
+ vm_vpage_t last_end;
 #ifdef __x86_64__
  /* On x86_64, assembly already got rid of any secondary identity mappings. */
 #else
@@ -247,7 +247,7 @@ x86_delete_virtual_memory_identity(void) {
   *       be used as general purpose RAM. */
  memsetl(pagedir_kernel.p_e2,0,256);
 #endif
-
+ last_end = 0;
  node = vm_kernel.vm_byaddr;
  for (;; node = node->vn_byaddr.le_next) {
   vm_vpage_t node_begin;
@@ -264,8 +264,10 @@ x86_delete_virtual_memory_identity(void) {
 #endif
   node_begin = node ? VM_NODE_BEGIN(node) : VM_VPAGE_MAX+1;
   /* Delete mappings between this node and the previous one. */
+  COMPILER_BARRIER();
   pagedir_map(last_end,(size_t)(node_begin-last_end),0,
               PAGEDIR_MAP_FUNMAP);
+  COMPILER_BARRIER();
   if (!node) break;
   last_end = VM_NODE_END(node);
  }

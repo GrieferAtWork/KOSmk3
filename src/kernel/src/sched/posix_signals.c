@@ -1185,17 +1185,22 @@ signal_chaction(int signo,
   kernel_new_action = (struct sigaction *)alloca(sizeof(struct sigaction));
   memcpy(kernel_new_action,kernel_old_action,sizeof(struct sigaction));
   atomic_rwlock_endread(&hand->sh_lock);
+  COMPILER_WRITE_BARRIER();
   /* Now copy the action to user-space. */
   memcpy(old_action,kernel_new_action,sizeof(struct sigaction));
+  COMPILER_WRITE_BARRIER();
   return;
 old_default_action:
+  COMPILER_WRITE_BARRIER();
   memset(old_action,0,sizeof(struct sigaction));
+  COMPILER_WRITE_BARRIER();
   return;
  }
  kernel_new_action = (struct sigaction *)kmalloc(sizeof(struct sigaction),
                                                  GFP_SHARED);
  TRY {
   /* Copy the new action into a heap-allocation sigaction descriptor. */
+  COMPILER_WRITE_BARRIER();
   memcpy(kernel_new_action,new_action,
          sizeof(struct sigaction));
   COMPILER_WRITE_BARRIER();
@@ -1218,13 +1223,84 @@ old_default_action:
       goto old_default_action;
  } else {
   TRY {
-   if (old_action)
-       memcpy(old_action,kernel_old_action,sizeof(struct sigaction));
+   if (old_action) {
+    COMPILER_WRITE_BARRIER();
+    memcpy(old_action,kernel_old_action,sizeof(struct sigaction));
+    COMPILER_WRITE_BARRIER();
+   }
   } FINALLY {
    kfree(kernel_old_action);
   }
  }
 }
+
+#ifdef CONFIG_SYSCALL_COMPAT
+PUBLIC void KCALL
+signal_chaction_compat(int signo,
+                       USER CHECKED struct sigaction_compat const *new_action,
+                       USER CHECKED struct sigaction_compat *old_action) {
+ struct sigaction *EXCEPT_VAR kernel_new_action;
+ struct sigaction *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(kernel_old_action);
+ struct sighand *hand;
+ assert(signo < _NSIG);
+ if (!new_action) {
+  if (!old_action) return;
+  /* Only copy the old action into the `old_action' buffer. */
+  hand = sighand_lock_read();
+  if (!hand) goto old_default_action;
+  kernel_old_action = hand->sh_hand[signo];
+  if (!kernel_old_action) {
+   atomic_rwlock_endread(&hand->sh_lock);
+   goto old_default_action;
+  }
+  /* We can't directly copy the old action to user-space
+   * because the atomic lock used here doesn't allow for
+   * recursion that may be caused by #PF handlers, or if
+   * the given user-buffer is faulty.
+   * Instead, create a quick copy on our stack using alloca() */
+  kernel_new_action = (struct sigaction *)alloca(sizeof(struct sigaction));
+  memcpy(kernel_new_action,kernel_old_action,sizeof(struct sigaction));
+  atomic_rwlock_endread(&hand->sh_lock);
+  /* Now copy the action to user-space. */
+  sigaction_to_sigaction_compat(old_action,kernel_new_action);
+  return;
+old_default_action:
+  memset(old_action,0,sizeof(struct sigaction));
+  return;
+ }
+ kernel_new_action = (struct sigaction *)kmalloc(sizeof(struct sigaction),
+                                                 GFP_SHARED);
+ TRY {
+  /* Copy the new action into a heap-allocation sigaction descriptor. */
+  sigaction_compat_to_sigaction(kernel_new_action,new_action);
+  COMPILER_WRITE_BARRIER();
+  if (new_action->sa_handler == (__X86_PTRCC(__sighandler_t))(uintptr_t)SIG_DFL) {
+   /* Special case: Restore default action (by setting a NULL handler) */
+   kfree(kernel_new_action);
+   kernel_new_action = NULL;
+  }
+  /* Acquire a write-lock to the effective signal handler descriptor. */
+  hand = sighand_lock_write();
+  kernel_old_action    = hand->sh_hand[signo];
+  hand->sh_hand[signo] = kernel_new_action;
+  atomic_rwlock_endwrite(&hand->sh_lock);
+ } EXCEPT(EXCEPT_EXECUTE_HANDLER) {
+  kfree(kernel_new_action);
+  error_rethrow();
+ }
+ if (!kernel_old_action) {
+  if (old_action)
+      goto old_default_action;
+ } else {
+  TRY {
+   if (old_action)
+       sigaction_to_sigaction_compat(old_action,kernel_old_action);
+  } FINALLY {
+   kfree(kernel_old_action);
+  }
+ }
+}
+#endif /* CONFIG_SYSCALL_COMPAT */
 
 
 /* Change the signal disposition of all signal actions using
@@ -1513,12 +1589,30 @@ DEFINE_SYSCALL4(sigaction,unsigned int,sig,
  if (sigsetsize != sizeof(sigset_t))
      error_throw(E_INVALID_ARGUMENT);
  /* Validate user-structure pointers. */
- validate_readable_opt(act,sizeof(struct sigaction));
- validate_writable_opt(oact,sizeof(struct sigaction));
+ validate_readable_opt(act,sizeof(*act));
+ validate_writable_opt(oact,sizeof(*oact));
  /* Change the signal action. */
  signal_chaction(sig,act,oact);
  return 0;
 }
+
+#ifdef CONFIG_SYSCALL_COMPAT
+DEFINE_SYSCALL_COMPAT4(sigaction,unsigned int,sig,
+                       UNCHECKED USER struct sigaction_compat const *,act,
+                       UNCHECKED USER struct sigaction_compat *,oact,
+                       size_t,sigsetsize) {
+ if (!sig || --sig >= _NSIG)
+     error_throw(E_INVALID_ARGUMENT);
+ if (sigsetsize != sizeof(sigset_t))
+     error_throw(E_INVALID_ARGUMENT);
+ /* Validate user-structure pointers. */
+ validate_readable_opt(act,sizeof(*act));
+ validate_writable_opt(oact,sizeof(*oact));
+ /* Change the signal action. */
+ signal_chaction_compat(sig,act,oact);
+ return 0;
+}
+#endif
 
 DEFINE_SYSCALL4(sigprocmask,int,how,
                 UNCHECKED USER sigset_t const *,set,
@@ -1660,41 +1754,55 @@ DEFINE_SYSCALL2(tkill,pid_t,pid,int,sig) {
  return 0;
 }
 
-DEFINE_SYSCALL3(rt_sigqueueinfo,
-                pid_t,tgid,int,sig,
-                siginfo_t const *,uinfo) {
+LOCAL syscall_slong_t KCALL
+do_rt_sigqueueinfo(pid_t tgid, int sig,
+                   siginfo_t *__restrict info) {
  REF struct task *EXCEPT_VAR target;
- siginfo_t info;
- memcpy(&info,uinfo,sizeof(siginfo_t));
- info.si_signo = sig;
+ info->si_signo = sig;
  target = pid_lookup_task(tgid);
  /* Don't allow sending arbitrary signals to other processes. */
- if ((info.si_code >= 0 || info.si_code == SI_TKILL) &&
+ if ((info->si_code >= 0 || info->si_code == SI_TKILL) &&
      (FORTASK(target,_this_group).tg_leader != get_this_process())) {
   task_decref(target);
   return -EPERM;
  }
  TRY {
-  if (sig && !signal_raise_group(target,&info))
+  if (sig && !signal_raise_group(target,info))
       error_throw(E_PROCESS_EXITED);
  } FINALLY {
   task_decref(target);
  }
  return 0;
 }
-DEFINE_SYSCALL4(rt_tgsigqueueinfo,
-                pid_t,tgid,pid_t,tid,int,sig,
+
+DEFINE_SYSCALL3(rt_sigqueueinfo,
+                pid_t,tgid,int,sig,
                 siginfo_t const *,uinfo) {
+ siginfo_t info;
+ memcpy(&info,uinfo,sizeof(siginfo_t));
+ return do_rt_sigqueueinfo(tgid,sig,&info);
+}
+#ifdef CONFIG_SYSCALL_COMPAT
+DEFINE_SYSCALL_COMPAT3(rt_sigqueueinfo,
+                       pid_t,tgid,int,sig,
+                       siginfo_compat_t const *,uinfo) {
+ siginfo_t info;
+ siginfo_compat_to_siginfo(&info,uinfo);
+ return do_rt_sigqueueinfo(tgid,sig,&info);
+}
+#endif
+
+LOCAL syscall_slong_t KCALL
+do_rt_tgsigqueueinfo(pid_t tgid, pid_t tid, int sig,
+                     siginfo_t *__restrict info) {
  REF struct task *EXCEPT_VAR target;
  struct task *leader;
  struct thread_pid *leader_pid;
- siginfo_t info;
- memcpy(&info,uinfo,sizeof(siginfo_t));
- info.si_signo = sig;
+ info->si_signo = sig;
  target = pid_lookup_task(tid);
  /* Don't allow sending arbitrary signals to other processes. */
  leader = FORTASK(target,_this_group).tg_leader;
- if ((info.si_code >= 0 || info.si_code == SI_TKILL) &&
+ if ((info->si_code >= 0 || info->si_code == SI_TKILL) &&
      (leader != get_this_process())) {
   task_decref(target);
   return -EPERM;
@@ -1705,13 +1813,31 @@ DEFINE_SYSCALL4(rt_tgsigqueueinfo,
   if (leader_pid &&
       leader_pid->tp_pids[THIS_THREAD_PID ? THIS_THREAD_PID->tp_ns->pn_indirection : 0] != tgid)
       error_throw(E_PROCESS_EXITED);
-  if (sig && !signal_raise_thread(target,&info))
+  if (sig && !signal_raise_thread(target,info))
       error_throw(E_PROCESS_EXITED);
  } FINALLY {
   task_decref(target);
  }
  return 0;
 }
+
+DEFINE_SYSCALL4(rt_tgsigqueueinfo,
+                pid_t,tgid,pid_t,tid,int,sig,
+                siginfo_t const *,uinfo) {
+ siginfo_t info;
+ memcpy(&info,uinfo,sizeof(siginfo_t));
+ return do_rt_tgsigqueueinfo(tgid,tid,sig,&info);
+}
+
+#ifdef CONFIG_SYSCALL_COMPAT
+DEFINE_SYSCALL_COMPAT4(rt_tgsigqueueinfo,
+                       pid_t,tgid,pid_t,tid,int,sig,
+                       siginfo_compat_t const *,uinfo) {
+ siginfo_t info;
+ siginfo_compat_to_siginfo(&info,uinfo);
+ return do_rt_tgsigqueueinfo(tgid,tid,sig,&info);
+}
+#endif /* CONFIG_SYSCALL_COMPAT */
 
 
 #define __NR_sigaltstack  132

@@ -63,7 +63,7 @@ INTERN_ENTRY(libc_cpu_getcontext)
 	popq_cfi     X86_CONTEXT64_OFFSETOF_RFLAGS(%rdi)
 	movq   %rsp, X86_CONTEXT64_OFFSETOF_RSP(%rdi)
 #ifdef __KERNEL__
-	movq   $(X86_SEG_HOST_SS), X86_CONTEXT64_OFFSETOF_CS(%rdi)
+	movq   $(X86_SEG_HOST_SS), X86_CONTEXT64_OFFSETOF_SS(%rdi)
 #else
 	movq   $0,   X86_CONTEXT64_OFFSETOF_SS(%rdi) /* The kernel will fill this in automatically. */
 #endif
@@ -111,7 +111,7 @@ INTERN_ENTRY(libc_cpu_xchcontext)
 	popq_cfi     X86_CONTEXT64_OFFSETOF_RFLAGS(%rsi)
 	movq   %rsp, X86_CONTEXT64_OFFSETOF_RSP(%rsi)
 #ifdef __KERNEL__
-	movq   $(X86_SEG_HOST_SS), X86_CONTEXT64_OFFSETOF_CS(%rsi)
+	movq   $(X86_SEG_HOST_SS), X86_CONTEXT64_OFFSETOF_SS(%rsi)
 #else
 	movq   $0,   X86_CONTEXT64_OFFSETOF_SS(%rsi) /* The kernel will fill this in automatically. */
 #endif

@@ -105,9 +105,11 @@ SECTIONS {
 		*(.text.interrupt_common)
 		*(.text.interrupt_entry)
 		*(.text.hot)
+		*(.text.likely)
 		*(.text.crt.except)
 		*(.text.crt.string)
 		*(.text)
+		*(.text.unlikely)
 		*(.text.rare)
 		*(.text.cold)
 	}
@@ -283,10 +285,8 @@ SECTIONS {
 		. += PAGESIZE;
 		IP_ALIGN(CACHELINE);
 		*(.bss.boot.boot_stack)
-#ifndef __x86_64__
 		IP_ALIGN(CACHELINE);
 		*(.bss.boot.df_stack)
-#endif
 
 		/* Boot CPU/TASK/VM data. */
 #ifndef CONFIG_NO_SMP

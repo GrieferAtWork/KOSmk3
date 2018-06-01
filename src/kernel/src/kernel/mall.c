@@ -184,6 +184,9 @@ FORCELOCAL ATTR_NOTHROW size_t KCALL
 mall_reachable_pointer(void *ptr) {
  unsigned int i; struct mallnode *node;
  if likely(!ptr) return 0; /* Optimization: NULL pointer */
+#ifdef X86_PAGING_ISNONCANON
+ if (X86_PAGING_ISNONCANON((uintptr_t)ptr)) return 0;
+#endif
 #if __SIZEOF_POINTER__ == 4
 #ifdef CONFIG_DEBUG_HEAP
  if likely((uintptr_t)ptr == DEBUGHEAP_NO_MANS_LAND) return 0; /* Optimization: No mans land */
@@ -193,9 +196,13 @@ mall_reachable_pointer(void *ptr) {
 #endif
  if (((uintptr_t)ptr & (sizeof(void *)-1)) != 0)
      return 0; /* Unaligned pointer -> not a heap pointer */
- if ((uintptr_t)ptr < (uintptr_t)kernel_end &&
-     mall_leak_heapmax < GFP_KERNEL)
+#ifdef __x86_64__
+ if ((uintptr_t)ptr < KERNEL_BASE && mall_leak_heapmax < GFP_KERNEL)
      return 0; /* There shouldn't be heap mappings between 3Gb and the kernel start... */
+#elif defined(__i386__)
+ if ((uintptr_t)ptr < (uintptr_t)kernel_start && mall_leak_heapmax < GFP_KERNEL)
+     return 0; /* There shouldn't be heap mappings between 3Gb and the kernel start... */
+#endif
  for (i = 0; i <= mall_leak_heapmax; ++i) {
   node = mallnode_tree_locate(mall_heaps[i].m_tree,(uintptr_t)ptr);
   if (!node) continue;
@@ -224,6 +231,7 @@ mall_reachable_data(void *base, size_t num_bytes) {
   offset = sizeof(void *)-((uintptr_t)base & (sizeof(void *)-1));
   if unlikely(offset >= num_bytes) goto done;
   num_bytes -= offset;
+  *(uintptr_t *)&base += offset;
  }
  end = (iter = (byte_t *)base)+num_bytes;
 continue_search:

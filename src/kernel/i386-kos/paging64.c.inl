@@ -359,9 +359,11 @@ pagedir_allocate_e3(unsigned int x4) {
         "All E4-vectors above KERNEL_BASE_PAGE must be allocated at all times!\n"
         "They're the indirection vectors that are shared between all directories!\n"
         "x4 = 0x%x",x4);
+ COMPILER_WRITE_BARRIER();
  E4_IDENTITY[x4].p_data = (VM_PAGE2ENTADDR(page_malloc(1,MZONE_PAGING)) |
                           (PAGE_FDIRTY | PAGE_FACCESSED |
                            PAGE_FWRITE | PAGE_FPRESENT));
+ COMPILER_WRITE_BARRIER();
  /* Load the virtual address of the E3 vector that we've just mapped. */
  vec = E3_IDENTITY[x4];
  pagedir_syncone(VM_ADDR2PAGE(vec));
@@ -387,6 +389,7 @@ pagedir_allocate_e2(unsigned int x4, unsigned int x3) {
   COMPILER_WRITE_BARRIER();
   vec = E2_IDENTITY[x4][x3];
   pagedir_syncone(VM_ADDR2PAGE(vec));
+  COMPILER_BARRIER();
 #if PAGE_F1GIB != PAGE_F2MIB
   ent.p_flag &= ~PAGE_F1GIB;
   ent.p_flag |=  PAGE_F2MIB;
@@ -438,8 +441,8 @@ pagedir_allocate_e1(unsigned int x4, unsigned int x3, unsigned int x2) {
   COMPILER_WRITE_BARRIER();
   vec = E1_IDENTITY[x4][x3][x2];
   pagedir_syncone(VM_ADDR2PAGE(vec));
-  ent.p_flag &= ~PAGE_F2MIB;
   COMPILER_BARRIER();
+  ent.p_flag &= ~PAGE_F2MIB;
   /* Fill in the E1 vector. */
   for (i = 0; i < E1_COUNT; ++i) {
    vec[i].p_data = ent.p_data;
@@ -953,7 +956,6 @@ do_full_1kib_pages:
    }
 #endif /* CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN */
    E1_IDENTITY[x4][x3][x2][x1].p_addr = PAGE_ABSENT;
-   pagedir_syncone(X86_PDIR_PAGE4(x4,x3,x2,x1));
   } else {
    E1_IDENTITY[x4][x3][x2][x1].p_addr = edata;
    edata += X86_PDIR_E1_SIZE;

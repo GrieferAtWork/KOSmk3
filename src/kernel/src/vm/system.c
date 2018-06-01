@@ -164,9 +164,11 @@ do_xmmap(struct mmap_info *__restrict info_) {
  switch (info->mi_xflag & XMAP_TYPE) {
  case XMAP_VIRTUAL: break;
  case XMAP_PHYSICAL:
+#if __SIZEOF_POINTER__ < 8
   /* Extend the physical address to 64 bits. */
   info->mi_phys.mp_addr64 = (__UINT64_TYPE__)(uintptr_t)info->mi_phys.mp_addr;
   ATTR_FALLTHROUGH;
+#endif
  case XMAP_PHYSICAL64:
   /* TODO: Check permissions. */
   result_offset = (uintptr_t)info->mi_addr & (PAGESIZE-1);
@@ -245,7 +247,7 @@ do_xmmap(struct mmap_info *__restrict info_) {
       pos_t mmap_start;
       vm_raddr_t region_end;
      case HANDLE_TYPE_FVM_REGION:
-      mmap_start  = info->mi_virt.mv_off64;
+      mmap_start  = info->mi_virt.mv_off;
       if (info->mi_virt.mv_begin > mmap_start)
           error_throw(E_INVALID_ARGUMENT);
       mmap_start -= info->mi_virt.mv_begin;
@@ -282,7 +284,7 @@ try_invoke_inode_mmap:
        TRY {
         pos_t mmap_start;
         vm_raddr_t region_end;
-        mmap_start  = info->mi_virt.mv_off64;
+        mmap_start  = info->mi_virt.mv_off;
         if (info->mi_virt.mv_begin > mmap_start)
             error_throw(E_INVALID_ARGUMENT);
         mmap_start -= info->mi_virt.mv_begin;
@@ -321,7 +323,7 @@ do_mmap_device:
       TRY {
        pos_t mmap_start;
        vm_raddr_t region_end;
-       mmap_start  = info->mi_virt.mv_off64;
+       mmap_start  = info->mi_virt.mv_off;
        if (info->mi_virt.mv_begin > mmap_start)
            error_throw(E_INVALID_ARGUMENT);
        mmap_start -= info->mi_virt.mv_begin;
@@ -360,7 +362,7 @@ cannot_mmap_handle:
      }
      region->vr_init                  = VM_REGION_INIT_FFILE_RO;
      region->vr_setup.s_file.f_node   = node; /* Inherit reference. */
-     region->vr_setup.s_file.f_start  = info->mi_virt.mv_off64;
+     region->vr_setup.s_file.f_start  = info->mi_virt.mv_off;
      region->vr_setup.s_file.f_begin  = info->mi_virt.mv_begin;
      region->vr_setup.s_file.f_size   = info->mi_virt.mv_len;
      region->vr_setup.s_file.f_filler = info->mi_virt.mv_fill;
@@ -374,7 +376,7 @@ cannot_mmap_handle:
      TRY {
       pos_t mmap_start;
       vm_raddr_t region_end;
-      mmap_start  = info->mi_virt.mv_off64;
+      mmap_start  = info->mi_virt.mv_off;
       if (info->mi_virt.mv_begin > mmap_start)
           error_throw(E_INVALID_ARGUMENT);
       mmap_start -= info->mi_virt.mv_begin;
@@ -399,7 +401,7 @@ cannot_mmap_handle:
     region = vm_region_alloc(num_pages);
     region->vr_init                  = VM_REGION_INIT_FFILE_RO;
     region->vr_setup.s_file.f_node   = node;
-    region->vr_setup.s_file.f_start  = info->mi_virt.mv_off64;
+    region->vr_setup.s_file.f_start  = info->mi_virt.mv_off;
     region->vr_setup.s_file.f_begin  = info->mi_virt.mv_begin;
     region->vr_setup.s_file.f_size   = info->mi_virt.mv_len;
     region->vr_setup.s_file.f_filler = info->mi_virt.mv_fill;
@@ -734,6 +736,53 @@ DEFINE_SYSCALL2(xmmap,int,version,USER struct mmap_info const *,data){
  result = do_xmmap(&info);
  return (syscall_ulong_t)result;
 }
+
+#ifdef CONFIG_SYSCALL_COMPAT
+DEFINE_SYSCALL_COMPAT2(xmmap,int,version,
+                       USER struct mmap_info_compat const *,data){
+ /* KOS eXtended system call. */
+ struct mmap_info info;
+ void *result;
+ if (version != MMAP_INFO_CURRENT)
+     error_throw(E_NOT_IMPLEMENTED);
+ /* Convert the compatibility-mode mmap info block. */
+ info.mi_prot  = data->mi_prot;
+ info.mi_flags = data->mi_flags;
+ info.mi_xflag = data->mi_xflag;
+ info.mi_addr  = (void *)(uintptr_t)data->mi_addr;
+ info.mi_size  = data->mi_size;
+ info.mi_align = data->mi_align;
+ info.mi_gap   = data->mi_gap;
+ info.mi_tag   = (void *)(uintptr_t)data->mi_tag;
+ switch (info.mi_xflag & XMAP_TYPE) {
+ case XMAP_VIRTUAL:
+  info.mi_virt.mv_file  = data->mi_virt.mv_file;
+  info.mi_virt.mv_begin = data->mi_virt.mv_begin;
+  info.mi_virt.mv_off   = data->mi_virt.mv_off;
+  info.mi_virt.mv_len   = data->mi_virt.mv_len;
+  info.mi_virt.mv_fill  = data->mi_virt.mv_fill;
+  info.mi_virt.mv_guard = data->mi_virt.mv_guard;
+  info.mi_virt.mv_funds = data->mi_virt.mv_funds;
+  break;
+ case XMAP_PHYSICAL:
+  info.mi_phys.mp_addr = (void *)(uintptr_t)data->mi_phys.mp_addr;
+  break;
+ case XMAP_PHYSICAL64:
+  info.mi_phys.mp_addr64 = data->mi_phys.mp_addr64;
+  break;
+ case XMAP_USHARE:
+  info.mi_ushare.mu_name  = data->mi_ushare.mu_name;
+  info.mi_ushare.mu_start = data->mi_ushare.mu_start;
+  break;
+ default: break;
+ }
+ COMPILER_READ_BARRIER();
+ result = do_xmmap(&info);
+ return (syscall_ulong_t)result;
+}
+
+#endif
+
 
 DEFINE_SYSCALL6(mmap,VIRT void *,addr,size_t,len,int,prot,
                 int,flags,fd_t,fd,syscall_ulong_t,off) {

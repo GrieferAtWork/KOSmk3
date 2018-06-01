@@ -80,7 +80,7 @@ struct sigaction {
 #endif /* !__CYG_COMPAT__ */
 };
 #endif /* !__sigaction_defined */
-#endif /* !__CC__ */
+#endif /* __CC__ */
 
 /* Bits in `sa_flags'. */
 #ifndef SA_NOCLDSTOP

@@ -1326,12 +1326,10 @@ INTERN void KCALL take_down_process(unsigned int status) {
  }
 }
 
-
-PRIVATE void KCALL
-errorinfo_copy_to_user(USER CHECKED struct user_task_segment *useg,
-                       struct exception_info *__restrict info,
-                       struct cpu_hostcontext_user *__restrict context,
-                       unsigned int mode) {
+LOCAL void KCALL
+errorinfo_obfuscate_kernel_data(struct exception_info *__restrict info,
+                                struct cpu_hostcontext_user *__restrict context,
+                                unsigned int mode) {
 #if __SIZEOF_POINTER__ > 4
  memset(info->e_error.__e_pad,0,sizeof(info->e_error.__e_pad));
 #endif
@@ -1342,6 +1340,14 @@ errorinfo_copy_to_user(USER CHECKED struct user_task_segment *useg,
  info->e_error.e_flag &= ~(ERR_FRESUMEFUNC);
  if (TASK_USERCTX_TYPE(mode) == TASK_USERCTX_TYPE_INTR_SYSCALL)
      info->e_error.e_flag &= ~(ERR_FRESUMENEXT|ERR_FRESUMABLE);
+}
+
+PRIVATE void KCALL
+errorinfo_copy_to_user(USER CHECKED struct user_task_segment *useg,
+                       struct exception_info *__restrict info,
+                       struct cpu_hostcontext_user *__restrict context,
+                       unsigned int mode) {
+ errorinfo_obfuscate_kernel_data(info,context,mode);
  memcpy(&useg->ts_xcurrent.e_error,
         &info->e_error,
         sizeof(struct exception_data));
@@ -1373,6 +1379,37 @@ errorinfo_copy_to_user(USER CHECKED struct user_task_segment *useg,
  useg->ts_xcurrent.e_context.c_ss             = context->c_iret.ir_ss;
 #endif
 }
+
+#ifdef __x86_64__
+PRIVATE void KCALL
+errorinfo_copy_to_user_compat(USER CHECKED struct user_task_segment_compat *useg,
+                              struct exception_info *__restrict info,
+                              struct cpu_hostcontext_user *__restrict context,
+                              unsigned int mode) {
+ errorinfo_obfuscate_kernel_data(info,context,mode);
+ memcpy(&useg->ts_xcurrent.e_error,
+        &info->e_error,
+        sizeof(struct exception_data));
+ useg->ts_xcurrent.e_context.c_gpregs.gp_edi  = context->c_gpregs.gp_edi;
+ useg->ts_xcurrent.e_context.c_gpregs.gp_esi  = context->c_gpregs.gp_esi;
+ useg->ts_xcurrent.e_context.c_gpregs.gp_ebp  = context->c_gpregs.gp_ebp;
+ useg->ts_xcurrent.e_context.c_gpregs.gp_esp  = context->c_esp;
+ useg->ts_xcurrent.e_context.c_gpregs.gp_ebx  = context->c_gpregs.gp_ebx;
+ useg->ts_xcurrent.e_context.c_gpregs.gp_edx  = context->c_gpregs.gp_edx;
+ useg->ts_xcurrent.e_context.c_gpregs.gp_ecx  = context->c_gpregs.gp_ecx;
+ useg->ts_xcurrent.e_context.c_gpregs.gp_eax  = context->c_gpregs.gp_eax;
+ useg->ts_xcurrent.e_context.c_eip            = context->c_iret.ir_eip;
+ useg->ts_xcurrent.e_context.c_eflags         = context->c_iret.ir_eflags;
+#ifndef CONFIG_NO_X86_SEGMENTATION
+ useg->ts_xcurrent.e_context.c_segments.sg_gs = X86_SEG_USER_GS32;
+ useg->ts_xcurrent.e_context.c_segments.sg_fs = X86_SEG_USER_FS32;
+ useg->ts_xcurrent.e_context.c_segments.sg_es = X86_SEG_USER_ES32;
+ useg->ts_xcurrent.e_context.c_segments.sg_ds = X86_SEG_USER_DS32;
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
+ useg->ts_xcurrent.e_context.c_cs             = context->c_iret.ir_cs;
+ useg->ts_xcurrent.e_context.c_ss             = context->c_iret.ir_ss;
+}
+#endif
 
 
 INTDEF ATTR_NORETURN void FCALL

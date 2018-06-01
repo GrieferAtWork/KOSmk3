@@ -40,8 +40,10 @@ byte_t x86_bootcpu_df_stack[CONFIG_X86_DFSTACK_SIZE];
 
 PUBLIC ATTR_PERCPU struct x86_tss x86_cputss = {
 #ifdef __x86_64__
-    .t_rsp0       = (uintptr_t)x86_boot_stack_top,
-    .t_rsp1       = (uintptr_t)x86_bootcpu_df_stack,
+    .t_rsp0 = (uintptr_t)x86_boot_stack_top,
+    .t_ist = {
+        [0] = (uintptr_t)(x86_bootcpu_df_stack + CONFIG_X86_DFSTACK_SIZE),
+    },
 #else
     .t_esp0       = (uintptr_t)x86_boot_stack_top,
     .t_ss0        = X86_KERNEL_DS,

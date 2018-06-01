@@ -342,60 +342,18 @@ __asm__(".hidden restart_sys_" #name "\n\t" \
 #define X86_SYSCALL_COMPAT_RET0   %eax /* Return register #0 */
 #define X86_SYSCALL_COMPAT_RET1   %edx /* Return register #1 */
 
-#define __PRIVATE_SYSCALL_COMPAT_LONG_0(...)                                 void
-#define __PRIVATE_SYSCALL_COMPAT_LONG_1(T0,N0)                               u32 N0
-#define __PRIVATE_SYSCALL_COMPAT_LONG_2(T0,N0,T1,N1)                         __PRIVATE_SYSCALL_COMPAT_LONG_1(T0,N0), u32 N1
-#define __PRIVATE_SYSCALL_COMPAT_LONG_3(T0,N0,T1,N1,T2,N2)                   __PRIVATE_SYSCALL_COMPAT_LONG_2(T0,N0,T1,N1), u32 N2
-#define __PRIVATE_SYSCALL_COMPAT_LONG_4(T0,N0,T1,N1,T2,N2,T3,N3)             __PRIVATE_SYSCALL_COMPAT_LONG_3(T0,N0,T1,N1,T2,N2), u32 N3
-#define __PRIVATE_SYSCALL_COMPAT_LONG_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4)       __PRIVATE_SYSCALL_COMPAT_LONG_4(T0,N0,T1,N1,T2,N2,T3,N3), u32 N4
-#define __PRIVATE_SYSCALL_COMPAT_LONG_6(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4,T5,N5) __PRIVATE_SYSCALL_COMPAT_LONG_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4), u32 N5
-#define __SYSCALL_COMPAT_LONG(argc,argv)  __PRIVATE_SYSCALL_COMPAT_LONG_##argc argv
-
-#define __PRIVATE_SYSCALL_COMPAT_DECL_0(...)                                 void
-#define __PRIVATE_SYSCALL_COMPAT_DECL_1(T0,N0)                               T0 N0
-#define __PRIVATE_SYSCALL_COMPAT_DECL_2(T0,N0,T1,N1)                         __PRIVATE_SYSCALL_COMPAT_DECL_1(T0,N0), T1 N1
-#define __PRIVATE_SYSCALL_COMPAT_DECL_3(T0,N0,T1,N1,T2,N2)                   __PRIVATE_SYSCALL_COMPAT_DECL_2(T0,N0,T1,N1), T2 N2
-#define __PRIVATE_SYSCALL_COMPAT_DECL_4(T0,N0,T1,N1,T2,N2,T3,N3)             __PRIVATE_SYSCALL_COMPAT_DECL_3(T0,N0,T1,N1,T2,N2), T3 N3
-#define __PRIVATE_SYSCALL_COMPAT_DECL_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4)       __PRIVATE_SYSCALL_COMPAT_DECL_4(T0,N0,T1,N1,T2,N2,T3,N3), T4 N4
-#define __PRIVATE_SYSCALL_COMPAT_DECL_6(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4,T5,N5) __PRIVATE_SYSCALL_COMPAT_DECL_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4), T5 N5
-#define __SYSCALL_COMPAT_DECL(argc,argv)  __PRIVATE_SYSCALL_COMPAT_DECL_##argc argv
-
-#define __PRIVATE_SYSCALL_COMPAT_CAST_0(...)                                 /* Nothing */
-#define __PRIVATE_SYSCALL_COMPAT_CAST_1(T0,N0)                               (T0)N0
-#define __PRIVATE_SYSCALL_COMPAT_CAST_2(T0,N0,T1,N1)                         __PRIVATE_SYSCALL_COMPAT_CAST_1(T0,N0),(T1)N1
-#define __PRIVATE_SYSCALL_COMPAT_CAST_3(T0,N0,T1,N1,T2,N2)                   __PRIVATE_SYSCALL_COMPAT_CAST_2(T0,N0,T1,N1),(T2)N2
-#define __PRIVATE_SYSCALL_COMPAT_CAST_4(T0,N0,T1,N1,T2,N2,T3,N3)             __PRIVATE_SYSCALL_COMPAT_CAST_3(T0,N0,T1,N1,T2,N2),(T3)N3
-#define __PRIVATE_SYSCALL_COMPAT_CAST_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4)       __PRIVATE_SYSCALL_COMPAT_CAST_4(T0,N0,T1,N1,T2,N2,T3,N3),(T4)N4
-#define __PRIVATE_SYSCALL_COMPAT_CAST_6(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4,T5,N5) __PRIVATE_SYSCALL_COMPAT_CAST_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4),(T5)N5
-#define __SYSCALL_COMPAT_CAST(argc,argv)  __PRIVATE_SYSCALL_COMPAT_CAST_##argc argv
-
-#define __PRIVATE_SYSCALL_COMPAT_ASSERT(T,N) STATIC_ASSERT_MSG(sizeof(T) <= 4,"Argument type " #T " of " #N " is too large");
-#define __PRIVATE_SYSCALL_COMPAT_ASSERT_0(...)                                 /* Nothing */
-#define __PRIVATE_SYSCALL_COMPAT_ASSERT_1(T0,N0)                               __PRIVATE_SYSCALL_COMPAT_ASSERT(T0,N0)
-#define __PRIVATE_SYSCALL_COMPAT_ASSERT_2(T0,N0,T1,N1)                         __PRIVATE_SYSCALL_COMPAT_ASSERT_1(T0,N0) __PRIVATE_SYSCALL_COMPAT_ASSERT(T1,N1)
-#define __PRIVATE_SYSCALL_COMPAT_ASSERT_3(T0,N0,T1,N1,T2,N2)                   __PRIVATE_SYSCALL_COMPAT_ASSERT_2(T0,N0,T1,N1) __PRIVATE_SYSCALL_COMPAT_ASSERT(T2,N2)
-#define __PRIVATE_SYSCALL_COMPAT_ASSERT_4(T0,N0,T1,N1,T2,N2,T3,N3)             __PRIVATE_SYSCALL_COMPAT_ASSERT_3(T0,N0,T1,N1,T2,N2) __PRIVATE_SYSCALL_COMPAT_ASSERT(T3,N3)
-#define __PRIVATE_SYSCALL_COMPAT_ASSERT_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4)       __PRIVATE_SYSCALL_COMPAT_ASSERT_4(T0,N0,T1,N1,T2,N2,T3,N3) __PRIVATE_SYSCALL_COMPAT_ASSERT(T4,N4)
-#define __PRIVATE_SYSCALL_COMPAT_ASSERT_6(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4,T5,N5) __PRIVATE_SYSCALL_COMPAT_ASSERT_5(T0,N0,T1,N1,T2,N2,T3,N3,T4,N4) __PRIVATE_SYSCALL_COMPAT_ASSERT(T5,N5)
-#define __SYSCALL_COMPAT_ASSERT(argc,argv)  __PRIVATE_SYSCALL_COMPAT_ASSERT_##argc argv
-#ifdef __INTELLISENSE__
-#define __SYSCALL_COMPAT_ASSERT_NAME(name) (void)(__NR_##name);
-#else
-#define __SYSCALL_COMPAT_ASSERT_NAME(name) /* Nothing */
-#endif
-
 #define __X86_DEFINE_SYSCALL_COMPATn(name,argc,argv) \
 __asm__(".hidden argc_sys_" #name "_compat\n" \
         ".global argc_sys_" #name "_compat\n" \
         ".set argc_sys_" #name "_compat, " #argc "\n"); \
-LOCAL u32 ATTR_CDECL SYSC_##name##_compat(__SYSCALL_COMPAT_DECL(argc,argv)); \
-INTERN u32 ATTR_CDECL sys_##name##_compat(__SYSCALL_COMPAT_LONG(argc,argv)) \
+LOCAL u32 ATTR_CDECL SYSC_##name##_compat(__SYSCALL_DECL(argc,argv)); \
+INTERN u32 ATTR_CDECL sys_##name##_compat(__SYSCALL_LONG(argc,argv)) \
 { \
-    __SYSCALL_COMPAT_ASSERT(argc,argv) \
-    __SYSCALL_COMPAT_ASSERT_NAME(name) \
-    return SYSC_##name##_compat(__SYSCALL_COMPAT_CAST(argc,argv)); \
+    __SYSCALL_ASSERT(argc,argv) \
+    __SYSCALL_ASSERT_NAME(name) \
+    return SYSC_##name##_compat(__SYSCALL_CAST(argc,argv)); \
 } \
-LOCAL u32 ATTR_CDECL SYSC_##name##_compat(__SYSCALL_COMPAT_DECL(argc,argv))
+LOCAL u32 ATTR_CDECL SYSC_##name##_compat(__SYSCALL_DECL(argc,argv))
 
 #define __X86_DEFINE_SYSCALL_COMPATn64(name,argc,argv) \
 __asm__(".hidden argc_sys_" #name "_compat\n" \
@@ -408,14 +366,14 @@ __asm__(".hidden argc_sys_" #name "_compat\n" \
         "    addl $x86_syscall64_adjustment, (%esp)\n" \
         "    jmp  sys64_" #name "_compat\n" \
         ".size sys_" #name "_compat, . - sys_" #name "_compat\n"); \
-LOCAL u64 ATTR_CDECL SYSC_##name##_compat(__SYSCALL_COMPAT_DECL(argc,argv)); \
-INTERN u64 ATTR_CDECL sys64_##name##_compat(__SYSCALL_COMPAT_LONG(argc,argv)) \
+LOCAL u64 ATTR_CDECL SYSC_##name##_compat(__SYSCALL_DECL(argc,argv)); \
+INTERN u64 ATTR_CDECL sys64_##name##_compat(__SYSCALL_LONG(argc,argv)) \
 { \
-    __SYSCALL_COMPAT_ASSERT(argc,argv) \
-    __SYSCALL_COMPAT_ASSERT_NAME(name) \
-    return SYSC_##name##_compat(__SYSCALL_COMPAT_CAST(argc,argv)); \
+    __SYSCALL_ASSERT(argc,argv) \
+    __SYSCALL_ASSERT_NAME(name) \
+    return SYSC_##name##_compat(__SYSCALL_CAST(argc,argv)); \
 } \
-LOCAL u64 ATTR_CDECL SYSC_##name##_compat(__SYSCALL_COMPAT_DECL(argc,argv))
+LOCAL u64 ATTR_CDECL SYSC_##name##_compat(__SYSCALL_DECL(argc,argv))
 
 #define DEFINE_SYSCALL_COMPAT0(name)        __X86_DEFINE_SYSCALL_COMPATn(name,0,())
 #define DEFINE_SYSCALL_COMPAT1(name,...)    __X86_DEFINE_SYSCALL_COMPATn(name,1,(__VA_ARGS__))
@@ -487,6 +445,7 @@ struct PACKED syscall_trace_regs {
     struct x86_irregs_user32 str_iret;     /* User-space IRET Tail. */
 #endif
 };
+#define SYSCALL_TRACE_EXC_ENABLED(x) ((x)->str_iret.ir_pflags & EFLAGS_CF)
 
 
 /* Execute a system call using register values found

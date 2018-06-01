@@ -439,17 +439,16 @@ x86_handle_illegal_instruction(struct x86_anycontext *__restrict context) {
 restart_sysenter_syscall:
    TRY {
     /* Convert the user-space register context to become `int $0x80'-compatible */
-    syscall_ulong_t masked_sysno; u8 argc = 6;
-    sysno                       = xcontext->c_gpregs.gp_eax;
-    masked_sysno                = sysno & ~0x80000000;
+    u8 argc = 6;
+    sysno = xcontext->c_gpregs.gp_eax;
     xcontext->c_pip             = orig_edi; /* CLEANUP: return.%eip = %edi */
     xcontext->c_iret.ir_useresp = orig_ebp; /* CLEANUP: return.%esp = %ebp */
     /* Figure out how many arguments this syscall takes. */
-    if (masked_sysno <= __NR_syscall_max)
-     argc = x86_syscall_argc[masked_sysno];
-    else if (masked_sysno >= __NR_xsyscall_min &&
-             masked_sysno <= __NR_xsyscall_max) {
-     argc = x86_xsyscall_argc[masked_sysno-__NR_xsyscall_min];
+    if (sysno <= __NR_syscall_max)
+     argc = x86_syscall_argc[sysno];
+    else if (sysno >= __NR_xsyscall_min &&
+             sysno <= __NR_xsyscall_max) {
+     argc = x86_xsyscall_argc[sysno-__NR_xsyscall_min];
     }
     /* Load additional arguments from user-space. */
     if (argc >= 4)
@@ -1640,8 +1639,6 @@ x86_handle_gpf(struct cpu_anycontext *__restrict context,
    case 0xad: /* lodsw / lodsl / lodsq */
    case 0x6e: /* outsb */
    case 0x6f: /* outsw / outsl / outsq */
-   case 0xae: /* scasb */
-   case 0xaf: /* scasw / scasl / scasq */
     nc_addr = context->c_gpregs.gp_rsi;
     goto noncanon_read;
 
@@ -1649,6 +1646,8 @@ x86_handle_gpf(struct cpu_anycontext *__restrict context,
    case 0x6d: /* insw / insl / insq */
    case 0xaa: /* stosb */
    case 0xab: /* stosw / stosl / stosq */
+   case 0xae: /* scasb */
+   case 0xaf: /* scasw / scasl / scasq */
     nc_addr = context->c_gpregs.gp_rdi;
     goto noncanon_write;
 

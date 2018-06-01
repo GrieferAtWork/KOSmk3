@@ -48,7 +48,6 @@ INTDEF byte_t x86_fast_sysenter_size[];
 INTERN byte_t *x86_sysenter_ushare_base = x86_ushare_sysenter;
 #ifndef __x86_64__
 INTDEF byte_t x86_sysexit_fixup_1[];
-INTDEF byte_t x86_sysexit_fixup_2[];
 #endif
 
 
@@ -59,7 +58,6 @@ INTERN ATTR_FREETEXT void KCALL x86_initialize_sysenter(void) {
  if (!(feat->ci_1d & CPUID_1D_SEP)) {
   if (THIS_CPU == &_boot_cpu) {
    x86_sysexit_fixup_1[0] = 0xcf; /* iret */
-   x86_sysexit_fixup_2[0] = 0xcf; /* iret */
   }
   return; /* Not available. */
  }

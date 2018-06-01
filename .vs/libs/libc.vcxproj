@@ -138,6 +138,7 @@
     <None Include="..\..\src\hybrid\i386-kos\except64.S" />
     <None Include="..\..\src\hybrid\i386-kos\instruction-ops.c.inl" />
     <None Include="..\..\src\hybrid\i386-kos\string32.S" />
+    <None Include="..\..\src\hybrid\i386-kos\string64.S" />
     <None Include="..\..\src\hybrid\memory-template.c.inl" />
     <None Include="..\..\src\hybrid\string-template.c.inl" />
     <None Include="..\..\src\libs\libc\format-impl.c.inl" />

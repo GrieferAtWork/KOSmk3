@@ -31,6 +31,7 @@
 #include <bits/signum.h>
 #include <bits/sigstack.h>
 #include <kernel/sections.h>
+#include <kernel/syscall.h>
 #include <sched/signal.h>
 
 #if defined(__i386__) || defined(__x86_64__)
@@ -240,6 +241,12 @@ FUNDEF void KCALL
 signal_chaction(int signo,
                 USER CHECKED struct sigaction const *new_action,
                 USER CHECKED struct sigaction *old_action);
+#ifdef CONFIG_SYSCALL_COMPAT
+FUNDEF void KCALL
+signal_chaction_compat(int signo,
+                       USER CHECKED struct sigaction_compat const *new_action,
+                       USER CHECKED struct sigaction_compat *old_action);
+#endif
 
 /* Change the signal disposition of all signal actions using
  * a user-space disposition to `SIG_DFL'. (called during exec()) */

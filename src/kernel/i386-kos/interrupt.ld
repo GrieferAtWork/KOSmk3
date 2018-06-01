@@ -39,15 +39,15 @@
 	SHORT((irq_##id & 0xffff0000) >> 16);
 #endif
 #define DEFINE_INTERRUPT(id) \
-   DEFINE_INTERRUPT_EX(id,X86_IDTTYPE_80386_32_INTERRUPT_GATE)
+	DEFINE_INTERRUPT_EX(id,X86_IDTTYPE_80386_32_INTERRUPT_GATE)
 #ifdef __x86_64__
 /* Can't use traps on x86_64, because we need to
  * be able to do swapgs without being interrupted. */
 #define DEFINE_GATE(id) \
-   DEFINE_INTERRUPT_EX(id,X86_IDTTYPE_80386_32_INTERRUPT_GATE)
+	DEFINE_INTERRUPT_EX(id,X86_IDTTYPE_80386_32_INTERRUPT_GATE)
 #else
 #define DEFINE_GATE(id) \
-   DEFINE_INTERRUPT_EX(id,X86_IDTTYPE_80386_32_TRAP_GATE)
+	DEFINE_INTERRUPT_EX(id,X86_IDTTYPE_80386_32_TRAP_GATE)
 #endif
 
 /* GATE:      Leave EFLAGS.IF unchanged */
@@ -63,7 +63,7 @@ DEFINE_GATE(06)       /* #UD -- Illegal Instruction */
 DEFINE_GATE(07)       /* #NM -- Device not available (Keep interrupts on for lazy FPU switching). */
 
 #ifdef __x86_64__
-DEFINE_INTERRUPT(02)  /* #DF -- Double Fault. */
+DEFINE_INTERRUPT(08)  /* #DF -- Double Fault. */
 #else
 /* Special handling for #DF (implemented using a task gate on i386) */
 SHORT(0);

@@ -333,8 +333,114 @@ typedef struct __siginfo_struct {
 #define si_arch      _sifields._sigsys._arch
 #endif /* !__COMPILER_HAVE_TRANSPARENT_UNION */
 } siginfo_t;
-#endif /* !__CYG_COMPAT__ */
+#ifdef __CRT_KOS
+#include <kos/i386-kos/bits/compat.h>
+#ifdef __EXPOSE_CPU_COMPAT
+#include <bits/signum.h>
+typedef struct __siginfo_compat_struct {
+    __INT32_TYPE__ si_signo;
+    __INT32_TYPE__ si_errno;
+    __INT32_TYPE__ si_code;
+    __INT32_TYPE__ __si_pad0;
+    union {
+        struct { /* kill(). */
+            __pid_t  si_pid;
+            __uid_t  si_uid;
+        };
+        struct { /* POSIX.1b timers. */
+            __INT32_TYPE__ si_timerid;
+            __INT32_TYPE__ si_overrun;
+            union {
+                sigval_t       si_value;
+                __INT32_TYPE__ si_int;
+                __X86_PTRCC(void) si_ptr;
+            };
+        };
+        struct { /* POSIX.1b signals. */
+            __pid_t  __sig_si_pid;
+            __uid_t  __sig_si_uid;
+            sigval_t __sig_si_sigval;
+        };
+        struct { /* SIGCHLD. */
+            __pid_t      __cld_si_pid;
+            __uid_t      __cld_si_uid;
+            __INT32_TYPE__     si_status;
+#if __SIZEOF_X86_INTPTRCC__ >= 8
+            __UINT32_TYPE__  __si_pad1;
+#endif
+            __X86_INTPTRCC     si_utime;
+            __X86_INTPTRCC     si_stime;
+        };
+        struct { /* SIGILL, SIGFPE, SIGSEGV, SIGBUS. */
+            __X86_PTRCC(void)  si_addr;
+            __INT16_TYPE__     si_addr_lsb;
+            __INT16_TYPE__   __si_pad2[(sizeof(__X86_PTRCC(void))-2)/2];
+            __X86_PTRCC(void)  si_lower;
+            __X86_PTRCC(void)  si_upper;
+        };
+        struct { /* SIGPOLL. */
+            __X86_INTPTRCC     si_band;
+            __INT32_TYPE__     si_fd;
+        };
+        struct { /* SIGSYS. */
+            __X86_PTRCC(void)  si_call_addr;
+            __INT32_TYPE__     si_syscall;
+            __UINT32_TYPE__    si_arch;
+        };
+    };
+} siginfo_compat_t;
+
+__LOCAL void
+(__LIBCCALL siginfo_compat_to_siginfo)(siginfo_t *__restrict __dst,
+                                       siginfo_compat_t const *__restrict __src) {
+ __dst->si_signo  = __src->si_signo;
+ __dst->si_errno  = __src->si_errno;
+ __dst->si_code   = __src->si_code;
+ __dst->__si_pad0 = __src->__si_pad0;
+ switch (__KOS_SIGNO(__dst->si_signo)) {
+ case SIGILL:
+ case SIGFPE:
+ case SIGSEGV:
+ case SIGBUS:
+  __dst->si_addr = (void *)(__UINTPTR_TYPE__)__src->si_addr;
+  __dst->si_addr_lsb = __src->si_addr_lsb;
+  __dst->__si_pad2[0] = 0;
+#if __SIZEOF_POINTER__ > 4
+  __dst->__si_pad2[1] = 0;
+  __dst->__si_pad2[2] = 0;
+#endif
+  __dst->si_lower = (void *)(__UINTPTR_TYPE__)__src->si_lower;
+  __dst->si_upper = (void *)(__UINTPTR_TYPE__)__src->si_upper;
+  break;
+ case SIGPOLL:
+  __dst->si_band = __src->si_band;
+  __dst->si_fd   = __src->si_fd;
+  break;
+ case SIGSYS:
+  __dst->si_call_addr = (void *)(__UINTPTR_TYPE__)__src->si_call_addr;
+  __dst->si_syscall   = __src->si_syscall;
+  __dst->si_arch      = __src->si_arch;
+  break;
+ case SIGCHLD:
+#if __SIZEOF_X86_INTPTRCC__ < 8
+  __dst->__si_pad1 = 0;
+#endif
+  __dst->si_utime = __src->si_utime;
+  __dst->si_stime = __src->si_stime;
+  __ATTR_FALLTHROUGH
+ default:
+  __dst->si_timerid = __src->si_timerid;
+  __dst->si_overrun = __src->si_overrun;
+  __dst->si_value   = __src->si_value;
+  break;
+ }
+}
+
+#endif
+#endif /* __CRT_KOS */
+
 #endif /* __CC__ */
+#endif /* !__CYG_COMPAT__ */
 
 #ifdef __CYG_COMPAT__
 
