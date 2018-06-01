@@ -124,7 +124,9 @@ Segment Register FS                         44           %fs
 Segment Register GS                         45           %gs
 */
 
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
+#define UNWIND_NUM_REGISTERS        12
+#elif !defined(CONFIG_NO_X86_SEGMENTATION)
 #define UNWIND_NUM_REGISTERS        14
 #else
 #define UNWIND_NUM_REGISTERS        10
@@ -147,10 +149,15 @@ PRIVATE u16 const unwind_register_offsets[UNWIND_NUM_REGISTERS] = {
     [9]  = offsetof(struct cpu_context,c_eflags)
 #ifndef CONFIG_NO_X86_SEGMENTATION
     ,
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+    [10] = offsetof(struct cpu_context,c_segments.sg_fs), /* %fs */
+    [11] = offsetof(struct cpu_context,c_segments.sg_gs)  /* %gs */
+#else
     [10] = offsetof(struct cpu_context,c_segments.sg_es), /* %es */
     [11] = offsetof(struct cpu_context,c_segments.sg_ds), /* %ds */
     [12] = offsetof(struct cpu_context,c_segments.sg_fs), /* %fs */
     [13] = offsetof(struct cpu_context,c_segments.sg_gs)  /* %gs */
+#endif
 #endif
 };
 
@@ -168,10 +175,15 @@ PRIVATE u8 const unwind_register_matrix[256] = {
     [7]  = 7,  /* %edi */
     [8]  = 8,  /* %eip */
     [9]  = 9,  /* %eflags */
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+    [44] = 10, /* %fs */
+    [45] = 11, /* %gs */
+#else
     [40] = 10, /* %es */
     [43] = 11, /* %ds */
     [44] = 12, /* %fs */
     [45] = 13, /* %gs */
+#endif
 };
 #endif
 #endif /* !__x86_64__ */

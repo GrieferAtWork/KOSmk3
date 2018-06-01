@@ -181,12 +181,17 @@ SYMEND(x86_rpc_entry_fast)
 	 *        [+32]  u32  jf_eax
 	 *        [+36]  u32  jf_gs
 	 *        [+40]  u32  jf_fs
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	 *        [+44]  u32  jf_es
 	 *        [+48]  u32  jf_ds
 	 *        [+52]  u32  jf_eip
 	 *        [+56]  u32  jf_eflags
 	 *        [+60]  u32  jf_cs
 	 *        [+64]  u32  jf_ss
+#else
+	 *        [+44]  u32  jf_eip
+	 *        [+48]  u32  jf_eflags
+#endif
 	 */
 	.cfi_startproc simple
 	.cfi_def_cfa    %esp,    68
@@ -198,6 +203,7 @@ SYMEND(x86_rpc_entry_fast)
 	.cfi_rel_offset %edx,    24
 	.cfi_rel_offset %ecx,    28
 	.cfi_rel_offset %eax,    32
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	.cfi_rel_offset %gs,     36
 	.cfi_rel_offset %fs,     40
@@ -208,6 +214,12 @@ SYMEND(x86_rpc_entry_fast)
 	.cfi_rel_offset %eflags, 56
 /*	.cfi_rel_offset %cs,     60 */
 /*	.cfi_rel_offset %ss,     64 */
+#else
+	.cfi_rel_offset %gs,     36
+	.cfi_rel_offset %fs,     40
+	.cfi_rel_offset %eip,    44
+	.cfi_rel_offset %eflags, 48
+#endif
 	nop /* This counteracts the -1 adjustment done by tracebacks. */
 	.align 16
 INTERN_ENTRY(x86_rpc_entry_full)
@@ -270,8 +282,10 @@ DEFINE_INTERN(libc_invoke_rpc_full)
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
+#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %es
 	popl_cfi_r %ds
+#endif /* !CONFIG_NO_X86_SEGMENTATION */
 #else
 	addl  $16, %esp
 	.cfi_adjust_cfa_offset -16

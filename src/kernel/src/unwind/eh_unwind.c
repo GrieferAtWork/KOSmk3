@@ -700,8 +700,10 @@ eh_return(struct fde_info *__restrict info,
 #ifndef CONFIG_NO_X86_SEGMENTATION
    ctx->c_segments.sg_gs = iret->ir_gs;
    ctx->c_segments.sg_fs = iret->ir_fs;
+#ifndef CONFIG_X86_FIXED_SEGMENTATION /* ??? */
    ctx->c_segments.sg_es = iret->ir_es;
    ctx->c_segments.sg_ds = iret->ir_ds;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 #endif /* CONFIG_VM86 */
   } else {

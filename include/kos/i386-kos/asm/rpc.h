@@ -22,6 +22,9 @@
 #include <__stdinc.h>
 #include <hybrid/host.h>
 #include <hybrid/typecore.h>
+#if 1 /* TODO: Remove this once `CONFIG_X86_FIXED_SEGMENTATION' becomes mandatory. */
+#include <kos/i386-kos/bits/cpu-context.h> /* CONFIG_X86_FIXED_SEGMENTATION */
+#endif
 
 __SYSDECL_BEGIN
 
@@ -122,12 +125,16 @@ struct x86_job_frame32 {
     __ULONG32_TYPE__      jf_eax;      /* [exists_if(X86_JOB_FSAVE_CREGS)] Accumulator register */
     __ULONG32_TYPE__      jf_gs;       /* [exists_if(X86_JOB_FSAVE_SEGMENTS)] G segment register */
     __ULONG32_TYPE__      jf_fs;       /* [exists_if(X86_JOB_FSAVE_SEGMENTS)] F segment register */
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
     __ULONG32_TYPE__      jf_es;       /* [exists_if(X86_JOB_FSAVE_SEGMENTS)] E (source) segment register */
     __ULONG32_TYPE__      jf_ds;       /* [exists_if(X86_JOB_FSAVE_SEGMENTS)] D (destination) segment register */
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
     __ULONG32_TYPE__      jf_eip;      /* Instruction pointer */
     __ULONG32_TYPE__      jf_eflags;   /* [exists_if(X86_JOB_FSAVE_CREGS)] Flags register */
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
     __ULONG32_TYPE__      jf_cs;       /* [exists_if(X86_JOB_FSAVE_SEGMENTS)] Code segment */
     __ULONG32_TYPE__      jf_ss;       /* [exists_if(X86_JOB_FSAVE_SEGMENTS)] Stack segment */
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 };
 #endif /* __CC__ */
 

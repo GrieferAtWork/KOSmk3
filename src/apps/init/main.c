@@ -297,7 +297,7 @@ int main(int argc, char *argv[]) {
  }
 
 
-#if 0
+#if 1
  if (kernctl(KERNEL_CONTROL_INSMOD,"/mod/vga.mod",NULL) >= 0) {
   kernctl(KERNEL_CONTROL_INSMOD,"/mod/bochs-vbe.mod",NULL);
   Xexecl("/bin/wms","wms","/bin/wm","wm",(char *)NULL);

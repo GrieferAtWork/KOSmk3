@@ -82,8 +82,10 @@ x86_sigreturn_impl(void *UNUSED(arg),
  memcpy(&context->c_gpregs,&frame->sf_return.m_context.c_gpregs,
         sizeof(struct x86_gpregs32));
 #endif /* CONFIG_NO_X86_SEGMENTATION */
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
  context->c_iret.ir_cs     = frame->sf_return.m_context.c_cs;
  context->c_iret.ir_ss     = frame->sf_return.m_context.c_ss;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
  context->c_iret.ir_pflags = frame->sf_return.m_context.c_pflags;
  context->c_iret.ir_pip    = frame->sf_return.m_context.c_pip;
 #ifdef __x86_64__
@@ -137,37 +139,45 @@ x86_sigreturn_impl(void *UNUSED(arg),
  /* Verify user-space segment indices. */
  TRY {
 #if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
   if (context->c_segments.sg_ds && !__verw(context->c_segments.sg_ds))
       throw_invalid_segment(context->c_segments.sg_ds,X86_REGISTER_SEGMENT_DS);
   if (context->c_segments.sg_es && !__verw(context->c_segments.sg_es))
       throw_invalid_segment(context->c_segments.sg_es,X86_REGISTER_SEGMENT_ES);
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
   if (context->c_segments.sg_fs && !__verw(context->c_segments.sg_fs))
       throw_invalid_segment(context->c_segments.sg_fs,X86_REGISTER_SEGMENT_FS);
   if (context->c_segments.sg_gs && !__verw(context->c_segments.sg_gs))
       throw_invalid_segment(context->c_segments.sg_gs,X86_REGISTER_SEGMENT_GS);
 #endif
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
   if (context->c_iret.ir_ss && !__verw(context->c_iret.ir_ss))
       throw_invalid_segment(context->c_iret.ir_ss,X86_REGISTER_SEGMENT_SS);
   /* Ensure ring #3 (This is _highly_ important. Without this,
    * user-space would be executed as kernel-code; autsch...) */
   if ((context->c_iret.ir_cs & 3) != 3 || !__verr(context->c_iret.ir_cs))
       throw_invalid_segment(context->c_iret.ir_cs,X86_REGISTER_SEGMENT_CS);
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Must fix register values, as otherwise userspace wouldn't be able to handle the exception. */
 #if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
   if (xcontext->c_segments.sg_ds && !__verw(xcontext->c_segments.sg_ds))
       xcontext->c_segments.sg_ds = X86_SEG_USER_DS;
   if (xcontext->c_segments.sg_es && !__verw(xcontext->c_segments.sg_es))
       xcontext->c_segments.sg_es = X86_SEG_USER_ES;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
   if (xcontext->c_segments.sg_fs && !__verw(xcontext->c_segments.sg_fs))
       xcontext->c_segments.sg_fs = X86_SEG_USER_FS;
   if (xcontext->c_segments.sg_gs && !__verw(xcontext->c_segments.sg_gs))
       xcontext->c_segments.sg_gs = X86_SEG_USER_GS;
 #endif
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
   if (xcontext->c_iret.ir_ss && !__verw(xcontext->c_iret.ir_ss))
       xcontext->c_iret.ir_ss = X86_SEG_USER_SS;
   if ((xcontext->c_iret.ir_cs & 3) != 3 || !__verr(xcontext->c_iret.ir_cs))
       xcontext->c_iret.ir_cs = X86_SEG_USER_CS;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
   error_rethrow();
  }
 
@@ -398,8 +408,10 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
  frame->sf_return.m_context.c_gpregs.gp_eax = context->c_gpregs.gp_eax;
  frame->sf_return.m_context.c_eip           = context->c_eip;
  frame->sf_return.m_context.c_eflags        = context->c_eflags;
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
  frame->sf_return.m_context.c_cs            = context->c_iret.ir_cs;
  frame->sf_return.m_context.c_ss            = context->c_iret.ir_ss;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif
 
  frame->sf_return.m_flags = __MCONTEXT_FNORMAL;

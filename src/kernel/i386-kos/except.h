@@ -30,7 +30,9 @@ DECL_BEGIN
 struct cpu_context_ss {
     struct cpu_context c_context;
 #ifndef __x86_64__
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
     uintptr_t          c_ss;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif
 };
 

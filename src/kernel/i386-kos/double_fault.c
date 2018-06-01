@@ -34,6 +34,7 @@
 #include <kos/context.h>
 #include <sched/pid.h>
 #include <i386-kos/tss.h>
+#include <i386-kos/gdt.h>
 #include <except.h>
 #include <string.h>
 #include <sched/mutex.h>
@@ -264,8 +265,10 @@ INTERN void FCALL c_x86_double_fault_handler(void) {
  context.c_gpregs.gp_ecx  = tss->t_ecx;
  context.c_gpregs.gp_eax  = tss->t_eax;
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
  context.c_segments.sg_ds = tss->t_ds;
  context.c_segments.sg_es = tss->t_es;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
  context.c_segments.sg_fs = tss->t_fs;
  context.c_segments.sg_gs = tss->t_gs;
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -307,8 +310,13 @@ INTERN void FCALL c_x86_double_fault_handler(void) {
  tss->t_ecx    = context.c_gpregs.gp_ecx;
  tss->t_eax    = context.c_gpregs.gp_eax;
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+ tss->t_ds     = X86_SEG_DS;
+ tss->t_es     = X86_SEG_ES;
+#else /* CONFIG_X86_FIXED_SEGMENTATION */
  tss->t_ds     = context.c_segments.sg_ds;
  tss->t_es     = context.c_segments.sg_es;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
  tss->t_fs     = context.c_segments.sg_fs;
  tss->t_gs     = context.c_segments.sg_gs;
 #endif /* !CONFIG_NO_X86_SEGMENTATION */

@@ -137,8 +137,10 @@ INTERN_ENTRY(x86_check_spurious_interrupt_PIC1)
 	pushl_cfi_r %ecx
 	pushl_cfi_r %edx
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -167,8 +169,10 @@ INTERN_ENTRY(x86_check_spurious_interrupt_PIC2)
 	pushl_cfi_r %ecx
 	pushl_cfi_r %edx
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -178,8 +182,10 @@ INTERN_ENTRY(x86_check_spurious_interrupt_PIC2)
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r  %gs
 	popl_cfi_r  %fs
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r  %es
 	popl_cfi_r  %ds
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 	popl_cfi_r  %edx
 	popl_cfi_r  %ecx
@@ -527,8 +533,10 @@ INTERN_ENTRY(irq_common)
 
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Save segment registers. */
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r  %ds
 	pushl_cfi_r  %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r  %fs
 	pushl_cfi_r  %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -580,8 +588,10 @@ INTERN_ENTRY(irq_common)
 	/* Load segment registers. */
 	popl_cfi_r   %gs
 	popl_cfi_r   %fs
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r   %es
 	popl_cfi_r   %ds
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 	iret
 	.cfi_endproc
@@ -658,8 +668,10 @@ INTERN_ENTRY(x86_interrupt_except)
 	.cfi_def_cfa_offset X86_IRREGS_HOST32_SIZE
 
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -766,8 +778,10 @@ INTERN_ENTRY(x86_interrupt_except)
 	                 X86_CONTEXT32_OFFSETOF_ESP, %esp
 	subl    $(X86_IRREGS_USER32_SIZE), %esp /* Reserve memory for a copy of the IRET tail. */
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs /* Will get overwritten below. */
 	pushl_cfi_r %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -796,8 +810,10 @@ INTERN_ENTRY(x86_interrupt_except)
 	movl    %eax, X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EIP(%esp)
 #else /* !NDEBUG */
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -932,8 +948,10 @@ INTERN_ENTRY(x86_interrupt_except)
 	addl    $4, %esp
 	.cfi_adjust_cfa_offset -4
 	.cfi_same_value %fs
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r  %es
 	popl_cfi_r  %ds
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 	/* Load the stack base. */
 	movl    %taskseg:TASK_OFFSETOF_STACKEND, %esp
@@ -960,8 +978,10 @@ INTERN_ENTRY(x86_interrupt_except)
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r  %gs /* Load segment registers. */
 	popl_cfi_r  %fs
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r  %es
 	popl_cfi_r  %ds
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 	iret
 #else /* !NDEBUG */
@@ -971,8 +991,10 @@ INTERN_ENTRY(x86_interrupt_except)
 	/* Load segment registers. */
 	popl_cfi_r  %gs
 	popl_cfi_r  %fs
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r  %es
 	popl_cfi_r  %ds
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 	iret
 #endif /* NDEBUG */

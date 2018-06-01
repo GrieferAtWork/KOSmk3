@@ -42,8 +42,10 @@ INTERN_ENTRY(X86_IRQ_ATA0)
 	pushl_cfi_r %edx
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Save segment registers. */
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -68,8 +70,10 @@ INTERN_ENTRY(X86_IRQ_ATA0)
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r %es
 	popl_cfi_r %ds
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 	popl_cfi_r %edx
 	popl_cfi_r %ecx
@@ -83,8 +87,10 @@ INTERN_ENTRY(X86_IRQ_ATA1)
 	pushl_cfi_r %edx
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Save segment registers. */
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -113,8 +119,10 @@ INTERN_ENTRY(X86_IRQ_KBD)
 	pushl_cfi_r %edx
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Save segment registers. */
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -125,8 +133,10 @@ INTERN_ENTRY(X86_IRQ_KBD)
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r %es
 	popl_cfi_r %ds
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 	popl_cfi_r %edx
 	popl_cfi_r %ecx
@@ -140,8 +150,10 @@ INTERN_ENTRY(X86_IRQ_PS2M)
 	pushl_cfi_r %edx
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Save segment registers. */
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -153,8 +165,10 @@ INTERN_ENTRY(X86_IRQ_PS2M)
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r %es
 	popl_cfi_r %ds
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 	popl_cfi_r %edx
 	popl_cfi_r %ecx

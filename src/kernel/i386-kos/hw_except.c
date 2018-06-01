@@ -482,7 +482,12 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
               X86_ANYCONTEXT32_ESP(*context),context->c_gpregs.gp_pbp,
               context->c_gpregs.gp_esi,context->c_gpregs.gp_edi,
               context->c_pflags);
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+ debug_printf("CS %.4IX FS %.4IX GS %.4IX\n",
+              context->c_iret.ir_cs,
+              context->c_segments.sg_fs,
+              context->c_segments.sg_gs);
+#elif defined(CONFIG_NO_X86_SEGMENTATION)
  debug_printf("CS %.4IX DS %.4IX ES %.4IX FS %.4IX GS %.4IX\n",
               context->c_iret.ir_cs,
               context->c_segments.sg_ds,

@@ -1694,8 +1694,13 @@ done_noncanon_check:
   default: effective_segment_value = context->c_iret.ir_ss; break;
 #else
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+  case F_SEGDS: effective_segment_value = X86_SEG_DS; break;
+  case F_SEGES: effective_segment_value = X86_SEG_ES; break;
+#else /* CONFIG_X86_FIXED_SEGMENTATION */
   case F_SEGDS: effective_segment_value = context->c_segments.sg_ds; break;
   case F_SEGES: effective_segment_value = context->c_segments.sg_es; break;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
   case F_SEGFS: effective_segment_value = context->c_segments.sg_fs; break;
   case F_SEGGS: effective_segment_value = context->c_segments.sg_gs; break;
 #else

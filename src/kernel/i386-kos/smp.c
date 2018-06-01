@@ -161,8 +161,10 @@ KCALL smp_allocate_processor(void) {
  bootstrap_state->c_iret.ir_cs     = X86_SEG_HOST_CS;
  bootstrap_state->c_iret.ir_pflags = EFLAGS_IF;
 #if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
  bootstrap_state->c_segments.sg_ds = X86_SEG_HOST_DS;
  bootstrap_state->c_segments.sg_es = X86_SEG_HOST_ES;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
  bootstrap_state->c_segments.sg_fs = X86_SEG_HOST_FS;
  bootstrap_state->c_segments.sg_gs = X86_SEG_HOST_GS;
 #endif /* !CONFIG_NO_X86_SEGMENTATION */

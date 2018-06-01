@@ -108,8 +108,10 @@ INTERN_ENTRY(X86_IRQ_PIT)
 
 	/* Save segment registers. */
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -337,8 +339,10 @@ INTERN_ENTRY(x86_exchange_context)
 
 	/* Save segment registers. */
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -452,8 +456,10 @@ INTERN_ENTRY(x86_load_cpu_state)
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r %es
 	popl_cfi_r %ds
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 	/* Do an IRET */
@@ -505,8 +511,10 @@ INTERN_ENTRY(x86_redirect_preemption)
 
 	/* Save segment registers. */
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -514,7 +522,9 @@ INTERN_ENTRY(x86_redirect_preemption)
 	/* Save user-space registers. */
 	pushal_cfi_r
 
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+#define CFA_OFFSET   60 /* 4*8 + 4*2 + 12 + 8 */
+#elif !defined(CONFIG_NO_X86_SEGMENTATION)
 #define CFA_OFFSET   68 /* 4*8 + 4*4 + 12 + 8 */
 #else
 #define CFA_OFFSET   52 /* 4*8 + 12 + 8 */
@@ -573,8 +583,10 @@ INTERN_ENTRY(x86_redirect_preemption)
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r %es
 	popl_cfi_r %ds
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 	/* Jump to user-space (likely; we may just end up

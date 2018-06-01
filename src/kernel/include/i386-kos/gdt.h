@@ -355,6 +355,8 @@ typedef u16 segid_t; /* == Segment index*X86_SEG_INDEX_MULTIPLIER */
 #endif
 
 
+#define X86_SEG_DS         X86_USER_DS
+#define X86_SEG_ES         X86_USER_DS
 #define X86_SEG_HOST_CS    X86_KERNEL_CS
 #define X86_SEG_HOST_DS    X86_KERNEL_DS
 #define X86_SEG_HOST_ES    X86_KERNEL_DS

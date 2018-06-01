@@ -23,6 +23,11 @@
 #include <asm/cfi.h>
 #include <except.h>
 
+#ifdef __KERNEL__
+#include <i386-kos/gdt.h>
+#endif
+
+
 .section .text.crt.except
 
 #define e_code       EXCEPTION_INFO_OFFSETOF_CODE
@@ -44,21 +49,36 @@ INTERN_ENTRY(libc_error_rethrow)
 	popl_cfi %eax   /* Load EIP */
 	.cfi_register %eip, %eax
 .error_rethrow_eax_is_ip:
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 #ifndef __KERNEL__
 	pushl_cfi    $0     /* SS */
 	pushl_cfi    $0     /* CS */
 #endif
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushfl_cfi_r        /* EFLAGS */
 #ifdef __KERNEL__
-	pushl_cfi    %cs    /* CS */
+	pushl_cfi    $X86_SEG_HOST_CS /* CS */
 #endif
 	pushl_cfi    %eax   /* EIP */
 	.cfi_rel_offset %eip, 0
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+#ifndef __KERNEL__
+	pushl_cfi_r  %fs
+	pushl_cfi_r  %gs
+#elif defined(__ASM_TASK_SEGMENT_ISGS)
+	pushl_cfi_r  %fs
+	pushl_cfi    $X86_HOST_TLS
+#else
+	pushl_cfi    $X86_HOST_TLS
+	pushl_cfi_r  %gs
+#endif
+#else /* CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r  %ds
 	pushl_cfi_r  %es
 	pushl_cfi_r  %fs
 	pushl_cfi_r  %gs
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 	pushal_cfi_r
 	/* Fix ESP to point to caller, aka. the start of the context structure. */
@@ -148,6 +168,22 @@ INTERN_ENTRY(libc_error_throw_current)
 	movl   %eax, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_EIP
 	movl   %esp, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_ESP
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+#ifndef __KERNEL__
+	movw   %gs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS
+	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS+2
+	movw   %fs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_FS
+	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_FS+2
+#elif defined(__ASM_TASK_SEGMENT_ISGS)
+	movl   $X86_HOST_TLS, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS
+	movw   %fs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_FS
+	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_FS+2
+#else
+	movw   %gs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS
+	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS+2
+	movl   $X86_HOST_TLS, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_FS
+#endif
+#else /* CONFIG_X86_FIXED_SEGMENTATION */
 	movw   %gs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS
 	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS+2
 	movw   %fs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_FS
@@ -156,11 +192,11 @@ INTERN_ENTRY(libc_error_throw_current)
 	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_ES+2
 	movw   %ds,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_DS
 	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_DS+2
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 #ifdef __KERNEL__
-	movw   %cs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_CS
-	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_CS+2
-#elif !defined(CONFIG_NO_X86_SEGMENTATION)
+	movl   $X86_SEG_HOST_CS, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_CS
+#elif !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(CONFIG_X86_FIXED_SEGMENTATION)
 	movw   %cs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT32_OFFSETOF_CS
 	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT32_OFFSETOF_CS+2
 	movw   %ss,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT32_OFFSETOF_SS

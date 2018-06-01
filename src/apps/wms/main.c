@@ -80,6 +80,7 @@ sigchld_handler(int UNUSED(signo),
 }
 
 
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 void vm86_map_identity(void) {
  struct mmap_info info;
  memset(&info,0,sizeof(info));
@@ -176,6 +177,7 @@ void print_bios_vga_mode(int mode) {
   }
  }
 }
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 
 
 int main(int argc, char *argv[]) {

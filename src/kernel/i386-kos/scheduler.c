@@ -922,8 +922,10 @@ task_setup_kernel(struct task *__restrict thread,
  context->c_eip            = (uintptr_t)thread_main;
  context->c_iret.ir_cs     = X86_SEG_HOST_CS;
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
  context->c_segments.sg_ds = X86_SEG_HOST_DS;
  context->c_segments.sg_es = X86_SEG_HOST_ES;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
  context->c_segments.sg_fs = X86_SEG_HOST_FS;
  context->c_segments.sg_gs = X86_SEG_HOST_GS;
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -1372,11 +1374,15 @@ errorinfo_copy_to_user(USER CHECKED struct user_task_segment *useg,
 #ifndef CONFIG_NO_X86_SEGMENTATION
  useg->ts_xcurrent.e_context.c_segments.sg_gs = context->c_segments.sg_gs;
  useg->ts_xcurrent.e_context.c_segments.sg_fs = context->c_segments.sg_fs;
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
  useg->ts_xcurrent.e_context.c_segments.sg_es = context->c_segments.sg_es;
  useg->ts_xcurrent.e_context.c_segments.sg_ds = context->c_segments.sg_ds;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
  useg->ts_xcurrent.e_context.c_cs             = context->c_iret.ir_cs;
  useg->ts_xcurrent.e_context.c_ss             = context->c_iret.ir_ss;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif
 }
 
@@ -1403,11 +1409,15 @@ errorinfo_copy_to_user_compat(USER CHECKED struct user_task_segment_compat *useg
 #ifndef CONFIG_NO_X86_SEGMENTATION
  useg->ts_xcurrent.e_context.c_segments.sg_gs = X86_SEG_USER_GS32;
  useg->ts_xcurrent.e_context.c_segments.sg_fs = X86_SEG_USER_FS32;
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
  useg->ts_xcurrent.e_context.c_segments.sg_es = X86_SEG_USER_ES32;
  useg->ts_xcurrent.e_context.c_segments.sg_ds = X86_SEG_USER_DS32;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
  useg->ts_xcurrent.e_context.c_cs             = context->c_iret.ir_cs;
  useg->ts_xcurrent.e_context.c_ss             = context->c_iret.ir_ss;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 }
 #endif
 
@@ -1516,7 +1526,9 @@ serve_rpc:
    unwind.c_context.c_iret.ir_eip    = context->c_iret.ir_eip;
    unwind.c_context.c_iret.ir_cs     = context->c_iret.ir_cs;
    unwind.c_context.c_iret.ir_eflags = context->c_iret.ir_eflags;
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
    unwind.c_ss                       = context->c_iret.ir_ss;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif
    if (info.e_error.e_flag & ERR_FRESUMENEXT)
        ++unwind.c_context.c_iret.ir_pip;
@@ -1612,7 +1624,11 @@ serve_rpc:
       context->c_iret.ir_eip     = unwind.c_context.c_iret.ir_eip;
       context->c_iret.ir_cs      = unwind.c_context.c_iret.ir_cs;
       context->c_iret.ir_eflags  = unwind.c_context.c_iret.ir_eflags;
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+      context->c_iret.ir_ss      = X86_SEG_USER_SS;
+#else /* CONFIG_X86_FIXED_SEGMENTATION */
       context->c_iret.ir_ss      = unwind.c_ss;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif
       /* Restore the signal mask if it was loaded from user-space. */
       if (has_user_signal_set) {

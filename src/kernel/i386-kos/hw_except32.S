@@ -53,8 +53,10 @@ INTERN_ENTRY(irq_\id)
 
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Save segment registers. */
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
@@ -117,8 +119,10 @@ INTERN_ENTRY(irq_\id)
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r %es
 	popl_cfi_r %ds
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
 	iret
 	.cfi_endproc
@@ -154,8 +158,10 @@ INTERN_ENTRY(irq_07)
 	pushl_cfi_r  %edx
 
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r  %ds
 	pushl_cfi_r  %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r  %fs
 	pushl_cfi_r  %gs
 #endif
@@ -167,8 +173,10 @@ INTERN_ENTRY(irq_07)
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r   %gs
 	popl_cfi_r   %fs
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r   %es
 	popl_cfi_r   %ds
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif
 
 	testl  %eax, %eax

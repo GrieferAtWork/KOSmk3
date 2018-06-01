@@ -87,8 +87,10 @@ INTERN_ENTRY(X86_IRQ_APICSPUR)
 	pushl_cfi_r %edx
 
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
 #endif
@@ -101,8 +103,10 @@ INTERN_ENTRY(X86_IRQ_APICSPUR)
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r  %gs
 	popl_cfi_r  %fs
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r  %es
 	popl_cfi_r  %ds
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif
 
 	popl_cfi_r  %edx
@@ -129,8 +133,10 @@ INTERN_ENTRY(X86_IRQ_APICIPI)
 	pushl_cfi_r %edx
 
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
 #endif
@@ -161,8 +167,10 @@ INTERN_ENTRY(X86_IRQ_APICIPI)
 #ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r  %gs
 	popl_cfi_r  %fs
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r  %es
 	popl_cfi_r  %ds
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif
 
 	popl_cfi_r  %edx
@@ -345,7 +353,7 @@ INTERN_ENTRY(x86_smp_entry32)
 	ltr     %ax
 
 	/* Load basic segments. */
-	movw    $(X86_KERNEL_DS), %ax
+	movw    $(X86_SEG_DS), %ax
 	movw    %ax, %ds
 	movw    %ax, %es
 	movw    %ax, %ss
@@ -372,14 +380,7 @@ INTERN_ENTRY(x86_smp_entry32)
 	movl    VM_OFFSETOF_PHYSDIR(%eax), %eax
 	movl    %eax, %cr3
 
-1:	/* Load user-space sharable segments when full segmentation is disabled. */
-#ifdef CONFIG_NO_X86_SEGMENTATION
-	movw    $(X86_USER_DS), %ax
-	movw    %ax, %ds
-	movw    %ax, %es
-#endif /* CONFIG_NO_X86_SEGMENTATION */
-
-	/* Finally, jump to load the CPU state pointed by to ESP.
+1:	/* Finally, jump to load the CPU state pointed by to ESP.
 	 *  -> That state should then lead us into
 	 *     the `x86_secondary_cpu_idle_loop' loop */
 	jmp     x86_load_cpu_state

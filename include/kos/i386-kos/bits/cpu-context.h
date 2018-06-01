@@ -26,6 +26,20 @@
 
 __SYSDECL_BEGIN
 
+
+/* A new segmentation mode currently in the process of being implemented:
+ *   - This mode brings 32-bit X86 a little bit closer to x86_64, in that
+ *     only few user-space segment registers are not respected and reset
+ *     whenever a system call or interrupt happens.
+ *     The only exception to this are VM86 threads.
+ *   - Userspace is still able to manually set the base address of the
+ *     FS and GS segments, just like it also can in long mode. However,
+ *     other segments cannot be used for this. */
+#undef CONFIG_X86_FIXED_SEGMENTATION
+#define CONFIG_X86_FIXED_SEGMENTATION 1
+#undef CONFIG_NO_X86_SEGMENTATION
+
+
 /*
  * Standard CPU context structures:
  *
@@ -233,9 +247,13 @@ struct __ATTR_PACKED x86_gpregs32 {
 
 #define X86_SEGMENTS32_OFFSETOF_GS      0
 #define X86_SEGMENTS32_OFFSETOF_FS      4
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+#define X86_SEGMENTS32_SIZE             8
+#else /* !CONFIG_X86_FIXED_SEGMENTATION */
 #define X86_SEGMENTS32_OFFSETOF_ES      8
 #define X86_SEGMENTS32_OFFSETOF_DS      12
 #define X86_SEGMENTS32_SIZE             16
+#endif /* CONFIG_X86_FIXED_SEGMENTATION */
 
 #ifdef __CC__
 #ifdef __EXPOSE_CPU_COMPAT
@@ -247,8 +265,10 @@ struct __ATTR_PACKED x86_segments64 {
 struct __ATTR_PACKED x86_segments32 {
     __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(sg_gs); /* G segment register */
     __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(sg_fs); /* F segment register */
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
     __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(sg_es); /* E (source) segment register */
     __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(sg_ds); /* D (destination) segment register */
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 };
 #endif /* __CC__ */
 
@@ -501,7 +521,11 @@ struct __ATTR_PACKED x86_context64 {
     struct x86_gpregs64          __X86_CONTEXT_SYMBOL(c_gpregs);         /* General purpose registers */
 #ifndef __KERNEL__
     struct x86_segments64        __X86_CONTEXT_SYMBOL(c_segments);       /* Segment registers */
-#endif /* !__KERNEL__ */
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+    __X86_DEFINE_GP_REGISTER64_386(c_,flags);                            /* Flags register */
+    __X86_DEFINE_GP_REGISTER64_386(c_,sp);                               /* Stack pointer */
+    __X86_DEFINE_GP_REGISTER64_386(c_,ip);                               /* Instruction pointer */
+#else /* CONFIG_X86_FIXED_SEGMENTATION */
     union __ATTR_PACKED {
         struct x86_irregs64      __X86_CONTEXT_SYMBOL(c_iret);           /* IRet registers */
         struct __ATTR_PACKED {
@@ -512,6 +536,19 @@ struct __ATTR_PACKED x86_context64 {
             __ULONG64_TYPE__     __X86_CONTEXT_SYMBOL(c_ss);             /* Stack segment */
         };
     };
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
+#else /* !__KERNEL__ */
+    union __ATTR_PACKED {
+        struct x86_irregs64      __X86_CONTEXT_SYMBOL(c_iret);           /* IRet registers */
+        struct __ATTR_PACKED {
+            __X86_DEFINE_GP_REGISTER64_386(c_,ip);                       /* Instruction pointer */
+            __ULONG64_TYPE__     __X86_CONTEXT_SYMBOL(c_cs);             /* Code segment */
+            __X86_DEFINE_GP_REGISTER64_386(c_,flags);                    /* Flags register */
+            __X86_DEFINE_GP_REGISTER64_386(c_,sp);                       /* Stack pointer */
+            __ULONG64_TYPE__     __X86_CONTEXT_SYMBOL(c_ss);             /* Stack segment */
+        };
+    };
+#endif /* __KERNEL__ */
 };
 #endif /* __CC__ */
 #ifdef __KERNEL__
@@ -544,6 +581,11 @@ struct __ATTR_PACKED x86_schedcontext64 {
 struct __ATTR_PACKED x86_usercontext64 {
     struct x86_gpregs64          __X86_CONTEXT_SYMBOL(c_gpregs);         /* General purpose registers */
     struct x86_segments64        __X86_CONTEXT_SYMBOL(c_segments);       /* Segment registers */
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+    __X86_DEFINE_GP_REGISTER64_386(c_,flags);                            /* Flags register */
+    __X86_DEFINE_GP_REGISTER64_386(c_,sp);                               /* Stack pointer */
+    __X86_DEFINE_GP_REGISTER64_386(c_,ip);                               /* Instruction pointer */
+#else /* CONFIG_X86_FIXED_SEGMENTATION */
     union __ATTR_PACKED {
         struct x86_irregs64      __X86_CONTEXT_SYMBOL(c_iret);           /* IRet registers */
         struct __ATTR_PACKED {
@@ -554,6 +596,7 @@ struct __ATTR_PACKED x86_usercontext64 {
             __ULONG64_TYPE__     __X86_CONTEXT_SYMBOL(c_ss);             /* Stack segment */
         };
     };
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 };
 #endif /* __CC__ */
 #endif /* __KERNEL__ */
@@ -565,18 +608,26 @@ struct __ATTR_PACKED x86_usercontext64 {
 #define X86_USERCONTEXT32_OFFSETOF_SEGMENTS  X86_GPREGS32_SIZE
 #define X86_USERCONTEXT32_OFFSETOF_EIP      (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE)
 #define X86_USERCONTEXT32_OFFSETOF_EFLAGS   (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE+4)
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+#define X86_USERCONTEXT32_SIZE              (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE+8)
+#else
 #define X86_USERCONTEXT32_OFFSETOF_CS       (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE+8)
 #define X86_USERCONTEXT32_OFFSETOF_SS       (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE+12)
 #define X86_USERCONTEXT32_SIZE              (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE+16)
+#endif
 #else
 #define X86_CONTEXT32_OFFSETOF_GPREGS        0
 #define X86_CONTEXT32_OFFSETOF_ESP           X86_GPREGS32_OFFSETOF_ESP
 #define X86_CONTEXT32_OFFSETOF_SEGMENTS      X86_GPREGS32_SIZE
 #define X86_CONTEXT32_OFFSETOF_EIP          (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE)
 #define X86_CONTEXT32_OFFSETOF_EFLAGS       (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE+4)
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+#define X86_CONTEXT32_SIZE                  (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE+8)
+#else
 #define X86_CONTEXT32_OFFSETOF_CS           (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE+8)
 #define X86_CONTEXT32_OFFSETOF_SS           (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE+12)
 #define X86_CONTEXT32_SIZE                  (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE+16)
+#endif
 #endif
 
 #ifdef __CC__
@@ -602,8 +653,10 @@ struct __ATTR_PACKED x86_context32
                                                                           *       values described by the `X86_USER_DS' / `X86_USER_TLS' constants. */
     __X86_DEFINE_GP_REGISTER32_386(c_,ip);                               /* Instruction pointer */
     __X86_DEFINE_GP_REGISTER32_386(c_,flags);                            /* Flags register */
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
     __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(c_cs);             /* Code segment (When specified as ZERO(0), default to `X86_USER_CS') */
     __ULONG32_TYPE__             __X86_CONTEXT_SYMBOL(c_ss);             /* Stack segment (When specified as ZERO(0), default to `X86_USER_DS') */
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 };
 #endif /* __CC__ */
 

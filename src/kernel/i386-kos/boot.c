@@ -199,6 +199,7 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
   __asm__ __volatile__("    movw %[ds], %w[r]\n"
                        "    movw %w[r], %%ds\n"
                        "    movw %w[r], %%es\n"
+                       "    movw %[ss], %w[r]\n"
                        "    movw %w[r], %%ss\n"
                        "    movw %[fs], %w[r]\n"
                        "    movw %w[r], %%fs\n"
@@ -209,7 +210,8 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
                        "    movw %[tr], %w[r]\n"
                        "    ltr %w[r]\n"
                        : [r]  "=r" (temp)
-                       : [ds] "i" (X86_KERNEL_DS)
+                       : [ds] "i" (X86_SEG_DS)
+                       , [ss] "i" (X86_KERNEL_DS)
                        , [fs] "i" (X86_SEG_FS)
                        , [gs] "i" (X86_SEG_GS)
                        , [cs] "i" (X86_KERNEL_CS)

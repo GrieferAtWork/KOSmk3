@@ -728,6 +728,11 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
         __rdfsbaseq(),
         __rdgsbaseq(),
         __rdmsr(IA32_KERNEL_GS_BASE));
+#elif defined(CONFIG_X86_FIXED_SEGMENTATION)
+ PRINTF("CS %.4IX FS %.4IX GS %.4IX\n",
+        INFO->e_context.c_iret.ir_cs,
+        INFO->e_context.c_segments.sg_fs,
+        INFO->e_context.c_segments.sg_gs);
 #elif !defined(CONFIG_NO_X86_SEGMENTATION)
  PRINTF("CS %.4IX SS %.4IX DS %.4IX ES %.4IX FS %.4IX GS %.4IX\n",
         INFO->e_context.c_iret.ir_cs,GETREG("%ss"),
@@ -750,7 +755,11 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
         INFO->e_context.c_ss,
         INFO->e_context.c_segments.sg_fsbase,
         INFO->e_context.c_segments.sg_gsbase);
-#else
+#elif defined(CONFIG_X86_FIXED_SEGMENTATION)
+ PRINTF("FS %.4IX GS %.4IX\n",
+        INFO->e_context.c_segments.sg_fs,
+        INFO->e_context.c_segments.sg_gs);
+#elif !defined(CONFIG_NO_X86_SEGMENTATION)
  PRINTF("CS %.4IX SS %.4IX DS %.4IX ES %.4IX FS %.4IX GS %.4IX\n",
         INFO->e_context.c_cs,
         INFO->e_context.c_ss,

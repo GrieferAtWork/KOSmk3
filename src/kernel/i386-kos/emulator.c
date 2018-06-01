@@ -229,8 +229,13 @@ X86_SegmentBase(struct cpu_anycontext *__restrict context, u16 flags) {
   break;
 #elif !defined(CONFIG_NO_X86_SEGMENTATION)
  default:
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+ case F_SEGDS:
+ case F_SEGES: result = 0; break;
+#else
  case F_SEGDS: result = get_segment_base(context,context->c_segments.sg_ds); break;
  case F_SEGES: result = get_segment_base(context,context->c_segments.sg_es); break;
+#endif
  case F_SEGFS: result = get_segment_base(context,context->c_segments.sg_fs); break;
  case F_SEGGS: result = get_segment_base(context,context->c_segments.sg_gs); break;
  case F_SEGCS: result = get_segment_base(context,context->c_iret.ir_cs); break;
@@ -315,8 +320,10 @@ fix_user_context(struct x86_anycontext *__restrict context) {
 #ifndef CONFIG_NO_X86_SEGMENTATION
   context->c_segments.sg_gs = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_gs;
   context->c_segments.sg_fs = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_fs;
+#ifndef CONFIG_X86_FIXED_SEGMENTATION /* ??? */
   context->c_segments.sg_es = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_es;
   context->c_segments.sg_ds = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_ds;
+#endif /* CONFIG_X86_FIXED_SEGMENTATION */
 #endif /* !CONFIG_NO_X86_SEGMENTATION */
   context->c_host.c_esp = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_esp;
  } else

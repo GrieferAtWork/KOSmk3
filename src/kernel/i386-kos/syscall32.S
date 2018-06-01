@@ -160,11 +160,18 @@ SYMEND(x86_xsyscall_restart)
 
 
 
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+#define IF_CONFIG_X86_SEGMENTATION(x)           x
+#define IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(x) /* nothing */
+#else /* CONFIG_X86_FIXED_SEGMENTATION */
 #ifndef CONFIG_NO_X86_SEGMENTATION
-#define IF_CONFIG_X86_SEGMENTATION(x) x
+#define IF_CONFIG_X86_SEGMENTATION(x)            x
+#define IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(x) /* nothing */
 #else
-#define IF_CONFIG_X86_SEGMENTATION(x) /* nothing */
+#define IF_CONFIG_X86_SEGMENTATION(x)           /* nothing */
+#define IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(x) /* nothing */
 #endif
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 
 #ifdef CONFIG_NO_X86_SYSENTER
 #define SYSCALL_EXIT_BLOCK(name) \
@@ -180,8 +187,8 @@ name:; \
 	.cfi_adjust_cfa_offset -4; \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %gs); \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %fs); \
-	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %es); \
-	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %ds); \
+	IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(popl_cfi_r %es); \
+	IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(popl_cfi_r %ds); \
 	iret; \
 	.cfi_restore_state; \
 	nop; \
@@ -199,8 +206,8 @@ name##_return64:; \
 	.cfi_adjust_cfa_offset -4; \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %gs); \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %fs); \
-	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %es); \
-	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %ds); \
+	IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(popl_cfi_r %es); \
+	IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(popl_cfi_r %ds); \
 	iret; \
 	.cfi_restore_state
 #else /* CONFIG_NO_X86_SYSENTER */
@@ -218,8 +225,8 @@ name:; \
 name##_segments:; \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %gs); \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %fs); \
-	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %es); \
-	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %ds); \
+	IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(popl_cfi_r %es); \
+	IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(popl_cfi_r %ds); \
 name##_iret_fixup:; \
 	cli; \
 	cmpl    $(X86_USER_CS), X86_IRREGS_USER32_OFFSETOF_CS(%esp); \
@@ -261,8 +268,8 @@ name##64:; \
 	/* Must use `iret', because we mustn't clobber EDX for 64-bit return values. */ \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %gs); \
 	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %fs); \
-	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %es); \
-	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %ds); \
+	IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(popl_cfi_r %es); \
+	IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(popl_cfi_r %ds); \
 	iret; \
 	.cfi_restore_state
 #endif /* !CONFIG_NO_X86_SYSENTER */
@@ -295,8 +302,10 @@ INTERN_ENTRY(sysenter_kernel_entry)
 	sti
 
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
 #endif
@@ -399,8 +408,10 @@ INTERN_ENTRY(irq_80)
 	.cfi_offset %eflags, -1*4
 	.cfi_offset %eip,    -3*4
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r  %ds
 	pushl_cfi_r  %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r  %fs
 	pushl_cfi_r  %gs
 #endif
@@ -472,8 +483,10 @@ INTERN_ENTRY(irq_80_trace)
 	.cfi_offset %eip,    -3*4
 
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r  %ds
 	pushl_cfi_r  %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r  %fs
 	pushl_cfi_r  %gs
 #endif
@@ -522,8 +535,10 @@ INTERN_ENTRY(sysenter_kernel_entry_trace)
 	sti
 
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r  %ds
 	pushl_cfi_r  %es
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r  %fs
 	pushl_cfi_r  %gs
 #endif
@@ -641,8 +656,10 @@ PUBLIC_ENTRY(x86_syscall_exec80_trace)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_CS)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EIP)(%ecx)
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_DS)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_ES)(%ecx)
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_FS)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS)(%ecx)
 #endif
@@ -657,8 +674,13 @@ PUBLIC_ENTRY(x86_syscall_exec80_trace)
 	call  syscall_trace
 	.cfi_adjust_cfa_offset -4 /* STDCALL... (callee-argument-cleanup) */
 #ifndef CONFIG_NO_X86_SEGMENTATION
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+	addl  $(14 * 4), %esp
+	.cfi_adjust_cfa_offset -(14 * 4)
+#else /* CONFIG_X86_FIXED_SEGMENTATION */
 	addl  $(16 * 4), %esp
 	.cfi_adjust_cfa_offset -(16 * 4)
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #else
 	addl  $(12 * 4), %esp
 	.cfi_adjust_cfa_offset -(12 * 4)

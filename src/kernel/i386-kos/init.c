@@ -223,8 +223,10 @@ void KCALL x86_switch_to_userspace(void) {
 #ifndef CONFIG_NO_X86_SEGMENTATION
   ctx.c_segments.sg_gs  = X86_SEG_USER_GS;
   ctx.c_segments.sg_fs  = X86_SEG_USER_FS;
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
   ctx.c_segments.sg_es  = X86_SEG_USER_ES;
   ctx.c_segments.sg_ds  = X86_SEG_USER_DS;
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #else /* !CONFIG_NO_X86_SEGMENTATION */
   /* Add user-space permissions to segments we're going to share with it. */
   __asm__ __volatile__("movw %w0, %%ds\n"
@@ -232,7 +234,6 @@ void KCALL x86_switch_to_userspace(void) {
                        :
                        : "q" (X86_USER_DS)
                        : "memory");
-
 #endif /* CONFIG_NO_X86_SEGMENTATION */
 #endif
 
