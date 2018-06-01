@@ -922,8 +922,8 @@ task_setup_kernel(struct task *__restrict thread,
  context->c_eip            = (uintptr_t)thread_main;
  context->c_iret.ir_cs     = X86_SEG_HOST_CS;
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
- context->c_segments.sg_ds = X86_SEG_HOST_DS;
- context->c_segments.sg_es = X86_SEG_HOST_ES;
+ context->c_segments.sg_ds = X86_SEG_DS;
+ context->c_segments.sg_es = X86_SEG_ES;
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
  context->c_segments.sg_fs = X86_SEG_HOST_FS;
  context->c_segments.sg_gs = X86_SEG_HOST_GS;

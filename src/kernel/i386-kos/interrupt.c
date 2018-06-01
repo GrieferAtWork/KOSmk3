@@ -72,15 +72,6 @@ INTERN void KCALL x86_apic_spur(void) {
 }
 
 
-INTDEF struct x86_idtentry _idt_start[256];
-INTERN ATTR_FREETEXT void KCALL x86_interrupt_initialize(void) {
- struct x86_idt_pointer idt;
- idt.ip_idt   = _idt_start;
- idt.ip_limit = sizeof(_idt_start)-1;
- __asm__ __volatile__("lidt %0" : : "g" (idt) : "memory");
-}
-
-
 DECL_END
 
 #endif /* !GUARD_KERNEL_I386_KOS_INTERRUPT_C */

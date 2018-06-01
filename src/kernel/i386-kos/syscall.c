@@ -108,7 +108,7 @@ wait_for_cpu:
 INTDEF u32 x86_syscall_exec80_fixup;
 INTDEF uintptr_t x86_syscall_exec80_trace[];
 INTDEF uintptr_t x86_syscall_exec80_ntrace[];
-INTDEF struct x86_idtentry _idt_start[256];
+INTDEF struct x86_idtentry x86_idt_start[256];
 INTDEF void ASMCALL irq_80(void);
 INTDEF void ASMCALL irq_80_trace(void);
 #ifndef CONFIG_NO_X86_SYSENTER
@@ -144,8 +144,8 @@ enable_syscall_tracing(void) {
   was = PREEMPTION_PUSHOFF();
   COMPILER_BARRIER();
   /* Override the IDT vector. */
-  _idt_start[0x80].ie_off1 = (u16)addr;
-  _idt_start[0x80].ie_off2 = (u16)(addr >> 16);
+  x86_idt_start[0x80].ie_off1 = (u16)addr;
+  x86_idt_start[0x80].ie_off2 = (u16)(addr >> 16);
   /* Override exec80 jump address. */
   x86_syscall_exec80_fixup = ((uintptr_t)x86_syscall_exec80_trace -
                              ((uintptr_t)&x86_syscall_exec80_fixup + 4));
@@ -173,8 +173,8 @@ disable_syscall_tracing(void) {
   while (!x86_unicore_begin()) task_tryyield();
   was = PREEMPTION_PUSHOFF();
   COMPILER_BARRIER();
-  _idt_start[0x80].ie_off1 = (u16)addr;
-  _idt_start[0x80].ie_off2 = (u16)(addr >> 16);
+  x86_idt_start[0x80].ie_off1 = (u16)addr;
+  x86_idt_start[0x80].ie_off2 = (u16)(addr >> 16);
   x86_syscall_exec80_fixup = ((uintptr_t)x86_syscall_exec80_ntrace -
                              ((uintptr_t)&x86_syscall_exec80_fixup + 4));
   COMPILER_BARRIER();

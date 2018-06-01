@@ -356,7 +356,7 @@ INTERN_ENTRY(x86_smp_entry32)
 1:
 
 	/* Load the interrupt descriptor table. */
-	pushl   $_idt_start
+	pushl   $x86_idt_start
 	pushw   $((256 * X86_IDTENTRY_SIZE) - 1)
 	lidt    (%esp)
 	addl    $6, %esp

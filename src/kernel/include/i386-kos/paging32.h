@@ -45,8 +45,8 @@ typedef PHYS u64               vm_phys_t;  /* A physical memory pointer. */
 #endif /* __CC__ */
 #define VM_VPAGE_MAX           0xfffff
 #define VM_PPAGE_MAX           0xfffff /* Without PAE, we're restricted to a 32-bit physical address space. */
-#define KERNEL_BASE_PAGE   0xc0000 /* The page index of the kernel-base */
-#define KERNEL_NUM_PAGES   0x40000 /* The number of pages associated with the kernel. */
+#define KERNEL_BASE_PAGE       0xc0000 /* The page index of the kernel-base */
+#define KERNEL_NUM_PAGES       0x40000 /* The number of pages associated with the kernel. */
 
 
 /* Configure to indicate that the kernel is a high-kernel. */
@@ -91,7 +91,7 @@ typedef PHYS u64               vm_phys_t;  /* A physical memory pointer. */
  * 08049000...08049FFF -wr-u      app     -- .data    (hard-coded)
  * 18045000...180B3FFF x-r-u      libc.so -- .text    (VM_USERLIB_HINT)
  * 180B4000...180B5FFF -wr-u      libc.so -- .data    (VM_USERLIB_HINT)
- * 7FFFF000...7FFFFFFF -wr-u      thread0 -- USERSEG  (VM_USERSEG_HINT)
+ * 40000000...40000FFF -wr-u      thread0 -- USERSEG  (VM_USERSEG_HINT)
  * 80000000...80000FFF -wr-u                 HEAP     (VM_USERHEAP_HINT)
  * AFFF8000...AFFFFFFF -wr-u      thread0 -- STACK    (VM_USERSTACK_HINT)
  * BEEFC000...BEEFCFFF x-r-u      syscall -- USHARE   (mapped in `/src/libs/libc/i386-kos/syscall.c')

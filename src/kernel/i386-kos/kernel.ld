@@ -225,7 +225,7 @@ SECTIONS {
 		*(.data.cold)
 
 		IP_ALIGN(__SIZEOF_POINTER__);
-		PROVIDE_HIDDEN(_idt_start = ABSOLUTE(.));
+		PROVIDE_HIDDEN(x86_idt_start = ABSOLUTE(.));
 		/* Use the linker to generate our IDT table.
 		 * This way, we don't have to keep a table of pointers
 		 * that we'd otherwise need to convert at runtime! */

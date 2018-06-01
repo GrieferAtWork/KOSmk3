@@ -26,10 +26,16 @@
 
 DECL_BEGIN
 
-#if 0
 #undef CONFIG_NO_GIGABYTE_PAGES
+#if 0
 #define CONFIG_NO_GIGABYTE_PAGES 1
 #endif
+
+#undef CONFIG_NO_NX_PAGES
+#if 0
+#define CONFIG_NO_NX_PAGES 1
+#endif
+
 
 #ifdef CONFIG_BUILDING_KERNEL_CORE
 /* Access a physical memory pointer during early boot. */
@@ -183,7 +189,9 @@ typedef PHYS u64 vm_phys_t;  /* A physical memory pointer. */
 #define X86_PAGE_FUSER     __UINT64_C(0x0000000000000004) /* User-space may access this page (read, or write). */
 #define X86_PAGE_FWRITE    __UINT64_C(0x0000000000000002) /* The page is writable. */
 #define X86_PAGE_FPRESENT  __UINT64_C(0x0000000000000001) /* The page is present (When not set, cause a PAGEFAULT that may be used for allocate/load-on-read). */
+#ifndef CONFIG_NO_NX_PAGES
 #define X86_PAGE_FNOEXEC   __UINT64_C(0x8000000000000000) /* Memory within the page cannot be executed. */
+#endif /* !CONFIG_NO_NX_PAGES */
 #define X86_PAGE_ABSENT    __UINT64_C(0x0000000000000000) /* Value found in any TIER _EXCEPT_ TIER#1 (so just TIER#2) to indicate that the page hasn't been allocated. */
 
 /* Pagesizes of different page directory levels. */

@@ -109,7 +109,7 @@
 #ifndef CONFIG_NO_DEBUG_MALLOC
 .hidden mall_tracked_start
 #endif
-.hidden _idt_start
+.hidden x86_idt_start
 .hidden kernel_debug_line_start
 .hidden kernel_debug_line_end
 .hidden kernel_debug_line_size

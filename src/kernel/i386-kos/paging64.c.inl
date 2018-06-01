@@ -70,7 +70,9 @@ typedef union x86_pdir_e4  E4;
 #define PAGE_FUSER     X86_PAGE_FUSER     /* User-space may access this page (read, or write). */
 #define PAGE_FWRITE    X86_PAGE_FWRITE    /* The page is writable. */
 #define PAGE_FPRESENT  X86_PAGE_FPRESENT  /* The page is present (When not set, cause a PAGEFAULT that may be used for allocate/load-on-read). */
+#ifndef CONFIG_NO_NX_PAGES
 #define PAGE_FNOEXEC   X86_PAGE_FNOEXEC   /* Memory within the page cannot be executed. */
+#endif /* !CONFIG_NO_NX_PAGES */
 #define PAGE_ABSENT    X86_PAGE_ABSENT    /* Value found in any TIER _EXCEPT_ TIER#1 (so just TIER#2) to indicate that the page hasn't been allocated. */
 
 
@@ -205,6 +207,7 @@ PRIVATE u64 x86_pageperm_matrix[0xf+1] = {
      /* Configure to always set the DIRTY and ACCESSED bits (KOS doesn't use
       * them, and us already setting them will allow the CPU to skip setting
       * them if the time comes) */
+#ifndef CONFIG_NO_NX_PAGES
     [0]                                                                        = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FNOEXEC,
     [PAGEDIR_MAP_FEXEC]                                                        = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT,
     [PAGEDIR_MAP_FWRITE]                                                       = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT|PAGE_FWRITE|PAGE_FNOEXEC,
@@ -221,6 +224,24 @@ PRIVATE u64 x86_pageperm_matrix[0xf+1] = {
     [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FEXEC]                    = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT,
     [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE]                   = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT|PAGE_FWRITE|PAGE_FNOEXEC,
     [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC] = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT|PAGE_FWRITE,
+#else /* !CONFIG_NO_NX_PAGES */
+    [0]                                                                        = PAGE_FDIRTY|PAGE_FACCESSED,
+    [PAGEDIR_MAP_FEXEC]                                                        = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT,
+    [PAGEDIR_MAP_FWRITE]                                                       = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT|PAGE_FWRITE,
+    [PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC]                                     = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT|PAGE_FWRITE,
+    [PAGEDIR_MAP_FREAD]                                                        = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT,
+    [PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FEXEC]                                      = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT,
+    [PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE]                                     = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT|PAGE_FWRITE,
+    [PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC]                   = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FPRESENT|PAGE_FWRITE,
+    [PAGEDIR_MAP_FUSER]                                                        = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FEXEC]                                      = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FWRITE]                                     = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT|PAGE_FWRITE,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FEXEC|PAGEDIR_MAP_FWRITE]                   = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT|PAGE_FWRITE,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD]                                      = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FEXEC]                    = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE]                   = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT|PAGE_FWRITE,
+    [PAGEDIR_MAP_FUSER|PAGEDIR_MAP_FREAD|PAGEDIR_MAP_FWRITE|PAGEDIR_MAP_FEXEC] = PAGE_FDIRTY|PAGE_FACCESSED|PAGE_FUSER|PAGE_FPRESENT|PAGE_FWRITE,
+#endif /* CONFIG_NO_NX_PAGES */
 };
 
 INTERN u64 x86_page_global = PAGE_FGLOBAL;
@@ -234,11 +255,13 @@ INTERN ATTR_FREETEXT void KCALL x86_configure_paging(void) {
  struct cpu_cpuid const *feat = &CPU_FEATURES;
  if (!(feat->ci_1d & CPUID_1D_PGE))
        x86_page_global = 0;
+#ifndef CONFIG_NO_NX_PAGES
  if (!(feat->ci_80000001d & CPUID_80000001D_NX)) {
   unsigned int i; /* The NX bit isn't supported. */
   for (i = 0; i < COMPILER_LENOF(x86_pageperm_matrix); ++i)
        x86_pageperm_matrix[i] &= ~X86_PAGE_FNOEXEC;
  }
+#endif /* !CONFIG_NO_NX_PAGES */
 #ifndef CONFIG_NO_GIGABYTE_PAGES
  if (feat->ci_80000001d & CPUID_80000001D_PDPE1GB) {
   debug_printf(FREESTR("[X86] Enable 1GIB pages\n"));
@@ -592,27 +615,41 @@ pagedir_addperm_e2(unsigned int x4,
                    u64 edata) {
  u64 flags;
  flags = E2_IDENTITY[x4][x3][x2].p_flag;
+#ifdef CONFIG_NO_NX_PAGES
+ flags |= edata & PAGE_FMASK;
+#else /* CONFIG_NO_NX_PAGES */
  flags |= edata & (PAGE_FMASK & ~PAGE_FNOEXEC);
  flags &= (edata & PAGE_FNOEXEC) | ~PAGE_FNOEXEC;
+#endif /* !CONFIG_NO_NX_PAGES */
  E2_IDENTITY[x4][x3][x2].p_flag = flags;
 }
+
 LOCAL void KCALL
 pagedir_addperm_e3(unsigned int x4,
                    unsigned int x3,
                    u64 edata) {
  u64 flags;
  flags = E3_IDENTITY[x4][x3].p_flag;
+#ifdef CONFIG_NO_NX_PAGES
+ flags |= edata & PAGE_FMASK;
+#else /* CONFIG_NO_NX_PAGES */
  flags |= edata & (PAGE_FMASK & ~PAGE_FNOEXEC);
  flags &= (edata & PAGE_FNOEXEC) | ~PAGE_FNOEXEC;
+#endif /* !CONFIG_NO_NX_PAGES */
  E3_IDENTITY[x4][x3].p_flag = flags;
 }
+
 LOCAL void KCALL
 pagedir_addperm_e4(unsigned int x4,
                    u64 edata) {
  u64 flags;
  flags = E4_IDENTITY[x4].p_flag;
+#ifdef CONFIG_NO_NX_PAGES
+ flags |= edata & PAGE_FMASK;
+#else /* CONFIG_NO_NX_PAGES */
  flags |= edata & (PAGE_FMASK & ~PAGE_FNOEXEC);
  flags &= (edata & PAGE_FNOEXEC) | ~PAGE_FNOEXEC;
+#endif /* !CONFIG_NO_NX_PAGES */
  E4_IDENTITY[x4].p_flag = flags;
 }
 

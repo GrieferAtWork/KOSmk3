@@ -21,29 +21,30 @@
 #define _KOS_SOURCE 1
 
 #include <hybrid/compiler.h>
-#include <kos/types.h>
+#include <fs/driver.h>
+#include <fs/linker.h>
+#include <fs/ramfs.h>
 #include <hybrid/section.h>
+#include <i386-kos/driver.h>
 #include <i386-kos/gdt.h>
 #include <i386-kos/idt_pointer.h>
 #include <i386-kos/memory.h>
 #include <kernel/debug.h>
+#include <kernel/heap.h>
+#include <kernel/interrupt.h>
+#include <kernel/malloc.h>
 #include <kernel/memory.h>
 #include <kernel/sections.h>
-#include <kernel/malloc.h>
-#include <kernel/heap.h>
 #include <kernel/vm.h>
-#include <kernel/interrupt.h>
-#include <i386-kos/driver.h>
 #include <kos/i386-kos/bits/thread.h>
+#include <kos/intrin.h>
+#include <kos/types.h>
 #include <proprietary/multiboot.h>
 #include <proprietary/multiboot2.h>
 #include <sched/task.h>
-#include <fs/linker.h>
-#include <fs/driver.h>
-#include <sys/io.h>
-#include <string.h>
 #include <stdlib.h>
-#include <fs/ramfs.h>
+#include <string.h>
+#include <sys/io.h>
 
 #undef CALL_OLD_KERNEL_MAIN
 #if 0
@@ -133,7 +134,6 @@ INTDEF byte_t boot_task_start[];
 INTDEF byte_t boot_vm_start[];
 
 INTDEF void KCALL x86_apic_initialize(void);
-INTDEF void KCALL x86_interrupt_initialize(void);
 INTDEF void KCALL x86_scheduler_initialize(void);
 PRIVATE void KCALL x86_coredriver_initialize(void);
 INTDEF void KCALL x86_smp_initialize(void);
@@ -163,6 +163,8 @@ INTDEF INITCALL void KCALL x86_configure_paging(void);
 INTDEF INITCALL void KCALL kernel_relocate_commandline(void);
 INTDEF INITCALL void KCALL kernel_eval_commandline(void);
 
+INTDEF struct x86_idtentry x86_idt_start[256];
+
 INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
  debug_printf(FREESTR("[INIT] Hello!\n"));
 
@@ -186,38 +188,16 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
 
 #ifndef __x86_64__
  /* Load the initial (boot) GDT. (now that it's been copied) */
- {
-  struct x86_idt_pointer gdt;
-  gdt.ip_limit = sizeof(x86_cpugdt)-1;
-  gdt.ip_gdt   = FORCPU(&_boot_cpu,x86_cpugdt);
-  __asm__ __volatile__("lgdt %0\n" : : "m" (gdt) : "memory");
- }
+ __lgdt(sizeof(x86_cpugdt)-1,FORCPU(&_boot_cpu,x86_cpugdt));
 
- {
-  register register_t temp;
-  /* With the new GDT now loaded, load the new segments. */
-  __asm__ __volatile__("    movw %[ds], %w[r]\n"
-                       "    movw %w[r], %%ds\n"
-                       "    movw %w[r], %%es\n"
-                       "    movw %[ss], %w[r]\n"
-                       "    movw %w[r], %%ss\n"
-                       "    movw %[fs], %w[r]\n"
-                       "    movw %w[r], %%fs\n"
-                       "    movw %[gs], %w[r]\n"
-                       "    movw %w[r], %%gs\n"
-                       "    ljmp %[cs], $1f\n"
-                       "1:\n"
-                       "    movw %[tr], %w[r]\n"
-                       "    ltr %w[r]\n"
-                       : [r]  "=r" (temp)
-                       : [ds] "i" (X86_SEG_DS)
-                       , [ss] "i" (X86_KERNEL_DS)
-                       , [fs] "i" (X86_SEG_FS)
-                       , [gs] "i" (X86_SEG_GS)
-                       , [cs] "i" (X86_KERNEL_CS)
-                       , [tr] "i" (X86_SEG(X86_SEG_CPUTSS))
-                       : "memory");
- }
+ /* With the new GDT now loaded, load the new segments. */
+ __wrds(X86_SEG_DS);
+ __wres(X86_SEG_DS);
+ __wrss(X86_KERNEL_DS);
+ __wrfs(X86_SEG_FS);
+ __wrgs(X86_SEG_GS);
+ __asm__ __volatile__("ljmp %[cs], $1f\n1:" : : [cs] "i" (X86_KERNEL_CS) : "memory");
+ __ltr(X86_SEG(X86_SEG_CPUTSS));
 #endif
 
  /* Initialize CPUID information. */
@@ -235,7 +215,7 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
 #endif
 
  /* Initialize the interrupt handling subsystem. */
- x86_interrupt_initialize();
+ __lidt(sizeof(x86_idt_start)-1,x86_idt_start);
 
  /* Initialize some basic boot template components. */
  x86_scheduler_initialize();

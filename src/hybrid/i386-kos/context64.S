@@ -56,7 +56,7 @@ INTERN_ENTRY(libc_cpu_getcontext)
 	movq   %rsi, X86_CONTEXT64_OFFSETOF_RIP(%rdi)
 #ifdef __KERNEL__
 	movq   $(X86_SEG_HOST_CS), X86_CONTEXT64_OFFSETOF_CS(%rdi)
-#else
+#elif !defined(CONFIG_X86_FIXED_SEGMENTATION)
 	movq   $0,   X86_CONTEXT64_OFFSETOF_CS(%rdi) /* The kernel will fill this in automatically. */
 #endif
 	pushfq_cfi
@@ -64,7 +64,7 @@ INTERN_ENTRY(libc_cpu_getcontext)
 	movq   %rsp, X86_CONTEXT64_OFFSETOF_RSP(%rdi)
 #ifdef __KERNEL__
 	movq   $(X86_SEG_HOST_SS), X86_CONTEXT64_OFFSETOF_SS(%rdi)
-#else
+#elif !defined(CONFIG_X86_FIXED_SEGMENTATION)
 	movq   $0,   X86_CONTEXT64_OFFSETOF_SS(%rdi) /* The kernel will fill this in automatically. */
 #endif
 	movq   $1,   %rax
@@ -104,7 +104,7 @@ INTERN_ENTRY(libc_cpu_xchcontext)
 	movq   %rax, X86_CONTEXT64_OFFSETOF_RIP(%rsi)
 #ifdef __KERNEL__
 	movq   $(X86_SEG_HOST_CS), X86_CONTEXT64_OFFSETOF_CS(%rsi)
-#else
+#elif !defined(CONFIG_X86_FIXED_SEGMENTATION)
 	movq   $0,   X86_CONTEXT64_OFFSETOF_CS(%rsi) /* The kernel will fill this in automatically. */
 #endif
 	pushfq_cfi
@@ -112,7 +112,7 @@ INTERN_ENTRY(libc_cpu_xchcontext)
 	movq   %rsp, X86_CONTEXT64_OFFSETOF_RSP(%rsi)
 #ifdef __KERNEL__
 	movq   $(X86_SEG_HOST_SS), X86_CONTEXT64_OFFSETOF_SS(%rsi)
-#else
+#elif !defined(CONFIG_X86_FIXED_SEGMENTATION)
 	movq   $0,   X86_CONTEXT64_OFFSETOF_SS(%rsi) /* The kernel will fill this in automatically. */
 #endif
 	.cfi_endproc
