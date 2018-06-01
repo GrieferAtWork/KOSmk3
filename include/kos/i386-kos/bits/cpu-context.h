@@ -37,7 +37,6 @@ __SYSDECL_BEGIN
  *     other segments cannot be used for this. */
 #undef CONFIG_X86_FIXED_SEGMENTATION
 #define CONFIG_X86_FIXED_SEGMENTATION 1
-#undef CONFIG_NO_X86_SEGMENTATION
 
 
 /*
@@ -437,9 +436,7 @@ struct __ATTR_PACKED x86_irregs_user32 {
 #ifdef __KERNEL__
 #define X86_CONTEXT_OFFSETOF_GPREGS   X86_HOSTCONTEXT_HOST32_OFFSETOF_GPREGS
 #define X86_CONTEXT_OFFSETOF_ESP      X86_HOSTCONTEXT_HOST32_OFFSETOF_ESP
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #define X86_CONTEXT_OFFSETOF_SEGMENTS X86_HOSTCONTEXT_HOST32_OFFSETOF_SEGMENTS
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
 #define X86_CONTEXT_OFFSETOF_IRET     X86_HOSTCONTEXT_HOST32_OFFSETOF_IRET
 #define X86_CONTEXT_OFFSETOF_EIP      X86_HOSTCONTEXT_HOST32_OFFSETOF_EIP
 #define X86_CONTEXT_OFFSETOF_EFLAGS   X86_HOSTCONTEXT_HOST32_OFFSETOF_EFLAGS
@@ -458,9 +455,7 @@ struct __ATTR_PACKED x86_irregs_user32 {
 #ifdef __KERNEL__
 #define X86_CONTEXT32_OFFSETOF_GPREGS   X86_HOSTCONTEXT_HOST32_OFFSETOF_GPREGS
 #define X86_CONTEXT32_OFFSETOF_ESP      X86_HOSTCONTEXT_HOST32_OFFSETOF_ESP
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #define X86_CONTEXT32_OFFSETOF_SEGMENTS X86_HOSTCONTEXT_HOST32_OFFSETOF_SEGMENTS
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
 #define X86_CONTEXT32_OFFSETOF_IRET     X86_HOSTCONTEXT_HOST32_OFFSETOF_IRET
 #define X86_CONTEXT32_OFFSETOF_EIP      X86_HOSTCONTEXT_HOST32_OFFSETOF_EIP
 #define X86_CONTEXT32_OFFSETOF_EFLAGS   X86_HOSTCONTEXT_HOST32_OFFSETOF_EFLAGS
@@ -647,10 +642,8 @@ struct __ATTR_PACKED x86_context32
         };
     };
     struct x86_segments32        __X86_CONTEXT_SYMBOL(c_segments);       /* Segment registers
-                                                                          * NOTE: Unless the kernel was built without `CONFIG_NO_X86_SEGMENTATION',
-                                                                          *       these registers are ignored unless constructing a vm86 thread.
                                                                           * NOTE: Registers specified as ZERO(0) will default to their standard
-                                                                          *       values described by the `X86_USER_DS' / `X86_USER_TLS' constants. */
+                                                                          *       values described by the `X86_USER_FS' / `X86_USER_GS' constants. */
     __X86_DEFINE_GP_REGISTER32_386(c_,ip);                               /* Instruction pointer */
     __X86_DEFINE_GP_REGISTER32_386(c_,flags);                            /* Flags register */
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
@@ -664,18 +657,11 @@ struct __ATTR_PACKED x86_context32
 #ifdef __KERNEL__
 #define X86_HOSTCONTEXT_HOST32_OFFSETOF_GPREGS    0
 #define X86_HOSTCONTEXT_HOST32_OFFSETOF_ESP       X86_GPREGS32_OFFSETOF_ESP
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #define X86_HOSTCONTEXT_HOST32_OFFSETOF_SEGMENTS  X86_GPREGS32_SIZE
 #define X86_HOSTCONTEXT_HOST32_OFFSETOF_IRET     (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE)
 #define X86_HOSTCONTEXT_HOST32_OFFSETOF_EIP      (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE)
 #define X86_HOSTCONTEXT_HOST32_OFFSETOF_EFLAGS   (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE+8)
 #define X86_HOSTCONTEXT_HOST32_SIZE              (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE+X86_IRREGS_HOST32_SIZE)
-#else /* !CONFIG_NO_X86_SEGMENTATION */
-#define X86_HOSTCONTEXT_HOST32_OFFSETOF_IRET      X86_GPREGS32_SIZE
-#define X86_HOSTCONTEXT_HOST32_OFFSETOF_EIP      (X86_GPREGS32_SIZE)
-#define X86_HOSTCONTEXT_HOST32_OFFSETOF_EFLAGS   (X86_GPREGS32_SIZE+8)
-#define X86_HOSTCONTEXT_HOST32_SIZE              (X86_GPREGS32_SIZE+X86_IRREGS_HOST32_SIZE)
-#endif /* CONFIG_NO_X86_SEGMENTATION */
 #ifdef __CC__
 #define __x86_hostcontext_host32_defined 1
 struct __ATTR_PACKED x86_hostcontext_host32 {
@@ -687,9 +673,7 @@ struct __ATTR_PACKED x86_hostcontext_host32 {
              __X86_DEFINE_GP_REGISTER32_386(c_,sp);                      /* Stack pointer */
         };
     };
-#ifndef CONFIG_NO_X86_SEGMENTATION
     struct x86_segments32        __X86_CONTEXT_SYMBOL(c_segments);       /* Segment registers */
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
     union __ATTR_PACKED {
         struct x86_irregs_host32 __X86_CONTEXT_SYMBOL(c_iret);           /* IRet registers */
         struct __ATTR_PACKED {
@@ -703,28 +687,18 @@ struct __ATTR_PACKED x86_hostcontext_host32 {
 
 #define X86_HOSTCONTEXT_USER32_OFFSETOF_HOST       0
 #define X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS     0
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #define X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS   X86_GPREGS32_SIZE
 #define X86_HOSTCONTEXT_USER32_OFFSETOF_IRET      (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE)
 #define X86_HOSTCONTEXT_USER32_OFFSETOF_EIP       (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE)
 #define X86_HOSTCONTEXT_USER32_OFFSETOF_EFLAGS    (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE+8)
 #define X86_HOSTCONTEXT_USER32_OFFSETOF_ESP       (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE+8)
 #define X86_HOSTCONTEXT_USER32_SIZE               (X86_GPREGS32_SIZE+X86_SEGMENTS32_SIZE+X86_IRREGS_USER32_SIZE)
-#else /* !CONFIG_NO_X86_SEGMENTATION */
-#define X86_HOSTCONTEXT_USER32_OFFSETOF_IRET       X86_GPREGS32_SIZE
-#define X86_HOSTCONTEXT_USER32_OFFSETOF_EIP       (X86_GPREGS32_SIZE)
-#define X86_HOSTCONTEXT_USER32_OFFSETOF_EFLAGS    (X86_GPREGS32_SIZE+8)
-#define X86_HOSTCONTEXT_USER32_OFFSETOF_ESP       (X86_GPREGS32_SIZE+8)
-#define X86_HOSTCONTEXT_USER32_SIZE               (X86_GPREGS32_SIZE+X86_IRREGS_USER32_SIZE)
-#endif /* CONFIG_NO_X86_SEGMENTATION */
 #ifdef __CC__
 #define __x86_hostcontext_user32_defined 1
 struct __ATTR_PACKED x86_hostcontext_user32 {
     /* CPU Context: host --> user  (As seen during task peemption) */
     struct x86_gpregs32              __X86_CONTEXT_SYMBOL(c_gpregs);   /* General purpose registers */
-#ifndef CONFIG_NO_X86_SEGMENTATION
     struct x86_segments32            __X86_CONTEXT_SYMBOL(c_segments); /* Segment registers */
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
     union __ATTR_PACKED {
         struct x86_irregs_user32     __X86_CONTEXT_SYMBOL(c_iret);     /* IRet registers */
         struct __ATTR_PACKED {
@@ -756,9 +730,7 @@ struct __ATTR_PACKED x86_anycontext32 {
                      __X86_DEFINE_GP_REGISTER32_386(c_host,sp);                /* [valid_if(X86_ANYCONTEXT_ISHOST(self))] Host stack pointer */
                 };
             };
-#ifndef CONFIG_NO_X86_SEGMENTATION
             struct x86_segments32            __X86_CONTEXT_SYMBOL(c_segments); /* Segment registers */
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
             union __ATTR_PACKED {
                 struct x86_irregs_user32     __X86_CONTEXT_SYMBOL(c_iret);     /* IRet registers */
                 struct __ATTR_PACKED {

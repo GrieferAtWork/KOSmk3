@@ -436,12 +436,10 @@ struct PACKED syscall_trace_regs {
         u32                  a_sysno;      /* System call number (including special flags). */
 #endif
     }                        str_args;     /* System call arguments. */
-#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
-    struct x86_segments32    str_segments; /* User-space segment registers. */
-#endif
 #ifdef __x86_64__
     struct x86_irregs64      str_iret;     /* User-space IRET Tail. */
 #else
+    struct x86_segments32    str_segments; /* User-space segment registers. */
     struct x86_irregs_user32 str_iret;     /* User-space IRET Tail. */
 #endif
 };

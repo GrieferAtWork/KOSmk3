@@ -921,14 +921,12 @@ task_setup_kernel(struct task *__restrict thread,
  context->c_eflags         = EFLAGS_IF;
  context->c_eip            = (uintptr_t)thread_main;
  context->c_iret.ir_cs     = X86_SEG_HOST_CS;
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
  context->c_segments.sg_ds = X86_SEG_HOST_DS;
  context->c_segments.sg_es = X86_SEG_HOST_ES;
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
  context->c_segments.sg_fs = X86_SEG_HOST_FS;
  context->c_segments.sg_gs = X86_SEG_HOST_GS;
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
 #endif
 
  /* Make sure to set the kernel-job flag in the thread. */
@@ -1371,14 +1369,12 @@ errorinfo_copy_to_user(USER CHECKED struct user_task_segment *useg,
  useg->ts_xcurrent.e_context.c_gpregs.gp_eax  = context->c_gpregs.gp_eax;
  useg->ts_xcurrent.e_context.c_eip            = context->c_iret.ir_eip;
  useg->ts_xcurrent.e_context.c_eflags         = context->c_iret.ir_eflags;
-#ifndef CONFIG_NO_X86_SEGMENTATION
  useg->ts_xcurrent.e_context.c_segments.sg_gs = context->c_segments.sg_gs;
  useg->ts_xcurrent.e_context.c_segments.sg_fs = context->c_segments.sg_fs;
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
  useg->ts_xcurrent.e_context.c_segments.sg_es = context->c_segments.sg_es;
  useg->ts_xcurrent.e_context.c_segments.sg_ds = context->c_segments.sg_ds;
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
  useg->ts_xcurrent.e_context.c_cs             = context->c_iret.ir_cs;
  useg->ts_xcurrent.e_context.c_ss             = context->c_iret.ir_ss;
@@ -1406,14 +1402,12 @@ errorinfo_copy_to_user_compat(USER CHECKED struct user_task_segment_compat *useg
  useg->ts_xcurrent.e_context.c_gpregs.gp_eax  = context->c_gpregs.gp_eax;
  useg->ts_xcurrent.e_context.c_eip            = context->c_iret.ir_eip;
  useg->ts_xcurrent.e_context.c_eflags         = context->c_iret.ir_eflags;
-#ifndef CONFIG_NO_X86_SEGMENTATION
  useg->ts_xcurrent.e_context.c_segments.sg_gs = X86_SEG_USER_GS32;
  useg->ts_xcurrent.e_context.c_segments.sg_fs = X86_SEG_USER_FS32;
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
  useg->ts_xcurrent.e_context.c_segments.sg_es = X86_SEG_USER_ES32;
  useg->ts_xcurrent.e_context.c_segments.sg_ds = X86_SEG_USER_DS32;
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
  useg->ts_xcurrent.e_context.c_cs             = context->c_iret.ir_cs;
  useg->ts_xcurrent.e_context.c_ss             = context->c_iret.ir_ss;
@@ -1510,18 +1504,15 @@ serve_rpc:
 
   if (PERTASK_TESTF(this_task.t_flags,TASK_FOWNUSERSEG|TASK_FUSEREXCEPT)) {
    struct cpu_context_ss unwind;
-#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
-   memcpy(&unwind.c_context.c_gpregs,&context->c_gpregs,
-          sizeof(struct x86_gpregs)+
-          sizeof(struct x86_segments));
-#else /* !CONFIG_NO_X86_SEGMENTATION */
+#ifdef __x86_64__
    memcpy(&unwind.c_context.c_gpregs,&context->c_gpregs,
           sizeof(struct x86_gpregs));
-#endif /* CONFIG_NO_X86_SEGMENTATION */
-#ifdef __x86_64__
    memcpy(&unwind.c_context.c_iret,
           &context->c_iret,sizeof(struct x86_irregs64));
 #else
+   memcpy(&unwind.c_context.c_gpregs,&context->c_gpregs,
+          sizeof(struct x86_gpregs)+
+          sizeof(struct x86_segments));
    unwind.c_context.c_esp            = context->c_iret.ir_useresp;
    unwind.c_context.c_iret.ir_eip    = context->c_iret.ir_eip;
    unwind.c_context.c_iret.ir_cs     = context->c_iret.ir_cs;
@@ -1607,19 +1598,16 @@ serve_rpc:
       /* Now copy the exception context to user-space. */
       errorinfo_copy_to_user(useg,(struct exception_info *)&info,context,mode);
       /* Set the unwound context as what should be returned to for user-space. */
-#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
-      memcpy(&context->c_gpregs,&unwind.c_context.c_gpregs,
-             sizeof(struct x86_gpregs)+
-             sizeof(struct x86_segments));
-#else /* !CONFIG_NO_X86_SEGMENTATION */
+#ifdef __x86_64__
       memcpy(&context->c_gpregs,&unwind.c_context.c_gpregs,
              sizeof(struct x86_gpregs));
-#endif /* CONFIG_NO_X86_SEGMENTATION */
-#ifdef __x86_64__
       memcpy(&context->c_iret,
              &unwind.c_context.c_iret,
              sizeof(struct x86_irregs64));
 #else
+      memcpy(&context->c_gpregs,&unwind.c_context.c_gpregs,
+             sizeof(struct x86_gpregs)+
+             sizeof(struct x86_segments));
       context->c_iret.ir_useresp = unwind.c_context.c_esp;
       context->c_iret.ir_eip     = unwind.c_context.c_iret.ir_eip;
       context->c_iret.ir_cs      = unwind.c_context.c_iret.ir_cs;
@@ -1832,7 +1820,7 @@ cannot_signal:;
 #ifdef __x86_64__
       /* TODO: Restore user-space segment registers? */
       WR_USER_GSBASE_REGISTER((u64)THIS_TASK->t_userseg);
-#elif !defined(CONFIG_NO_X86_SEGMENTATION)
+#else
       /* Set the user-space TLS segment to ensure
        * that the thread can read exception information. */
 #ifndef CONFIG_NO_DOS_COMPAT

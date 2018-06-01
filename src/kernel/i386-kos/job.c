@@ -39,11 +39,9 @@
 DECL_BEGIN
 
 
-#ifndef CONFIG_NO_X86_SEGMENTATION
 INTDEF ATTR_NORETURN void (KCALL throw_invalid_segment)(u16 segment_index, u16 segment_register);
 #define throw_invalid_segment(segment_index,segment_register) \
        __EXCEPT_INVOKE_THROW_NORETURN(throw_invalid_segment(segment_index,segment_register))
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 INTDEF u8 KCALL restart_syscall_mode(syscall_ulong_t sysno);
 
@@ -67,15 +65,13 @@ PRIVATE void KCALL urpc_validate(struct urpc_data *__restrict data) {
        data->ud_context.c_cs = X86_SEG_USER_CS;
   if (!data->ud_context.c_ss)
        data->ud_context.c_ss = X86_SEG_USER_SS;
-#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#endif
-#ifndef CONFIG_X86_FIXED_SEGMENTATION
   if (!__verw(data->ud_context.c_ss))
        throw_invalid_segment(data->ud_context.c_ss,X86_REGISTER_SEGMENT_SS);
   if ((data->ud_context.c_cs & 3) != 3 || !__verw(data->ud_context.c_cs))
        throw_invalid_segment(data->ud_context.c_cs,X86_REGISTER_SEGMENT_CS);
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
+#endif
+#ifndef __x86_64__
   if (!data->ud_context.c_segments.sg_gs)
        data->ud_context.c_segments.sg_gs = X86_SEG_USER_GS;
   if (!data->ud_context.c_segments.sg_fs)
@@ -95,7 +91,7 @@ PRIVATE void KCALL urpc_validate(struct urpc_data *__restrict data) {
        throw_invalid_segment(data->ud_context.c_segments.sg_fs,X86_REGISTER_SEGMENT_FS);
   if (!__verw(data->ud_context.c_segments.sg_gs))
        throw_invalid_segment(data->ud_context.c_segments.sg_gs,X86_REGISTER_SEGMENT_GS);
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
+#endif /* !__x86_64__ */
  }
  if (data->ud_mode & X86_JOB_FLOAD_STACK)
      validate_writable((byte_t *)CPU_CONTEXT_SP(data->ud_context),sizeof(uintptr_t));
@@ -215,19 +211,12 @@ urpc_callback(struct urpc_data *__restrict data,
      PUSH(context->c_iret.ir_eflags);
  PUSH(context->c_iret.ir_eip);
  if (urpc_mode & X86_JOB_FSAVE_SEGMENTS) {
-#ifdef CONFIG_NO_X86_SEGMENTATION
-  PUSH(X86_SEG_USER_DS);
-  PUSH(X86_SEG_USER_ES);
-  PUSH(X86_SEG_USER_FS);
-  PUSH(X86_SEG_USER_GS);
-#else /* CONFIG_NO_X86_SEGMENTATION */
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
   PUSH(context->c_segments.sg_ds);
   PUSH(context->c_segments.sg_es);
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
   PUSH(context->c_segments.sg_fs);
   PUSH(context->c_segments.sg_gs);
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
  }
  if (urpc_mode & X86_JOB_FSAVE_CREGS) {
   PUSH(context->c_gpregs.gp_eax);
@@ -290,14 +279,12 @@ urpc_callback(struct urpc_data *__restrict data,
   context->c_iret.ir_cs     = data->ud_context.c_cs;
   context->c_iret.ir_ss     = data->ud_context.c_ss;
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#ifndef CONFIG_NO_X86_SEGMENTATION
   context->c_segments.sg_gs = data->ud_context.c_segments.sg_gs;
   context->c_segments.sg_fs = data->ud_context.c_segments.sg_fs;
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
   context->c_segments.sg_es = data->ud_context.c_segments.sg_es;
   context->c_segments.sg_ds = data->ud_context.c_segments.sg_ds;
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
  }
  if (urpc_mode & X86_JOB_FLOAD_CREGS) {
   context->c_iret.ir_eflags = data->ud_context.c_eflags;

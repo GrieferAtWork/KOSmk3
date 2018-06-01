@@ -230,14 +230,12 @@ x86_ipi_handle(struct x86_ipi const *__restrict ipi,
                                "orl    %[eflags_if], (%%esp)\n\t"   /* IRET.EFLAGS */
                                "pushl  %%cs\n\t"                    /* IRET.CS */
                                "pushl  $%l5\n\t"                    /* IRET.EIP */
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
                                "pushl  %%ds\n\t"                    /* SEGMENTS.DS */
                                "pushl  %%es\n\t"                    /* SEGMENTS.ES */
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
                                "pushl  %%fs\n\t"                    /* SEGMENTS.FS */
                                "pushl  %%gs\n\t"                    /* SEGMENTS.GS */
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
                                "pushal\n\t"                         /* GPREGS */
                                /* Saved the IRET tail that we just generated. */
                                "movl   %%esp, %%" PP_STR(__ASM_TASK_SEGMENT) ":" PP_STR(TASK_OFFSETOF_CONTEXT) "\n\t"

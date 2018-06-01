@@ -80,13 +80,6 @@ PUBLIC void KCALL set_user_tls_register(void *value) {
  /* Set the base address of the user-space TLS segment. */
  seg = &PERCPU(x86_cpugdt)[X86_SEG_USER_TLS];
  X86_SEGMENT_STBASE(*seg,value);
-#ifdef CONFIG_NO_X86_SEGMENTATION
- /* Reload the user TLS segment register immediately
-  * if switching back to user-space won't do that. */
- __asm__ __volatile__("movw %w0, %%" PP_STR(__ASM_USERTASK_SEGMENT)
-                      :
-                      : "r" (X86_USER_TLS));
-#endif
 #endif
 }
 

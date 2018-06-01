@@ -29,9 +29,6 @@ __SYSDECL_BEGIN
 
 #ifdef __CC__
 #ifndef CONFIG_NO_DOS_COMPAT
-#ifdef CONFIG_NO_X86_SEGMENTATION
-#error "CONFIGURATION ERROR: `CONFIG_NO_X86_SEGMENTATION' cannot be used without also enabling `CONFIG_NO_DOS_COMPAT'"
-#endif
 
 #ifdef __COMPILER_HAVE_PRAGMA_PUSHMACRO
 #pragma push_macro("nt_errno")

@@ -220,21 +220,12 @@ void KCALL x86_switch_to_userspace(void) {
   ctx.c_iret.ir_eflags  = EFLAGS_IF;
   ctx.c_iret.ir_useresp = VM_PAGE2ADDR(stack->us_pageend);
   ctx.c_iret.ir_ss      = X86_SEG_USER_SS;
-#ifndef CONFIG_NO_X86_SEGMENTATION
   ctx.c_segments.sg_gs  = X86_SEG_USER_GS;
   ctx.c_segments.sg_fs  = X86_SEG_USER_FS;
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
   ctx.c_segments.sg_es  = X86_SEG_USER_ES;
   ctx.c_segments.sg_ds  = X86_SEG_USER_DS;
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#else /* !CONFIG_NO_X86_SEGMENTATION */
-  /* Add user-space permissions to segments we're going to share with it. */
-  __asm__ __volatile__("movw %w0, %%ds\n"
-                       "movw %w0, %%es\n"
-                       :
-                       : "q" (X86_USER_DS)
-                       : "memory");
-#endif /* CONFIG_NO_X86_SEGMENTATION */
 #endif
 
   /* Queue library initializers for all loaded user-space application. */

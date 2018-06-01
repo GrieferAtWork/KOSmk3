@@ -204,12 +204,10 @@ SYMEND(x86_rpc_entry_fast)
 	.cfi_rel_offset %ecx,    28
 	.cfi_rel_offset %eax,    32
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
-#ifndef CONFIG_NO_X86_SEGMENTATION
 	.cfi_rel_offset %gs,     36
 	.cfi_rel_offset %fs,     40
 	.cfi_rel_offset %es,     44
 	.cfi_rel_offset %ds,     48
-#endif
 	.cfi_rel_offset %eip,    52
 	.cfi_rel_offset %eflags, 56
 /*	.cfi_rel_offset %cs,     60 */
@@ -279,17 +277,12 @@ DEFINE_INTERN(libc_invoke_rpc_full)
 	.cfi_undefined %eax
 	addl  $4, %esp
 	.cfi_adjust_cfa_offset -4
-#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
-#ifndef CONFIG_NO_X86_SEGMENTATION
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r %es
 	popl_cfi_r %ds
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
-#else
-	addl  $16, %esp
-	.cfi_adjust_cfa_offset -16
-#endif
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 /*	movw  8(%esp), %cs */
 /*	movw  12(%esp), %ss */
 	popfl_cfi_r

@@ -164,13 +164,8 @@ SYMEND(x86_xsyscall_restart)
 #define IF_CONFIG_X86_SEGMENTATION(x)           x
 #define IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(x) /* nothing */
 #else /* CONFIG_X86_FIXED_SEGMENTATION */
-#ifndef CONFIG_NO_X86_SEGMENTATION
-#define IF_CONFIG_X86_SEGMENTATION(x)            x
-#define IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(x) /* nothing */
-#else
-#define IF_CONFIG_X86_SEGMENTATION(x)           /* nothing */
-#define IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(x) /* nothing */
-#endif
+#define IF_CONFIG_X86_SEGMENTATION(x)           x
+#define IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(x) x
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 
 #ifdef CONFIG_NO_X86_SYSENTER
@@ -301,14 +296,12 @@ INTERN_ENTRY(sysenter_kernel_entry)
 	/* Enable interrupts. */
 	sti
 
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif
 INTERN_ENTRY(sysenter_after_segments)
 	pushl_cfi_r %eax /* ORIG_EAX */
 
@@ -407,14 +400,12 @@ INTERN_ENTRY(irq_80)
 	.cfi_def_cfa %esp,    3*4
 	.cfi_offset %eflags, -1*4
 	.cfi_offset %eip,    -3*4
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r  %ds
 	pushl_cfi_r  %es
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r  %fs
 	pushl_cfi_r  %gs
-#endif
 INTERN_ENTRY(irq_80_after_segments)
 	pushl_cfi_r %eax /* ORIG_EAX */
 
@@ -482,14 +473,12 @@ INTERN_ENTRY(irq_80_trace)
 	.cfi_offset %eflags, -1*4
 	.cfi_offset %eip,    -3*4
 
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r  %ds
 	pushl_cfi_r  %es
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r  %fs
 	pushl_cfi_r  %gs
-#endif
 	pushl_cfi_r %eax /* ORIG_EAX */
 
 	pushl_cfi_r X86_SYSCALL_REG5
@@ -534,14 +523,12 @@ INTERN_ENTRY(sysenter_kernel_entry_trace)
 	/* Enable interrupts. */
 	sti
 
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r  %ds
 	pushl_cfi_r  %es
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r  %fs
 	pushl_cfi_r  %gs
-#endif
 	pushl_cfi_r %eax /* ORIG_EAX */
 
 	/* Push system call registers. */
@@ -655,14 +642,12 @@ PUBLIC_ENTRY(x86_syscall_exec80_trace)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EFLAGS)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_CS)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_IRET+X86_IRREGS_USER32_OFFSETOF_EIP)(%ecx)
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_DS)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_ES)(%ecx)
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_FS)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS)(%ecx)
-#endif
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EAX)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EBP)(%ecx)
 	pushl_cfi ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EDI)(%ecx)
@@ -673,7 +658,6 @@ PUBLIC_ENTRY(x86_syscall_exec80_trace)
 	pushl_cfi %esp /* regs */
 	call  syscall_trace
 	.cfi_adjust_cfa_offset -4 /* STDCALL... (callee-argument-cleanup) */
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifdef CONFIG_X86_FIXED_SEGMENTATION
 	addl  $(14 * 4), %esp
 	.cfi_adjust_cfa_offset -(14 * 4)
@@ -681,10 +665,6 @@ PUBLIC_ENTRY(x86_syscall_exec80_trace)
 	addl  $(16 * 4), %esp
 	.cfi_adjust_cfa_offset -(16 * 4)
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#else
-	addl  $(12 * 4), %esp
-	.cfi_adjust_cfa_offset -(12 * 4)
-#endif
 PUBLIC_ENTRY(x86_syscall_exec80_ntrace)
 	movl  %taskseg:TASK_OFFSETOF_STACKEND, %ecx
 	movl  ((-X86_HOSTCONTEXT_USER32_SIZE)+X86_HOSTCONTEXT_USER32_OFFSETOF_GPREGS+X86_GPREGS32_OFFSETOF_EAX)(%ecx), %eax

@@ -61,7 +61,6 @@ INTERN_ENTRY(libc_error_rethrow)
 #endif
 	pushl_cfi    %eax   /* EIP */
 	.cfi_rel_offset %eip, 0
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifdef CONFIG_X86_FIXED_SEGMENTATION
 #ifndef __KERNEL__
 	pushl_cfi_r  %fs
@@ -79,7 +78,6 @@ INTERN_ENTRY(libc_error_rethrow)
 	pushl_cfi_r  %fs
 	pushl_cfi_r  %gs
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
 	pushal_cfi_r
 	/* Fix ESP to point to caller, aka. the start of the context structure. */
 	leal   X86_CONTEXT_SIZE(%esp), %ecx
@@ -167,7 +165,6 @@ INTERN_ENTRY(libc_error_throw_current)
 	.cfi_register %eip, %eax
 	movl   %eax, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_EIP
 	movl   %esp, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_ESP
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifdef CONFIG_X86_FIXED_SEGMENTATION
 #ifndef __KERNEL__
 	movw   %gs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_GS
@@ -193,10 +190,9 @@ INTERN_ENTRY(libc_error_throw_current)
 	movw   %ds,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_DS
 	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_SEGMENTS+X86_SEGMENTS32_OFFSETOF_DS+2
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
 #ifdef __KERNEL__
 	movl   $X86_SEG_HOST_CS, %taskseg:ts_xcurrent+e_context+X86_CONTEXT_OFFSETOF_IRET+X86_IRREGS_HOST32_OFFSETOF_CS
-#elif !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(CONFIG_X86_FIXED_SEGMENTATION)
+#elif !defined(CONFIG_X86_FIXED_SEGMENTATION)
 	movw   %cs,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT32_OFFSETOF_CS
 	movw   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT32_OFFSETOF_CS+2
 	movw   %ss,  %taskseg:ts_xcurrent+e_context+X86_CONTEXT32_OFFSETOF_SS

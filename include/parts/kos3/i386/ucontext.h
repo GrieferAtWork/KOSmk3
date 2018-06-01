@@ -47,14 +47,13 @@ typedef __REGISTER_TYPE__ greg_t;
 #define __UCONTEXT_REGNO_EDX    5
 #define __UCONTEXT_REGNO_ECX    6
 #define __UCONTEXT_REGNO_EAX    7
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #define __UCONTEXT_REGNO_GS     8
 #define __UCONTEXT_REGNO_FS     9
-#ifdef CONFIG_NO_X86_SEGMENTATION
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
 #define __UCONTEXT_REGNO_EIP    10
 #define __UCONTEXT_REGNO_EFL    11
 #define NGREG                   12 /* Number of general registers. */
-#else /* CONFIG_NO_X86_SEGMENTATION */
+#else /* CONFIG_X86_FIXED_SEGMENTATION */
 #define __UCONTEXT_REGNO_ES     10
 #define __UCONTEXT_REGNO_DS     11
 #define __UCONTEXT_REGNO_EIP    12
@@ -62,12 +61,7 @@ typedef __REGISTER_TYPE__ greg_t;
 #define __UCONTEXT_REGNO_CS     14
 #define __UCONTEXT_REGNO_SS     15
 #define NGREG                   16 /* Number of general registers. */
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
-#else
-#define __UCONTEXT_REGNO_EIP    8
-#define __UCONTEXT_REGNO_EFL    9
-#define NGREG                   10 /* Number of general registers. */
-#endif
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 
 #ifdef __CC__
 typedef greg_t gregset_t[NGREG]; /* Container for all general registers. */

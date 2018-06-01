@@ -205,14 +205,14 @@ unwind_check_signal_frame(struct cpu_context_ss *__restrict context,
  /* Copy the signal mask that would be restored into userspace. */
  if (signal_set_size)
      memcpy(signal_set,&frame->sf_sigmask,signal_set_size);
-#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
+#ifndef __x86_64__
  memcpy(context,&frame->sf_return.m_context,
         sizeof(struct x86_gpregs32)+
         sizeof(struct x86_segments32));
-#else /* !CONFIG_NO_X86_SEGMENTATION */
+#else /* !__x86_64__ */
  memcpy(context,&frame->sf_return.m_context,
         sizeof(struct x86_gpregs32));
-#endif /* CONFIG_NO_X86_SEGMENTATION */
+#endif /* __x86_64__ */
  context->c_context.c_iret.ir_pip    = frame->sf_return.m_context.c_pip;
  context->c_context.c_iret.ir_pflags = frame->sf_return.m_context.c_pflags;
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
@@ -324,7 +324,7 @@ DEFINE_SYSCALL3(xunwind_except,
 #endif
  if (!unwind.c_context.c_iret.ir_cs) unwind.c_context.c_iret.ir_cs = X86_SEG_USER_CS;
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
+#ifndef __x86_64__
  memcpy(&unwind.c_context.c_gpregs,dispatcher_context,
         sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
@@ -333,21 +333,21 @@ DEFINE_SYSCALL3(xunwind_except,
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
  if (!unwind.c_context.c_segments.sg_fs) unwind.c_context.c_segments.sg_fs = X86_SEG_USER_FS;
  if (!unwind.c_context.c_segments.sg_gs) unwind.c_context.c_segments.sg_gs = X86_SEG_USER_GS;
-#else
+#else /* !__x86_64__ */
  memcpy(&unwind.c_context.c_gpregs,&dispatcher_context->c_gpregs,sizeof(struct x86_gpregs));
-#endif
+#endif /* __x86_64__ */
  COMPILER_BARRIER();
  if (!error_rethrow_at_user(except_info,&unwind))
       return -EPERM; /* No handler found. */
  COMPILER_BARRIER();
  /* Copy the new context back to user-space. */
-#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
+#ifndef __x86_64__
  memcpy(&dispatcher_context->c_gpregs,&unwind.c_context.c_gpregs,
         sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
-#else
+#else /* !__x86_64__ */
  memcpy(&dispatcher_context->c_gpregs,&unwind.c_context.c_gpregs,
         sizeof(struct x86_gpregs));
-#endif
+#endif /* __x86_64__ */
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 #ifdef __x86_64__
  dispatcher_context->c_ss     = unwind.c_context.c_iret.ir_ss;
@@ -386,7 +386,7 @@ DEFINE_SYSCALL4(xunwind,
  if (!unwind.c_ss)                   unwind.c_ss                   = X86_SEG_USER_SS;
 #endif
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
+#ifndef __x86_64__
  memcpy(&unwind.c_context.c_gpregs,&context->c_gpregs,
         sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
@@ -395,9 +395,9 @@ DEFINE_SYSCALL4(xunwind,
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
  if (!unwind.c_context.c_segments.sg_fs) unwind.c_context.c_segments.sg_fs = X86_SEG_USER_FS;
  if (!unwind.c_context.c_segments.sg_gs) unwind.c_context.c_segments.sg_gs = X86_SEG_USER_GS;
-#else
+#else /* !__x86_64__ */
  memcpy(&unwind.c_context.c_gpregs,&context->c_gpregs,sizeof(struct x86_gpregs));
-#endif
+#endif /* __x86_64__ */
  /* Search for FDE information */
  if (!linker_findfde(unwind.c_context.c_iret.ir_eip,&info))
       return -EPERM;
@@ -408,13 +408,13 @@ DEFINE_SYSCALL4(xunwind,
  /* Deal with posix-signal frame. */
  unwind_check_signal_frame(&unwind,signal_set,sigset_size);
  /* Copy the new context back to user-space. */
-#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
+#ifndef __x86_64__
  memcpy(&context->c_gpregs,&unwind.c_context.c_gpregs,
         sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
-#else
+#else /* !__x86_64__ */
  memcpy(&context->c_gpregs,&unwind.c_context.c_gpregs,
         sizeof(struct x86_gpregs));
-#endif
+#endif /* __x86_64__ */
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 #ifdef __x86_64__
  context->c_ss     = unwind.c_context.c_iret.ir_ss;

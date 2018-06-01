@@ -1693,7 +1693,6 @@ done_noncanon_check:
   case F_SEGGS: __asm__("movw %%gs, %w0" : "=r" (effective_segment_value)); break;
   default: effective_segment_value = context->c_iret.ir_ss; break;
 #else
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifdef CONFIG_X86_FIXED_SEGMENTATION
   case F_SEGDS: effective_segment_value = X86_SEG_DS; break;
   case F_SEGES: effective_segment_value = X86_SEG_ES; break;
@@ -1703,12 +1702,6 @@ done_noncanon_check:
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
   case F_SEGFS: effective_segment_value = context->c_segments.sg_fs; break;
   case F_SEGGS: effective_segment_value = context->c_segments.sg_gs; break;
-#else
-  case F_SEGDS: __asm__("movw %%ds, %w0" : "=r" (effective_segment_value)); break;
-  case F_SEGES: __asm__("movw %%es, %w0" : "=r" (effective_segment_value)); break;
-  case F_SEGFS: __asm__("movw %%fs, %w0" : "=r" (effective_segment_value)); break;
-  case F_SEGGS: __asm__("movw %%gs, %w0" : "=r" (effective_segment_value)); break;
-#endif
   case F_SEGCS: effective_segment_value = context->c_iret.ir_cs; break;
   case F_SEGSS: effective_segment_value = context->c_iret.ir_ss; break;
   default: __builtin_unreachable(); break;

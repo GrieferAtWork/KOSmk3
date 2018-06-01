@@ -378,14 +378,14 @@ pid_t start_thread(void *(*func)(void *arg), void *arg) {
  context.c_gpregs.gp_pdx  = (uintptr_t)arg;
  context.c_gpregs.gp_pcx  = (uintptr_t)func;
  context.c_gpregs.gp_pax  = 0;
-#ifndef CONFIG_NO_X86_SEGMENTATION
  context.c_segments.sg_gs = 0;
  context.c_segments.sg_fs = 0;
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
  context.c_segments.sg_es = 0;
  context.c_segments.sg_ds = 0;
  context.c_cs             = 0;
  context.c_ss             = 0;
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
  context.c_pip            = (uintptr_t)&thread_entry;
  context.c_pflags         = 0;
 

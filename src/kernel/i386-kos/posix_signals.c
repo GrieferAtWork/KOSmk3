@@ -50,11 +50,9 @@
 
 DECL_BEGIN
 
-#ifndef CONFIG_NO_X86_SEGMENTATION
 INTDEF ATTR_NORETURN void (KCALL throw_invalid_segment)(u16 segment_index, u16 segment_register);
 #define throw_invalid_segment(segment_index,segment_register) \
        __EXCEPT_INVOKE_THROW_NORETURN(throw_invalid_segment(segment_index,segment_register))
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 
 INTERN void KCALL
@@ -75,13 +73,13 @@ x86_sigreturn_impl(void *UNUSED(arg),
   * NOTE: User-space register sanitization _must_ be done _after_ we copied register
   *       values, and must be performed on the values then saved in `context'! */
  COMPILER_READ_BARRIER();
-#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
+#ifndef __x86_64__
  memcpy(&context->c_gpregs,&frame->sf_return.m_context.c_gpregs,
         sizeof(struct x86_gpregs32)+sizeof(struct x86_segments32));
-#else /* !CONFIG_NO_X86_SEGMENTATION */
+#else /* !__x86_64__ */
  memcpy(&context->c_gpregs,&frame->sf_return.m_context.c_gpregs,
         sizeof(struct x86_gpregs32));
-#endif /* CONFIG_NO_X86_SEGMENTATION */
+#endif /* __x86_64__ */
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
  context->c_iret.ir_cs     = frame->sf_return.m_context.c_cs;
  context->c_iret.ir_ss     = frame->sf_return.m_context.c_ss;
@@ -138,7 +136,7 @@ x86_sigreturn_impl(void *UNUSED(arg),
                                 EFLAGS_ID);
  /* Verify user-space segment indices. */
  TRY {
-#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
+#ifndef __x86_64__
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
   if (context->c_segments.sg_ds && !__verw(context->c_segments.sg_ds))
       throw_invalid_segment(context->c_segments.sg_ds,X86_REGISTER_SEGMENT_DS);
@@ -149,7 +147,7 @@ x86_sigreturn_impl(void *UNUSED(arg),
       throw_invalid_segment(context->c_segments.sg_fs,X86_REGISTER_SEGMENT_FS);
   if (context->c_segments.sg_gs && !__verw(context->c_segments.sg_gs))
       throw_invalid_segment(context->c_segments.sg_gs,X86_REGISTER_SEGMENT_GS);
-#endif
+#endif /* !__x86_64__ */
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
   if (context->c_iret.ir_ss && !__verw(context->c_iret.ir_ss))
       throw_invalid_segment(context->c_iret.ir_ss,X86_REGISTER_SEGMENT_SS);
@@ -160,7 +158,7 @@ x86_sigreturn_impl(void *UNUSED(arg),
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
  } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
   /* Must fix register values, as otherwise userspace wouldn't be able to handle the exception. */
-#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
+#ifndef __x86_64__
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
   if (xcontext->c_segments.sg_ds && !__verw(xcontext->c_segments.sg_ds))
       xcontext->c_segments.sg_ds = X86_SEG_USER_DS;
@@ -171,7 +169,7 @@ x86_sigreturn_impl(void *UNUSED(arg),
       xcontext->c_segments.sg_fs = X86_SEG_USER_FS;
   if (xcontext->c_segments.sg_gs && !__verw(xcontext->c_segments.sg_gs))
       xcontext->c_segments.sg_gs = X86_SEG_USER_GS;
-#endif
+#endif /* !__x86_64__ */
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
   if (xcontext->c_iret.ir_ss && !__verw(xcontext->c_iret.ir_ss))
       xcontext->c_iret.ir_ss = X86_SEG_USER_SS;
@@ -385,11 +383,6 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
  }
 
  /* Construct the return CPU context. */
-#if !defined(CONFIG_NO_X86_SEGMENTATION) && !defined(__x86_64__)
- memcpy(&frame->sf_return.m_context.c_segments,
-        &context->c_segments,sizeof(struct x86_segments));
-#endif
-
 #ifdef __x86_64__
  memcpy(&frame->sf_return.m_context.c_gpregs,
         &context->c_gpregs,sizeof(struct x86_gpregs));
@@ -398,6 +391,8 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
  frame->sf_return.m_context.c_segments.sg_fsbase = RD_USER_FSBASE();
  frame->sf_return.m_context.c_segments.sg_gsbase = RD_USER_GSBASE();
 #else
+ memcpy(&frame->sf_return.m_context.c_segments,
+        &context->c_segments,sizeof(struct x86_segments));
  frame->sf_return.m_context.c_gpregs.gp_edi = context->c_gpregs.gp_edi;
  frame->sf_return.m_context.c_gpregs.gp_esi = context->c_gpregs.gp_esi;
  frame->sf_return.m_context.c_gpregs.gp_ebp = context->c_gpregs.gp_ebp;

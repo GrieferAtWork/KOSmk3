@@ -227,7 +227,7 @@ X86_SegmentBase(struct cpu_anycontext *__restrict context, u16 flags) {
   else result += (uintptr_t)THIS_TASK;
   result += __rdgsbaseq();
   break;
-#elif !defined(CONFIG_NO_X86_SEGMENTATION)
+#else
  default:
 #ifdef CONFIG_X86_FIXED_SEGMENTATION
  case F_SEGDS:
@@ -240,24 +240,6 @@ X86_SegmentBase(struct cpu_anycontext *__restrict context, u16 flags) {
  case F_SEGGS: result = get_segment_base(context,context->c_segments.sg_gs); break;
  case F_SEGCS: result = get_segment_base(context,context->c_iret.ir_cs); break;
  case F_SEGSS: result = get_segment_base(context,context->c_iret.ir_ss); break;
-#else
- case F_SEGCS: result = get_segment_base(context,context->c_iret.ir_cs); break;
- case F_SEGSS: result = get_segment_base(context,context->c_iret.ir_ss); break;
-#ifdef __ASM_TASK_SEGMENT_ISFS /* If we're using %fs, user-space is using %gs */
- case F_SEGGS: result += (uintptr_t)THIS_TASK->t_userseg; break;
- case F_SEGFS:
-  if (context->c_cs & 3)
-       result += (uintptr_t)&THIS_TASK->t_userseg->ts_tib;
-  else result += (uintptr_t)THIS_TASK;
-  break;
-#else /* If we're using %gs, user-space is using %fs */
- case F_SEGFS: result += (uintptr_t)THIS_TASK->t_userseg; break;
- case F_SEGGS:
-  if (context->c_cs & 3)
-       result += (uintptr_t)&THIS_TASK->t_userseg->ts_tib;
-  else result += (uintptr_t)THIS_TASK;
-  break;
-#endif
 #endif
  }
  return result;
@@ -317,14 +299,12 @@ fix_user_context(struct x86_anycontext *__restrict context) {
  /* Copy the USER SP into the HOST SP pointer. */
 #ifdef CONFIG_VM86
  if (context->c_eflags & EFLAGS_VM) {
-#ifndef CONFIG_NO_X86_SEGMENTATION
   context->c_segments.sg_gs = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_gs;
   context->c_segments.sg_fs = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_fs;
 #ifndef CONFIG_X86_FIXED_SEGMENTATION /* ??? */
   context->c_segments.sg_es = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_es;
   context->c_segments.sg_ds = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_ds;
 #endif /* CONFIG_X86_FIXED_SEGMENTATION */
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
   context->c_host.c_esp = ((struct x86_irregs_vm86 *)&context->c_iret)->ir_esp;
  } else
 #endif

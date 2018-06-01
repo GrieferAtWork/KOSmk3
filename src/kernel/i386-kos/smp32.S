@@ -86,28 +86,24 @@ INTERN_ENTRY(X86_IRQ_APICSPUR)
 	pushl_cfi_r %ecx
 	pushl_cfi_r %edx
 
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif
 
 	call    x86_load_segments
 	call    x86_apic_spur
 	movl    x86_lapic_base_address, %eax
 	movl    $(APIC_EOI_FSIGNAL), APIC_EOI(%eax)
 
-#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r  %gs
 	popl_cfi_r  %fs
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r  %es
 	popl_cfi_r  %ds
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#endif
 
 	popl_cfi_r  %edx
 	popl_cfi_r  %ecx
@@ -132,14 +128,13 @@ INTERN_ENTRY(X86_IRQ_APICIPI)
 	pushl_cfi_r %ecx
 	pushl_cfi_r %edx
 
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif
+
 	call    x86_load_segments
 
 	/* Process IPIs. */
@@ -164,14 +159,12 @@ INTERN_ENTRY(X86_IRQ_APICIPI)
 	call    x86_ipi_process
 1:
 
-#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r  %gs
 	popl_cfi_r  %fs
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r  %es
 	popl_cfi_r  %ds
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#endif
 
 	popl_cfi_r  %edx
 	popl_cfi_r  %ecx
@@ -356,13 +349,8 @@ INTERN_ENTRY(x86_smp_entry32)
 	movw    $(X86_SEG_DS), %ax
 	movw    %ax, %ds
 	movw    %ax, %es
+	movw    $(X86_KERNEL_DS), %ax
 	movw    %ax, %ss
-#ifdef CONFIG_NO_X86_SEGMENTATION
-	movw    $(X86_SEG_FS), %ax
-	movw    %ax, %fs
-	movw    $(X86_SEG_GS), %ax
-	movw    %ax, %gs
-#endif /* CONFIG_NO_X86_SEGMENTATION */
 	/* NOTE: This also does the jump from physical into virtual memory! */
 	ljmp    $(X86_KERNEL_CS), $1f
 1:

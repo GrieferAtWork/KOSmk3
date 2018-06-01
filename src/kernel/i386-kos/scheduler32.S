@@ -107,14 +107,12 @@ INTERN_ENTRY(X86_IRQ_PIT)
 	.cfi_offset %eip,    -3*4
 
 	/* Save segment registers. */
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 	/* Save general-purpose registers. */
 	pushal_cfi_r
@@ -338,14 +336,12 @@ INTERN_ENTRY(x86_exchange_context)
 	/* With that, the IRET is now complete. */
 
 	/* Save segment registers. */
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 	/* Save general purpose registers. */
 	pushal_cfi_r
@@ -428,16 +424,6 @@ INTERN_ENTRY(x86_exchange_context)
 #endif /* !CONFIG_NO_DOS_COMPAT */
 #undef GDT
 
-#ifdef CONFIG_NO_X86_SEGMENTATION
-	/* Without segmentation to reload the FS and GS
-	 * registers for us, we must reload them manually. */
-	movw    $(X86_SEG_FS), %ax
-	movw    %ax, %fs
-	movw    $(X86_SEG_GS), %ax
-	movw    %ax, %gs
-#endif
-
-
 	movl    t_stackend(%edi), %eax
 #ifdef CONFIG_NO_SMP
 	movl    %eax, X86_TSS_OFFSETOF_ESP0 + x86_cputss       /* Set ESP0 */
@@ -453,14 +439,12 @@ INTERN_ENTRY(x86_load_cpu_state)
 	popal_cfi_r
 
 	/* Load segment registers. */
-#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r %es
 	popl_cfi_r %ds
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 	/* Do an IRET */
 	iret
@@ -510,28 +494,23 @@ INTERN_ENTRY(x86_redirect_preemption)
 /*	.cfi_offset %esp,    -2*4 */
 
 	/* Save segment registers. */
-#ifndef CONFIG_NO_X86_SEGMENTATION
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 	pushl_cfi_r %ds
 	pushl_cfi_r %es
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 	pushl_cfi_r %fs
 	pushl_cfi_r %gs
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 	/* Save user-space registers. */
 	pushal_cfi_r
 
 #ifdef CONFIG_X86_FIXED_SEGMENTATION
 #define CFA_OFFSET   60 /* 4*8 + 4*2 + 12 + 8 */
-#elif !defined(CONFIG_NO_X86_SEGMENTATION)
-#define CFA_OFFSET   68 /* 4*8 + 4*4 + 12 + 8 */
 #else
-#define CFA_OFFSET   52 /* 4*8 + 12 + 8 */
+#define CFA_OFFSET   68 /* 4*8 + 4*4 + 12 + 8 */
 #endif
 #define IRET_OFFSET  (CFA_OFFSET-20) /* - 5*4 (sizeof(struct x86_irregs_user32)) */
 
-#ifndef CONFIG_NO_X86_SEGMENTATION
 	/* Since user-space segments had already been
 	 * restore before our redirection was invoked,
 	 * we must load kernel segments once again.
@@ -540,7 +519,6 @@ INTERN_ENTRY(x86_redirect_preemption)
 	 * meaning that in that case we don't have to load
 	 * them yet again. */
 	call   x86_load_segments
-#endif
 
 	/* Now copy the saved IRET tail onto our stack.
 	 * (The 12 bytes subtracted above + 8 bytes left dangling)
@@ -580,14 +558,12 @@ INTERN_ENTRY(x86_redirect_preemption)
 	popal_cfi_r
 
 	/* Load segment registers. */
-#ifndef CONFIG_NO_X86_SEGMENTATION
 	popl_cfi_r %gs
 	popl_cfi_r %fs
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
 	popl_cfi_r %es
 	popl_cfi_r %ds
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
-#endif /* !CONFIG_NO_X86_SEGMENTATION */
 
 	/* Jump to user-space (likely; we may just end up
 	 * back above at the entry of `x86_redirect_preemption()'

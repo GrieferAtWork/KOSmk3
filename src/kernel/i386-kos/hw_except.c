@@ -487,20 +487,13 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
               context->c_iret.ir_cs,
               context->c_segments.sg_fs,
               context->c_segments.sg_gs);
-#elif defined(CONFIG_NO_X86_SEGMENTATION)
+#else
  debug_printf("CS %.4IX DS %.4IX ES %.4IX FS %.4IX GS %.4IX\n",
               context->c_iret.ir_cs,
               context->c_segments.sg_ds,
               context->c_segments.sg_es,
               context->c_segments.sg_fs,
               context->c_segments.sg_gs);
-#else
-#define GETREG(name) XBLOCK({ register register_t v; __asm__("movl %" name ", %0" : "=r" (v)); XRETURN v; })
- debug_printf("CS %.4IX DS %.4IX ES %.4IX FS %.4IX GS %.4IX\n",
-              context->c_iret.ir_cs,
-              GETREG("%ds"),GETREG("%es"),
-              GETREG("%fs"),GETREG("%gs"));
-#undef GETREG
 #endif
  debug_printf("THIS_TASK = %p (%u)\n",THIS_TASK,posix_gettid());
 #endif
