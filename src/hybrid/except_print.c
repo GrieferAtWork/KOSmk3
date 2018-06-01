@@ -742,11 +742,17 @@ libc_error_vfprintf(FILE *fp, char const *reason, va_list args)
 #endif
 #else /* __KERNEL__ */
 #ifdef __x86_64__
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+ PRINTF("FS_BASE %p GS_BASE %p\n",
+        INFO->e_context.c_segments.sg_fsbase,
+        INFO->e_context.c_segments.sg_gsbase);
+#else
  PRINTF("CS %.4IX DS %.4IX FS_BASE %p GS_BASE %p\n",
         INFO->e_context.c_cs,
         INFO->e_context.c_ss,
         INFO->e_context.c_segments.sg_fsbase,
         INFO->e_context.c_segments.sg_gsbase);
+#endif
 #elif defined(CONFIG_X86_FIXED_SEGMENTATION)
  PRINTF("FS %.4IX GS %.4IX\n",
         INFO->e_context.c_segments.sg_fs,

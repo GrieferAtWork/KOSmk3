@@ -386,8 +386,14 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
 #ifdef __x86_64__
  memcpy(&frame->sf_return.m_context.c_gpregs,
         &context->c_gpregs,sizeof(struct x86_gpregs));
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+ frame->sf_return.m_context.c_rflags = context->c_iret.ir_rflags;
+ frame->sf_return.m_context.c_rip    = context->c_iret.ir_rip;
+ frame->sf_return.m_context.c_rsp    = context->c_iret.ir_rsp;
+#else /* CONFIG_X86_FIXED_SEGMENTATION */
  memcpy(&frame->sf_return.m_context.c_iret,
         &context->c_iret,sizeof(struct x86_irregs64));
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
  frame->sf_return.m_context.c_segments.sg_fsbase = RD_USER_FSBASE();
  frame->sf_return.m_context.c_segments.sg_gsbase = RD_USER_GSBASE();
 #else

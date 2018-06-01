@@ -1354,8 +1354,14 @@ errorinfo_copy_to_user(USER CHECKED struct user_task_segment *useg,
 #ifdef __x86_64__
  memcpy(&useg->ts_xcurrent.e_context.c_gpregs,
         &context->c_gpregs,sizeof(struct x86_gpregs));
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+ useg->ts_xcurrent.e_context.c_rflags = context->c_iret.ir_rflags;
+ useg->ts_xcurrent.e_context.c_rsp    = context->c_iret.ir_rsp;
+ useg->ts_xcurrent.e_context.c_rip    = context->c_iret.ir_rip;
+#else
  memcpy(&useg->ts_xcurrent.e_context.c_iret,
         &context->c_iret,sizeof(struct x86_irregs64));
+#endif
  useg->ts_xcurrent.e_context.c_segments.sg_fsbase = RD_USER_FSBASE();
  useg->ts_xcurrent.e_context.c_segments.sg_gsbase = RD_USER_GSBASE();
 #else

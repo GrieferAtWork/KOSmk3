@@ -246,8 +246,16 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
    memcpy(&user_context->c_gpregs,&context->c_gpregs,
           sizeof(struct x86_gpregs));
    /* Copy the user-given IRET tail into the to-be loaded user-context. */
+#ifdef CONFIG_X86_FIXED_SEGMENTATION
+   user_context->c_iret.ir_cs     = X86_SEG_USER_CS;
+   user_context->c_iret.ir_ss     = X86_SEG_USER_SS;
+   user_context->c_iret.ir_rflags = context->c_rflags;
+   user_context->c_iret.ir_rsp    = context->c_rsp;
+   user_context->c_iret.ir_rip    = context->c_rip;
+#else /* CONFIG_X86_FIXED_SEGMENTATION */
    memcpy(&user_context->c_iret,&context->c_iret,
           sizeof(struct x86_irregs64));
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #else
    memcpy(&user_context->c_gpregs,&context->c_gpregs,
           sizeof(struct x86_gpregs)+sizeof(struct x86_segments));
@@ -273,6 +281,7 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
        EFLAGS_NT|EFLAGS_RF|EFLAGS_VM|
        EFLAGS_AC|EFLAGS_VIF|EFLAGS_VIP))
        error_throw(E_INVALID_ARGUMENT);
+#ifndef CONFIG_X86_FIXED_SEGMENTATION
    if (!user_context->c_iret.ir_cs)
         user_context->c_iret.ir_cs = X86_SEG_USER_CS;
    if (!user_context->c_iret.ir_ss)
@@ -283,6 +292,7 @@ x86_clone_impl(USER CHECKED struct x86_usercontext *context,
     * user-space would be executed as kernel-code; autsch...) */
    if ((user_context->c_iret.ir_cs & 3) != 3 || !__verr(user_context->c_iret.ir_cs))
         throw_invalid_segment(user_context->c_iret.ir_cs,X86_REGISTER_SEGMENT_CS);
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #ifndef __x86_64__
    /* Segment registers set to ZERO are set to their default values. */
    if (!user_context->c_segments.sg_gs)
