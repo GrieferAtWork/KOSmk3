@@ -1290,7 +1290,52 @@ x86_handle_gpf(struct cpu_anycontext *__restrict context,
  TRY {
   byte_t *text; u32 opcode;
   text = (byte_t *)context->c_pip;
+#ifdef X86_PAGING_ISNONCANON
+  if (X86_PAGING_ISNONCANON((uintptr_t)text)) {
+   /* We somehow ended up with a non-canonical instruction pointer.
+    * Deal with this as an E_SEGFAULT exception, likely caused by
+    * something like this:
+    * >> (*(void(*)(int))0x123456789abcdef0ull)(42);
+    * In this case, IP is already broken to point to an invalid address.
+    * However, we'd rather do exception handling at the call-site, meaning we'll
+    * have to dereference the stack to try and get the proper return address.
+    * Though because of how low-level all of this is, we have no guaranty that
+    * memory at the call-site will actually be mapped, or that this really is
+    * we ended up in a situation where the faulting address matches the return-ip.
+    * For that reason, a number of additional checks are done to work out if
+    * it was code like that above which caused the problem. */
+   X86_SEGFAULT_FEXEC;
+   TRY {
+    uintptr_t return_ip;
+    if (context->c_cs & 3)
+        validate_readable((void *)xcontext->c_psp,8);
+    return_ip = *(uintptr_t *)context->c_psp;
+    /* Check if the supposed return-ip is mapped.
+     * XXX: Maybe even check if it is executable? */
+    if (pagedir_ismapped(VM_ADDR2PAGE(return_ip))) {
+     context->c_psp += 8; /* Consume the addressed pushed by `call' */
+     context->c_pip = return_ip;
+    }
+   } CATCH_HANDLED (E_SEGFAULT) {
+   }
+   /* Construct and emit a SEGFAULT exception. */
+   info->e_error.e_code = E_SEGFAULT;
+   info->e_error.e_flag = ERR_FRESUMABLE;
+   info->e_error.e_segfault.sf_reason = X86_SEGFAULT_FEXEC;
+   if (context->c_cs & 3)
+       info->e_error.e_segfault.sf_reason |= X86_SEGFAULT_FUSER;
+   info->e_error.e_segfault.sf_vaddr = (void *)(uintptr_t)text;
+   goto do_throw_error;
+  }
+#endif
+
   opcode = X86_ReadOpcode(context,&text,(u16 *)&flags);
+
+  /* TODO: #GPF must also handle the following:
+   *   - Attempting to execute an SSE instruction specifying an unaligned memory operand.
+   * Taken from table 8-6 (https://support.amd.com/TechDocs/24593.pdf)
+   */
+
 
 #ifdef __x86_64__
   /* Check for #GPFs caused by non-canonical memory accesses. */

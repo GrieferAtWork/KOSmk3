@@ -54,15 +54,13 @@ struct urpc_data {
 PRIVATE void KCALL urpc_validate(struct urpc_data *__restrict data) {
  /* Validate segment registers. */
  if (data->ud_mode & X86_JOB_FLOAD_SEGMENTS) {
-#ifdef __x86_64__
 #ifndef CONFIG_X86_FIXED_SEGMENTATION
+#ifdef __x86_64__
   if (!data->ud_context.c_cs)
        data->ud_context.c_cs = interrupt_iscompat() ? X86_SEG_USER_CS32 : X86_SEG_USER_CS;
   if (!data->ud_context.c_ss)
        data->ud_context.c_ss = interrupt_iscompat() ? X86_SEG_USER_SS32 : X86_SEG_USER_SS;
-#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #else
-#ifndef CONFIG_X86_FIXED_SEGMENTATION
   if (!data->ud_context.c_cs)
        data->ud_context.c_cs = X86_SEG_USER_CS;
   if (!data->ud_context.c_ss)
@@ -71,8 +69,8 @@ PRIVATE void KCALL urpc_validate(struct urpc_data *__restrict data) {
        throw_invalid_segment(data->ud_context.c_ss,X86_REGISTER_SEGMENT_SS);
   if ((data->ud_context.c_cs & 3) != 3 || !__verw(data->ud_context.c_cs))
        throw_invalid_segment(data->ud_context.c_cs,X86_REGISTER_SEGMENT_CS);
-#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #endif
+#endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 #ifndef __x86_64__
   if (!data->ud_context.c_segments.sg_gs)
        data->ud_context.c_segments.sg_gs = X86_SEG_USER_GS;
@@ -405,6 +403,7 @@ DEFINE_SYSCALL3(xqueue_job,pid_t,upid,
  }
  return result;
 }
+
 
 DEFINE_SYSCALL0(xserve_job) {
  /* Just serve RPC functions... */

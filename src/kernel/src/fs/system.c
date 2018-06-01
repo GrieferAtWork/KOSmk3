@@ -59,6 +59,7 @@
 #include <linux/fs.h>
 #include <kos/keymap.h>
 #include <kos/keyboard-ioctl.h>
+#include <kos/mouse-ioctl.h>
 #include <linux/msdos_fs.h>
 #include <sched/pertask-arith.h>
 
@@ -103,18 +104,18 @@ DEFINE_SYSCALL5(xftruncateat,
                 fd_t,dfd,USER UNCHECKED char const *,path,
                 syscall_ulong_t,len_lo,
                 syscall_ulong_t,len_hi,
-                int,flags)
+                atflag_t,flags)
 #else
 DEFINE_SYSCALL5(xftruncateat,
                 fd_t,dfd,USER UNCHECKED char const *,path,
                 syscall_ulong_t,len_hi,
                 syscall_ulong_t,len_lo,
-                int,flags)
+                atflag_t,flags)
 #endif
 #else
 DEFINE_SYSCALL4(xftruncateat,
                 fd_t,dfd,USER UNCHECKED char const *,path,
-                u64,length,int,flags)
+                u64,length,atflag_t,flags)
 #endif
 {
  REF struct inode *EXCEPT_VAR node;
@@ -138,9 +139,39 @@ DEFINE_SYSCALL4(xftruncateat,
  return 0;
 }
 
+#ifdef CONFIG_SYSCALL_COMPAT
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL_COMPAT5(xftruncateat,
+                       fd_t,dfd,USER UNCHECKED char const *,path,
+                       u32,len_lo,u32,len_hi,atflag_t,flags)
+#else
+DEFINE_SYSCALL_COMPAT5(xftruncateat,
+                       fd_t,dfd,USER UNCHECKED char const *,path,
+                       u32,len_hi,u32,len_lo,atflag_t,flags)
+#endif
+{
+ REF struct inode *EXCEPT_VAR node;
+ REF struct path *p;
+ if (flags & ~(FS_MODE_FKNOWNBITS))
+     error_throw(E_INVALID_ARGUMENT);
+ /* Lookup the user-path. */
+ p = fs_pathat(dfd,path,user_strlen(path),
+              (struct inode **)&node,FS_ATMODE(flags));
+ path_decref(p);
+ TRY {
+  /* Truncate the INode. */
+  inode_truncate(node,(pos_t)len_hi << 32 | (pos_t)len_lo);
+ } FINALLY {
+  inode_decref(node);
+ }
+ return 0;
+}
+#endif
+
+
 DEFINE_SYSCALL4(xfpathconfat,
                 fd_t,dfd,USER UNCHECKED char const *,path,
-                int,name,int,flags) {
+                int,name,atflag_t,flags) {
  long int COMPILER_IGNORE_UNINITIALIZED(result);
  REF struct inode *EXCEPT_VAR node;
  REF struct path *p;
@@ -160,7 +191,7 @@ DEFINE_SYSCALL4(xfpathconfat,
 }
 
 DEFINE_SYSCALL6(xfrealpathat,fd_t,dfd,
-                USER UNCHECKED char const *,path,int,flags,
+                USER UNCHECKED char const *,path,atflag_t,flags,
                 USER UNCHECKED char *,buf,size_t,bufsize,
                 unsigned int,type) {
  ssize_t COMPILER_IGNORE_UNINITIALIZED(result);
@@ -214,7 +245,7 @@ DEFINE_SYSCALL2(fstat64,fd_t,fd,
 }
 
 DEFINE_SYSCALL4(fstatat64,fd_t,dfd,USER UNCHECKED char const *,path,
-                USER UNCHECKED struct stat64 *,statbuf,int,flags) {
+                USER UNCHECKED struct stat64 *,statbuf,atflag_t,flags) {
  REF struct inode *EXCEPT_VAR node;
  REF struct path *p;
  if (flags & ~(FS_MODE_FKNOWNBITS))
@@ -235,7 +266,7 @@ DEFINE_SYSCALL4(fstatat64,fd_t,dfd,USER UNCHECKED char const *,path,
 }
 
 DEFINE_SYSCALL4(utimensat,fd_t,dfd,USER UNCHECKED char const *,path,
-                USER UNCHECKED struct timespec64 *,utimes,int,flags) {
+                USER UNCHECKED struct timespec64 *,utimes,atflag_t,flags) {
  REF struct inode *EXCEPT_VAR node;
  REF struct path *p;
  if (flags & ~(FS_MODE_FKNOWNBITS|AT_CHANGE_CTIME))
@@ -312,6 +343,33 @@ DEFINE_SYSCALL2(ftruncate,fd_t,fd,u64,length)
  return 0;
 }
 
+#ifdef CONFIG_SYSCALL_COMPAT
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL_COMPAT3(ftruncate,
+                       fd_t,fd,
+                       syscall_ulong_t,len_lo,
+                       syscall_ulong_t,len_hi)
+#else
+DEFINE_SYSCALL_COMPAT3(ftruncate,
+                       fd_t,fd,
+                       syscall_ulong_t,len_hi,
+                       syscall_ulong_t,len_lo)
+#endif
+{
+ REF struct handle EXCEPT_VAR hnd;
+ hnd = handle_get(fd);
+ TRY {
+  /* Check for write permissions. */
+  if ((hnd.h_flag & IO_ACCMODE) == IO_RDONLY)
+       throw_fs_error(ERROR_FS_ACCESS_ERROR);
+  handle_truncate(hnd,(pos_t)len_hi << 32 | (pos_t)len_lo);
+ } FINALLY {
+  handle_decref(hnd);
+ }
+ return 0;
+}
+#endif
+
 DEFINE_SYSCALL2(fchmod,fd_t,fd,mode_t,mode) {
  REF struct inode *EXCEPT_VAR node;
  if (mode & ~07777)
@@ -327,7 +385,7 @@ DEFINE_SYSCALL2(fchmod,fd_t,fd,mode_t,mode) {
 }
 DEFINE_SYSCALL4(fchmodat,
                 fd_t,dfd,char const *,path,
-                mode_t,mode,int,flags) {
+                mode_t,mode,atflag_t,flags) {
  REF struct inode *EXCEPT_VAR node;
  REF struct path *p;
  if (mode & ~07777)
@@ -358,9 +416,8 @@ DEFINE_SYSCALL3(fchown,fd_t,fd,uid_t,owner,gid_t,group) {
  }
  return 0;
 }
-DEFINE_SYSCALL5(fchownat,
-                fd_t,dfd,char const *,path,
-                uid_t,owner,gid_t,group,int,flags) {
+DEFINE_SYSCALL5(fchownat,fd_t,dfd,char const *,path,
+                uid_t,owner,gid_t,group,atflag_t,flags) {
  REF struct inode *EXCEPT_VAR node;
  REF struct path *p;
  if (flags & ~(FS_MODE_FKNOWNBITS))
@@ -463,7 +520,7 @@ DEFINE_SYSCALL3(fcntl,fd_t,fd,unsigned int,cmd,void *,arg) {
 DEFINE_SYSCALL5(xfreadlinkat,fd_t,dfd,
                 USER UNCHECKED char const *,path,
                 USER UNCHECKED char *,buf,
-                size_t,bufsize,int,flags) {
+                size_t,bufsize,atflag_t,flags) {
  REF struct path *p;
  REF struct symlink_node *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(node);
  size_t filename_length = user_strlen(path);
@@ -536,7 +593,7 @@ DEFINE_SYSCALL4(readlinkat,fd_t,dfd,
 
 DEFINE_SYSCALL5(xfmknodat,fd_t,dfd,
                 USER UNCHECKED char const *,filename,
-                mode_t,mode,dev_t,dev,int,flags) {
+                mode_t,mode,dev_t,dev,atflag_t,flags) {
  REF struct directory_node *EXCEPT_VAR dir;
  REF struct path *p;
  REF struct inode *node;
@@ -566,7 +623,9 @@ DEFINE_SYSCALL5(xfmknodat,fd_t,dfd,
  }
  return 0;
 }
-DEFINE_SYSCALL4(xfmkdirat,fd_t,dfd,USER UNCHECKED char const *,filename,mode_t,mode,int,flags) {
+DEFINE_SYSCALL4(xfmkdirat,
+                fd_t,dfd,USER UNCHECKED char const *,filename,
+                mode_t,mode,atflag_t,flags) {
  REF struct directory_node *EXCEPT_VAR dir;
  REF struct directory_node *node;
  REF struct path *p;
@@ -594,7 +653,9 @@ DEFINE_SYSCALL4(xfmkdirat,fd_t,dfd,USER UNCHECKED char const *,filename,mode_t,m
  }
  return 0;
 }
-DEFINE_SYSCALL3(unlinkat,fd_t,dfd,USER UNCHECKED char const *,filename,int,flags) {
+DEFINE_SYSCALL3(unlinkat,
+                fd_t,dfd,USER UNCHECKED char const *,filename,
+                atflag_t,flags) {
  REF struct directory_node *EXCEPT_VAR dir;
  REF struct path *EXCEPT_VAR p; unsigned int mode;
  size_t filename_length = user_strlen(filename);
@@ -626,8 +687,8 @@ DEFINE_SYSCALL3(unlinkat,fd_t,dfd,USER UNCHECKED char const *,filename,int,flags
 }
 
 DEFINE_SYSCALL4(xfsymlinkat,
-                USER UNCHECKED char const *,link_text,
-                fd_t,dfd,USER UNCHECKED char const *,filename,int,flags) {
+                USER UNCHECKED char const *,link_text,fd_t,dfd,
+                USER UNCHECKED char const *,filename,atflag_t,flags) {
  REF struct directory_node *EXCEPT_VAR dir;
  REF struct symlink_node *node; REF struct path *p;
  size_t link_text_size = user_strlen(link_text);
@@ -654,9 +715,9 @@ DEFINE_SYSCALL4(xfsymlinkat,
 }
 
 DEFINE_SYSCALL5(linkat,
-                int,olddfd,USER UNCHECKED char const *,oldname,
-                int,newdfd,USER UNCHECKED char const *,newname,
-                int,flags) {
+                fd_t,olddfd,USER UNCHECKED char const *,oldname,
+                fd_t,newdfd,USER UNCHECKED char const *,newname,
+                atflag_t,flags) {
  REF struct directory_node *EXCEPT_VAR target_dir;
  REF struct inode *EXCEPT_VAR link_target;
  REF struct path *p;
@@ -691,9 +752,9 @@ DEFINE_SYSCALL5(linkat,
 }
 
 DEFINE_SYSCALL5(xfrenameat,
-                int,olddfd,USER UNCHECKED char const *,oldname,
-                int,newdfd,USER UNCHECKED char const *,newname,
-                int,flags) {
+                fd_t,olddfd,USER UNCHECKED char const *,oldname,
+                fd_t,newdfd,USER UNCHECKED char const *,newname,
+                atflag_t,flags) {
  REF struct directory_node *EXCEPT_VAR target_dir;
  REF struct directory_node *EXCEPT_VAR source_dir;
  REF struct directory_entry *EXCEPT_VAR source_entry;
@@ -858,7 +919,7 @@ DEFINE_SYSCALL4(openat,
 
 DEFINE_SYSCALL4(xreaddir,
                 fd_t,fd,USER UNCHECKED struct dirent *,buf,
-                size_t,bufsize,int,mode) {
+                size_t,bufsize,unsigned int,mode) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  struct handle EXCEPT_VAR hnd;
  hnd = handle_get(fd);
@@ -923,7 +984,7 @@ DEFINE_SYSCALL4(xreaddir,
 
 DEFINE_SYSCALL5(xreaddirf,
                 fd_t,fd,USER UNCHECKED struct dirent *,buf,
-                size_t,bufsize,int,mode,oflag_t,flags) {
+                size_t,bufsize,unsigned int,mode,oflag_t,flags) {
  size_t COMPILER_IGNORE_UNINITIALIZED(result);
  struct handle EXCEPT_VAR hnd;
  hnd = handle_get(fd);
@@ -994,7 +1055,29 @@ DEFINE_SYSCALL1_64(xfsmask,u64,mask)
  return result.fs_mode;
 }
 
-DEFINE_SYSCALL3(xfchdirat,fd_t,dfd,USER UNCHECKED char const *,reldir,int,flags) {
+#ifdef CONFIG_SYSCALL_COMPAT
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL_COMPAT2_64(xfsmask,u32,mask_lo,u32,mask_hi)
+#else
+DEFINE_SYSCALL_COMPAT2_64(xfsmask,u32,mask_hi,u32,mask_lo)
+#endif
+{
+ union fs_mask new_mask;
+ union fs_mask result;
+ new_mask.fs_lo = mask_lo;
+ new_mask.fs_hi = mask_hi;
+ new_mask.fs_atmask &= ~FS_MODE_FALWAYS0MASK;
+ new_mask.fs_atmask |=  FS_MODE_FALWAYS1MASK;
+ new_mask.fs_atflag &= ~FS_MODE_FALWAYS0FLAG;
+ new_mask.fs_atflag |=  FS_MODE_FALWAYS1FLAG;
+ result.fs_mode = ATOMIC_XCH(THIS_FS->fs_mode,new_mask.fs_mode);
+ return result.fs_mode;
+}
+#endif /* CONFIG_SYSCALL_COMPAT */
+
+DEFINE_SYSCALL3(xfchdirat,
+                fd_t,dfd,USER UNCHECKED char const *,reldir,
+                atflag_t,flags) {
  REF struct path *new_path,*old_path;
  struct fs *my_fs = THIS_FS;
  if (flags & ~FS_MODE_FKNOWNBITS)
@@ -1269,6 +1352,153 @@ DEFINE_SYSCALL5(xpwritef64,fd_t,fd,
 }
 
 
+#ifdef CONFIG_SYSCALL_COMPAT
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL_COMPAT4_64(lseek,fd_t,fd,
+                          syscall_slong_t,off_lo,
+                          syscall_slong_t,off_hi,
+                          int,whence)
+#else
+DEFINE_SYSCALL_COMPAT4_64(lseek,fd_t,fd,
+                          syscall_slong_t,off_hi,
+                          syscall_slong_t,off_lo,
+                          int,whence)
+#endif
+{
+ pos_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd = handle_get(fd);
+ TRY {
+  result = handle_seek(hnd,
+                      (off_t)(((u64)off_hi << 32)|
+                               (u64)off_lo),
+                       whence);
+ } FINALLY {
+  handle_decref(hnd);
+ }
+ return result;
+}
+
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL_COMPAT5(pread64,fd_t,fd,
+                       USER UNCHECKED void *,buf,size_t,bufsize,
+                       syscall_ulong_t,pos_lo,
+                       syscall_ulong_t,pos_hi)
+#else
+DEFINE_SYSCALL_COMPAT5(pread64,fd_t,fd,
+                       USER UNCHECKED void *,buf,size_t,bufsize,
+                       syscall_ulong_t,pos_hi,
+                       syscall_ulong_t,pos_lo)
+#endif
+{
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd = handle_get(fd);
+ TRY {
+  /* Check for read permissions. */
+  if ((hnd.h_flag & IO_ACCMODE) == IO_WRONLY)
+       throw_fs_error(ERROR_FS_ACCESS_ERROR);
+  result = handle_pread(hnd,buf,bufsize,
+                      ((pos_t)pos_hi << 32)|
+                       (pos_t)pos_lo);
+ } FINALLY {
+  handle_decref(hnd);
+ }
+ return result;
+}
+
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL_COMPAT5(pwrite64,fd_t,fd,
+                       USER UNCHECKED void const *,buf,size_t,bufsize,
+                       syscall_ulong_t,pos_lo,
+                       syscall_ulong_t,pos_hi)
+#else
+DEFINE_SYSCALL_COMPAT5(pwrite64,fd_t,fd,
+                       USER UNCHECKED void const *,buf,size_t,bufsize,
+                       syscall_ulong_t,pos_hi,
+                       syscall_ulong_t,pos_lo)
+#endif
+{
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd = handle_get(fd);
+ TRY {
+  /* Check for write permissions. */
+  if ((hnd.h_flag & IO_ACCMODE) == IO_RDONLY)
+       throw_fs_error(ERROR_FS_ACCESS_ERROR);
+  result = handle_pwrite(hnd,buf,bufsize,
+                       ((pos_t)pos_hi << 32)|
+                        (pos_t)pos_lo);
+ } FINALLY {
+  handle_decref(hnd);
+ }
+ return result;
+}
+
+
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL_COMPAT6(xpreadf64,fd_t,fd,
+                       USER UNCHECKED void *,buf,size_t,bufsize,
+                       syscall_ulong_t,pos_lo,
+                       syscall_ulong_t,pos_hi,
+                       oflag_t,flags)
+#else
+DEFINE_SYSCALL_COMPAT6(xpreadf64,fd_t,fd,
+                       USER UNCHECKED void *,buf,size_t,bufsize,
+                       syscall_ulong_t,pos_hi,
+                       syscall_ulong_t,pos_lo,
+                       oflag_t,flags)
+#endif
+{
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd = handle_get(fd);
+ TRY {
+  /* Check for read permissions. */
+  if ((hnd.h_flag & IO_ACCMODE) == IO_WRONLY ||
+      (flags & ~IO_SETFL_MASK))
+       throw_fs_error(ERROR_FS_ACCESS_ERROR);
+  result = handle_preadf(hnd,buf,bufsize,
+                       ((pos_t)pos_hi << 32)|
+                        (pos_t)pos_lo,
+                        (hnd.h_flag & ~IO_SETFL_MASK)|
+                         flags);
+ } FINALLY {
+  handle_decref(hnd);
+ }
+ return result;
+}
+
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL_COMPAT6(xpwritef64,fd_t,fd,
+                       USER UNCHECKED void const *,buf,size_t,bufsize,
+                       syscall_ulong_t,pos_lo,
+                       syscall_ulong_t,pos_hi,
+                       oflag_t,flags)
+#else
+DEFINE_SYSCALL_COMPAT6(xpwritef64,fd_t,fd,
+                       USER UNCHECKED void const *,buf,size_t,bufsize,
+                       syscall_ulong_t,pos_hi,
+                       syscall_ulong_t,pos_lo,
+                       oflag_t,flags)
+#endif
+{
+ size_t COMPILER_IGNORE_UNINITIALIZED(result);
+ struct handle EXCEPT_VAR hnd = handle_get(fd);
+ TRY {
+  /* Check for write permissions. */
+  if ((hnd.h_flag & IO_ACCMODE) == IO_RDONLY ||
+      (flags & ~IO_SETFL_MASK))
+       throw_fs_error(ERROR_FS_ACCESS_ERROR);
+  result = handle_pwritef(hnd,buf,bufsize,
+                        ((pos_t)pos_hi << 32)|
+                         (pos_t)pos_lo,
+                         (hnd.h_flag & ~IO_SETFL_MASK)|
+                          flags);
+ } FINALLY {
+  handle_decref(hnd);
+ }
+ return result;
+}
+#endif /* CONFIG_SYSCALL_COMPAT */
+
+
 PRIVATE syscall_ulong_t KCALL
 do_fsync(fd_t fd, bool data_only) {
  struct handle EXCEPT_VAR hnd = handle_get(fd);
@@ -1374,6 +1604,8 @@ DEFINE_SYSCALL3(symlinkat,
                 fd_t,dfd,USER UNCHECKED char const *,filename) {
  return SYSC_xfsymlinkat(link_text,dfd,filename,FS_MODE_FNORMAL);
 }
+
+
 #ifdef CONFIG_WIDE_64BIT_SYSCALL
 #ifdef CONFIG_SYSCALL_ARG64_LOFIRST
 DEFINE_SYSCALL3(truncate,
@@ -1395,6 +1627,25 @@ DEFINE_SYSCALL2(truncate,USER UNCHECKED char const *,path,u64,length) {
  return SYSC_xftruncateat(AT_FDCWD,path,length,FS_MODE_FNORMAL);
 }
 #endif
+
+#ifdef CONFIG_SYSCALL_COMPAT
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL_COMPAT3(truncate,
+                       USER UNCHECKED char const *,path,
+                       syscall_ulong_t,len_lo,
+                       syscall_ulong_t,len_hi)
+#else
+DEFINE_SYSCALL_COMPAT3(truncate,
+                       USER UNCHECKED char const *,path,
+                       syscall_ulong_t,len_hi,
+                       syscall_ulong_t,len_lo)
+#endif
+{
+ return SYSC_xftruncateat(AT_FDCWD,path,
+                         (pos_t)len_hi << 32 | (pos_t)len_lo,
+                          FS_MODE_FNORMAL);
+}
+#endif /* CONFIG_SYSCALL_COMPAT */
 
 
 struct exec_args {
@@ -1557,7 +1808,8 @@ retry_final_setup:
 DEFINE_SYSCALL5(execveat,fd_t,dfd,
                 USER UNCHECKED char const *,filename,
                 USER UNCHECKED char **,argv,
-                USER UNCHECKED char **,envp,int,flags) {
+                USER UNCHECKED char **,envp,
+                atflag_t,flags) {
  REF struct module *EXCEPT_VAR COMPILER_IGNORE_UNINITIALIZED(exec_module);
  REF struct path *EXCEPT_VAR exec_path;
  REF struct inode *EXCEPT_VAR exec_node;
@@ -1707,31 +1959,25 @@ scan_again:
  return result;
 }
 
-struct pselect6_sig {
-    USER UNCHECKED sigset_t *set;
-    size_t                   setsz;
-};
 
-DEFINE_SYSCALL_DONTRESTART(pselect6);
-DEFINE_SYSCALL6(pselect6,size_t,n,
-                USER UNCHECKED fd_set *,inp,
-                USER UNCHECKED fd_set *,outp,
-                USER UNCHECKED fd_set *,exp,
-                USER UNCHECKED struct timespec const *,tsp,
-                USER UNCHECKED struct pselect6_sig *,sig) {
- USER UNCHECKED struct pselect6_sig *EXCEPT_VAR xsig = sig;
+
+LOCAL unsigned int KCALL
+sys_pselect6_impl(size_t n,
+                  USER UNCHECKED fd_set *inp,
+                  USER UNCHECKED fd_set *outp,
+                  USER UNCHECKED fd_set *exp,
+                  USER UNCHECKED struct timespec const *tsp,
+                  USER UNCHECKED sigset_t const *signal_set,
+                  size_t sigset_size) {
  unsigned int COMPILER_IGNORE_UNINITIALIZED(result);
- sigset_t old_blocking;
- validate_readable_opt(sig,sizeof(*sig));
+ USER UNCHECKED sigset_t const *EXCEPT_VAR xsignal_set = signal_set;
+ sigset_t old_blocking; size_t EXCEPT_VAR xsigset_size = sigset_size;
  validate_readable_opt(inp,CEILDIV(n,8));
  validate_readable_opt(outp,CEILDIV(n,8));
  validate_readable_opt(exp,CEILDIV(n,8));
- if (sig) {
-  if (!sig->set) sig = NULL;
-  else {
-   signal_chmask(&old_blocking,sig->set,
-                  sig->setsz,SIGNAL_CHMASK_FBLOCK);
-  }
+ if (signal_set) {
+  signal_chmask(signal_set,&old_blocking,
+                sigset_size,SIGNAL_CHMASK_FBLOCK);
  }
  TRY {
   unsigned int fd_base;
@@ -1798,533 +2044,67 @@ scan_again:
    /* NOTE: If the timeout expires, ZERO(0) is returned. */
   }
  } FINALLY {
-  if (xsig)
-      signal_chmask(&old_blocking,NULL,xsig->setsz,SIGNAL_CHMASK_FBLOCK);
+  if (xsignal_set)
+      signal_chmask(&old_blocking,NULL,xsigset_size,SIGNAL_CHMASK_FBLOCK);
  }
  return result;
 }
 
+struct pselect6_sig {
+    USER UNCHECKED sigset_t *set;
+    size_t                   setsz;
+};
 
-PRIVATE ATTR_RETNONNULL REF struct futex *
-KCALL vm_futex_consafe(VIRT void *addr) {
- return TASK_EVAL_CONSAFE(vm_futex(addr));
-}
-
-PRIVATE REF struct futex *
-KCALL vm_getfutex_consafe(VIRT void *addr) {
- return TASK_EVAL_CONSAFE(vm_getfutex(addr));
-}
-
-
-INTDEF void KCALL
-get_rusage(struct thread_pid *__restrict pid,
-           USER CHECKED struct rusage *ru);
-
-LOCAL bool KCALL
-poll_pid(USER CHECKED struct pollpid *__restrict pinfo) {
- struct pollpid info;
- struct task *my_process;
- struct threadgroup *my_group;
- struct thread_pid *EXCEPT_VAR child;
- size_t my_indirection;
- memcpy(&info,pinfo,sizeof(struct pollpid));
- COMPILER_READ_BARRIER();
- info.pp_pid;
- my_process     = get_this_process();
- my_group       = &FORTASK(my_process,_this_group);
- my_indirection = FORTASK(my_process,_this_pid) ? FORTASK(my_process,_this_pid)->tp_ns->pn_indirection : 0;
- /* Always connect to the child-event signal that
-  * child processes broadcast when they change state. */
- if (!task_connected(&my_group->tg_process.h_cldevent))
-      task_connect(&my_group->tg_process.h_cldevent);
- /* Enumerate child processes. */
- sig_get(&my_group->tg_process.h_cldevent);
- child = my_group->tg_process.h_children;
- for (; child; child = child->tp_siblings.le_next) {
-  bool has_write_lock = false;
-  assert(child->tp_siblings.le_pself);
-  /* Check if this child process matches requested criteria. */
-  if (info.pp_which == P_PID) {
-   if (child->tp_pids[my_indirection] != info.pp_pid)
-       continue;
-  }
-
-  atomic_rwlock_read(&child->tp_task_lock);
-check_child_again:
-  if ((info.pp_options & WONLYTHREADS) && child->tp_task &&
-       FORTASK(child->tp_task,_this_group).tg_leader != get_this_process()) {
-   atomic_rwlock_endread(&child->tp_task_lock);
-   continue; /* Not a thread of this process. */
-  }
-  /* XXX: We're not tracking the PGID in the PID descriptor,
-   *      but apparently POSIX wants us to remember a thread's
-   *      process group, even after the thread has died...
-   *      As a kind-of crappy work-around, right now we simply
-   *      ignore the child's PGID if the thread has already been
-   *      destroyed. */
-  if (info.pp_which == P_PGID && child->tp_task) {
-   struct processgroup *child_group;
-   struct thread_pid *child_group_pid;
-   pid_t thread_pgid;
-   child_group = &FORTASK(FORTASK(child->tp_task,_this_group).tg_leader,_this_group).tg_process.h_procgroup;
-   atomic_rwlock_read(&child_group->pg_lock);
-   child_group_pid = FORTASK(child_group->pg_leader,_this_pid);
-   thread_pgid     = child_group_pid ? child_group_pid->tp_pids[my_indirection] : 0;
-   atomic_rwlock_endread(&child_group->pg_lock);
-   /* Match process group IDs. */
-   if (thread_pgid != info.pp_pid) {
-continue_next_child_unlock:
-    if (has_write_lock)
-         atomic_rwlock_endwrite(&child->tp_task_lock);
-    else atomic_rwlock_endread(&child->tp_task_lock);
-    continue;
-   }
-  }
-  if (!child->tp_task ||
-      !ATOMIC_READ(child->tp_task->t_refcnt) ||
-       TASK_ISTERMINATED(child->tp_task)) {
-child_died:
-   /* The thread has died. */
-   if (has_write_lock)
-        atomic_rwlock_endwrite(&child->tp_task_lock);
-   else atomic_rwlock_endread(&child->tp_task_lock);
-   if (!(info.pp_options & WEXITED)) continue; /* Don't wait for exited child processes. */
-   /* Remove this child's zombie corpse when `WNOREAP' isn't set. */
-   if (!(info.pp_options & WNOREAP)) {
-    LIST_REMOVE(child,tp_siblings); /* Inherit reference. */
-    child->tp_siblings.le_pself = NULL;
-    child->tp_siblings.le_next  = NULL;
-   } else {
-    thread_pid_incref(child);
-   }
-   sig_put(&my_group->tg_process.h_cldevent);
-   TRY {
-    siginfo_t exit_info;
-    /* Disconnect from the state-change notification signal. */
-    task_disconnect();
-    /* Collect information in this child. */
-    memset(&exit_info,0,sizeof(siginfo_t));
-    exit_info.si_signo  = SIGCHLD;
-    exit_info.si_code   = child->tp_event;
-    exit_info.si_status = child->tp_status.w_status;
-    if (exit_info.si_code != CLD_EXITED &&
-        exit_info.si_code != CLD_KILLED &&
-        exit_info.si_code != CLD_DUMPED) {
-     /* Shouldn't get here? */
-     exit_info.si_status = CLD_EXITED;
-     exit_info.si_status = __W_EXITCODE(0,0);
-    }
-    exit_info.si_pid = child->tp_pids[my_indirection];
-    exit_info.si_uid = 0; /* TODO */
-    COMPILER_WRITE_BARRIER();
-    pinfo->pp_result = child->tp_pids[my_indirection];
-    if (info.pp_info)
-        memcpy(info.pp_info,&exit_info,sizeof(siginfo_t)); /* CAUTION: SEGFAULT */
-    if (info.pp_ru) get_rusage(child,info.pp_ru);
-    COMPILER_WRITE_BARRIER();
-   } FINALLY {
-    thread_pid_decref(child);
-   }
-   return true;
-  }
-  if (child->tp_event == 0) {
-   /* Track the number of potential child process to join.
-    * If there are none, we mustn't wait and fail with -ECHILD. */
-   goto continue_next_child_unlock;
-  }
-  if (!has_write_lock) {
-   has_write_lock = true;
-   if (!atomic_rwlock_upgrade(&child->tp_task_lock))
-        goto check_child_again;
-  }
-  /* An event happened in this child.
-   * Check if it matches our criteria (stop/continue). */
-  if (((child->tp_event == CLD_CONTINUED) && (info.pp_options & WCONTINUED)) ||
-      ((child->tp_event == CLD_STOPPED) && (info.pp_options & WSTOPPED))) {
-   siginfo_t child_info;
-   sig_put(&my_group->tg_process.h_cldevent);
-   /* Collect information in this child. */
-   memset(&child_info,0,sizeof(siginfo_t));
-   child_info.si_signo   = SIGCHLD;
-   child_info.si_code    = child->tp_event;
-   child_info.si_status  = child->tp_status.w_status;
-   child_info.si_pid     = child->tp_pids[my_indirection];
-   child_info.si_uid     = 0; /* TODO */
-   atomic_rwlock_endwrite(&child->tp_task_lock);
-   task_disconnect();
-   COMPILER_WRITE_BARRIER();
-   pinfo->pp_result = child->tp_pids[my_indirection];
-   /* Copy information to user-space. */
-   if (info.pp_info)
-       memcpy(info.pp_info,&child_info,sizeof(siginfo_t)); /* CAUTION: SEGFAULT */
-   if (info.pp_ru) get_rusage(child,info.pp_ru);
-   COMPILER_WRITE_BARRIER();
-   return true;
-  }
-  /* Fallback: All other events (`CLD_EXITED', `CLD_KILLED', `CLD_DUMPED')
-   *           are handled as the child having exited. */
-  goto child_died;
- }
- sig_put(&my_group->tg_process.h_cldevent);
- return false;
-}
-
-
-DEFINE_SYSCALL_DONTRESTART(xppoll);
-DEFINE_SYSCALL4(xppoll,
-                USER UNCHECKED struct poll_info *,uinfo,
+DEFINE_SYSCALL_DONTRESTART(pselect6);
+DEFINE_SYSCALL6(pselect6,size_t,n,
+                USER UNCHECKED fd_set *,inp,
+                USER UNCHECKED fd_set *,outp,
+                USER UNCHECKED fd_set *,exp,
                 USER UNCHECKED struct timespec const *,tsp,
-                USER UNCHECKED sigset_t const *,signal_set,
-                size_t,sigset_size) {
- USER UNCHECKED sigset_t const *EXCEPT_VAR xsigmask = signal_set;
- size_t EXCEPT_VAR xsigsetsize = sigset_size;
- USER UNCHECKED struct pollfd *EXCEPT_VAR ufds;
- USER UNCHECKED struct pollfutex *EXCEPT_VAR uftx;
- USER UNCHECKED struct pollpid *EXCEPT_VAR upid;
- size_t COMPILER_IGNORE_UNINITIALIZED(result);
- size_t EXCEPT_VAR nfds;
- size_t EXCEPT_VAR nftx;
- size_t EXCEPT_VAR npid;
- size_t EXCEPT_VAR i; sigset_t old_blocking;
- REF struct futex **EXCEPT_VAR futex_vec = NULL;
- size_t EXCEPT_VAR futex_cnt;
- /* Load user-space poll descriptors. */
- validate_readable(uinfo,sizeof(*uinfo));
- COMPILER_READ_BARRIER();
- ufds = uinfo->i_ufdvec;
- nfds = uinfo->i_ufdcnt;
- uftx = uinfo->i_ftxvec;
- nftx = uinfo->i_ftxcnt;
- upid = uinfo->i_pidvec;
- npid = uinfo->i_pidcnt;
- COMPILER_READ_BARRIER();
- /* Validate the extracted vectors. */
- validate_readablem(ufds,nfds,sizeof(*ufds));
- validate_readablem(uftx,nftx,sizeof(*uftx));
- validate_readablem(upid,npid,sizeof(*upid));
- validate_readable_opt(tsp,sizeof(*tsp));
-
- /* Must restrict the number of futexes because of the malloca() below. */
- if unlikely(nftx > 0x1000)
-    error_throw(E_INVALID_ARGUMENT);
-
- /* */if (!signal_set);
- else {
-  if (xsigsetsize > sizeof(sigset_t))
-      error_throw(E_INVALID_ARGUMENT);
-  validate_readable(signal_set,sigset_size);
-  signal_chmask(signal_set,&old_blocking,sigset_size,SIGNAL_CHMASK_FBLOCK);
+                USER UNCHECKED struct pselect6_sig *,sig) {
+ USER UNCHECKED sigset_t *signal_set = NULL;
+ size_t COMPILER_IGNORE_UNINITIALIZED(sigset_size);
+ if (sig) {
+  signal_set  = sig->set;
+  sigset_size = sig->setsz;
  }
- TRY {
-  futex_vec = (REF struct futex **)calloca(nftx*sizeof(REF struct futex *));
-  futex_cnt = 0;
-scan_again:
-  assert(futex_cnt == 0);
-  result = 0;
-  /* Clear the channel mask. Individual channels
-   * may be re-opened by poll-callbacks as needed. */
-  task_channelmask(0);
-  /* Scan file descriptors. */
-  for (i = 0; i < nfds; ++i) {
-   struct handle EXCEPT_VAR hnd;
-   TRY {
-    hnd = handle_get(ufds[i].fd);
-    TRY {
-     unsigned int mask;
-     size_t num_connections = task_numconnected();
-     mask = handle_poll(hnd,ufds[i].events);
-     if (mask) {
-      ++result;
-      ufds[i].revents = (u16)mask;
-     } else if (num_connections == task_numconnected()) {
-      /* This handle didn't add any new connections,
-       * and neither are any of its states signaled.
-       * As a conclusion: this handle doesn't support poll() */
-      ufds[i].revents = POLLNVAL;
-     } else {
-
-      ufds[i].revents = 0;
-     }
-    } FINALLY {
-     handle_decref(hnd);
-    }
-   } CATCH_HANDLED (E_INVALID_HANDLE) {
-    ufds[i].revents = POLLERR;
-   }
-  }
-  /* Scan futex objects. */
-  for (i = 0; i < nftx; ++i) {
-   REF struct futex *EXCEPT_VAR ftx;
-   USER UNCHECKED futex_t *uaddr = uftx[i].pf_futex;
-   COMPILER_READ_BARRIER();
-   TRY {
-    validate_writable(uaddr,sizeof(futex_t));
-    switch (uftx[i].pf_action) {
-
-    case FUTEX_NOP:
-     break;
-
-    {
-     futex_t probe_value;
-    case FUTEX_WAIT_BITSET:
-    case FUTEX_WAIT_BITSET_GHOST:
-     /* Open all the channels described by the futex poll operation. */
-     task_openchannel(uftx[i].pf_val3);
-    case FUTEX_WAIT:
-    case FUTEX_WAIT_GHOST:
-     probe_value = (futex_t)uftx[i].pf_val;
-     COMPILER_READ_BARRIER();
-     if (ATOMIC_READ(*uaddr) != probe_value) {
-      uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
-      ++result;
-     } else {
-      /* Lookup and connect to the futex in question. */
-      ftx = vm_futex_consafe(uaddr);
-      COMPILER_BARRIER();
-      futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
-      COMPILER_BARRIER();
-      task_connect_ghost(&ftx->f_sig);
-
-      /* Now that we're connected (and therefor interlocked), repeat the check. */
-      COMPILER_READ_BARRIER();
-      if (ATOMIC_READ(*uaddr) == probe_value) {
-       uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
-       ++result;
-      }
-      COMPILER_BARRIER();
-     }
-     break;
-    } break;
-
-    case FUTEX_LOCK_PI:
-     /* A futex lock not held by anyone is indicated by a value equal to ZERO(0) */
-     if (ATOMIC_READ(*uaddr) == 0) {
-      uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
-      ++result;
-     } else {
-      /* Lookup and connect to the futex in question. */
-      ftx = vm_futex_consafe(uaddr);
-      COMPILER_BARRIER();
-      futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
-      COMPILER_BARRIER();
-      task_connect_ghost(&ftx->f_sig);
-      COMPILER_READ_BARRIER();
-      for (;;) {
-       /* Set the WAITERS bit to ensure that user-space can see that
-        * someone is waiting for the futex to become available.
-        * If we didn't do this, a user-space mutex implementation might
-        * neglect to wake us when the associated lock becomes ready. */
-       futex_t word = ATOMIC_READ(*uaddr);
-       if (word == 0) {
-        uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
-        ++result;
-        break;
-       }
-       if (ATOMIC_CMPXCH_WEAK(*uaddr,word,word|FUTEX_WAITERS))
-           break;
-      }
-      COMPILER_BARRIER();
-     }
-     break;
-
-    {
-     futex_t probe_mask;
-     futex_t probe_value;
-     futex_t enable_bits;
-    case FUTEX_WAIT_MASK_BITSET:
-    case FUTEX_WAIT_MASK_BITSET_GHOST:
-     enable_bits = (futex_t)(uintptr_t)uftx[i].pf_val3;
-     COMPILER_READ_BARRIER();
-     task_openchannel(enable_bits);
-     goto do_mask;
-    case FUTEX_WAIT_MASK:
-    case FUTEX_WAIT_MASK_GHOST:
-     enable_bits = (futex_t)(uintptr_t)uftx[i].pf_val3;
-do_mask:
-     probe_mask  = (futex_t)(uintptr_t)uftx[i].pf_val;
-     probe_value = (futex_t)(uintptr_t)uftx[i].pf_uaddr2;
-     COMPILER_READ_BARRIER();
-     if ((ATOMIC_READ(*uaddr) & probe_mask) != probe_value) {
-      uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
-      ++result;
-     } else {
-      u32 old_value;
-      ftx = vm_futex_consafe(uaddr);
-      COMPILER_BARRIER();
-      futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
-      COMPILER_BARRIER();
-      task_connect_ghost(&ftx->f_sig);
-      /* Atomically set bits from val3, while also ensuring that the mask still applies. */
-      do if (((old_value = ATOMIC_READ(*uaddr)) & probe_mask) != probe_value) {
-       uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
-       ++result;
-       break;
-      } while (!ATOMIC_CMPXCH(*uaddr,old_value,old_value|enable_bits));
-     }
-    } break;
-
-    {
-     futex_t probe_mask;
-     futex_t probe_value;
-     futex_t enable_bits;
-    case FUTEX_WAIT_NMASK_BITSET:
-    case FUTEX_WAIT_NMASK_BITSET_GHOST:
-     enable_bits = (futex_t)(uintptr_t)uftx[i].pf_val3;
-     COMPILER_READ_BARRIER();
-     task_openchannel(enable_bits);
-     goto do_nmask;
-    case FUTEX_WAIT_NMASK:
-    case FUTEX_WAIT_NMASK_GHOST:
-     enable_bits = (futex_t)(uintptr_t)uftx[i].pf_val3;
-do_nmask:
-     probe_mask  = (futex_t)(uintptr_t)uftx[i].pf_val;
-     probe_value = (futex_t)(uintptr_t)uftx[i].pf_uaddr2;
-     COMPILER_READ_BARRIER();
-     if ((ATOMIC_READ(*uaddr) & probe_mask) == probe_value) {
-      uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
-      ++result;
-     } else {
-      u32 old_value;
-      ftx = vm_futex_consafe(uaddr);
-      COMPILER_BARRIER();
-      futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
-      COMPILER_BARRIER();
-      task_connect_ghost(&ftx->f_sig);
-      /* Atomically set bits from val3, while also ensuring that the mask still applies. */
-      do if (((old_value = ATOMIC_READ(*uaddr)) & probe_mask) == probe_value) {
-       uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
-       ++result;
-       break;
-      } while (!ATOMIC_CMPXCH(*uaddr,old_value,old_value|enable_bits));
-     }
-    } break;
-
-    {
-     futex_t old_value;
-     futex_t new_value;
-     futex_t *uaddr2;
-     u32 real_old_value;
-    case FUTEX_WAIT_CMPXCH:
-    case FUTEX_WAIT_CMPXCH_GHOST:
-     old_value = (futex_t)uftx[i].pf_val;
-     new_value = (futex_t)uftx[i].pf_val3;
-     uaddr2    = uftx[i].pf_uaddr2;
-     validate_writable_opt(uaddr2,sizeof(*uaddr2));
-     COMPILER_READ_BARRIER();
-     ftx = vm_futex_consafe(uaddr);
-     COMPILER_BARRIER();
-     futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
-     COMPILER_BARRIER();
-     task_connect_ghost(&ftx->f_sig);
-     /* Now that we're connected, try the CMPXCH again, this
-      * time storing the old value in uaddr2 (if provided). */
-     real_old_value = ATOMIC_CMPXCH_VAL(*uaddr,old_value,new_value);
-     if (uaddr2) {
-      /* Save the old futex value in the provided uaddr2 */
-      ATOMIC_WRITE(*uaddr2,real_old_value);
-      /* Broadcast a futex located at the given address. */
-      ftx = vm_getfutex_consafe(uaddr2);
-      if (ftx) {
-       size_t thread_count;
-       thread_count = sig_broadcast(&ftx->f_sig);
-       futex_decref(ftx);
-       COMPILER_BARRIER();
-       uftx[i].pf_result = thread_count;
-       COMPILER_WRITE_BARRIER();
-      }
-     }
-     if (real_old_value != old_value) {
-      /* The futex entered the required state while we were connected to it. */
-      uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
-      ++result;
-     }
-    } break;
-
-    {
-     futex_t old_value;
-     futex_t new_value;
-     futex_t *uaddr2;
-     u32 real_old_value;
-    case FUTEX_WAIT_CMPXCH2:
-    case FUTEX_WAIT_CMPXCH2_GHOST:
-     old_value = (futex_t)uftx[i].pf_val;
-     new_value = (futex_t)uftx[i].pf_val3;
-     uaddr2    = uftx[i].pf_uaddr2;
-     validate_writable(uaddr2,sizeof(*uaddr2));
-     COMPILER_READ_BARRIER();
-     /* The initial CMPXCH failed. - Connect to the futex at that address. */
-     ftx = vm_futex_consafe(uaddr);
-     COMPILER_BARRIER();
-     futex_vec[futex_cnt++] = ftx; /* Inherit reference. */
-     COMPILER_BARRIER();
-     task_connect_ghost(&ftx->f_sig);
-     /* Now that we're connected, try the CMPXCH again, this
-      * time storing the old value in uaddr2 (if provided). */
-     real_old_value = ATOMIC_CMPXCH_VAL(*uaddr,old_value,new_value);
-     if (real_old_value == old_value) {
-      /* Save the old futex value in the provided uaddr2 */
-      ATOMIC_WRITE(*uaddr2,real_old_value);
-      /* Broadcast a futex located at the given address. */
-      ftx = vm_getfutex_consafe(uaddr2);
-      if (ftx) {
-       size_t thread_count;
-       thread_count = sig_broadcast(&ftx->f_sig);
-       futex_decref(ftx);
-       COMPILER_BARRIER();
-       uftx[i].pf_result = thread_count;
-       COMPILER_WRITE_BARRIER();
-      }
-     } else {
-      /* The futex entered the required state while we were connected to it. */
-      uftx[i].pf_status = POLLFUTEX_STATUS_AVAILABLE;
-      ++result;
-     }
-    } break;
-
-    default:
-     uftx[i].pf_status = POLLFUTEX_STATUS_BADACTION;
-     break;
-    }
-   } CATCH_HANDLED (E_SEGFAULT) {
-    uftx[i].pf_status = POLLFUTEX_STATUS_BADFUTEX;
-   }
-  }
-  /* Scan PIDs. */
-  for (i = 0; i < npid; ++i) {
-   if (poll_pid(&upid[i]))
-       ++result;
-  }
-
-  if (result) {
-   /* At least one of the handles has been signaled. */
-   task_udisconnect();
-  } else if (!tsp) {
-   task_uwait();
-scan_again_drop_futex:
-   /* Drop all saved futex references. */
-   while (futex_cnt) {
-    --futex_cnt;
-    futex_decref(futex_vec[futex_cnt]);
-   }
-   goto scan_again;
-  } else if (task_isconnected() || (!nfds && !nftx && !npid)) {
-   /* Wait for signals to arrive and scan again. */
-   if (task_waitfor_tmrel(tsp))
-       goto scan_again_drop_futex;
-   /* NOTE: If the timeout expires, ZERO(0) is returned. */
-  }
- } FINALLY {
-  if (futex_vec) {
-   /* Cleanup saved futex references. */
-   while (futex_cnt--)
-      futex_decref(futex_vec[futex_cnt]);
-   freea(futex_vec);
-  }
-  if (xsigmask)
-      signal_chmask(&old_blocking,NULL,xsigsetsize,SIGNAL_CHMASK_FBLOCK);
- }
- return result;
+ return sys_pselect6_impl(n,inp,outp,exp,tsp,signal_set,sigset_size);
 }
+
+#ifdef CONFIG_SYSCALL_COMPAT
+struct pselect6_sig_compat {
+    u32 set;
+    u32 setsz;
+};
+DEFINE_SYSCALL_COMPAT6(pselect6,size_t,n,
+                       USER UNCHECKED fd_set *,inp,
+                       USER UNCHECKED fd_set *,outp,
+                       USER UNCHECKED fd_set *,exp,
+                       USER UNCHECKED struct timespec const *,tsp,
+                       USER UNCHECKED struct pselect6_sig_compat *,sig) {
+ USER UNCHECKED sigset_t *signal_set = NULL;
+ size_t COMPILER_IGNORE_UNINITIALIZED(sigset_size);
+ if (sig) {
+  signal_set = (sigset_t *)(uintptr_t)sig->set;
+  sigset_size = (size_t)sig->setsz;
+ }
+ return sys_pselect6_impl(n,inp,outp,exp,tsp,signal_set,sigset_size);
+}
+#endif
+
+
+#ifndef __INTELLISENSE__
+DECL_END
+
+#include "system-xppoll.c.inl"
+#ifdef CONFIG_SYSCALL_COMPAT
+#define XPPOLL_COMPAT
+#include "system-xppoll.c.inl"
+#undef XPPOLL_COMPAT
+#endif
+
+DECL_BEGIN
+#endif
 
 
 
@@ -2366,6 +2146,37 @@ DEFINE_SYSCALL4(fallocate,
  }
  return 0;
 }
+
+
+#ifdef CONFIG_SYSCALL_COMPAT
+#ifdef CONFIG_SYSCALL_ARG64_LOFIRST
+DEFINE_SYSCALL_COMPAT6(fallocate,
+                       fd_t,fd,int,mode,
+                       syscall_ulong_t,off_lo,
+                       syscall_ulong_t,off_hi,
+                       syscall_ulong_t,len_lo,
+                       syscall_ulong_t,len_hi)
+#else
+DEFINE_SYSCALL_COMPAT6(fallocate,
+                       fd_t,fd,int,mode,
+                       syscall_ulong_t,off_hi,
+                       syscall_ulong_t,off_lo,
+                       syscall_ulong_t,len_hi,
+                       syscall_ulong_t,len_lo)
+#endif
+{
+ struct handle EXCEPT_VAR hnd;
+ hnd = handle_get(fd);
+ TRY {
+  handle_allocate(hnd,mode,
+                ((u64)off_hi << 32 | (u64)off_lo),
+                ((u64)len_hi << 32 | (u64)len_lo));
+ } FINALLY {
+  handle_decref(hnd);
+ }
+ return 0;
+}
+#endif /* CONFIG_SYSCALL_COMPAT */
 
 
 PRIVATE void KCALL

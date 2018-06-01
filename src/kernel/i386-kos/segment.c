@@ -93,7 +93,7 @@ FOREACH_GP_REGISTER(X86_LINK_WRGSBASE_REGISTERS)
 
 INTERN ATTR_FREETEXT void KCALL x86_fixup_fsgsbase(void) {
  u32 *iter;
-#if 1
+#if 0
  /* If the CPU supports these instructions
   * natively, then there's nothing to do for us! */
  if (CPU_FEATURES.ci_7b & CPUID_7B_FSGSBASE) {

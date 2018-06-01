@@ -53,6 +53,11 @@ DECL_BEGIN
 #endif
 
 
+#undef CONFIG_SYSCALL_ARG64_LOFIRST
+#undef CONFIG_SYSCALL_ARG64_HIFIRST
+#define CONFIG_SYSCALL_ARG64_LOFIRST 1
+
+
 
 /* Arch-specific flags to go alongside `TASK_USERCTX_F*'. */
 #define X86_SYSCALL_TYPE_FINT80    0x0000 /* Restart a system call using a register state used by `int $0x80' */
@@ -281,8 +286,6 @@ LOCAL u64 ATTR_CDECL SYSC_##name(__SYSCALL_DECL(argc,argv))
 #undef CONFIG_WIDE_64BIT_SYSCALL
 #ifdef __ARCH_WIDE_64BIT_SYSCALL
 #define CONFIG_WIDE_64BIT_SYSCALL 1
-#define CONFIG_SYSCALL_ARG64_LOFIRST 1
-#undef CONFIG_SYSCALL_ARG64_HIFIRST
 #endif
 
 

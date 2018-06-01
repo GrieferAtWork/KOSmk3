@@ -22,6 +22,12 @@
 #include <__stdinc.h>
 #include <bits/types.h>
 
+#if defined(__i386__) || defined(__x86_64__)
+#include "i386-kos/bits/dl.h"
+#else
+#error "Unsupported arch"
+#endif
+
 __SYSDECL_BEGIN
 
 #define DL_OPEN_FNORMAL      0x0000 /* Normal patching flags. */

@@ -102,10 +102,17 @@ findfde_again:
     /* Convert into absolute FDE information. */
     fde_info_mkabs(result,app->a_loadaddr);
    } else {
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+    fde_ok = eh_findfde3264((byte_t *)
+                           ((uintptr_t)mod->m_sect.m_eh_frame.ds_base + app->a_loadaddr),
+                                       mod->m_sect.m_eh_frame.ds_size,
+                             ip,result,ELF_ISMACHINE32(mod->m_machine));
+#else
     fde_ok = eh_findfde((byte_t *)
                        ((uintptr_t)mod->m_sect.m_eh_frame.ds_base + app->a_loadaddr),
                                    mod->m_sect.m_eh_frame.ds_size,
                          ip,result);
+#endif
     if (fde_ok) {
      /* We managed to find something! now to cache it. */
      fde_info_mkrel(result,app->a_loadaddr);
@@ -223,11 +230,19 @@ app_failed:
    /* Convert into absolute FDE information. */
    fde_info_mkabs(result,app->a_loadaddr);
   } else {
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+   if (!eh_findfde3264((byte_t *)
+                      ((uintptr_t)mod->m_sect.m_eh_frame.ds_base + app->a_loadaddr),
+                                  mod->m_sect.m_eh_frame.ds_size,
+                        ip,result,ELF_ISMACHINE32(mod->m_machine)))
+        goto app_failed;
+#else
    if (!eh_findfde((byte_t *)
                    ((uintptr_t)mod->m_sect.m_eh_frame.ds_base + app->a_loadaddr),
                                mod->m_sect.m_eh_frame.ds_size,
                      ip,result))
         goto app_failed;
+#endif
    /* We managed to find something! now to cache it. */
    fde_info_mkrel(result,app->a_loadaddr);
    fde_cache_insert(mod,result);

@@ -19,14 +19,21 @@
 #ifndef _KOS_FUTEX_H
 #define _KOS_FUTEX_H 1
 
-#include <hybrid/compiler.h>
+#include <__stdinc.h>
 #include <hybrid/timespec.h>
+#include <hybrid/host.h>
 #include <features.h>
 #include <linux/futex.h>
 #include <bits/types.h>
 #include <bits/sigset.h>
 
-DECL_BEGIN
+#if defined(__i386__) || defined(__x86_64__)
+#include "i386-kos/bits/futex.h"
+#else
+#error "Unsupported arch"
+#endif
+
+__DECL_BEGIN
 
 #ifdef __CC__
 #ifndef __futex_t_defined
@@ -42,7 +49,7 @@ struct pollfutex {
     /* Descriptor of a futex when using the xppoll() system call.
      * NOTE: sizeof(struct pollfutex) == 4 * sizeof(void *)
      */
-    USER UNCHECKED futex_t    *pf_futex;                 /* [1..1] The futex word that should be polled.
+    futex_t                   *pf_futex;                 /* [1..1] The futex word that should be polled.
                                                           * When faulty, `pf_status' is set to `POLLFUTEX_STATUS_BADFUTEX' */
     __uint8_t                  pf_action;                /* The action that should be performed in order to poll the futex word.
                                                           * One of (optionally or'd with `FUTEX_PRIVATE_FLAG'):
@@ -64,16 +71,16 @@ struct pollfutex {
 #define POLLFUTEX_STATUS_BADACTION 0xff                  /* The specified `pf_action' isn't known. */
     __uint8_t                  pf_status;                /* Poll status (One of `POLLFUTEX_STATUS_*') */
     __uint8_t                __pf_pad[sizeof(void *)-2]; /* ... */
-    union PACKED {
+    union __ATTR_PACKED {
         __uintptr_t            pf_val;                   /* The `val' argument in an equivalent futex() system call. */
         __uintptr_t            pf_result;                /* The storage location for the `result' of the following actions:
                                                           *   - FUTEX_WAIT_CMPXCH   (Only for the case of `result = WAKE(uaddr2,ALL)')
                                                           *   - FUTEX_WAIT_CMPXCH2  (Only for the case of `result = WAKE(uaddr2,ALL)')
                                                           */
     };
-    union PACKED {
+    union __ATTR_PACKED {
         __uintptr_t            pf_val2;                  /* The `val2' argument in an equivalent futex() system call. */
-        USER UNCHECKED futex_t*pf_uaddr2;                /* The `uaddr2' argument in an equivalent futex() system call. */
+        futex_t               *pf_uaddr2;                /* The `uaddr2' argument in an equivalent futex() system call. */
     };
     __uintptr_t                pf_val3;                  /* The `val3' argument in an equivalent futex() system call. */
 };
@@ -219,19 +226,19 @@ __FORCELOCAL struct pollpid *(__LIBCCALL pollpid_init)
 
 #if defined(__KERNEL__) || defined(__BUILDING_LIBC)
 struct poll_info {
-    USER UNCHECKED struct pollfd    *i_ufdvec; /* [0..i_cnt] Vector of poll descriptors. */
-    size_t                           i_ufdcnt; /* Number of elements. */
-    USER UNCHECKED struct pollfutex *i_ftxvec; /* [0..i_cnt] Vector of poll descriptors. */
-    size_t                           i_ftxcnt; /* Number of elements. */
-    USER UNCHECKED struct pollpid   *i_pidvec; /* [0..i_cnt] Vector of poll descriptors. */
-    size_t                           i_pidcnt; /* Number of elements. */
+    struct pollfd    *i_ufdvec; /* [0..i_cnt] Vector of poll descriptors. */
+    size_t            i_ufdcnt; /* Number of elements. */
+    struct pollfutex *i_ftxvec; /* [0..i_cnt] Vector of poll descriptors. */
+    size_t            i_ftxcnt; /* Number of elements. */
+    struct pollpid   *i_pidvec; /* [0..i_cnt] Vector of poll descriptors. */
+    size_t            i_pidcnt; /* Number of elements. */
 };
 #endif
 #endif /* __CRT_KOS */
 
-struct pollfd;
 
 #if !defined(__KERNEL__) && defined(__CRT_KOS)
+struct pollfd;
 /* An extension to the poll() / select() family of system calls,
  * that allows the user to not only wait for file descriptors to
  * become ready, but also wait for an arbitrary number of futex
@@ -1413,8 +1420,6 @@ __LIBC __ATTR_NOTHROW unsigned int (__LIBCCALL futex_setspin)(unsigned int __new
 #endif
 #endif /* __CC__ */
 
-
-DECL_END
-
+__DECL_END
 
 #endif /* !_KOS_FUTEX_H */

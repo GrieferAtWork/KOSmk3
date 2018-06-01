@@ -49,7 +49,7 @@ Flag Register                            49            %rflags
 */
 
 #define UNWIND_NUM_REGISTERS           18
-#define UNWIND_FRAME_REGSITER          6
+#define UNWIND_FRAME_REGISTER          6
 #define UNWIND_REMEMBER_STACK_SIZE     2  /* Remember stack-size. */
 #define UNWIND_CONTEXT_RETURN_REGISTER 16
 #define UNWIND_CONTEXT_IP(x)         ((x)->c_rip)
@@ -129,7 +129,7 @@ Segment Register GS                         45           %gs
 #else
 #define UNWIND_NUM_REGISTERS        14
 #endif
-#define UNWIND_FRAME_REGSITER       5
+#define UNWIND_FRAME_REGISTER       5
 #define UNWIND_REMEMBER_STACK_SIZE  2 /* Remember stack-size. */
 #define UNWIND_CONTEXT_RETURN_REGISTER 8
 #define UNWIND_CONTEXT_IP(x) ((x)->c_eip)

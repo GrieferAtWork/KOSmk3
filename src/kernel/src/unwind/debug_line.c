@@ -246,8 +246,8 @@ PRIVATE state_machine_t const default_state = {
     .flags = MODULE_ADDR2LINE_FINFUNC|MODULE_ADDR2LINE_FPROLOG,
 };
 
-INTDEF intptr_t  KCALL decode_sleb128(byte_t **__restrict ptext);
-INTDEF uintptr_t KCALL decode_uleb128(byte_t **__restrict ptext);
+INTDEF intptr_t  KCALL dwarf_decode_sleb128(byte_t **__restrict ptext);
+INTDEF uintptr_t KCALL dwarf_decode_uleb128(byte_t **__restrict ptext);
 
 
 
@@ -391,14 +391,14 @@ found_state:
        while (--fileno && (byte_t *)fileent_start < text_begin) {
         if (!*fileent_start) break; /* Invalid file ID */
         fileent_start = strend(fileent_start)+1;
-        decode_uleb128((byte_t **)&fileent_start);
-        decode_uleb128((byte_t **)&fileent_start);
-        decode_uleb128((byte_t **)&fileent_start);
+        dwarf_decode_uleb128((byte_t **)&fileent_start);
+        dwarf_decode_uleb128((byte_t **)&fileent_start);
+        dwarf_decode_uleb128((byte_t **)&fileent_start);
        }
        result->d_file = fileent_start;
        /* Parse the directory number. */
        fileent_start = strend(fileent_start)+1;
-       fileno = (uintptr_t)decode_uleb128((byte_t **)&fileent_start);
+       fileno = (uintptr_t)dwarf_decode_uleb128((byte_t **)&fileent_start);
        if (!fileno || --fileno >= dtab_count)
         result->d_path = NULL;
        else {
@@ -417,7 +417,7 @@ found_state:
       byte_t *ext_data;
       uintptr_t temp;
      case DW_LNS_extended_op:
-      temp = decode_uleb128(&reader);
+      temp = dwarf_decode_uleb128(&reader);
       ext_data = reader;
       if unlikely(__builtin_add_overflow((uintptr_t)reader,temp,
                                          (uintptr_t *)&reader))
@@ -454,7 +454,7 @@ found_state:
         break;
 
        case DW_LNE_set_discriminator:
-        state.discriminator = decode_uleb128(&ext_data);
+        state.discriminator = dwarf_decode_uleb128(&ext_data);
         break;
 
        default:
@@ -474,7 +474,7 @@ found_state:
      {
       uintptr_t temp;
      case DW_LNS_advance_pc:
-      temp = decode_uleb128(&reader);
+      temp = dwarf_decode_uleb128(&reader);
       if (max_ops_per_insn == 1) {
        temp *= min_insn_length;
        state.address += temp;
@@ -486,15 +486,15 @@ found_state:
      } break;
 
      case DW_LNS_advance_line:
-      state.line += (int)decode_sleb128(&reader);
+      state.line += (int)dwarf_decode_sleb128(&reader);
       break;
 
      case DW_LNS_set_file:
-      state.file = (size_t)decode_uleb128(&reader);
+      state.file = (size_t)dwarf_decode_uleb128(&reader);
       break;
 
      case DW_LNS_set_column:
-      state.column = (unsigned int)decode_uleb128(&reader);
+      state.column = (unsigned int)dwarf_decode_uleb128(&reader);
       break;
 
      case DW_LNS_negate_stmt:
@@ -533,14 +533,14 @@ found_state:
       break;
 
      case DW_LNS_set_isa:
-      decode_uleb128(&reader);
+      dwarf_decode_uleb128(&reader);
       break;
 
      default:
       if (opcode < opcode_base) {
        /* Custom opcode. */
        u8 n = opcode_lengths[opcode-1];
-       while (n--) decode_uleb128(&reader);
+       while (n--) dwarf_decode_uleb128(&reader);
       }
       break;
      }

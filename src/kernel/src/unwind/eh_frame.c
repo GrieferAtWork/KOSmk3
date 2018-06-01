@@ -30,7 +30,7 @@
 DECL_BEGIN
 
 INTERN intptr_t KCALL
-decode_sleb128(byte_t **__restrict ptext) {
+dwarf_decode_sleb128(byte_t **__restrict ptext) {
  byte_t byte,*text = *ptext;
  intptr_t result = 0;
  unsigned int shift = 0;
@@ -49,7 +49,7 @@ decode_sleb128(byte_t **__restrict ptext) {
 }
 
 INTERN uintptr_t KCALL
-decode_uleb128(byte_t **__restrict ptext) {
+dwarf_decode_uleb128(byte_t **__restrict ptext) {
  byte_t byte,*text = *ptext;
  unsigned int shift = 0;
  uintptr_t result = 0;
@@ -65,8 +65,15 @@ decode_uleb128(byte_t **__restrict ptext) {
 }
 
 /* Decode a pointer, as seen in `FDE' descriptors. */
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
 INTERN uintptr_t KCALL
-decode_pointer(byte_t **__restrict ptext, u8 encoding) {
+dwarf_decode_pointer3264(byte_t **__restrict ptext,
+                         u8 encoding, bool compat_mode)
+#else
+INTERN uintptr_t KCALL
+dwarf_decode_pointer(byte_t **__restrict ptext, u8 encoding)
+#endif
+{
  uintptr_t result;
  byte_t *text = *ptext;
  /* Relative encoding formats. */
@@ -89,8 +96,18 @@ decode_pointer(byte_t **__restrict ptext, u8 encoding) {
  }
  switch (encoding & 0xf) {
  case DW_EH_PE_absptr:
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+  if (compat_mode) {
+   result += *(u32 *)text;
+   text   += 4;
+  } else {
+   result += *(uintptr_t *)text;
+   text   += sizeof(uintptr_t);
+  }
+#else
   result += *(uintptr_t *)text;
   text   += sizeof(uintptr_t);
+#endif
   break;
  case DW_EH_PE_udata2:
   result += *(u16 *)text;
@@ -117,10 +134,10 @@ decode_pointer(byte_t **__restrict ptext, u8 encoding) {
   text   += 8;
   break;
  case DW_EH_PE_uleb128:
-  result += decode_uleb128(&text);
+  result += dwarf_decode_uleb128(&text);
   break;
  case DW_EH_PE_sleb128:
-  result += decode_sleb128(&text);
+  result += dwarf_decode_sleb128(&text);
   break;
  default: break;
  }
@@ -130,12 +147,27 @@ decode_pointer(byte_t **__restrict ptext, u8 encoding) {
 
 
 
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+#define DECODE_POINTER(ptext,encoding)  dwarf_decode_pointer3264(ptext,encoding,compat_mode)
+#else
+#define DECODE_POINTER(ptext,encoding)  dwarf_decode_pointer(ptext,encoding)
+#endif
+
 /* Find the FDE associated with a given `ip' by
  * searching the given `eh_frame' section. */
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+PUBLIC bool KCALL
+eh_findfde3264(byte_t *__restrict eh_frame_start,
+               size_t eh_frame_size, uintptr_t ip,
+               struct fde_info *__restrict result,
+               bool compat_mode)
+#else
 PUBLIC bool KCALL
 eh_findfde(byte_t *__restrict eh_frame_start,
            size_t eh_frame_size, uintptr_t ip,
-           struct fde_info *__restrict result) {
+           struct fde_info *__restrict result)
+#endif
+{
  byte_t *end = eh_frame_start+eh_frame_size;
  byte_t *reader = eh_frame_start,*next;
  byte_t *cie_reader,*fde_reader;
@@ -199,9 +231,9 @@ eh_findfde(byte_t *__restrict eh_frame_start,
   cie_augstr = (char *)cie_reader;
   cie_reader = (byte_t *)strend(cie_augstr)+1;
   /* Read code and data alignments. */
-  result->fi_codealign = decode_uleb128(&cie_reader); /* c_codealignfac */
-  result->fi_dataalign = decode_sleb128(&cie_reader); /* c_dataalignfac */
-  result->fi_retreg    = decode_sleb128(&cie_reader); /* c_returnreg */
+  result->fi_codealign = dwarf_decode_uleb128(&cie_reader); /* c_codealignfac */
+  result->fi_dataalign = dwarf_decode_sleb128(&cie_reader); /* c_dataalignfac */
+  result->fi_retreg    = dwarf_decode_sleb128(&cie_reader); /* c_returnreg */
   /* Pointer encodings default to ZERO(0). */
   result->fi_encptr   = 0;
   result->fi_enclsda  = 0;
@@ -214,7 +246,7 @@ eh_findfde(byte_t *__restrict eh_frame_start,
    char *aug_iter = cie_augstr;
    /* Interpret the augmentation string. */
    uintptr_t aug_length; byte_t *aug_end;
-   aug_length = decode_uleb128(&cie_reader); /* c_auglength */
+   aug_length = dwarf_decode_uleb128(&cie_reader); /* c_auglength */
    aug_end    = cie_reader+aug_length;
    if unlikely(aug_end < cie_reader || aug_end > end)
       break; /* Check for overflow/underflow. */
@@ -223,7 +255,7 @@ eh_findfde(byte_t *__restrict eh_frame_start,
      result->fi_enclsda = *cie_reader++;
     } else if (*aug_iter == 'P') {
      result->fi_encperso = *cie_reader++;
-     result->fi_persofun = decode_pointer(&cie_reader,result->fi_encperso);
+     result->fi_persofun = DECODE_POINTER(&cie_reader,result->fi_encperso);
     } else if (*aug_iter == 'R') {
      result->fi_encptr = *cie_reader++;
     } else {
@@ -233,8 +265,8 @@ eh_findfde(byte_t *__restrict eh_frame_start,
    /* `aug_end' now points at `c_initinstr' */
    cie_reader = aug_end;
   }
-  result->fi_pcbegin = decode_pointer(&fde_reader,result->fi_encptr);
-  result->fi_pcend   = decode_pointer(&fde_reader,result->fi_encptr & 0xf);
+  result->fi_pcbegin = DECODE_POINTER(&fde_reader,result->fi_encptr);
+  result->fi_pcend   = DECODE_POINTER(&fde_reader,result->fi_encptr & 0xf);
   if (__builtin_add_overflow(result->fi_pcbegin,
                              result->fi_pcend,
                             &result->fi_pcend))
@@ -265,12 +297,12 @@ eh_findfde(byte_t *__restrict eh_frame_start,
   /* Parse augmentation data of the FDE. */
   if (cie_augstr[0] == 'z') {
    uintptr_t aug_length; byte_t *aug_end;
-   aug_length = decode_uleb128(&fde_reader); /* c_auglength */
+   aug_length = dwarf_decode_uleb128(&fde_reader); /* c_auglength */
    aug_end    = fde_reader+aug_length;
    while (*++cie_augstr && fde_reader <= aug_end) {
     if (*cie_augstr == 'L') {
      if unlikely(fde_reader == aug_end) break;
-     result->fi_lsdaaddr = decode_pointer(&fde_reader,
+     result->fi_lsdaaddr = DECODE_POINTER(&fde_reader,
                                            result->fi_enclsda);
     } else if (*cie_augstr == 'S') {
      result->fi_sigframe = 1;

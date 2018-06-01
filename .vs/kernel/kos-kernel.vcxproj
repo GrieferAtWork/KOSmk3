@@ -54,6 +54,8 @@
     <None Include="..\..\src\kernel\i386-kos\syscall32.S" />
     <None Include="..\..\src\kernel\i386-kos\syscall64.S" />
     <None Include="..\..\src\kernel\i386-kos\ushare32.S" />
+    <None Include="..\..\src\kernel\src\fs\system-xppoll.c.inl" />
+    <None Include="..\..\src\kernel\src\unwind\except_cache-impl.c.inl" />
     <None Include="..\..\src\kernel\src\vm\ushare.S" />
   </ItemGroup>
   <ItemGroup>
@@ -306,6 +308,7 @@
     <ClInclude Include="..\..\src\kernel\src\fs\autopart.h" />
     <ClInclude Include="..\..\src\kernel\src\sched\rpc.h" />
     <ClInclude Include="..\..\src\kernel\src\sched\rwlock.h" />
+    <ClInclude Include="..\..\src\kernel\src\unwind\except_cache.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{86D226C5-EF62-4562-AC06-E6A753DFA7CF}</ProjectGuid>

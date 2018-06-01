@@ -24,6 +24,13 @@
 #include <kos/types.h>
 #include <stdbool.h>
 
+#if defined(__i386__) || defined(__x86_64__)
+#include <i386-kos/elf.h>
+#else
+#error "Unsupported architecture"
+#endif
+
+
 DECL_BEGIN
 
 typedef uintptr_t uleb128_t;
@@ -173,10 +180,49 @@ struct fde_info {
 /* Find the FDE associated with a given `ip' by
  * searching the given `eh_frame' section.
  * If not found, `false' is returned. */
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+FUNDEF bool KCALL
+eh_findfde3264(byte_t *__restrict eh_frame_start,
+               size_t eh_frame_size, uintptr_t ip,
+               struct fde_info *__restrict result,
+               bool compat_mode);
+FORCELOCAL bool KCALL
+eh_findfde(byte_t *__restrict eh_frame_start,
+           size_t eh_frame_size, uintptr_t ip,
+           struct fde_info *__restrict result) {
+ return eh_findfde3264(eh_frame_start,eh_frame_size,ip,result,false);
+}
+FORCELOCAL bool KCALL
+eh_findfde_compat(byte_t *__restrict eh_frame_start,
+                  size_t eh_frame_size, uintptr_t ip,
+                  struct fde_info *__restrict result) {
+ return eh_findfde3264(eh_frame_start,eh_frame_size,ip,result,true);
+}
+#else /* CONFIG_ELF_SUPPORT_CLASS3264 */
 FUNDEF bool KCALL
 eh_findfde(byte_t *__restrict eh_frame_start,
            size_t eh_frame_size, uintptr_t ip,
            struct fde_info *__restrict result);
+#endif /* !CONFIG_ELF_SUPPORT_CLASS3264 */
+
+#ifdef CONFIG_BUILDING_KERNEL_CORE
+INTERN intptr_t KCALL dwarf_decode_sleb128(byte_t **__restrict ptext);
+INTERN uintptr_t KCALL dwarf_decode_uleb128(byte_t **__restrict ptext);
+#ifdef CONFIG_ELF_SUPPORT_CLASS3264
+INTERN uintptr_t KCALL dwarf_decode_pointer3264(byte_t **__restrict ptext, u8 encoding, bool compat_mode);
+FORCELOCAL uintptr_t KCALL
+dwarf_decode_pointer(byte_t **__restrict ptext, u8 encoding) {
+ return dwarf_decode_pointer3264(ptext,encoding,false);
+}
+FORCELOCAL uintptr_t KCALL
+dwarf_decode_pointer_compat(byte_t **__restrict ptext, u8 encoding) {
+ return dwarf_decode_pointer3264(ptext,encoding,true);
+}
+#else /* CONFIG_ELF_SUPPORT_CLASS3264 */
+INTERN uintptr_t KCALL dwarf_decode_pointer(byte_t **__restrict ptext, u8 encoding);
+#endif /* !CONFIG_ELF_SUPPORT_CLASS3264 */
+#endif /* CONFIG_BUILDING_KERNEL_CORE */
+
 
 struct cpu_context;
 

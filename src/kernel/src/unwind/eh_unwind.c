@@ -106,9 +106,9 @@ DECL_BEGIN
 #define DW_CFA_GNU_args_size                0x2E
 #define DW_CFA_GNU_negative_offset_extended 0x2F
 
-INTDEF intptr_t  KCALL decode_sleb128(byte_t **__restrict ptext);
-INTDEF uintptr_t KCALL decode_uleb128(byte_t **__restrict ptext);
-INTDEF uintptr_t KCALL decode_pointer(byte_t **__restrict ptext, u8 encoding);
+INTDEF intptr_t  KCALL dwarf_decode_sleb128(byte_t **__restrict ptext);
+INTDEF uintptr_t KCALL dwarf_decode_uleb128(byte_t **__restrict ptext);
+INTDEF uintptr_t KCALL dwarf_decode_pointer(byte_t **__restrict ptext, u8 encoding);
 
 
 struct dw_register {
@@ -244,7 +244,7 @@ dw_parse_instruction(struct dw_state *__restrict self) {
  {
   intptr_t value;
  TARGET(DW_CFA_offset)
-  value = ((intptr_t)decode_uleb128(&text) *
+  value = ((intptr_t)dwarf_decode_uleb128(&text) *
             self->s_fde->fi_dataalign);
   operand = FIX_REGNO(operand);
   if unlikely(operand >= UNWIND_NUM_REGISTERS)
@@ -268,7 +268,7 @@ dw_parse_instruction(struct dw_state *__restrict self) {
 
  TARGET(DW_CFA_set_loc)
   /* Decode the PC pointer according to FDE pointer encoding. */
-  self->s_pc = decode_pointer(&text,self->s_fde->fi_encptr);
+  self->s_pc = dwarf_decode_pointer(&text,self->s_fde->fi_encptr);
   DEBUGF("DW_CFA_set_loc(%Iu)\n",self->s_pc);
   result = 1;
   break;
@@ -294,10 +294,10 @@ dw_parse_instruction(struct dw_state *__restrict self) {
  {
   uintptr_t reg; intptr_t value;
  TARGET(DW_CFA_offset_extended)
-  reg = FIX_REGNO(decode_uleb128(&text));
+  reg = FIX_REGNO(dwarf_decode_uleb128(&text));
   if unlikely(reg >= UNWIND_NUM_REGISTERS)
      GOTO_FAIL(err);
-  value = ((intptr_t)decode_uleb128(&text) *
+  value = ((intptr_t)dwarf_decode_uleb128(&text) *
             self->s_fde->fi_dataalign);
   DEBUGF("DW_CFA_offset_extended(%Iu,%Id)\n",reg,value);
   self->s_row.cr_regs[reg].r_rule  = rule_offsetn;
@@ -307,7 +307,7 @@ dw_parse_instruction(struct dw_state *__restrict self) {
  {
   uintptr_t reg;
  TARGET(DW_CFA_restore_extended)
-  reg = FIX_REGNO(decode_uleb128(&text));
+  reg = FIX_REGNO(dwarf_decode_uleb128(&text));
   if unlikely(reg >= UNWIND_NUM_REGISTERS)
      GOTO_FAIL(err);
   DEBUGF("DW_CFA_restore_extended(%Iu)\n",reg);
@@ -320,7 +320,7 @@ dw_parse_instruction(struct dw_state *__restrict self) {
  {
   uintptr_t reg;
  TARGET(DW_CFA_undefined)
-  reg = FIX_REGNO(decode_uleb128(&text));
+  reg = FIX_REGNO(dwarf_decode_uleb128(&text));
   if unlikely(reg >= UNWIND_NUM_REGISTERS)
      GOTO_FAIL(err);
   DEBUGF("DW_CFA_undefined(%Iu)\n",reg);
@@ -330,7 +330,7 @@ dw_parse_instruction(struct dw_state *__restrict self) {
  {
   uintptr_t reg;
  TARGET(DW_CFA_same_value)
-  reg = FIX_REGNO(decode_uleb128(&text));
+  reg = FIX_REGNO(dwarf_decode_uleb128(&text));
   if unlikely(reg >= UNWIND_NUM_REGISTERS)
      GOTO_FAILF(err,"reg = %Iu\n",reg);
   DEBUGF("DW_CFA_same_value(%Iu)\n",reg);
@@ -340,8 +340,8 @@ dw_parse_instruction(struct dw_state *__restrict self) {
  {
   uintptr_t reg1,reg2;
  TARGET(DW_CFA_register)
-  reg1 = FIX_REGNO(decode_uleb128(&text));
-  reg2 = FIX_REGNO(decode_uleb128(&text));
+  reg1 = FIX_REGNO(dwarf_decode_uleb128(&text));
+  reg2 = FIX_REGNO(dwarf_decode_uleb128(&text));
   if unlikely(reg1 >= UNWIND_NUM_REGISTERS)
      GOTO_FAIL(err);
   if unlikely(reg2 >= UNWIND_NUM_REGISTERS)
@@ -377,24 +377,24 @@ dw_parse_instruction(struct dw_state *__restrict self) {
  {
   uintptr_t reg;
  TARGET(DW_CFA_def_cfa)
-  reg = FIX_REGNO(decode_uleb128(&text));
+  reg = FIX_REGNO(dwarf_decode_uleb128(&text));
   if unlikely(reg >= UNWIND_NUM_REGISTERS)
      GOTO_FAIL(err);
   self->s_row.cr_cfa.cc_type   = CFA_REGISTER;
   self->s_row.cr_cfa.cc_regno  = (u16)reg;
-  self->s_row.cr_cfa.cc_offset = (intptr_t)decode_uleb128(&text);
+  self->s_row.cr_cfa.cc_offset = (intptr_t)dwarf_decode_uleb128(&text);
   DEBUGF("DW_CFA_def_cfa(%Iu,%Id)\n",reg,self->s_row.cr_cfa.cc_offset);
  } break;
 
  {
   uintptr_t reg;
  TARGET(DW_CFA_def_cfa_sf)
-  reg = FIX_REGNO(decode_uleb128(&text));
+  reg = FIX_REGNO(dwarf_decode_uleb128(&text));
   if unlikely(reg >= UNWIND_NUM_REGISTERS)
      GOTO_FAIL(err);
   self->s_row.cr_cfa.cc_type   = CFA_REGISTER;
   self->s_row.cr_cfa.cc_regno  = (u16)reg;
-  self->s_row.cr_cfa.cc_offset = (decode_sleb128(&text) *
+  self->s_row.cr_cfa.cc_offset = (dwarf_decode_sleb128(&text) *
                                   self->s_fde->fi_dataalign);
   DEBUGF("DW_CFA_def_cfa_sf(%Iu,%Id)\n",reg,self->s_row.cr_cfa.cc_offset);
  } break;
@@ -404,7 +404,7 @@ dw_parse_instruction(struct dw_state *__restrict self) {
  TARGET(DW_CFA_def_cfa_register)
   if unlikely(self->s_row.cr_cfa.cc_type != CFA_REGISTER)
      GOTO_FAIL(err); /* Only allowed when using a register. */
-  reg = FIX_REGNO(decode_uleb128(&text));
+  reg = FIX_REGNO(dwarf_decode_uleb128(&text));
   if unlikely(reg >= UNWIND_NUM_REGISTERS)
      GOTO_FAIL(err);
   DEBUGF("DW_CFA_def_cfa_register(%Iu)\n",reg);
@@ -415,13 +415,13 @@ dw_parse_instruction(struct dw_state *__restrict self) {
  TARGET(DW_CFA_def_cfa_offset)
   if unlikely(self->s_row.cr_cfa.cc_type != CFA_REGISTER)
      GOTO_FAIL(err); /* Only allowed when using a register. */
-  self->s_row.cr_cfa.cc_offset = (intptr_t)decode_uleb128(&text);
+  self->s_row.cr_cfa.cc_offset = (intptr_t)dwarf_decode_uleb128(&text);
   DEBUGF("DW_CFA_def_cfa_offset(%Iu)\n",self->s_row.cr_cfa.cc_offset);
   break;
  TARGET(DW_CFA_def_cfa_offset_sf)
   if unlikely(self->s_row.cr_cfa.cc_type != CFA_REGISTER)
      GOTO_FAIL(err); /* Only allowed when using a register. */
-  self->s_row.cr_cfa.cc_offset = (decode_sleb128(&text) *
+  self->s_row.cr_cfa.cc_offset = (dwarf_decode_sleb128(&text) *
                                   self->s_fde->fi_dataalign);
   DEBUGF("DW_CFA_def_cfa_offset_sf(%Id)\n",self->s_row.cr_cfa.cc_offset);
   break;
@@ -431,7 +431,7 @@ dw_parse_instruction(struct dw_state *__restrict self) {
   self->s_row.cr_cfa.cc_expr = text;
   DEBUGF("DW_CFA_def_cfa_expression(...)\n");
 skip_expression:
-  text += decode_uleb128(&text); /* Skip the expression (for now) */
+  text += dwarf_decode_uleb128(&text); /* Skip the expression (for now) */
   if unlikely(text < self->s_text)
      GOTO_FAIL(err); /* Check for overflow. */
   break;
@@ -439,7 +439,7 @@ skip_expression:
  {
   uintptr_t reg;
  TARGET(DW_CFA_expression)
-  reg = FIX_REGNO(decode_uleb128(&text));
+  reg = FIX_REGNO(dwarf_decode_uleb128(&text));
   if unlikely(reg >= UNWIND_NUM_REGISTERS)
      GOTO_FAIL(err);
   DEBUGF("DW_CFA_expression(%Iu,...)\n",reg);
@@ -451,10 +451,10 @@ skip_expression:
  {
   uintptr_t reg; intptr_t value;
  TARGET(DW_CFA_offset_extended_sf)
-  reg = FIX_REGNO(decode_uleb128(&text));
+  reg = FIX_REGNO(dwarf_decode_uleb128(&text));
   if unlikely(reg >= UNWIND_NUM_REGISTERS)
      GOTO_FAIL(err);
-  value = (decode_sleb128(&text) *
+  value = (dwarf_decode_sleb128(&text) *
            self->s_fde->fi_dataalign);
   DEBUGF("DW_CFA_offset_extended_sf(%Iu,%Id)\n",reg,value);
   self->s_row.cr_regs[reg].r_rule  = rule_offsetn;
@@ -464,10 +464,10 @@ skip_expression:
  {
   uintptr_t reg; intptr_t value;
  TARGET(DW_CFA_val_offset)
-  reg = FIX_REGNO(decode_uleb128(&text));
+  reg = FIX_REGNO(dwarf_decode_uleb128(&text));
   if unlikely(reg >= UNWIND_NUM_REGISTERS)
      GOTO_FAIL(err);
-  value = ((intptr_t)decode_uleb128(&text) *
+  value = ((intptr_t)dwarf_decode_uleb128(&text) *
             self->s_fde->fi_dataalign);
   DEBUGF("DW_CFA_val_offset(%Iu,%Id)\n",reg,value);
   self->s_row.cr_regs[reg].r_rule  = rule_val_offsetn;
@@ -477,10 +477,10 @@ skip_expression:
  {
   uintptr_t reg; intptr_t value;
  TARGET(DW_CFA_val_offset_sf)
-  reg = FIX_REGNO(decode_uleb128(&text));
+  reg = FIX_REGNO(dwarf_decode_uleb128(&text));
   if unlikely(reg >= UNWIND_NUM_REGISTERS)
      GOTO_FAIL(err);
-  value = (decode_sleb128(&text) *
+  value = (dwarf_decode_sleb128(&text) *
            self->s_fde->fi_dataalign);
   DEBUGF("DW_CFA_val_offset_sf(%Iu,%Id)\n",reg,value);
   self->s_row.cr_regs[reg].r_rule  = rule_val_offsetn;
@@ -490,7 +490,7 @@ skip_expression:
  {
   uintptr_t reg;
  TARGET(DW_CFA_val_expression)
-  reg = FIX_REGNO(decode_uleb128(&text));
+  reg = FIX_REGNO(dwarf_decode_uleb128(&text));
   if unlikely(reg >= UNWIND_NUM_REGISTERS)
      GOTO_FAIL(err);
   DEBUGF("DW_CFA_val_expression(%Iu,...)\n",reg);
@@ -500,17 +500,17 @@ skip_expression:
  }
 
  TARGET(DW_CFA_GNU_args_size)
-  self->s_row.cr_argsz = decode_uleb128(&text);
+  self->s_row.cr_argsz = dwarf_decode_uleb128(&text);
   DEBUGF("DW_CFA_GNU_args_size(%Iu)\n",self->s_row.cr_argsz);
   break;
 
  {
   uintptr_t reg; intptr_t value;
  TARGET(DW_CFA_GNU_negative_offset_extended)
-  reg = FIX_REGNO(decode_uleb128(&text));
+  reg = FIX_REGNO(dwarf_decode_uleb128(&text));
   if unlikely(reg >= UNWIND_NUM_REGISTERS)
      GOTO_FAIL(err);
-  value = -((intptr_t)decode_uleb128(&text) *
+  value = -((intptr_t)dwarf_decode_uleb128(&text) *
              self->s_fde->fi_dataalign);
   DEBUGF("DW_CFA_GNU_negative_offset_extended(%Iu,%Id)\n",reg,value);
   self->s_row.cr_regs[reg].r_rule  = rule_offsetn;
@@ -737,7 +737,15 @@ PUBLIC bool KCALL
 eh_jmp(struct fde_info *__restrict info,
        struct cpu_context *__restrict ctx,
        uintptr_t abs_ip, unsigned int flags) {
-#if 0
+#if 1
+ /* XXX: Get rid of eh_jmp()? -- It's existance has become redundant a long time ago...
+  *      The original idea was to try and load a register state that GCC would have
+  *      expected at the point where the handler is located at.
+  *      However, besides that fact that some registers like ESP are purposefully not
+  *      restored, as well as the fact that variables used by exception handlers must
+  *      be marked as `EXCEPT_VAR', what this function once attempted to do is literally
+  *      something that is impossible to do, with this function, despite trying hard, not
+  *      even coming close to what would be required to implement what it tries to do. */
  UNWIND_CONTEXT_IP(ctx) = abs_ip;
  return true;
 #else
@@ -756,7 +764,7 @@ eh_jmp(struct fde_info *__restrict info,
   if unlikely(error < 0)
      GOTO_FAIL(err);
  }
- if (state.s_row.cr_regs[UNWIND_FRAME_REGSITER].r_rule != rule_undefined) {
+ if (state.s_row.cr_regs[UNWIND_FRAME_REGISTER].r_rule != rule_undefined) {
   /* This right here goes hand-in-hand with the `__EXCEPT_CLOBBER_REGS()'
    * macro, which ensures that CFI has defined a consistent state for
    * the frame-register.
@@ -1030,7 +1038,7 @@ dw_eval_expression(eh_instr_t *__restrict text, uintptr_t cfa,
  unsigned int i = 0;
  uintptr_t stack[EXPRESSION_STACK_SIZE];
  stack[0] = cfa;
- eh_instr_t *end = text+decode_uleb128((byte_t **)&text);
+ eh_instr_t *end = text+dwarf_decode_uleb128((byte_t **)&text);
  TRY {
   while (text <= end) {
    eh_instr_t opcode = *text++;
@@ -1057,8 +1065,8 @@ dw_eval_expression(eh_instr_t *__restrict text, uintptr_t cfa,
    case DW_OP_const4s: stack[++i] = (uintptr_t)*(s32 *)text; text += 4; break;
    case DW_OP_const8u: stack[++i] = (uintptr_t)*(u32 *)text; text += 8; break; /* XXX: 64-bit? */
    case DW_OP_const8s: stack[++i] = (uintptr_t)*(u32 *)text; text += 8; break; /* XXX: 64-bit? */
-   case DW_OP_constu:  stack[++i] = decode_uleb128((byte_t **)&text); break;
-   case DW_OP_consts:  stack[++i] = (uintptr_t)decode_sleb128((byte_t **)&text); break;
+   case DW_OP_constu:  stack[++i] = dwarf_decode_uleb128((byte_t **)&text); break;
+   case DW_OP_consts:  stack[++i] = (uintptr_t)dwarf_decode_sleb128((byte_t **)&text); break;
    case DW_OP_dup:     stack[i+1] = stack[i]; ++i; break;
    case DW_OP_drop:    if unlikely(i == 0) GOTO_FAIL(err); --i; break;
    case DW_OP_over:    if unlikely(i == 0) GOTO_FAIL(err); stack[i+1] = stack[i-1]; ++i; break;
@@ -1162,7 +1170,7 @@ dw_eval_expression(eh_instr_t *__restrict text, uintptr_t cfa,
    } break;
 
    case DW_OP_plus_uconst:
-    stack[i] += decode_uleb128((byte_t **)&text);
+    stack[i] += dwarf_decode_uleb128((byte_t **)&text);
     break;
 
    {
@@ -1281,15 +1289,15 @@ dw_eval_expression(eh_instr_t *__restrict text, uintptr_t cfa,
 
 #if UNWIND_NUM_REGISTERS >= 32
    case DW_OP_reg0  ... DW_OP_reg31:  stack[++i] = UNWIND_GET_REGISTER(context,opcode - DW_OP_reg0); break;
-   case DW_OP_breg0 ... DW_OP_breg31: stack[++i] = UNWIND_GET_REGISTER(context,opcode - DW_OP_breg0)+decode_sleb128((byte_t **)&text); break;
+   case DW_OP_breg0 ... DW_OP_breg31: stack[++i] = UNWIND_GET_REGISTER(context,opcode - DW_OP_breg0)+dwarf_decode_sleb128((byte_t **)&text); break;
 #else
    case DW_OP_reg0  ... DW_OP_reg0+UNWIND_NUM_REGISTERS-1:  stack[++i] = UNWIND_GET_REGISTER(context,opcode - DW_OP_reg0); break;
-   case DW_OP_breg0 ... DW_OP_breg0+UNWIND_NUM_REGISTERS-1: stack[++i] = UNWIND_GET_REGISTER(context,opcode - DW_OP_breg0)+decode_sleb128((byte_t **)&text); break;
+   case DW_OP_breg0 ... DW_OP_breg0+UNWIND_NUM_REGISTERS-1: stack[++i] = UNWIND_GET_REGISTER(context,opcode - DW_OP_breg0)+dwarf_decode_sleb128((byte_t **)&text); break;
 #endif
    {
     u8 regno;
    case DW_OP_regx:
-    regno = (u8)decode_uleb128((byte_t **)&text);
+    regno = (u8)dwarf_decode_uleb128((byte_t **)&text);
     if unlikely(regno >= UNWIND_NUM_REGISTERS)
        GOTO_FAIL(err);
     stack[++i] = UNWIND_GET_REGISTER(context,regno);
@@ -1298,11 +1306,11 @@ dw_eval_expression(eh_instr_t *__restrict text, uintptr_t cfa,
    {
     u8 regno;
    case DW_OP_bregx:
-    regno = (u8)decode_uleb128((byte_t **)&text);
+    regno = (u8)dwarf_decode_uleb128((byte_t **)&text);
     if unlikely(regno >= UNWIND_NUM_REGISTERS)
        GOTO_FAIL(err);
     stack[++i] = UNWIND_GET_REGISTER(context,regno);
-    stack[i]  += decode_sleb128((byte_t **)&text);
+    stack[i]  += dwarf_decode_sleb128((byte_t **)&text);
    } break;
 
    case DW_OP_deref_size:

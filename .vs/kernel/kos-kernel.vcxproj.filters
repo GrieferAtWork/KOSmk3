@@ -107,6 +107,12 @@
     <None Include="..\..\src\hybrid\i386-kos\string64.S">
       <Filter>hybrid\i386-kos</Filter>
     </None>
+    <None Include="..\..\src\kernel\src\unwind\except_cache-impl.c.inl">
+      <Filter>kernel\src\unwind</Filter>
+    </None>
+    <None Include="..\..\src\kernel\src\fs\system-xppoll.c.inl">
+      <Filter>kernel\src\fs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="kernel">
@@ -919,6 +925,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\kernel\include\i386-kos\elf-reloc.h">
       <Filter>kernel\include\i386-kos</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\kernel\src\unwind\except_cache.h">
+      <Filter>kernel\src\unwind</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

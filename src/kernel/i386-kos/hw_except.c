@@ -371,14 +371,18 @@ restart_syscall:
    }
   } CATCH_HANDLED (E_SEGFAULT) {
   }
+  info = error_info();
+  info->e_error.e_flag = ERR_FRESUMABLE;
+  goto set_segfault;
  }
 #endif
 
  /* Construct and emit a SEGFAULT exception. */
  info                 = error_info();
+ info->e_error.e_flag = ERR_FRESUMABLE|ERR_FRESUMENEXT;
+set_segfault:
  memset(&info->e_error.e_pointers,0,sizeof(info->e_error.e_pointers));
  info->e_error.e_code = E_SEGFAULT;
- info->e_error.e_flag = ERR_FRESUMABLE|ERR_FRESUMENEXT;
  info->e_error.e_segfault.sf_reason = errcode; /* The reason flags are defined to mirror the #PF error code. */
  info->e_error.e_segfault.sf_vaddr  = fault_address;
  /* Copy the CPU xcontext at the time of the exception. */

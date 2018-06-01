@@ -1497,14 +1497,14 @@ serve_rpc:
           "The caller should convert the register state to `int $0x80' "
           "prior to exception propagation");
   if (TASK_USERCTX_TYPE(mode) == TASK_USERCTX_TYPE_INTR_SYSCALL &&
-    !(context->c_gpregs.gp_eax & 0x80000000) &&
+    !(context->c_gpregs.gp_pax & 0x80000000) &&
       /* Don't translate RTL exceptions! */
      !ERRORCODE_ISRTLPRIORITY(info.e_error.e_code)) {
    /* Translate the exception into an errno. */
 #if 0
    error_printf("Translate to errno\n");
 #endif
-   context->c_gpregs.gp_eax = -exception_errno((struct exception_info *)&info);
+   context->c_gpregs.gp_pax = -exception_errno((struct exception_info *)&info);
    return;
   }
 
