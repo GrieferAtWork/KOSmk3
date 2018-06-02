@@ -224,8 +224,12 @@ EXPORT(error_fprintf,            libc_error_fprintf);
 
 
 EXPORT(except_errno,libc_except_errno);
-CRT_EXCEPT_CORE int (FCALL libc_except_errno)(void) {
- libc_seterrno(libc_exception_errno(libc_error_info()));
+CRT_EXCEPT_CORE int FCALL libc_except_errno(void) {
+ errno_t err;
+ err = libc_exception_errno(libc_error_info());
+ if (!err) /* Deal with RTL exceptions. */
+      return EXCEPT_CONTINUE_SEARCH;
+ libc_seterrno(err);
  return EXCEPT_EXECUTE_HANDLER;
 }
 

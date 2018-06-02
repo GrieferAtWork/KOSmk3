@@ -49,8 +49,6 @@ libc_exception_errno(struct exception_info *__restrict info) {
    result = ENOMEM;
   }
   break;
- case E_EXIT_THREAD:
- case E_EXIT_PROCESS:
  case E_INTERRUPT:
   result = EINTR;
   break;
@@ -154,7 +152,11 @@ libc_exception_errno(struct exception_info *__restrict info) {
  case E_UNICODE_ERROR:    result = EILSEQ; break;
 #endif
  case E_DEADLOCK:         result = EDEADLK; break;
- default: break; /* What 'you gonna do? */
+ default:
+  if (ERRORCODE_ISRTLPRIORITY(info->e_error.e_code))
+      result = 0; /* Cannot translate RTL-priority exceptions. */
+  /* What 'you gonna do? */
+  break;
  }
  return result;
 }

@@ -59,12 +59,14 @@ thread_getattr_default_np(ThreadAttr *__restrict self) {
 EXPORT(pthread_setattr_default_np,thread_setattr_default_np);
 INTERN errno_t LIBPCALL
 thread_setattr_default_np(ThreadAttr const *__restrict self) {
+ errno_t result = 0;
  TRY {
   Xthread_setattr_default_np(self);
- } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  return except_geterrno();
+ } EXCEPT ((result = except_geterrno()) != 0
+          ? EXCEPT_EXECUTE_HANDLER
+          : EXCEPT_CONTINUE_SEARCH) {
  }
- return 0;
+ return result;
 }
 
 EXPORT(Xpthread_getattr_default_np,Xthread_getattr_default_np);
