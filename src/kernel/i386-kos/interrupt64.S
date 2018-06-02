@@ -180,11 +180,7 @@ define_interrupt 04, 3                       /* #OF  Overflow. */
 define_interrupt 05, 3                       /* #BR  Bound Range Exceeded. */
 define_interrupt 06                          /* #UD  Invalid Opcode. */
 define_interrupt 07                          /* #NM  Device Not Available. */
-#if 1 /* I'm not seeing any exception code here... */
-define_interrupt 08, 0                       /* #DF  Double Fault. */
-#else
 define_interrupt 08, 0, INTERRUPT_TYPE_ERROR /* #DF  Double Fault. */
-#endif
 define_interrupt 09
 define_interrupt 0a, 0, INTERRUPT_TYPE_ERROR /* #TS  Invalid TSS. */
 define_interrupt 0b, 0, INTERRUPT_TYPE_ERROR /* #NP  Segment Not Present. */

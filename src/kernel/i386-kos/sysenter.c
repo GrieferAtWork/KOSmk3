@@ -111,9 +111,9 @@ INTERN ATTR_FREETEXT void KCALL x86_initialize_sysenter(void) {
  } else {
   debug_printf(FREESTR("[X86] Enable SYSCALL\n"));
   /* Write sysenter-specific MSRs */
-  __wrmsr(IA32_STAR, 0);
+  __wrmsr(IA32_STAR, (u64)X86_KERNEL_CS << 32);
   __wrmsr(IA32_LSTAR,(uintptr_t)&syscall_kernel_entry);
-  __wrmsr(IA32_FMASK,0);
+  __wrmsr(IA32_FMASK,EFLAGS_IF|EFLAGS_DF);
 
 
   if (THIS_CPU == &_boot_cpu) {
