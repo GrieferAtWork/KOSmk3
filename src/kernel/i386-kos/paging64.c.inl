@@ -41,7 +41,7 @@ DECL_BEGIN
 #undef CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN
 #if !defined(NDEBUG) && 0
 #define CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS 1
-#define CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN 1
+//#define CONFIG_LOG_PAGEDIRECTORY_MAPPING_CALLS_INTERN 1
 #endif
 
 /* Define some shorter names for structures and macros. */
@@ -151,12 +151,21 @@ STATIC_ASSERT(X86_PAGE_ABSENT == 0);
  *       need to overflow by quite a lot before they could reach any mapped
  *       kernel memory. Related to this, the KOS kernel assumes that at the
  *       very least the first page of kernel memory is never mapped. */
-#define PAGING_E4_IDENTITY_INDEX  E4_INDEX(VM_ADDR2PAGE(X86_PDIR_E1_IDENTITY_BASE))
-enum{_PAGING_E4_IDENTITY_INDEX = PAGING_E4_IDENTITY_INDEX};
-#undef PAGING_E4_IDENTITY_INDEX
+enum{
+ _PAGING_E4_IDENTITY_INDEX = E4_INDEX(VM_ADDR2PAGE(X86_PDIR_E1_IDENTITY_BASE)),
+ _PAGING_E3_IDENTITY_INDEX = E3_INDEX(VM_ADDR2PAGE(X86_PDIR_E2_IDENTITY_BASE)),
+ _PAGING_E2_IDENTITY_INDEX = E2_INDEX(VM_ADDR2PAGE(X86_PDIR_E3_IDENTITY_BASE)),
+ _PAGING_E1_IDENTITY_INDEX = E1_INDEX(VM_ADDR2PAGE(X86_PDIR_E4_IDENTITY_BASE))
+};
 #define PAGING_E4_IDENTITY_INDEX _PAGING_E4_IDENTITY_INDEX
+#define PAGING_E3_IDENTITY_INDEX _PAGING_E3_IDENTITY_INDEX
+#define PAGING_E2_IDENTITY_INDEX _PAGING_E2_IDENTITY_INDEX
+#define PAGING_E1_IDENTITY_INDEX _PAGING_E1_IDENTITY_INDEX
 
 STATIC_ASSERT(PAGING_E4_IDENTITY_INDEX < 512);
+STATIC_ASSERT(PAGING_E4_IDENTITY_INDEX == PAGING_E3_IDENTITY_INDEX);
+STATIC_ASSERT(PAGING_E4_IDENTITY_INDEX == PAGING_E2_IDENTITY_INDEX);
+STATIC_ASSERT(PAGING_E4_IDENTITY_INDEX == PAGING_E1_IDENTITY_INDEX);
 STATIC_ASSERT(PAGING_E4_IDENTITY_INDEX >= PAGING_E4_SHARE_INDEX);
 STATIC_ASSERT_MSG(PAGING_E4_IDENTITY_INDEX != PAGING_E4_SHARE_INDEX,
                   "Even though it might seem like a good idea, you can't "
@@ -171,17 +180,16 @@ STATIC_ASSERT_MSG(PAGING_E4_IDENTITY_INDEX != PAGING_E4_SHARE_INDEX,
  * page directories (except for the identity page)
  * NOTE: This buffer is quite large (1Mb), but we'd need
  *       to allocate it sooner or later, no matter what. */
-INTERN ATTR_SECTION(".bss.pagedir.kernel.share") VIRT
-union x86_pdir_e3 pagedir_kernel_share_e3[PAGING_E4_SHARE_COUNT][X86_PDIR_E3_COUNT];
+INTERN ATTR_SECTION(".bss.pagedir.kernel.share") VIRT union x86_pdir_e3
+pagedir_kernel_share_e3[PAGING_E4_SHARE_COUNT][X86_PDIR_E3_COUNT];
 
 /* The layer-2 indirection used to describe the initial identity
  * mapping of the last 2Gb of virtual memory, mapping to the first
  * 2Gb of physical memory, which also contain the kernel core.
  * HINT: This goes hand-in-hand with `KERNEL_CORE_BASE', which
- *       maps the kernel core, starting at -2Gb.
- * NOTE: These are only used when the host doesn't support `CPUID_80000001D_PDPE1GB' */
-INTERN ATTR_SECTION(".bss.pagedir.kernel.share2") VIRT
-union x86_pdir_e2 pagedir_kernel_share_e2[X86_PDIR_E3_INDEX(VM_ADDR2PAGE(KERNEL_CORE_SIZE))][X86_PDIR_E2_COUNT];
+ *       maps the kernel core, starting at -2Gb. */
+INTERN ATTR_SECTION(".bss.pagedir.kernel.share2") VIRT union x86_pdir_e2
+pagedir_kernel_share_e2[X86_PDIR_E3_INDEX(VM_ADDR2PAGE(KERNEL_CORE_SIZE))][X86_PDIR_E2_COUNT];
 
 STATIC_ASSERT_MSG(X86_PDIR_E3_INDEX(VM_ADDR2PAGE(KERNEL_CORE_SIZE)) == 2,
                   "`boot64.S' expects that there are exactly 2 E2-vectors mapped "
@@ -203,7 +211,7 @@ struct vm vm_kernel_head = {
     .vm_size     = (size_t)kernel_pervm_size+PAGEDIR_SIZE
 };
 
-PRIVATE u64 x86_pageperm_matrix[0xf+1] = {
+INTERN u64 x86_pageperm_matrix[0xf+1] = {
      /* Configure to always set the DIRTY and ACCESSED bits (KOS doesn't use
       * them, and us already setting them will allow the CPU to skip setting
       * them if the time comes) */
@@ -246,7 +254,7 @@ PRIVATE u64 x86_pageperm_matrix[0xf+1] = {
 
 INTERN u64 x86_page_global = PAGE_FGLOBAL;
 #ifndef CONFIG_NO_GIGABYTE_PAGES
-PRIVATE unsigned int x86_paging_features = 0;
+INTERN unsigned int x86_paging_features = 0;
 #define PAGING_FEATURE_1GIB_PAGES  0x0001 /* Host supports 1GIB pages. */
 #endif /* !CONFIG_NO_GIGABYTE_PAGES */
 
@@ -448,33 +456,160 @@ pagedir_allocate_e2(unsigned int x4, unsigned int x3) {
   COMPILER_WRITE_BARRIER();
  }
 }
+
+
+PRIVATE ATTR_FREETEXT uintptr_t KCALL
+pagedir_map_temporary(pageptr_t e1_pageptr) {
+ unsigned int x4,x3; uintptr_t result;
+ x4 = E4_INDEX(VM_ADDR2PAGE(KERNEL_CORE_BASE))-1;
+ for (; x4 > PAGING_E4_IDENTITY_INDEX; --x4) {
+  assertf(E4_IDENTITY[x4].p_data != X86_PAGE_ABSENT,
+          "All of these must be allocated _all_ _the_ _time_");
+  for (x3 = 0; x3 < E3_COUNT; ++x3) {
+   u64 data = E3_IDENTITY[x4][x3].p_data;
+   if (data != X86_PAGE_ABSENT)
+       continue; /* XXX: Use E2-vectors? */
+   E3_IDENTITY[x4][x3].p_data = (VM_PAGE2ENTADDR(e1_pageptr) |
+                                (PAGE_FDIRTY | PAGE_FACCESSED |
+                                 PAGE_FWRITE | PAGE_FPRESENT));
+   result = (uintptr_t)E2_IDENTITY[x4][x3];
+   pagedir_syncone(VM_ADDR2PAGE((uintptr_t)result));
+   return result;
+  }
+ }
+ assertf(0,"TODO: This should invoke kernel panic!");
+}
+
+PRIVATE ATTR_FREETEXT void KCALL
+pagedir_unmap_temporary(uintptr_t address) {
+ unsigned int x4,x3;
+ address  = VM_ADDR2PAGE(address);
+ assertf(E4_INDEX(address) == PAGING_E4_IDENTITY_INDEX,
+         "E4_INDEX(address) = %u\n",E4_INDEX(address));
+ assertf(E3_INDEX(address) == PAGING_E3_IDENTITY_INDEX,
+         "E3_INDEX(address) = %u\n",E3_INDEX(address));
+ /* I know this looks strange, but because E4 and E3 are constant,
+  * the indices used are shifted and we need to use these: */
+ x4 = E2_INDEX(address);
+ x3 = E1_INDEX(address);
+ E3_IDENTITY[x4][x3].p_data = PAGE_ABSENT;
+ pagedir_syncone(VM_ADDR2PAGE(address));
+}
+
+
 PRIVATE void KCALL
 pagedir_allocate_e1(unsigned int x4, unsigned int x3, unsigned int x2) {
  E2 ent; E1 *vec;
  ent = E2_IDENTITY[x4][x3][x2];
  if (ent.p_flag & PAGE_F2MIB) {
   unsigned int i;
-  /* Split the 1Gib E3-entry into an E2-vector of 2Mib pages. */
+  /* Split the 2Mib E2-entry into an E1-vector of 1Kib pages. */
   assertf((ent.p_data & (X86_PAGE_FADDR & ~X86_PDIR_E2_ADDRMASK)) == 0,
           "Invalid 2Mib page address: %p",ent.p_data);
-  COMPILER_WRITE_BARRIER();
-  E2_IDENTITY[x4][x3][x2].p_data = (VM_PAGE2ENTADDR(page_malloc(1,MZONE_PAGING)) |
-                                   (PAGE_FDIRTY | PAGE_FACCESSED |
-                                    PAGE_FWRITE | PAGE_FPRESENT));
-  COMPILER_WRITE_BARRIER();
-  vec = E1_IDENTITY[x4][x3][x2];
-  pagedir_syncone(VM_ADDR2PAGE(vec));
-  COMPILER_BARRIER();
-  ent.p_flag &= ~PAGE_F2MIB;
-  /* Fill in the E1 vector. */
-  for (i = 0; i < E1_COUNT; ++i) {
-   vec[i].p_data = ent.p_data;
-   ent.p_data += E1_SIZE;
+  if (x4 == E4_INDEX(VM_ADDR2PAGE(KERNEL_CORE_BASE)) &&
+      x3 >= E3_INDEX(VM_ADDR2PAGE(KERNEL_CORE_BASE))) {
+   /* _very_ specific case:
+    *    The 2Mib page in question contains part of
+    *    the kernel core itself, and as a consequence,
+    *    contains this very function which this comment
+    *    is apart of.
+    * -> For that reason, we can't just temporarly replace
+    *    it with a temporary (and invalid) physical page
+    *    while we fill in that one.
+    * Other memory mappings (including user-space) don't have this
+    * problem thanks to `VM Memory race condition' (you may have
+    * seen that system log entry before), which does 2 things:
+    *   - Lazily map previously unmapped virtual memory into the
+    *     page directory.
+    *   - Deal with incomplete memory mappings by waiting for them
+    *     to finish (which can be caused if user-space accesses a
+    *     2Mib page while we're converting it into a vector of 4Kib
+    *     pages)
+    * 32-bit mode doesn't have this problem either, because it maps
+    * the entire kernel using 4Kib pages from the get-go.
+    * However, since in our case the page we're trying to allocate
+    * contains the actual code that is trying to do that exact thing,
+    * we have to cheat a little bit:
+    *   #1: We know that the caller is holding a write-lock on the
+    *       kernel VM, meaning that technically we not only have
+    *       access to the portion we're supposed to be mapping, but
+    *       actually have access to the entire page directory.
+    *   #2: Make use of that right to map the E1-vector to a temporary
+    *       location somewhere in kernel-space (we can't use user-space,
+    *       because we must not expose it to this nastiness)
+    *   #3: Fill in the physical memory using this temporary mapping.
+    *   #4: Get rid of the temporary mapping
+    *   #5: Atomically replace the 2Mib page with the E1-vector, meaning
+    *       that it will seamlessly transition from 2Mib to 512*1Kib
+    * NOTES:
+    *   - Since we know that we're holding a write-lock on the kernel VM,
+    *     this also means that we have implicit read+write permissions for
+    *     the kernel-space portion of the page directory identity mapping.
+    *     And using it, we map one of the E3-vector entries describing memory
+    *     after the identity mapping, and before the kernel core.
+    *   - Because the kernel is initially mapped using 2Mib pages (see boot.S),
+    *     this special behavior is never needed for 1Gib pages, because the
+    *     kernel cannot ever be loaded using 1Gib pages:
+    *      - The only reason why an existing mapping could ever be converted into
+    *        a 1Gib page without being remapped is using `pagedir_merge_before()'
+    *      - However, in order for `pagedir_merge_before()' to merge a 1Gib page,
+    *        all contained mappings must describe a continuous address space of
+    *        non-interrupted 2Mib pages.
+    *        That alone is something that should never really happen once early
+    *        boot setup has been completed (because it would mean that either
+    *        -2Gib...-1Gib are completely mapped, or -1Gib...0Gib are).
+    *        And that kind of mapping is impossible to achieve because of various
+    *        intended memory holes, such as found around the stack of _boot_task,
+    *        of the fact that different parts of the kernel are mapped with different
+    *        permissions.
+    *      - It could happen for -1Gib...0Gib, but only if the kernel isn't part
+    *        of that mapping, in which case the entire problem doesn't exist to
+    *        begin with, as it's really just this small snippet of code right
+    *        here that has to remain mapped consistently.
+    *
+    */
+   pageptr_t e1_pageptr;
+   e1_pageptr = page_malloc(1,MZONE_PAGING);
+   vec = (E1 *)pagedir_map_temporary(e1_pageptr);
+   COMPILER_BARRIER();
+   ent.p_flag &= ~PAGE_F2MIB;
+   /* Fill in the E1 vector. */
+   for (i = 0; i < E1_COUNT; ++i) {
+    vec[i].p_data = ent.p_data;
+    ent.p_data += E1_SIZE;
+   }
+   COMPILER_WRITE_BARRIER();
+   pagedir_unmap_temporary((uintptr_t)vec);
+   COMPILER_WRITE_BARRIER();
+   /* Seamlessly set the new page pointer to replace the 2Mib page.
+    * NOTE: Use an atomic store for this to ensure that the memory
+    *       get updated without any seams, and without the possibility
+    *       of any partial writes. */
+   ATOMIC_STORE(E2_IDENTITY[x4][x3][x2].p_data,
+               (VM_PAGE2ENTADDR(e1_pageptr) |
+               (PAGE_FDIRTY | PAGE_FACCESSED | PAGE_FWRITE | PAGE_FPRESENT) |
+               (ent.p_flag & PAGE_FMASK)));
+   COMPILER_WRITE_BARRIER();
+  } else {
+   COMPILER_WRITE_BARRIER();
+   E2_IDENTITY[x4][x3][x2].p_data = (VM_PAGE2ENTADDR(page_malloc(1,MZONE_PAGING)) |
+                                    (PAGE_FDIRTY | PAGE_FACCESSED |
+                                     PAGE_FWRITE | PAGE_FPRESENT));
+   COMPILER_WRITE_BARRIER();
+   vec = E1_IDENTITY[x4][x3][x2];
+   pagedir_syncone(VM_ADDR2PAGE(vec));
+   COMPILER_BARRIER();
+   ent.p_flag &= ~PAGE_F2MIB;
+   /* Fill in the E1 vector. */
+   for (i = 0; i < E1_COUNT; ++i) {
+    vec[i].p_data = ent.p_data;
+    ent.p_data += E1_SIZE;
+   }
+   COMPILER_WRITE_BARRIER();
+   /* Re-add permission bits. */
+   E2_IDENTITY[x4][x3][x2].p_data |= ent.p_flag & PAGE_FMASK;
+   COMPILER_WRITE_BARRIER();
   }
-  COMPILER_WRITE_BARRIER();
-  /* Re-add permission bits. */
-  E2_IDENTITY[x4][x3][x2].p_data |= ent.p_flag & PAGE_FMASK;
-  COMPILER_WRITE_BARRIER();
  } else {
   if ((ent.p_data & PAGE_FADDR) != PAGE_ABSENT)
        return; /* Page has already been allocated. */
@@ -614,6 +749,7 @@ pagedir_addperm_e2(unsigned int x4,
                    unsigned int x2,
                    u64 edata) {
  u64 flags;
+ //assert(x4 != PAGING_E4_IDENTITY_INDEX);
  flags = E2_IDENTITY[x4][x3][x2].p_flag;
 #ifdef CONFIG_NO_NX_PAGES
  flags |= edata & PAGE_FMASK;
@@ -629,6 +765,7 @@ pagedir_addperm_e3(unsigned int x4,
                    unsigned int x3,
                    u64 edata) {
  u64 flags;
+ //assert(x4 != PAGING_E4_IDENTITY_INDEX);
  flags = E3_IDENTITY[x4][x3].p_flag;
 #ifdef CONFIG_NO_NX_PAGES
  flags |= edata & PAGE_FMASK;
@@ -643,6 +780,7 @@ LOCAL void KCALL
 pagedir_addperm_e4(unsigned int x4,
                    u64 edata) {
  u64 flags;
+ //assert(x4 != PAGING_E4_IDENTITY_INDEX);
  flags = E4_IDENTITY[x4].p_flag;
 #ifdef CONFIG_NO_NX_PAGES
  flags |= edata & PAGE_FMASK;
