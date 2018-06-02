@@ -40,6 +40,7 @@
     <None Include="..\..\src\kernel\i386-kos\hw_except32.S" />
     <None Include="..\..\src\kernel\i386-kos\hw_except64.S" />
     <None Include="..\..\src\kernel\i386-kos\interrupt32.S" />
+    <None Include="..\..\src\kernel\i386-kos\interrupt64.S" />
     <None Include="..\..\src\kernel\i386-kos\kernel.ld" />
     <None Include="..\..\src\kernel\i386-kos\kernel.ld.S" />
     <None Include="..\..\src\kernel\i386-kos\paging32.c.inl" />
@@ -49,11 +50,13 @@
     <None Include="..\..\src\kernel\i386-kos\safecall32.S" />
     <None Include="..\..\src\kernel\i386-kos\scheduler32.S" />
     <None Include="..\..\src\kernel\i386-kos\scheduler64.S" />
+    <None Include="..\..\src\kernel\i386-kos\segment64.S" />
     <None Include="..\..\src\kernel\i386-kos\smp32.S" />
     <None Include="..\..\src\kernel\i386-kos\smp64.S" />
     <None Include="..\..\src\kernel\i386-kos\syscall32.S" />
     <None Include="..\..\src\kernel\i386-kos\syscall64.S" />
     <None Include="..\..\src\kernel\i386-kos\ushare32.S" />
+    <None Include="..\..\src\kernel\i386-kos\ushare64.S" />
     <None Include="..\..\src\kernel\src\fs\system-xppoll.c.inl" />
     <None Include="..\..\src\kernel\src\unwind\except_cache-impl.c.inl" />
     <None Include="..\..\src\kernel\src\vm\ushare.S" />

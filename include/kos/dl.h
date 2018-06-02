@@ -114,6 +114,9 @@ struct module_state_info {
 struct module_path_info {
     /* [MODULE_INFO_CLASS_PATH] */
     unsigned int    pi_format;   /* [IN] The format in which to generate the path (Set of `REALPATH_F*'). */
+#if __SIZEOF_POINTER__ > __SIZEOF_INT__
+    __byte_t      __pi_pad[__SIZEOF_POINTER__-__SIZEOF_INT__];
+#endif
     __uintptr_t     pi_loadaddr; /* [OUT] The load address of the module (Same as `MODULE_INFO_CLASS_BASIC::mi_loadaddr') */
     char           *pi_path;     /* [IN(0..pi_pathlen)][OUT] Filled with a NUL-terminated representation of the module's path. */
     __size_t        pi_pathlen;  /* [IN|OUT] Updated with the required buffer size. */

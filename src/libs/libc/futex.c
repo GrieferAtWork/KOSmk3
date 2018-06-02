@@ -2576,7 +2576,7 @@ libc_xppoll64(struct pollfd *ufds, size_t nfds,
               struct pollfutex *uftx, size_t nftx,
               struct pollpid *upid, size_t npid,
               struct timespec64 const *rel_timeout, sigset_t *sig) {
- struct poll_info info;
+ struct __os_pollinfo info;
  info.i_ufdvec = ufds;
  info.i_ufdcnt = nfds;
  info.i_ftxvec = uftx;
@@ -2606,7 +2606,7 @@ libc_Xxppoll64(struct pollfd *ufds, size_t nfds,
                struct pollfutex *uftx, size_t nftx,
                struct pollpid *upid, size_t npid,
                struct timespec64 const *rel_timeout, sigset_t *sig) {
- struct poll_info info;
+ struct __os_pollinfo info;
  info.i_ufdvec = ufds;
  info.i_ufdcnt = nfds;
  info.i_ftxvec = uftx;

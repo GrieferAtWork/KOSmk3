@@ -63,13 +63,13 @@ KCALL vm_getfutex_consafe(VIRT void *addr) {
 #ifdef XPPOLL_COMPAT
 #define F_POLL_PID   poll_pid_compat
 #define T_POLLPID    struct pollpid_compat
-#define T_POLL_INFO  struct poll_info_compat
+#define T_POLLINFO   struct __os_pollinfo_compat
 #define T_POLLFUTEX  struct pollfutex_compat
 #define T_SIGINFO_T  siginfo_compat_t
 #else
 #define F_POLL_PID   poll_pid
 #define T_POLLPID    struct pollpid
-#define T_POLL_INFO  struct poll_info
+#define T_POLLINFO   struct __os_pollinfo
 #define T_POLLFUTEX  struct pollfutex
 #define T_SIGINFO_T  siginfo_t
 #endif
@@ -229,14 +229,14 @@ child_died:
 
 #ifdef XPPOLL_COMPAT
 DEFINE_SYSCALL_COMPAT4(xppoll,
-                       USER UNCHECKED T_POLL_INFO *,uinfo,
+                       USER UNCHECKED T_POLLINFO *,uinfo,
                        USER UNCHECKED struct timespec const *,tsp,
                        USER UNCHECKED sigset_t const *,signal_set,
                        size_t,sigset_size)
 #else
 DEFINE_SYSCALL_DONTRESTART(xppoll);
 DEFINE_SYSCALL4(xppoll,
-                USER UNCHECKED T_POLL_INFO *,uinfo,
+                USER UNCHECKED T_POLLINFO *,uinfo,
                 USER UNCHECKED struct timespec const *,tsp,
                 USER UNCHECKED sigset_t const *,signal_set,
                 size_t,sigset_size)
@@ -595,7 +595,7 @@ scan_again_drop_futex:
 
 #undef F_POLL_PID
 #undef T_POLLPID
-#undef T_POLL_INFO
+#undef T_POLLINFO
 #undef T_POLLFUTEX
 #undef T_SIGINFO_T
 

@@ -416,27 +416,6 @@ INTERN_ENTRY(_start)
 	stosl
 	loop  1b
 
-#ifndef CONFIG_NO_GIGABYTE_PAGES
-	testl $CPUID_80000001D_PDPE1GB, SYM(boot_cpu_id_features) + 44 /* ci_80000001d */
-	jz    .Lsetup_2mib_pages
-
-	/* NOTE: If the host supports 1Gib pages, we can create this
-	 *       identity mapping using those instead of having to
-	 *       construct 512 times as many 2Mib pages! */
-#define IDENTITY_MAP_HIGH(i) \
-	movl  $( \
-	      (i * X86_PDIR_E2_TOTALSIZE) + \
-	      (X86_PAGE_FDIRTY | X86_PAGE_FACCESSED | \
-	       X86_PAGE_FWRITE | X86_PAGE_FPRESENT | \
-	       X86_PAGE_F1GIB) \
-	),    %eax; \
-	orl   SYM(x86_page_global), %eax; \
-	movl  %eax, SYM(pagedir_kernel_share_e3) + ((PAGING_E4_SHARE_COUNT - (KERNEL_IDENTITY_SIZE - i)) * 8);
-	KERNEL_IDENTITY_FOREACH(IDENTITY_MAP_HIGH)
-#undef IDENTITY_MAP_HIGH
-	jmp   .Ldone_2mib_pages
-.Lsetup_2mib_pages:
-#endif /* !CONFIG_NO_GIGABYTE_PAGES */
 	/* Map the E2-identity vectors (which also contain the kernel itself)
 	 * onto the last 2 entries in `pagedir_kernel_share_e3'.
 	 * Each E2-vector describes 1Gib, meaning that this way we map the
@@ -537,21 +516,6 @@ INTERN_ENTRY(_start)
 	      (X86_PAGE_FDIRTY | X86_PAGE_FACCESSED | \
 	       X86_PAGE_FWRITE | X86_PAGE_FPRESENT) \
 	), pagedir_kernel_phys + (0 * 8)
-#ifndef CONFIG_NO_GIGABYTE_PAGES
-	testl $CPUID_80000001D_PDPE1GB, SYM(boot_cpu_id_features) + 44 /* ci_80000001d */
-	jz    1f
-#define IDENTITY_MAP_LOW(i) \
-	movl  $( \
-	      (i * X86_PDIR_E2_TOTALSIZE) + /* The first Gigabyte */ \
-	      (X86_PAGE_FDIRTY | X86_PAGE_FACCESSED | \
-	       X86_PAGE_FWRITE | X86_PAGE_FPRESENT | \
-	       X86_PAGE_F1GIB) \
-	), SYM(pagedir_kernel_share_e3) + (i * 8);
-	KERNEL_IDENTITY_FOREACH(IDENTITY_MAP_LOW)
-#undef IDENTITY_MAP_LOW
-	jmp   2f
-1:
-#endif /* !CONFIG_NO_GIGABYTE_PAGES */
 #define IDENTITY_MAP_LOW(i) \
 	movl  $(SYM(pagedir_kernel_share_e2) + \
 	      (i * X86_PDIR_E2_COUNT) + \

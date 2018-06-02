@@ -202,13 +202,13 @@ do_debug_push_connections(struct task_connections *__restrict safe) {
  if (index < COMPILER_LENOF(connections_push_stack)) {
   PERTASK_SET(connections_push_stack[index],safe);
   for (i = 0; i < index; ++i) {
-   assertf(safe <  PERTASK(connections_push_stack[i]) ||
-           safe >= PERTASK(connections_push_stack[i])+1,
+   assertf(safe <  PERTASK_GET(connections_push_stack[i]) ||
+           safe >= PERTASK_GET(connections_push_stack[i])+1,
            "Overlapping connections restore descriptors:\n"
            "Task connections set %p overlaps with set at %p\n"
            "This is likely caused by a loop that doesn't "
            "properly restore the saved connections set",
-           safe,PERTASK(connections_push_stack[i]));
+           safe,PERTASK_GET(connections_push_stack[i]));
   }
  }
  PERTASK_INC(connections_push_recursion);

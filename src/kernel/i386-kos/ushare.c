@@ -35,9 +35,6 @@ DECL_BEGIN
 
 
 INTDEF byte_t *x86_sysenter_ushare_base;
-INTDEF byte_t kernel_ehframe_start[];
-INTDEF byte_t kernel_ehframe_end[];
-INTDEF byte_t kernel_ehframe_size[];
 
 
 PRIVATE char const

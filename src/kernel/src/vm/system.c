@@ -725,7 +725,8 @@ DEFINE_SYSCALL5(mremap,
 }
 
 
-DEFINE_SYSCALL2(xmmap,int,version,USER struct mmap_info const *,data){
+DEFINE_SYSCALL2(xmmap,unsigned int,version,
+                USER struct mmap_info const *,data){
  /* KOS eXtended system call. */
  struct mmap_info info;
  void *result;
@@ -738,7 +739,7 @@ DEFINE_SYSCALL2(xmmap,int,version,USER struct mmap_info const *,data){
 }
 
 #ifdef CONFIG_SYSCALL_COMPAT
-DEFINE_SYSCALL_COMPAT2(xmmap,int,version,
+DEFINE_SYSCALL_COMPAT2(xmmap,unsigned int,version,
                        USER struct mmap_info_compat const *,data){
  /* KOS eXtended system call. */
  struct mmap_info info;
@@ -784,8 +785,8 @@ DEFINE_SYSCALL_COMPAT2(xmmap,int,version,
 #endif
 
 
-DEFINE_SYSCALL6(mmap,VIRT void *,addr,size_t,len,int,prot,
-                int,flags,fd_t,fd,syscall_ulong_t,off) {
+DEFINE_SYSCALL6(mmap,VIRT void *,addr,size_t,len,unsigned int,prot,
+                unsigned int,flags,fd_t,fd,syscall_ulong_t,off) {
  /* linux-compatible system call. */
  struct mmap_info info;
  info.mi_prot          = (u32)prot;
@@ -806,7 +807,7 @@ DEFINE_SYSCALL6(mmap,VIRT void *,addr,size_t,len,int,prot,
 }
 
 DEFINE_SYSCALL_MUSTRESTART(xmunmap);
-DEFINE_SYSCALL4(xmunmap,VIRT void *,addr,size_t,len,int,flags,void *,tag) {
+DEFINE_SYSCALL4(xmunmap,VIRT void *,addr,size_t,len,unsigned int,flags,void *,tag) {
  size_t result,num_pages; vm_vpage_t starting_page;
  /* Validate known flag bits. */
  if (flags & ~(XUNMAP_ALL|XUNMAP_TAG))
@@ -842,7 +843,7 @@ DEFINE_SYSCALL2(munmap,VIRT void *,addr,size_t,len) {
  return 0;
 }
 
-DEFINE_SYSCALL3(mprotect,USER void *,start,size_t,len,int,prot) {
+DEFINE_SYSCALL3(mprotect,USER void *,start,size_t,len,unsigned int,prot) {
  size_t num_pages; vm_vpage_t starting_page;
  if unlikely(!IS_ALIGNED((uintptr_t)start,PAGESIZE))
     error_throw(E_INVALID_ARGUMENT);
@@ -866,8 +867,8 @@ DEFINE_SYSCALL3(mprotect,USER void *,start,size_t,len,int,prot) {
 
 DEFINE_SYSCALL6(xmprotect,
                 USER void *,start,size_t,len,
-                int,protmask,int,protflag,
-                int,flags,void *,tag) {
+                unsigned int,protmask,unsigned int,protflag,
+                unsigned int,flags,void *,tag) {
  size_t result,num_pages; vm_vpage_t starting_page;
  if unlikely(!IS_ALIGNED((uintptr_t)start,PAGESIZE))
     error_throw(E_INVALID_ARGUMENT);

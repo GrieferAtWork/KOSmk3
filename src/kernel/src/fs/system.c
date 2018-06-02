@@ -2368,6 +2368,7 @@ callback_enum_func(module_callback_t func,
 
 
 
+/* TODO: sys_xdlmodule_info_compat */
 DEFINE_SYSCALL4(xdlmodule_info,USER UNCHECKED void *,handle,
                 unsigned int,info_class,
                 USER UNCHECKED void *,buf,size_t,bufsize) {

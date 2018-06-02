@@ -364,10 +364,10 @@ struct x86_pdir {
 #define X86_PDIR_E2_IDENTITY  (*(x86_pdir_e2_identity_t *)X86_PDIR_E2_IDENTITY_BASE)
 #define X86_PDIR_E3_IDENTITY  (*(x86_pdir_e3_identity_t *)X86_PDIR_E3_IDENTITY_BASE)
 #define X86_PDIR_E4_IDENTITY  (*(x86_pdir_e4_identity_t *)X86_PDIR_E4_IDENTITY_BASE)
-typedef union x86_pdir_e1 x86_pdir_e1_identity_t[512][512][512][512];
-typedef union x86_pdir_e2 x86_pdir_e2_identity_t[512][512][512];
-typedef union x86_pdir_e3 x86_pdir_e3_identity_t[512][512];
-typedef union x86_pdir_e4 x86_pdir_e4_identity_t[512];
+typedef union x86_pdir_e1 x86_pdir_e1_identity_t[X86_PDIR_E4_COUNT][X86_PDIR_E3_COUNT][X86_PDIR_E2_COUNT][X86_PDIR_E1_COUNT];
+typedef union x86_pdir_e2 x86_pdir_e2_identity_t[X86_PDIR_E4_COUNT][X86_PDIR_E3_COUNT][X86_PDIR_E2_COUNT];
+typedef union x86_pdir_e3 x86_pdir_e3_identity_t[X86_PDIR_E4_COUNT][X86_PDIR_E3_COUNT];
+typedef union x86_pdir_e4 x86_pdir_e4_identity_t[X86_PDIR_E4_COUNT];
 #endif
 
 /* Define platform-independent symbols. */

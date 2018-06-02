@@ -223,17 +223,6 @@ __FORCELOCAL struct pollpid *(__LIBCCALL pollpid_init)
  __self->pp_ru      = __ru;
  return __self;
 }
-
-#if defined(__KERNEL__) || defined(__BUILDING_LIBC)
-struct poll_info {
-    struct pollfd    *i_ufdvec; /* [0..i_cnt] Vector of poll descriptors. */
-    size_t            i_ufdcnt; /* Number of elements. */
-    struct pollfutex *i_ftxvec; /* [0..i_cnt] Vector of poll descriptors. */
-    size_t            i_ftxcnt; /* Number of elements. */
-    struct pollpid   *i_pidvec; /* [0..i_cnt] Vector of poll descriptors. */
-    size_t            i_pidcnt; /* Number of elements. */
-};
-#endif
 #endif /* __CRT_KOS */
 
 

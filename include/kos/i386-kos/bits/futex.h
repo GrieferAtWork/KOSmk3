@@ -24,8 +24,21 @@
 #include <hybrid/typecore.h>
 #include "compat.h"
 
-
 __SYSDECL_BEGIN
+
+#if defined(__CC__) && \
+   (defined(__EXPOSE_CPU_COMPAT) || defined(__KERNEL__) || \
+    defined(__BUILDING_LIBC))
+struct __os_pollinfo {
+    struct pollfd    *i_ufdvec; /* [0..i_cnt] Vector of poll descriptors. */
+    __SIZE_TYPE__     i_ufdcnt; /* Number of elements. */
+    struct pollfutex *i_ftxvec; /* [0..i_cnt] Vector of poll descriptors. */
+    __SIZE_TYPE__     i_ftxcnt; /* Number of elements. */
+    struct pollpid   *i_pidvec; /* [0..i_cnt] Vector of poll descriptors. */
+    __SIZE_TYPE__     i_pidcnt; /* Number of elements. */
+};
+#endif
+
 
 __SYSDECL_END
 

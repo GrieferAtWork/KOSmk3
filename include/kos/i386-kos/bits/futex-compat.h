@@ -28,6 +28,22 @@
 #if defined(__EXPOSE_CPU_COMPAT) && defined(__CC__)
 __SYSDECL_BEGIN
 
+#ifdef __x86_64__
+#define pollfutex32     pollfutex_compat
+#define pollfutex64     pollfutex
+#define pollpid32       pollpid_compat
+#define pollpid64       pollpid
+#define __os_pollinfo32 __os_pollinfo_compat
+#define __os_pollinfo64 __os_pollinfo
+#else
+#define pollfutex32     pollfutex
+#define pollfutex64     pollfutex_compat
+#define pollpid32       pollpid
+#define pollpid64       pollpid_compat
+#define __os_pollinfo32 __os_pollinfo
+#define __os_pollinfo64 __os_pollinfo_compat
+#endif
+
 struct pollfutex_compat {
     __X86_PTRCC(__UINT32_TYPE__)      pf_futex;
     __uint8_t                         pf_action;
@@ -57,8 +73,7 @@ struct pollpid_compat {
     __X86_PTRCC(struct rusage) pp_ru;
 };
 
-#if defined(__KERNEL__) || defined(__BUILDING_LIBC)
-struct poll_info_compat {
+struct __os_pollinfo_compat {
     __X86_PTRCC(struct pollfd)           i_ufdvec;
     __X86_INTPTRCC                       i_ufdcnt;
     __X86_PTRCC(struct pollfutex_compat) i_ftxvec;
@@ -66,8 +81,6 @@ struct poll_info_compat {
     __X86_PTRCC(struct pollpid_compat)   i_pidvec;
     __X86_INTPTRCC                       i_pidcnt;
 };
-#endif
-
 
 __SYSDECL_END
 #endif

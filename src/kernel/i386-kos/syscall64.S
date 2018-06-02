@@ -234,8 +234,22 @@ SYMEND(irq_80)
 
 .section .text.hot
 INTERN_ENTRY(sysenter_kernel_entry_trace)
+//1:	cli; hlt; jmp 1b
+	movq     0(%rsp), %rsp
+	/* Construct an IRET tail. */
+	pushq    $(X86_USER_DS) /* %ss */
+	pushq    %rbp           /* %rsp */
+	pushfq
+	orq      $(EFLAGS_IF), (%rsp)
+	pushq    $(X86_USER_CS) /* %cs */
+	pushq    %rdi           /* %rip */
+
 	.cfi_startproc simple
 	.cfi_signal_frame
+	.cfi_def_cfa %rsp,    5*8
+	.cfi_offset %rflags, -3*8
+	.cfi_offset %rip,    -5*8
+
 	/* TODO */
 	int3
 1:	cli

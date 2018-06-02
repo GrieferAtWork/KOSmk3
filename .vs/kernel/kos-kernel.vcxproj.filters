@@ -113,6 +113,15 @@
     <None Include="..\..\src\kernel\src\fs\system-xppoll.c.inl">
       <Filter>kernel\src\fs</Filter>
     </None>
+    <None Include="..\..\src\kernel\i386-kos\interrupt64.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\ushare64.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
+    <None Include="..\..\src\kernel\i386-kos\segment64.S">
+      <Filter>kernel\i386-kos</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="kernel">

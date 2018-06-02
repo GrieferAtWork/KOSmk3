@@ -146,9 +146,12 @@ enable_syscall_tracing(void) {
   /* Override the IDT vector. */
   x86_idt_start[0x80].ie_off1 = (u16)addr;
   x86_idt_start[0x80].ie_off2 = (u16)(addr >> 16);
+#ifdef __x86_64__
+  x86_idt_start[0x80].ie_off3 = (u32)(addr >> 32);
+#endif
   /* Override exec80 jump address. */
-  x86_syscall_exec80_fixup = ((uintptr_t)x86_syscall_exec80_trace -
-                             ((uintptr_t)&x86_syscall_exec80_fixup + 4));
+  x86_syscall_exec80_fixup = ((u32)(uintptr_t)x86_syscall_exec80_trace -
+                             ((u32)(uintptr_t)&x86_syscall_exec80_fixup + 4));
   COMPILER_BARRIER();
   /* Re-enable preemption. */
   PREEMPTION_POP(was);
@@ -175,8 +178,11 @@ disable_syscall_tracing(void) {
   COMPILER_BARRIER();
   x86_idt_start[0x80].ie_off1 = (u16)addr;
   x86_idt_start[0x80].ie_off2 = (u16)(addr >> 16);
-  x86_syscall_exec80_fixup = ((uintptr_t)x86_syscall_exec80_ntrace -
-                             ((uintptr_t)&x86_syscall_exec80_fixup + 4));
+#ifdef __x86_64__
+  x86_idt_start[0x80].ie_off3 = (u32)(addr >> 32);
+#endif
+  x86_syscall_exec80_fixup = ((u32)(uintptr_t)x86_syscall_exec80_ntrace -
+                             ((u32)(uintptr_t)&x86_syscall_exec80_fixup + 4));
   COMPILER_BARRIER();
   PREEMPTION_POP(was);
   x86_unicore_end();

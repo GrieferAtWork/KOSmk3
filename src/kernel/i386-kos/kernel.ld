@@ -110,7 +110,7 @@ SECTIONS {
 		*(.text.crt.except)
 		*(.text.crt.string)
 		*(.text)
-		*(.text.unlikely)
+		*(.text.unlikely*)
 		*(.text.rare)
 		*(.text.cold)
 	}
