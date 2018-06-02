@@ -121,14 +121,10 @@ urpc_callback(struct urpc_data *__restrict data,
    sysno = context->c_pip - PERTASK_GET(x86_sysbase);
    sysno = X86_DECODE_PFSYSCALL(sysno);
    reason |= X86_RPC_REASON_FPF;
-  }
-#ifndef CONFIG_NO_X86_SYSENTER
-  else if (mode & X86_SYSCALL_TYPE_FSYSENTER) {
+  } else if (mode & X86_SYSCALL_TYPE_FSYSENTER) {
    sysno = context->c_gpregs.gp_pax;
    reason |= X86_RPC_REASON_FSYSENTER;
-  }
-#endif /* !CONFIG_NO_X86_SYSENTER */
-  else {
+  } else {
    sysno = context->c_gpregs.gp_pax;
    reason |= X86_RPC_REASON_FINT80;
   }

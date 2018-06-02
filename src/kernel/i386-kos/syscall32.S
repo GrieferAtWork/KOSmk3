@@ -64,7 +64,6 @@ PUBLIC_OBJECT(x86_xsyscall_router)
 SYMEND(x86_xsyscall_router)
 
 
-#ifndef CONFIG_NO_X86_SYSENTER
 .macro define_syscall_argc id, sym
 	.if \id < .last_sysno
 		.error "Unordered system call: `\sym' and its predecessor"
@@ -95,7 +94,6 @@ PUBLIC_OBJECT(x86_xsyscall_argc)
 		.byte 0
 	.endr
 SYMEND(x86_xsyscall_argc)
-#endif /* !CONFIG_NO_X86_SYSENTER */
 
 
 
@@ -139,14 +137,6 @@ SYMEND(x86_xsyscall_restart)
 #define __SET_RESTART(x)  /* nothing */
 #endif
 
-#ifdef CONFIG_NO_X86_SYSENTER
-#define __SYSCALL(id,sym) \
-	.hidden sym, restart_##sym; \
-	.global sym, restart_##sym; \
-	.weak sym, restart_##sym; \
-	sym = x86_bad_syscall; \
-	__SET_RESTART(sym)
-#else
 #define __SYSCALL(id,sym) \
 	.hidden sym, argc_##sym, restart_##sym; \
 	.global sym, argc_##sym, restart_##sym; \
@@ -154,7 +144,6 @@ SYMEND(x86_xsyscall_restart)
 	sym = x86_bad_syscall; \
 	argc_##sym = 6; \
 	__SET_RESTART(sym)
-#endif
 #define __XSYSCALL(id,sym)     __SYSCALL(id,sym)
 #include <asm/syscallno.ci>
 
@@ -168,44 +157,6 @@ SYMEND(x86_xsyscall_restart)
 #define IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(x) x
 #endif /* !CONFIG_X86_FIXED_SEGMENTATION */
 
-#ifdef CONFIG_NO_X86_SYSENTER
-#define SYSCALL_EXIT_BLOCK(name) \
-	.cfi_remember_state; \
-name:; \
-	popl_cfi_r  X86_SYSCALL_REG0; \
-	popl_cfi_r  X86_SYSCALL_REG1; \
-	popl_cfi_r  X86_SYSCALL_REG2; \
-	popl_cfi_r  X86_SYSCALL_REG3; \
-	popl_cfi_r  X86_SYSCALL_REG4; \
-	popl_cfi_r  X86_SYSCALL_REG5; \
-	addl  $4, %esp; /* ORIG_EAX */ \
-	.cfi_adjust_cfa_offset -4; \
-	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %gs); \
-	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %fs); \
-	IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(popl_cfi_r %es); \
-	IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(popl_cfi_r %ds); \
-	iret; \
-	.cfi_restore_state; \
-	nop; \
-	.cfi_remember_state; \
-name##_return64:; \
-	popl_cfi_r  X86_SYSCALL_REG0; \
-	popl_cfi_r  X86_SYSCALL_REG1; \
-	addl        $4, %esp; \
-	.cfi_adjust_cfa_offset -4; \
-	.cfi_same_value %edx; /* Don't override the high 32 bits of the return value. */ \
-	popl_cfi_r  X86_SYSCALL_REG3; \
-	popl_cfi_r  X86_SYSCALL_REG4; \
-	popl_cfi_r  X86_SYSCALL_REG5; \
-	addl  $4, %esp; /* ORIG_EAX */ \
-	.cfi_adjust_cfa_offset -4; \
-	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %gs); \
-	IF_CONFIG_X86_SEGMENTATION(popl_cfi_r %fs); \
-	IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(popl_cfi_r %es); \
-	IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(popl_cfi_r %ds); \
-	iret; \
-	.cfi_restore_state
-#else /* CONFIG_NO_X86_SYSENTER */
 #define SYSCALL_EXIT_BLOCK(name) \
 	.cfi_remember_state; \
 name:; \
@@ -267,10 +218,8 @@ name##64:; \
 	IF_NOT_CONFIG_X86_FIXED_SEGMENTATION(popl_cfi_r %ds); \
 	iret; \
 	.cfi_restore_state
-#endif /* !CONFIG_NO_X86_SYSENTER */
 
 
-#ifndef CONFIG_NO_X86_SYSENTER
 .section .text.hot
 .sysenter_kernel_entry_start = .
 INTERN_ENTRY(sysenter_kernel_entry)
@@ -380,18 +329,13 @@ X86_DEFINE_SYSCALL_GUARD(
 	.sysenter_kernel_entry_start,
 	.sysenter_kernel_entry_end
 )
-#endif /* !CONFIG_NO_X86_SYSENTER */
 
 
 
 
 
-#ifdef CONFIG_NO_X86_SYSENTER
-.section .text.hot
-#else
 /* .xdata, because we may modify this code */
 .section .xdata.hot
-#endif
 
 .irq_80_start = .
 INTERN_ENTRY(irq_80)
@@ -498,7 +442,7 @@ INTERN_ENTRY(irq_80_trace)
 	.cfi_endproc
 SYMEND(irq_80_trace)
 
-#ifndef CONFIG_NO_X86_SYSENTER
+
 .section .text.hot
 INTERN_ENTRY(sysenter_kernel_entry_trace)
 	/* `IA32_SYSENTER_ESP' points at the ESP0 field of the CPU's TSS
@@ -579,7 +523,6 @@ INTERN_ENTRY(sysenter_kernel_entry_trace)
 	jmp     .sysenter_after_tracing
 	.cfi_endproc
 SYMEND(sysenter_kernel_entry_trace)
-#endif /* !CONFIG_NO_X86_SYSENTER */
 .syscall_trace_end = .
 X86_DEFINE_SYSCALL_GUARD(.syscall_trace_begin,.syscall_trace_end)
 
@@ -611,11 +554,9 @@ SYMEND(x86_bad_syscall)
 INTERN_CONST(x86_syscall64_adjustment,.irq_80_return64 - .irq_80_return)
 
 
-#ifndef CONFIG_NO_X86_SYSENTER
 /* Define the memory location that need to be updated if
  * the `sysexit' instruction isn't supported by the host. */
 DEFINE_INTERN_ALIAS(x86_sysexit_fixup_1,.irq_80_return_iret_fixup)
-#endif
 
 
 

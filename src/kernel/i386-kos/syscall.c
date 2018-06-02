@@ -72,7 +72,6 @@ should_restart_syscall(syscall_ulong_t sysno,
 
 
 
-#ifndef CONFIG_NO_X86_SYSENTER
 PRIVATE void KCALL
 x86_run_on_each_cpu(void (KCALL *func)(void *arg), void *arg) {
  volatile int *status;
@@ -102,7 +101,6 @@ wait_for_cpu:
   task_tryyield();
  }
 }
-#endif /* CONFIG_NO_X86_SYSENTER */
 
 
 INTDEF u32 x86_syscall_exec80_fixup;
@@ -111,18 +109,15 @@ INTDEF uintptr_t x86_syscall_exec80_ntrace[];
 INTDEF struct x86_idtentry x86_idt_start[256];
 INTDEF void ASMCALL irq_80(void);
 INTDEF void ASMCALL irq_80_trace(void);
-#ifndef CONFIG_NO_X86_SYSENTER
 INTDEF void ASMCALL sysenter_kernel_entry(void);
 INTDEF void ASMCALL sysenter_kernel_entry_trace(void);
 #ifdef __x86_64__
 INTDEF void ASMCALL syscall_kernel_entry(void);
 INTDEF void ASMCALL syscall_kernel_entry_trace(void);
 #endif
-#endif
 
 
 
-#ifndef CONFIG_NO_X86_SYSENTER
 PRIVATE NOIRQ void KCALL
 x86_set_sysenter_ip(void *arg) {
  if (CPU_FEATURES.ci_1d & CPUID_1D_SEP)
@@ -136,7 +131,6 @@ x86_set_sysenter_ip(void *arg) {
  }
 #endif
 }
-#endif /* !CONFIG_NO_X86_SYSENTER */
 
 
 
@@ -173,10 +167,8 @@ enable_syscall_tracing(void) {
   if (!(old_flags & TASK_FKEEPCORE))
         ATOMIC_FETCHAND(THIS_TASK->t_flags,~TASK_FKEEPCORE);
  }
-#ifndef CONFIG_NO_X86_SYSENTER
  x86_run_on_each_cpu(&x86_set_sysenter_ip,
                     (void *)&sysenter_kernel_entry_trace);
-#endif /* !CONFIG_NO_X86_SYSENTER */
 }
 
 PUBLIC void KCALL
@@ -203,10 +195,8 @@ disable_syscall_tracing(void) {
   if (!(old_flags & TASK_FKEEPCORE))
         ATOMIC_FETCHAND(THIS_TASK->t_flags,~TASK_FKEEPCORE);
  }
-#ifndef CONFIG_NO_X86_SYSENTER
  x86_run_on_each_cpu(&x86_set_sysenter_ip,
                     (void *)&sysenter_kernel_entry);
-#endif /* !CONFIG_NO_X86_SYSENTER */
 }
 
 
@@ -229,7 +219,6 @@ x86_throw_bad_syscall(struct bad_syscall_info *__restrict syscall) {
 }
 
 
-#ifndef CONFIG_NO_X86_SYSENTER
 #ifndef __x86_64__
 struct bad_syscall_sysenter_info {
     uintptr_t si_ebp;
@@ -262,7 +251,6 @@ x86_throw_bad_syscall_sysenter(struct bad_syscall_sysenter_info *__restrict sysc
  __builtin_unreachable();
 }
 #endif /* !__x86_64__ */
-#endif /* !CONFIG_NO_X86_SYSENTER */
 
 
 DECL_END

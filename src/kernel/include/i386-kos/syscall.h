@@ -45,11 +45,6 @@ DECL_BEGIN
 #ifdef __x86_64__
 /* Instruct the kernel to implement compatibility system calls. */
 #define CONFIG_SYSCALL_COMPAT 1
-//#define CONFIG_NO_X86_SYSCALL 1
-//#define CONFIG_NO_X86_SYSENTER 1
-#else
-#define CONFIG_NO_X86_SYSCALL 1
-//#define CONFIG_NO_X86_SYSENTER 1
 #endif
 
 
@@ -61,16 +56,13 @@ DECL_BEGIN
 
 /* Arch-specific flags to go alongside `TASK_USERCTX_F*'. */
 #define X86_SYSCALL_TYPE_FINT80    0x0000 /* Restart a system call using a register state used by `int $0x80' */
-#ifndef CONFIG_NO_X86_SYSENTER
 #define X86_SYSCALL_TYPE_FSYSENTER 0x0100 /* Restart a system call using a register state used by `sysenter' */
-#endif /* !CONFIG_NO_X86_SYSENTER */
 #define X86_SYSCALL_TYPE_FPF       0x0200 /* Restart a system call using a register state used by #PF-based system calls. */
-#ifndef CONFIG_NO_X86_SYSCALL
+#ifdef __x86_64__
 #define X86_SYSCALL_TYPE_FSYSCALL  0x0300 /* Restart a system call using a register state used by `syscall' */
-#endif /* !CONFIG_NO_X86_SYSCALL */
+#endif /* __x86_64__ */
 
 
-#ifndef CONFIG_NO_X86_SYSENTER
 /* KOS's sysenter ABI (for i386+):
  *   
  * CLOBBER:
@@ -113,10 +105,9 @@ DECL_BEGIN
  *   >>     popl    %ebp
  *   >>     ret
  */
-#endif /* !CONFIG_NO_X86_SYSENTER */
 
 
-#ifndef CONFIG_NO_X86_SYSCALL
+#ifdef __x86_64__
 /* KOS's syscall ABI (for x86_64):
  *   
  * CLOBBER:
@@ -146,7 +137,7 @@ DECL_BEGIN
  *   >>     syscall
  *   >>     ret
  */
-#endif /* !CONFIG_NO_X86_SYSENTER */
+#endif /* __x86_64__ */
 
 
 
@@ -403,10 +394,8 @@ DATDEF void *const x86_syscall_router[];
 DATDEF void *const x86_xsyscall_router[];
 DATDEF u8 const x86_syscall_restart[];
 DATDEF u8 const x86_xsyscall_restart[];
-#ifndef CONFIG_NO_X86_SYSENTER
 DATDEF u8 const x86_syscall_argc[];
 DATDEF u8 const x86_xsyscall_argc[];
-#endif /* !CONFIG_NO_X86_SYSENTER */
 #ifdef CONFIG_SYSCALL_COMPAT
 DATDEF void *const x86_syscall_compat_router[];
 DATDEF void *const x86_xsyscall_compat_router[];

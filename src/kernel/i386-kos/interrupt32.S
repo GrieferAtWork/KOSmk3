@@ -580,9 +580,7 @@ SYMEND(irq_common)
 .section .rodata.interrupt_except
 INTERN_ENTRY(x86_interrupt_mode_select)
 	/* X86_INTERRUPT_GUARD_FINTERRUPT >> 8 */ .word  TASK_USERCTX_TYPE_INTR_INTERRUPT
-#ifndef CONFIG_NO_X86_SYSENTER
 	/* X86_INTERRUPT_GUARD_FSYSENTER  >> 8 */ .word  TASK_USERCTX_TYPE_INTR_SYSCALL|X86_SYSCALL_TYPE_FSYSENTER
-#endif /* !CONFIG_NO_X86_SYSENTER */
 	/* X86_INTERRUPT_GUARD_FSYSCALL   >> 8 */ .word  TASK_USERCTX_TYPE_INTR_SYSCALL|X86_SYSCALL_TYPE_FINT80
 SYMEND(x86_interrupt_mode_select)
 
@@ -847,7 +845,6 @@ INTERN_ENTRY(x86_interrupt_except)
 	sti     /* Re-enable interrupts */
 #endif
 
-#ifndef CONFIG_NO_X86_SYSENTER
 	testw   $(X86_SYSCALL_TYPE_FSYSENTER), %dx
 	jz      1f
 	.cfi_remember_state
@@ -856,7 +853,6 @@ INTERN_ENTRY(x86_interrupt_except)
 	jmp     sysenter_after_segments
 	.cfi_restore_state
 1:
-#endif /* !CONFIG_NO_X86_SYSENTER */
 	.cfi_remember_state
 	popal_cfi_r
 	DEFINE_INTERN(irq_80_after_segments)

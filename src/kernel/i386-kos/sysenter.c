@@ -33,8 +33,6 @@
 #include <string.h>
 #include <kos/intrin.h>
 
-#ifndef CONFIG_NO_X86_SYSENTER
-
 DECL_BEGIN
 
 /* The `IA32_SYSENTER_CS' register requires this layout. */
@@ -117,7 +115,5 @@ INTERN ATTR_FREETEXT void KCALL x86_initialize_sysenter(void) {
 }
 
 DECL_END
-
-#endif /* !CONFIG_NO_X86_SYSENTER */
 
 #endif /* !GUARD_KERNEL_I386_KOS_SYSENTER_C */

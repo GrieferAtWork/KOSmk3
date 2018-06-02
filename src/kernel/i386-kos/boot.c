@@ -144,9 +144,7 @@ INTDEF void KCALL x86_boot_secondary_cpus(void);
 #ifndef CONFIG_NO_FPU
 INTDEF INITCALL void KCALL x86_fpu_initialize(void);
 #endif /* !CONFIG_NO_FPU */
-#ifndef CONFIG_NO_X86_SYSENTER
 INTDEF INITCALL void KCALL x86_initialize_sysenter(void);
-#endif /* !CONFIG_NO_X86_SYSENTER */
 #ifdef __x86_64__
 INTDEF INITCALL void KCALL x86_fixup_fsgsbase(void);
 #endif
@@ -315,10 +313,8 @@ INTERN ATTR_FREETEXT void KCALL x86_kernel_main(void) {
   * physical memory allocator for zoning. */
  x86_mem_construct_zone_nodes();
 
-#ifndef CONFIG_NO_X86_SYSENTER
  /* Initialize support for `sysenter' if available. */
  x86_initialize_sysenter();
-#endif /* !CONFIG_NO_X86_SYSENTER */
 
 #ifndef CONFIG_NO_FPU
  /* Initialize the FPU. */

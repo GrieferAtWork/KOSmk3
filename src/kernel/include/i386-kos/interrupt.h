@@ -98,12 +98,8 @@ struct PACKED x86_idtentry {
 
 /* Flags for `error_info()->e_error.e_flag' */
 #define X86_INTERRUPT_GUARD_FINTERRUPT  0x0000
-#ifndef CONFIG_NO_X86_SYSENTER
 #define X86_INTERRUPT_GUARD_FSYSENTER   0x0100
 #define X86_INTERRUPT_GUARD_FSYSCALL    0x0200
-#else /* !CONFIG_NO_X86_SYSENTER */
-#define X86_INTERRUPT_GUARD_FSYSCALL    0x0100
-#endif /* CONFIG_NO_X86_SYSENTER */
 
 
 #ifdef __CC__
@@ -135,30 +131,28 @@ DATDEF struct exception_descriptor const x86_interrupt_guard;
  * >> myint_end:
  */
 
-#if X86_INTERRUPT_GUARD_FINTERRUPT == 0
+#if X86_INTERRUPT_GUARD_FINTERRUPT != 0
 #define X86_DEFINE_INTERRUPT_GUARD(begin,end) \
       __DEFINE_EXCEPTION_HANDLER(begin,end,x86_interrupt_guard, \
-                                  EXCEPTION_HANDLER_FDESCRIPTOR| \
-                                  EXCEPTION_HANDLER_FUSERFLAGS, \
-                                  X86_INTERRUPT_GUARD_FINTERRUPT)
+                                 EXCEPTION_HANDLER_FDESCRIPTOR| \
+                                 EXCEPTION_HANDLER_FUSERFLAGS, \
+                                 X86_INTERRUPT_GUARD_FINTERRUPT)
 #else
 #define X86_DEFINE_INTERRUPT_GUARD(begin,end) \
       __DEFINE_EXCEPTION_HANDLER(begin,end,x86_interrupt_guard, \
-                                  EXCEPTION_HANDLER_FDESCRIPTOR, \
-                                  X86_INTERRUPT_GUARD_FINTERRUPT)
+                                 EXCEPTION_HANDLER_FDESCRIPTOR, \
+                                 X86_INTERRUPT_GUARD_FINTERRUPT)
 #endif
-#ifndef CONFIG_NO_X86_SYSENTER
 #define X86_DEFINE_SYSENTER_GUARD(begin,end) \
       __DEFINE_EXCEPTION_HANDLER(begin,end,x86_interrupt_guard, \
-                                  EXCEPTION_HANDLER_FDESCRIPTOR| \
-                                  EXCEPTION_HANDLER_FUSERFLAGS, \
-                                  X86_INTERRUPT_GUARD_FSYSENTER)
-#endif /* !CONFIG_NO_X86_SYSENTER */
+                                 EXCEPTION_HANDLER_FDESCRIPTOR| \
+                                 EXCEPTION_HANDLER_FUSERFLAGS, \
+                                 X86_INTERRUPT_GUARD_FSYSENTER)
 #define X86_DEFINE_SYSCALL_GUARD(begin,end) \
       __DEFINE_EXCEPTION_HANDLER(begin,end,x86_interrupt_guard, \
-                                  EXCEPTION_HANDLER_FDESCRIPTOR| \
-                                  EXCEPTION_HANDLER_FUSERFLAGS, \
-                                  X86_INTERRUPT_GUARD_FSYSCALL)
+                                 EXCEPTION_HANDLER_FDESCRIPTOR| \
+                                 EXCEPTION_HANDLER_FUSERFLAGS, \
+                                 X86_INTERRUPT_GUARD_FSYSCALL)
 
 
 #ifdef __CC__

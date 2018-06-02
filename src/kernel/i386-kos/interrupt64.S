@@ -514,16 +514,17 @@ INTERN_ENTRY(x86_interrupt_except)
 
 	/* TODO */
 	int3
-1:	hlt
-	jmp 1b
+1:	cli; hlt; jmp 1b
 
 .interrupt_except_user:
-	swapgs
+	/* swapgs wasn't executed because x86_interrupt_except is a kernel-target.
+	 * It will be our job to run that instruction before transitioning to user-space. */
+/*	swapgs */
+
 
 	/* TODO */
 	int3
-1:	hlt
-	jmp 1b
+1:	cli; hlt; jmp 1b
 
 
 	swapgs

@@ -203,16 +203,13 @@ x86_sigreturn_impl(void *UNUSED(arg),
   syscall_ulong_t EXCEPT_VAR sysno;
   syscall_ulong_t EXCEPT_VAR orig_pax;
   syscall_ulong_t EXCEPT_VAR orig_pip;
-#ifndef CONFIG_NO_X86_SYSENTER
   syscall_ulong_t EXCEPT_VAR orig_pbp;
   syscall_ulong_t EXCEPT_VAR orig_pdi;
   syscall_ulong_t EXCEPT_VAR orig_psp;
-#endif
  case TASK_USERCTX_TYPE_INTR_SYSCALL:
   /* Restart an interrupted system call by executing it now. */
   orig_pax = context->c_gpregs.gp_pax;
   orig_pip = context->c_pip;
-#ifndef CONFIG_NO_X86_SYSENTER
   orig_pbp = context->c_gpregs.gp_pbp;
   orig_pdi = context->c_gpregs.gp_pdi;
 #ifdef __x86_64__
@@ -220,11 +217,9 @@ x86_sigreturn_impl(void *UNUSED(arg),
 #else
   orig_psp = context->c_iret.ir_useresp;
 #endif
-#endif
 restart_sigframe_syscall:
   TRY {
    /* Convert the user-space register context to become `int $0x80'-compatible */
-#ifndef CONFIG_NO_X86_SYSENTER
    if (frame_mode & X86_SYSCALL_TYPE_FSYSENTER) {
     syscall_ulong_t masked_sysno; u8 argc = 6;
     sysno           = xcontext->c_gpregs.gp_pax;
@@ -248,9 +243,7 @@ restart_sigframe_syscall:
     if (argc >= 5)
         xcontext->c_gpregs.gp_pbp = *((u32 *)(orig_pbp + 4));
     COMPILER_READ_BARRIER();
-   } else
-#endif /* !CONFIG_NO_X86_SYSENTER */
-   if (frame_mode & X86_SYSCALL_TYPE_FPF) {
+   } else if (frame_mode & X86_SYSCALL_TYPE_FPF) {
     sysno = xcontext->c_pip - PERTASK_GET(x86_sysbase);
     sysno = X86_DECODE_PFSYSCALL(sysno);
     xcontext->c_pip = xcontext->c_gpregs.gp_pax; /* #PF uses EAX as return address. */
@@ -273,14 +266,12 @@ restart_sigframe_syscall:
     /* Restore the original user-space CPU xcontext. */
     xcontext->c_gpregs.gp_pax = orig_pax;
     xcontext->c_pip           = orig_pip;
-#ifndef CONFIG_NO_X86_SYSENTER
     xcontext->c_gpregs.gp_pbp = orig_pbp;
     xcontext->c_gpregs.gp_pdi = orig_pdi;
 #ifdef __x86_64__
     xcontext->c_iret.ir_rsp = orig_psp;
 #else
     xcontext->c_iret.ir_useresp = orig_psp;
-#endif
 #endif
     COMPILER_WRITE_BARRIER();
     /* Deal with system call restarts. */
