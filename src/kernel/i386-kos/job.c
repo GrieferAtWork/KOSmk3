@@ -117,16 +117,20 @@ urpc_callback(struct urpc_data *__restrict data,
   reason |= RPC_REASON_SYSCALL;
   if (!(mode & TASK_USERCTX_FTIMER))
         reason |= RPC_REASON_DIDBLOCK; /* Without a timer, we must have been blocking, or at least serving. */
-  if (mode & X86_SYSCALL_TYPE_FPF) {
+  switch (mode & TASK_USERCTX_REGS_FMASK) {
+  case TASK_USERCTX_REGS_FPF:
    sysno = context->c_pip - PERTASK_GET(x86_sysbase);
    sysno = X86_DECODE_PFSYSCALL(sysno);
    reason |= X86_RPC_REASON_FPF;
-  } else if (mode & X86_SYSCALL_TYPE_FSYSENTER) {
+   break;
+  case TASK_USERCTX_REGS_FSYSENTER:
    sysno = context->c_gpregs.gp_pax;
    reason |= X86_RPC_REASON_FSYSENTER;
-  } else {
+   break;
+  default:
    sysno = context->c_gpregs.gp_pax;
    reason |= X86_RPC_REASON_FINT80;
+   break;
   }
   if (!(sysno & 0x80000000))
         reason |= RPC_REASON_NOEXCEPT;

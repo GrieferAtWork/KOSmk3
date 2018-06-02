@@ -55,12 +55,10 @@ DECL_BEGIN
 
 
 /* Arch-specific flags to go alongside `TASK_USERCTX_F*'. */
-#define X86_SYSCALL_TYPE_FINT80    0x0000 /* Restart a system call using a register state used by `int $0x80' */
-#define X86_SYSCALL_TYPE_FSYSENTER 0x0100 /* Restart a system call using a register state used by `sysenter' */
-#define X86_SYSCALL_TYPE_FPF       0x0200 /* Restart a system call using a register state used by #PF-based system calls. */
-#ifdef __x86_64__
-#define X86_SYSCALL_TYPE_FSYSCALL  0x0300 /* Restart a system call using a register state used by `syscall' */
-#endif /* __x86_64__ */
+#define TASK_USERCTX_REGS_FMASK     0x0700 /* Mask of the type of register state. */
+#define TASK_USERCTX_REGS_FINT80    0x0000 /* Restart a system call using a register state used by `int $0x80' and `syscall' */
+#define TASK_USERCTX_REGS_FPF       0x0100 /* Restart a system call using a register state used by #PF-based system calls. */
+#define TASK_USERCTX_REGS_FSYSENTER 0x0200 /* Restart a system call using a register state used by `sysenter' */
 
 
 /* KOS's sysenter ABI (for i386+):

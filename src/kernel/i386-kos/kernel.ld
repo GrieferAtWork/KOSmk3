@@ -128,7 +128,6 @@ SECTIONS {
 	IP_ALIGN(PAGESIZE);
 	PROVIDE_HIDDEN(kernel_rodata_start = ABSOLUTE(.));
 	SECTION(.rodata) {
-		*(.rodata.interrupt_except)
 		*(.rodata.hot)
 
 		IP_ALIGN(CACHELINE);

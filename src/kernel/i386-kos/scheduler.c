@@ -437,7 +437,7 @@ rethrow:
  * When these functions return `true', the system call should be restarted.
  * Otherwise, `false' is returned and the caller should rethrow the dangling `E_INTERRUPT'.
  * @param: mode: `TASK_USERCTX_TYPE_INTR_SYSCALL', optionally or'd with arch-
- *                dependent context flags (e.g.: on X86, `X86_SYSCALL_TYPE_F*') */
+ *                dependent context flags (e.g.: on X86, `TASK_USERCTX_REGS_F*') */
 PUBLIC void FCALL
 task_restart_syscall(struct cpu_hostcontext_user *__restrict context,
                      unsigned int mode, syscall_ulong_t sysno) {
@@ -1501,7 +1501,7 @@ serve_rpc:
 #endif
 
 #if 1
-  assertf(!(mode & X86_SYSCALL_TYPE_FPF),
+  assertf((mode & TASK_USERCTX_REGS_FMASK) != TASK_USERCTX_REGS_FPF,
           "Exception propagation cannot be done for #PF system calls. "
           "The caller should convert the register state to `int $0x80' "
           "prior to exception propagation");

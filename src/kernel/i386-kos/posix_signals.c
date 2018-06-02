@@ -220,13 +220,18 @@ x86_sigreturn_impl(void *UNUSED(arg),
 restart_sigframe_syscall:
   TRY {
    /* Convert the user-space register context to become `int $0x80'-compatible */
-   if (frame_mode & X86_SYSCALL_TYPE_FSYSENTER) {
-    syscall_ulong_t masked_sysno; u8 argc = 6;
+   switch (frame_mode & TASK_USERCTX_REGS_FMASK) {
+
+   {
+    syscall_ulong_t masked_sysno;
+    u8 argc;
+   case TASK_USERCTX_REGS_FSYSENTER:
+    argc            = 6;
     sysno           = xcontext->c_gpregs.gp_pax;
     masked_sysno    = sysno & ~0x80000000;
     xcontext->c_pip = orig_pdi; /* CLEANUP: return.%eip = %edi */
 #ifdef __x86_64__
-    xcontext->c_iret.ir_rsp = orig_pbp; /* CLEANUP: return.%esp = %ebp */
+    xcontext->c_iret.ir_rsp     = orig_pbp; /* CLEANUP: return.%esp = %ebp */
 #else
     xcontext->c_iret.ir_useresp = orig_pbp; /* CLEANUP: return.%esp = %ebp */
 #endif
@@ -243,13 +248,18 @@ restart_sigframe_syscall:
     if (argc >= 5)
         xcontext->c_gpregs.gp_pbp = *((u32 *)(orig_pbp + 4));
     COMPILER_READ_BARRIER();
-   } else if (frame_mode & X86_SYSCALL_TYPE_FPF) {
+   } break;
+
+   case TASK_USERCTX_REGS_FPF:
     sysno = xcontext->c_pip - PERTASK_GET(x86_sysbase);
     sysno = X86_DECODE_PFSYSCALL(sysno);
     xcontext->c_pip = xcontext->c_gpregs.gp_pax; /* #PF uses EAX as return address. */
     xcontext->c_gpregs.gp_pax = sysno; /* #PF encodes the sysno in EIP. */
-   } else {
+    break;
+
+   default:
     sysno = xcontext->c_gpregs.gp_pax;
+    break;
    }
 #if 0
    debug_printf("\n\n"
@@ -277,7 +287,7 @@ restart_sigframe_syscall:
     /* Deal with system call restarts. */
     task_restart_syscall(xcontext,
                          TASK_USERCTX_TYPE_WITHINUSERCODE|
-                         X86_SYSCALL_TYPE_FPF,
+                         TASK_USERCTX_REGS_FPF,
                          sysno);
     COMPILER_BARRIER();
     goto restart_sigframe_syscall;
@@ -435,7 +445,7 @@ arch_posix_signals_redirect_action(struct cpu_hostcontext_user *__restrict conte
   * Being able to do this right here is the main reason why #PF-syscalls were introduced. */
  if (TASK_USERCTX_TYPE(mode) == TASK_USERCTX_TYPE_INTR_SYSCALL) {
   syscall_ulong_t sysno = context->c_gpregs.gp_pax;
-  if (mode & X86_SYSCALL_TYPE_FPF) {
+  if (mode & TASK_USERCTX_REGS_FPF) {
    /* Deal with #PF system calls. */
    sysno = (uintptr_t)context->c_pip-PERTASK_GET(x86_sysbase);
    sysno = X86_DECODE_PFSYSCALL(sysno);

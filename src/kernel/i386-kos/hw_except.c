@@ -319,7 +319,7 @@ restart_syscall:
       /* Deal with system call restarts. */
       task_restart_syscall((struct cpu_hostcontext_user *)xcontext,
                             TASK_USERCTX_TYPE_INTR_SYSCALL|
-                            X86_SYSCALL_TYPE_FINT80,
+                            TASK_USERCTX_REGS_FINT80,
                             sysno);
 #else
       /* Restore the original user-space CPU xcontext. */
@@ -329,7 +329,7 @@ restart_syscall:
       /* Deal with system call restarts. */
       if (!task_tryrestart_syscall(&xcontext->c_user,
                                     TASK_USERCTX_TYPE_INTR_SYSCALL|
-                                    X86_SYSCALL_TYPE_FPF,
+                                    TASK_USERCTX_REGS_FPF,
                                     sysno)) {
        xcontext->c_pip = xcontext->c_gpregs.gp_pax;
        xcontext->c_gpregs.gp_pax = sysno;

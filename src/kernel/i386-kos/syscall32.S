@@ -327,7 +327,8 @@ SYMEND(sysenter_kernel_entry)
 
 X86_DEFINE_SYSCALL_GUARD(
 	.sysenter_kernel_entry_start,
-	.sysenter_kernel_entry_end
+	.sysenter_kernel_entry_end,
+	X86_INTERRUPT_GUARD_FREG_SYSENTER
 )
 
 
@@ -396,7 +397,8 @@ SYMEND(irq_80)
 /* Define a syscall guard that will translate exceptions into errno values. */
 X86_DEFINE_SYSCALL_GUARD(
 	.irq_80_start,
-	.irq_80_end
+	.irq_80_end,
+	X86_INTERRUPT_GUARD_FREG_INT80
 )
 
 
@@ -409,7 +411,7 @@ X86_DEFINE_SYSCALL_GUARD(
 
 /* System call tracing wrappers */
 .section .text.hot
-.syscall_trace_begin = .
+.irq_80_trace_start = .
 INTERN_ENTRY(irq_80_trace)
 	.cfi_startproc simple
 	.cfi_signal_frame
@@ -441,9 +443,16 @@ INTERN_ENTRY(irq_80_trace)
 	jmp     .irq_80_after_tracing
 	.cfi_endproc
 SYMEND(irq_80_trace)
+.irq_80_trace_end = .
+X86_DEFINE_SYSCALL_GUARD(
+	.irq_80_start,
+	.irq_80_end,
+	X86_INTERRUPT_GUARD_FREG_INT80
+)
 
 
 .section .text.hot
+.sysenter_kernel_entry_trace_start = .
 INTERN_ENTRY(sysenter_kernel_entry_trace)
 	/* `IA32_SYSENTER_ESP' points at the ESP0 field of the CPU's TSS
 	 * In other words: we only need to replace ESP with its own
@@ -523,8 +532,12 @@ INTERN_ENTRY(sysenter_kernel_entry_trace)
 	jmp     .sysenter_after_tracing
 	.cfi_endproc
 SYMEND(sysenter_kernel_entry_trace)
-.syscall_trace_end = .
-X86_DEFINE_SYSCALL_GUARD(.syscall_trace_begin,.syscall_trace_end)
+.sysenter_kernel_entry_trace_end = .
+X86_DEFINE_SYSCALL_GUARD(
+	.sysenter_kernel_entry_trace_start,
+	.sysenter_kernel_entry_trace_end,
+	X86_INTERRUPT_GUARD_FREG_SYSENTER
+)
 
 
 

@@ -32,9 +32,9 @@ __SYSDECL_BEGIN
 #define X86_RPC_REASON_FUSER     0x0000 /* The register contents follow no pattern (set for `RPC_REASON_ASYNC',
                                          * which has an context pointing to the arbitrary location where the
                                          * thread got interrupted) */
-#define X86_RPC_REASON_FINT80    0x0100 /* The register format describes an `int $0x80'-compatible system call. */
-#define X86_RPC_REASON_FSYSENTER 0x0200 /* The register format describes a `sysenter'-compatible system call. */
-#define X86_RPC_REASON_FPF       0x0300 /* The register format describes a `#PF'-compatible system call. */
+#define X86_RPC_REASON_FINT80    0x0100 /* The register format describes an `int $0x80' or `syscall'-compatible system call. */
+#define X86_RPC_REASON_FPF       0x0200 /* The register format describes a `#PF'-compatible system call. */
+#define X86_RPC_REASON_FSYSENTER 0x0300 /* The register format describes a `sysenter'-compatible system call. */
 
 
 

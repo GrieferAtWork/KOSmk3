@@ -1280,8 +1280,7 @@ task_enumerate_running(REF struct task **__restrict buf, size_t buf_length) {
 
 /* Mask for the arch-independent portion of `TASK_USERCTX_*'
  * Other bits are arch-specific and are usually used to identify
- * for format of registers.
- * On X86, that is one of `X86_SYSCALL_TYPE_F*' */
+ * for format of registers. */
 #define TASK_USERCTX_FMASK               0x00ff
 
 #define TASK_USERCTX_FLAG_FMASK          0x00f0 /* Mask for context flags. */
@@ -1349,7 +1348,7 @@ FUNDEF void FCALL task_restart_interrupt(struct cpu_anycontext *__restrict conte
 /* Same as `task_restart_interrupt()', but meant to be called from a
  * `CATCH(E_INTERRUPT)' block surrounding a system call invocation.
  * @param: mode: `TASK_USERCTX_TYPE_INTR_SYSCALL', optionally or'd with arch-
- *                dependent context flags (e.g.: on X86, `X86_SYSCALL_TYPE_F*') */
+ *                dependent context flags (e.g.: on X86, `TASK_USERCTX_REGS_F*') */
 struct cpu_hostcontext_user;
 FUNDEF void FCALL task_restart_syscall(struct cpu_hostcontext_user *__restrict context,
                                        unsigned int mode, syscall_ulong_t sysno);

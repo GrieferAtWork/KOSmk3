@@ -72,9 +72,7 @@ struct PACKED x86_idtentry {
 #define X86_IDTTYPE_80286_16_INTERRUPT_GATE 0x06
 #define X86_IDTTYPE_80286_16_TRAP_GATE      0x07
 #define X86_IDTTYPE_80386_32_INTERRUPT_GATE 0x0e
-#if !defined(__x86_64__) || 1 /* ??? */
 #define X86_IDTTYPE_80386_32_TRAP_GATE      0x0f
-#endif
 
 /* Different TASK vs. Interrupt gate:
  *   - Upon entry into an interrupt gate, #IF is disabled
@@ -97,9 +95,12 @@ struct PACKED x86_idtentry {
 
 
 /* Flags for `error_info()->e_error.e_flag' */
-#define X86_INTERRUPT_GUARD_FINTERRUPT  0x0000
-#define X86_INTERRUPT_GUARD_FSYSENTER   0x0100
-#define X86_INTERRUPT_GUARD_FSYSCALL    0x0200
+#define X86_INTERRUPT_GUARD_FINTERRUPT    0x0000 /* FLAG: This is just a plain, old system call. */
+#define X86_INTERRUPT_GUARD_FSYSCALL      0x0800 /* FLAG: The interrupt is used to invoke a system call and is therefor restartable. */
+#define X86_INTERRUPT_GUARD_FREGMASK      0x0300 /* MASK: The mask describing the register format. */
+#define X86_INTERRUPT_GUARD_FREG_INT80    0x0000 /* The register state is that of an `int 80h' or `syscall'-style system call. */
+#define X86_INTERRUPT_GUARD_FREG_PF       0x0100 /* The register state is that of an `#PF'-style system call. */
+#define X86_INTERRUPT_GUARD_FREG_SYSENTER 0x0200 /* The register state is that of an `sysenter'-style system call. */
 
 
 #ifdef __CC__
@@ -143,16 +144,11 @@ DATDEF struct exception_descriptor const x86_interrupt_guard;
                                  EXCEPTION_HANDLER_FDESCRIPTOR, \
                                  X86_INTERRUPT_GUARD_FINTERRUPT)
 #endif
-#define X86_DEFINE_SYSENTER_GUARD(begin,end) \
+#define X86_DEFINE_SYSCALL_GUARD(begin,end,format) \
       __DEFINE_EXCEPTION_HANDLER(begin,end,x86_interrupt_guard, \
                                  EXCEPTION_HANDLER_FDESCRIPTOR| \
                                  EXCEPTION_HANDLER_FUSERFLAGS, \
-                                 X86_INTERRUPT_GUARD_FSYSENTER)
-#define X86_DEFINE_SYSCALL_GUARD(begin,end) \
-      __DEFINE_EXCEPTION_HANDLER(begin,end,x86_interrupt_guard, \
-                                 EXCEPTION_HANDLER_FDESCRIPTOR| \
-                                 EXCEPTION_HANDLER_FUSERFLAGS, \
-                                 X86_INTERRUPT_GUARD_FSYSCALL)
+                                 X86_INTERRUPT_GUARD_FSYSCALL|(format))
 
 
 #ifdef __CC__

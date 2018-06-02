@@ -612,7 +612,8 @@ SYMEND(sysenter_kernel_entry_trace)
 .Lsyscall_except_guard_end = .
 X86_DEFINE_SYSCALL_GUARD(
 	.Lsyscall_except_guard_start,
-	.Lsyscall_except_guard_end
+	.Lsyscall_except_guard_end,
+	X86_INTERRUPT_GUARD_FREG_INT80
 )
 
 

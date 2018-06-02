@@ -472,7 +472,7 @@ restart_sysenter_syscall:
      /* Deal with system call restarts. */
      task_restart_syscall((struct cpu_hostcontext_user *)xcontext,
                            TASK_USERCTX_TYPE_WITHINUSERCODE|
-                           X86_SYSCALL_TYPE_FPF,
+                           TASK_USERCTX_REGS_FPF,
                            sysno);
      COMPILER_BARRIER();
      goto restart_sysenter_syscall;

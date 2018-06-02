@@ -37,7 +37,7 @@ struct PACKED signal_frame {
                                                   * binary compatibility when unwinding `signal_frame_ex') */
 #endif
     uintptr_t                      sf_mode;      /* The signal handler return mode (One of `TASK_USERCTX_F*',
-                                                  * or one of `X86_SYSCALL_TYPE_F*'). */
+                                                  * or one of `TASK_USERCTX_REGS_F*'). */
     struct user_exception_info     sf_except;    /* Return exception information. */
     mcontext_t                     sf_return;    /* Return context. */
     sigset_t                       sf_sigmask;   /* Return signal mask. */
@@ -54,7 +54,7 @@ struct PACKED signal_frame_ex {
             ucontext_t            *sf_contextp;  /* [== &sf_return] Signal context argument. */
 #endif
             uintptr_t              sf_mode;      /* The signal handler return mode (One of `TASK_USERCTX_F*',
-                                                  * or one of `X86_SYSCALL_TYPE_F*'). */
+                                                  * or one of `TASK_USERCTX_REGS_F*'). */
             struct user_exception_info sf_except;/* Return exception information. */
             ucontext_t             sf_return;    /* Signal return context. */
             siginfo_t              sf_info;      /* Signal information. */

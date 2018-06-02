@@ -575,16 +575,6 @@ SYMEND(irq_common)
 
 
 
-
-
-.section .rodata.interrupt_except
-INTERN_ENTRY(x86_interrupt_mode_select)
-	/* X86_INTERRUPT_GUARD_FINTERRUPT >> 8 */ .word  TASK_USERCTX_TYPE_INTR_INTERRUPT
-	/* X86_INTERRUPT_GUARD_FSYSENTER  >> 8 */ .word  TASK_USERCTX_TYPE_INTR_SYSCALL|X86_SYSCALL_TYPE_FSYSENTER
-	/* X86_INTERRUPT_GUARD_FSYSCALL   >> 8 */ .word  TASK_USERCTX_TYPE_INTR_SYSCALL|X86_SYSCALL_TYPE_FINT80
-SYMEND(x86_interrupt_mode_select)
-
-
 .section .text.interrupt_except
 INTERN_ENTRY(x86_interrupt_except)
 	.cfi_startproc simple
@@ -782,6 +772,8 @@ INTERN_ENTRY(x86_interrupt_except)
 	xchgb   %dl, %taskseg:TASK_OFFSETOF_SEGMENT+ \
 	                      TASK_SEGMENT_OFFSETOF_XCURRENT+ \
 	                      EXCEPTION_INFO_OFFSETOF_FLAG+1
+	andl    $((X86_INTERRUPT_GUARD_FSYSCALL|X86_INTERRUPT_GUARD_FREGMASK) >> 8), %edx
+	DEFINE_INTERN(x86_interrupt_mode_select)
 	movzwl  x86_interrupt_mode_select(,%edx,2), %edx /* mode */
 #if 1
 	/* Check if a system call should be restarted after an E_INTERRUPT. */
@@ -845,17 +837,12 @@ INTERN_ENTRY(x86_interrupt_except)
 	sti     /* Re-enable interrupts */
 #endif
 
-	testw   $(X86_SYSCALL_TYPE_FSYSENTER), %dx
-	jz      1f
 	.cfi_remember_state
-	popal_cfi_r
 	DEFINE_INTERN(sysenter_after_segments)
-	jmp     sysenter_after_segments
-	.cfi_restore_state
-1:
-	.cfi_remember_state
-	popal_cfi_r
 	DEFINE_INTERN(irq_80_after_segments)
+	cmpw    $(TASK_USERCTX_TYPE_INTR_SYSCALL|TASK_USERCTX_REGS_FSYSENTER), %dx
+	popal_cfi_r
+	je      sysenter_after_segments
 	jmp     irq_80_after_segments
 	.cfi_restore_state
 
