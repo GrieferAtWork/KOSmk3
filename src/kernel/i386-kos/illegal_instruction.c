@@ -396,7 +396,7 @@ x86_handle_illegal_instruction(struct x86_anycontext *__restrict context) {
 
 
   case 0x0f01:
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    /* LGDT and LIDT throw an #UD when a register operand is used. */
@@ -426,7 +426,7 @@ x86_handle_illegal_instruction(struct x86_anycontext *__restrict context) {
    syscall_ulong_t EXCEPT_VAR orig_esp;
   case 0x0f34:
    /* SYSENTER */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
 #if 0
    if unlikely(!is_user) goto generic_illegal_instruction;
@@ -482,7 +482,7 @@ restart_sysenter_syscall:
   } break;
 
   case 0x0f35:
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    /* SYSEXIT */
    if (is_user) goto privileged_instruction;
@@ -502,7 +502,7 @@ restart_sysenter_syscall:
   case 0x62:
    /* BOUND r16, m16&16     (Added with 80186/80188) */
    /* BOUND r32, m32&32     (Added with 80186/80188) */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    bounds_struct = X86_ModRmGetMem(context,&modrm,flags);
@@ -544,7 +544,7 @@ restart_sysenter_syscall:
    uintptr_t new_ebp;
   case 0xc8:
    /* ENTER imm16,imm8 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    frame_size     = *(u16 *)text,text += 2;
    nesting_level  = *(u8 *)text,text += 1;
@@ -606,7 +606,7 @@ restart_sysenter_syscall:
   {
   case 0xc9:
    /* LEAVE */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    if (is_user) {
     validate_readable((void *)((flags & F_AD16
@@ -634,7 +634,7 @@ restart_sysenter_syscall:
   {
   case 0x6c:
    /* INSB */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    if (is_user) goto privileged_instruction;
    if (!(flags & F_REP)) {
@@ -652,7 +652,7 @@ restart_sysenter_syscall:
   case 0x6d:
    /* INSW */
    /* INSD */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    if (is_user) goto privileged_instruction;
    if (!(flags & F_REP)) {
@@ -679,7 +679,7 @@ restart_sysenter_syscall:
   {
   case 0x6e:
    /* OUTSB */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    if (is_user) goto privileged_instruction;
    if (!(flags & F_REP)) {
@@ -699,7 +699,7 @@ restart_sysenter_syscall:
   case 0x6f:
    /* OUTSW */
    /* OUTSD */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    if (is_user) goto privileged_instruction;
    if (!(flags & F_REP)) {
@@ -731,7 +731,7 @@ restart_sysenter_syscall:
   {
   case 0x60:
    /* pushal */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    if (!is_user) {
     /* Special case for kernel-space emulation, because IRET wouldn't restore ESP */
@@ -787,7 +787,7 @@ restart_sysenter_syscall:
 
   {
   case 0x61:
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    if (!is_user) {
     /* Special case for kernel-space emulation, because IRET wouldn't restore ESP */
@@ -846,7 +846,7 @@ restart_sysenter_syscall:
    u32 value; register u16 temp;
   case 0x0fc8 ... 0x0fcf:
    /* BSWAP r32  -- Added with 80486 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    value = X86_GPREG(context,opcode - 0x0fc8);
    /* Use inline assembly so GCC doesn't optimize by
@@ -865,7 +865,7 @@ restart_sysenter_syscall:
 #ifndef __x86_64__ /* These were added by the 486. - Long before the time of x86_64 */
   case 0x0f08: /* INVD */
   case 0x0f09: /* WBINVD */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    if (is_user) goto privileged_instruction;
    pagedir_syncall(); /* What other instruction caches are there? */
@@ -876,7 +876,7 @@ restart_sysenter_syscall:
   case 0x0f1f:
    /* NOP r/m16  -- Added with SSE */
    /* NOP r/m32  -- Added with SSE */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    break;
@@ -886,7 +886,7 @@ restart_sysenter_syscall:
   case 0x0f40:
    /* CMOVO r16, r/m16 */
    /* CMOVO r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (context->c_eflags & OF) {
@@ -899,7 +899,7 @@ do_cmov:
   case 0x0f41:
    /* CMOVNO r16, r/m16 */
    /* CMOVNO r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (!(context->c_eflags & OF))
@@ -908,7 +908,7 @@ do_cmov:
   case 0x0f42:
    /* CMOVB r16, r/m16 */
    /* CMOVB r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (context->c_eflags & CF)
@@ -917,7 +917,7 @@ do_cmov:
   case 0x0f43:
    /* CMOVAE r16, r/m16 */
    /* CMOVAE r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (!(context->c_eflags & CF))
@@ -926,7 +926,7 @@ do_cmov:
   case 0x0f44:
    /* CMOVE r16, r/m16 */
    /* CMOVE r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (context->c_eflags & ZF)
@@ -935,7 +935,7 @@ do_cmov:
   case 0x0f45:
    /* CMOVNE r16, r/m16 */
    /* CMOVNE r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (!(context->c_eflags & ZF))
@@ -944,7 +944,7 @@ do_cmov:
   case 0x0f46:
    /* CMOVBE r16, r/m16 */
    /* CMOVBE r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if ((context->c_eflags & (CF|ZF)) == (CF|ZF))
@@ -953,7 +953,7 @@ do_cmov:
   case 0x0f47:
    /* CMOVA r16, r/m16 */
    /* CMOVA r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (!(context->c_eflags & (CF|ZF)))
@@ -962,7 +962,7 @@ do_cmov:
   case 0x0f48:
    /* CMOVS r16, r/m16 */
    /* CMOVS r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (context->c_eflags & SF)
@@ -971,7 +971,7 @@ do_cmov:
   case 0x0f49:
    /* CMOVNS r16, r/m16 */
    /* CMOVNS r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (!(context->c_eflags & SF))
@@ -980,7 +980,7 @@ do_cmov:
   case 0x0f4a:
    /* CMOVP r16, r/m16 */
    /* CMOVP r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (context->c_eflags & PF)
@@ -989,7 +989,7 @@ do_cmov:
   case 0x0f4b:
    /* CMOVNP r16, r/m16 */
    /* CMOVNP r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (!(context->c_eflags & PF))
@@ -998,7 +998,7 @@ do_cmov:
   case 0x0f4c:
    /* CMOVL r16, r/m16 */
    /* CMOVL r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (!!(context->c_eflags & SF) != !!(context->c_eflags & OF))
@@ -1007,7 +1007,7 @@ do_cmov:
   case 0x0f4d:
    /* CMOVGE r16, r/m16 */
    /* CMOVGE r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (!!(context->c_eflags & SF) == !!(context->c_eflags & OF))
@@ -1016,7 +1016,7 @@ do_cmov:
   case 0x0f4e:
    /* CMOVLE r16, r/m16 */
    /* CMOVLE r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if ((context->c_eflags & ZF) ||
@@ -1026,7 +1026,7 @@ do_cmov:
   case 0x0f4f:
    /* CMOVG r16, r/m16 */
    /* CMOVG r32, r/m32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (!(context->c_eflags & ZF) &&
@@ -1040,7 +1040,7 @@ do_cmov:
    struct cpu_cpuid const *features;
   case 0x0fa2:
    /* CPUID */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    features = &CPU_FEATURES;
    switch (context->c_gpregs.gp_eax) {
@@ -1126,7 +1126,7 @@ do_cmov:
 #endif
    ATTR_FALLTHROUGH
   case 0x0f30: /* WRMSR */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    if (is_user) goto privileged_instruction;
    info = error_info();
@@ -1142,7 +1142,7 @@ do_cmov:
 #ifndef __x86_64__ /* Added by PENTIUM. - Long before x86_64 */
   case 0x0f31:
 do_rdtsc:
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    /* RDTSC */
    /* TODO: This can be emulated by combining jiffies with the remainder
@@ -1156,7 +1156,7 @@ do_rdtsc:
 
 #ifndef __x86_64__ /* Added by SSE. - Which is mandatory for x86_64 */
   case 0x0fae:
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    if (*text == 0xf8 || /* sfence */
        *text == 0xe8 || /* lfence */
@@ -1179,7 +1179,7 @@ do_rdtsc:
 
   case 0x0fc3:
    /* MOVNTI m32, r32 */
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (modrm.mi_type != MODRM_MEMORY)
@@ -1196,7 +1196,7 @@ do_rdtsc:
 
 
   case 0x0f18:
-   if (flags & F_LOCK)
+   if (flags & (F_LOCK|F_REP|F_REPNE))
        goto generic_illegal_instruction;
    text = X86_ModRmDecode(text,&modrm,flags);
    if (modrm.mi_type != MODRM_MEMORY)
@@ -1209,6 +1209,90 @@ do_rdtsc:
    /* PREFETCHNTA m8 */
    break;
 
+#ifdef __x86_64__
+  {
+   typedef union {
+      u32 lohi[2];
+      u64 val64;
+   } LOHI64;
+   LOHI64 temp;
+  case 0x0fae:
+   if (flags & (F_LOCK|F_REPNE))
+       goto generic_illegal_instruction;
+   if (!(flags & F_REP))
+       goto generic_illegal_instruction;
+   text = X86_ModRmDecode(text,&modrm,flags);
+   switch (modrm.mi_reg) {
+   case 0:
+    if (modrm.mi_type != MODRM_REGISTER)
+        goto illegal_addressing_mode;
+    if (flags & F_REX_W) {
+     /* rdfsbase %r64 */
+     __asm__ __volatile__("rdmsr"
+                          : "=a" (temp.lohi[0])
+                          , "=d" (temp.lohi[1])
+                          : "c" (IA32_FS_BASE));
+    } else {
+     /* rdfsbase %r32 */
+     __asm__ __volatile__("rdmsr"
+                          : "=a" (temp.lohi[0])
+                          : "c" (IA32_FS_BASE)
+                          : "edx");
+     temp.lohi[1] = 0;
+    }
+    MODRM_MEMQ = temp.val64;
+    break;
+   case 1:
+    if (modrm.mi_type != MODRM_REGISTER)
+        goto illegal_addressing_mode;
+    if (flags & F_REX_W) {
+     /* rdgsbase %r64 */
+     __asm__ __volatile__("rdmsr"
+                          : "=a" (temp.lohi[0])
+                          , "=d" (temp.lohi[1])
+                          : "c" (IA32_KERNEL_GS_BASE));
+    } else {
+     /* rdgsbase %r32 */
+     __asm__ __volatile__("rdmsr"
+                          : "=a" (temp.lohi[0])
+                          : "c" (IA32_KERNEL_GS_BASE)
+                          : "edx");
+     temp.lohi[1] = 0;
+    }
+    MODRM_MEMQ = temp.val64;
+    break;
+   case 2:
+    if (modrm.mi_type != MODRM_REGISTER)
+        goto illegal_addressing_mode;
+    temp.val64 = MODRM_MEMQ;
+    /* wrfsbase %r32 / %r64 */
+    if (!(flags & F_REX_W))
+          temp.lohi[1] = 0;
+    __asm__ __volatile__("wrmsr"
+                         :
+                         : "a" (temp.lohi[0])
+                         , "d" (0)
+                         , "c" (IA32_FS_BASE));
+    break;
+   case 3:
+    if (modrm.mi_type != MODRM_REGISTER)
+        goto illegal_addressing_mode;
+    /* wrgsbase %r32 / %r64 */
+    temp.val64 = MODRM_MEMQ;
+    if (!(flags & F_REX_W))
+          temp.lohi[1] = 0;
+    __asm__ __volatile__("wrmsr"
+                         :
+                         : "a" (temp.lohi[0])
+                         , "d" (temp.lohi[1])
+                         , "c" ((context->c_cs & 3)
+                               ? IA32_KERNEL_GS_BASE
+                               : IA32_GS_BASE));
+    break;
+   default: goto generic_illegal_instruction;
+   }
+  } break;
+#endif
 
   default: goto generic_illegal_instruction;
   }
