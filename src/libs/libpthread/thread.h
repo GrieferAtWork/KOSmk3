@@ -125,6 +125,9 @@ INTDEF void LIBPCALL Xthread_yield(void);
 INTDEF void LIBPCALL Xthread_setaffinity_np(Thread *__restrict self, size_t cpusetsize, __cpu_set_t const *cpuset);
 INTDEF void LIBPCALL Xthread_getaffinity_np(Thread *__restrict self, size_t cpusetsize, __cpu_set_t *cpuset);
 
+INTDEF int LIBPCALL thread_rpc(Thread *__restrict self, unsigned int (LIBCCALL *func)(void *arg), void *arg, unsigned int mode);
+INTDEF bool LIBPCALL Xthread_rpc(Thread *__restrict self, unsigned int (LIBCCALL *func)(void *arg), void *arg, unsigned int mode);
+
 
 DECL_END
 

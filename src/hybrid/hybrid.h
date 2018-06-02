@@ -949,7 +949,6 @@ INTDEF void LIBCCALL libc_error_vprintf(char const *__restrict reason, va_list a
 INTDEF errno_t FCALL libc_exception_errno(struct exception_info *__restrict info);
 #ifndef CONFIG_LIBC_LIMITED_API
 INTDEF int (FCALL libc_except_errno)(void);
-#define libc_except_errno() (libc_except_errno(),EXCEPT_EXECUTE_HANDLER)
 INTDEF errno_t FCALL libc_except_geterrno(void);
 INTDEF void ATTR_CDECL libc_error_fprintf(__FILE *__restrict fp, char const *__restrict reason, ...);
 INTDEF void LIBCCALL libc_error_vfprintf(__FILE *__restrict fp, char const *__restrict reason, va_list args);

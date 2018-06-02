@@ -73,7 +73,12 @@ __REDIRECT_EXCEPT_XVOID(__LIBC,__PORT_NODOS,int,__LIBCCALL,sched_setparam,(__pid
 __REDIRECT_EXCEPT_XVOID(__LIBC,__PORT_NODOS,int,__LIBCCALL,sched_getparam,(__pid_t __pid, struct sched_param *__param),(__pid,__param))
 __REDIRECT_EXCEPT_XVOID(__LIBC,__PORT_NODOS,int,__LIBCCALL,sched_setscheduler,(__pid_t __pid, int __policy, struct sched_param const *__param),(__pid,__policy,__param))
 __REDIRECT_EXCEPT(__LIBC,__PORT_NODOS,int,__LIBCCALL,sched_getscheduler,(__pid_t __pid),(__pid))
+
+/* @return: 1: Another thread was executed prior to the function returning.
+ *             The thread may not necessarily be apart of the calling process.
+ * @return: 0: The function returned immediately when no other thread was executed. */
 __REDIRECT_EXCEPT(__LIBC,__PORT_NODOS,int,__LIBCCALL,sched_yield,(void),())
+
 __LIBC __PORT_NODOS int (__LIBCCALL sched_get_priority_max)(int __algorithm);
 __LIBC __PORT_NODOS int (__LIBCCALL sched_get_priority_min)(int __algorithm);
 __REDIRECT_EXCEPT_XVOID(__LIBC,__PORT_NODOS,int,__LIBCCALL,sched_setaffinity,(__pid_t __pid, __size_t __cpusetsize, cpu_set_t const *__cpuset),(__pid,__cpusetsize,__cpuset))

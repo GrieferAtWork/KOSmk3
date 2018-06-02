@@ -232,6 +232,31 @@ __LIBP void (__LIBPCALL Xpthread_setconcurrency)(int __level);
 #endif /* __USE_EXCEPT */
 #endif
 
+#ifdef __USE_KOS
+#define PTHREAD_RPC_FSYNCHRONOUS  0x0000 /* s.a. `RPC_FSYNCHRONOUS' */
+#define PTHREAD_RPC_FASYNCHRONOUS 0x0001 /* s.a. `RPC_FASYNCHRONOUS' */
+#define PTHREAD_RPC_FWAITACK      0x0002 /* s.a. `RPC_FWAITACK' */
+#define PTHREAD_RPC_FWAITFOR      0x0004 /* s.a. `RPC_FWAITFOR' */
+
+#define PTHREAD_RPC_RETURN_RESTART         0 /* s.a. `RPC_RETURN_RESTART' */
+#define PTHREAD_RPC_RETURN_FORCE_RESTART   1 /* s.a. `RPC_RETURN_FORCE_RESTART' */
+#define PTHREAD_RPC_RETURN_INTERRUPT       2 /* s.a. `RPC_RETURN_INTERRUPT' */
+#define PTHREAD_RPC_RETURN_RESUME          3 /* s.a. `RPC_RETURN_RESUME' */
+
+
+/* KOS extension for pthreads: queue RPC functions.
+ * These functions are simply wrappers around the kos-specific function `queue_rpc()' */
+__LIBP __WUNUSED int (__LIBPCALL pthread_rpc)(pthread_t __th,
+                                              unsigned int (__LIBCCALL *__func)(void *__arg),
+                                              void *__arg, unsigned int __mode);
+#ifdef __USE_EXCEPT
+__LIBP __WUNUSED __BOOL (__LIBPCALL Xpthread_rpc)(pthread_t __th,
+                                                  unsigned int (__LIBCCALL *__func)(void *__arg),
+                                                  void *__arg, unsigned int __mode);
+#endif /* __USE_EXCEPT */
+#endif /* __USE_KOS */
+
+
 #ifdef __USE_GNU
 __LIBP __errno_t (__LIBPCALL pthread_yield)(void);
 __LIBP __NONNULL((3)) __errno_t (__LIBPCALL pthread_setaffinity_np)(pthread_t __th, size_t __cpusetsize, cpu_set_t const *__cpuset);

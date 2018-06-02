@@ -26,6 +26,7 @@
 #include "libpthread.h"
 #include "thread.h"
 #include <sys/wait.h>
+#include <kos/rpc.h>
 #include <malloc.h>
 #include <except.h>
 #include <sched.h>
@@ -67,8 +68,9 @@ thread_create(Thread **__restrict presult,
  errno_t result = 0;
  TRY {
   *presult = thread_Xcreate(attr,entry,arg);
- } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  result = except_geterrno();
+ } EXCEPT ((result = except_geterrno()) != 0
+          ? EXCEPT_EXECUTE_HANDLER
+          : EXCEPT_CONTINUE_SEARCH) {
  }
  return result;
 }
@@ -190,8 +192,9 @@ thread_join(Thread *__restrict self, void **thread_return) {
   exitcode = thread_Xjoin(self);
   if (thread_return)
      *thread_return = exitcode;
- } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  result = except_geterrno();
+ } EXCEPT ((result = except_geterrno()) != 0
+          ? EXCEPT_EXECUTE_HANDLER
+          : EXCEPT_CONTINUE_SEARCH) {
  }
  return result;
 }
@@ -220,8 +223,9 @@ thread_timedjoin64(Thread *__restrict self, void **thread_return,
  TRY {
   if (!thread_Xtimedjoin64(self,thread_return,abstime))
        result = EBUSY;
- } EXCEPT (EXCEPT_EXECUTE_HANDLER) {
-  result = except_geterrno();
+ } EXCEPT ((result = except_geterrno()) != 0
+          ? EXCEPT_EXECUTE_HANDLER
+          : EXCEPT_CONTINUE_SEARCH) {
  }
  return result;
 }
@@ -457,6 +461,26 @@ Xthread_getaffinity_np(Thread *__restrict self,
  Xsched_getaffinity(tid,cpusetsize,cpuset);
 }
 
+
+EXPORT(pthread_rpc,thread_rpc);
+INTDEF int LIBPCALL
+thread_rpc(Thread *__restrict self,
+           unsigned int (LIBCCALL *func)(void *arg),
+           void *arg, unsigned int mode) {
+ pid_t tid = ATOMIC_READ(self->t_tid);
+ if (!tid) return 0;
+ return queue_rpc(tid,func,arg,mode);
+}
+
+EXPORT(Xpthread_rpc,Xthread_rpc);
+INTDEF bool LIBPCALL
+Xthread_rpc(Thread *__restrict self,
+            unsigned int (LIBCCALL *func)(void *arg),
+            void *arg, unsigned int mode) {
+ pid_t tid = ATOMIC_READ(self->t_tid);
+ if (!tid) return 0;
+ return Xqueue_rpc(tid,func,arg,mode);
+}
 
 
 DECL_END

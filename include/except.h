@@ -372,12 +372,19 @@ do{ struct exception_info __push_info; \
 typedef int errno_t;
 #endif /* !__errno_t_defined */
 
-/* Translate exception information into an ERRNO value. */
+/* Translate exception information into an ERRNO value.
+ * @return: 0 : The exception cannot be translated into an errno (RTL-priority)
+ *              This happens for exceptions such as `E_EXIT_THREAD', who's sole
+ *              purpose is to be propagated along the stack and not be stopped
+ *              by another other than a handler that explicitly wishes to deal
+ *              with the exception.
+ * @return: * : One of `E*' (from `<errno.h>') */
 __LIBC errno_t (__FCALL exception_errno)(struct exception_info *__restrict __info);
 
 #ifndef __KERNEL__
 /* Translate the current exception into an ERRNO and save it as the `errno'
- * value of the calling thread, before returning `EXCEPT_EXECUTE_HANDLER'.
+ * value of the calling thread, before returning `EXCEPT_EXECUTE_HANDLER'
+ * or `EXCEPT_CONTINUE_SEARCH' if the exception is of RTL level.
  * This function is intended to be used in EXCEPT() statements to translate
  * exceptions to posix-compatible errno values:
  * >> TRY {
@@ -390,11 +397,14 @@ __LIBC errno_t (__FCALL exception_errno)(struct exception_info *__restrict __inf
  * This functionality is used by libc for implementing wrappers
  * around system calls that require large setup / teardown. */
 __LIBC int (__FCALL except_errno)(void);
-#ifndef __INTELLISENSE__
-#define except_errno()    (except_errno(),EXCEPT_EXECUTE_HANDLER)
-#endif
 
-/* Return the `errno' value of the currently active exception. */
+/* Return the `errno' value of the currently active exception.
+ * @return: 0 : The exception cannot be translated into an errno (RTL-priority)
+ *              This happens for exceptions such as `E_EXIT_THREAD', who's sole
+ *              purpose is to be propagated along the stack and not be stopped
+ *              by another other than a handler that explicitly wishes to deal
+ *              with the exception.
+ * @return: * : One of `E*' (from `<errno.h>') */
 __LIBC errno_t (__FCALL except_geterrno)(void);
 #endif /* !__KERNEL__ */
 

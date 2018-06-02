@@ -32,7 +32,10 @@ __SYSDECL_BEGIN
 
 #ifdef __USE_GNU
 
-__LIBC __PORT_KOSONLY void (__LIBCCALL Xsched_yield)(void);
+/* @return: 0: Another thread was executed prior to the function returning.
+ *             The thread may not necessarily be apart of the calling process.
+ * @return: 1: The function returned immediately when no other thread was executed. */
+__LIBC __PORT_KOSONLY int (__LIBCCALL Xsched_yield)(void);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xsched_setparam)(__pid_t __pid, struct sched_param const *__param);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xsched_getparam)(__pid_t __pid, struct sched_param *__param);
 __LIBC __PORT_KOSONLY void (__LIBCCALL Xsched_setscheduler)(__pid_t __pid, int __policy, struct sched_param const *__param);

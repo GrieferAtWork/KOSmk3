@@ -100,10 +100,10 @@ fast_waitfor_rpc_wrapper(struct fast_waitfor_rpc_data *__restrict data) {
 
 
 
-EXPORT(queue_rpc,libc_queue_rpc);
+EXPORT(Xqueue_rpc,libc_Xqueue_rpc);
 CRT_KOS bool LIBCCALL
-libc_queue_rpc(pid_t pid, rpc_t func, void *arg,
-               unsigned int mode) {
+libc_Xqueue_rpc(pid_t pid, rpc_t func, void *arg,
+                unsigned int mode) {
  struct cpu_context context;
  bool result;
  if (mode & ~(RPC_FSYNCHRONOUS|RPC_FASYNCHRONOUS|RPC_FWAITACK|RPC_FWAITFOR))
@@ -216,10 +216,10 @@ full_waitfor_rpc_wrapper(struct full_waitfor_rpc_data *__restrict data,
 
 
 
-EXPORT(queue_interrupt,libc_queue_interrupt);
+EXPORT(Xqueue_interrupt,libc_Xqueue_interrupt);
 CRT_KOS bool LIBCCALL
-libc_queue_interrupt(pid_t pid, rpc_interrupt_t func,
-                     void *arg, unsigned int mode) {
+libc_Xqueue_interrupt(pid_t pid, rpc_interrupt_t func,
+                      void *arg, unsigned int mode) {
  struct cpu_context context;
  bool result;
  if (mode & ~(RPC_FSYNCHRONOUS|RPC_FASYNCHRONOUS|RPC_FWAITACK|RPC_FWAITFOR))
@@ -284,6 +284,32 @@ libc_queue_interrupt(pid_t pid, rpc_interrupt_t func,
  return result;
 }
 
+
+EXPORT(queue_rpc,libc_queue_rpc);
+CRT_KOS int LIBCCALL
+libc_queue_rpc(pid_t pid, rpc_t func, void *arg,
+               unsigned int mode) {
+ int COMPILER_IGNORE_UNINITIALIZED(result);
+ LIBC_TRY {
+  result = (int)libc_Xqueue_rpc(pid,func,arg,mode);
+ } EXCEPT (libc_except_errno()) {
+  result = -1;
+ }
+ return result;
+}
+
+EXPORT(queue_interrupt,libc_queue_interrupt);
+CRT_KOS int LIBCCALL
+libc_queue_interrupt(pid_t pid, rpc_interrupt_t func,
+                     void *arg, unsigned int mode) {
+ int COMPILER_IGNORE_UNINITIALIZED(result);
+ LIBC_TRY {
+  result = (int)libc_Xqueue_interrupt(pid,func,arg,mode);
+ } EXCEPT (libc_except_errno()) {
+  result = -1;
+ }
+ return result;
+}
 
 
 DECL_END

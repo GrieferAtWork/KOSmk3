@@ -150,14 +150,20 @@ typedef unsigned int (__LIBCCALL *rpc_interrupt_t)(void *__arg, struct cpu_conte
 #ifndef __KERNEL__
 /* Queue an RPC callback, or interrupt, to-be executed the thread `PID'.
  * @param: MODE:   Set of `RPC_F*'
- * @return: true:  The RPC was successfully enqueued.
- *                 WARNING: Unless `RPC_FWAITFOR' is passed as well, there is no way
- *                          of confirming that the RPC finished, or even started.
- * @return: false: The thread terminated before execution of the RPC could be completed.
+ * @return: true / >0: The RPC was successfully enqueued.
+ *                     WARNING: Unless `RPC_FWAITFOR' is passed as well, there is no way
+ *                              of confirming that the RPC finished, or even started.
+ * @return: false / 0: The thread terminated before execution of the RPC could be completed.
+ * @return: -1:       [queue_rpc] See errno.
  * @throw: E_BADALLOC:       Failed to allocate the internal descriptor for the RPC.
  * @throw: E_SEGFAULT:       The given `JOB' is faulty.
  * @throw: E_PROCESS_EXITED: The given PID is invalid, or the associated thread was detached and died. */
-__LIBC __BOOL (__LIBCCALL queue_rpc)(__pid_t __pid, rpc_t __func, void *__arg, unsigned int __mode);
+__REDIRECT_EXCEPT(__LIBC,,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,queue_rpc,
+                 (__pid_t __pid, rpc_t __func, void *__arg, unsigned int __mode),
+                 (__pid,__func,__arg,__mode))
+#ifdef __USE_EXCEPT
+__LIBC __BOOL (__LIBCCALL Xqueue_rpc)(__pid_t __pid, rpc_t __func, void *__arg, unsigned int __mode);
+#endif /* __USE_EXCEPT */
 
 /* Same as `queue_rpc()', but the queued function is
  * invoked with 3 arguments, rather than a single.
@@ -166,14 +172,20 @@ __LIBC __BOOL (__LIBCCALL queue_rpc)(__pid_t __pid, rpc_t __func, void *__arg, u
  * using this one, an RPC is able to manipulate the location
  * where the RPC will return to (s.a. `RPC_RETURN_RESUME')
  * @param: MODE:   Set of `RPC_F*'
- * @return: true:  The RPC was successfully enqueued.
- *                 WARNING: Unless `RPC_FWAITFOR' is passed as well, there is no way
- *                          of confirming that the RPC finished, or even started.
- * @return: false: The thread terminated before execution of the RPC could be completed.
+ * @return: true / >0: The RPC was successfully enqueued.
+ *                     WARNING: Unless `RPC_FWAITFOR' is passed as well, there is no way
+ *                              of confirming that the RPC finished, or even started.
+ * @return: false / 0: The thread terminated before execution of the RPC could be completed.
+ * @return: -1:       [queue_interrupt] See errno.
  * @throw: E_BADALLOC:       Failed to allocate the internal descriptor for the RPC.
  * @throw: E_SEGFAULT:       The given `JOB' is faulty.
  * @throw: E_PROCESS_EXITED: The given PID is invalid, or the associated thread was detached and died. */
-__LIBC __BOOL (__LIBCCALL queue_interrupt)(__pid_t __pid, rpc_interrupt_t __func, void *__arg, unsigned int __mode);
+__REDIRECT_EXCEPT(__LIBC,,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,queue_interrupt,
+                 (__pid_t __pid, rpc_interrupt_t __func, void *__arg, unsigned int __mode),
+                 (__pid,__func,__arg,__mode))
+#ifdef __USE_EXCEPT
+__LIBC __BOOL (__LIBCCALL Xqueue_interrupt)(__pid_t __pid, rpc_interrupt_t __func, void *__arg, unsigned int __mode);
+#endif /* __USE_EXCEPT */
 #endif /* !__KERNEL__ */
 #endif /* __CC__ */
 #define RPC_FSYNCHRONOUS  0x0000 /* The RPC will be served once the thread attempts a blocking operation.
@@ -208,21 +220,30 @@ __LIBC __BOOL (__LIBCCALL queue_interrupt)(__pid_t __pid, rpc_interrupt_t __func
  *       returned, also), but also note that new ones may be scheduled by other
  *       threads before the functions returns, at which point they can still be
  *       served at any arbitrary point in time.
- * @return: true:  RPC jobs have been served. (meaning that the
- *                 states of thread-local variables may have changed)
- * @return: false: Nothing was served.
- * @throw: * :     An exception thrown by an RPC callback.
+ * @return: true / 1:  RPC jobs have been served. (meaning that the
+ *                     states of thread-local variables may have changed)
+ * @return: false / 0: Nothing was served.
+ * @return: -1:       [rpc_serve] See errno.
+ * @throw: * :         An exception thrown by an RPC callback.
  * NOTE: Just so you know, synchronous RPCs are
  *       _NOT_ served by calls to `sched_yield()'! */
-__LIBC __BOOL (__LIBCCALL rpc_serve)(void);
+__REDIRECT_EXCEPT(__LIBC,,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,rpc_serve,(void),())
+#ifdef __USE_EXCEPT
+__LIBC __BOOL (__LIBCCALL Xrpc_serve)(void);
+#endif /* __USE_EXCEPT */
 
 /* Recursively disable reception of asynchronous RPC callbacks.
  * NOTE: This also temporarily disables delivery of asynchronous
  *       posix signals with the exception of `SIGKILL' and `SIGSTOP'
- * @return: true:  The ASYNC-RPC-serve state changed.
- * @return: false: The ASYNC-RPC-serve state didn't change. */
+ * @return: true / 1:  The ASYNC-RPC-serve state changed.
+ * @return: false / 0: The ASYNC-RPC-serve state didn't change.
+ * @return: -1:       [rpc_pop] See errno.
+ * @throw: * :         An exception thrown by an RPC callback. */
 __LIBC __ATTR_NOTHROW __BOOL (__LIBCCALL rpc_pushoff)(void);
-__LIBC __BOOL (__LIBCCALL rpc_pop)(void);
+__REDIRECT_EXCEPT(__LIBC,,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,rpc_pop,(void),())
+#ifdef __USE_EXCEPT
+__LIBC __BOOL (__LIBCCALL Xrpc_pop)(void);
+#endif /* __USE_EXCEPT */
 #endif /* !__KERNEL__ */
 
 
@@ -235,20 +256,26 @@ __LIBC __BOOL (__LIBCCALL rpc_pop)(void);
  *          part of the same VM, or at the very least in a VM who's
  *          address space layout is known to the sender.
  * @param: MODE: Set of `JOB_F*'
- * @return: true:               The job was successfully enqueued.
- * @return: false:              The thread terminated before execution of the job could be completed.
+ * @return: true / 1:           The job was successfully enqueued.
+ * @return: false / 0:          The thread terminated before execution of the job could be completed.
+ * @return: -1:                [queue_job] See errno.
  * @throw: E_BADALLOC:          Failed to allocate the internal descriptor for the job.
  * @throw: E_SEGFAULT:          The given `JOB' is faulty.
  * @throw: E_PROCESS_EXITED:    The given `PID' is invalid, or the associated thread was detached and died.
  * @throw: E_ILLEGAL_OPERATION: The process does not have permission to send signals to `PID'
  *                              The permission checking here is done the same way it is done for `kill(2)' */
-__LIBC __BOOL (__LIBCCALL queue_job)(__pid_t __pid, struct cpu_context const *__restrict __job, unsigned int __mode);
+__REDIRECT_EXCEPT(__LIBC,,__EXCEPT_SELECT(__BOOL,int),__LIBCCALL,queue_job,
+                 (__pid_t __pid, struct cpu_context const *__restrict __job, unsigned int __mode),
+                 (__pid,__job,__mode))
+#ifdef __USE_EXCEPT
+__LIBC __BOOL (__LIBCCALL Xqueue_job)(__pid_t __pid, struct cpu_context const *__restrict __job, unsigned int __mode);
+#endif /* __USE_EXCEPT */
 #endif /* !__KERNEL__ */
 #endif /* __CC__ */
 #define JOB_FSYNCHRONOUS  RPC_FSYNCHRONOUS  /* Serve the job synchronously */
 #define JOB_FASYNCHRONOUS RPC_FASYNCHRONOUS /* Serve the job asynchronously */
 #define JOB_FWAITACK      RPC_FWAITACK      /* Wait for ACK */
-#define JOB_FPRESERVE     0xff00 /* Arch-specific mask of what to push onto the job's
+#define JOB_FPRESERVE     0xff00 /* Arch-specific mask of what to push onto the target's
                                   * stack, as well as which registers to load from `JOB'.
                                   * On X86, this is a set of `X86_JOB_FSAVE_*' and `X86_JOB_FLOAD_*' */
 

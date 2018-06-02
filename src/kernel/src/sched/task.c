@@ -645,7 +645,7 @@ again_newvm:
 
 DEFINE_SYSCALL_DONTRESTART(sched_yield);
 DEFINE_SYSCALL0(sched_yield) {
- return task_tryyield() ? 0 : -EAGAIN;
+ return (task_tryyield)();
 }
 
 #if 1

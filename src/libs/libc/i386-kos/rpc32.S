@@ -50,12 +50,25 @@ INTERN_ENTRY(libc_rpc_pop)
 	setz %al
 	jnz  1f
 	pushl_cfi $0
-	call Xsys_xnosignal
+	call Esys_xnosignal
 	addl $4, %esp
 	.cfi_adjust_cfa_offset -4
 1:	ret
 SYMEND(libc_rpc_pop)
 EXPORT(rpc_pop,libc_rpc_pop)
+
+INTERN_ENTRY(libc_Xrpc_pop)
+	xorl %eax, %eax
+	decl %taskseg:TASK_SEGMENT_OFFSETOF_NO_RPC
+	setz %al
+	jnz  1f
+	pushl_cfi $0
+	call Xsys_xnosignal
+	addl $4, %esp
+	.cfi_adjust_cfa_offset -4
+1:	ret
+SYMEND(libc_Xrpc_pop)
+EXPORT(Xrpc_pop,libc_Xrpc_pop)
 .cfi_endproc
 
 

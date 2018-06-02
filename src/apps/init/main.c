@@ -143,13 +143,13 @@ void test_rpc(void) {
         NULL,
        &child_pid);
  syslog(LOG_DEBUG,"#1\n");
- while (!sched_yield());
+ while (sched_yield());
  syslog(LOG_DEBUG,"#3\n");
 //  syslog(LOG_DEBUG,"SCHEDULE FIRST RPC -- %d\n",sched_yield());
 //  syslog(LOG_DEBUG,"SCHEDULE FIRST RPC -- %d\n",sched_yield());
- queue_rpc(child_pid,&my_rpc,(void *)1,RPC_FSYNCHRONOUS|RPC_FWAITFOR);
- queue_rpc(child_pid,&my_rpc,(void *)2,RPC_FSYNCHRONOUS|RPC_FWAITFOR);
- queue_rpc(child_pid,&my_rpc,(void *)3,RPC_FSYNCHRONOUS|RPC_FWAITFOR);
+ Xqueue_rpc(child_pid,&my_rpc,(void *)1,RPC_FSYNCHRONOUS|RPC_FWAITFOR);
+ Xqueue_rpc(child_pid,&my_rpc,(void *)2,RPC_FSYNCHRONOUS|RPC_FWAITFOR);
+ Xqueue_rpc(child_pid,&my_rpc,(void *)3,RPC_FSYNCHRONOUS|RPC_FWAITFOR);
  Xwaitpid(child_pid,NULL,WEXITED);
 }
 

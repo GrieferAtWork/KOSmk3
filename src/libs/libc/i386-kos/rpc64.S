@@ -48,10 +48,21 @@ INTERN_ENTRY(libc_rpc_pop)
 	setz   %al
 	jnz    1f
 	movq   $0, %rdi
-	jmp    Xsys_xnosignal
+	jmp    Esys_xnosignal
 1:	ret
 SYMEND(libc_rpc_pop)
 EXPORT(rpc_pop,libc_rpc_pop)
+
+INTERN_ENTRY(libc_Xrpc_pop)
+	xorq   %rax, %rax
+	decq   %taskseg:TASK_SEGMENT_OFFSETOF_NO_RPC
+	setz   %al
+	jnz    1f
+	movq   $0, %rdi
+	jmp    Xsys_xnosignal
+1:	ret
+SYMEND(libc_Xrpc_pop)
+EXPORT(Xrpc_pop,libc_Xrpc_pop)
 .cfi_endproc
 
 
