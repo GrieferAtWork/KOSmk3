@@ -46,7 +46,7 @@
 #define CFI_ENDPROC   .cfi_endproc
 #endif
 
-#define SYSCALL_ERRNO_TAIL(error) \
+#define SYSENTER_ERRNO_TAIL(error) \
 	cmpl  $__ERRNO_THRESHOLD32, %eax; \
 	jae   error
 
@@ -58,29 +58,29 @@
 .align PAGESIZE
 INTERN_ENTRY(x86_ushare_sysenter)
 CFI_STARTPROC
-1:	/* SYSCALL_0 */
+1:	/* SYSENTER_0 */
 	int   $0x80
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_1 */
+1:	/* SYSENTER_1 */
 	pushl_cfi_r %ebx
 	movl  8(%esp), %ebx
 	int   $0x80
 	popl_cfi_r  %ebx
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_2 */
+1:	/* SYSENTER_2 */
 	pushl_cfi_r %ebx
 	movl  8(%esp), %ebx
 	movl  12(%esp), %ecx
 	int   $0x80
 	popl_cfi_r  %ebx
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_3 */
+1:	/* SYSENTER_3 */
 	pushl_cfi_r %ebx
 	movl  8(%esp), %ebx
 	movl  12(%esp), %ecx
@@ -88,9 +88,9 @@ CFI_STARTPROC
 	int   $0x80
 	popl_cfi_r  %ebx
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_4 */
+1:	/* SYSENTER_4 */
 	pushl_cfi_r %esi
 	pushl_cfi_r %ebx
 	movl  12(%esp), %ebx
@@ -101,9 +101,9 @@ CFI_STARTPROC
 	popl_cfi_r  %ebx
 	popl_cfi_r  %esi
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_5 */
+1:	/* SYSENTER_5 */
 	pushl_cfi_r %edi
 	pushl_cfi_r %esi
 	pushl_cfi_r %ebx
@@ -117,9 +117,9 @@ CFI_STARTPROC
 	popl_cfi_r  %esi
 	popl_cfi_r  %edi
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_6 */
+1:	/* SYSENTER_6 */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %esi
@@ -136,9 +136,9 @@ CFI_STARTPROC
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL */
+1:	/* SYSENTER */
 	/* Save callee-save registers */
 	pushl_cfi_r %ebx
 	pushl_cfi_r %edi
@@ -164,51 +164,51 @@ CFI_STARTPROC
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebx
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_0_ERRNO */
+1:	/* SYSENTER_0_ERRNO */
 	int   $0x80
-	SYSCALL_ERRNO_TAIL(.syscall_int80_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_int80_errno)
 	ret
-.syscall_int80_errno:
+.sysenter_int80_errno:
 	negl  %eax
 	movl  %eax, %Utaskseg:t_errno
 	movb  $__X86_TASK_ERRNO_FKOS, %Utaskseg:t_eformat
 	movl  $-1, %eax
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_1_ERRNO */
+1:	/* SYSENTER_1_ERRNO */
 	pushl_cfi_r %ebx
 	movl  8(%esp), %ebx
 	int   $0x80
 	popl_cfi_r  %ebx
-	SYSCALL_ERRNO_TAIL(.syscall_int80_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_int80_errno)
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_2_ERRNO */
+1:	/* SYSENTER_2_ERRNO */
 	pushl_cfi_r %ebx
 	movl  8(%esp), %ebx
 	movl  12(%esp), %ecx
 	int   $0x80
 	popl_cfi_r  %ebx
-	SYSCALL_ERRNO_TAIL(.syscall_int80_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_int80_errno)
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_3_ERRNO */
+1:	/* SYSENTER_3_ERRNO */
 	pushl_cfi_r %ebx
 	movl  8(%esp), %ebx
 	movl  12(%esp), %ecx
 	movl  16(%esp), %edx
 	int   $0x80
 	popl_cfi_r  %ebx
-	SYSCALL_ERRNO_TAIL(.syscall_int80_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_int80_errno)
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_4_ERRNO */
+1:	/* SYSENTER_4_ERRNO */
 	pushl_cfi_r %esi
 	pushl_cfi_r %ebx
 	movl  12(%esp), %ebx
@@ -218,11 +218,11 @@ CFI_STARTPROC
 	int   $0x80
 	popl_cfi_r  %ebx
 	popl_cfi_r  %esi
-	SYSCALL_ERRNO_TAIL(.syscall_int80_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_int80_errno)
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_5_ERRNO */
+1:	/* SYSENTER_5_ERRNO */
 	pushl_cfi_r %edi
 	pushl_cfi_r %esi
 	pushl_cfi_r %ebx
@@ -235,11 +235,11 @@ CFI_STARTPROC
 	popl_cfi_r  %ebx
 	popl_cfi_r  %esi
 	popl_cfi_r  %edi
-	SYSCALL_ERRNO_TAIL(.syscall_int80_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_int80_errno)
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_6_ERRNO */
+1:	/* SYSENTER_6_ERRNO */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %esi
@@ -255,11 +255,11 @@ CFI_STARTPROC
 	popl_cfi_r  %esi
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
-	SYSCALL_ERRNO_TAIL(.syscall_int80_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_int80_errno)
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_ERRNO */
+1:	/* SYSENTER_ERRNO */
 	/* Save callee-save registers */
 	pushl_cfi_r %ebx
 	pushl_cfi_r %edi
@@ -284,9 +284,9 @@ CFI_STARTPROC
 	popl_cfi_r  %esi
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebx
-	SYSCALL_ERRNO_TAIL(.syscall_int80_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_int80_errno)
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
 CFI_ENDPROC
 .space PAGESIZE - (. - x86_ushare_sysenter)
@@ -296,7 +296,7 @@ SYMEND(x86_ushare_sysenter)
 .section .text.free
 CFI_STARTPROC
 INTERN_ENTRY(x86_fast_sysenter)
-1:	/* SYSCALL_0 */
+1:	/* SYSENTER_0 */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	call  x86_sysenter_common
@@ -322,9 +322,9 @@ x86_sysenter_common:
 #ifndef __WITHOUT_CFI
 	.cfi_restore_state
 #endif
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_1 */
+1:	/* SYSENTER_1 */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %ebx
@@ -334,9 +334,9 @@ x86_sysenter_common:
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_2 */
+1:	/* SYSENTER_2 */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %ebx
@@ -347,9 +347,9 @@ x86_sysenter_common:
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_3 */
+1:	/* SYSENTER_3 */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %ebx
@@ -361,9 +361,9 @@ x86_sysenter_common:
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_4 */
+1:	/* SYSENTER_4 */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %ebx
@@ -378,9 +378,9 @@ x86_sysenter_common:
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_5 */
+1:	/* SYSENTER_5 */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %ebx
@@ -400,9 +400,9 @@ x86_sysenter_common:
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_6 */
+1:	/* SYSENTER_6 */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %ebx
@@ -423,9 +423,9 @@ x86_sysenter_common:
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL */
+1:	/* SYSENTER */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %ebx
@@ -447,25 +447,25 @@ x86_sysenter_common:
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_0_ERRNO */
+1:	/* SYSENTER_0_ERRNO */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	call  x86_sysenter_common
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
-	SYSCALL_ERRNO_TAIL(.syscall_sysenter_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_sysenter_errno)
 	ret
-.syscall_sysenter_errno:
+.sysenter_sysenter_errno:
 	negl  %eax
 	movl  %eax, %Utaskseg:t_errno
 	movb  $__X86_TASK_ERRNO_FKOS, %Utaskseg:t_eformat
 	movl  $-1, %eax
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_1_ERRNO */
+1:	/* SYSENTER_1_ERRNO */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %ebx
@@ -474,11 +474,11 @@ x86_sysenter_common:
 	popl_cfi_r  %ebx
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
-	SYSCALL_ERRNO_TAIL(.syscall_sysenter_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_sysenter_errno)
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_2_ERRNO */
+1:	/* SYSENTER_2_ERRNO */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %ebx
@@ -488,11 +488,11 @@ x86_sysenter_common:
 	popl_cfi_r  %ebx
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
-	SYSCALL_ERRNO_TAIL(.syscall_sysenter_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_sysenter_errno)
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_3_ERRNO */
+1:	/* SYSENTER_3_ERRNO */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %ebx
@@ -503,11 +503,11 @@ x86_sysenter_common:
 	popl_cfi_r  %ebx
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
-	SYSCALL_ERRNO_TAIL(.syscall_sysenter_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_sysenter_errno)
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_4_ERRNO */
+1:	/* SYSENTER_4_ERRNO */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %ebx
@@ -521,11 +521,11 @@ x86_sysenter_common:
 	popl_cfi_r  %ebx
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
-	SYSCALL_ERRNO_TAIL(.syscall_sysenter_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_sysenter_errno)
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_5_ERRNO */
+1:	/* SYSENTER_5_ERRNO */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %ebx
@@ -544,11 +544,11 @@ x86_sysenter_common:
 	popl_cfi_r  %ebx
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
-	SYSCALL_ERRNO_TAIL(.syscall_sysenter_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_sysenter_errno)
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_6_ERRNO */
+1:	/* SYSENTER_6_ERRNO */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %ebx
@@ -568,11 +568,11 @@ x86_sysenter_common:
 	popl_cfi_r  %ebx
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
-	SYSCALL_ERRNO_TAIL(.syscall_sysenter_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_sysenter_errno)
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
-1:	/* SYSCALL_ERRNO */
+1:	/* SYSENTER_ERRNO */
 	pushl_cfi_r %ebp
 	pushl_cfi_r %edi
 	pushl_cfi_r %ebx
@@ -593,9 +593,9 @@ x86_sysenter_common:
 	popl_cfi_r  %ebx
 	popl_cfi_r  %edi
 	popl_cfi_r  %ebp
-	SYSCALL_ERRNO_TAIL(.syscall_sysenter_errno)
+	SYSENTER_ERRNO_TAIL(.sysenter_sysenter_errno)
 	ret
-.space USHARE_X86_SYSCALL_SYSENTER_STRIDE - (. - 1b)
+//.space USHARE_X86_SYSCALL_ENTRY_STRIDE - (. - 1b)
 
 	CFI_ENDPROC
 INTERN_CONST(x86_fast_sysenter_size,. - x86_fast_sysenter)
@@ -605,7 +605,7 @@ SYMEND(x86_fast_sysenter)
 
 
 
-#undef SYSCALL_ERRNO_TAIL
+#undef SYSENTER_ERRNO_TAIL
 
 
 #ifdef __WITHOUT_CFI

@@ -37,7 +37,7 @@
 
 DECL_BEGIN
 
-/* The `SYSENTER_CS_MSR' register requires this layout. */
+/* The `IA32_SYSENTER_CS' register requires this layout. */
 STATIC_ASSERT(X86_SEG_HOST_DATA == X86_SEG_HOST_CODE+1);
 STATIC_ASSERT(X86_SEG_USER_CODE == X86_SEG_HOST_CODE+2);
 STATIC_ASSERT(X86_SEG_USER_DATA == X86_SEG_HOST_CODE+3);
@@ -46,11 +46,12 @@ INTDEF byte_t x86_ushare_sysenter[];
 INTDEF byte_t x86_fast_sysenter[];
 INTDEF byte_t x86_fast_sysenter_size[];
 INTERN byte_t *x86_sysenter_ushare_base = x86_ushare_sysenter;
+
 #ifdef __x86_64__
-INTDEF byte_t x86_ushare_sysenter_compat[];
-INTDEF byte_t x86_fast_sysenter_compat[];
-INTDEF byte_t x86_fast_sysenter_size_compat[];
-INTERN byte_t *x86_sysenter_ushare_base_compat = x86_ushare_sysenter_compat;
+INTDEF byte_t x86_ushare_syscall[];
+INTDEF byte_t x86_fast_syscall[];
+INTDEF byte_t x86_fast_syscall_size[];
+INTERN byte_t *x86_syscall_ushare_base = x86_ushare_syscall;
 #endif
 
 
@@ -60,40 +61,59 @@ INTDEF byte_t x86_sysexit_fixup_1[];
 
 
 INTDEF void ASMCALL sysenter_kernel_entry(void);
+#ifdef __x86_64__
+INTDEF void ASMCALL syscall_kernel_entry(void);
+#endif
+
+
 INTERN ATTR_FREETEXT void KCALL x86_initialize_sysenter(void) {
  struct cpu_cpuid *feat = (struct cpu_cpuid *)&CPU_FEATURES;
  if (!(feat->ci_1d & CPUID_1D_SEP)) {
+  /* Not available. */
 #ifndef __x86_64__
   if (THIS_CPU == &_boot_cpu) {
    x86_sysexit_fixup_1[0] = 0xcf; /* iret */
   }
 #endif
-  return; /* Not available. */
- }
-
- debug_printf(FREESTR("[X86] Enable SYSENTER\n"));
- /* Write sysenter-specific MSRs */
- __wrmsr(SYSENTER_CS_MSR,X86_KERNEL_CS);
+ } else {
+  debug_printf(FREESTR("[X86] Enable SYSENTER\n"));
+  /* Write sysenter-specific MSRs */
+  __wrmsr(IA32_SYSENTER_CS,X86_KERNEL_CS);
 #ifdef __x86_64__
- __wrmsr(SYSENTER_ESP_MSR,(uintptr_t)&PERCPU(x86_cputss).t_rsp0);
+  __wrmsr(IA32_SYSENTER_ESP,(uintptr_t)&PERCPU(x86_cputss).t_rsp0);
 #else
- __wrmsr(SYSENTER_ESP_MSR,(uintptr_t)&PERCPU(x86_cputss).t_esp0);
+  __wrmsr(IA32_SYSENTER_ESP,(uintptr_t)&PERCPU(x86_cputss).t_esp0);
 #endif
- __wrmsr(SYSENTER_EIP_MSR,(uintptr_t)&sysenter_kernel_entry);
+  __wrmsr(IA32_SYSENTER_EIP,(uintptr_t)&sysenter_kernel_entry);
 
- if (THIS_CPU == &_boot_cpu) {
-  /* The boot CPU is responsible for re-writing the ushare
-   * segment containing the system call entry points. */
-#ifdef __x86_64__
-  memcpy(x86_ushare_sysenter_compat,x86_fast_sysenter_compat,
-        (size_t)x86_fast_sysenter_size_compat);
-  x86_sysenter_ushare_base_compat = x86_fast_sysenter_compat;
-#else
-  memcpy(x86_ushare_sysenter,x86_fast_sysenter,
-        (size_t)x86_fast_sysenter_size);
-  x86_sysenter_ushare_base = x86_fast_sysenter;
-#endif
+  if (THIS_CPU == &_boot_cpu) {
+   /* The boot CPU is responsible for re-writing the ushare
+    * segment containing the system call entry points. */
+   memcpy(x86_ushare_sysenter,x86_fast_sysenter,
+         (size_t)x86_fast_sysenter_size);
+   x86_sysenter_ushare_base = x86_fast_sysenter;
+  }
  }
+#ifdef __x86_64__
+ if (!(feat->ci_80000001d & CPUID_80000001D_SYSCALL)) {
+  /* Not available. */
+ } else {
+  debug_printf(FREESTR("[X86] Enable SYSCALL\n"));
+  /* Write sysenter-specific MSRs */
+  __wrmsr(IA32_STAR, 0);
+  __wrmsr(IA32_LSTAR,(uintptr_t)&syscall_kernel_entry);
+  __wrmsr(IA32_FMASK,0);
+
+
+  if (THIS_CPU == &_boot_cpu) {
+   /* The boot CPU is responsible for re-writing the ushare
+    * segment containing the system call entry points. */
+   memcpy(x86_ushare_syscall,x86_fast_syscall,
+         (size_t)x86_fast_syscall_size);
+   x86_syscall_ushare_base = x86_fast_syscall;
+  }
+ }
+#endif
 }
 
 DECL_END

@@ -205,17 +205,82 @@ SYMEND(x86_xsyscall_restart)
 	iretq
 .endm
 
-
 .section .text.hot
-INTERN_ENTRY(sysenter_kernel_entry)
-	/* TODO */
-	int3
-1:	cli
-	hlt
-	jmp 1b
-SYMEND(sysenter_kernel_entry)
+.Lsyscall_except_guard_start = .
 
-.section .text.hot
+
+/* ========================================================================================= */
+/* WITHOUT TRACING                                                                           */
+/* ========================================================================================= */
+INTERN_ENTRY(syscall_kernel_entry)
+	/* Kernel entry for `syscall' when tracing is disabled. */
+	swapgs
+	movq    %taskseg:TASK_OFFSETOF_STACKEND, %rsp
+	/* Construct an IRET tail. */
+	pushq   $(X86_USER_DS)   /* %ss */
+	pushq   %rcx             /* %rsp */
+	pushq   %r11             /* %rflags */
+	pushq   $(X86_USER_CS)   /* %cs */
+	pushq   %rdi             /* %rip */
+	.cfi_startproc simple
+	.cfi_signal_frame
+	.cfi_def_cfa %rsp,    5*8
+	.cfi_offset %rflags, -3*8
+	.cfi_offset %rip,    -5*8
+	sti
+
+.Lsyscall64_entry:
+	/* Save clobber registers. */
+	pushq_cfi_r %rax
+	pushq_cfi_r %rdx
+	pushq_cfi_r %rsi
+	pushq_cfi_r %rdi
+	pushq_cfi_r %r8
+	pushq_cfi_r %r9
+	pushq_cfi_r %r10
+	pushq_cfi_r %r11
+	pushq_cfi_r %rcx
+
+	/* Adjust for RCX / R10 exchange. */
+	xchgq   %rcx, %r10
+
+.Lsyscall_begin:
+	cmpq    $__NR_syscall_max, %rax
+	ja      .Lsyscall_xsyscall
+	callq   *x86_syscall_router(,%rax,8)
+.Lsyscall_return:
+	.cfi_remember_state
+	popq_cfi_r %rcx
+	popq_cfi_r %r11
+	popq_cfi_r %r10
+	popq_cfi_r %r9
+	popq_cfi_r %r8
+	popq_cfi_r %rdi
+	popq_cfi_r %rsi
+	popq_cfi_r %rdx
+	popq_void_cfi   /* RAX */
+	irq_leave_syscall
+	.cfi_restore_state
+.Lsyscall_xsyscall:
+	subq    $__NR_xsyscall_min, %rax
+	jb      .Lsyscall_bad_syscall
+	cmpq    $(__NR_xsyscall_max - __NR_xsyscall_min), %rax
+	ja      .Lsyscall_except_syscall
+	pushq_cfi $.Lsyscall_return
+	jmpq    *x86_xsyscall_router(,%rax,8)
+	.cfi_adjust_cfa_offset -8
+.Lsyscall_except_syscall:
+	cmpl    $(0x80000000 - __NR_xsyscall_min), %eax
+	jb      .Lsyscall_bad_syscall
+	addl    $(__NR_xsyscall_min - 0x80000000), %eax
+	jmp     .Lsyscall_begin
+.Lsyscall_bad_syscall:
+	addq    $__NR_xsyscall_min, %rax
+	call    x86_bad_syscall
+	.cfi_endproc
+SYMEND(syscall_kernel_entry)
+
+
 INTERN_ENTRY(irq_80)
 	.cfi_startproc simple
 	.cfi_signal_frame
@@ -223,44 +288,206 @@ INTERN_ENTRY(irq_80)
 	.cfi_offset %rflags, -3*8
 	.cfi_offset %rip,    -5*8
 	irq_enter_syscall
-	/* TODO */
-	int3
-1:	cli
-	hlt
-	jmp 1b
+
+	/* Check for compatibility mode. */
+	cmpq    $X86_SEG_USER_CS32, X86_IRREGS64_OFFSETOF_CS(%rsp)
+	jne     .Lsyscall64_entry
+
+INTERN_ENTRY(irq_80_compat)
+	/* Save clobber registers visible in 32-bit mode. */
+	pushq_cfi_r %rax
+	pushq_cfi_r %rdx
+	pushq_cfi_r %rsi
+	pushq_cfi_r %rdi
+	pushq_cfi_r %rcx
+
+	/* Transform compatibility-mode registers */
+	/*    - %ebx  --> %rdi */
+	/*    - %ecx  --> %rsi */
+	/*    - %edx  --> %rdx */
+	/*    - %esi  --> %r10 */
+	/*    - %edi  --> %r8  */
+	/*    - %ebp  --> %r9  */
+	movzlq  %edi, %r8
+	movzlq  %ebp, %r9
+	movzlq  %esi, %r10
+	movzlq  %ebx, %rdi
+	movzlq  %ecx, %rsi
+
+.Lirq_80_compat_begin:
+	cmpq    $__NR_syscall_max, %rax
+	ja      .Lirq_80_compat_xsyscall
+.Lirq_80_compat_do_route:
+	callq   *x86_syscall_compat_router(,%rax,8)
+.Lirq_80_compat_return:
+	.cfi_remember_state
+	popq_cfi_r  %rcx
+	popq_cfi_r  %rdi
+	popq_cfi_r  %rsi
+	popq_cfi_r  %rdx
+	popq_void_cfi
 	irq_leave_syscall
+	.cfi_restore_state
+.Lirq_80_compat_return64:
+	.cfi_remember_state
+	popq_cfi_r  %rcx
+	popq_cfi_r  %rdi
+	popq_cfi_r  %rsi
+	pop_void_cfi 2*8
+	irq_leave_syscall
+	.cfi_restore_state
+.Lirq_80_compat_xsyscall:
+	subq    $__NR_xsyscall_min, %rax
+	jb      .Lirq_80_compat_bad_syscall
+	cmpq    $(__NR_xsyscall_max - __NR_xsyscall_min), %rax
+	ja      .Lirq_80_compat_except_syscall
+.Lirq_80_compat_do_xroute:
+	pushq_cfi $.Lirq_80_compat_return
+	jmpq    *x86_xsyscall_compat_router(,%rax,8)
+	.cfi_adjust_cfa_offset -8
+.Lirq_80_compat_except_syscall:
+	cmpl    $(0x80000000 - __NR_xsyscall_min), %eax
+	jb      .Lirq_80_compat_bad_syscall
+	addl    $(__NR_xsyscall_min - 0x80000000), %eax
+	jmp     .Lirq_80_compat_begin
+.Lirq_80_compat_bad_syscall:
+	addq    $__NR_xsyscall_min, %rax
+.Lirq_80_compat_bad_syscall2:
+	call    x86_bad_syscall
 	.cfi_endproc
+SYMEND(irq_80_compat)
 SYMEND(irq_80)
 
-.section .text.hot
-INTERN_ENTRY(sysenter_kernel_entry_trace)
-//1:	cli; hlt; jmp 1b
-	movq     0(%rsp), %rsp
-	/* Construct an IRET tail. */
-	pushq    $(X86_USER_DS) /* %ss */
-	pushq    %rbp           /* %rsp */
-	pushfq
-	orq      $(EFLAGS_IF), (%rsp)
-	pushq    $(X86_USER_CS) /* %cs */
-	pushq    %rdi           /* %rip */
+/* This must be added to the return RIP if a system call wants to return 64 bits. */
+INTERN_CONST(x86_syscall64_compat_adjustment,
+	.Lirq_80_compat_return64 -
+	.Lirq_80_compat_return)
 
+
+INTERN_ENTRY(sysenter_kernel_entry)
+	/* Kernel entry for `sysenter' when tracing is disabled. */
+	movq    0(%rsp), %rsp
+	/* Construct an IRET tail. */
+	pushq   $(X86_USER_DS32) /* %ss */
+	pushq   %rbp             /* %rsp */
+	pushfq
+	orq     $(EFLAGS_IF), (%rsp)
+	pushq   $(X86_USER_CS32) /* %cs */
+	pushq   %rdi             /* %rip */
 	.cfi_startproc simple
 	.cfi_signal_frame
 	.cfi_def_cfa %rsp,    5*8
 	.cfi_offset %rflags, -3*8
 	.cfi_offset %rip,    -5*8
+	irq_enter_syscall
 
-	/* TODO */
-	int3
-1:	cli
-	hlt
-	jmp 1b
+	/* Save clobber registers visible in 32-bit mode. */
+	pushq_cfi_r %rax
+	pushq_cfi_r %rdx
+	pushq_cfi_r %rsi
+	pushq_cfi_r %rdi
+	pushq_cfi_r %rcx
+
+	/* Transform compatibility-mode registers */
+	/*    - %ebx  --> %rdi */
+	/*    - %ecx  --> %rsi */
+	/*    - %edx  --> %rdx */
+	/*    - %esi  --> %r10 */
+	movzlq  %esi, %r10
+	movzlq  %ebx, %rdi
+	movzlq  %ecx, %rsi
+
+	/* Load stack-based arguments (if those exist) */
+	/*    - 0(%ebp) --> %r8  */
+	/*    - 4(%ebp) --> %r9  */
+.Lsysenter_compat_begin:
+	cmpq    $__NR_syscall_max, %rax
+	ja      .Lsysenter_compat_xsyscall
+	cmpb    $4, x86_syscall_compat_argc(%rax)
+	jbe     .Lirq_80_compat_do_route
+	movzlq  0(%ebp), %r8
+	cmpb    $5, x86_syscall_compat_argc(%rax)
+	jbe     .Lirq_80_compat_do_route
+	movzlq  4(%ebp), %r9
+	jmp     .Lirq_80_compat_do_route
+.Lsysenter_compat_xsyscall:
+	subq    $__NR_xsyscall_min, %rax
+	jb      .Lirq_80_compat_bad_syscall
+	cmpq    $(__NR_xsyscall_max - __NR_xsyscall_min), %rax
+	ja      .Lsysenter_compat_except_syscall
+	cmpb    $4, x86_xsyscall_compat_argc(%rax)
+	jbe     .Lirq_80_compat_do_xroute
+	movzlq  0(%ebp), %r8
+	cmpb    $5, x86_xsyscall_compat_argc(%rax)
+	jbe     .Lirq_80_compat_do_xroute
+	movzlq  4(%ebp), %r9
+	jmp     .Lirq_80_compat_do_xroute
+.Lsysenter_compat_except_syscall:
+	cmpl    $(0x80000000 - __NR_xsyscall_min), %eax
+	jb      .Lirq_80_compat_bad_syscall
+	addl    $(__NR_xsyscall_min - 0x80000000), %eax
+	jmp     .Lsysenter_compat_begin
 	.cfi_endproc
-SYMEND(sysenter_kernel_entry_trace)
+SYMEND(sysenter_kernel_entry)
 
 
-.section .text.hot
-.irq_80_trace_start = .
+
+
+
+
+
+
+
+/* ========================================================================================= */
+/* WITH TRACING                                                                              */
+/* ========================================================================================= */
+
+INTERN_ENTRY(syscall_kernel_entry_trace)
+	/* Kernel entry for `syscall' when tracing is enabled. */
+	swapgs
+	movq    %taskseg:TASK_OFFSETOF_STACKEND, %rsp
+	/* Construct an IRET tail. */
+	pushq   $(X86_USER_DS)   /* %ss */
+	pushq   %rcx             /* %rsp */
+	pushq   %r11             /* %rflags */
+	pushq   $(X86_USER_CS)   /* %cs */
+	pushq   %rdi             /* %rip */
+	.cfi_startproc simple
+	.cfi_signal_frame
+	.cfi_def_cfa %rsp,    5*8
+	.cfi_offset %rflags, -3*8
+	.cfi_offset %rip,    -5*8
+	sti
+.Lsyscall64_entry_trace:
+	/* Save clobber registers. */
+	pushq_cfi_r %rax
+	pushq_cfi_r %rdx
+	pushq_cfi_r %rsi
+	pushq_cfi_r %rdi
+	pushq_cfi_r %r8
+	pushq_cfi_r %r9
+	pushq_cfi_r %r10
+	movq    %rsp, %rdi
+	pushq_cfi_r %r11
+	pushq_cfi_r %rcx
+
+	/* Trace this system call. */
+	call    syscall_trace
+
+	/* Invoke the system call for real! */
+	movq    2 * 8(%rsp), %r10
+	movq    3 * 8(%rsp), %r9
+	movq    4 * 8(%rsp), %r8
+	movq    5 * 8(%rsp), %rdi
+	movq    6 * 8(%rsp), %rsi
+	movq    7 * 8(%rsp), %rdx
+	movq    8 * 8(%rsp), %rax
+
+	jmp     .Lsyscall_begin
+	.cfi_endproc
+SYMEND(syscall_kernel_entry_trace)
+
+
 INTERN_ENTRY(irq_80_trace)
 	.cfi_startproc simple
 	.cfi_signal_frame
@@ -271,176 +498,162 @@ INTERN_ENTRY(irq_80_trace)
 
 	/* Check for compatibility mode. */
 	cmpq    $X86_SEG_USER_CS32, X86_IRREGS64_OFFSETOF_CS(%rsp)
-	je      irq_80_compat_trace
-
-	/* Save callee-clobber registers. */
-	pushq_cfi_r %rax  /* System call number. */
-	pushq_cfi_r %rdx  /* Arg #2 */
-	pushq_cfi_r %r11
-	pushq_cfi_r %r10  /* Arg #3 */
-	pushq_cfi_r %r9   /* Arg #5 */
-	pushq_cfi_r %r8   /* Arg #4 */
-	pushq_cfi_r %rdi  /* Arg #0 */
-	pushq_cfi_r %rsi  /* Arg #1 */
+	jne     .Lsyscall64_entry_trace
+INTERN_ENTRY(irq_80_compat_trace)
+	/* Construct the syscall-trace structure. */
+	pushq_cfi_r %rax
+	pushq_cfi_r %rdx
 	pushq_cfi_r %rcx
+	pushq_cfi_r %rbx
+	pushq_cfi_r %rdi
+	pushq_cfi_r %rbp
+	pushq_cfi_r %rsi
 
-	/* Trace this system call. */
+.Lirq_80_compat_trace_entry:
 	movq    %rsp, %rdi
 	call    syscall_trace
 
-	/* Invoke the system call for real! */
-	movq    8 * 8(%rsp), %rax
-	movq    2 * 8(%rsp), %rdi
-	movq    1 * 8(%rsp), %rsi
-	movq    7 * 8(%rsp), %rdx
-	movq    5 * 8(%rsp), %rcx
-	movq    3 * 8(%rsp), %r8
-	movq    4 * 8(%rsp), %r9
 
-.Lirq_80_trace_begin:
-	cmpq    $__NR_syscall_max, %rax
-	ja      .Lirq_80_trace_xsyscall
-	callq   *x86_syscall_router(,%rax,8)
-.Lirq_80_trace_return:
-	.cfi_remember_state
-	popq_cfi_r  %rcx
 	popq_cfi_r  %rsi
-	popq_cfi_r  %rdi
-	popq_cfi_r  %r8
-	popq_cfi_r  %r9
-	popq_cfi_r  %r10
-	popq_cfi_r  %r11
-	popq_cfi_r  %rdx
-	popq_void_cfi
-	irq_leave_syscall
-	.cfi_restore_state
-.Lirq_80_trace_return64:
-	.cfi_remember_state
-	popq_cfi_r  %rcx
-	popq_cfi_r  %rsi
-	popq_cfi_r  %rdi
-	popq_cfi_r  %r8
-	popq_cfi_r  %r9
-	popq_cfi_r  %r10
-	popq_cfi_r  %r11
-	pop_void_cfi 2*8
-	irq_leave_syscall
-	.cfi_restore_state
-.Lirq_80_trace_xsyscall:
-	subq    $__NR_xsyscall_min, %rax
-	jb      .Lirq_80_trace_bad_syscall
-	cmpq    $(__NR_xsyscall_max - __NR_xsyscall_min), %rax
-	ja      .Lirq_80_trace_except_syscall
-	pushq_cfi $.Lirq_80_trace_return
-	jmpq    *x86_xsyscall_router(,%rax,8)
-	.cfi_adjust_cfa_offset -8
-.Lirq_80_trace_except_syscall:
-	cmpl    $(0x80000000 - __NR_xsyscall_min), %eax
-	jb      .Lirq_80_trace_bad_syscall
-	addl    $(__NR_xsyscall_min - 0x80000000), %eax
-	jmp     .Lirq_80_trace_begin
-.Lirq_80_trace_bad_syscall:
-	addq    $__NR_xsyscall_min, %rax
-	call     x86_bad_syscall
+	popq_cfi_r  %rbp
+	/* Transform RSP:
+	 *  32  -- RAX -> [RAX]
+	 *  24  -- RDX -> [RDX]
+	 *  16  -- RCX -> [RSI]
+	 *   8  -- RBX -> [RDI]
+	 *   0  -- RDI -> [RCX]
+	 */
+	movq    0(%rsp),  %rbx  /* %rbx = RDI */
+	xchgq   8(%rsp),  %rbx  /* [RDI] = %rbx; %rbx = RBX; */
+	xchgq   16(%rsp), %rsi  /* [RSI] = %rsi; %rsi = RCX; */
+	movq    %rsi,   0(%rsp) /* [RCX] = %rsi; */
+
+	/* Load SYSV-style registers. */
+	movzlq  8(%rsp),  %r8  /* [RDI] */
+	movzlq  %ebp,     %r9
+	movzlq  %edi,     %r8
+	movzlq  %esi,     %r10
+//	movzlq  %esi,     %rsi /* NOTE: %rsi = [RCX] */
+	movzlq  %ebx,     %rdi /* ARG#0 */
+	movzlq  24(%rsp), %rdx
+	movzlq  32(%rsp), %rax
+
+	jmp     .Lirq_80_compat_begin
 	.cfi_endproc
+SYMEND(irq_80_compat_trace)
 SYMEND(irq_80_trace)
 
-/* This must be added to the return RIP if a system call wants to return 64 bits. */
-INTERN_CONST(x86_syscall64_adjustment,.Lirq_80_trace_return64 - .Lirq_80_trace_return)
 
-INTERN_ENTRY(irq_80_compat_trace)
+INTERN_ENTRY(sysenter_kernel_entry_trace)
+	/* Kernel entry for `sysenter' when tracing is enabled. */
+	movq    0(%rsp), %rsp
+	/* Construct an IRET tail. */
+	pushq   $(X86_USER_DS32) /* %ss */
+	pushq   %rbp             /* %rsp */
+	pushfq
+	orq     $(EFLAGS_IF), (%rsp)
+	pushq   $(X86_USER_CS32) /* %cs */
+	pushq   %rdi             /* %rip */
 	.cfi_startproc simple
 	.cfi_signal_frame
 	.cfi_def_cfa %rsp,    5*8
 	.cfi_offset %rflags, -3*8
 	.cfi_offset %rip,    -5*8
-	pushq_cfi_r %rax  /* System call number. */
-	pushq_cfi_r %rdx  /* Arg #2 */
-	pushq_void_cfi
-	pushq_cfi_r %rsi  /* Arg #3 */
-	pushq_cfi_r %rbp  /* Arg #5 */
-	pushq_cfi_r %rdi  /* Arg #4 */
-	pushq_cfi_r %rbx  /* Arg #0 */
-	pushq_cfi_r %rcx  /* Arg #1 */
-	pushq_void_cfi
-	movq    %rsp, %rdi
+	irq_enter_syscall
 
-	/* Trace this system call. */
-	call    syscall_trace
 
-	/* Invoke the system call for real! */
-	movq    8 * 8(%rsp), %rax
-	movq    2 * 8(%rsp), %rdi
-	movq    1 * 8(%rsp), %rsi
-	movq    7 * 8(%rsp), %rdx
-	movq    5 * 8(%rsp), %rcx
-	movq    3 * 8(%rsp), %r8
-	movq    4 * 8(%rsp), %r9
-	popq_void_cfi
+	/* Construct the syscall-trace structure. */
+	pushq_cfi_r %rax
+	pushq_cfi_r %rdx
+	pushq_cfi_r %rcx
+	pushq_cfi_r %rbx
 
-.Lirq_80_compat_trace_begin:
+	/* Load stack-based arguments (if those exist) */
+	/*    - 0(%ebp) --> %rdi */
+	/*    - 4(%ebp) --> %rbp */
+.Lsysenter_compat_trace_begin:
 	cmpq    $__NR_syscall_max, %rax
-	ja      .Lirq_80_compat_trace_xsyscall
-	callq   *x86_syscall_compat_router(,%rax,8)
-.Lirq_80_compat_trace_return:
-	.cfi_remember_state
-	popq_cfi_r %rcx
-	popq_cfi_r %rbx
-	popq_cfi_r %rdi
-	popq_cfi_r %rbp
-	popq_cfi_r %rsi
-	popq_void_cfi
-	popq_cfi_r %rdx
-	popq_void_cfi
-	irq_leave_syscall
-	.cfi_restore_state
-	.space x86_syscall64_adjustment - (. - .Lirq_80_compat_trace_return)
-.Lirq_80_compat_trace_return64:
-	.cfi_remember_state
-	popq_cfi_r %rcx
-	popq_cfi_r %rbx
-	popq_cfi_r %rdi
-	popq_cfi_r %rbp
-	popq_cfi_r %rsi
-	pop_void_cfi 3*8
-	irq_leave_syscall
-	.cfi_restore_state
-.Lirq_80_compat_trace_xsyscall:
+	ja      .Lsysenter_compat_trace_xsyscall
+	cmpb    $4, x86_syscall_compat_argc(%rax)
+	jbe     .Lsysenter_compat_entry
+	movzlq  0(%ebp), %rdi
+	cmpb    $5, x86_syscall_compat_argc(%rax)
+	jbe     .Lsysenter_compat_entry
+	movzlq  4(%ebp), %rbp
+	jmp     .Lsysenter_compat_entry
+.Lsysenter_compat_trace_xsyscall:
 	subq    $__NR_xsyscall_min, %rax
-	jb      .Lirq_80_compat_trace_bad_syscall
+	jb      .Lsysenter_compat_entry
 	cmpq    $(__NR_xsyscall_max - __NR_xsyscall_min), %rax
-	ja      .Lirq_80_compat_trace_except_syscall
-	pushq_cfi $.Lirq_80_compat_trace_return
-	jmpq    *x86_xsyscall_compat_router(,%rax,8)
-	.cfi_adjust_cfa_offset -8
-.Lirq_80_compat_trace_except_syscall:
+	ja      .Lsysenter_compat_trace_except_syscall
+	cmpb    $4, x86_xsyscall_compat_argc(%rax)
+	jbe     .Lsysenter_compat_entry
+	movzlq  0(%ebp), %rdi
+	cmpb    $5, x86_xsyscall_compat_argc(%rax)
+	jbe     .Lsysenter_compat_entry
+	movzlq  4(%ebp), %rbp
+	jmp     .Lsysenter_compat_entry
+.Lsysenter_compat_trace_except_syscall:
 	cmpl    $(0x80000000 - __NR_xsyscall_min), %eax
-	jb      .Lirq_80_compat_trace_bad_syscall
+	jb      .Lsysenter_compat_entry
 	addl    $(__NR_xsyscall_min - 0x80000000), %eax
-	jmp     .Lirq_80_compat_trace_begin
-.Lirq_80_compat_trace_bad_syscall:
-	addq    $__NR_xsyscall_min, %rax
-	call     x86_bad_syscall
-	.cfi_endproc
-SYMEND(irq_80_compat_trace)
+.Lsysenter_compat_entry:
 
-.irq_80_trace_end = .
+	pushq_cfi_r %rdi
+	pushq_cfi_r %rbp
+	pushq_cfi_r %rsi
+	jmp     .Lirq_80_compat_trace_entry
+	.cfi_endproc
+SYMEND(sysenter_kernel_entry_trace)
+
+
+/* Define an exception handler to propagate
+ * exceptions from system calls, back into user-space. */
+.Lsyscall_except_guard_end = .
 X86_DEFINE_SYSCALL_GUARD(
-	.irq_80_trace_start,
-	.irq_80_trace_end
+	.Lsyscall_except_guard_start,
+	.Lsyscall_except_guard_end
 )
 
 
+
+
+
+
+
+
+
+
+
+
+
+/* Helper function: Invalid system call */
 .section .text.hot
 INTERN_ENTRY(x86_bad_syscall)
 	.cfi_startproc
-	/* TODO */
-	int3
-1:	cli
-	hlt
-	jmp 1b
+	movq  %rdi, %taskseg:TASK_OFFSETOF_SEGMENT+EXCEPTION_INFO_OFFSETOF_DATA+8
+	movq  %rsi, %taskseg:TASK_OFFSETOF_SEGMENT+EXCEPTION_INFO_OFFSETOF_DATA+16
+	movq  %rdx, %taskseg:TASK_OFFSETOF_SEGMENT+EXCEPTION_INFO_OFFSETOF_DATA+24
+	movq  %rcx, %taskseg:TASK_OFFSETOF_SEGMENT+EXCEPTION_INFO_OFFSETOF_DATA+32
+	movq  %r8,  %taskseg:TASK_OFFSETOF_SEGMENT+EXCEPTION_INFO_OFFSETOF_DATA+40
+	movq  %r9,  %taskseg:TASK_OFFSETOF_SEGMENT+EXCEPTION_INFO_OFFSETOF_DATA+48
+#if __EXCEPTION_INFO_NUM_DATA_POINTERS > 7
+	movq  $(__EXCEPTION_INFO_NUM_DATA_POINTERS - 7), %rcx
+	leaq  EXCEPTION_INFO_OFFSETOF_DATA+56, %rdi
+	addq  %taskseg:TASK_SEGMENT_OFFSETOF_SELF, %rdi
+	xorq  %rax, %rax
+	rep   stosq
+#endif
+	movq  $(E_UNKNOWN_SYSTEMCALL | (ERR_FNORMAL << 16)),  \
+	      %taskseg:TASK_OFFSETOF_SEGMENT+EXCEPTION_INFO_OFFSETOF_CODE
+
+	/* jmp: Might as well throw this at the call-site */
+	jmp   error_throw_current
 	.cfi_endproc
 SYMEND(x86_bad_syscall)
+
+
+
 
 
 .section .data

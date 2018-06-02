@@ -57,6 +57,8 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
  bool is_first = true; u16 old_state;
  /* Safe the original stack-pointer. */
  uintptr_t sp = CPU_CONTEXT_SP(*context);
+ assertf(context->c_cs == X86_SEG_HOST_CS,"context->c_cs = %IX\n",context->c_cs);
+ assertf(context->c_ss == X86_SEG_HOST_SS,"context->c_ss = %IX\n",context->c_ss);
  assertf(context != &error_info()->e_context,
          "Remember how this function is allowed to modify the context? "
          "Wouldn't make much sense if you passed the context that's supposed "
@@ -157,6 +159,8 @@ libc_error_rethrow_at(struct cpu_context *__restrict context) {
     if (!(old_state&TASK_STATE_FDONTSERVE))
           ATOMIC_FETCHAND(THIS_TASK->t_state,~TASK_STATE_FDONTSERVE);
     task_pop_connections(&cons);
+    assert(context->c_cs == X86_SEG_HOST_CS);
+    assert(context->c_ss == X86_SEG_HOST_SS);
     cpu_setcontext(context);
     /* Never get here... */
    }

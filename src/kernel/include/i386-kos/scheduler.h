@@ -100,7 +100,7 @@ FORCELOCAL bool KCALL interrupt_iscompat(void) {
 #ifdef X86_SEG_USER_CS32
  result = iret->ir_cs == X86_SEG_USER_CS32;
 #else
- result = iret->ir_cs == 0x53;
+ result = iret->ir_cs == 0x2b;
 #endif
  PREEMPTION_POP(was);
  return result;

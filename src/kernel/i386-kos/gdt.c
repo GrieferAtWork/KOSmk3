@@ -30,18 +30,22 @@
 DECL_BEGIN
 
 #ifdef __x86_64__
-STATIC_ASSERT_MSG(X86_SEG_USER_CS32 == 0x53,
+STATIC_ASSERT_MSG(X86_SEG_USER_CS32 == 0x2b,
                  "Update `interrupt_iscompat()'");
 #endif
 
+#ifdef __x86_64__
+INTDEF byte_t _x86_gdt_tss_a[];
+INTDEF byte_t _x86_gdt_tss_b[];
+#else
 INTDEF byte_t _x86_gdt_tss_lo[];
 INTDEF byte_t _x86_gdt_tss_hi[];
-#ifndef __x86_64__
 INTDEF byte_t _x86_gdt_tssdf_lo[];
 INTDEF byte_t _x86_gdt_tssdf_hi[];
-#endif
 INTDEF byte_t _x86_gdt_tls_lo[];
 INTDEF byte_t _x86_gdt_tls_hi[];
+#endif
+
 
 PUBLIC ATTR_PERCPU struct x86_segment x86_cpugdt[X86_SEG_BUILTIN] = {
     [X86_SEG_NULL]        = X86_SEGMENT_INIT(0,0,0), /* NULL segment */
@@ -52,16 +56,16 @@ PUBLIC ATTR_PERCPU struct x86_segment x86_cpugdt[X86_SEG_BUILTIN] = {
 #ifdef __x86_64__
     [X86_SEG_USER_CODE32] = X86_SEGMENT_INIT(0,X86_SEG_LIMIT_MAX,X86_SEG_CODE_PL3_32), /* Ring #3 32-bit (compatibility mode) code segment. */
     [X86_SEG_USER_DATA32] = X86_SEGMENT_INIT(0,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL3_32), /* Ring #3 32-bit (compatibility mode) data segment. */
+    [X86_SEG_CPUTSS]      = { .s_u = (u64)_x86_gdt_tss_a }, /* CPU TSS */
+    [X86_SEG_CPUTSS+1]    = { .s_u = (u64)_x86_gdt_tss_b },
+    [X86_SEG_HOST_TLS]    = X86_SEGMENT_INIT(0,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL0), /* TODO: Get rid of this */
 #else
     [X86_SEG_HOST_CODE16] = X86_SEGMENT_INIT(0,X86_SEG_LIMIT_MAX,X86_SEG_CODE_PL0_16), /* 16-bit kernel code segment. */
     [X86_SEG_HOST_DATA16] = X86_SEGMENT_INIT(0,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL0_16), /* 16-bit kernel data segment. */
-#endif
     [X86_SEG_CPUTSS]      = {{{(uintptr_t)_x86_gdt_tss_lo,(uintptr_t)_x86_gdt_tss_hi}}}, /* CPU TSS */
-#ifndef __x86_64__
     [X86_SEG_CPUTSS_DF]   = {{{(uintptr_t)_x86_gdt_tssdf_lo,(uintptr_t)_x86_gdt_tssdf_hi}}}, /* CPU TSS (for #DF) */
-#endif
-    [X86_SEG_KERNEL_LDT]  = X86_SEGMENT_INIT(0,0,X86_SEG_LDT), /* Kernel LDT table. */
     [X86_SEG_HOST_TLS]    = {{{(uintptr_t)_x86_gdt_tls_lo,(uintptr_t)_x86_gdt_tls_hi}}}, /* task-self */
+#endif
     [X86_SEG_USER_TLS]    = X86_SEGMENT_INIT(0,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL3),
 #ifndef CONFIG_NO_DOS_COMPAT
     [X86_SEG_USER_TIB]    = X86_SEGMENT_INIT(0,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL3),

@@ -35,10 +35,8 @@ DECL_BEGIN
 
 
 INTDEF byte_t *x86_sysenter_ushare_base;
-
-
 PRIVATE char const
-sysenter_names[USHARE_X86_SYSCALL_SYSENTER_COUNT][10] = {
+sysenter_names[USHARE_X86_SYSCALL_ENTRY_COUNT][10] = {
     "sysenter0",
     "sysenter1",
     "sysenter2",
@@ -73,12 +71,12 @@ sysenter_pregion_ctl(struct vm_region *__restrict UNUSED(self),
   result = (struct dl_addr2line *)arg;
   memset(result,0,sizeof(struct dl_addr2line));
   result->d_file = "$$(KERNEL)";
-  if (address < (USHARE_X86_SYSCALL_SYSENTER_COUNT*
-                 USHARE_X86_SYSCALL_SYSENTER_STRIDE)) {
+  if (address < (USHARE_X86_SYSCALL_ENTRY_COUNT*
+                 USHARE_X86_SYSCALL_ENTRY_STRIDE)) {
    uintptr_t index;
-   index = address / USHARE_X86_SYSCALL_SYSENTER_STRIDE;
-   result->d_begin = (void *)(index * USHARE_X86_SYSCALL_SYSENTER_STRIDE);
-   result->d_end   = (void *)((index+1) * USHARE_X86_SYSCALL_SYSENTER_STRIDE);
+   index = address / USHARE_X86_SYSCALL_ENTRY_STRIDE;
+   result->d_begin = (void *)(index * USHARE_X86_SYSCALL_ENTRY_STRIDE);
+   result->d_end   = (void *)((index+1) * USHARE_X86_SYSCALL_ENTRY_STRIDE);
    result->d_name  = sysenter_names[index];
   } else {
    result->d_name  = "syscall";
@@ -94,16 +92,16 @@ sysenter_pregion_ctl(struct vm_region *__restrict UNUSED(self),
 }
 
 INTDEF byte_t x86_ushare_sysenter_pageno[];
-PRIVATE struct vm_region x86_syscall_region = {
+PRIVATE struct vm_region x86_sysenter_region = {
     .vr_refcnt = 1,
     .vr_lock   = MUTEX_INIT,
     .vr_type   = VM_REGION_MEM,
     .vr_flags  = VM_REGION_FCANTSHARE|VM_REGION_FDONTMERGE,
     .vr_size   = 1,
-    .vr_parts  = &x86_syscall_region.vr_part0,
+    .vr_parts  = &x86_sysenter_region.vr_part0,
     .vr_part0  = {
         .vp_refcnt = 1,
-        .vp_chain  = { .le_pself = &x86_syscall_region.vr_parts },
+        .vp_chain  = { .le_pself = &x86_sysenter_region.vr_parts },
         .vp_state  = VM_PART_INCORE,
         .vp_flags  = VM_PART_FNOSWAP|VM_PART_FKEEP|VM_PART_FWEAKREF,
         .vp_phys = {
@@ -120,31 +118,90 @@ PRIVATE struct vm_region x86_syscall_region = {
 };
 
 
+
+
 #ifdef __x86_64__
-INTDEF byte_t x86_ushare_sysenter_compat_pageno[];
-PRIVATE struct vm_region x86_syscall_region_compat = {
+INTDEF byte_t *x86_syscall_ushare_base;
+PRIVATE char const
+syscall_names[USHARE_X86_SYSCALL_ENTRY_COUNT][10] = {
+    "syscall0",
+    "syscall1",
+    "syscall2",
+    "syscall3",
+    "syscall4",
+    "syscall5",
+    "syscall6",
+};
+
+PRIVATE ssize_t KCALL
+syscall_pregion_ctl(struct vm_region *__restrict UNUSED(self),
+                    unsigned int command,
+                    uintptr_t address, void *arg) {
+ switch (command) {
+
+ {
+  bool result;
+ case REGION_CTL_FFIND_FDE:
+  /* Find FDE information for the effectively mapped text. */
+  result = kernel_eh_findfde((uintptr_t)x86_syscall_ushare_base+address,
+                             (struct fde_info *)arg);
+  if (result) {
+   ((struct fde_info *)arg)->fi_pcbegin -= (uintptr_t)x86_syscall_ushare_base;
+   ((struct fde_info *)arg)->fi_pcend   -= (uintptr_t)x86_syscall_ushare_base;
+  }
+  return result;
+ } break;
+
+ {
+  struct dl_addr2line *result;
+ case REGION_CTL_FADDR2LINE:
+  result = (struct dl_addr2line *)arg;
+  memset(result,0,sizeof(struct dl_addr2line));
+  result->d_file = "$$(KERNEL)";
+  if (address < (USHARE_X86_SYSCALL_ENTRY_COUNT*
+                 USHARE_X86_SYSCALL_ENTRY_STRIDE)) {
+   uintptr_t index;
+   index = address / USHARE_X86_SYSCALL_ENTRY_STRIDE;
+   result->d_begin = (void *)(index * USHARE_X86_SYSCALL_ENTRY_STRIDE);
+   result->d_end   = (void *)((index+1) * USHARE_X86_SYSCALL_ENTRY_STRIDE);
+   result->d_name  = syscall_names[index];
+  } else {
+   result->d_name  = "syscall";
+   result->d_begin = (void *)USHARE_X86_SYSCALL_OFFSETOF_SYSCALL;
+   result->d_end   = (void *)USHARE_X86_SYSCALL_FSIZE;
+  }
+  return true;
+ } break;
+
+ default: break;
+ }
+ return 0;
+}
+
+INTDEF byte_t x86_ushare_syscall_pageno[];
+PRIVATE struct vm_region x86_syscall_region = {
     .vr_refcnt = 1,
     .vr_lock   = MUTEX_INIT,
     .vr_type   = VM_REGION_MEM,
     .vr_flags  = VM_REGION_FCANTSHARE|VM_REGION_FDONTMERGE,
     .vr_size   = 1,
-    .vr_parts  = &x86_syscall_region_compat.vr_part0,
+    .vr_parts  = &x86_syscall_region.vr_part0,
     .vr_part0  = {
         .vp_refcnt = 1,
-        .vp_chain  = { .le_pself = &x86_syscall_region_compat.vr_parts },
+        .vp_chain  = { .le_pself = &x86_syscall_region.vr_parts },
         .vp_state  = VM_PART_INCORE,
         .vp_flags  = VM_PART_FNOSWAP|VM_PART_FKEEP|VM_PART_FWEAKREF,
         .vp_phys = {
             .py_num_scatter = 1,
             .py_iscatter = {
                 [0] = {
-                    .ps_addr = (uintptr_t)x86_ushare_sysenter_compat_pageno,
+                    .ps_addr = (uintptr_t)x86_ushare_syscall_pageno,
                     .ps_size = 1
                 }
             }
         }
     },
-    .vr_ctl = &sysenter_pregion_ctl
+    .vr_ctl = &syscall_pregion_ctl
 };
 #endif /* __x86_64__ */
 
@@ -165,21 +222,21 @@ KCALL arch_ushare_lookup(u32 name) {
   /* Load the compatibility syscall segment
    * if the calling program is 32-bit. */
   if (interrupt_iscompat())
-      result = &x86_syscall_region_compat;
+      result = &x86_sysenter_region;
   vm_region_incref(result);
   return result;
  }
 
  case USHARE_X86_SYSCALL32_FNAME:
+  vm_region_incref(&x86_sysenter_region);
+  return &x86_sysenter_region;
+ case USHARE_X86_SYSCALL64_FNAME:
   vm_region_incref(&x86_syscall_region);
   return &x86_syscall_region;
- case USHARE_X86_SYSCALL64_FNAME:
-  vm_region_incref(&x86_syscall_region_compat);
-  return &x86_syscall_region_compat;
 #else
  case USHARE_X86_SYSCALL_FNAME:
-  vm_region_incref(&x86_syscall_region);
-  return &x86_syscall_region;
+  vm_region_incref(&x86_sysenter_region);
+  return &x86_sysenter_region;
 #endif
 
 #ifdef CONFIG_VM86

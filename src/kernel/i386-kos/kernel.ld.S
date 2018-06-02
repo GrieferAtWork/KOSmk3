@@ -165,14 +165,17 @@
 .hidden _boot_page1_size
 .hidden _boot_page2_size
 #endif
+#ifdef __x86_64__
+.hidden _x86_gdt_tss_a
+.hidden _x86_gdt_tss_b
+#else
 .hidden _x86_gdt_tss_lo
 .hidden _x86_gdt_tss_hi
-#ifndef __x86_64__
 .hidden _x86_gdt_tssdf_lo
 .hidden _x86_gdt_tssdf_hi
-#endif
 .hidden _x86_gdt_tls_lo
 .hidden _x86_gdt_tls_hi
+#endif
 .hidden kernel_rx_minpage
 .hidden kernel_rx_maxpage
 .hidden kernel_rx_num_pages

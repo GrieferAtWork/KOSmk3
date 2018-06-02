@@ -49,10 +49,10 @@ __SYSDECL_BEGIN
 #define USHARE_X86_SYSCALL64_FNAME          USHARE_NAME(0x86,3)
 #endif
 #define USHARE_X86_SYSCALL_FSIZE            0x1000
-#define USHARE_X86_SYSCALL_SYSENTER_STRIDE  0x100
-#define USHARE_X86_SYSCALL_SYSENTER_COUNT   7
+#define USHARE_X86_SYSCALL_ENTRY_STRIDE     0x100
+#define USHARE_X86_SYSCALL_ENTRY_COUNT      7
 #define USHARE_X86_SYSCALL_OFFSETOF_SYSENTER(num_args) \
-       (USHARE_X86_SYSCALL_SYSENTER_STRIDE*(num_args))
+       (USHARE_X86_SYSCALL_ENTRY_STRIDE*(num_args))
 /* Call this address to implement libc's `syscall()' function.
  * All the other `sysenter()' functions expect EAX/RAX to contain
  * the system call number, but this entry point takes that number
@@ -69,7 +69,7 @@ __SYSDECL_BEGIN
  * `__X86_TASK_ERRNO_FKOS' to `%__ASM_USERTASK_SEGMENT:USER_TASK_SEGMENT_OFFSETOF_EFORMAT')
  */
 #define USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(num_args) \
-       (USHARE_X86_SYSCALL_SYSENTER_STRIDE*(8+(num_args)))
+       (USHARE_X86_SYSCALL_ENTRY_STRIDE*(8+(num_args)))
 #define USHARE_X86_SYSCALL_OFFSETOF_SYSCALL_ERRNO \
         USHARE_X86_SYSCALL_OFFSETOF_SYSENTER_ERRNO(7)
 

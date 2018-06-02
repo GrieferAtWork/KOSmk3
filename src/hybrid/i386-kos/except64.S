@@ -53,13 +53,28 @@ INTERN_ENTRY(libc_error_rethrow)
 	popq_cfi %rax   /* Load RIP */
 	.cfi_register %rip, %rax
 .error_rethrow_rax_is_ip:
-	pushq_cfi    $(__KERNEL_SELECT(X86_SEG_HOST_SS,0)) /* SS */
-	pushq_cfi    %rsp                                  /* RSP */
-	addq         $8, 0(%rsp) /* Fix RSP to point to the caller's RSP value. */
-	pushfq_cfi_r                                       /* RFLAGS */
-	pushq_cfi    $(__KERNEL_SELECT(X86_SEG_HOST_CS,0)) /* CS */
-	pushq_cfi    %rax                                  /* RIP */
+#ifdef __KERNEL__
+	pushq_cfi    $X86_SEG_HOST_SS /* SS */
+	pushq_cfi    %rsp             /* RSP */
+	addq         $8, 0(%rsp)      /* Fix RSP to point to the caller's RSP value. */
+	pushfq_cfi_r                  /* RFLAGS */
+	pushq_cfi    $X86_SEG_HOST_CS /* CS */
+	pushq_cfi    %rax             /* RIP */
 	.cfi_rel_offset %rip, 0
+#elif defined(CONFIG_X86_FIXED_SEGMENTATION)
+	pushq_cfi    %rsp        /* RSP */
+	pushfq_cfi_r             /* RFLAGS */
+	pushq_cfi    %rax        /* RIP */
+	.cfi_rel_offset %rip, 0
+#else
+	pushq_cfi    $0          /* SS */
+	pushq_cfi    %rsp        /* RSP */
+	addq         $8, 0(%rsp) /* Fix RSP to point to the caller's RSP value. */
+	pushfq_cfi_r             /* RFLAGS */
+	pushq_cfi    $0          /* CS */
+	pushq_cfi    %rax        /* RIP */
+	.cfi_rel_offset %rip, 0
+#endif
 
 #ifndef __KERNEL__
 	/* Push segment registers. */
@@ -200,7 +215,7 @@ INTERN_ENTRY(libc_error_throw_current)
 #ifdef __KERNEL__
 	movq   $(X86_SEG_HOST_CS), %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_CS
 	movq   $(X86_SEG_HOST_SS), %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_SS
-#else
+#elif !defined(CONFIG_X86_FIXED_SEGMENTATION)
 	movq   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_CS
 	movq   $0,   %taskseg:ts_xcurrent+e_context+X86_CONTEXT64_OFFSETOF_SS
 #endif

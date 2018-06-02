@@ -1456,6 +1456,15 @@ serve_rpc:
   COMPILER_BARRIER();
   switch (info.e_error.e_code) {
 
+#ifdef __x86_64__
+   /* In long-mode, RAX is not preserved when entering a system call handler.
+    * Therefor, it is our job to set the proper sysno value for unknown system
+    * calls. */
+  case E_UNKNOWN_SYSTEMCALL:
+   info.e_error.e_unknown_systemcall.us_sysno = context->c_gpregs.gp_rax;
+   break;
+#endif
+
   case E_USER_RESUME:
    return; /* Nothing left to be done here! */
 

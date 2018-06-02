@@ -538,7 +538,6 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
   struct exception_info old_info;
   struct task_connections cons;
   u16 EXCEPT_VAR old_state;
-  bool is_first = true;
   task_push_connections(&cons);
   old_state = ATOMIC_FETCHOR(THIS_TASK->t_state,TASK_STATE_FDONTSERVE);
   memcpy(&old_info,error_info(),sizeof(struct exception_info));
@@ -548,12 +547,12 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
    dup.c_psp = X86_ANYCONTEXT32_ESP(*context);
 #endif
    for (;;) {
+    --dup.c_pip;
     debug_printf("%[vinfo:%f(%l,%c) : %n : %p] : ESP %p, EBP %p\n",
-                is_first ? (uintptr_t)dup.c_pip : (uintptr_t)dup.c_pip-1,
+                (uintptr_t)dup.c_pip,
                 dup.c_psp,dup.c_gpregs.gp_pbp);
-    if (!is_first) --dup.c_pip;
     if (!linker_findfde(dup.c_pip,&unwind_info)) {
-     debug_printf("Cannot unwind at %p (%p)\n",dup.c_pip,is_first ? dup.c_pip : dup.c_pip+1);
+     debug_printf("Cannot unwind at %p (%p)\n",dup.c_pip,dup.c_pip);
      break;
     }
     if (!eh_return(&unwind_info,&dup,EH_FNORMAL)) {
@@ -571,7 +570,6 @@ x86_handle_breakpoint(struct x86_anycontext *__restrict context) {
      break;
 #endif
     }
-    is_first = false;
    }
    //error_print_other_thread();
    error_print_vm();

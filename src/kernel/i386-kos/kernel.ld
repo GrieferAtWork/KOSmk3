@@ -236,7 +236,7 @@ SECTIONS {
 		*(.data.ushare.sysenter)
 		IP_ALIGN(PAGESIZE);
 #ifdef __x86_64__
-		*(.data.ushare.sysenter_compat)
+		*(.data.ushare.syscall)
 		IP_ALIGN(PAGESIZE);
 #endif
 		*(.data.ushare.strerror)
@@ -262,7 +262,7 @@ SECTIONS {
 	PROVIDE_HIDDEN(kernel_data_size = ABSOLUTE(kernel_data_end - kernel_data_start));
 	PROVIDE_HIDDEN(x86_ushare_sysenter_pageno = VM_ADDR2PAGE(ABSOLUTE(x86_ushare_sysenter) - KERNEL_CORE_BASE));
 #ifdef __x86_64__
-	PROVIDE_HIDDEN(x86_ushare_sysenter_compat_pageno = VM_ADDR2PAGE(ABSOLUTE(x86_ushare_sysenter_compat) - KERNEL_CORE_BASE));
+	PROVIDE_HIDDEN(x86_ushare_syscall_pageno = VM_ADDR2PAGE(ABSOLUTE(x86_ushare_syscall) - KERNEL_CORE_BASE));
 #endif
 	PROVIDE_HIDDEN(ushare_strerror_pageno = VM_ADDR2PAGE(ABSOLUTE(ushare_strerror) - KERNEL_CORE_BASE));
 	PROVIDE_HIDDEN(ushare_utsname_pageno = VM_ADDR2PAGE(ABSOLUTE(ushare_utsname) - KERNEL_CORE_BASE));
@@ -381,20 +381,25 @@ SECTIONS {
 	
 
 	/* Pre-calculate TSS and TLS segment initializers. */
+#ifdef __x86_64__
+#ifdef CONFIG_NO_SMP
+	PROVIDE_HIDDEN(_x86_gdt_tss_a    = __X86_SEG_ENCODE_TSSA(x86_cputss,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
+	PROVIDE_HIDDEN(_x86_gdt_tss_b    = __X86_SEG_ENCODE_TSSB(x86_cputss,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
+#else
+	PROVIDE_HIDDEN(_x86_gdt_tss_a    = __X86_SEG_ENCODE_TSSA(boot_cpu_start + x86_cputss,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
+	PROVIDE_HIDDEN(_x86_gdt_tss_b    = __X86_SEG_ENCODE_TSSB(boot_cpu_start + x86_cputss,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
+#endif
+#else
 #ifdef CONFIG_NO_SMP
 	PROVIDE_HIDDEN(_x86_gdt_tss_lo   = __X86_SEG_ENCODELO(x86_cputss,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
 	PROVIDE_HIDDEN(_x86_gdt_tss_hi   = __X86_SEG_ENCODEHI(x86_cputss,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
-#ifndef __x86_64__
 	PROVIDE_HIDDEN(_x86_gdt_tssdf_lo = __X86_SEG_ENCODELO(x86_cputssdf,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
 	PROVIDE_HIDDEN(_x86_gdt_tssdf_hi = __X86_SEG_ENCODEHI(x86_cputssdf,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
-#endif
 #else
 	PROVIDE_HIDDEN(_x86_gdt_tss_lo   = __X86_SEG_ENCODELO(boot_cpu_start + x86_cputss,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
 	PROVIDE_HIDDEN(_x86_gdt_tss_hi   = __X86_SEG_ENCODEHI(boot_cpu_start + x86_cputss,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
-#ifndef __x86_64__
 	PROVIDE_HIDDEN(_x86_gdt_tssdf_lo = __X86_SEG_ENCODELO(boot_cpu_start + x86_cputssdf,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
 	PROVIDE_HIDDEN(_x86_gdt_tssdf_hi = __X86_SEG_ENCODEHI(boot_cpu_start + x86_cputssdf,X86_SEG_LIMIT_MAX,X86_SEG_TSS));
-#endif
 #endif
 #if !defined(CONFIG_X86_FIXED_SEGMENTATION)
 	/* With full segmentation, we don't need to expose the TLS segment to user-space. */
@@ -411,6 +416,7 @@ SECTIONS {
 	 *          attempting to access kernel segments'll just get a #PF instead. */
 	PROVIDE_HIDDEN(_x86_gdt_tls_lo   = __X86_SEG_ENCODELO(boot_task_start,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL3));
 	PROVIDE_HIDDEN(_x86_gdt_tls_hi   = __X86_SEG_ENCODEHI(boot_task_start,X86_SEG_LIMIT_MAX,X86_SEG_DATA_PL3));
+#endif
 #endif
 
 

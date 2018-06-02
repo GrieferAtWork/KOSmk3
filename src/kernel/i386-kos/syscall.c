@@ -114,6 +114,10 @@ INTDEF void ASMCALL irq_80_trace(void);
 #ifndef CONFIG_NO_X86_SYSENTER
 INTDEF void ASMCALL sysenter_kernel_entry(void);
 INTDEF void ASMCALL sysenter_kernel_entry_trace(void);
+#ifdef __x86_64__
+INTDEF void ASMCALL syscall_kernel_entry(void);
+INTDEF void ASMCALL syscall_kernel_entry_trace(void);
+#endif
 #endif
 
 
@@ -122,7 +126,15 @@ INTDEF void ASMCALL sysenter_kernel_entry_trace(void);
 PRIVATE NOIRQ void KCALL
 x86_set_sysenter_ip(void *arg) {
  if (CPU_FEATURES.ci_1d & CPUID_1D_SEP)
-     __wrmsr(SYSENTER_EIP_MSR,(uintptr_t)arg);
+     __wrmsr(IA32_SYSENTER_EIP,(uintptr_t)arg);
+#ifdef __x86_64__
+ if (CPU_FEATURES.ci_80000001d & CPUID_80000001D_SYSCALL) {
+  __wrmsr(IA32_LSTAR,
+         (uintptr_t)arg == (uintptr_t)&sysenter_kernel_entry_trace
+          ? (uintptr_t)&syscall_kernel_entry_trace
+          : (uintptr_t)&syscall_kernel_entry);
+ }
+#endif
 }
 #endif /* !CONFIG_NO_X86_SYSENTER */
 
@@ -166,6 +178,7 @@ enable_syscall_tracing(void) {
                     (void *)&sysenter_kernel_entry_trace);
 #endif /* !CONFIG_NO_X86_SYSENTER */
 }
+
 PUBLIC void KCALL
 disable_syscall_tracing(void) {
  uintptr_t addr = (uintptr_t)&irq_80;
@@ -217,6 +230,7 @@ x86_throw_bad_syscall(struct bad_syscall_info *__restrict syscall) {
 
 
 #ifndef CONFIG_NO_X86_SYSENTER
+#ifndef __x86_64__
 struct bad_syscall_sysenter_info {
     uintptr_t si_ebp;
     uintptr_t si_sysno;
@@ -247,6 +261,7 @@ x86_throw_bad_syscall_sysenter(struct bad_syscall_sysenter_info *__restrict sysc
  error_throw_current();
  __builtin_unreachable();
 }
+#endif /* !__x86_64__ */
 #endif /* !CONFIG_NO_X86_SYSENTER */
 
 

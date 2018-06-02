@@ -274,7 +274,7 @@ name##64:; \
 .section .text.hot
 .sysenter_kernel_entry_start = .
 INTERN_ENTRY(sysenter_kernel_entry)
-	/* `SYSENTER_ESP_MSR' points at the ESP0 field of the CPU's TSS
+	/* `IA32_SYSENTER_ESP' points at the ESP0 field of the CPU's TSS
 	 * In other words: we only need to replace ESP with its own
 	 * dereference, and we already have `THIS_TASK->t_stackend'. */
 	movl  %ss:0(%esp), %esp
@@ -322,13 +322,13 @@ INTERN_ENTRY(sysenter_after_segments)
 	ja      .sysenter_extended_syscall
 
 	/* Load additional arguments from user-space. */
-	cmpb    $5, x86_syscall_argc(,%eax,1)
+	cmpb    $5, x86_syscall_argc(%eax)
 	jb      1f
 	cmpl    $(KERNEL_BASE), %ebp
 	jae     .sysenter_bad_args
 	movl    0(%ebp), %ecx /* ARG#4 */
 	movl    %ecx, 16(%esp)
-	cmpb    $6, x86_syscall_argc(,%eax,1)
+	cmpb    $6, x86_syscall_argc(%eax)
 	jb      1f
 	movl    4(%ebp), %ecx /* ARG#5 */
 	movl    %ecx, 20(%esp)
@@ -341,13 +341,13 @@ INTERN_ENTRY(sysenter_after_segments)
 	cmpl    $(__NR_xsyscall_min), %eax
 	jb      .sysenter_bad_syscall
 	/* Load additional arguments from user-space. */
-	cmpb    $5, (x86_xsyscall_argc - __NR_xsyscall_min)(,%eax,1)
+	cmpb    $5, (x86_xsyscall_argc - __NR_xsyscall_min)(%eax)
 	jb      1f
 	cmpl    $(KERNEL_BASE), %ebp
 	jae     .sysenter_bad_args
 	movl    0(%ebp), %ecx /* ARG#4 (CAUTION: SEGFAULT) */
 	movl    %ecx, 16(%esp)
-	cmpb    $6, (x86_xsyscall_argc - __NR_xsyscall_min)(,%eax,1)
+	cmpb    $6, (x86_xsyscall_argc - __NR_xsyscall_min)(%eax)
 	jb      1f
 	movl    4(%ebp), %ecx /* ARG#5 (CAUTION: SEGFAULT) */
 	movl    %ecx, 20(%esp)
@@ -501,7 +501,7 @@ SYMEND(irq_80_trace)
 #ifndef CONFIG_NO_X86_SYSENTER
 .section .text.hot
 INTERN_ENTRY(sysenter_kernel_entry_trace)
-	/* `SYSENTER_ESP_MSR' points at the ESP0 field of the CPU's TSS
+	/* `IA32_SYSENTER_ESP' points at the ESP0 field of the CPU's TSS
 	 * In other words: we only need to replace ESP with its own
 	 * dereference, and we already have `THIS_TASK->t_stackend'. */
 	movl  %ss:0(%esp), %esp
@@ -549,11 +549,11 @@ INTERN_ENTRY(sysenter_kernel_entry_trace)
 	andl    $~0x80000000, %eax
 	cmpl    $(__NR_syscall_max), %eax
 	ja      2f
-	cmpb    $5, x86_syscall_argc(,%eax,1)
+	cmpb    $5, x86_syscall_argc(%eax)
 	jb      1f
 	movl    0(%ebp), %ecx /* ARG#4 (CAUTION: SEGFAULT) */
 	movl    %ecx, 16(%esp)
-	cmpb    $6, x86_syscall_argc(,%eax,1)
+	cmpb    $6, x86_syscall_argc(%eax)
 	jb      1f
 	movl    4(%ebp), %ecx /* ARG#5 (CAUTION: SEGFAULT) */
 	movl    %ecx, 20(%esp)
@@ -562,11 +562,11 @@ INTERN_ENTRY(sysenter_kernel_entry_trace)
 	jb      1f
 	cmpl    $(__NR_xsyscall_max), %eax
 	ja      1f
-	cmpb    $5, (x86_xsyscall_argc - __NR_xsyscall_min)(,%eax,1)
+	cmpb    $5, (x86_xsyscall_argc - __NR_xsyscall_min)(%eax)
 	jb      1f
 	movl    0(%ebp), %ecx /* ARG#4 (CAUTION: SEGFAULT) */
 	movl    %ecx, 16(%esp)
-	cmpb    $6, (x86_xsyscall_argc - __NR_xsyscall_min)(,%eax,1)
+	cmpb    $6, (x86_xsyscall_argc - __NR_xsyscall_min)(%eax)
 	jb      1f
 	movl    4(%ebp), %ecx /* ARG#5 (CAUTION: SEGFAULT) */
 	movl    %ecx, 20(%esp)

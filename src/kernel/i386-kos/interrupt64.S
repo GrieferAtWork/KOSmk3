@@ -501,10 +501,34 @@ SYMEND(irq_common)
 
 .section .text.interrupt_except
 INTERN_ENTRY(x86_interrupt_except)
+	.cfi_startproc simple
+	.cfi_signal_frame
+	.cfi_def_cfa %rsp,    5*8
+	.cfi_offset %rflags, -3*8
+	.cfi_offset %rip,    -5*8
+
+	/* First off: Check where the interrupt wants to go. */
+	testb   $3, X86_IRREGS64_OFFSETOF_CS(%rsp)
+	jnz     .interrupt_except_user
+
+
 	/* TODO */
 	int3
 1:	hlt
 	jmp 1b
+
+.interrupt_except_user:
+	swapgs
+
+	/* TODO */
+	int3
+1:	hlt
+	jmp 1b
+
+
+	swapgs
+	iretq
+	.cfi_endproc
 SYMEND(x86_interrupt_except)
 
 

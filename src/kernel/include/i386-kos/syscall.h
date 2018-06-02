@@ -117,7 +117,7 @@ DECL_BEGIN
 
 
 #ifndef CONFIG_NO_X86_SYSCALL
-/* KOS's sysenter ABI (for x86_64):
+/* KOS's syscall ABI (for x86_64):
  *   
  * CLOBBER:
  *   - %rcx
@@ -366,7 +366,7 @@ __asm__(".hidden argc_sys_" #name "_compat\n" \
         ".global sys_" #name "_compat\n" \
         ".section .text\n" \
         "sys_" #name "_compat:\n" \
-        "    addl $x86_syscall64_adjustment, (%esp)\n" \
+        "    addl $x86_syscall64_compat_adjustment, (%esp)\n" \
         "    jmp  sys64_" #name "_compat\n" \
         ".size sys_" #name "_compat, . - sys_" #name "_compat\n"); \
 LOCAL u64 ATTR_CDECL SYSC_##name##_compat(__SYSCALL_DECL(argc,argv)); \
@@ -420,15 +420,16 @@ DATDEF u8 const x86_xsyscall_compat_argc[];
 struct PACKED syscall_trace_regs {
     struct PACKED {
 #ifdef __x86_64__
-        u64                __a_pad0;
-        u64                  a_arg1;       /* Arg #1 */
-        u64                  a_arg0;       /* Arg #0 */
-        u64                  a_arg4;       /* Arg #4 */
-        u64                  a_arg5;       /* Arg #5 */
-        u64                  a_arg3;       /* Arg #3 */
-        u64                __a_pad1;
-        u64                  a_arg2;       /* Arg #2 */
-        u64                  a_sysno;      /* System call number (including special flags). */
+        /* HIDDEN:
+         * u64    __a_pad1; // %rcx
+         * u64    __a_pad0; // %r11 */
+        u64                  a_arg3;       /* %r10 | %esi */
+        u64                  a_arg5;       /* %r9  | %ebp */
+        u64                  a_arg4;       /* %r8  | %edi */
+        u64                  a_arg0;       /* %rdi | %ebx */
+        u64                  a_arg1;       /* %rsi | %ecx */
+        u64                  a_arg2;       /* %rdx | %edx */
+        u64                  a_sysno;      /* %rax -- System call number (including special flags). */
 #else
         u32                  a_arg0;       /* Arg #0 */
         u32                  a_arg1;       /* Arg #1 */

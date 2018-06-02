@@ -43,15 +43,10 @@ DECL_BEGIN
  * NOTE: Another valid name of this would be `gdtentry' or `ldtentry' */
 struct PACKED x86_segment {
     union PACKED {
-#ifdef __x86_64__
-        struct PACKED {      u64 s_ul,s_uh; };
-        struct PACKED {      s64 s_sl,s_sh; };
-#else
         struct PACKED {      u32 s_ul,s_uh; };
         struct PACKED {      s32 s_sl,s_sh; };
         s64                      s_s;
         u64                      s_u;
-#endif
         struct PACKED {      u32 s_ul32,s_uh32; };
         struct PACKED {      s32 s_sl32,s_sh32; };
         struct PACKED {
@@ -115,12 +110,6 @@ struct PACKED x86_segment {
                 };
             };
             u8                   s_basehigh;  /* Bits 24..31 of the base address. */
-#ifdef __x86_64__
-            /* NOTE: Documentation on additions in 64-bit mode can be found here:
-             * https://xem.github.io/minix86/manual/intel-x86-and-64-manual-vol3/o_fe12b1e2a880e0ce-245.html */
-            u32                  s_baseupper; /* Bits 32..64 of the base address. */
-            u32                  s_reserved;  /* ??? (Bit #8 Must be zero...) */
-#endif /* __x86_64__ */
         };
     };
 };
@@ -211,15 +200,14 @@ struct PACKED x86_segment {
    ((base)&0xff000000)         /* 0xff000000 */)
 
 #ifdef __x86_64__
-#define __X86_SEG_ENCODELO(base,size,config) \
+#define __X86_SEG_ENCODE_TSSA(base,size,config) \
        (__CCAST(u64)(__X86_SEG_ENCODEHI_32(base,size,config)) << 32 | \
         __CCAST(u64)(__X86_SEG_ENCODELO_32(base,size,config)))
-#define __X86_SEG_ENCODEHI(base,size,config) \
+#define __X86_SEG_ENCODE_TSSB(base,size,config) \
       ((__CCAST(u64)(base) >> 32) & __UINT64_C(0x00000000ffffffff))
-#else
-#define __X86_SEG_ENCODELO(base,size,config) __X86_SEG_ENCODELO_32(base,size,config)
-#define __X86_SEG_ENCODEHI(base,size,config) __X86_SEG_ENCODEHI_32(base,size,config)
 #endif
+#define __X86_SEG_ENCODELO(base,size,config)    __X86_SEG_ENCODELO_32(base,size,config)
+#define __X86_SEG_ENCODEHI(base,size,config)    __X86_SEG_ENCODEHI_32(base,size,config)
 
 
 #ifdef __CC__
@@ -229,16 +217,8 @@ struct PACKED x86_segment {
  (*(u32 *)(&(seg).s_sizelow+1) &=              __UINT32_C(0xff000000), \
   *(u32 *)(&(seg).s_sizelow+1) |=  (u32)(addr)&__UINT32_C(0x00ffffff), \
             (seg).s_basehigh    = ((u32)(addr)&__UINT32_C(0xff000000)) >> 24)
-
-#ifdef __x86_64__
-#define X86_SEGMENT_GTBASE(seg) \
-   ((u64)__X86_SEGMENT_GTBASE32(seg) | ((u64)(seg).s_baseupper << 32))
-#define X86_SEGMENT_STBASE(seg,addr) \
-   (__X86_SEGMENT_STBASE32(seg,(u64)(addr)),(seg).s_baseupper = (u32)((u64)(addr) >> 32))
-#else
 #define X86_SEGMENT_GTBASE(seg)      __X86_SEGMENT_GTBASE32(seg)
 #define X86_SEGMENT_STBASE(seg,addr) __X86_SEGMENT_STBASE32(seg,addr)
-#endif
 #define X86_SEGMENT_GTSIZE(seg)   (((seg).s_ul32 & __UINT32_C(0xffff)) | ((seg).s_uh32&__UINT32_C(0x000f0000)))
 
 #define X86_SEGMENT_INIT(base,size,config) \
@@ -260,13 +240,8 @@ typedef u16 segid_t; /* == Segment index*X86_SEG_INDEX_MULTIPLIER */
 #endif /* !__segid_t_defined */
 #endif /* __CC__ */
 
-#ifdef __x86_64__
-#define X86_SEGMENT_SIZE         16
-#define X86_SEG_INDEX_MULTIPLIER 16
-#else
 #define X86_SEGMENT_SIZE         8
 #define X86_SEG_INDEX_MULTIPLIER 8
-#endif
 
 #define X86_SEG(id)     ((id)*X86_SEG_INDEX_MULTIPLIER)
 #define X86_SEG_ID(seg) ((seg)/X86_SEG_INDEX_MULTIPLIER)
@@ -295,14 +270,13 @@ typedef u16 segid_t; /* == Segment index*X86_SEG_INDEX_MULTIPLIER */
 #ifndef __x86_64__
 #define X86_SEG_CPUTSS_DF    8 /* [0x40] TSS segment of the current CPU (for #DF handling). */
 #endif
-#define X86_SEG_KERNEL_LDT   9 /* [0x48] Symbolic kernel LDT (Usually empty). */
-#define X86_SEG_HOST_TLS    10 /* [0x50] Ring #0 thread-local block. */
-#define X86_SEG_USER_TLS    11 /* [0x58] Ring #3 thread-local block. */
+#define X86_SEG_HOST_TLS     9 /* [0x48] Ring #0 thread-local block. */
+#define X86_SEG_USER_TLS    10 /* [0x50] Ring #3 thread-local block. */
 #ifndef CONFIG_NO_DOS_COMPAT
-#define X86_SEG_USER_TIB    12 /* [0x60] Ring #3 thread-information block. (For DOS compatibility) */
-#define X86_SEG_BUILTIN     13
-#else
+#define X86_SEG_USER_TIB    11 /* [0x58] Ring #3 thread-information block. (For DOS compatibility) */
 #define X86_SEG_BUILTIN     12
+#else
+#define X86_SEG_BUILTIN     11
 #endif
 
 #define X86_SEG_MAX            0xffff

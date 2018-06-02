@@ -99,12 +99,13 @@
 #define IA32_GS_BASE            0xc0000101
 #define IA32_KERNEL_GS_BASE     0xc0000102
 #endif
+
 #define IA32_TIME_STAMP_COUNTER 0x00000010
 #define IA32_MISC_ENABLE        0x000001a0
 
-#define SYSENTER_CS_MSR         0x174
-#define SYSENTER_ESP_MSR        0x175
-#define SYSENTER_EIP_MSR        0x176
+#define IA32_SYSENTER_CS        0x00000174
+#define IA32_SYSENTER_ESP       0x00000175
+#define IA32_SYSENTER_EIP       0x00000176
 
 
 #ifdef __x86_64__
