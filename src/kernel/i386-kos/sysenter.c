@@ -62,7 +62,6 @@ INTDEF byte_t x86_sysexit_fixup_1[];
 INTDEF void ASMCALL sysenter_kernel_entry(void);
 INTERN ATTR_FREETEXT void KCALL x86_initialize_sysenter(void) {
  struct cpu_cpuid *feat = (struct cpu_cpuid *)&CPU_FEATURES;
- return;
  if (!(feat->ci_1d & CPUID_1D_SEP)) {
 #ifndef __x86_64__
   if (THIS_CPU == &_boot_cpu) {

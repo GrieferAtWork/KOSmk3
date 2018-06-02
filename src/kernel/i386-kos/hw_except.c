@@ -92,7 +92,7 @@ x86_handle_pagefault(struct cpu_anycontext *__restrict context,
  /* Extract the fault address before re-enabling interrupts. */
  fault_address = (void *)__rdcr2();
  assert(!PREEMPTION_ENABLED());
-#if defined(__x86_64__) && 0
+#if 0
  debug_printf("#PF at %p (from %p; errcode %Ix)\n",
               fault_address,context->c_pip,errcode);
 #endif
