@@ -54,7 +54,6 @@ PUBLIC ATTR_PERCPU struct x86_tss x86_cputss = {
     .t_ds         = X86_KERNEL_DS,
     .t_fs         = X86_SEG_FS,
     .t_gs         = X86_SEG_GS,
-    .t_ldtr       = X86_SEG(X86_SEG_KERNEL_LDT),
 #endif
     .t_iomap_base = sizeof(struct x86_tss)
 };
@@ -75,7 +74,6 @@ PUBLIC ATTR_PERCPU struct x86_tss x86_cputssdf = {
     .t_ds         = X86_KERNEL_DS,
     .t_fs         = X86_SEG_FS,
     .t_gs         = X86_SEG_GS,
-    .t_ldtr       = X86_SEG(X86_SEG_KERNEL_LDT),
     .t_iomap_base = sizeof(struct x86_tss)
 };
 #endif
